@@ -25,13 +25,8 @@ install *extras:
 python *args:
     uv run python "$@"
 
-<<<<<<< HEAD
 # run unit tests plus EtherNet/IP packaging checks
 test: eip-test
-=======
-# run unit tests plus EtherNet/IP integration and packaging checks
-test: eip-rs-test eip-wheel-smoke-test
->>>>>>> c86babb (Documentation)
     uv run pytest
 
 # check static typing
