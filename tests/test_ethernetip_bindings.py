@@ -108,6 +108,7 @@ SUPPORTED_CPPPO_SCALAR_CASES: list[dict[str, Any]] = [
     },
 ]
 
+
 def test_ethernetip_native_types_use_private_local_import_path() -> None:
     """Native EtherNet/IP bindings should stay private until the published wheel surface exists."""
     assert EtherNetIpSession.__module__ == "instro.unstable._ethernetip"
