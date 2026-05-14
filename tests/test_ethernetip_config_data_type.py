@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from instro.lib.types import LinearScale
 from instro.unstable.ethernetip import EtherNetIPConfig, EtherNetIPDevice
 from tests.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
 
@@ -189,17 +190,88 @@ def test_write_min_max_must_fit_integer_data_type_range() -> None:
         )
 
 
-def test_tag_rejects_unsupported_write_value_map() -> None:
-    with pytest.raises(ValidationError, match="write_value_map"):
+def test_scaled_read_applies_linear_scale(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_native_ethernetip(monkeypatch, {"PressureRaw": FakePlcValue(FakePlcKind.DINT, 1250)})
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "tags": [
+                {
+                    "alias": "pressure",
+                    "tag_name": "PressureRaw",
+                    "data_type": "dint",
+                    "scale": {"type": "linear", "gain": 0.01, "offset": 0.0},
+                }
+            ],
+        }
+    )
+    instrument.open()
+
+    measurement = instrument.read_tag("pressure")
+
+    assert measurement.channel_data["test_plc.pressure"] == [12.5]
+
+
+def test_scaled_integer_write_converts_to_raw_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    native = install_fake_native_ethernetip(monkeypatch)
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "tags": [
+                {
+                    "alias": "pressure",
+                    "tag_name": "PressureRaw",
+                    "data_type": "dint",
+                    "scale": {"type": "linear", "gain": 0.01, "offset": 0.0},
+                }
+            ],
+        }
+    )
+    instrument.open()
+
+    command = instrument.write_tag("pressure", 12.5)
+
+    assert native.writes == [("PressureRaw", FakePlcValue(FakePlcKind.DINT, 1250))]
+    assert command.channel_data == {"test_plc.pressure.cmd": 12.5}
+
+
+def test_write_value_map_resolves_named_write(monkeypatch: pytest.MonkeyPatch) -> None:
+    native = install_fake_native_ethernetip(monkeypatch)
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "tags": [
+                {
+                    "alias": "mode",
+                    "tag_name": "Mode",
+                    "data_type": "dint",
+                    "write_value_map": {"run": 1},
+                }
+            ],
+        }
+    )
+    instrument.open()
+
+    command = instrument.write_tag("mode", "run")
+
+    assert native.writes == [("Mode", FakePlcValue(FakePlcKind.DINT, 1))]
+    assert command.channel_data == {"test_plc.mode.cmd": 1}
+
+
+def test_scale_rejects_non_numeric_tags() -> None:
+    with pytest.raises(ValidationError, match="scale is only supported for numeric tags"):
         EtherNetIPConfig.model_validate(
             {
                 "device": {"name": "test_plc"},
                 "tags": [
                     {
-                        "alias": "mode",
-                        "tag_name": "Mode",
-                        "data_type": "dint",
-                        "write_value_map": {"run": 1},
+                        "alias": "ready",
+                        "tag_name": "Ready",
+                        "data_type": "bool",
+                        "scale": LinearScale(gain=0.01),
                     }
                 ],
             }

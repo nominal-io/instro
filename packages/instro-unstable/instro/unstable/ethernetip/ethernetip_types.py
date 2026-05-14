@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from instro.lib.types import DeviceInfo
+from instro.lib.types import DeviceInfo, ScaleType
 
 __all__ = [
     "DeviceInfo",
@@ -112,14 +112,27 @@ class TagDef(EtherNetIPBaseModel):
     tag_name: str = Field(description="PLC tag name to read/write")
     description: str | None = None
     data_type: DataType = Field(description="PLC scalar data type for this tag")
+    scale: ScaleType | None = None
     poll: bool = Field(default=True, description="Include this tag in background polling")
     write_min: float | int | None = None
     write_max: float | int | None = None
+    write_value_map: dict[str, bool | int | float | str] | None = None
 
     @property
     def expected_plc_kind_name(self) -> str:
         """Return the native PlcKind member name expected for this tag."""
         return self.data_type.upper()
+
+    def resolve_write_value(self, value: WriteValue) -> WriteValue:
+        """Resolve a configured write value map entry, if one applies."""
+        if isinstance(value, str) and self.write_value_map is not None:
+            if value not in self.write_value_map:
+                raise KeyError(
+                    f"'{value}' is not a valid value for tag '{self.alias}'. "
+                    f"Available values: {list(self.write_value_map.keys())}"
+                )
+            return self.write_value_map[value]
+        return value
 
     def validate_write_value(self, value: WriteValue) -> None:
         """Validate a user-provided write value against this tag definition."""
@@ -131,8 +144,19 @@ class TagDef(EtherNetIPBaseModel):
             raise TypeError(f"Tag '{self.alias}' is a bool type but got {type(value).__name__} value {value!r}.")
 
         if self.data_type in INTEGER_DATA_TYPES:
-            int_value = self.validate_integer_raw_value(value)
-            self._validate_numeric_write_limits(int_value)
+            if self.scale is None:
+                if isinstance(value, float):
+                    raise TypeError(f"Tag '{self.alias}' is an integer type ({self.data_type}) but got float {value}.")
+                int_value = self.validate_integer_raw_value(value)
+                self._validate_numeric_write_limits(int_value)
+                return
+            if isinstance(value, bool):
+                raise TypeError(f"Tag '{self.alias}' is an integer type ({self.data_type}) but got bool.")
+            if not isinstance(value, int | float):
+                raise TypeError(
+                    f"Tag '{self.alias}' is an integer type ({self.data_type}) but got {type(value).__name__}."
+                )
+            self._validate_numeric_write_limits(value)
             return
 
         if self.data_type in FLOAT_DATA_TYPES:
@@ -150,6 +174,14 @@ class TagDef(EtherNetIPBaseModel):
                 raise TypeError(f"Tag '{self.alias}' is a string type but got {type(value).__name__}.")
             return
 
+    def apply_write_scaling(self, value: WriteValue) -> WriteValue:
+        """Apply configured reverse scaling to a write value."""
+        if self.scale is None:
+            return value
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise TypeError(f"Tag '{self.alias}' has scale configured but write value {value!r} is not numeric.")
+        return self.scale.to_raw(float(value))
+
     def _validate_numeric_write_limits(self, value: int | float) -> None:
         if self.write_min is not None and value < self.write_min:
             raise ValueError(f"Tag '{self.alias}' value {value} is below write_min ({self.write_min}).")
@@ -162,12 +194,19 @@ class TagDef(EtherNetIPBaseModel):
 
         if isinstance(raw_value, bool):
             raise TypeError(f"Tag '{self.alias}' is an integer type ({target_data_type}) but got bool.")
-        if isinstance(raw_value, float):
-            raise TypeError(f"Tag '{self.alias}' is an integer type ({target_data_type}) but got float {raw_value}.")
-        if not isinstance(raw_value, int):
+        if not isinstance(raw_value, int | float):
             raise TypeError(
                 f"Tag '{self.alias}' is an integer type ({target_data_type}) but got {type(raw_value).__name__}."
             )
+
+        if isinstance(raw_value, float):
+            rounded = round(raw_value)
+            if abs(raw_value - rounded) > 1e-6:
+                raise TypeError(
+                    f"Tag '{self.alias}' scaled raw value {raw_value} has a fractional part, "
+                    f"but {target_data_type} requires an integer."
+                )
+            raw_value = rounded
 
         ranges = INTEGER_RANGES.get(target_data_type)
         if ranges is None:
@@ -190,6 +229,9 @@ class TagDef(EtherNetIPBaseModel):
 
     @model_validator(mode="after")
     def _validate_tag_constraints(self) -> "TagDef":
+        if self.scale is not None and self.data_type not in INTEGER_DATA_TYPES + FLOAT_DATA_TYPES:
+            raise ValueError(f"scale is only supported for numeric tags, got data_type='{self.data_type}'")
+
         if (self.write_min is not None or self.write_max is not None) and self.data_type not in (
             INTEGER_DATA_TYPES + FLOAT_DATA_TYPES
         ):
@@ -220,7 +262,13 @@ class TagDef(EtherNetIPBaseModel):
             if field_val is None:
                 continue
 
-            if field_val < min_val or field_val > max_val:
+            raw_val = self.scale.to_raw(field_val) if self.scale is not None else field_val
+            if raw_val < min_val or raw_val > max_val:
+                if self.scale is not None:
+                    raise ValueError(
+                        f"{field_name} ({field_val}) converts to raw value {raw_val}, "
+                        f"which is out of range for {self.data_type} [{min_val}, {max_val}]"
+                    )
                 raise ValueError(
                     f"{field_name} ({field_val}) is out of range for {self.data_type} [{min_val}, {max_val}]"
                 )

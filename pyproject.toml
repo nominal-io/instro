@@ -48,6 +48,7 @@ dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
     "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.6.0",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
     "mkdocstrings-python>=1.19.0",
