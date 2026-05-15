@@ -73,27 +73,31 @@ def test_doctor_all_present(_mock_os, capture, monkeypatch):
     code, out = capture(["doctor"])
 
     assert code == 0
-    assert "Ready to go" in out
     assert "Found:" in out
     # Bigger emoji-width icons should be present.
     assert "✅" in out
 
 
-def test_doctor_visa_missing(capture, monkeypatch):
-    """VISA is the only universally-required driver; missing → exit 1."""
+def test_doctor_visa_missing_still_exits_zero(capture, monkeypatch):
+    """The doctor is purely informational — it always exits 0 on a clean run.
+
+    Even when VISA is missing, the doctor's job is to surface that fact via the
+    table, not to fail. Reserve exit 1+ for tooling errors (see exit 2 below).
+    """
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
     monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
     monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
 
     code, out = capture(["doctor"])
 
-    assert code == 1
+    assert code == 0
+    # The VISA row should still show ❌ in the table.
     assert "VISA backend" in out
-    assert "Required driver" in out
+    assert "❌" in out
 
 
 def test_visa_python_fallback_satisfies_backend(capture, monkeypatch):
-    """pyvisa-py (pure-Python backend) should count as a VISA backend → ✓, exit 0."""
+    """pyvisa-py (pure-Python backend) should count as a VISA backend."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
     monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
     monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
@@ -104,8 +108,8 @@ def test_visa_python_fallback_satisfies_backend(capture, monkeypatch):
     assert "Using Python backend: pyvisa_py" in out
 
 
-def test_doctor_optional_extras_missing_but_visa_ok(capture, monkeypatch):
-    """Optional packages absent but a VISA backend present: exit 0."""
+def test_doctor_optional_extras_missing(capture, monkeypatch):
+    """Optional packages absent: still exit 0, each row shows pip install hint."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
     monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({"visa": "/usr/lib/libvisa.so"}))
     monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
@@ -113,7 +117,6 @@ def test_doctor_optional_extras_missing_but_visa_ok(capture, monkeypatch):
     code, out = capture(["doctor"])
 
     assert code == 0
-    assert "Ready to go" in out
     # Every missing extras should show its pip install hint.
     for extras_name in ("daq-labjack", "daq-mcc", "daq-ni", "i2c-aardvark"):
         assert f"pip install 'instro[{extras_name}]'" in out
@@ -225,7 +228,16 @@ def test_output_is_inside_one_outer_panel(capture, monkeypatch):
     inner = out[open_idx:close_idx]
     assert "Python" in inner
     assert "Component" in inner
-    assert "Ready to go" in inner
+
+
+def test_no_trailing_verdict_line(capture, monkeypatch):
+    """The doctor doesn't render a 'Ready to go' / 'Required driver(s) missing' verdict."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
+    _, out = capture(["doctor"])
+    assert "Ready to go" not in out
+    assert "Required driver" not in out
 
 
 def test_table_has_two_columns_not_three(capture, monkeypatch):
