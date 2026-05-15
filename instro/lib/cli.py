@@ -74,7 +74,6 @@ class Package:
     extras: str | None        # None for core, "daq-labjack" etc. for extras
     distribution: str         # PyPI distribution name for version lookup
     importable_module: str | None  # path proving the package's Python files are installed
-    universally_required: bool     # if any of its drivers fails → exit 1
     drivers: tuple[Driver, ...]
 
 
@@ -154,7 +153,6 @@ _PACKAGES: tuple[Package, ...] = (
         extras=None,
         distribution="instro",
         importable_module=None,  # core is always present if doctor is running
-        universally_required=True,
         drivers=(_PYVISA,),
     ),
     Package(
@@ -163,7 +161,6 @@ _PACKAGES: tuple[Package, ...] = (
         extras="daq-labjack",
         distribution="instro-daq-labjack",
         importable_module="instro.daq.drivers.labjack",
-        universally_required=False,
         drivers=(_LJM,),
     ),
     Package(
@@ -172,7 +169,6 @@ _PACKAGES: tuple[Package, ...] = (
         extras="daq-ni",
         distribution="instro-daq-ni",
         importable_module="instro.daq.drivers.ni",
-        universally_required=False,
         drivers=(_NIDAQMX,),
     ),
     Package(
@@ -181,7 +177,6 @@ _PACKAGES: tuple[Package, ...] = (
         extras="daq-mcc",
         distribution="instro-daq-mcc",
         importable_module="instro.daq.drivers.mcc",
-        universally_required=False,
         drivers=(_MCC,),
     ),
     Package(
@@ -190,7 +185,6 @@ _PACKAGES: tuple[Package, ...] = (
         extras="i2c-aardvark",
         distribution="instro-i2c-aardvark",
         importable_module="instro.i2c.drivers.totalphase",
-        universally_required=False,
         drivers=(_AARDVARK,),
     ),
 )
@@ -240,70 +234,37 @@ def _find_native_lib(names: Iterable[str]) -> str | None:
 # --- Per-row status resolution ----------------------------------------------
 
 
-@dataclass
-class _Row:
-    notes: str           # already includes the leading icon + space
-    installed: bool      # for package rows; ignored on driver rows
-    blocks_ready: bool   # True if this row's failure should fail the doctor
-
-
-def _resolve_package(pkg: Package) -> _Row:
+def _resolve_package(pkg: Package) -> str:
+    """Return the rendered notes cell for a package row (icon + explanation)."""
     if pkg.extras is None:
         version = _version_of(pkg.distribution) or "installed"
-        return _Row(
-            notes=f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]",
-            installed=True,
-            blocks_ready=False,
-        )
+        return f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]"
     if pkg.importable_module and _has_module(pkg.importable_module):
         version = _version_of(pkg.distribution) or "installed"
-        return _Row(
-            notes=f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]",
-            installed=True,
-            blocks_ready=False,
-        )
+        return f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]"
     install_cmd = escape(f"pip install 'instro[{pkg.extras}]'")
-    return _Row(
-        notes=f"{_MISSING}  [dim]{pkg.description}[/]\n   [yellow]{install_cmd}[/]",
-        installed=False,
-        blocks_ready=False,
-    )
+    return f"{_MISSING}  [dim]{pkg.description}[/]\n   [yellow]{install_cmd}[/]"
 
 
-def _resolve_driver(driver: Driver, parent: Package, os_name: str) -> _Row:
+def _resolve_driver(driver: Driver, os_name: str) -> str:
+    """Return the rendered notes cell for a driver row (icon + explanation)."""
     # 1. OS support gate.
     if os_name not in driver.supported_os:
         os_label = "macOS" if os_name == "Darwin" else os_name
         supported = ", ".join("macOS" if s == "Darwin" else s for s in driver.supported_os)
-        return _Row(
-            notes=f"{_NA}  [dim]Not supported on {os_label}; supported on {supported}.[/]",
-            installed=False,
-            blocks_ready=False,
-        )
+        return f"{_NA}  [dim]Not supported on {os_label}; supported on {supported}.[/]"
 
     # 2. Look for the native library on the system.
     resolved = _find_native_lib(driver.native_lib_names)
     if resolved:
-        return _Row(
-            notes=f"{_OK}  [dim]Found: {resolved}[/]",
-            installed=True,
-            blocks_ready=False,
-        )
+        return f"{_OK}  [dim]Found: {resolved}[/]"
 
     # 3. Allow a Python fallback (PyVISA: pyvisa-py covers the backend role).
     if driver.python_fallback and _has_module(driver.python_fallback):
-        return _Row(
-            notes=f"{_OK}  [dim]Using Python backend: {driver.python_fallback}[/]",
-            installed=True,
-            blocks_ready=False,
-        )
+        return f"{_OK}  [dim]Using Python backend: {driver.python_fallback}[/]"
 
     # 4. Native lib not found.
-    return _Row(
-        notes=f"{_MISSING}  [yellow]→ {driver.install_hint(os_name)}[/]",
-        installed=False,
-        blocks_ready=parent.universally_required,
-    )
+    return f"{_MISSING}  [yellow]→ {driver.install_hint(os_name)}[/]"
 
 
 # --- Doctor command ---------------------------------------------------------
@@ -331,46 +292,32 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
     table.add_column("Component", no_wrap=True)
     table.add_column("Status")
 
-    blocking: list[str] = []
     first = True
     for pkg in _PACKAGES:
         if not first:
             table.add_section()
         first = False
 
-        # Package row.
-        pkg_row = _resolve_package(pkg)
-        table.add_row(f"[bold]{escape(pkg.label)}[/]", pkg_row.notes)
-
-        # Child driver rows.
+        # Package row + child driver rows.
+        table.add_row(f"[bold]{escape(pkg.label)}[/]", _resolve_package(pkg))
         for driver in pkg.drivers:
-            child_row = _resolve_driver(driver, pkg, os_name)
-            table.add_row(f"  └ {escape(driver.label)}", child_row.notes)
-            if child_row.blocks_ready:
-                blocking.append(f"{pkg.label} → {driver.label}")
-
-    # --- Verdict line -------------------------------------------------------
-    if blocking:
-        verdict = Text.assemble(
-            ("⚠️  ", "bold yellow"),
-            (f"Required driver(s) missing: {', '.join(blocking)}", "yellow"),
-        )
-        exit_code = 1
-    else:
-        verdict = Text(f"{_OK}  Ready to go.", style="bold green")
-        exit_code = 0
+            table.add_row(f"  └ {escape(driver.label)}", _resolve_driver(driver, os_name))
 
     # --- Render everything inside one outer Panel ---------------------------
+    # Doctor is purely informational — the table itself tells the user what's
+    # installed, what's missing, and what to install. No verdict line, and
+    # `instro doctor` always exits 0 on a clean run (exit 2 is reserved for
+    # uncaught internal errors).
     header = Text.assemble(
         ("🩺  ", ""),
         ("instro doctor", "bold cyan"),
         ("  —  environment check", "dim"),
     )
-    body = Group(runtime, Text(""), table, Text(""), verdict)
+    body = Group(runtime, Text(""), table)
     console.print()
     console.print(Panel(body, title=header, title_align="left", border_style="cyan", padding=(1, 2)))
     console.print()
-    return exit_code
+    return 0
 
 
 # --- argparse wiring --------------------------------------------------------
