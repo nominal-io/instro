@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Callable
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
@@ -32,116 +32,155 @@ _MISSING = Text("✗", style="bold red")
 _PARTIAL = Text("⚠", style="bold yellow")
 _NA = Text("·", style="dim yellow")  # not applicable on this OS
 
-# --- Catalog: one row per hardware capability -------------------------------
+_ALL_OS = ("Darwin", "Linux", "Windows")
+
+
+# --- Catalog: packages and the native drivers they depend on ----------------
 
 
 @dataclass(frozen=True)
-class Capability:
-    """A thing the user might want to do with instro.
-
-    Each capability needs (optionally) an `instro[<extras>]` workspace package
-    plus an underlying vendor SDK. The doctor checks both and reports one
-    combined status per row.
-    """
+class Driver:
+    """A vendor-supplied SDK / native library a package depends on."""
 
     label: str
     description: str
-    extras: str | None  # e.g. "daq-labjack"; None means no extras needed (PyVISA)
-    extras_module: str | None  # importable module that proves the extras installed
-    python_module: str  # the vendor Python wrapper (pyvisa, mcculw, ...)
-    distribution: str  # PyPI distribution name for version lookup
-    universally_required: bool  # if True, missing → exit 1
-    supported_os: tuple[str, ...]  # platform.system() values that support this
-    install_hint: Callable[[str], str]  # current OS -> what to install
+    python_module: str   # importable wrapper (e.g. "pyvisa", "labjack.ljm")
+    distribution: str    # PyPI distribution for version lookup
+    supported_os: tuple[str, ...]
+    install_hint: Callable[[str], str]  # current OS -> install instructions
 
 
-def _hint_visa(os_name: str) -> str:
+@dataclass(frozen=True)
+class Package:
+    """An installable instro distribution: the core package or an extras."""
+
+    label: str
+    description: str
+    extras: str | None        # None for core, "daq-labjack" etc. for extras
+    distribution: str         # "instro" or "instro-daq-labjack"
+    importable_module: str | None  # path proving the package's Python files are installed; None for core
+    universally_required: bool     # if any of its drivers fails → exit 1
+    drivers: tuple[Driver, ...]
+
+
+# --- Install-hint helpers ---------------------------------------------------
+
+
+def _hint_pyvisa(os_name: str) -> str:
     if os_name == "Windows":
         return "pip install pyvisa-py  (or install NI-VISA from ni.com for hardware backends)"
     return "pip install pyvisa-py"
 
 
-def _hint_labjack(_os: str) -> str:
-    return (
-        "pip install 'instro\\[daq-labjack]' + LJM library "
-        "from labjack.com/support/software/installers/ljm"
-    )
+def _hint_ljm(_os: str) -> str:
+    return "Install LJM library from labjack.com/support/software/installers/ljm"
 
 
-def _hint_ni(os_name: str) -> str:
+def _hint_nidaqmx(os_name: str) -> str:
     if os_name == "Windows":
-        return "pip install 'instro\\[daq-ni]' + NI-DAQmx installer from ni.com/downloads"
-    return "pip install 'instro\\[daq-ni]' + NI-DAQmx Linux drivers from ni.com"
+        return "Install NI-DAQmx from ni.com/downloads"
+    return "Install NI-DAQmx Linux drivers from ni.com"
 
 
 def _hint_mcc(_os: str) -> str:
-    return "pip install 'instro\\[daq-mcc]' + MCC Universal Library installer"
+    return "Install MCC Universal Library from measurementcomputing.com"
 
 
 def _hint_aardvark(_os: str) -> str:
-    return (
-        "pip install 'instro\\[i2c-aardvark]' + Aardvark API "
-        "from totalphase.com/products/aardvark-software-api"
-    )
+    return "Install Aardvark API from totalphase.com/products/aardvark-software-api"
 
 
-_ALL_OS = ("Darwin", "Linux", "Windows")
+# --- Drivers ---------------------------------------------------------------
 
-_CAPABILITIES: tuple[Capability, ...] = (
-    Capability(
-        label="VISA / SCPI",
-        description="SCPI over VISA — DMMs, PSUs, ELoads, Keysight DAQ",
+_PYVISA = Driver(
+    label="PyVISA",
+    description="SCPI over VISA — DMMs, PSUs, ELoads, Keysight DAQ",
+    python_module="pyvisa",
+    distribution="pyvisa",
+    supported_os=_ALL_OS,
+    install_hint=_hint_pyvisa,
+)
+_LJM = Driver(
+    label="LJM library",
+    description="LabJack T4/T7/T8 USB DAQ",
+    python_module="labjack.ljm",
+    distribution="labjack-ljm",
+    supported_os=_ALL_OS,
+    install_hint=_hint_ljm,
+)
+_NIDAQMX = Driver(
+    label="NI-DAQmx runtime",
+    description="National Instruments DAQmx",
+    python_module="nidaqmx",
+    distribution="nidaqmx",
+    supported_os=("Linux", "Windows"),
+    install_hint=_hint_nidaqmx,
+)
+_MCC = Driver(
+    label="MCC Universal Library",
+    description="Measurement Computing USB-DAQ",
+    python_module="mcculw",
+    distribution="mcculw",
+    supported_os=("Windows",),
+    install_hint=_hint_mcc,
+)
+_AARDVARK = Driver(
+    label="Aardvark API",
+    description="Total Phase Aardvark I2C/SPI host adapter",
+    python_module="pyaardvark",
+    distribution="pyaardvark",
+    supported_os=_ALL_OS,
+    install_hint=_hint_aardvark,
+)
+
+
+# --- Packages: core + each extras -------------------------------------------
+
+_PACKAGES: tuple[Package, ...] = (
+    Package(
+        label="instro",
+        description="Core package",
         extras=None,
-        extras_module=None,
-        python_module="pyvisa",
-        distribution="pyvisa",
+        distribution="instro",
+        importable_module=None,  # core is always present if doctor is running
         universally_required=True,
-        supported_os=_ALL_OS,
-        install_hint=_hint_visa,
+        drivers=(_PYVISA,),
     ),
-    Capability(
-        label="LabJack T-series",
-        description="LabJack T4/T7/T8 USB DAQ",
+    Package(
+        label="instro[daq-labjack]",
+        description="LabJack T-series DAQ drivers",
         extras="daq-labjack",
-        extras_module="instro.daq.drivers.labjack",
-        python_module="labjack.ljm",
-        distribution="labjack-ljm",
+        distribution="instro-daq-labjack",
+        importable_module="instro.daq.drivers.labjack",
         universally_required=False,
-        supported_os=_ALL_OS,
-        install_hint=_hint_labjack,
+        drivers=(_LJM,),
     ),
-    Capability(
-        label="NI-DAQ",
-        description="National Instruments DAQmx",
+    Package(
+        label="instro[daq-ni]",
+        description="NI-DAQ drivers",
         extras="daq-ni",
-        extras_module="instro.daq.drivers.ni",
-        python_module="nidaqmx",
-        distribution="nidaqmx",
+        distribution="instro-daq-ni",
+        importable_module="instro.daq.drivers.ni",
         universally_required=False,
-        supported_os=("Linux", "Windows"),  # no NI-DAQmx for macOS
-        install_hint=_hint_ni,
+        drivers=(_NIDAQMX,),
     ),
-    Capability(
-        label="MCC USB-DAQ",
-        description="Measurement Computing Universal Library",
+    Package(
+        label="instro[daq-mcc]",
+        description="MCC USB-DAQ drivers",
         extras="daq-mcc",
-        extras_module="instro.daq.drivers.mcc",
-        python_module="mcculw",
-        distribution="mcculw",
+        distribution="instro-daq-mcc",
+        importable_module="instro.daq.drivers.mcc",
         universally_required=False,
-        supported_os=("Windows",),  # mcculw wraps a Windows DLL
-        install_hint=_hint_mcc,
+        drivers=(_MCC,),
     ),
-    Capability(
-        label="Aardvark I2C/SPI",
-        description="Total Phase Aardvark host adapter",
+    Package(
+        label="instro[i2c-aardvark]",
+        description="Aardvark I2C/SPI host adapter driver",
         extras="i2c-aardvark",
-        extras_module="instro.i2c.drivers.totalphase",
-        python_module="pyaardvark",
-        distribution="pyaardvark",
+        distribution="instro-i2c-aardvark",
+        importable_module="instro.i2c.drivers.totalphase",
         universally_required=False,
-        supported_os=_ALL_OS,
-        install_hint=_hint_aardvark,
+        drivers=(_AARDVARK,),
     ),
 )
 
@@ -177,73 +216,87 @@ def _version_of(distribution: str) -> str | None:
 
 
 @dataclass
-class _Row:
+class _PackageRow:
     icon: Text
     notes: str
-    blocks_ready: bool  # True if this capability's failure should fail the doctor
+    installed: bool
 
 
-def _resolve(capability: Capability, os_name: str) -> _Row:
-    """Compute the status icon + notes for one capability."""
-    # 1. OS support gate — short-circuit if the user's OS can't run this SDK.
-    if os_name not in capability.supported_os:
+@dataclass
+class _DriverRow:
+    icon: Text
+    notes: str
+    blocks_ready: bool  # True if this driver's failure should fail the doctor
+
+
+def _resolve_package(pkg: Package) -> _PackageRow:
+    if pkg.extras is None:
+        # Core. If doctor is running at all, the core package is installed.
+        version = _version_of(pkg.distribution) or "installed"
+        return _PackageRow(
+            icon=_OK,
+            notes=f"[dim]{pkg.description} — {pkg.distribution} {version}[/]",
+            installed=True,
+        )
+    if pkg.importable_module and _has_module(pkg.importable_module):
+        version = _version_of(pkg.distribution) or "installed"
+        return _PackageRow(
+            icon=_OK,
+            notes=f"[dim]{pkg.description} — {pkg.distribution} {version}[/]",
+            installed=True,
+        )
+    install_cmd = escape(f"pip install 'instro[{pkg.extras}]'")
+    return _PackageRow(
+        icon=_MISSING,
+        notes=f"[dim]{pkg.description}[/]\n[yellow]{install_cmd}[/]",
+        installed=False,
+    )
+
+
+def _resolve_driver(driver: Driver, parent: Package, parent_installed: bool, os_name: str) -> _DriverRow:
+    # 1. OS support gate.
+    if os_name not in driver.supported_os:
         os_label = "macOS" if os_name == "Darwin" else os_name
-        supported = ", ".join("macOS" if s == "Darwin" else s for s in capability.supported_os)
-        return _Row(
+        supported = ", ".join("macOS" if s == "Darwin" else s for s in driver.supported_os)
+        return _DriverRow(
             icon=_NA,
-            notes=f"[dim]{capability.description}[/]\n[dim]Not supported on {os_label}; supported on {supported}.[/]",
+            notes=f"[dim]Not supported on {os_label}; supported on {supported}.[/]",
             blocks_ready=False,
         )
 
-    # 2. Workspace extras gate (if applicable).
-    extras_present = capability.extras_module is None or _has_module(capability.extras_module)
-
-    # 3. Vendor Python module gate (find_spec, no side effects).
-    python_present = _has_module(capability.python_module)
-
-    if not extras_present and not python_present:
-        return _Row(
+    # 2. Native module find_spec.
+    if not _has_module(driver.python_module):
+        notes = f"[yellow]{driver.install_hint(os_name)}[/]"
+        if parent_installed and parent.extras is not None:
+            # Common confusing case: user has the instro extras but never installed
+            # the underlying SDK. Make sure they see they need the native lib too.
+            notes = f"[yellow]Native driver missing[/] — {notes}"
+        return _DriverRow(
             icon=_MISSING,
-            notes=f"[dim]{capability.description}[/]\n[yellow]{capability.install_hint(os_name)}[/]",
-            blocks_ready=capability.universally_required,
-        )
-    if not extras_present:
-        # Vendor SDK is present but the instro driver package isn't.
-        install = escape(f"pip install 'instro[{capability.extras}]'")
-        return _Row(
-            icon=_MISSING,
-            notes=f"[dim]{capability.description}[/]\n[yellow]{install}[/] (SDK already installed)",
-            blocks_ready=capability.universally_required,
-        )
-    if not python_present:
-        return _Row(
-            icon=_MISSING,
-            notes=f"[dim]{capability.description}[/]\n[yellow]{capability.install_hint(os_name)}[/]",
-            blocks_ready=capability.universally_required,
+            notes=notes,
+            blocks_ready=parent.universally_required,
         )
 
-    # 4. Everything is findable — try to actually import to catch native-lib failures.
-    ok, err = _try_import(capability.python_module)
+    # 3. Real import to catch native-lib load failures.
+    ok, err = _try_import(driver.python_module)
     if not ok:
         msg = err or "import failed"
-        return _Row(
+        return _DriverRow(
             icon=_PARTIAL,
             notes=(
-                f"[dim]{capability.description}[/]\n"
                 f"[yellow]Python wrapper installed but native library failed to load[/]\n"
                 f"[dim]{msg}[/]\n"
-                f"[yellow]{capability.install_hint(os_name)}[/]"
+                f"[yellow]{driver.install_hint(os_name)}[/]"
             ),
-            blocks_ready=capability.universally_required,
+            blocks_ready=parent.universally_required,
         )
 
-    # 5. Ready. Show versions.
-    sdk_version = _version_of(capability.distribution) or "installed"
-    parts = [f"[dim]{capability.description}[/]", f"[dim]{capability.distribution} {sdk_version}[/]"]
-    if capability.extras:
-        extras_version = _version_of(f"instro-{capability.extras}") or "installed"
-        parts.append(f"[dim]instro-{capability.extras} {extras_version}[/]")
-    return _Row(icon=_OK, notes="\n".join(parts), blocks_ready=False)
+    version = _version_of(driver.distribution) or "installed"
+    return _DriverRow(
+        icon=_OK,
+        notes=f"[dim]{driver.description} — {driver.distribution} {version}[/]",
+        blocks_ready=False,
+    )
 
 
 # --- Doctor command ---------------------------------------------------------
@@ -255,51 +308,60 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
     py_version = ".".join(str(x) for x in sys.version_info[:3])
     instro_version = _version_of("instro") or "unknown"
 
-    console.print()
-    console.print(Panel.fit(
-        Text.assemble(
-            ("🩺  ", ""),
-            ("instro doctor", "bold cyan"),
-            ("  —  environment check", "dim"),
-        ),
-        border_style="cyan",
-    ))
-    console.print()
-
-    # --- Runtime block ------------------------------------------------------
+    # --- Runtime grid (goes inside the outer panel) -------------------------
     runtime = Table.grid(padding=(0, 2))
     runtime.add_column(style="dim", justify="right")
     runtime.add_column()
     runtime.add_row("Python", f"[bold]{py_version}[/]  [dim]({platform.machine()})[/]")
     runtime.add_row("Platform", os_name)
     runtime.add_row("instro", f"[bold]{instro_version}[/]")
-    console.print(runtime)
-    console.print()
 
-    # --- Capabilities -------------------------------------------------------
-    table = Table(title="Capabilities", title_style="bold", title_justify="left", expand=True)
-    table.add_column("Capability", style="bold", no_wrap=True)
+    # --- Packages-and-drivers table -----------------------------------------
+    table = Table(show_header=True, header_style="bold", expand=True)
+    table.add_column("Component", no_wrap=True)
     table.add_column("Status", justify="center", width=8)
     table.add_column("Notes")
 
-    blocking_missing: list[str] = []
-    for cap in _CAPABILITIES:
-        row = _resolve(cap, os_name)
-        table.add_row(cap.label, row.icon, row.notes)
-        if row.blocks_ready:
-            blocking_missing.append(cap.label)
-    console.print(table)
-    console.print()
+    blocking: list[str] = []
+    first = True
+    for pkg in _PACKAGES:
+        if not first:
+            table.add_section()
+        first = False
 
-    # --- Verdict ------------------------------------------------------------
-    if blocking_missing:
-        console.print(Text.assemble(
+        # Package row.
+        pkg_row = _resolve_package(pkg)
+        table.add_row(f"[bold]{escape(pkg.label)}[/]", pkg_row.icon, pkg_row.notes)
+
+        # Child driver rows.
+        for driver in pkg.drivers:
+            child_row = _resolve_driver(driver, pkg, pkg_row.installed, os_name)
+            table.add_row(f"  └ {escape(driver.label)}", child_row.icon, child_row.notes)
+            if child_row.blocks_ready:
+                blocking.append(f"{pkg.label} → {driver.label}")
+
+    # --- Verdict line -------------------------------------------------------
+    if blocking:
+        verdict = Text.assemble(
             ("⚠  ", "bold yellow"),
-            (f"Missing: {', '.join(blocking_missing)}. Install before using VISA-based instruments.", "yellow"),
-        ))
-        return 1
-    console.print(Text("✓  Ready to go.", style="bold green"))
-    return 0
+            (f"Required driver(s) missing: {', '.join(blocking)}", "yellow"),
+        )
+        exit_code = 1
+    else:
+        verdict = Text("✓  Ready to go.", style="bold green")
+        exit_code = 0
+
+    # --- Render everything inside one outer Panel ---------------------------
+    header = Text.assemble(
+        ("🩺  ", ""),
+        ("instro doctor", "bold cyan"),
+        ("  —  environment check", "dim"),
+    )
+    body = Group(runtime, Text(""), table, Text(""), verdict)
+    console.print()
+    console.print(Panel(body, title=header, title_align="left", border_style="cyan", padding=(1, 2)))
+    console.print()
+    return exit_code
 
 
 # --- argparse wiring --------------------------------------------------------
