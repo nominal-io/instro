@@ -77,7 +77,7 @@ def test_doctor_pyvisa_missing(capture, monkeypatch):
     code, out = capture(["doctor"])
 
     assert code == 1
-    assert "PyVISA" in out
+    assert "pyvisa" in out
     assert "Required driver" in out
 
 
@@ -106,8 +106,8 @@ def test_macos_unsupported_drivers_marked_na(_mock_os, capture, monkeypatch):
     _, out = capture(["doctor"])
     # Both unsupported drivers should show the not-supported notice.
     assert "Not supported on macOS" in out
-    assert "NI-DAQmx" in out
-    assert "MCC" in out
+    assert "nidaqmx" in out
+    assert "mcculw" in out
 
 
 @patch("instro.utils.cli.platform.system", return_value="Linux")
@@ -150,12 +150,16 @@ def test_native_lib_load_failure_shows_partial(_mock_os, capture, monkeypatch):
 
     code, out = capture(["doctor"])
 
-    assert code == 0  # only PyVISA failures block; mcc partial is informational
-    assert "native library failed to load" in out
+    assert code == 0  # only pyvisa failures block; mcc partial is informational
+    assert "native MCC Universal Library failed to load" in out
 
 
-def test_extras_installed_but_driver_missing(capture, monkeypatch):
-    """User installed instro[daq-labjack] but never installed the LJM native lib."""
+def test_extras_installed_but_python_wrapper_missing(capture, monkeypatch):
+    """User installed instro[daq-labjack] (workspace files) but pip somehow didn't bring labjack-ljm.
+
+    Driver row should clearly say *which* thing is missing (the Python wrapper) and tell
+    the user how to fix both halves separately.
+    """
     monkeypatch.setattr(
         cli.importlib.util,
         "find_spec",
@@ -165,10 +169,32 @@ def test_extras_installed_but_driver_missing(capture, monkeypatch):
     monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0")
 
     _, out = capture(["doctor"])
-    # The labjack package row should be ✓ (extras installed), but its LJM driver child should
-    # explicitly call out the missing native driver.
-    assert "Native driver missing" in out
+    # The driver row must disambiguate Python wrapper vs native lib.
+    assert "Python wrapper labjack-ljm not installed" in out
+    # And still point at the native install for completeness.
+    assert "Native LJM library is also required" in out
     assert "labjack.com" in out
+
+
+def test_missing_python_wrapper_disambiguates_from_native(capture, monkeypatch):
+    """When the doctor reports ✗ on a driver row, it must say 'Python wrapper' explicitly.
+
+    Reproduces the confusion of 'I installed the LJM driver from labjack.com but doctor
+    still says it's not installed' — the doctor was checking labjack-ljm (PyPI), not the
+    native lib, and the wording has to make that clear.
+    """
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
+    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
+
+    _, out = capture(["doctor"])
+
+    # The driver row should call the missing thing a "Python wrapper" by name, not
+    # a vague "LJM library" / "LJM driver" that the user could confuse with the
+    # system-level binary they already installed.
+    assert "Python wrapper labjack-ljm not installed" in out
+    # And it should point at the pip install command, not just at labjack.com.
+    assert "pip install 'instro[daq-labjack]'" in out
 
 
 def test_internal_error_returns_2(capture, monkeypatch):
