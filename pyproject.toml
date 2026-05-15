@@ -12,8 +12,12 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
+    "rich>=13.0",
     "thermocouples>=2.1.2",
 ]
+
+[project.scripts]
+instro = "instro.utils.cli:main"
 
 [project.optional-dependencies]
 # Hardware-specific drivers with vendor SDKs
