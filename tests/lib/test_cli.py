@@ -13,14 +13,12 @@ from instro.utils import cli
 
 @pytest.fixture
 def capture(monkeypatch):
-    """Run `cli.main(...)` against an isolated rich Console + capture stdout/stderr.
+    """Run `cli.main(...)` against an isolated rich Console + capture stdout.
 
     Returns a callable taking argv -> (exit_code, stdout_text).
     """
     def _run(argv: list[str]) -> tuple[int, str]:
         buf = StringIO()
-        # Force Rich to render to our buffer with a fixed width so output is
-        # stable across terminal sizes / TTY presence.
         from rich.console import Console as RealConsole
 
         def _fixed_console(*args, **kwargs):
@@ -43,8 +41,9 @@ def _fake_find_spec(present: set[str]):
     return _impl
 
 
-def test_doctor_all_present(capture, monkeypatch):
-    """Everything installed and importable: exit 0, ✓ marks, 'Ready to go'."""
+@patch("instro.utils.cli.platform.system", return_value="Linux")
+def test_doctor_all_present(_mock_os, capture, monkeypatch):
+    """Everything installed and importable on a supported OS: exit 0, 'Ready to go'."""
     everything = {
         "instro.daq.drivers.labjack",
         "instro.daq.drivers.mcc",
@@ -57,35 +56,34 @@ def test_doctor_all_present(capture, monkeypatch):
         "pyaardvark",
     }
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(everything))
-    # Make `_try_import` claim every SDK loads cleanly.
     monkeypatch.setattr(cli, "_try_import", lambda _name: (True, None))
-    # Stub version lookups so we don't depend on what's actually pip-installed.
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.2.3")
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "1.2.3")
 
     code, out = capture(["doctor"])
 
     assert code == 0
     assert "Ready to go" in out
-    assert "instro doctor" in out
-    # PyVISA must be present in every healthy report.
-    assert "PyVISA" in out
+    # Single merged "Capabilities" table now, not two separate tables.
+    assert "Capabilities" in out
+    assert "Workspace extras" not in out
+    assert "Vendor SDKs" not in out
 
 
 def test_doctor_pyvisa_missing(capture, monkeypatch):
-    """PyVISA is the only universally-required SDK; its absence is exit 1."""
+    """PyVISA is the only universally-required capability; missing → exit 1."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
     monkeypatch.setattr(cli, "_try_import", lambda _name: (False, "ModuleNotFoundError: pyvisa"))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: None)
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: None)
 
     code, out = capture(["doctor"])
 
     assert code == 1
-    assert "PyVISA" in out
+    assert "VISA / SCPI" in out
     assert "Missing" in out
 
 
-def test_doctor_extras_missing_but_pyvisa_ok(capture, monkeypatch):
-    """Extras absent but PyVISA present: exit 0 (extras are optional)."""
+def test_doctor_optional_missing_but_visa_ok(capture, monkeypatch):
+    """Optional capabilities absent but PyVISA present: exit 0."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
     monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None if name == "pyvisa" else "missing"))
     monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
@@ -94,28 +92,78 @@ def test_doctor_extras_missing_but_pyvisa_ok(capture, monkeypatch):
 
     assert code == 0
     assert "Ready to go" in out
-    # Each missing extra should show its install hint.
-    for extras_name in ("daq-labjack", "daq-mcc", "daq-ni", "i2c-aardvark"):
-        assert f"pip install 'instro[{extras_name}]'" in out
 
 
-def test_doctor_native_lib_load_failure(capture, monkeypatch):
-    """find_spec passes but actual import fails (e.g. mcculw on macOS)."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa", "mcculw"}))
+@patch("instro.utils.cli.platform.system", return_value="Darwin")
+def test_macos_filters_unsupported(_mock_os, capture, monkeypatch):
+    """On macOS, NI-DAQ and MCC rows should show 'Not supported on macOS'."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
+    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
+
+    _, out = capture(["doctor"])
+    assert "Not supported on macOS" in out
+    # NI-DAQ row should be in the output as not-supported.
+    assert "NI-DAQ" in out
+    assert "MCC USB-DAQ" in out
+
+
+@patch("instro.utils.cli.platform.system", return_value="Linux")
+def test_linux_filters_mcc(_mock_os, capture, monkeypatch):
+    """On Linux, MCC is Windows-only and should show 'Not supported on Linux'."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
+    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
+
+    _, out = capture(["doctor"])
+    assert "Not supported on Linux" in out
+    assert "MCC USB-DAQ" in out
+
+
+@patch("instro.utils.cli.platform.system", return_value="Windows")
+def test_windows_supports_everything(_mock_os, capture, monkeypatch):
+    """On Windows every capability is supported (only MCC unsupported elsewhere)."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
+    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
+
+    _, out = capture(["doctor"])
+    assert "Not supported on Windows" not in out
+
+
+@patch("instro.utils.cli.platform.system", return_value="Windows")
+def test_native_lib_load_failure_shows_partial(_mock_os, capture, monkeypatch):
+    """find_spec passes but real import fails → ⚠ partial state, not exit 1."""
+    monkeypatch.setattr(
+        cli.importlib.util,
+        "find_spec",
+        _fake_find_spec({"pyvisa", "mcculw", "instro.daq.drivers.mcc"}),
+    )
 
     def _try(name: str) -> tuple[bool, str | None]:
         if name == "pyvisa":
             return True, None
-        return False, "NameError: name 'WinDLL' is not defined"
-
+        return False, "OSError: cannot load native library"
     monkeypatch.setattr(cli, "_try_import", _try)
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0" if dist == "pyvisa" else None)
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0")
 
     code, out = capture(["doctor"])
 
-    assert code == 0  # only PyVISA is fatal-required; mcculw failing is informational
-    assert "native library missing" in out
-    assert "WinDLL" in out
+    assert code == 0  # only PyVISA failures block; mcculw partial is informational
+    assert "native library failed to load" in out
+    assert "cannot load native library" in out
+
+
+def test_extras_missing_but_sdk_present(capture, monkeypatch):
+    """User has the vendor Python SDK but forgot `pip install instro[daq-labjack]`."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa", "labjack.ljm"}))
+    monkeypatch.setattr(cli, "_try_import", lambda name: (name in {"pyvisa", "labjack.ljm"}, None))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0")
+
+    _, out = capture(["doctor"])
+    # Should show a hint to install the extras specifically, since the SDK is already there.
+    assert "pip install 'instro[daq-labjack]'" in out
+    assert "SDK already installed" in out
 
 
 def test_internal_error_returns_2(capture, monkeypatch):
@@ -134,28 +182,7 @@ def test_no_command_errors(capture):
         capture([])
 
 
-def test_doctor_invokable_as_module(monkeypatch):
+def test_doctor_invokable_as_module():
     """`python -m instro.utils.cli doctor` should be a valid invocation path."""
-    # Just confirm the module is loadable as a script and `main` is callable.
     mod = importlib.import_module("instro.utils.cli")
     assert callable(mod.main)
-
-
-@patch("instro.utils.cli.platform.system", return_value="Darwin")
-def test_macos_nidaqmx_hint(_mock_system, capture, monkeypatch):
-    """On macOS, the NI-DAQmx hint should explicitly call out that macOS is unsupported."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
-    _, out = capture(["doctor"])
-    assert "macOS not supported" in out
-
-
-@patch("instro.utils.cli.platform.system", return_value="Linux")
-def test_linux_mcc_hint(_mock_system, capture, monkeypatch):
-    """On Linux, the MCC hint should say Linux is unsupported (it's Windows-only)."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
-    _, out = capture(["doctor"])
-    assert "Linux not supported" in out
