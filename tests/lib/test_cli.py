@@ -75,6 +75,8 @@ def test_doctor_all_present(_mock_os, capture, monkeypatch):
     assert code == 0
     assert "Ready to go" in out
     assert "Found:" in out
+    # Bigger emoji-width icons should be present.
+    assert "✅" in out
 
 
 def test_doctor_visa_missing(capture, monkeypatch):
@@ -148,6 +150,8 @@ def test_native_lib_missing_shows_install_hint(capture, monkeypatch):
     assert "labjack.com" in out
     # No native Aardvark → install hint surfaced
     assert "totalphase.com" in out
+    # Missing rows should use the ❌ glyph.
+    assert "❌" in out
 
 
 @patch("instro.utils.cli.platform.system", return_value="Darwin")
@@ -161,6 +165,8 @@ def test_macos_unsupported_drivers_marked_na(_mock_os, capture, monkeypatch):
     assert "Not supported on macOS" in out
     assert "NI-DAQmx runtime" in out
     assert "MCC Universal Library" in out
+    # Unsupported-on-OS rows should use the ⛔ glyph.
+    assert "⛔" in out
 
 
 @patch("instro.utils.cli.platform.system", return_value="Linux")
@@ -220,6 +226,19 @@ def test_output_is_inside_one_outer_panel(capture, monkeypatch):
     assert "Python" in inner
     assert "Component" in inner
     assert "Ready to go" in inner
+
+
+def test_table_has_two_columns_not_three(capture, monkeypatch):
+    """Status + Notes were consolidated into one column — header should not have separate 'Notes'."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({"visa": "/usr/lib/libvisa.so"}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
+
+    _, out = capture(["doctor"])
+    # Component column should be present.
+    assert "Component" in out
+    # Notes column should NOT exist as a separate header — its content merged into Status.
+    assert "Notes" not in out
 
 
 def test_find_native_lib_uses_ctypes_find_then_load(monkeypatch):
