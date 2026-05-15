@@ -1,8 +1,8 @@
 """Command-line interface for the instro library.
 
 Entry point: ``instro <command>``. Currently the only command is ``doctor``,
-which prints a health report so users can debug missing extras or vendor
-SDKs before they hit a confusing import error.
+which prints a health report so users can debug missing extras or missing
+system-level vendor drivers before they hit a confusing import error.
 
 Adding new subcommands is a matter of writing another `_cmd_*` function
 and adding a parser in `main()`.
@@ -11,6 +11,8 @@ and adding a parser in `main()`.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import ctypes.util
 import importlib.metadata
 import importlib.util
 import platform
@@ -29,7 +31,6 @@ from rich.text import Text
 
 _OK = Text("✓", style="bold green")
 _MISSING = Text("✗", style="bold red")
-_PARTIAL = Text("⚠", style="bold yellow")
 _NA = Text("·", style="dim yellow")  # not applicable on this OS
 
 _ALL_OS = ("Darwin", "Linux", "Windows")
@@ -40,27 +41,24 @@ _ALL_OS = ("Darwin", "Linux", "Windows")
 
 @dataclass(frozen=True)
 class Driver:
-    """A vendor SDK a package depends on, with two parts.
+    """A system-level vendor driver an extras package depends on.
 
-    * **Python wrapper** — the PyPI distribution that exposes
-      `python_module` (e.g. `labjack-ljm` exposes `labjack.ljm`). Installed
-      automatically by `pip install 'instro[<extras>]'`.
-    * **Native library** — the system-level binary (`.dylib`/`.so`/`.dll`)
-      installed via the vendor's standalone installer.
+    The doctor checks the *native* binary library (e.g. `libLabJackM.dylib`,
+    `nicaiu.dll`, `aardvark.so`). It does **not** check the Python wrapper —
+    we assume `pip install 'instro[<extras>]'` brought it in transitively.
 
-    Both must be present for the driver to actually work. The doctor
-    distinguishes "Python wrapper missing" from "wrapper present but
-    native lib failed to load" so install hints can point at the right
-    thing.
+    `native_lib_names` are passed to `ctypes.util.find_library` in order;
+    the first one that resolves and successfully loads via `ctypes.CDLL`
+    counts as "installed". `python_fallback` is for cases where a Python
+    package can stand in for the native lib (currently only PyVISA's
+    pyvisa-py).
     """
 
-    label: str           # short identifier (matches PyPI package name)
-    description: str
-    python_module: str   # importable wrapper (e.g. "pyvisa", "labjack.ljm")
-    distribution: str    # PyPI distribution for version lookup
+    label: str  # human-readable: "LJM library", "Aardvark API"
+    native_lib_names: tuple[str, ...]
     supported_os: tuple[str, ...]
-    native_name: str     # human name for the native lib (e.g. "LJM library")
-    native_install_hint: Callable[[str], str]  # how to install the native lib
+    install_hint: Callable[[str], str]
+    python_fallback: str | None = None  # importable module that obviates the native lib
 
 
 @dataclass(frozen=True)
@@ -70,8 +68,8 @@ class Package:
     label: str
     description: str
     extras: str | None        # None for core, "daq-labjack" etc. for extras
-    distribution: str         # "instro" or "instro-daq-labjack"
-    importable_module: str | None  # path proving the package's Python files are installed; None for core
+    distribution: str         # PyPI distribution name for version lookup
+    importable_module: str | None  # path proving the package's Python files are installed
     universally_required: bool     # if any of its drivers fails → exit 1
     drivers: tuple[Driver, ...]
 
@@ -79,14 +77,16 @@ class Package:
 # --- Install-hint helpers ---------------------------------------------------
 
 
-def _hint_pyvisa(os_name: str) -> str:
+def _hint_visa(os_name: str) -> str:
     if os_name == "Windows":
-        return "pip install pyvisa-py  (or install NI-VISA from ni.com for hardware backends)"
-    return "pip install pyvisa-py"
+        return "Install NI-VISA from ni.com/downloads (or pip install pyvisa-py for a pure-Python backend)"
+    if os_name == "Darwin":
+        return "Install NI-VISA from ni.com/downloads (or pip install pyvisa-py for a pure-Python backend)"
+    return "pip install pyvisa-py (pure-Python VISA backend; works on Linux without NI-VISA)"
 
 
 def _hint_ljm(_os: str) -> str:
-    return "Install LJM library from labjack.com/support/software/installers/ljm"
+    return "Install LJM from labjack.com/support/software/installers/ljm"
 
 
 def _hint_nidaqmx(os_name: str) -> str:
@@ -100,55 +100,44 @@ def _hint_mcc(_os: str) -> str:
 
 
 def _hint_aardvark(_os: str) -> str:
-    return "Install Aardvark API from totalphase.com/products/aardvark-software-api"
+    return (
+        "Install Aardvark API (totalphase.com/products/aardvark-software-api). "
+        "Place the .dylib / .so / .dll on the system library path."
+    )
 
 
 # --- Drivers ---------------------------------------------------------------
 
 _PYVISA = Driver(
-    label="pyvisa",
-    description="SCPI over VISA — DMMs, PSUs, ELoads, Keysight DAQ",
-    python_module="pyvisa",
-    distribution="pyvisa",
+    label="VISA backend",
+    native_lib_names=("visa", "VISA"),
     supported_os=_ALL_OS,
-    native_name="VISA backend",
-    native_install_hint=_hint_pyvisa,
+    install_hint=_hint_visa,
+    python_fallback="pyvisa_py",  # pyvisa-py satisfies the backend requirement on its own
 )
 _LJM = Driver(
-    label="labjack-ljm",
-    description="LabJack T4/T7/T8 USB DAQ",
-    python_module="labjack.ljm",
-    distribution="labjack-ljm",
+    label="LJM library",
+    native_lib_names=("LabJackM", "labjackm"),
     supported_os=_ALL_OS,
-    native_name="LJM library",
-    native_install_hint=_hint_ljm,
+    install_hint=_hint_ljm,
 )
 _NIDAQMX = Driver(
-    label="nidaqmx",
-    description="National Instruments DAQmx",
-    python_module="nidaqmx",
-    distribution="nidaqmx",
+    label="NI-DAQmx runtime",
+    native_lib_names=("nidaqmx", "nicaiu"),
     supported_os=("Linux", "Windows"),
-    native_name="NI-DAQmx runtime",
-    native_install_hint=_hint_nidaqmx,
+    install_hint=_hint_nidaqmx,
 )
 _MCC = Driver(
-    label="mcculw",
-    description="Measurement Computing USB-DAQ",
-    python_module="mcculw",
-    distribution="mcculw",
+    label="MCC Universal Library",
+    native_lib_names=("cbw", "cbw32", "cbw64"),
     supported_os=("Windows",),
-    native_name="MCC Universal Library",
-    native_install_hint=_hint_mcc,
+    install_hint=_hint_mcc,
 )
 _AARDVARK = Driver(
-    label="pyaardvark",
-    description="Total Phase Aardvark I2C/SPI host adapter",
-    python_module="pyaardvark",
-    distribution="pyaardvark",
+    label="Aardvark API",
+    native_lib_names=("aardvark",),
     supported_os=_ALL_OS,
-    native_name="Aardvark API",
-    native_install_hint=_hint_aardvark,
+    install_hint=_hint_aardvark,
 )
 
 
@@ -214,20 +203,34 @@ def _has_module(dotted: str) -> bool:
         return False
 
 
-def _try_import(dotted: str) -> tuple[bool, str | None]:
-    """Try to actually import `dotted`. Returns (ok, error_message)."""
-    try:
-        importlib.import_module(dotted)
-        return True, None
-    except Exception as e:  # noqa: BLE001 — vendor SDKs raise NameError/OSError/etc.
-        return False, f"{type(e).__name__}: {e}"
-
-
 def _version_of(distribution: str) -> str | None:
     try:
         return importlib.metadata.version(distribution)
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+def _find_native_lib(names: Iterable[str]) -> str | None:
+    """Locate a system-level native library by trying each name in order.
+
+    Uses `ctypes.util.find_library` (which knows about the OS-specific
+    library search path: dyld cache on macOS, ldconfig on Linux, standard
+    DLL search on Windows) and then verifies the result by attempting to
+    actually load the library with `ctypes.CDLL`. Returns the resolved
+    path/identifier on success, or None.
+    """
+    for name in names:
+        resolved = ctypes.util.find_library(name)
+        if not resolved:
+            continue
+        try:
+            ctypes.CDLL(resolved)
+        except OSError:
+            # find_library returned a hit but the lib won't load (corrupt,
+            # wrong arch, etc.). Treat as not-found and try the next name.
+            continue
+        return resolved
+    return None
 
 
 # --- Per-row status resolution ----------------------------------------------
@@ -249,7 +252,6 @@ class _DriverRow:
 
 def _resolve_package(pkg: Package) -> _PackageRow:
     if pkg.extras is None:
-        # Core. If doctor is running at all, the core package is installed.
         version = _version_of(pkg.distribution) or "installed"
         return _PackageRow(
             icon=_OK,
@@ -271,7 +273,7 @@ def _resolve_package(pkg: Package) -> _PackageRow:
     )
 
 
-def _resolve_driver(driver: Driver, parent: Package, parent_installed: bool, os_name: str) -> _DriverRow:
+def _resolve_driver(driver: Driver, parent: Package, os_name: str) -> _DriverRow:
     # 1. OS support gate.
     if os_name not in driver.supported_os:
         os_label = "macOS" if os_name == "Darwin" else os_name
@@ -282,48 +284,28 @@ def _resolve_driver(driver: Driver, parent: Package, parent_installed: bool, os_
             blocks_ready=False,
         )
 
-    # 2. Python wrapper missing (find_spec returns None).
-    if not _has_module(driver.python_module):
-        # The user might have the native library installed already — common
-        # source of confusion ("but I installed LJM!"). Be explicit: this row
-        # is checking the *Python wrapper*, separate from the native binary.
-        if parent.extras is not None:
-            pip_cmd = escape(f"pip install 'instro[{parent.extras}]'")
-            wrapper_action = f"[yellow]→ {pip_cmd}[/] [dim](installs {driver.distribution})[/]"
-        else:
-            wrapper_action = f"[yellow]→ pip install {driver.distribution}[/]"
+    # 2. Look for the native library on the system.
+    resolved = _find_native_lib(driver.native_lib_names)
+    if resolved:
         return _DriverRow(
-            icon=_MISSING,
-            notes=(
-                f"[yellow]Python wrapper [bold]{driver.distribution}[/bold] not installed[/]\n"
-                f"{wrapper_action}\n"
-                f"[dim]Native {driver.native_name} is also required (separate install):[/]\n"
-                f"[dim]→ {driver.native_install_hint(os_name)}[/]"
-            ),
-            blocks_ready=parent.universally_required,
+            icon=_OK,
+            notes=f"[dim]Found: {resolved}[/]",
+            blocks_ready=False,
         )
 
-    # 3. Python wrapper present but actual import fails — almost always the
-    #    native library failing to load.
-    ok, err = _try_import(driver.python_module)
-    if not ok:
-        msg = err or "import failed"
+    # 3. Allow a Python fallback (PyVISA: pyvisa-py covers the backend role).
+    if driver.python_fallback and _has_module(driver.python_fallback):
         return _DriverRow(
-            icon=_PARTIAL,
-            notes=(
-                f"[yellow]{driver.distribution} installed, but native {driver.native_name} failed to load[/]\n"
-                f"[dim]{msg}[/]\n"
-                f"[yellow]→ {driver.native_install_hint(os_name)}[/]"
-            ),
-            blocks_ready=parent.universally_required,
+            icon=_OK,
+            notes=f"[dim]Using Python backend: {driver.python_fallback}[/]",
+            blocks_ready=False,
         )
 
-    # 4. Both parts working.
-    version = _version_of(driver.distribution) or "installed"
+    # 4. Native lib not found.
     return _DriverRow(
-        icon=_OK,
-        notes=f"[dim]{driver.description} — {driver.distribution} {version}[/]",
-        blocks_ready=False,
+        icon=_MISSING,
+        notes=f"[yellow]→ {driver.install_hint(os_name)}[/]",
+        blocks_ready=parent.universally_required,
     )
 
 
@@ -363,7 +345,7 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
 
         # Child driver rows.
         for driver in pkg.drivers:
-            child_row = _resolve_driver(driver, pkg, pkg_row.installed, os_name)
+            child_row = _resolve_driver(driver, pkg, os_name)
             table.add_row(f"  └ {escape(driver.label)}", child_row.icon, child_row.notes)
             if child_row.blocks_ready:
                 blocking.append(f"{pkg.label} → {driver.label}")

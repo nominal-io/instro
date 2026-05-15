@@ -35,87 +35,140 @@ def capture(monkeypatch):
 
 
 def _fake_find_spec(present: set[str]):
-    """Return a find_spec replacement that pretends only `present` modules exist."""
+    """Pretend only the modules in `present` exist."""
     def _impl(name: str):
         return object() if name in present else None
     return _impl
 
 
+def _fake_find_native(found: dict[str, str]):
+    """Pretend the listed native libs are installed, returning the given paths."""
+    def _impl(names):
+        for name in names:
+            if name in found:
+                return found[name]
+        return None
+    return _impl
+
+
 @patch("instro.utils.cli.platform.system", return_value="Linux")
 def test_doctor_all_present(_mock_os, capture, monkeypatch):
-    """Every package + driver installed on a supported OS: exit 0, 'Ready to go'."""
-    everything = {
+    """Every package installed + every native lib found: exit 0, 'Ready to go'."""
+    extras_present = {
         "instro.daq.drivers.labjack",
         "instro.daq.drivers.mcc",
         "instro.daq.drivers.ni",
         "instro.i2c.drivers.totalphase",
-        "pyvisa",
-        "nidaqmx",
-        "labjack.ljm",
-        "mcculw",
-        "pyaardvark",
     }
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(everything))
-    monkeypatch.setattr(cli, "_try_import", lambda _name: (True, None))
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(extras_present))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({
+        "visa": "/usr/lib/libvisa.so",
+        "LabJackM": "/usr/local/lib/libLabJackM.so",
+        "nidaqmx": "/usr/lib/libnidaqmx.so",
+        "cbw": "/usr/lib/libcbw.so",
+        "aardvark": "/usr/lib/libaardvark.so",
+    }))
     monkeypatch.setattr(cli, "_version_of", lambda _dist: "1.2.3")
 
     code, out = capture(["doctor"])
 
     assert code == 0
     assert "Ready to go" in out
-    # Package-down-to-driver structure: each package has a `└ driver` row below it.
-    assert "instro[daq-labjack]" in out
-    assert "└" in out  # tree indicator
+    assert "Found:" in out
 
 
-def test_doctor_pyvisa_missing(capture, monkeypatch):
-    """PyVISA is the only universally-required driver; missing → exit 1."""
+def test_doctor_visa_missing(capture, monkeypatch):
+    """VISA is the only universally-required driver; missing → exit 1."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
-    monkeypatch.setattr(cli, "_try_import", lambda _name: (False, "ModuleNotFoundError: pyvisa"))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
     monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
 
     code, out = capture(["doctor"])
 
     assert code == 1
-    assert "pyvisa" in out
+    assert "VISA backend" in out
     assert "Required driver" in out
 
 
-def test_doctor_optional_missing_but_visa_ok(capture, monkeypatch):
-    """Optional packages absent but PyVISA present: exit 0."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None if name == "pyvisa" else "missing"))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else "0.6.0")
+def test_visa_python_fallback_satisfies_backend(capture, monkeypatch):
+    """pyvisa-py (pure-Python backend) should count as a VISA backend → ✓, exit 0."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
+
+    code, out = capture(["doctor"])
+
+    assert code == 0
+    assert "Using Python backend: pyvisa_py" in out
+
+
+def test_doctor_optional_extras_missing_but_visa_ok(capture, monkeypatch):
+    """Optional packages absent but a VISA backend present: exit 0."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({"visa": "/usr/lib/libvisa.so"}))
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
 
     code, out = capture(["doctor"])
 
     assert code == 0
     assert "Ready to go" in out
-    # Each missing extras should show its pip install hint.
+    # Every missing extras should show its pip install hint.
     for extras_name in ("daq-labjack", "daq-mcc", "daq-ni", "i2c-aardvark"):
         assert f"pip install 'instro[{extras_name}]'" in out
+
+
+def test_native_lib_found_shows_path(capture, monkeypatch):
+    """When the system driver is detected, the doctor shows the resolved path."""
+    monkeypatch.setattr(
+        cli.importlib.util,
+        "find_spec",
+        _fake_find_spec({"instro.daq.drivers.labjack"}),
+    )
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({
+        "visa": "/Library/Frameworks/visa.framework/visa",
+        "LabJackM": "/usr/local/lib/libLabJackM.dylib",
+    }))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "1.0.0")
+
+    _, out = capture(["doctor"])
+    # The LJM row should be ✓ with the resolved path visible to the user.
+    assert "/usr/local/lib/libLabJackM.dylib" in out
+    # And the VISA framework path on macOS-style detection.
+    assert "/Library/Frameworks/visa.framework/visa" in out
+
+
+def test_native_lib_missing_shows_install_hint(capture, monkeypatch):
+    """When the native lib is absent on a supported OS, the install hint must be visible."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
+
+    _, out = capture(["doctor"])
+    # No native LJM → install hint surfaced
+    assert "labjack.com" in out
+    # No native Aardvark → install hint surfaced
+    assert "totalphase.com" in out
 
 
 @patch("instro.utils.cli.platform.system", return_value="Darwin")
 def test_macos_unsupported_drivers_marked_na(_mock_os, capture, monkeypatch):
     """On macOS, NI-DAQmx and MCC drivers should show 'Not supported on macOS'."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else "0.6.0")
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
 
     _, out = capture(["doctor"])
-    # Both unsupported drivers should show the not-supported notice.
     assert "Not supported on macOS" in out
-    assert "nidaqmx" in out
-    assert "mcculw" in out
+    assert "NI-DAQmx runtime" in out
+    assert "MCC Universal Library" in out
 
 
 @patch("instro.utils.cli.platform.system", return_value="Linux")
 def test_linux_mcc_unsupported(_mock_os, capture, monkeypatch):
     """On Linux, MCC is Windows-only."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else "0.6.0")
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
 
     _, out = capture(["doctor"])
     assert "Not supported on Linux" in out
@@ -124,77 +177,12 @@ def test_linux_mcc_unsupported(_mock_os, capture, monkeypatch):
 @patch("instro.utils.cli.platform.system", return_value="Windows")
 def test_windows_supports_everything(_mock_os, capture, monkeypatch):
     """On Windows every driver's OS gate passes."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else "0.6.0")
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
 
     _, out = capture(["doctor"])
     assert "Not supported on Windows" not in out
-
-
-@patch("instro.utils.cli.platform.system", return_value="Windows")
-def test_native_lib_load_failure_shows_partial(_mock_os, capture, monkeypatch):
-    """find_spec passes but real import fails → ⚠ partial state."""
-    monkeypatch.setattr(
-        cli.importlib.util,
-        "find_spec",
-        _fake_find_spec({"pyvisa", "mcculw", "instro.daq.drivers.mcc"}),
-    )
-
-    def _try(name: str) -> tuple[bool, str | None]:
-        if name == "pyvisa":
-            return True, None
-        return False, "OSError: cannot load native library"
-    monkeypatch.setattr(cli, "_try_import", _try)
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0")
-
-    code, out = capture(["doctor"])
-
-    assert code == 0  # only pyvisa failures block; mcc partial is informational
-    assert "native MCC Universal Library failed to load" in out
-
-
-def test_extras_installed_but_python_wrapper_missing(capture, monkeypatch):
-    """User installed instro[daq-labjack] (workspace files) but pip somehow didn't bring labjack-ljm.
-
-    Driver row should clearly say *which* thing is missing (the Python wrapper) and tell
-    the user how to fix both halves separately.
-    """
-    monkeypatch.setattr(
-        cli.importlib.util,
-        "find_spec",
-        _fake_find_spec({"pyvisa", "instro.daq.drivers.labjack"}),
-    )
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.0.0")
-
-    _, out = capture(["doctor"])
-    # The driver row must disambiguate Python wrapper vs native lib.
-    assert "Python wrapper labjack-ljm not installed" in out
-    # And still point at the native install for completeness.
-    assert "Native LJM library is also required" in out
-    assert "labjack.com" in out
-
-
-def test_missing_python_wrapper_disambiguates_from_native(capture, monkeypatch):
-    """When the doctor reports ✗ on a driver row, it must say 'Python wrapper' explicitly.
-
-    Reproduces the confusion of 'I installed the LJM driver from labjack.com but doctor
-    still says it's not installed' — the doctor was checking labjack-ljm (PyPI), not the
-    native lib, and the wording has to make that clear.
-    """
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else None)
-
-    _, out = capture(["doctor"])
-
-    # The driver row should call the missing thing a "Python wrapper" by name, not
-    # a vague "LJM library" / "LJM driver" that the user could confuse with the
-    # system-level binary they already installed.
-    assert "Python wrapper labjack-ljm not installed" in out
-    # And it should point at the pip install command, not just at labjack.com.
-    assert "pip install 'instro[daq-labjack]'" in out
 
 
 def test_internal_error_returns_2(capture, monkeypatch):
@@ -221,17 +209,59 @@ def test_doctor_invokable_as_module():
 
 def test_output_is_inside_one_outer_panel(capture, monkeypatch):
     """Everything renders inside a single outer box — runtime + table + verdict all framed."""
-    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa"}))
-    monkeypatch.setattr(cli, "_try_import", lambda name: (name == "pyvisa", None))
-    monkeypatch.setattr(cli, "_version_of", lambda dist: "1.15.0" if dist == "pyvisa" else "0.6.0")
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
+    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({"visa": "/usr/lib/libvisa.so"}))
+    monkeypatch.setattr(cli, "_version_of", lambda _dist: "0.6.0")
 
     _, out = capture(["doctor"])
-    # The outer Panel uses ╭ ╮ ╰ ╯ corner glyphs.
-    # All three sections (Python label, table header, verdict text) should appear
-    # between the open and close of the same outer panel.
     open_idx = out.index("╭")
     close_idx = out.rindex("╯")
     inner = out[open_idx:close_idx]
     assert "Python" in inner
-    assert "Component" in inner  # table header
-    assert "Ready to go" in inner  # verdict
+    assert "Component" in inner
+    assert "Ready to go" in inner
+
+
+def test_find_native_lib_uses_ctypes_find_then_load(monkeypatch):
+    """`_find_native_lib` must call find_library AND verify with CDLL.
+
+    Regression guard: find_library can return a stale-cache hit on macOS for libs
+    that aren't actually loadable. CDLL is what tells us the lib really works.
+    """
+    calls: list[str] = []
+
+    def _fake_find_library(name):
+        calls.append(("find", name))
+        return f"/fake/path/lib{name}.dylib"
+
+    def _fake_cdll(path):
+        calls.append(("load", path))
+        return object()  # success
+
+    monkeypatch.setattr(cli.ctypes.util, "find_library", _fake_find_library)
+    monkeypatch.setattr(cli.ctypes, "CDLL", _fake_cdll)
+
+    result = cli._find_native_lib(["LabJackM"])
+    assert result == "/fake/path/libLabJackM.dylib"
+    assert ("find", "LabJackM") in calls
+    assert ("load", "/fake/path/libLabJackM.dylib") in calls
+
+
+def test_find_native_lib_skips_unloadable(monkeypatch):
+    """If CDLL raises OSError, try the next name rather than reporting installed."""
+    def _fake_find_library(name):
+        # Both names "resolve" but the first one will fail to load.
+        return f"/fake/path/lib{name}.dylib"
+
+    def _fake_cdll(path):
+        if "broken" in path:
+            raise OSError("simulated load failure")
+        return object()
+
+    monkeypatch.setattr(cli.ctypes.util, "find_library", _fake_find_library)
+    monkeypatch.setattr(cli.ctypes, "CDLL", _fake_cdll)
+
+    # First name is unloadable, second loads → second is reported.
+    assert cli._find_native_lib(["broken", "working"]) == "/fake/path/libworking.dylib"
+    # All names unloadable → None.
+    assert cli._find_native_lib(["broken"]) is None
