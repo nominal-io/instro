@@ -28,10 +28,14 @@ from rich.table import Table
 from rich.text import Text
 
 # --- Status icons ------------------------------------------------------------
+# Use emoji-width glyphs (✅ ❌ ⛔) — these render at "wide" cell width in most
+# terminals, so they visually pop next to the column text without needing any
+# special font support. They're standard Unicode, supported by macOS / Linux /
+# Windows Terminal out of the box.
 
-_OK = Text("✓", style="bold green")
-_MISSING = Text("✗", style="bold red")
-_NA = Text("·", style="dim yellow")  # not applicable on this OS
+_OK = "✅"
+_MISSING = "❌"
+_NA = "⛔"  # not applicable on this OS
 
 _ALL_OS = ("Darwin", "Linux", "Windows")
 
@@ -237,74 +241,67 @@ def _find_native_lib(names: Iterable[str]) -> str | None:
 
 
 @dataclass
-class _PackageRow:
-    icon: Text
-    notes: str
-    installed: bool
+class _Row:
+    notes: str           # already includes the leading icon + space
+    installed: bool      # for package rows; ignored on driver rows
+    blocks_ready: bool   # True if this row's failure should fail the doctor
 
 
-@dataclass
-class _DriverRow:
-    icon: Text
-    notes: str
-    blocks_ready: bool  # True if this driver's failure should fail the doctor
-
-
-def _resolve_package(pkg: Package) -> _PackageRow:
+def _resolve_package(pkg: Package) -> _Row:
     if pkg.extras is None:
         version = _version_of(pkg.distribution) or "installed"
-        return _PackageRow(
-            icon=_OK,
-            notes=f"[dim]{pkg.description} — {pkg.distribution} {version}[/]",
+        return _Row(
+            notes=f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]",
             installed=True,
+            blocks_ready=False,
         )
     if pkg.importable_module and _has_module(pkg.importable_module):
         version = _version_of(pkg.distribution) or "installed"
-        return _PackageRow(
-            icon=_OK,
-            notes=f"[dim]{pkg.description} — {pkg.distribution} {version}[/]",
+        return _Row(
+            notes=f"{_OK}  [dim]{pkg.description} — {pkg.distribution} {version}[/]",
             installed=True,
+            blocks_ready=False,
         )
     install_cmd = escape(f"pip install 'instro[{pkg.extras}]'")
-    return _PackageRow(
-        icon=_MISSING,
-        notes=f"[dim]{pkg.description}[/]\n[yellow]{install_cmd}[/]",
+    return _Row(
+        notes=f"{_MISSING}  [dim]{pkg.description}[/]\n   [yellow]{install_cmd}[/]",
         installed=False,
+        blocks_ready=False,
     )
 
 
-def _resolve_driver(driver: Driver, parent: Package, os_name: str) -> _DriverRow:
+def _resolve_driver(driver: Driver, parent: Package, os_name: str) -> _Row:
     # 1. OS support gate.
     if os_name not in driver.supported_os:
         os_label = "macOS" if os_name == "Darwin" else os_name
         supported = ", ".join("macOS" if s == "Darwin" else s for s in driver.supported_os)
-        return _DriverRow(
-            icon=_NA,
-            notes=f"[dim]Not supported on {os_label}; supported on {supported}.[/]",
+        return _Row(
+            notes=f"{_NA}  [dim]Not supported on {os_label}; supported on {supported}.[/]",
+            installed=False,
             blocks_ready=False,
         )
 
     # 2. Look for the native library on the system.
     resolved = _find_native_lib(driver.native_lib_names)
     if resolved:
-        return _DriverRow(
-            icon=_OK,
-            notes=f"[dim]Found: {resolved}[/]",
+        return _Row(
+            notes=f"{_OK}  [dim]Found: {resolved}[/]",
+            installed=True,
             blocks_ready=False,
         )
 
     # 3. Allow a Python fallback (PyVISA: pyvisa-py covers the backend role).
     if driver.python_fallback and _has_module(driver.python_fallback):
-        return _DriverRow(
-            icon=_OK,
-            notes=f"[dim]Using Python backend: {driver.python_fallback}[/]",
+        return _Row(
+            notes=f"{_OK}  [dim]Using Python backend: {driver.python_fallback}[/]",
+            installed=True,
             blocks_ready=False,
         )
 
     # 4. Native lib not found.
-    return _DriverRow(
-        icon=_MISSING,
-        notes=f"[yellow]→ {driver.install_hint(os_name)}[/]",
+    return _Row(
+        notes=f"{_MISSING}  [yellow]→ {driver.install_hint(os_name)}[/]",
+        installed=False,
         blocks_ready=parent.universally_required,
     )
 
@@ -327,10 +324,12 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
     runtime.add_row("instro", f"[bold]{instro_version}[/]")
 
     # --- Packages-and-drivers table -----------------------------------------
+    # Two columns only: component name on the left, status + notes mashed into
+    # the right. The status glyph leads each notes cell so the eye finds it
+    # before reading the explanation.
     table = Table(show_header=True, header_style="bold", expand=True)
     table.add_column("Component", no_wrap=True)
-    table.add_column("Status", justify="center", width=8)
-    table.add_column("Notes")
+    table.add_column("Status")
 
     blocking: list[str] = []
     first = True
@@ -341,24 +340,24 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
 
         # Package row.
         pkg_row = _resolve_package(pkg)
-        table.add_row(f"[bold]{escape(pkg.label)}[/]", pkg_row.icon, pkg_row.notes)
+        table.add_row(f"[bold]{escape(pkg.label)}[/]", pkg_row.notes)
 
         # Child driver rows.
         for driver in pkg.drivers:
             child_row = _resolve_driver(driver, pkg, os_name)
-            table.add_row(f"  └ {escape(driver.label)}", child_row.icon, child_row.notes)
+            table.add_row(f"  └ {escape(driver.label)}", child_row.notes)
             if child_row.blocks_ready:
                 blocking.append(f"{pkg.label} → {driver.label}")
 
     # --- Verdict line -------------------------------------------------------
     if blocking:
         verdict = Text.assemble(
-            ("⚠  ", "bold yellow"),
+            ("⚠️  ", "bold yellow"),
             (f"Required driver(s) missing: {', '.join(blocking)}", "yellow"),
         )
         exit_code = 1
     else:
-        verdict = Text("✓  Ready to go.", style="bold green")
+        verdict = Text(f"{_OK}  Ready to go.", style="bold green")
         exit_code = 0
 
     # --- Render everything inside one outer Panel ---------------------------
