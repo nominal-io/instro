@@ -3,19 +3,19 @@ title: EtherNet/IP
 description: Using EtherNet/IP for Allen-Bradley PLC tag communication
 ---
 
-<Info>The Nominal Instrumentation Library is in alpha testing for some of our customers. If you would like to try out the Instrumentation Library, but do not currently have access, please reach out to us through our [Support Portal](https://portal.usepylon.com/nominal).</Info>
+<Info>The Nominal Instrumentation Library is in alpha testing. To request access, open the [Support Portal](https://portal.usepylon.com/nominal).</Info>
 
 # EtherNet/IP
 
-EtherNet/IP support provides config-driven tag access for Allen-Bradley PLCs. You define the PLC endpoint, optional local backplane route, and the exact tags to read or write, then access those tags by local aliases from Python.
+EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route, and the scalar tags Nominal reads or writes. `EtherNetIP` exposes those tags by local alias from Python and can publish boolean and numeric tag values to Nominal Core or Nominal Connect.
 
 <Warning>
-EtherNet/IP support is currently exposed through `instro.unstable.ethernetip` and depends on the local native package `instro-ethernetip-python`. It is not part of the stable `instro[all]` install path yet.
+The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the local native package `instro-ethernetip-python`. It is not part of the stable `instro[all]` install path.
 </Warning>
 
 ## Quickstart
 
-Publishing EtherNet/IP data to Nominal Core with the Nominal Instrumentation Library:
+This example opens a CompactLogix connection, polls scalar tags, and publishes numeric samples to Nominal Core.
 
 <Tabs>
 
@@ -27,15 +27,15 @@ import time
 from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.ethernetip import EtherNetIP
 
-RID = "<dataset_rid>"  # Replace with your dataset RID.
+RID = "<dataset_rid>"  # Nominal Core dataset RID.
 
-# Instantiate device with JSON config. autostart opens and begins polling.
+# autostart opens the session and starts polling.
 plc = EtherNetIP(config="compactlogix.json", autostart=True)
 
-# Add publisher to flow numeric data to Nominal Core.
+# Publish boolean and numeric tag samples to Nominal Core.
 plc.add_publisher(NominalCorePublisher(dataset_rid=RID))
 
-# Allow some time for background daemon reads.
+# Let the background daemon collect one polling window.
 time.sleep(10)
 
 plc.close()
@@ -94,9 +94,9 @@ plc.close()
 
 </Tabs>
 
-## Current Support
+## Current support
 
-EtherNet/IP support is intentionally narrow today. It is meant for explicitly configured PLC tags where the tag names and data types are already known.
+EtherNet/IP support is intentionally narrow. It targets PLC tags whose names and scalar data types are known before runtime.
 
 | Area | Supported today |
 | --- | --- |
@@ -104,51 +104,51 @@ EtherNet/IP support is intentionally narrow today. It is meant for explicitly co
 | Transport | EtherNet/IP explicit messaging over TCP |
 | Route paths | Direct connection, or local backplane slot hops only |
 | Background polling | Batched reads for all `poll: true` tags |
-| Streaming to Core/Connect | Boolean and numeric scalar tag values |
+| Streaming to Nominal Core or Nominal Connect | Boolean and numeric scalar tag values |
 | Manual tag operations | Scalar values and strings through the native session API |
 | Tag discovery | Not supported |
 | UDTs | Not supported in the config-driven API |
 | Arrays | Not supported in the config-driven API |
 
 <Note>
-Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol, but the current implementation has only been tested against the CompactLogix 5332E 1769-L32E.
+Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol. Current hardware testing covers only CompactLogix 5332E 1769-L32E.
 </Note>
 
-## When to Use Each Feature
+## When to use each feature
 
-Most PLCs can be brought online with a connection, a few scalar tags, and `autostart=True`. The features below map common EtherNet/IP needs to the relevant config fields.
+A connection, scalar tag definitions, and `autostart=True` cover the common path. Use the fields below for specific EtherNet/IP requirements.
 
-| If you're trying to... | Reach for... |
+| Requirement | Configuration |
 | --- | --- |
-| Stream live scalar PLC data to Nominal Core or Connect | `timing.poll_interval` + tags with `poll: true` |
-| Read several polled tags efficiently | Background batched reads, enabled automatically for `poll: true` tags |
-| Write setpoints or command tags safely | `write_min` / `write_max` on numeric tags |
+| Stream live scalar PLC data to Nominal Core or Nominal Connect | `timing.poll_interval` + tags with `poll: true` |
+| Read all polled tags in one request | Background batched reads for `poll: true` tags |
+| Reject out-of-range setpoints before PLC writes | `write_min` / `write_max` on numeric tags |
 | Convert raw numeric PLC values to engineering units | `scale` |
-| Talk to a PLC CPU behind a local chassis/backplane | `connection.route_path.hops` with `type: "backplane"` |
+| Reach a PLC CPU behind a local chassis/backplane | `connection.route_path.hops` with `type: "backplane"` |
 | Read or write a string tag manually | `instro.unstable._ethernetip.EtherNetIpSession` |
 
-## Key Concepts
+## Key concepts
 
-### Lifecycle Pattern
+### Lifecycle
 
-The typical EtherNet/IP workflow follows this pattern:
+The EtherNet/IP workflow has six moves:
 
-1. **Define your PLC tags** - Create a JSON config file or build an `EtherNetIPConfig` in Python.
-2. **`EtherNetIP(config)`** - Instantiate the client with your config and optional connection override.
-3. **`open()`** - Establish the native EtherNet/IP session.
-4. **`start()`** - Begin background polling if timing is configured.
-5. **Read or Write** - Access tags by alias with type validation and optional scaling.
-6. **`close()`** - Close the session and stop background polling.
+1. Define PLC tags in a JSON config file or an `EtherNetIPConfig`.
+2. Instantiate `EtherNetIP(config)` with an optional connection override.
+3. Call `open()` to establish the native EtherNet/IP session.
+4. Call `start()` to begin background polling when timing is configured.
+5. Read or write tags by alias with type validation and optional scaling.
+6. Call `close()` to close the session and stop background polling.
 
 <Tip>
 Pass `autostart=True` to combine steps 3 and 4. This requires a `timing` section in the config.
 </Tip>
 
-### Supported Data Types
+### Supported data types
 
 The config-driven API supports scalar PLC tag types. The `data_type` field is required for every tag so reads can validate that the PLC returned the expected kind before publishing.
 
-| Data Type | Python Payload | Streaming to Core/Connect | Notes |
+| Data type | Python payload | Streaming to Nominal Core or Nominal Connect | Notes |
 | --- | --- | --- | --- |
 | `bool` | `bool` read as `0` or `1` in measurements | Yes | Boolean reads are published as numeric samples. |
 | `sint` | `int` | Yes | 8-bit signed integer. |
@@ -161,15 +161,15 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 | `ulint` | `int` | Yes | 64-bit unsigned integer. |
 | `real` | `float` | Yes | 32-bit floating point. |
 | `lreal` | `float` | Yes | 64-bit floating point. |
-| `string` | `str` | No | Strings can be read/written manually, but cannot be polled for streaming. |
+| `string` | `str` | No | Manual reads and writes only. |
 
 <Warning>
-UDTs and arrays are not supported by the config-driven EtherNet/IP API yet. Configure scalar tags only. If a PLC value returns as a structured value, it is not publishable through `EtherNetIP.read()` or background polling.
+The config-driven EtherNet/IP API supports scalar tags only. If a PLC value returns a structured value, `EtherNetIP.read()` and background polling reject it.
 </Warning>
 
 ### Strings
 
-String tags are supported for manual operations, but not for streaming measurements to Core or Connect. This is a Core/Connect measurement-streaming limitation rather than a PLC protocol limitation.
+Nominal Core and Nominal Connect measurements accept numeric samples in this path, so string tags support manual operations only. The PLC protocol can still read and write string tags.
 
 In config files, string tags must set `poll: false`:
 
@@ -182,7 +182,7 @@ In config files, string tags must set `poll: false`:
 }
 ```
 
-Use the private native session for direct string reads or writes when you need the value in Python:
+Use the private native session for Python-side string reads or writes:
 
 ```python
 from instro.unstable._ethernetip import EtherNetIpSession, PlcValue
@@ -193,26 +193,26 @@ with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
     session.write_tag("RecipeName", PlcValue.string("startup"))
 ```
 
-The config-driven `EtherNetIP.write()` path can also write string command tags when `poll` is disabled:
+The config-driven `EtherNetIP.write()` path also writes string command tags when `poll` is disabled:
 
 ```python
 plc.write("recipe_name", "startup")
 ```
 
-### Background Batched Reads
+### Background batched reads
 
-When `timing` is configured and polling is started, all tags with `poll: true` are read in a single batched request per polling cycle. A per-tag read or decode failure is logged and does not discard successful values from other tags in the same batch.
+With `timing` configured and polling started, `EtherNetIP` reads all tags with `poll: true` in a single batched request per polling cycle. EtherNet/IP logs a read or decode failure on one tag without discarding successful values from other tags in the same batch.
 
-Only streamable scalar tags should be polled:
+Poll only streamable scalar tags:
 
 - `bool`
 - signed and unsigned integer types
 - `real`
 - `lreal`
 
-String, UDT, and array values should not be configured for polling.
+Keep string, UDT, and array values out of background polling.
 
-### Route Paths
+### Route paths
 
 Route paths are limited to local backplane slot hops:
 
@@ -243,13 +243,13 @@ The config schema allows multiple local backplane hops:
 }
 ```
 
-However, the implementation has only been tested where a single backplane hop is in use.
+Current testing has covered one backplane hop.
 
 <Warning>
-Network hops are not supported. You cannot configure a route path that hops through Ethernet to another PLC, remote chassis, or IP address. The only accepted hop type is `backplane`, and CIP port 1 is implied by the `slot` value.
+Network hops are not supported. A route path cannot hop through Ethernet to another PLC, remote chassis, or IP address. The only accepted hop type is `backplane`, and CIP port 1 is implied by the `slot` value.
 </Warning>
 
-### Tag Discovery
+### Tag discovery
 
 Tag discovery is not supported. Every tag must be declared explicitly in the `tags` array with:
 
@@ -258,7 +258,7 @@ Tag discovery is not supported. Every tag must be declared explicitly in the `ta
 - the expected scalar `data_type`
 - optional `scale`, `poll`, `write_min`, and `write_max`
 
-If the PLC tag's actual type does not match the configured `data_type`, reads fail with a type error instead of publishing an incorrectly decoded value.
+If the PLC tag's actual type differs from the configured `data_type`, reads fail with a type error instead of publishing an incorrectly decoded value.
 
 ### Scaling
 
@@ -277,11 +277,11 @@ physical = offset + (gain * raw)
 }
 ```
 
-Scaling is applied automatically on reads and reversed on writes. Scaling is only supported for numeric tags.
+EtherNet/IP applies scaling on reads and reverses it on writes. Scaling supports numeric tags only.
 
-### Write Limits
+### Write limits
 
-Use `write_min` and `write_max` to reject unsafe writes before they reach the PLC:
+Set `write_min` and `write_max` to reject unsafe writes before they reach the PLC:
 
 ```json
 {
@@ -298,18 +298,18 @@ plc.write("speed_setpoint", 1200.0)  # OK
 plc.write("speed_setpoint", 9999.0)  # Raises ValueError
 ```
 
-Write limits are checked in the units passed by the caller. If `scale` is configured, those are physical units before reverse scaling is applied.
+EtherNet/IP checks write limits in the units passed by the caller. With `scale` configured, those units are physical units before reverse scaling.
 
 ## Configuration
 
 Every EtherNet/IP config file must include:
 
-- **`version`** - identifies the config schema version.
-- **`protocol`** - must be `"ethernetip"` so the wrong protocol config fails clearly.
-- **`device`** - metadata used for channel naming.
-- **`tags`** - explicit tag definitions.
+- **`version`**: identifies the config schema version.
+- **`protocol`**: must be `"ethernetip"` so the wrong protocol config fails clearly.
+- **`device`**: metadata used for channel naming.
+- **`tags`**: explicit tag definitions.
 
-### Full Configuration Example
+### Full configuration example
 
 ```json
 {
@@ -362,9 +362,9 @@ Every EtherNet/IP config file must include:
 }
 ```
 
-### Device Section
+### Device section
 
-Metadata about the physical PLC. The `name` field is used as a prefix for channel names when publishing data.
+The `device` section describes the physical PLC. EtherNet/IP uses the `name` field as a prefix for published channel names.
 
 | Field | Required | Description |
 | --- | --- | --- |
@@ -373,7 +373,7 @@ Metadata about the physical PLC. The `name` field is used as a prefix for channe
 | `manufacturer` | No | Device manufacturer |
 | `model` | No | Device model number |
 
-### Connection Section
+### Connection section
 
 | Field | Required | Default | Description |
 | --- | --- | --- | --- |
@@ -381,7 +381,7 @@ Metadata about the physical PLC. The `name` field is used as a prefix for channe
 | `port` | No | `44818` | EtherNet/IP TCP port |
 | `route_path` | No | - | Optional local backplane route path |
 
-#### Route Path
+#### Route path
 
 | Field | Required | Default | Description |
 | --- | --- | --- | --- |
@@ -394,7 +394,7 @@ Each hop must be:
 | `type` | Yes | Must be `"backplane"` |
 | `slot` | Yes | Backplane slot number, 0-255 |
 
-### Tag Definitions
+### Tag definitions
 
 Each tag entry defines one aliasable PLC tag:
 
@@ -409,35 +409,35 @@ Each tag entry defines one aliasable PLC tag:
 | `write_min` | No | - | Minimum allowed write value for numeric tags |
 | `write_max` | No | - | Maximum allowed write value for numeric tags |
 
-### Timing Section
+### Timing section
 
 | Field | Required | Default | Description |
 | --- | --- | --- | --- |
 | `poll_interval` | Yes | - | Polling interval in seconds (0.01-10.0) |
 
-When the `timing` section is present, all tags with `poll: true` are read at the specified interval in a background thread. Successful values are published and buffered for retrieval.
+When the `timing` section is present, `EtherNetIP` reads all tags with `poll: true` at the specified interval in a background thread. Successful values are published and buffered for retrieval.
 
-### Validation Rules
+### Validation rules
 
-The configuration is validated at load time:
+`EtherNetIP` validates configuration at load time:
 
 - `protocol` must be `"ethernetip"`.
 - Tag aliases must be unique.
 - Every tag must declare `data_type`.
 - `data_type` must be one of the supported scalar types.
-- `scale` is only allowed on numeric tags.
-- `write_min` and `write_max` are only allowed on numeric tags.
+- Only numeric tags can use `scale`.
+- Only numeric tags can use `write_min` and `write_max`.
 - `write_min` must be less than or equal to `write_max`.
 - Integer write limits must fit in the configured PLC integer type after scaling.
 - String tags must set `poll: false`.
 - Route path hops must be local backplane hops with slots from 0 to 255.
-- Unsupported route hop fields such as explicit CIP ports or Ethernet addresses are rejected.
+- Configuration validation rejects unsupported route hop fields such as explicit CIP ports or Ethernet addresses.
 
-## Creating an EtherNetIP Instance
+## Create an EtherNetIP instance
 
 <Tabs>
 
-<Tab title="JSON Config">
+<Tab title="JSON config">
 
 ```python
 from instro.unstable.ethernetip import EtherNetIP
@@ -453,7 +453,7 @@ plc.close()
 
 </Tab>
 
-<Tab title="Connection Override">
+<Tab title="Connection override">
 
 ```python
 from instro.unstable.ethernetip import EtherNetIP
@@ -471,7 +471,7 @@ plc.open()
 
 </Tab>
 
-<Tab title="Python Config">
+<Tab title="Python config">
 
 ```python
 from instro.protocols.common_types import DeviceInfo
@@ -504,9 +504,9 @@ plc = EtherNetIP(config, connection=connection, autostart=True)
 
 </Tabs>
 
-## Reading and Writing
+## Read and write
 
-Channel names in returned `Measurement` and `Command` objects follow the pattern `{device_name}.{tag_alias}`. Write commands append `.cmd` to the channel name.
+Returned `Measurement` and `Command` objects use channel names in the pattern `{device_name}.{tag_alias}`. Write commands append `.cmd` to the channel name.
 
 ```python
 measurement = plc.read("line_speed")
@@ -516,7 +516,7 @@ command = plc.write("line_speed", 1200.0)
 print(command.channel_data["line_plc.line_speed.cmd"])
 ```
 
-## Background Polling
+## Background polling
 
 Use `autostart=True` to open the session and begin background polling immediately:
 
@@ -531,7 +531,7 @@ recent_speed = plc.get_channel("line_plc.line_speed", length=100)
 plc.close()
 ```
 
-Or start explicitly:
+Start explicitly when the session should open before polling begins:
 
 ```python
 plc = EtherNetIP(config="compactlogix.json")
@@ -539,26 +539,26 @@ plc.open()
 plc.start()
 ```
 
-## Error Handling
+## Error handling
 
-EtherNet/IP raises descriptive errors for common issues:
+EtherNet/IP raises these errors for common failures:
 
 | Error | Meaning |
 | --- | --- |
 | `RuntimeError: EtherNet/IP support requires the local native package 'instro-ethernetip-python'` | The native PyO3 package is not installed in the environment. |
-| `RuntimeError: EtherNet/IP client not connected. Call open() first.` | Attempting to read or write before opening. |
+| `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
 | `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different scalar type than the config declared. |
 | `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |
 | `ValueError: Tag '{alias}' raw value ... is out of range for ...` | A raw integer write does not fit in the configured PLC integer type. |
-| Native `EtherNetIpError` | The underlying EtherNet/IP request failed, for example due to connection, CIP, or tag errors. |
+| Native `EtherNetIpError` | The underlying EtherNet/IP request failed because of a connection, CIP, or tag error. |
 
-## Known Limitations
+## Known limitations
 
-- EtherNet/IP support is unstable and local-development only.
-- Hardware testing has only covered Allen-Bradley CompactLogix 5332E 1769-L32E.
+- EtherNet/IP support is unstable and local development only.
+- Hardware testing covers Allen-Bradley CompactLogix 5332E 1769-L32E.
 - Route paths support local backplane hops only. Network hops are unsupported.
-- Only a single backplane hop has been tested.
+- Current testing covers one local backplane hop.
 - Tag discovery is unsupported.
 - UDTs are unsupported in the config-driven API.
 - Arrays are unsupported in the config-driven API.
-- String tags cannot be streamed to Core or Connect; read/write them manually instead.
+- String tags cannot be streamed to Nominal Core or Nominal Connect; read or write them manually.

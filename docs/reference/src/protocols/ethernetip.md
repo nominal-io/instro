@@ -1,8 +1,8 @@
 # EtherNet/IP
 
-EtherNet/IP support provides config-driven access to explicitly declared Allen-Bradley PLC tags.
-It currently lives under `instro.unstable.ethernetip` and depends on the local native
-`instro-ethernetip-python` package.
+EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
+and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
+and depends on the local native `instro-ethernetip-python` package.
 
 ```python
 from instro.unstable.ethernetip import EtherNetIP
@@ -19,7 +19,7 @@ plc.write("line_speed", 1200.0)
 plc.close()
 ```
 
-## Current Scope
+## Current scope
 
 | Area | Supported today |
 |------|-----------------|
@@ -28,17 +28,17 @@ plc.close()
 | Route paths | Direct connection or local backplane slot hops only |
 | Polling | Batched reads for `poll: true` scalar tags |
 | Streaming values | Boolean and numeric scalar tags |
-| Manual strings | Supported through the native session API |
+| Manual string operations | Native session API |
 | Tag discovery | Not supported |
 | UDTs | Not supported in the config-driven API |
 | Arrays | Not supported in the config-driven API |
 
-## JSON Config Reference
+## JSON config reference
 
 ### Connection
 
-Connection can be provided in the config or passed to the `EtherNetIP` constructor. The constructor
-parameter takes precedence, allowing the same tag map to be reused across environments.
+Provide the connection in the config or pass it to the `EtherNetIP` constructor. The constructor
+parameter takes precedence, so one tag map can target multiple environments.
 
 === "Constructor"
 
@@ -53,7 +53,7 @@ parameter takes precedence, allowing the same tag map to be reused across enviro
     )
     ```
 
-=== "In Config"
+=== "In config"
 
     ```json
     {
@@ -75,7 +75,7 @@ parameter takes precedence, allowing the same tag map to be reused across enviro
 | `port` | int | `44818` | EtherNet/IP TCP port |
 | `route_path` | object | `null` | Optional local backplane route path |
 
-Route path hops are restricted to local backplane hops:
+Route paths accept local backplane hops only:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -83,12 +83,12 @@ Route path hops are restricted to local backplane hops:
 | `hops[].type` | string | *required* | Must be `"backplane"` |
 | `hops[].slot` | int | *required* | Backplane slot number, 0-255 |
 
-Network hops to another PLC, remote chassis, or IP address are not supported. Although the schema
-accepts multiple local backplane hops, current testing has only covered a single backplane hop.
+Network hops to another PLC, remote chassis, or IP address are not supported. The schema accepts
+multiple local backplane hops, but current testing has covered one backplane hop.
 
 ### Timing
 
-Controls background polling:
+The `timing` section controls background polling:
 
 ```json
 {
@@ -102,8 +102,9 @@ Controls background polling:
 |-------|------|---------|-------------|
 | `poll_interval` | float | *required* | Seconds between polling cycles (0.01-10.0) |
 
-When polling is running, all `poll: true` tags are read in one batched request per polling cycle.
-Per-tag failures are logged without discarding successful values from the same batch.
+When polling is running, `EtherNetIP` reads all `poll: true` tags in one batched request per
+polling cycle. EtherNet/IP logs a per-tag failure without discarding successful values from the
+same batch.
 
 ### Tags
 
@@ -122,7 +123,7 @@ Each tag entry defines one named PLC tag:
 
 Supported `data_type` values:
 
-| Data Type | Streamable | Notes |
+| Data type | Streamable | Notes |
 |-----------|------------|-------|
 | `bool` | Yes | Published as numeric `0` or `1` |
 | `sint` | Yes | 8-bit signed integer |
@@ -135,9 +136,9 @@ Supported `data_type` values:
 | `ulint` | Yes | 64-bit unsigned integer |
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
-| `string` | No | Must set `poll: false`; use manual reads/writes |
+| `string` | No | Must set `poll: false`; use manual reads and writes |
 
-String tags cannot be streamed to Core or Connect, but can be read or written manually through
+String tags cannot be streamed to Nominal Core or Nominal Connect. Manual reads and writes use
 `instro.unstable._ethernetip.EtherNetIpSession`.
 
 ### Scaling
@@ -157,9 +158,9 @@ physical = offset + (gain * raw)
 }
 ```
 
-### Write Limits
+### Write limits
 
-Reject writes outside a safe range before they reach the PLC:
+Reject writes outside the configured range before they reach the PLC:
 
 ```json
 {
@@ -176,9 +177,9 @@ plc.write("line_speed", 1200.0)  # OK
 plc.write("line_speed", 9999.0)  # raises ValueError
 ```
 
-Limits are checked in physical units before reverse scaling is applied.
+EtherNetIP checks limits in physical units before reverse scaling.
 
-## Validation Rules
+## Validation rules
 
 - `protocol` must be `"ethernetip"`.
 - Tag aliases must be unique.
@@ -190,13 +191,13 @@ Limits are checked in physical units before reverse scaling is applied.
 - Route path hops must use `type: "backplane"` with `slot` from 0 to 255.
 - Tag discovery, UDTs, and arrays are not supported.
 
-## API Reference
+## API reference
 
 ### EtherNetIP
 
 ::: instro.unstable.ethernetip.ethernetip.EtherNetIP
 
-### Configuration Types
+### Configuration types
 
 ::: instro.unstable.ethernetip.ethernetip_types
     options:

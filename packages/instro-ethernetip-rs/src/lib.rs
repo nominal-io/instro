@@ -90,7 +90,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Boxed future used for multithreaded runtime compatibility.
 ///
-/// Thus, we need the explicit [`Send`] bound, which means this seam cannot use `async fn` in
+/// The trait needs the explicit [`Send`] bound, which means this seam cannot use `async fn` in
 /// the trait and instead returns a boxed future directly.
 type ClientFuture<'a, T> =
     Pin<Box<dyn Future<Output = std::result::Result<T, EtherNetIpError>> + Send + 'a>>;
