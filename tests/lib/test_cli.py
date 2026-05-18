@@ -17,6 +17,7 @@ def capture(monkeypatch):
 
     Returns a callable taking argv -> (exit_code, stdout_text).
     """
+
     def _run(argv: list[str]) -> tuple[int, str]:
         buf = StringIO()
         from rich.console import Console as RealConsole
@@ -36,18 +37,22 @@ def capture(monkeypatch):
 
 def _fake_find_spec(present: set[str]):
     """Pretend only the modules in `present` exist."""
+
     def _impl(name: str):
         return object() if name in present else None
+
     return _impl
 
 
 def _fake_find_native(found: dict[str, str]):
     """Pretend the listed native libs are installed, returning the given paths."""
+
     def _impl(names):
         for name in names:
             if name in found:
                 return found[name]
         return None
+
     return _impl
 
 
@@ -61,13 +66,19 @@ def test_doctor_all_present(_mock_os, capture, monkeypatch):
         "instro.i2c.drivers.totalphase",
     }
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(extras_present))
-    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({
-        "visa": "/usr/lib/libvisa.so",
-        "LabJackM": "/usr/local/lib/libLabJackM.so",
-        "nidaqmx": "/usr/lib/libnidaqmx.so",
-        "cbw": "/usr/lib/libcbw.so",
-        "aardvark": "/usr/lib/libaardvark.so",
-    }))
+    monkeypatch.setattr(
+        cli,
+        "_find_native_lib",
+        _fake_find_native(
+            {
+                "visa": "/usr/lib/libvisa.so",
+                "LabJackM": "/usr/local/lib/libLabJackM.so",
+                "nidaqmx": "/usr/lib/libnidaqmx.so",
+                "cbw": "/usr/lib/libcbw.so",
+                "aardvark": "/usr/lib/libaardvark.so",
+            }
+        ),
+    )
     monkeypatch.setattr(cli, "_version_of", lambda _dist: "1.2.3")
 
     code, out = capture(["doctor"])
@@ -129,10 +140,16 @@ def test_native_lib_found_shows_path(capture, monkeypatch):
         "find_spec",
         _fake_find_spec({"instro.daq.drivers.labjack"}),
     )
-    monkeypatch.setattr(cli, "_find_native_lib", _fake_find_native({
-        "visa": "/Library/Frameworks/visa.framework/visa",
-        "LabJackM": "/usr/local/lib/libLabJackM.dylib",
-    }))
+    monkeypatch.setattr(
+        cli,
+        "_find_native_lib",
+        _fake_find_native(
+            {
+                "visa": "/Library/Frameworks/visa.framework/visa",
+                "LabJackM": "/usr/local/lib/libLabJackM.dylib",
+            }
+        ),
+    )
     monkeypatch.setattr(cli, "_version_of", lambda _dist: "1.0.0")
 
     _, out = capture(["doctor"])
@@ -196,8 +213,10 @@ def test_windows_supports_everything(_mock_os, capture, monkeypatch):
 
 def test_internal_error_returns_2(capture, monkeypatch):
     """Uncaught exception inside the command must exit 2, not 1."""
+
     def _boom(_args):
         raise RuntimeError("simulated internal failure")
+
     monkeypatch.setattr(cli, "_cmd_doctor", _boom)
 
     code, _ = capture(["doctor"])
@@ -280,6 +299,7 @@ def test_find_native_lib_uses_ctypes_find_then_load(monkeypatch):
 
 def test_find_native_lib_skips_unloadable(monkeypatch):
     """If CDLL raises OSError, try the next name rather than reporting installed."""
+
     def _fake_find_library(name):
         # Both names "resolve" but the first one will fail to load.
         return f"/fake/path/lib{name}.dylib"

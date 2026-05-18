@@ -71,8 +71,8 @@ class Package:
 
     label: str
     description: str
-    extras: str | None        # None for core, "daq-labjack" etc. for extras
-    distribution: str         # PyPI distribution name for version lookup
+    extras: str | None  # None for core, "daq-labjack" etc. for extras
+    distribution: str  # PyPI distribution name for version lookup
     importable_module: str | None  # path proving the package's Python files are installed
     drivers: tuple[Driver, ...]
 
