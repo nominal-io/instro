@@ -164,7 +164,7 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 | `string` | `str` | No | Manual reads and writes only. |
 
 <Warning>
-The config-driven EtherNet/IP API supports scalar tags only. If a PLC value returns a structured value, `EtherNetIP.read()` and background polling reject it.
+The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. A manual `EtherNetIP.read()` raises `TypeError`, while background polling logs a decode warning for that tag and continues publishing any other successful reads from the same batch.
 </Warning>
 
 ### Strings
@@ -547,7 +547,7 @@ EtherNet/IP raises these errors for common failures:
 | --- | --- |
 | `RuntimeError: EtherNet/IP support requires the local native package 'instro-ethernetip-python'` | The native PyO3 package is not installed in the environment. |
 | `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
-| `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different scalar type than the config declared. |
+| `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different kind than the configured scalar `data_type`, including a structured value for a scalar tag. |
 | `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |
 | `ValueError: Tag '{alias}' raw value ... is out of range for ...` | A raw integer write does not fit in the configured PLC integer type. |
 | Native `EtherNetIpError` | The underlying EtherNet/IP request failed because of a connection, CIP, or tag error. |
