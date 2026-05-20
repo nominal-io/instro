@@ -9,7 +9,7 @@ import time
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.publishers import Publisher
@@ -262,34 +262,26 @@ class EtherNetIPDevice(Instrument):
             raise TypeError(f"Tag '{tag.alias}' expected PLC kind {expected_kind_name} but read {plc_value.kind!r}.")
 
     def _build_plc_value(self, raw_value: bool | int | float | str, tag: TagDef) -> Any:
+        return self._build_plc_value_for_data_type(raw_value, tag, tag.data_type)
+
+    def _build_plc_value_for_data_type(self, raw_value: bool | int | float | str, tag: TagDef, data_type: str) -> Any:
+        """Build a native PLC value from a value already checked by TagDef.validate_write_value()."""
         native = self._require_native()
-        data_type = tag.data_type
 
         if data_type in BOOL_DATA_TYPES:
-            if isinstance(raw_value, bool):
-                return native.PlcValue.bool(raw_value)
-            if isinstance(raw_value, int) and not isinstance(raw_value, bool) and raw_value in (0, 1):
-                return native.PlcValue.bool(bool(raw_value))
-            raise TypeError(f"Tag '{tag.alias}' is a bool type but got {type(raw_value).__name__} value {raw_value!r}.")
+            return native.PlcValue.bool(bool(raw_value))
 
         if data_type in INTEGER_DATA_TYPES:
-            int_value = tag.validate_integer_raw_value(raw_value, data_type=data_type)
-            return getattr(native.PlcValue, data_type)(int_value)
+            return getattr(native.PlcValue, data_type)(cast(int, raw_value))
 
         if data_type == "real":
-            if isinstance(raw_value, bool) or not isinstance(raw_value, int | float):
-                raise TypeError(f"Tag '{tag.alias}' is a float type ({data_type}) but got {type(raw_value).__name__}.")
-            return native.PlcValue.real(float(raw_value))
+            return native.PlcValue.real(float(cast(int | float, raw_value)))
 
         if data_type == "lreal":
-            if isinstance(raw_value, bool) or not isinstance(raw_value, int | float):
-                raise TypeError(f"Tag '{tag.alias}' is a float type ({data_type}) but got {type(raw_value).__name__}.")
-            return native.PlcValue.lreal(float(raw_value))
+            return native.PlcValue.lreal(float(cast(int | float, raw_value)))
 
         if data_type == "string":
-            if not isinstance(raw_value, str):
-                raise TypeError(f"Tag '{tag.alias}' is a string type but got {type(raw_value).__name__}.")
-            return native.PlcValue.string(str(raw_value))
+            return native.PlcValue.string(cast(str, raw_value))
 
         raise ValueError(f"Unsupported EtherNet/IP data_type '{data_type}' for tag '{tag.alias}'.")
 
