@@ -262,11 +262,8 @@ class EtherNetIPDevice(Instrument):
             raise TypeError(f"Tag '{tag.alias}' expected PLC kind {expected_kind_name} but read {plc_value.kind!r}.")
 
     def _build_plc_value(self, raw_value: bool | int | float | str, tag: TagDef) -> Any:
-        return self._build_plc_value_for_data_type(raw_value, tag, tag.data_type)
-
-    def _build_plc_value_for_data_type(self, raw_value: bool | int | float | str, tag: TagDef, data_type: str) -> Any:
-        """Build a native PLC value from a value already checked by TagDef.validate_write_value()."""
         native = self._require_native()
+        data_type = tag.data_type
 
         if data_type in BOOL_DATA_TYPES:
             return native.PlcValue.bool(bool(raw_value))
