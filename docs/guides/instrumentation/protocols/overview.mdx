@@ -11,7 +11,7 @@ Protocol clients use JSON config files to describe device interfaces for standar
 
 ## When to use protocol clients
 
-Use a protocol client when the device interface is already defined by a protocol and a config file can name the addresses, tags, scaling, and polling interval. The config becomes the portable definition of how Nominal reads the device; teams can version it with the test setup and change polling without editing Python.
+Use a protocol client when the device interface is already defined by a protocol and a config file can name the addresses, tags, and polling interval. The config becomes the portable definition of how Nominal reads the device; teams can version it with the test setup and change polling without editing Python.
 
 Use protocol clients for industrial devices that do not use SCPI or VISA transports, such as PLCs, sensors, motor controllers, and environmental monitors. Data from those devices flows through the same [publisher system](/instrumentation/publishers) and background worker infrastructure as instrument driver data.
 

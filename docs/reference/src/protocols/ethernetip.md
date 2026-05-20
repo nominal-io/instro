@@ -14,8 +14,8 @@ connection = {
 }
 
 plc = EtherNetIP("compactlogix.json", connection=connection, autostart=True)
-plc.read("line_speed")
-plc.write("line_speed", 1200.0)
+plc.read_tag("line_speed")
+plc.write_tag("line_speed", 1200.0)
 plc.close()
 ```
 
@@ -112,11 +112,10 @@ Each tag entry defines one named PLC tag:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `alias` | string | *required* | Alias used in `read()` and `write()` |
+| `alias` | string | *required* | Alias used in `read_tag()` and `write_tag()` |
 | `tag_name` | string | *required* | PLC tag name |
 | `description` | string | `null` | Optional description |
 | `data_type` | string | *required* | Expected PLC scalar type |
-| `scale` | object | `null` | Linear scaling config for numeric tags |
 | `poll` | bool | `true` | Include in background polling |
 | `write_min` | number | `null` | Minimum allowed write value for numeric tags |
 | `write_max` | number | `null` | Maximum allowed write value for numeric tags |
@@ -141,23 +140,6 @@ Supported `data_type` values:
 String tags cannot be streamed to Nominal Core or Nominal Connect. Manual reads and writes use
 `instro.unstable._ethernetip.EtherNetIpSession`.
 
-### Scaling
-
-Linear scaling converts between raw numeric PLC values and physical units:
-
-```
-physical = offset + (gain * raw)
-```
-
-```json
-{
-    "alias": "pressure",
-    "tag_name": "PressureRaw",
-    "data_type": "dint",
-    "scale": {"type": "linear", "gain": 0.01, "offset": 0}
-}
-```
-
 ### Write limits
 
 Reject writes outside the configured range before they reach the PLC:
@@ -173,20 +155,20 @@ Reject writes outside the configured range before they reach the PLC:
 ```
 
 ```python
-plc.write("line_speed", 1200.0)  # OK
-plc.write("line_speed", 9999.0)  # raises ValueError
+plc.write_tag("line_speed", 1200.0)  # OK
+plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.0)
 ```
 
-EtherNetIP checks limits in physical units before reverse scaling.
+EtherNetIP checks limits before sending the write to the PLC.
 
 ## Validation rules
 
 - `protocol` must be `"ethernetip"`.
 - Tag aliases must be unique.
 - Every tag must declare `data_type`.
-- `scale`, `write_min`, and `write_max` are only valid for numeric tags.
+- `write_min` and `write_max` are only valid for numeric tags.
 - `write_min` must be less than or equal to `write_max`.
-- Integer write limits must fit in the configured PLC integer type after scaling.
+- Integer write limits must fit in the configured PLC integer type.
 - String tags must set `poll: false`.
 - Route path hops must use `type: "backplane"` with `slot` from 0 to 255.
 - Tag discovery, UDTs, and arrays are not supported.

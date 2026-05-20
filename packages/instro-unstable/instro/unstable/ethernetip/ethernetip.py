@@ -178,6 +178,10 @@ class EtherNetIPDevice(Instrument):
             **kwargs,
         )
 
+    def read(self, alias: str, **kwargs) -> Measurement:
+        """Read one configured tag by alias and publish the result."""
+        return self.read_tag(alias, **kwargs)
+
     def write_tag(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
         """Write one configured tag by alias and publish the command."""
         tag = self._config.get_tag(alias)
@@ -195,6 +199,10 @@ class EtherNetIPDevice(Instrument):
         )
         self.publish(command)
         return command
+
+    def write(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
+        """Write one configured tag by alias and publish the command."""
+        return self.write_tag(alias, value, **kwargs)
 
     @_eip_op
     def _read_tag_raw(self, tag_name: str) -> Any:
