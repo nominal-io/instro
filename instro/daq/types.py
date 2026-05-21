@@ -1,6 +1,6 @@
 """DAQ shared types: vendors, channel types, terminal configs, hardware-timing config."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 
 from instro.daq.scaling.scaling import Scaler
@@ -89,3 +89,38 @@ class RelayChannel(DAQChannel):
     """A relay channel routed via open/close. ``direction`` is always ``OUTPUT`` (relay control is a command)."""
 
     pass
+
+
+@dataclass(kw_only=True)
+class DAQTask:
+    """A named group of channels sharing a timing configuration and lifecycle.
+
+    Tasks are the unit of work that vendor drivers operate on. Every driver method
+    that needs configuration context takes a `DAQTask` argument; this is the only
+    way state flows from `InstroDAQ` into the driver.
+
+    Tasks are kind-agnostic: a single task may hold any mix of analog and digital
+    channels (input and output). This matches unified-scan hardware (MCC, LabJack)
+    naturally; multi-task hardware (NI DAQmx) splits a mixed-kind task into
+    per-kind SDK objects internally while exposing one logical task to the user.
+    Vendor drivers with a single hardware engine reject a second task entirely at
+    `register_task` time.
+    """
+
+    name: str
+    channels: list[DAQChannel] = field(default_factory=list)
+    timing_config: HWTimingConfig | None = None
+
+
+@dataclass(kw_only=True)
+class DAQSamples:
+    """Standardized result returned by `DAQDriverBase.read_task` / `fetch_task`.
+
+    Drivers de-interleave their vendor SDK response into per-channel data and expand
+    any HWTimestamper batch into explicit per-sample nanosecond timestamps before
+    returning. `InstroDAQ` builds a `Measurement` from this structure for downstream
+    publishing — one shared implementation for all vendors.
+    """
+
+    channel_data: dict[str, list[float]]
+    timestamps_ns: list[int]

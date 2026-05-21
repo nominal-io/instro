@@ -101,6 +101,18 @@ This repo prefers duplicated, explicit code over premature abstraction. The cons
 | Workspace vendor package | `packages/instro-daq-ni/` |
 | Community-driver layout | `packages/instro-contrib/instro/contrib/` |
 
+## DAQ driver authoring rules
+
+When adding or modifying a vendor DAQ driver under `instro/daq/drivers/` or `packages/instro-daq-*/instro/daq/drivers/`, the following rules apply on top of the general "How to add a vendor driver" shape:
+
+1. **No `InstroDAQ` reach-back.** Driver modules must not import `InstroDAQ`, and `DAQDriverBase` exposes no facade reference. All context the driver needs flows through method arguments — typically via a `DAQTask` object carrying channels and timing config.
+2. **Task-keyed lifecycle.** HW-timed operations (`register_task`, `configure_*_channel`, `configure_timing`, `start_task`, `stop_task`, `read_task`, `fetch_task`, `get_actual_sample_rate`, `get_points_in_buffer`, `is_running`) take a `DAQTask` as their first positional argument. SW-timed single-shot operations take the relevant channel object directly.
+3. **Tasks are kind-agnostic.** A single `DAQTask` may hold any mix of analog and digital channels (input and output). Unified-scan hardware (MCC, LabJack) maps a mixed task directly to one underlying scan. Per-kind hardware (NI DAQmx) splits a mixed task internally into per-kind SDK objects synchronized to the same timing.
+4. **`NotImplementedError` opt-in.** Only `open` and `close` are abstract on `DAQDriverBase`; every other method has a default that raises `NotImplementedError` with a vendor-prefixed message. Drivers override the methods their hardware supports.
+5. **Single-engine vendors reject any second task.** Vendors with one hardware timing engine (Keysight 34980A, MCC, LabJack T-series) raise `NotImplementedError` from `register_task` on the second registration. NI DAQmx supports multiple concurrent tasks.
+6. **Standardized return type.** `read_task` and `fetch_task` return `list[DAQSamples]` — one cluster per timebase. De-interleave and `HWTimestamper` expansion happen inside the driver. The facade builds `Measurement` objects from the clusters.
+7. **Drivers are constructible in isolation.** A driver instance must be usable without an `InstroDAQ` around it (so it can be unit-tested directly). The import-graph lint in `tests/daq/test_daq_drivers.py::test_driver_modules_dont_import_instrodaq` fails CI if a driver module imports `InstroDAQ`.
+
 ## Per-directory agent docs
 
 Some subdirectories have their own `AGENTS.md` with narrower instructions (e.g. `docs/guides/AGENTS.md` for documentation-site work). When working inside one of those directories, that file's guidance takes precedence over this one.

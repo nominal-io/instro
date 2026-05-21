@@ -3,13 +3,18 @@
 import abc
 import logging
 import time
-from typing import Any, Mapping, Protocol
+from types import MappingProxyType
+from typing import Mapping
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.types import (
     AnalogChannel,
     DAQChannel,
+    DAQSamples,
+    DAQTask,
     DigitalChannel,
+    DigitalLineChannel,
+    DigitalPortChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -25,37 +30,12 @@ from instro.utils.types import Command
 logger = logging.getLogger(__name__)
 
 
-class APIInstroDAQ(Protocol):
-    """Read-only view of InstroDAQ state exposed to drivers (timing + per-direction channel maps)."""
-
-    @property
-    def ai_hw_timing_configs(self) -> HWTimingConfig: ...
-
-    @property
-    def ai_sample_rate(self) -> float: ...
-
-    @property
-    def channels(self) -> list[DAQChannel]: ...
-
-    @property
-    def ai_channels(self) -> dict[str, AnalogChannel]: ...
-
-    @property
-    def ao_channels(self) -> dict[str, AnalogChannel]: ...
-
-    @property
-    def di_channels(self) -> dict[str, DigitalChannel]: ...
-
-    @property
-    def do_channels(self) -> dict[str, DigitalChannel]: ...
-
-
 class HWTimestamper:
-    """Contiguous nanosecond timestamps for hardware-timed DAQ batches.
+    """Generates contiguous nanosecond timestamps for hardware-timed DAQ batches.
 
-    Anchors to the wall clock exactly once via ``seed()``, then advances by
-    sample period on every ``next_batch()`` call — eliminates timestamp overlap
-    when consecutive reads return in rapid succession.
+    Anchors the timeline to the wall clock exactly once via `seed()`, then advances
+    purely by sample period on every subsequent `next()` call. This eliminates timestamp
+    overlap when two reads return in rapid succession.
     """
 
     def __init__(self, last_timestamp: int):
@@ -63,13 +43,30 @@ class HWTimestamper:
 
     @classmethod
     def seed(cls, t_wall: int, dt: int, length: int) -> tuple["HWTimestamper", list[int]]:
-        """Anchor the timeline at ``t_wall`` ns (read-return time of the first batch)."""
+        """Create a timestamper anchored to the first batch's wall-clock read-return time.
+
+        Args:
+            t_wall: Wall-clock ns timestamp captured when the first read returned.
+            dt: Sample period in nanoseconds.
+            length: Number of samples in the first batch.
+
+        Returns:
+            A seeded HWTimestamper and the timestamps for the first batch.
+        """
         t0 = t_wall - dt * (length - 1)
         timestamps = [t0 + i * dt for i in range(length)]
         return cls(timestamps[-1]), timestamps
 
     def next_batch(self, dt: int, length: int) -> list[int]:
-        """Return ``length`` ns timestamps at ``dt`` spacing, continuing from the previous batch."""
+        """Return timestamps for the next batch, continuing from the previous batch.
+
+        Args:
+            dt: Sample period in nanoseconds.
+            length: Number of samples in this batch.
+
+        Returns:
+            list[int]: Nanosecond timestamps, one per sample.
+        """
         t0 = self._last_timestamp + dt
         timestamps = [t0 + i * dt for i in range(length)]
         self._last_timestamp = timestamps[-1]
@@ -77,203 +74,182 @@ class HWTimestamper:
 
 
 class DAQDriverBase(abc.ABC):
-    """Vendor DAQ driver contract. Concrete drivers own their transport and lifecycle.
+    """Abstract base class for vendor DAQ drivers.
 
-    The composed ``InstroDAQ`` installs an ``InstroDAQFacade`` (implements
-    ``APIInstroDAQ``) onto ``self.hal`` so drivers can read back configured
-    channels and timing without coupling to the instrument's internal state.
+    Concrete drivers own their transport setup and translate category-level calls
+    into vendor-specific commands. The base declares only the category contract;
+    transport choice and lifecycle live in the concrete driver.
+
+    Vendor drivers MUST NOT depend on `InstroDAQ`. All context the driver needs at
+    any call site is passed through method arguments — typically via a `DAQTask`
+    object. This keeps drivers independently constructible and unit-testable.
+
+    Only `open` and `close` are abstract. Every other method has a default that
+    raises `NotImplementedError` with a vendor-prefixed message. Drivers override
+    what their hardware supports; absent capabilities surface as clear errors at
+    call time rather than as silent type-check failures.
     """
 
-    points_in_buffer: int
-    hal: APIInstroDAQ
-
     @abc.abstractmethod
-    def open(self):
-        """Open the underlying transport (or verify the device is present, for handle-less SDKs)."""
+    def open(self) -> None:
+        """Establish connection to the device."""
         ...
 
     @abc.abstractmethod
-    def close(self):
-        """Close every task/handle owned by the driver. Idempotent."""
+    def close(self) -> None:
+        """Disconnect from the device."""
         ...
 
-    @abc.abstractmethod
-    def configure_ai_channel(
-        self,
-        channel: AnalogChannel,
-    ):
-        """Register an AI channel with the underlying driver (range, terminal mode, scaler — vendor-specific)."""
-        ...
+    # -----------------------------------------------------------------------
+    # Hardware-timed task lifecycle. All HW-timed work flows through these
+    # methods, keyed by a `DAQTask` that carries channels, timing, and identity.
+    # -----------------------------------------------------------------------
 
-    def configure_ao_channel(
-        self,
-        channel: AnalogChannel,
-    ):
-        """Register an AO channel. Default is a no-op; override if the driver supports analog output."""
-        ...
+    def register_task(self, task: DAQTask) -> None:
+        """Register a task with the driver.
 
-    @abc.abstractmethod
-    def configure_ai_hw_timing(
-        self,
-        hw_timing_config: HWTimingConfig,
-    ):
-        """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
-
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
-        is invoked. The driver should program the sample clock and any
-        ``samples_per_channel`` buffer sizing the underlying SDK requires.
+        Called once per task when it is first created (before channels are added
+        or timing is set). Single-engine vendors (one HW timing config per kind)
+        should raise `NotImplementedError` on the second registration for the
+        same `task.kind`.
         """
-        ...
+        raise NotImplementedError(f"{type(self).__name__} does not support hardware-timed tasks.")
 
-    @abc.abstractmethod
-    def define_digital_channel(
-        self,
-        direction: Direction,
-        physical_channel: str,
-        logic: Logic,
-        logic_level: float | None = None,
-        alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        """Parse a vendor-specific ``physical_channel`` string into a ``DigitalLineChannel`` or ``DigitalPortChannel``.
+    def configure_ai_channel(self, task: DAQTask, channel: AnalogChannel) -> None:
+        """Apply a per-channel analog-input configuration to the hardware."""
+        raise NotImplementedError(f"{type(self).__name__} does not support analog input channel configuration.")
 
-        ``port_width`` is supplied for port-mode channels; line-mode channels
-        encode their bit position in ``physical_channel`` per vendor convention
-        (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight 34980A,
-        ``"AUXPORT0/1"`` on MCC).
+    def configure_ao_channel(self, task: DAQTask, channel: AnalogChannel) -> None:
+        """Apply a per-channel analog-output configuration to the hardware."""
+        raise NotImplementedError(f"{type(self).__name__} does not support analog output channel configuration.")
+
+    def configure_di_line(self, task: DAQTask, channel: DigitalLineChannel) -> None:
+        """Configure a single digital-input line."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital input line configuration.")
+
+    def configure_di_port(self, task: DAQTask, channel: DigitalPortChannel) -> None:
+        """Configure a digital-input port (width-grouped lines)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital input port configuration.")
+
+    def configure_do_line(self, task: DAQTask, channel: DigitalLineChannel) -> None:
+        """Configure a single digital-output line."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital output line configuration.")
+
+    def configure_do_port(self, task: DAQTask, channel: DigitalPortChannel) -> None:
+        """Configure a digital-output port (width-grouped lines)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital output port configuration.")
+
+    def configure_timing(self, task: DAQTask) -> None:
+        """Apply `task.timing_config` to the hardware.
+
+        Called by `InstroDAQ` when the user sets HW timing on a task. Drivers
+        may apply timing eagerly here or defer to `start_task`; the contract is
+        only that subsequent `start_task` honor `task.timing_config`.
         """
-        ...
+        raise NotImplementedError(f"{type(self).__name__} does not support hardware-timed acquisition.")
 
-    @abc.abstractmethod
-    def configure_do_channel(
-        self,
-        channel: DigitalChannel,
-    ):
-        """Register a DO channel (line or port) with the underlying driver."""
-        ...
+    def start_task(self, task: DAQTask) -> None:
+        """Begin acquisition on a hardware-timed task."""
+        raise NotImplementedError(f"{type(self).__name__} does not support hardware-timed acquisition.")
 
-    @abc.abstractmethod
-    def configure_di_channel(
-        self,
-        channel: DigitalChannel,
-    ):
-        """Register a DI channel (line or port) with the underlying driver."""
-        ...
+    def stop_task(self, task: DAQTask) -> None:
+        """Halt acquisition on a hardware-timed task."""
+        raise NotImplementedError(f"{type(self).__name__} does not support hardware-timed acquisition.")
 
-    @abc.abstractmethod
-    def start(self, **kwargs):
-        """Start hardware-timed acquisition.
+    def read_task(self, task: DAQTask) -> list[DAQSamples]:
+        """Software-timed read: initiate a fresh conversion and return one sample per channel.
 
-        ``InstroDAQ`` passes ``channel_type=<ChannelType>`` when the user
-        targets a specific task (e.g. on NI, where AI/AO/DI/DO each have their
-        own DAQmx task). Drivers without that distinction can ignore it.
+        Returns a list of `DAQSamples`; each entry bundles channels that share a
+        timebase. Most vendors return a single-element list (all channels share
+        timestamps). Keysight-style hardware that timestamps each channel read
+        separately may return one `DAQSamples` per channel. `channel_data` keys
+        are channel aliases (no `{daq_name}.` prefix — the facade applies it).
         """
-        ...
+        raise NotImplementedError(f"{type(self).__name__} does not support software-timed analog reads.")
 
-    @abc.abstractmethod
-    def stop(self, **kwargs):
-        """Stop a running acquisition and release any scan buffers. ``channel_type`` mirrors :meth:`start`."""
-        ...
+    def fetch_task(self, task: DAQTask) -> list[DAQSamples]:
+        """Hardware-timed fetch: pull buffered samples from a running acquisition.
 
-    @abc.abstractmethod
-    def read_analog(
-        self,
-    ) -> Any:
-        """Software-timed read of every configured AI channel.
-
-        Returns a vendor-specific payload that ``_read_to_measurements`` then
-        unpacks into ``Measurement``s. ``response.dt`` should be ``None`` so
-        the wrapper timestamps with wall-clock time.
+        Drivers de-interleave their vendor SDK response into per-channel data and
+        expand any `HWTimestamper` batch into explicit per-sample nanosecond
+        timestamps before returning. Returns a list of `DAQSamples`; see
+        `read_task` for the multi-element rationale.
         """
-        ...
+        raise NotImplementedError(f"{type(self).__name__} does not support hardware-timed buffered reads.")
 
-    @abc.abstractmethod
-    def fetch_analog(
-        self,
-    ) -> Any:
-        """Block until ``samples_per_channel`` new AI samples are available, then return them.
+    def is_running(self, task: DAQTask) -> bool:
+        """Return whether the task is currently acquiring."""
+        return False
 
-        Drivers should set ``self.points_in_buffer`` for buffer-depth
-        telemetry and return ``dt`` (ns per sample) so the wrapper can
-        build contiguous timestamps via ``HWTimestamper``.
-        """
-        ...
+    def get_actual_sample_rate(self, task: DAQTask) -> float | None:
+        """Return the actual sample rate achieved by the hardware after `start_task`.
 
-    def get_actual_sample_rate(self) -> float | None:
-        """Actual hardware sample rate achieved after ``start()``.
-
-        Default returns ``None`` (driver doesn't know or hasn't started).
-        Override on drivers whose SDK reports the effective rate (NI, MCC,
-        LabJack T-series all do).
+        Returns `None` if the driver does not support this query or the task has
+        not been started.
         """
         return None
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
-        """Write ``value`` to AO ``channel``. Override if the driver supports analog output."""
-        raise NotImplementedError("Analog Output has not been configured for this driver")
+    def get_points_in_buffer(self, task: DAQTask) -> int:
+        """Samples currently waiting to be read from the task's buffer."""
+        return 0
 
-    @abc.abstractmethod
-    def write_digital_line(self, channel: DigitalChannel, data: int):
-        """Drive a single DO line. ``data`` is 0 or 1 (active-low ``channel.logic`` is handled in the driver)."""
-        ...
+    # -----------------------------------------------------------------------
+    # Single-shot analog output (SW-timed).
+    # -----------------------------------------------------------------------
 
-    @abc.abstractmethod
-    def read_digital_line(self, channel: DigitalChannel) -> int:
-        """Sample a single DI line. Returns 0 or 1 after applying ``channel.logic``."""
-        ...
+    def write_analog_value(self, channel: AnalogChannel, value: float) -> None:
+        """Write a value to an analog output channel."""
+        raise NotImplementedError(f"{type(self).__name__} does not support analog output.")
 
-    @abc.abstractmethod
-    def write_digital_port(self, channel: DigitalChannel, data: int):
-        """Drive a multi-line DO port. ``data`` is an N-bit integer; bit ``i`` controls line ``i``."""
-        ...
+    # -----------------------------------------------------------------------
+    # Single-shot digital I/O (SW-timed). Line vs port split so drivers receive
+    # typed channels and don't need to isinstance-dispatch internally.
+    # -----------------------------------------------------------------------
 
-    @abc.abstractmethod
-    def read_digital_port(self, channel: DigitalChannel) -> int:
-        """Sample a multi-line DI port. Returns an N-bit integer; bit ``i`` reflects line ``i``."""
-        ...
+    def read_digital_line(self, channel: DigitalLineChannel) -> int:
+        """Read the current value (0 or 1) of a digital input line."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital line reads.")
+
+    def write_digital_line(self, channel: DigitalLineChannel, data: int) -> None:
+        """Drive a digital output line to `data` (0 or 1)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital line writes.")
+
+    def read_digital_port(self, channel: DigitalPortChannel) -> int:
+        """Read the current bit pattern of a digital input port."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital port reads.")
+
+    def write_digital_port(self, channel: DigitalPortChannel, data: int) -> None:
+        """Drive a digital output port to the bit pattern `data`."""
+        raise NotImplementedError(f"{type(self).__name__} does not support digital port writes.")
+
+    # -----------------------------------------------------------------------
+    # Relays. `define_relay_channel` has a sensible generic default; vendors
+    # override only if they need to attach extra fields.
+    # -----------------------------------------------------------------------
 
     def define_relay_channel(
         self,
         physical_channel: str,
         alias: str | None = None,
     ) -> RelayChannel:
-        """Build a ``RelayChannel`` for ``physical_channel`` (e.g. ``"3101"`` = slot 3 / channel 101).
-
-        Default implementation suits the Keysight 34980A's slot/channel
-        addressing; override if the driver needs different parsing.
-        """
+        """Construct a `RelayChannel`. Override only if the vendor needs extra fields."""
         alias = alias or physical_channel
         return RelayChannel(
             physical_channel=physical_channel,
             alias=alias,
-            direction=Direction.OUTPUT,  # Relay control is treated as an output command
+            direction=Direction.OUTPUT,
         )
 
-    def close_relay(self, channel: RelayChannel):
-        """Close the relay (connect the circuit). Override if the driver supports relays."""
-        raise NotImplementedError("Relay control has not been configured for this driver")
+    def close_relay(self, channel: RelayChannel) -> None:
+        """Close a relay (connect the circuit)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support relay control.")
 
-    def open_relay(self, channel: RelayChannel):
-        """Open the relay (disconnect the circuit). Override if the driver supports relays."""
-        raise NotImplementedError("Relay control has not been configured for this driver")
+    def open_relay(self, channel: RelayChannel) -> None:
+        """Open a relay (disconnect the circuit)."""
+        raise NotImplementedError(f"{type(self).__name__} does not support relay control.")
 
-    @abc.abstractmethod
-    def _read_to_measurements(
-        self,
-        response: Any,
-        channel_list: Mapping[str, DAQChannel],
-        daq_name: str,
-        default_tags: dict[str, str],
-        **kwargs,
-    ) -> list[Measurement]:
-        """Unpack a vendor-specific ``response`` from :meth:`read_analog` / :meth:`fetch_analog` into Measurements.
 
-        One Measurement per timebase cluster — for vendors where every AI
-        channel shares a clock, that's a single entry; for the Keysight 34980A
-        (per-channel timestamps in the scan reply) it's one Measurement per
-        channel. The wrapper publishes whatever this returns.
-        """
-        ...
+_DEFAULT_TASK_NAME = "default"
 
 
 class InstroDAQ(Instrument):
@@ -284,28 +260,35 @@ class InstroDAQ(Instrument):
         publishers: list[Publisher] | None = None,
         **kwargs,
     ):
-        """Initialize an InstroDAQ.
+        """The main interface for using a DAQ device within the Nominal environment.
 
         Args:
-            name: Channel-name prefix for published data.
-            driver: Concrete DAQ driver; owns its own transport::
+            name (str): A name to give your DAQ that helps differentiate it from other DAQ instances.
+                This is appended to the front of your channel name when using the Core Publisher.
+            driver (DAQDriverBase): Driver instance for the specific DAQ vendor/model. Concrete
+                drivers own their transport setup::
 
-                daq = InstroDAQ(
-                    "myDAQ",
-                    driver=Keysight34980A("USB0::0x0957::0x0507::MY44001757::INSTR"),
-                )
+                    daq = InstroDAQ(
+                        "myDAQ",
+                        driver=Keysight34980A("USB0::0x0957::0x0507::MY44001757::INSTR"),
+                    )
 
-            publishers: Publishers that receive emitted Measurement/Command data.
-            **kwargs: Default tags applied to every emitted Measurement/Command.
-                Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
-                (uses the on-disk 'default' Nominal credential).
+            publishers (list[Publisher] | None, optional): Publishers to send data to when executing methods. Defaults to None.
+            **kwargs: Optional keyword arguments used as tags throughout the life of the instrument.
+                These tags are applied to the Measurement and Command objects and can be utilized by publishers like
+                NominalCorePublisher as added metadata.
+
+                Special keyword arguments:
+                    dataset_rid (str): If provided, automatically creates and adds a
+                        NominalCorePublisher with the specified dataset RID. Assumes a Nominal
+                        'default' credential is stored on disk.
         """
-        super().__init__(name, publishers=publishers, **kwargs)
+        super().__init__(name, connection_config=None, publishers=publishers, **kwargs)
 
         self._driver = driver
-        self._driver.hal = InstroDAQFacade(self)
 
         self._channels: list[DAQChannel] = []
+        self._tasks: dict[str, DAQTask] = {}
 
         self._analog_input_channels: dict[str, AnalogChannel] = {}
         self._analog_output_channels: dict[str, AnalogChannel] = {}
@@ -313,38 +296,59 @@ class InstroDAQ(Instrument):
         self._digital_output_channels: dict[str, DigitalChannel] = {}
         self._relay_channels: dict[str, RelayChannel] = {}
 
-        self._ai_hw_timing_config: HWTimingConfig | None = None
-        self._ao_hw_timing_config: HWTimingConfig | None = None
-        self._di_hw_timing_config: HWTimingConfig | None = None
-        self._do_hw_timing_config: HWTimingConfig | None = None
-
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
         )
 
+        # Per-task set of task names with a registered fetch daemon. Tracks
+        # registrations to keep `_define_background_daemon` idempotent across
+        # repeated start() calls; `add_background_daemon_function` on the base
+        # class appends without dedup.
+        self._daemons_registered: set[str] = set()
+
     # Need to ensure background interval never adds a wait for InstroDAQ
     @property
     def background_interval(self) -> float:
-        """Always 0 for DAQ: blocking reads implicitly time the daemon loop via ``samples_per_channel``."""
+        """Get the background interval setting.
+
+        Returns:
+            float: The current background worker interval in seconds. For DAQ devices, this is always 0
+            since DAQ reads block and implicitly time the loop.
+        """
         return self._background_config.interval
 
     @background_interval.setter
     def background_interval(self, seconds: float):
-        """No-op for DAQ — the interval is fixed at 0 while the daemon is enabled."""
+        """Set the background interval rate.
+
+        Note:
+            This setter is a no-op for DAQ devices. The interval is automatically set to 0
+            when the background worker is enabled, as DAQ reads block and implicitly time the loop.
+
+        Args:
+            seconds (float): Ignored for DAQ devices.
+        """
         return
 
     @property
     def background_enable(self) -> bool:
-        """Whether the background daemon is enabled."""
+        """Get the background worker enable state.
+
+        Returns:
+            bool: True if background worker is enabled, False otherwise.
+        """
         return self._background_config.enabled
 
     @background_enable.setter
     def background_enable(self, enable: bool):
-        """Enable/disable the background daemon.
+        """Enable or disable background worker.
 
-        When enabled, the daemon continuously fetches the DAQ buffer; the interval
-        is set to 0 so the blocking fetch implicitly times the loop. When
-        disabled, the interval is bumped to 1 s so the loop doesn't burn cycles.
+        When enabled, the background daemon will continuously fetch data from the DAQ buffer.
+        The interval is automatically set to 0 to let the fetch operation block, as DAQ reads
+        implicitly time the loop based off samples_per_channel
+
+        Args:
+            enable (bool): True to enable background worker, False to disable.
         """
         if enable:
             # Never wait. Let fetch block
@@ -355,14 +359,130 @@ class InstroDAQ(Instrument):
 
         self._background_config.enabled = enable
 
+    # ========  Public accessors  ===========
+
+    @property
+    def driver(self) -> DAQDriverBase:
+        """Direct access to the underlying driver for vendor-specific operations."""
+        return self._driver
+
+    @property
+    def tasks(self) -> Mapping[str, DAQTask]:
+        """All configured DAQ tasks, keyed by name. Read-only view."""
+        return MappingProxyType(self._tasks)
+
+    @property
+    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+        """Configured analog input channels, keyed by alias."""
+        return MappingProxyType(self._analog_input_channels)
+
+    @property
+    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+        """Configured analog output channels, keyed by alias."""
+        return MappingProxyType(self._analog_output_channels)
+
+    @property
+    def di_channels(self) -> Mapping[str, DigitalChannel]:
+        """Configured digital input channels, keyed by alias."""
+        return MappingProxyType(self._digital_input_channels)
+
+    @property
+    def do_channels(self) -> Mapping[str, DigitalChannel]:
+        """Configured digital output channels, keyed by alias."""
+        return MappingProxyType(self._digital_output_channels)
+
+    @property
+    def relays(self) -> Mapping[str, RelayChannel]:
+        """Configured relay channels, keyed by alias."""
+        return MappingProxyType(self._relay_channels)
+
+    # ========  Task management  ===========
+
+    def create_task(
+        self,
+        name: str,
+        sample_rate: float | None = None,
+        samples_per_channel: int | None = None,
+    ) -> DAQTask:
+        """Create a named hardware-timed task that channels can be added to.
+
+        Tasks are kind-agnostic — a single task may hold any mix of analog and
+        digital channels (input and output). For multi-task hardware, this is
+        how you express independent timing groups. Single-engine vendors raise
+        `NotImplementedError`from `register_task` on the second task; their hardware has one scan.
+
+        Args:
+            name: Unique task name.
+            sample_rate: Optional HW sample rate (Hz). If `None`, the task is
+                SW-timed until `configure_ai_sample_rate(task=...)` is called.
+            samples_per_channel: Samples per channel per fetch. Defaults to 10%
+                of `sample_rate`.
+        """
+        return self._create_task(name, sample_rate, samples_per_channel)
+
+    def _create_task(
+        self,
+        name: str,
+        sample_rate: float | None,
+        samples_per_channel: int | None,
+    ) -> DAQTask:
+        """Construct a `DAQTask`, register it with the driver, and apply timing if provided."""
+        if name in self._tasks:
+            raise ValueError(f"Task '{name}' already exists on DAQ '{self.name}'.")
+        timing = self._build_timing_config(sample_rate, samples_per_channel) if sample_rate is not None else None
+        task = DAQTask(name=name, timing_config=timing)
+        self._tasks[name] = task
+        self._driver.register_task(task)
+        if timing is not None:
+            self._driver.configure_timing(task)
+            if sample_rate is not None:
+                self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
+        return task
+
+    def _get_or_create_default_task(self) -> DAQTask:
+        """Lazily create the implicit default task on first use."""
+        if _DEFAULT_TASK_NAME not in self._tasks:
+            task = DAQTask(name=_DEFAULT_TASK_NAME)
+            self._tasks[_DEFAULT_TASK_NAME] = task
+            self._driver.register_task(task)
+        return self._tasks[_DEFAULT_TASK_NAME]
+
+    def _resolve_task(self, task: "str | DAQTask | None") -> DAQTask:
+        """Resolve a task reference: None=default, str=lookup, DAQTask=identity check."""
+        if task is None:
+            return self._get_or_create_default_task()
+        if isinstance(task, DAQTask):
+            if self._tasks.get(task.name) is not task:
+                raise ValueError(f"Task '{task.name}' is not registered with this DAQ.")
+            return task
+        resolved = self._tasks.get(task)
+        if resolved is None:
+            raise ValueError(f"Task '{task}' is not configured on DAQ '{self.name}'.")
+        return resolved
+
+    @staticmethod
+    def _build_timing_config(
+        sample_rate: float,
+        samples_per_channel: int | None,
+    ) -> HWTimingConfig:
+        """Build an `HWTimingConfig` from a sample rate, defaulting `samples_per_channel` to 10% of the rate."""
+        if not samples_per_channel:
+            samples_per_channel = int(sample_rate // 10) or 1
+        return HWTimingConfig(
+            sample_rate=sample_rate,
+            sample_period=round(1e9 / sample_rate),
+            samples_per_channel=samples_per_channel,
+        )
+
     def open(self):
-        """Open the underlying driver."""
+        """Establish connection to the device."""
         logger.info("Opening DAQ '%s'", self.name)
+        super().open()
         self._driver.open()
         logger.info("Opened DAQ '%s'", self.name)
 
     def close(self):
-        """Close the underlying driver and stop the daemon."""
+        """Disconnect from the device."""
         logger.info("Closing DAQ '%s'", self.name)
         super().close()
         self._driver.close()
@@ -379,17 +499,23 @@ class InstroDAQ(Instrument):
         range_max: float = 10.0,
         scaler: Scaler | None = None,
         terminal_config: TerminalConfig | None = None,
+        task: "str | DAQTask | None" = None,
     ):
-        """Configure an analog channel.
+        """Configure an analog input or output channel.
 
         Args:
-            direction: ``INPUT`` or ``OUTPUT``.
-            physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
-            alias: Friendly name; defaults to ``physical_channel``.
-            range_min: Lower voltage range (volts).
-            range_max: Upper voltage range (volts).
-            scaler: Optional ``Scaler`` applied to AI samples after read.
-            terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
+            direction (Direction): The direction of the channel (INPUT or OUTPUT).
+            physical_channel (str): The physical channel identifier (e.g., "ai0", "Dev1/ai0").
+            alias (str | None, optional): A user-friendly name for the channel. If not provided,
+                the physical_channel name is used as the alias. Defaults to None.
+            range_min (float, optional): The minimum voltage range for the channel. Defaults to -10.0.
+            range_max (float, optional): The maximum voltage range for the channel. Defaults to 10.0.
+            scaler (Scaler, optional): A Scaler object responsible for scaling the data read by the DAQ channel. Defaults to None.
+            terminal_config (TerminalConfig, optional): The terminal configuration for the channel. Defaults to None.
+            task: Task to add this channel to. `None` (default) uses the implicit default task.
+
+        Raises:
+            ValueError: If direction is not INPUT or OUTPUT.
         """
         channel = AnalogChannel(
             physical_channel=physical_channel,
@@ -402,14 +528,16 @@ class InstroDAQ(Instrument):
         )
 
         self._channels.append(channel)
+        resolved = self._resolve_task(task)
+        resolved.channels.append(channel)
 
         match direction:
             case Direction.INPUT:
                 self._analog_input_channels.update({channel.alias: channel})
-                self._driver.configure_ai_channel(channel)
+                self._driver.configure_ai_channel(resolved, channel)
             case Direction.OUTPUT:
                 self._analog_output_channels.update({channel.alias: channel})
-                self._driver.configure_ao_channel(channel)
+                self._driver.configure_ao_channel(resolved, channel)
             case _:
                 raise ValueError(
                     f"Unsupported analog channel direction: {direction}. Expected Direction.INPUT or Direction.OUTPUT."
@@ -420,115 +548,137 @@ class InstroDAQ(Instrument):
         self,
         sample_rate: float,
         samples_per_channel: int | None = None,
+        task: "str | DAQTask | None" = None,
         **kwargs,
     ):
-        """Configure the hardware sample clock for AI channels.
+        """Configures the device to use a hardware sample clock at the specified sample rate.
 
         Args:
-            sample_rate: Sample rate (Hz). Applies to all AI channels.
-            samples_per_channel: Samples per channel per ``read_analog()`` call;
-                defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
+            sample_rate (float): Sample Rate (Hz). Applies to all AI channels.
+            samples_per_channel (int | None, optional): The number of samples to fetch per channel
+            each time read_analog() is called. Defaults to 10% of the sample rate (e.g., for 1000 Hz,
+            the default is 100 samples per channel).
+            task: Task to configure timing on. `None` uses the implicit default task.
         """
-        if not samples_per_channel:
-            samples_per_channel = int(sample_rate // 10)
-
-        self._ai_hw_timing_config = HWTimingConfig(
-            sample_rate=sample_rate,
-            sample_period=round(1e9 / sample_rate),
-            samples_per_channel=samples_per_channel,
-        )
-
-        self._driver.configure_ai_hw_timing(
-            hw_timing_config=self._ai_hw_timing_config,
-        )
-
+        resolved = self._resolve_task(task)
+        resolved.timing_config = self._build_timing_config(sample_rate, samples_per_channel)
+        self._driver.configure_timing(resolved)
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
         logger.info("Configured AI hardware timing on DAQ '%s'", self.name)
 
-    def start(self, **kwargs):
+    def start(self, task: "str | DAQTask | None" = None, **kwargs):
         """Start hardware-timed acquisition.
 
         Args:
-            **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
+            task: Task to start. `None` (default) starts every configured task
+                that has a timing config. Pass a name or `DAQTask` object to
+                start one specifically.
+
+        In either case the instrument's background worker thread is ensured to
+        be running — the worker is up whenever at least one task is running.
         """
-        # DAQmx allows starting different channel_types independently.
-        channel_type = kwargs.get("channel_type", None)
-
-        # TODO
-        # Need to evaluate spinning up a different worker per channel type, but this
-        # gets weird with different devices. DAQmx's channel types are their own things
-        # whereas labjack is all one timing engine. Tricky architecture.
-        # Baselining ai sample rate as the rate right now, which will break as soon as
-        # we add other channel type capabilities that are hardware timed.
-
-        self._driver.start(channel_type=channel_type)
+        if task is None:
+            for t in self._tasks.values():
+                if t.timing_config is not None and not self._driver.is_running(t):
+                    self._driver.start_task(t)
+        else:
+            resolved = self._lookup_task(task)
+            self._driver.start_task(resolved)
         self._define_background_daemon()
-
         super().start()
 
-    def stop(self, **kwargs):
-        """Stop the DAQ device."""
-        super().stop()
-        channel_type = kwargs.get("channel_type", None)
-        self._driver.stop(channel_type=channel_type, **kwargs)
+    def stop(self, task: "str | DAQTask | None" = None, **kwargs):
+        """Stop hardware-timed acquisition.
+
+        Args:
+            task: Task to stop. `None` (default) stops every running task.
+                Pass a name or `DAQTask` object to stop one specifically.
+
+        The instrument's background worker thread is brought down only when no
+        tasks remain running. Targeted stops that leave other tasks running
+        leave the worker alive.
+        """
+        if task is None:
+            for t in self._tasks.values():
+                if self._driver.is_running(t):
+                    self._driver.stop_task(t)
+        else:
+            resolved = self._lookup_task(task)
+            self._driver.stop_task(resolved)
+        if not self._any_task_running():
+            super().stop()
+
+    def _any_task_running(self) -> bool:
+        """Return whether any registered task is currently acquiring on the driver."""
+        return any(self._driver.is_running(t) for t in self._tasks.values())
+
+    def _lookup_task(self, task: "str | DAQTask") -> DAQTask:
+        """Resolve a task ref to a registered DAQTask, with no kind constraint."""
+        if isinstance(task, DAQTask):
+            if self._tasks.get(task.name) is not task:
+                raise ValueError(f"Task '{task.name}' is not registered with this DAQ.")
+            return task
+        resolved = self._tasks.get(task)
+        if resolved is None:
+            raise ValueError(f"Task '{task}' is not configured on DAQ '{self.name}'.")
+        return resolved
 
     def read_analog(
         self,
+        task: "str | DAQTask | None" = None,
         **kwargs,
     ) -> Measurement | list[Measurement]:
-        """Dispatch a hardware-timed buffer fetch or a software-timed conversion based on configuration.
+        """Read from analog input channels.
 
-        Each branch publishes its own Measurements; this dispatcher does not.
-        Hardware-timed with the background daemon running raises — the daemon owns the buffer.
-        Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
+        Dispatches to either the hardware-timed buffer fetch or a software-timed conversion
+        based on the DAQ's configuration. Each branch publishes its own Measurements via
+        the underlying decorated method; this dispatcher does not publish.
+
+        - Hardware-timed with background disabled: delegates to `_fetch_analog`.
+        - Hardware-timed with background enabled: raises — the background daemon owns the
+          buffer.
+        - Software-timed: delegates to `_software_timed_read`.
+
+        Returns a single Measurement when all configured channels share a timebase,
+        otherwise a list of Measurements (one per timebase).
         """
-        if self._ai_hw_timing_config:
-            if not self._background_config.enabled:
-                return self._fetch_analog(**kwargs)
-            # Background daemon running. The user can't pull from the buffer mid-flight.
-            # TODO revisit with CON-793 issue ticket.
-            raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
-
-        return self._software_timed_read(**kwargs)
+        resolved = self._resolve_task(task)
+        if resolved.timing_config is not None:
+            if self._background_config.enabled:
+                # TODO revisit with CON-793
+                raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
+            return self._fetch_analog(resolved, **kwargs)
+        return self._software_timed_read(resolved, **kwargs)
 
     @publish_measurement
-    def _software_timed_read(self, **kwargs) -> Measurement | list[Measurement]:
+    def _software_timed_read(self, task: DAQTask, **kwargs) -> Measurement | list[Measurement]:
         """Initiate a software-timed analog conversion and return the resulting Measurement(s)."""
-        response = self._driver.read_analog()
-        measurements = self._driver._read_to_measurements(
-            response=response,
-            channel_list=self._analog_input_channels,
-            daq_name=self.name,
-            default_tags=self.default_tags,
-            **kwargs,
-        )
-        measurements = self._scale_analog_measurement(measurements)
+        samples = self._driver.read_task(task)
+        measurements = self._scale_analog_measurement([self._measurement_from_samples(s, **kwargs) for s in samples])
         return measurements[0] if len(measurements) == 1 else measurements
 
     @publish_measurement
-    def _fetch_analog(self, **kwargs) -> Measurement | list[Measurement]:
-        """Fetch buffered samples from a hardware-timed acquisition; also publishes buffer depth on ``{name}.buffer``."""
-        if not self._ai_hw_timing_config:
-            raise RuntimeError(
-                "Cannot fetch analog data without hardware timing configured. "
-                "Call configure_ai_sample_rate() before starting a hardware-timed acquisition."
-            )
+    def _fetch_analog(self, task: DAQTask, **kwargs) -> Measurement | list[Measurement]:
+        """Fetch buffered analog samples from a hardware-timed acquisition.
 
-        response = self._driver.fetch_analog()
-        measurements = self._driver._read_to_measurements(
-            response=response,
-            channel_list=self._analog_input_channels,
-            daq_name=self.name,
-            default_tags=self.default_tags,
-            **kwargs,
-        )
-        measurements = self._scale_analog_measurement(measurements)
-
+        Also publishes the current buffer occupancy via `get_points_in_buffer()` as a
+        side-effect Measurement (each call is one telemetry sample on `{name}.buffer`).
+        """
+        samples = self._driver.fetch_task(task)
+        measurements = self._scale_analog_measurement([self._measurement_from_samples(s, **kwargs) for s in samples])
         # HW-timed acquisition: also publish current buffer depth as telemetry.
-        self.get_points_in_buffer()
-
+        self.get_points_in_buffer(task=task)
         return measurements[0] if len(measurements) == 1 else measurements
+
+    def _measurement_from_samples(self, samples: DAQSamples, **kwargs) -> Measurement:
+        """Build a Measurement from one `DAQSamples`, applying `{name}.{alias}` naming."""
+        channel_data = {f"{self.name}.{alias}": values for alias, values in samples.channel_data.items()}
+        return Measurement(
+            channel_data=channel_data,
+            timestamps=samples.timestamps_ns,
+            tags={**self.default_tags, **kwargs},
+        )
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:
@@ -543,7 +693,18 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
-        """Write ``value`` (volts) to AO ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Write a value to an analog output channel.
+
+        Args:
+            channel (str): The alias of the analog output channel to write to.
+            value (float): The analog value to write.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Command object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured analog output channels.
+        """
         if (analog_channel := self._analog_output_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Analog output channel '{channel}' is not configured. "
@@ -564,46 +725,86 @@ class InstroDAQ(Instrument):
         logic_level: float | None = None,
         alias: str | None = None,
         port_width: DigitalPortWidth | None = None,
+        task: "str | DAQTask | None" = None,
     ):
-        """Configure a digital channel.
+        """Configure a digital input or output channel.
 
         Args:
-            direction: ``INPUT`` or ``OUTPUT``.
-            physical_channel: Vendor-specific id (e.g. ``"di0"`` or ``"port0/line0"``).
-            logic: Active-``HIGH`` or active-``LOW``.
-            logic_level: Voltage threshold (volts); the driver default is used when ``None``.
-            alias: Friendly name; defaults to ``physical_channel``.
-            port_width: Port width in bits (8/16/32/64) when treating the channel as a port rather than a line.
+            direction (Direction): The direction of the channel (INPUT or OUTPUT).
+            physical_channel (str): The physical channel identifier (e.g., "di0", "port0/line0").
+            logic (Logic): The logic level type (HIGH or LOW).
+            logic_level (float | None, optional): The voltage threshold for the logic level (if hardware supports customization).
+                If None, the driver's default logic level is used. Defaults to None.
+            alias (str | None, optional): A user-friendly name for the channel. If not provided,
+                alias will be set to `physical_channel`. Defaults to None.
+            port_width (DigitalPortWidth | None, optional): The width of the digital port in bits
+                (8, 16, 32, or 64). Only used when port configuring the channel as a port rather than a line. Defaults to None.
+            task: Task to add this channel to. `None` (default) uses the implicit default task.
         """
-        channel = self._driver.define_digital_channel(
-            direction=direction,
-            physical_channel=physical_channel,
-            logic=logic,
-            logic_level=logic_level,
-            alias=alias,
-            port_width=port_width,
-        )
+        alias = alias if alias else physical_channel
+        channel: DigitalChannel
+        if port_width is not None:
+            channel = DigitalPortChannel(
+                physical_channel=physical_channel,
+                alias=alias,
+                direction=direction,
+                logic_level=logic_level,
+                logic=logic,
+                width=port_width,
+            )
+        else:
+            channel = DigitalLineChannel(
+                physical_channel=physical_channel,
+                alias=alias,
+                direction=direction,
+                logic_level=logic_level,
+                logic=logic,
+            )
 
         self._channels.append(channel)
+        resolved = self._resolve_task(task)
+        resolved.channels.append(channel)
 
         match direction:
             case Direction.INPUT:
                 self._digital_input_channels.update({channel.alias: channel})
-                self._driver.configure_di_channel(channel)
+                if isinstance(channel, DigitalLineChannel):
+                    self._driver.configure_di_line(resolved, channel)
+                else:
+                    self._driver.configure_di_port(resolved, channel)
             case Direction.OUTPUT:
                 self._digital_output_channels.update({channel.alias: channel})
-                self._driver.configure_do_channel(channel)
+                if isinstance(channel, DigitalLineChannel):
+                    self._driver.configure_do_line(resolved, channel)
+                else:
+                    self._driver.configure_do_port(resolved, channel)
         logger.info("Configured digital channel on DAQ '%s'", self.name)
 
     @publish_command
     def write_digital_line(self, channel: str, data: int, **kwargs) -> Command:
-        """Write 0/1 to DO line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Write a value to a digital output line.
+
+        Args:
+            channel (str): The alias of the digital output channel to write to.
+            data (int): The digital value to write (typically 0 or 1 for a line).
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Command object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured digital output channels.
+
+        Note:
+            The written command is automatically published to all configured publishers.
+        """
         if (digital_channel := self._digital_output_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self._digital_output_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
             )
+        if not isinstance(digital_channel, DigitalLineChannel):
+            raise TypeError(f"Channel '{channel}' is configured as a port, not a line. Use write_digital_port.")
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_digital_line(digital_channel, data)
         timestamp = time.time_ns()
@@ -625,13 +826,29 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def read_digital_line(self, channel: str, **kwargs) -> Measurement:
-        """Read DI line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Read a value from a digital input line.
+
+        Args:
+            channel (str): The alias of the digital input channel to read from.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Measurement object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Returns:
+            Measurement: A Measurement object containing the digital value, channel name, and timestamp.
+                The measurement is also automatically published to all configured publishers.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured digital input channels.
+        """
         if (digital_channel := self._digital_input_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self._digital_input_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.INPUT, ...) first."
             )
+        if not isinstance(digital_channel, DigitalLineChannel):
+            raise TypeError(f"Channel '{channel}' is configured as a port, not a line. Use read_digital_port.")
         response = self._driver.read_digital_line(digital_channel)
         timestamp = time.time_ns()
 
@@ -646,13 +863,29 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def write_digital_port(self, channel: str, data: int, **kwargs) -> Command:
-        """Write ``data`` to DO port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Write a value to a digital output port.
+
+        Args:
+            channel (str): The alias of the digital output channel to write to.
+            data (int): The digital value to write to the port.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Command object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured digital output channels.
+
+        Note:
+            The written command is automatically published to all configured publishers.
+        """
         if (digital_channel := self._digital_output_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self._digital_output_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
             )
+        if not isinstance(digital_channel, DigitalPortChannel):
+            raise TypeError(f"Channel '{channel}' is configured as a line, not a port. Use write_digital_line.")
         self._driver.write_digital_port(digital_channel, data)
         timestamp = time.time_ns()
 
@@ -669,13 +902,29 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def read_digital_port(self, channel: str, **kwargs) -> Measurement:
-        """Read DI port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Read a value from a digital input port.
+
+        Args:
+            channel (str): The alias of the digital input channel to read from.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Measurement object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Returns:
+            Measurement: A Measurement object containing the digital port value, channel name, and timestamp.
+                The measurement is also automatically published to all configured publishers.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured digital input channels.
+        """
         if (digital_channel := self._digital_input_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self._digital_input_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.INPUT, ...) first."
             )
+        if not isinstance(digital_channel, DigitalPortChannel):
+            raise TypeError(f"Channel '{channel}' is configured as a line, not a port. Use read_digital_line.")
         response = self._driver.read_digital_port(digital_channel)
         timestamp = time.time_ns()
 
@@ -692,7 +941,13 @@ class InstroDAQ(Instrument):
         physical_channel: str,
         alias: str | None = None,
     ):
-        """Configure a relay channel (``physical_channel`` e.g. ``"3101"`` = slot 3 / channel 101)."""
+        """Configure a relay channel.
+
+        Args:
+            physical_channel (str): The physical channel identifier (e.g., "3101" for slot 3, channel 101).
+            alias (str | None, optional): A user-friendly name for the relay. If not provided,
+                the physical_channel name is used as the alias. Defaults to None.
+        """
         channel = self._driver.define_relay_channel(
             physical_channel=physical_channel,
             alias=alias,
@@ -702,7 +957,17 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def close_relay(self, channel: str, **kwargs) -> Command:
-        """Close relay ``channel`` (alias) — connects the circuit."""
+        """Close a relay (connect the circuit).
+
+        Args:
+            channel (str): The alias of the relay channel to close.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Command object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured relay channels.
+        """
         if (relay_channel := self._relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
@@ -717,7 +982,17 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def open_relay(self, channel: str, **kwargs) -> Command:
-        """Open relay ``channel`` (alias) — disconnects the circuit."""
+        """Open a relay (disconnect the circuit).
+
+        Args:
+            channel (str): The alias of the relay channel to open.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Command object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Raises:
+            KeyError: If the specified channel alias is not found in the configured relay channels.
+        """
         if (relay_channel := self._relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
@@ -731,60 +1006,61 @@ class InstroDAQ(Instrument):
         return self._package_command(f"{relay_channel.alias}.cmd", "OPEN", timestamp, **kwargs)
 
     def _define_background_daemon(self):
-        """Register ``_fetch_analog`` as the daemon function when AI channels exist."""
-        if self._analog_input_channels:
-            self.add_background_daemon_function(self._fetch_analog)
+        """Register a background fetch daemon for every HW-timed task with channels.
 
-    def get_actual_sample_rate(self) -> float | None:
-        """Hardware's actual sample rate after ``start()``; ``None`` if unsupported or not started."""
-        return self._driver.get_actual_sample_rate()
+        Iterates all configured tasks; for each task with a timing config and
+        at least one channel that hasn't already been registered, adds a daemon
+        that calls `_fetch_analog(task)`. Idempotent — per-task names are tracked
+        in `_daemons_registered` because `add_background_daemon_function`
+        appends without dedup.
+        """
+        for task in self._tasks.values():
+            if task.name in self._daemons_registered:
+                continue
+            if task.timing_config is None or not task.channels:
+                continue
+
+            # Bind `task` via a default arg so each daemon closure captures its
+            # own task by value rather than the loop variable by reference.
+            def _daemon(t: DAQTask = task) -> None:
+                self._fetch_analog(t)
+
+            self.add_background_daemon_function(_daemon)
+            self._daemons_registered.add(task.name)
+
+    def get_actual_sample_rate(self, task: "str | DAQTask | None" = None) -> float | None:
+        """Return the actual sample rate achieved by the hardware after start().
+
+        Returns None if the driver does not support this query or if start() has not been called.
+        """
+        resolved = self._resolve_task(task)
+        return self._driver.get_actual_sample_rate(resolved)
 
     @publish_measurement
-    def get_points_in_buffer(self, **kwargs) -> Measurement:
-        """Publish the current DAQ buffer depth on channel ``{name}.buffer``."""
-        return self._package_measurement("buffer", self._driver.points_in_buffer, time.time_ns(), **kwargs)
+    def get_points_in_buffer(self, task: "str | DAQTask | None" = None, **kwargs) -> Measurement:
+        """Get the current number of points in the DAQ buffer.
+
+        This is useful for monitoring hardware-timed acquisitions to see how many samples
+        are waiting to be read from the buffer.
+
+        Args:
+            task: Task to query. `None` (default) queries the implicit default task.
+            **kwargs: Optional keyword arguments used as tags. These tags are applied to the
+                Measurement object and can be utilized by publishers like NominalCorePublisher
+                as added metadata.
+
+        Returns:
+            Measurement: A Measurement object containing the buffer point count with channel name
+            "{daq_name}.buffer" and a timestamp. The measurement is also automatically published
+            to all configured publishers.
+        """
+        resolved = self._resolve_task(task)
+        return self._package_measurement(
+            "buffer",
+            self._driver.get_points_in_buffer(resolved),
+            time.time_ns(),
+            **kwargs,
+        )
 
 
 class HWTimingException(Exception): ...
-
-
-class InstroDAQFacade:
-    """Read-only view of an ``InstroDAQ`` exposed to drivers (implements ``APIInstroDAQ``)."""
-
-    # Implements APIInstroDAQ
-    def __init__(self, nominal_daq: InstroDAQ):
-        self._nominal_daq = nominal_daq
-
-    @property
-    def ai_hw_timing_configs(self) -> HWTimingConfig:
-        """AI hardware-timing config. Raises ``ValueError`` if ``configure_ai_sample_rate`` was not called."""
-        if config := self._nominal_daq._ai_hw_timing_config:
-            return config
-        raise ValueError(
-            "Hardware timing has not been configured for analog input channels. Call configure_ai_sample_rate() first."
-        )
-
-    @property
-    def ai_sample_rate(self) -> float:
-        """AI sample rate (Hz). Raises ``ValueError`` if hardware timing isn't configured."""
-        return self.ai_hw_timing_configs.sample_rate
-
-    @property
-    def channels(self) -> list[DAQChannel]:
-        return self._nominal_daq._channels
-
-    @property
-    def ai_channels(self) -> dict[str, AnalogChannel]:
-        return self._nominal_daq._analog_input_channels
-
-    @property
-    def ao_channels(self) -> dict[str, AnalogChannel]:
-        return self._nominal_daq._analog_output_channels
-
-    @property
-    def di_channels(self) -> dict[str, DigitalChannel]:
-        return self._nominal_daq._digital_input_channels
-
-    @property
-    def do_channels(self) -> dict[str, DigitalChannel]:
-        return self._nominal_daq._digital_output_channels
