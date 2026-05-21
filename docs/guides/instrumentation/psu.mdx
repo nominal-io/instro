@@ -222,6 +222,12 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=N)` | `ch{N}.current` | telemetry |
 | `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
 | `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
+| `set_overvoltage_protection(channel=N)` | `ch{N}.ovp.cmd` | command |
+| `get_overvoltage_protection(channel=N)` | `ch{N}.ovp` | telemetry |
+| `set_overcurrent_protection(channel=N)` | `ch{N}.ocp.cmd` | command |
+| `get_overcurrent_protection(channel=N)` | `ch{N}.ocp` | telemetry |
+| `set_remote_sense(channel=N)` | `ch{N}.remote_sense.cmd` | command |
+| `get_remote_sense(channel=N)` | `ch{N}.remote_sense` | telemetry |
 
 ## Method Reference
 
@@ -236,8 +242,28 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=1)` | Read measured output current in amperes |
 | `output_enable(enable, channel=1)` | Enable (True) or disable (False) the output |
 | `get_output_status(channel=1)` | Query output enable state (returns Measurement with bool value) |
+| `set_overvoltage_protection(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
+| `get_overvoltage_protection(channel=1)` | Read the overvoltage protection threshold in volts |
+| `set_overcurrent_protection(current, channel=1)` | Set the overcurrent protection threshold in amperes |
+| `get_overcurrent_protection(channel=1)` | Read the overcurrent protection threshold in amperes |
+| `set_remote_sense(enabled, channel=1)` | Enable (True) or disable (False) remote (4-wire) sense |
+| `get_remote_sense(channel=1)` | Query whether remote sense is enabled (returns Measurement with bool value) |
 | `start()` | Begin background telemetry thread |
 | `stop()` | End background telemetry thread |
+
+## FeatureNotSupportedError
+
+`FeatureNotSupportedError` is raised by an `InstroPSU` method when the underlying driver does not support the requested feature on the connected hardware. Power supplies vary widely in which features they expose over their remote-control interface — for example, some bench supplies omit programmable overvoltage and overcurrent protection, and most do not expose remote (4-wire) sense as a software-controlled setting. The error is the driver's way of telling the caller "this instrument does not expose this feature," as opposed to a transport failure or an invalid argument.
+
+```python
+from instro.psu import FeatureNotSupportedError
+
+try:
+    psu.set_overvoltage_protection(15.0, channel=1)
+except FeatureNotSupportedError:
+    # The connected driver does not expose OVP.
+    ...
+```
 
 ---
 
@@ -359,6 +385,37 @@ def output_enable(self, enable: bool, channel: int) -> None:
 
 def get_output_status(self, channel: int) -> bool:
     """Query and return the output enable status on `channel`."""
+
+def set_overvoltage_protection(self, voltage: float, channel: int) -> None:
+    """Set the overvoltage protection threshold (volts) on `channel`."""
+
+def get_overvoltage_protection(self, channel: int) -> float:
+    """Query and return the overvoltage protection threshold in volts."""
+
+def set_overcurrent_protection(self, current: float, channel: int) -> None:
+    """Set the overcurrent protection threshold (amperes) on `channel`."""
+
+def get_overcurrent_protection(self, channel: int) -> float:
+    """Query and return the overcurrent protection threshold in amperes."""
+
+def set_remote_sense(self, enabled: bool, channel: int) -> None:
+    """Enable or disable remote sense on `channel`."""
+
+def get_remote_sense(self, channel: int) -> bool:
+    """Query and return the remote sense enable status on `channel`."""
+```
+
+Every method on `PSUDriverBase` is declared with `@abc.abstractmethod`, so each concrete driver must explicitly implement or opt out of every method. For features the hardware does not expose, raise `FeatureNotSupportedError`:
+
+```python
+from instro.psu import FeatureNotSupportedError, PSUDriverBase
+
+
+class MyPSU(PSUDriverBase):
+    ...
+
+    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by MyPSU")
 ```
 
 ### Talking to the Instrument
