@@ -15,8 +15,16 @@ from instro.utils.publishers.publisher import Publisher
 logger = logging.getLogger(__name__)
 
 
+class FeatureNotSupportedError(Exception):
+    """Raised when a PSU driver is asked to use a feature its hardware does not expose."""
+
+
 class PSUDriverBase(abc.ABC):
-    """Vendor PSU driver contract. Concrete drivers own their transport and lifecycle."""
+    """Vendor PSU driver contract. Concrete drivers own their transport and lifecycle.
+
+    Every method is ``@abc.abstractmethod``. Drivers whose hardware does not expose
+    a given feature raise ``FeatureNotSupportedError`` from their override.
+    """
 
     @abc.abstractmethod
     def open(self) -> None:
@@ -49,6 +57,30 @@ class PSUDriverBase(abc.ABC):
     @abc.abstractmethod
     def get_output_status(self, channel: int) -> bool:
         """Query whether the output on `channel` is enabled."""
+
+    @abc.abstractmethod
+    def set_overvoltage_protection(self, voltage: float, channel: int) -> None:
+        """Set the overvoltage protection threshold (volts) on `channel`."""
+
+    @abc.abstractmethod
+    def get_overvoltage_protection(self, channel: int) -> float:
+        """Query the overvoltage protection threshold (volts) on `channel`."""
+
+    @abc.abstractmethod
+    def set_overcurrent_protection(self, current: float, channel: int) -> None:
+        """Set the overcurrent protection threshold (amperes) on `channel`."""
+
+    @abc.abstractmethod
+    def get_overcurrent_protection(self, channel: int) -> float:
+        """Query the overcurrent protection threshold (amperes) on `channel`."""
+
+    @abc.abstractmethod
+    def set_remote_sense(self, enabled: bool, channel: int) -> None:
+        """Enable or disable remote sense on `channel`."""
+
+    @abc.abstractmethod
+    def get_remote_sense(self, channel: int) -> bool:
+        """Query whether remote sense is enabled on `channel`."""
 
 
 class InstroPSU(Instrument):
@@ -194,6 +226,69 @@ class InstroPSU(Instrument):
             channel=channel,
             channel_suffix="enabled",
             legacy_suffix="en",
+            **kwargs,
+        )
+
+    def set_overvoltage_protection(self, voltage: float, channel: int = 1, **kwargs) -> Command:
+        """Set the overvoltage protection threshold (volts) on ``channel``."""
+        return self._execute_command(
+            self._driver.set_overvoltage_protection,
+            value=voltage,
+            channel=channel,
+            channel_suffix="ovp",
+            legacy_suffix="ovp",
+            **kwargs,
+        )
+
+    def get_overvoltage_protection(self, channel: int = 1, **kwargs) -> Measurement | None:
+        """Query the overvoltage protection threshold (volts) on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_overvoltage_protection,
+            channel=channel,
+            channel_suffix="ovp",
+            legacy_suffix="ovp",
+            **kwargs,
+        )
+
+    def set_overcurrent_protection(self, current: float, channel: int = 1, **kwargs) -> Command:
+        """Set the overcurrent protection threshold (amperes) on ``channel``."""
+        return self._execute_command(
+            self._driver.set_overcurrent_protection,
+            value=current,
+            channel=channel,
+            channel_suffix="ocp",
+            legacy_suffix="ocp",
+            **kwargs,
+        )
+
+    def get_overcurrent_protection(self, channel: int = 1, **kwargs) -> Measurement | None:
+        """Query the overcurrent protection threshold (amperes) on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_overcurrent_protection,
+            channel=channel,
+            channel_suffix="ocp",
+            legacy_suffix="ocp",
+            **kwargs,
+        )
+
+    def set_remote_sense(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+        """Enable or disable remote sense on ``channel``."""
+        return self._execute_command(
+            self._driver.set_remote_sense,
+            value=enabled,
+            channel=channel,
+            channel_suffix="remote_sense",
+            legacy_suffix="rs",
+            **kwargs,
+        )
+
+    def get_remote_sense(self, channel: int = 1, **kwargs) -> Measurement | None:
+        """Query whether remote sense is enabled on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_remote_sense,
+            channel=channel,
+            channel_suffix="remote_sense",
+            legacy_suffix="rs",
             **kwargs,
         )
 

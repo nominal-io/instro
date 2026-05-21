@@ -1,6 +1,6 @@
 """Rigol DP800-series PSU driver. Covers DP811, DP821, DP831, DP832."""
 
-from instro.psu import PSUDriverBase
+from instro.psu import FeatureNotSupportedError, PSUDriverBase
 from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
@@ -38,6 +38,24 @@ class RigolDP800(PSUDriverBase):
             resp = self._visa.query(f":OUTP? CH{channel}")
             self._check_errors()
         return resp == "ON"
+
+    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by RigolDP800")
+
+    def get_overvoltage_protection(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection is not supported by RigolDP800")
+
+    def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection is not supported by RigolDP800")
+
+    def get_overcurrent_protection(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection is not supported by RigolDP800")
+
+    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense is not supported by RigolDP800")
+
+    def get_remote_sense(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense is not supported by RigolDP800")
 
     def query_status(self) -> dict:
         """Query the status of the PSU (output enable, regulation mode, OVP/OCP flags)."""

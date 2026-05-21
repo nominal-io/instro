@@ -1,6 +1,6 @@
 """TDK Lambda Genesys-family PSU driver (single-channel)."""
 
-from instro.psu import PSUDriverBase
+from instro.psu import FeatureNotSupportedError, PSUDriverBase
 from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
@@ -36,6 +36,24 @@ class TDKLambdaGenesys(PSUDriverBase):
             resp = self._visa.query("OUTP:STAT?")
             self._check_errors()
         return resp == "ON"
+
+    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by TDKLambdaGenesys")
+
+    def get_overvoltage_protection(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection is not supported by TDKLambdaGenesys")
+
+    def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection is not supported by TDKLambdaGenesys")
+
+    def get_overcurrent_protection(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection is not supported by TDKLambdaGenesys")
+
+    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense is not supported by TDKLambdaGenesys")
+
+    def get_remote_sense(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense is not supported by TDKLambdaGenesys")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
