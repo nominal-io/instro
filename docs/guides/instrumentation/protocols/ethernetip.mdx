@@ -145,6 +145,8 @@ The EtherNet/IP workflow has six moves:
 Pass `autostart=True` to combine steps 3 and 4. When a `timing` section is configured, autostart also starts the background polling daemon.
 </Tip>
 
+Opening the session and validating the config do not probe the PLC tag map. Tag existence and actual PLC type are only validated when PLC I/O touches the tag: either when the background polling task reads a `poll: true` tag, or when the user explicitly calls `read_tag()` or `write_tag()`.
+
 Example `timing` section:
 
 ```json
@@ -415,6 +417,8 @@ When the `timing` section is present, `EtherNetIP` reads all tags with `poll: tr
 - Integer write limits must fit in the configured PLC integer type.
 - String tags must set `poll: false`.
 - Route path hops must be local backplane hops with slots from 0 to 255.
+
+Load-time validation is local to the config. It does not verify that PLC tags exist or that their actual PLC types match `data_type`; those checks happen only when the background polling task runs or when the user explicitly initiates a `read_tag()` or `write_tag()` operation.
 
 ## Create an EtherNetIP instance
 
