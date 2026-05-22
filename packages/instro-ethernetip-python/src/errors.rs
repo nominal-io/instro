@@ -85,36 +85,39 @@ create_exception!(
 /// [`EtherNetIpBatchError`] that preserves the upstream variant and carries any variant-specific
 /// attributes (e.g. `expected`/`actual` for [`DataTypeMismatchError`]).
 pub(crate) fn map_error_with_py(py: Python<'_>, error: Error) -> PyErr {
-    if let Error::CreateRuntime { .. } = &error {
-        return PyRuntimeError::new_err(error.to_string());
-    }
+    let message = error.to_string();
 
-    if let Error::BatchReadItem {
-        addr,
-        tag_name,
-        source,
-    } = error
-    {
-        return map_batch_item(py, addr, tag_name, source);
-    }
-
-    let (operation, addr, tag_name) = match &error {
-        Error::CreateRuntime { .. } => unreachable!("handled above"),
-        Error::BatchReadItem { .. } => unreachable!("handled above"),
-        Error::Connect { addr, .. } => ("connect", Some(addr.clone()), None),
+    match error {
+        Error::CreateRuntime { .. } => PyRuntimeError::new_err(message),
+        Error::BatchReadItem {
+            addr,
+            tag_name,
+            source,
+        } => map_batch_item(py, addr, tag_name, source),
+        Error::Connect { addr, .. } => map_session_error(py, message, "connect", Some(addr), None),
         Error::ReadTag { addr, tag_name, .. }
         | Error::DecodeStructuredTag { addr, tag_name, .. }
         | Error::UnexpectedValueType { addr, tag_name, .. } => {
-            ("read_tag", Some(addr.clone()), Some(tag_name.clone()))
+            map_session_error(py, message, "read_tag", Some(addr), Some(tag_name))
         }
-        Error::BatchRead { addr, .. } => ("read_tags", Some(addr.clone()), None),
+        Error::BatchRead { addr, .. } => {
+            map_session_error(py, message, "read_tags", Some(addr), None)
+        }
         Error::WriteTag { addr, tag_name, .. } => {
-            ("write_tag", Some(addr.clone()), Some(tag_name.clone()))
+            map_session_error(py, message, "write_tag", Some(addr), Some(tag_name))
         }
-        Error::Unregister { addr, .. } => ("close", Some(addr.clone()), None),
-    };
+        Error::Unregister { addr, .. } => map_session_error(py, message, "close", Some(addr), None),
+    }
+}
 
-    let py_error = EtherNetIpError::new_err(error.to_string());
+fn map_session_error(
+    py: Python<'_>,
+    message: String,
+    operation: &str,
+    addr: Option<String>,
+    tag_name: Option<String>,
+) -> PyErr {
+    let py_error = EtherNetIpError::new_err(message);
     set_common_attrs(py, &py_error, operation, addr, tag_name);
     py_error
 }
