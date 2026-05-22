@@ -5,7 +5,7 @@ and the scalar tags Nominal reads or writes. The client lives under `instro.unst
 and depends on the local native `instro-ethernetip-python` package.
 
 ```python
-from instro.unstable.ethernetip import EtherNetIP
+from instro.unstable.ethernetip import EtherNetIPDevice
 
 connection = {
     "host": "192.168.1.10",
@@ -13,7 +13,7 @@ connection = {
     "route_path": {"hops": [{"type": "backplane", "slot": 0}]},
 }
 
-plc = EtherNetIP("compactlogix.json", connection=connection, autostart=True)
+plc = EtherNetIPDevice("compactlogix.json", connection=connection, autostart=True)
 plc.read_tag("line_speed")
 plc.write_tag("line_speed", 1200.0)
 plc.close()
@@ -26,9 +26,10 @@ plc.close()
 | Tested PLC | Allen-Bradley CompactLogix 5332E 1769-L32E |
 | Transport | EtherNet/IP explicit messaging over TCP |
 | Route paths | Direct connection or local backplane slot hops only |
-| Polling | Batched reads for `poll: true` scalar tags |
+| Polling | Automatic reads for `poll: true` scalar tags |
 | Streaming values | Boolean and numeric scalar tags |
 | Manual string operations | Native session API |
+| Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
 | Tag discovery | Not supported |
 | UDTs | Not supported in the config-driven API |
 | Arrays | Not supported in the config-driven API |
@@ -37,13 +38,13 @@ plc.close()
 
 ### Connection
 
-Provide the connection in the config or pass it to the `EtherNetIP` constructor. The constructor
+Provide the connection in the config or pass it to the `EtherNetIPDevice` constructor. The constructor
 parameter takes precedence, so one tag map can target multiple environments.
 
 === "Constructor"
 
     ```python
-    plc = EtherNetIP(
+    plc = EtherNetIPDevice(
         "compactlogix.json",
         connection={
             "host": "192.168.1.10",
@@ -102,9 +103,7 @@ The `timing` section controls background polling:
 |-------|------|---------|-------------|
 | `poll_interval` | float | *required* | Seconds between polling cycles (0.01-10.0) |
 
-When polling is running, `EtherNetIP` reads all `poll: true` tags in one batched request per
-polling cycle. EtherNet/IP logs a per-tag failure without discarding successful values from the
-same batch.
+When polling is running, `EtherNetIPDevice` reads each `poll: true` tag at the configured interval.
 
 ### Tags
 
@@ -129,10 +128,10 @@ Supported `data_type` values:
 | `int` | Yes | 16-bit signed integer |
 | `dint` | Yes | 32-bit signed integer |
 | `lint` | Yes | 64-bit signed integer |
-| `usint` | Yes | 8-bit unsigned integer |
-| `uint` | Yes | 16-bit unsigned integer |
-| `udint` | Yes | 32-bit unsigned integer |
-| `ulint` | Yes | 64-bit unsigned integer |
+| `usint` | Yes | 8-bit unsigned integer. Implemented, but not validated |
+| `uint` | Yes | 16-bit unsigned integer. Implemented, but not validated |
+| `udint` | Yes | 32-bit unsigned integer. Implemented, but not validated |
+| `ulint` | Yes | 64-bit unsigned integer. Implemented, but not validated |
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
 | `string` | No | Must set `poll: false`; use manual reads and writes |
@@ -159,7 +158,7 @@ plc.write_tag("line_speed", 1200.0)  # OK
 plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.0)
 ```
 
-EtherNetIP checks limits before sending the write to the PLC.
+`EtherNetIPDevice` checks limits before sending the write to the PLC.
 
 ## Validation rules
 
@@ -175,9 +174,9 @@ EtherNetIP checks limits before sending the write to the PLC.
 
 ## API reference
 
-### EtherNetIP
+### EtherNetIPDevice
 
-::: instro.unstable.ethernetip.ethernetip.EtherNetIP
+::: instro.unstable.ethernetip.ethernetip.EtherNetIPDevice
 
 ### Configuration types
 
@@ -186,7 +185,7 @@ EtherNetIP checks limits before sending the write to the PLC.
       members:
         - EtherNetIPConfig
         - TimingConfig
-        - EtherNetIPConnection
+        - EtherNetIPConnectionInfo
         - EtherNetIPRoutePath
         - EtherNetIPBackplaneHop
         - TagDef
