@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": { "name": "overlap_coils_test" },
+  "registers": [
+    { "name": "coil_a", "starting_address": 5, "register_type": "coil", "data_type": "bool" },
+    { "name": "coil_b", "starting_address": 5, "register_type": "coil", "data_type": "bool" }
+  ]
+}

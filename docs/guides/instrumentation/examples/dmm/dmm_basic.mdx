@@ -1,0 +1,38 @@
+---
+title: "A basic DMM reading"
+---
+
+```python dmm_basic.py
+"""Example: A basic DMM reading.
+
+Demonstrates configuring a DMM for voltage measurement and triggering a measurement.
+
+"""
+
+from instro.dmm import InstroDMM, MeasurementFunction
+from instro.dmm.drivers import Agilent34401A
+from instro.utils.publishers import NominalCorePublisher
+from instro.utils.transports import SerialConfig, VisaConfig
+
+VISA_RESOURCE = "ASRL3::INSTR"
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+
+dmm = InstroDMM(
+    name="myDMM",
+    driver=Agilent34401A(
+        VisaConfig(
+            visa_resource=VISA_RESOURCE,
+            serial_config=SerialConfig(baud_rate=9600),
+        )
+    ),
+    publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
+)
+dmm.open()
+
+dmm.set_measurement_function(function=MeasurementFunction.DC_VOLTAGE)
+response = dmm.read()
+print(response)
+
+dmm.close()
+```

@@ -1,0 +1,24 @@
+name: Conventional commit lint
+on:
+  pull_request:
+    types: ["opened", "edited", "reopened", "synchronize"]
+
+jobs:
+  lint-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        # This release broke the default config https://github.com/conventional-changelog/commitlint/releases/tag/v18.6.1
+        # After they fix the config-conventional package we can upgrade.
+        run: npm install -g @commitlint/cli@18 @commitlint/config-conventional@18.6.0
+      - name: lint pr name
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$TITLE" | commitlint --config .github/commitlint.config.js
+      - name: display helpful error message
+        if: failure()
+        run: |
+          echo "🚨 Your PR Title: \"${{ github.event.pull_request.title }}\" did not pass linting" >> $GITHUB_STEP_SUMMARY
+          echo "Please update it to follow conventional commit format: https://www.conventionalcommits.org/" >> $GITHUB_STEP_SUMMARY

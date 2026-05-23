@@ -1,0 +1,487 @@
+---
+title: Electronic Load (ELoad)
+description: Using InstroELoad for SCPI-based programmable electronic loads
+---
+
+# InstroELoad
+
+`InstroELoad` is a hardware abstraction layer (HAL) that provides a unified interface for programmable electronic loads. The category class defines the vendor-independent API (`set_mode`, `set_level`, `get_voltage`, …); a vendor-specific driver (e.g. `BK85XXB`) owns its connection details and translates those calls into vendor commands.
+
+## Supported Vendors
+
+- **B&K Precision** — 85xx Series via SCPI/VISA (`BK85XXB`)
+
+If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
+
+## Key Concepts
+
+### Driver Composition
+
+A `InstroELoad` is built from a concrete driver:
+
+```
+InstroELoad("name", driver=BK85XXB(visa_resource="USB0::..."))
+```
+
+- **`BK85XXB`** owns the connection setup and vendor-specific command mapping.
+- **`InstroELoad`** owns the category-level workflow — measurements, commands, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroELoad workflow:
+
+1. **Construct** — instantiate the vendor driver and pass it to `InstroELoad`.
+2. **`open()`** — establishes the VISA connection.
+3. **Configure and measure** — set operating mode, level, range, and read measurements.
+4. **`start()`** — begins a periodic background worker. (Optional)
+5. **`stop()`** — ends the background worker (if started).
+6. **`close()`** — disconnects from hardware.
+
+### Operating Modes
+
+Electronic loads can operate in four modes:
+
+- **CC (Constant Current)** — the load draws a constant current regardless of voltage
+- **CV (Constant Voltage)** — the load maintains a constant voltage across its terminals
+- **CR (Constant Resistance)** — the load simulates a constant resistance
+- **CP (Constant Power)** — the load draws constant power
+
+<Note>
+**Mode Configuration Required**
+
+The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes — consult your instrument's manual.
+</Note>
+
+## Creating a InstroELoad Instance
+
+```python
+from instro.eload.drivers.bk_85xxb import BK85XXB
+from instro.eload import InstroELoad
+
+eload = InstroELoad(
+    name="myELoad",
+    driver=BK85XXB(visa_resource="USB0::0x0614::0x0960::8514B12345::INSTR"),
+)
+```
+
+### Parameters
+
+- **`name`** — A name for this electronic load instance. Used as a prefix for channel names when publishing.
+- **`driver`** — A concrete `ELoadDriverBase` instance (e.g. `BK85XXB`) configured with the connection details for that model.
+- **`publishers`** — Optional list of publishers to attach.
+- **`**kwargs`** — Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### Choosing a Driver
+
+Choose the concrete driver that matches the electronic load model, then pass the instrument connection settings to that driver. For B&K Precision 85xx Series loads, use `BK85XXB` with the VISA resource string for the instrument.
+
+To inspect a VISA instrument's identity before choosing a driver:
+
+```python
+from instro.utils.transports import VisaDriver
+
+visa = VisaDriver("USB0::...")
+try:
+    visa.open()
+    print(visa.query("*IDN?"))
+finally:
+    visa.close()
+```
+
+## Examples
+
+All measurement methods return [`Measurement`](/instrumentation/library#measurement) objects. This is common amongst all `Instrument` objects.
+
+### Basic Usage
+
+```python
+import time
+
+from instro.eload.drivers.bk_85xxb import BK85XXB
+from instro.eload import InstroELoad
+from instro.eload import LoadMode
+from instro.utils.publishers import NominalCorePublisher
+
+VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
+DATASET_RID = "<your dataset here>"
+
+eload = InstroELoad(
+    name="myELoad",
+    driver=BK85XXB(visa_resource=VISA_RESOURCE),
+)
+eload.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+eload.open()
+
+# Configure for constant current mode
+eload.set_mode(LoadMode.CC, channel=1)
+eload.set_range(10.0, channel=1)  # Set range for up to 10A
+eload.set_level(2.5, channel=1)   # Draw 2.5A
+
+# Enable the load
+eload.output_enable(True, channel=1)
+
+time.sleep(0.5)
+
+# Read measurements
+voltage = eload.get_voltage(channel=1)
+current = eload.get_current(channel=1)
+print(f"V: {voltage.latest:.3f}V, I: {current.latest:.3f}A")
+
+# Disable the load
+eload.output_enable(False, channel=1)
+eload.close()
+```
+
+### Background Worker for Continuous Monitoring
+
+```python
+import time
+
+from instro.eload.drivers.bk_85xxb import BK85XXB
+from instro.eload import InstroELoad
+from instro.eload import LoadMode
+from instro.utils.publishers import NominalCorePublisher
+
+VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
+DATASET_RID = "<your dataset here>"
+
+eload = InstroELoad(
+    name="myELoad",
+    driver=BK85XXB(visa_resource=VISA_RESOURCE),
+)
+eload.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+# Configure telemetry rate (optional, default is 1 second)
+eload.background_interval = 0.5  # Poll every 500ms
+
+eload.open()
+
+# Start background worker
+eload.start()
+
+# Configure constant power mode
+eload.set_mode(LoadMode.CP, channel=1)
+eload.set_range(100.0, channel=1)  # Set range for up to 100W
+eload.set_level(25.0, channel=1)   # Draw 25W
+eload.output_enable(True, channel=1)
+
+# Data flows automatically to publishers
+while True:
+    try:
+        # Optionally grab data being produced by the background worker.
+        ch1_voltage = eload.get_channel(
+            channel_name = "myELoad.ch1.voltage",
+            length = 1,
+            wait_for_latest = True)  # This will block for the next sample from the background worker
+        ch1_current = eload.get_channel(
+            channel_name = "myELoad.ch1.current",
+            length = 5,
+            wait_for_latest = False)  # This will immedietly return with the last 5 measurements for this channel (if available).
+
+    except KeyboardInterrupt:
+        print("Stopping...")
+        break
+
+eload.output_enable(False, channel=1)
+
+# Stop background worker
+eload.stop()
+eload.close()
+```
+
+In this mode:
+- `start()` begins a background worker, executing a function or list of functions periodically.
+- `stop()` ends the background worker.
+
+<Note>
+**Default ELoad Background Worker**
+
+For each <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip>:
+- Output voltage (via `get_voltage()`)
+- Output current (via `get_current()`)
+
+The default polling interval is 1 second, configurable via the `background_interval` property.
+</Note>
+
+**Custom Background Worker**
+* To define your own background worker, call `define_background_daemon()`.
+* To add a method to the background worker stack, call `add_background_daemon_function()`.
+
+See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
+
+<Note>
+**Important Note about Publishers**
+
+Data is published as a direct result of an instrument method being called.
+
+For example, when you call `get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+
+Therefore the background worker, when calling these instrument methods, is publishing data in the background as well!
+</Note>
+
+## Published channels
+
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. Substitute `{N}` with the actual channel number (`1`, `2`, …). If you need the pre-v1.0 channel names instead, pass [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) to the constructor.
+
+| Method | Descriptor | Type |
+|--------|------------|------|
+| `set_mode(channel=N)` | `ch{N}.mode.cmd` | command |
+| `set_level(channel=N)` | `ch{N}.level.cmd` | command |
+| `set_range(channel=N)` | `ch{N}.range.cmd` | command |
+| `set_slewrate(channel=N)` | `ch{N}.slewrate.cmd` | command |
+| `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
+| `short_output(channel=N)` | `ch{N}.short.cmd` | command |
+| `get_voltage(channel=N)` | `ch{N}.voltage` | telemetry |
+| `get_current(channel=N)` | `ch{N}.current` | telemetry |
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct a InstroELoad with a vendor driver |
+| `open()` | Establish VISA connection to the electronic load |
+| `close()` | Disconnect from electronic load and close all publishers |
+| `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |
+| `set_level(value, channel=1, curr_limit=None)` | Set the operating level (A, V, Ω, or W depending on mode) |
+| `set_range(value, channel=1)` | Set the operating range for auto-ranging |
+| `set_slewrate(direction, rate, channel=1)` | Set current slew rate in A/μs |
+| `output_enable(enable, channel=1)` | Enable (True) or disable (False) the load input |
+| `short_output(enable, channel=1)` | Short the load channel (occurs immediately) |
+| `get_voltage(channel=1)` | Read measured input voltage |
+| `get_current(channel=1)` | Read measured input current |
+| `start()` | Begin background telemetry thread |
+| `stop()` | End background telemetry thread |
+
+---
+
+# Custom Driver Development
+
+This section is for developers implementing `InstroELoad` support for electronic loads that aren't supported out of the box.
+
+## Overview
+
+Driver developers subclass `ELoadDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver, and that concrete driver exposes connection parameters that make sense for its protocol:
+
+```python
+eload = InstroELoad(
+    name="labLoad",
+    driver=MyVendorLoad(host="10.0.0.42", unit_id=1),
+)
+```
+
+The driver is responsible for translating `InstroELoad`'s vendor-independent API (`set_mode`, `set_level`, `get_voltage`, ...) into vendor-specific commands.
+
+## Driver Responsibilities
+
+An electronic load driver must:
+
+1. **Expose a protocol-native constructor** — accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
+2. **Own transport setup** — create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
+3. **Own lifecycle** — implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands** — translate each abstract method into vendor-specific commands.
+5. **Parse responses** — convert instrument responses to the expected Python types (`float`, `bool`, etc.).
+6. **Report errors** — override `check_errors()` if the instrument exposes an error queue or status register.
+
+## ELoadDriverBase Interface
+
+All electronic load drivers subclass `ELoadDriverBase` and implement these abstract methods:
+
+```python
+def open(self) -> None:
+    """Open the driver's underlying transport and perform any vendor handshake."""
+
+def close(self) -> None:
+    """Close the driver's underlying transport."""
+
+def set_mode(self, mode: LoadMode, channel: int) -> None:
+    """Set the operating mode."""
+
+def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
+    """Set the operating level.
+
+    Args:
+        mode: Current operating mode.
+        value: Level value (units depend on mode: A, V, Ω, or W).
+        channel: Channel number (default is 1).
+        curr_limit: Optional current limit (used in CV mode for protection).
+    """
+
+def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
+    """Set the operating range."""
+
+def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
+    """Set the current slew rate."""
+
+def output_enable(self, enable: bool, channel: int) -> None:
+    """Enable or disable the load input."""
+
+def short_output(self, enable: bool, channel: int) -> None:
+    """Enable or disable the load short."""
+
+def get_voltage(self, channel: int) -> float:
+    """Query and return the measured input voltage in volts."""
+
+def get_current(self, channel: int) -> float:
+    """Query and return the measured input current in amperes."""
+```
+
+`check_errors()` is also part of the contract but defaults to a no-op on the base class. Override it if your vendor exposes an error queue.
+
+### Talking to the Instrument
+
+Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
+
+- **`self._visa.write(command)`** — Send a SCPI command (no response expected).
+- **`self._visa.query(command)`** — Send a SCPI query and receive the response string.
+
+`VisaDriver` owns the resource lock; concurrent `write` / `query` calls against the same driver are serialized automatically.
+
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference — configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+
+For non-VISA instruments, follow the same shape with the protocol client your driver needs:
+
+```python
+class MyModbusELoad(ELoadDriverBase):
+    def __init__(self, host: str, *, port: int = 502, unit_id: int = 1) -> None:
+        self._host = host
+        self._port = port
+        self._unit_id = unit_id
+        self._client = None
+```
+
+The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
+
+## Implementation Example: B&K Precision Driver
+
+Here's the complete driver implementation for B&K Precision 85xx Series electronic loads:
+
+```python
+from instro.eload import ELoadDriverBase
+from instro.eload.types import LoadMode, SlewRateDirection
+from instro.utils.transports import VisaConfig, VisaDriver
+
+
+def loadmode_to_unit(mode: LoadMode) -> str:
+    """Convert LoadMode enum to SCPI unit keyword."""
+    return {
+        LoadMode.CC: "CURR",
+        LoadMode.CV: "VOLT",
+        LoadMode.CP: "POW",
+        LoadMode.CR: "RES",
+    }[mode]
+
+
+class BK85XXB(ELoadDriverBase):
+    """SCPI mapping for B&K Precision 85xx Series electronic loads."""
+
+    def __init__(self, visa_resource: str | VisaConfig) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        """Open transport and put the instrument in remote mode."""
+        self._visa.open()
+        self._visa.write("SYST:REM")
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def set_mode(self, mode: LoadMode, channel: int) -> None:
+        self._visa.write(f"FUNCtion {loadmode_to_unit(mode)}")
+
+    def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
+        if mode is LoadMode.CV:
+            # TODO: Implement CV→CC protection based on curr_limit
+            pass
+        self._visa.write(f"{loadmode_to_unit(mode)} {value}")
+
+    def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
+        self._visa.write(f"{loadmode_to_unit(mode)}:RANGe {value}")
+
+    def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
+        self._visa.write(f"CURRent:SLEW:{direction.value} {rate}")
+
+    def output_enable(self, enable: bool, channel: int) -> None:
+        self._visa.write(f"INPut {int(enable)}")
+
+    def short_output(self, enable: bool, channel: int) -> None:
+        self._visa.write(f"INPut:SHORt {int(enable)}")
+        self.output_enable(enable, channel)
+
+    def get_current(self, channel: int) -> float:
+        return float(self._visa.query("MEASure:CURRent?"))
+
+    def get_voltage(self, channel: int) -> float:
+        return float(self._visa.query("MEASure:VOLTage?"))
+
+    def check_errors(self) -> None:
+        err = self._visa.query("SYST:ERR?")
+        if not err.startswith("0"):
+            raise RuntimeError(f"BK85XXB reported error: {err}")
+```
+
+<Tip>
+**Vendor SCPI Variations**
+
+Different electronic load vendors use different SCPI command sets. Always consult your electronic load's programming manual for the correct SCPI syntax.
+</Tip>
+
+## Using a Custom Driver
+
+For drivers that aren't shipped in the library, construct `InstroELoad` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
+
+```python
+from instro.eload import LoadMode, InstroELoad
+from instro.eload import ELoadDriverBase
+from instro.utils.transports import VisaDriver
+
+
+class MyCustomELoadDriver(ELoadDriverBase):
+    """Custom driver for my lab's proprietary electronic load."""
+
+    def __init__(self, visa_resource: str) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        self._visa.open()
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def set_mode(self, mode: LoadMode, channel: int) -> None:
+        self._visa.write(f"MODE {mode.value}")
+
+    def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
+        self._visa.write(f"LEVEL {value}")
+
+    # ... implement other required methods ...
+
+    def check_errors(self) -> None:
+        err = self._visa.query("ERR?")
+        if err != "OK":
+            raise RuntimeError(f"Electronic load error: {err}")
+
+
+eload = InstroELoad(
+    name="labELoad",
+    driver=MyCustomELoadDriver(visa_resource="<VISA_ADDRESS>"),
+)
+
+eload.open()
+eload.set_mode(LoadMode.CC, channel=1)
+eload.set_level(5.0, channel=1)
+eload.close()
+```
+
+## Summary
+
+Driver development requires careful mapping of vendor-specific behavior to the unified `InstroELoad` interface. Focus on:
+
+- Subclassing `ELoadDriverBase`
+- Designing a constructor around natural connection parameters for the instrument
+- Hiding transport construction inside the driver
+- Implementing all abstract methods on `ELoadDriverBase`
+- Using the correct vendor protocol or command syntax
+- Converting instrument responses to the expected Python types
+- Overriding `check_errors()` if your vendor exposes an error queue or status register
+- Testing with actual hardware to ensure commands work as expected

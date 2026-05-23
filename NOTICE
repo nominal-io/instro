@@ -1,0 +1,56 @@
+instro
+Copyright (c) 2025-2026 Nominal, Inc.
+
+This product is licensed under the Apache License, Version 2.0. See the
+LICENSE file for full terms.
+
+================================================================================
+Third-Party Dependency Licensing Notes
+================================================================================
+
+All direct dependencies of instro and its subpackages are compatible
+with the Apache License, Version 2.0. The following item is documented here
+for transparency:
+
+LGPL-2.1-or-later dependency (instro-i2c-aardvark only)
+---------------------------------------------------------------
+
+  pyaardvark (https://github.com/kontron/python-aardvark) is licensed under
+  the GNU Lesser General Public License, version 2.1 or later.
+
+  Compatibility with the Apache License, Version 2.0 rests on two
+  independent grounds:
+
+    1. The "or later" clause permits downstream recipients to elect the
+       terms of LGPL-3.0, which is explicitly compatible with the Apache
+       License, Version 2.0 (see the Apache Software Foundation's licensing
+       guidance at https://www.apache.org/licenses/GPL-compatibility.html).
+
+    2. instro-i2c-aardvark imports pyaardvark dynamically at runtime
+       via the standard Python import mechanism. Under LGPL section 6,
+       linking from a work to an LGPL-covered library does not impose
+       copyleft requirements on the consuming work, regardless of the
+       consuming work's chosen license.
+
+  instro-i2c-aardvark does not bundle, modify, or redistribute
+  pyaardvark, and therefore remains licensed under the Apache License,
+  Version 2.0.
+
+  Users who modify and redistribute pyaardvark itself remain bound by the
+  LGPL-2.1-or-later terms for those modifications. This restriction does not
+  extend to instro-i2c-aardvark or any other component of this
+  repository.
+
+================================================================================
+Proprietary Vendor Runtime Requirements
+================================================================================
+
+Several hardware-driver subpackages ship Apache-2.0-licensed Python wrappers
+that require closed-source vendor runtime libraries. These runtimes are NOT
+distributed with this software. End users must obtain and install them from
+the respective vendors under those vendors' own license terms.
+
+  instro-daq-ni        requires NI-DAQmx           (National Instruments)
+  instro-daq-labjack   requires LJM Library        (LabJack)
+  instro-daq-mcc       requires Universal Library  (Measurement Computing)
+  instro-i2c-aardvark  requires Aardvark API       (Total Phase)

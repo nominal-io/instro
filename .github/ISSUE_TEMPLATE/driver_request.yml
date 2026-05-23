@@ -1,0 +1,82 @@
+name: Driver request
+description: Request support for a device that doesn't have a driver yet.
+title: "driver: "
+labels: ["driver-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this to request a driver for a device that isn't yet supported, or to discuss the right home before you start work on one. If you can contribute the driver yourself, even better — see `CONTRIBUTING.md` for the bar.
+
+  - type: input
+    id: vendor
+    attributes:
+      label: Vendor
+      placeholder: "e.g. Siglent"
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      placeholder: "e.g. SPD3303X-E"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Which instro category does this device fit into?
+      options:
+        - PSU (power supply)
+        - DMM (digital multimeter)
+        - E-Load (electronic load)
+        - DAQ (data acquisition)
+        - I2C
+        - Modbus
+        - Scope (in-development; lives in instro-unstable)
+        - None of the above / a new category
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protocol / transport
+      options:
+        - SCPI over VISA (USB, LAN, GPIB)
+        - Modbus TCP
+        - Modbus RTU
+        - Raw serial
+        - Raw TCP/UDP socket
+        - Vendor native SDK (note which one in the description)
+        - Other (note in description)
+    validations:
+      required: true
+
+  - type: input
+    id: manual
+    attributes:
+      label: Programming manual or datasheet
+      description: URL to the SCPI command reference, register map, or equivalent docs.
+      placeholder: "https://..."
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Can you contribute the driver?
+      description: We accept drivers verified by the contributor against real hardware. See the Contrib Package section in CONTRIBUTING.md.
+      options:
+        - "Yes — I have the device and plan to write the driver."
+        - "Yes — someone on my team plans to."
+        - "No — I'm requesting this so others can pick it up."
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Anything else worth knowing — quirks, similar devices, expected use case, etc.

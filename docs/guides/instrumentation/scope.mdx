@@ -1,0 +1,104 @@
+---
+title: Scope and Applicability
+description: Understanding what Nominal Instrumentation is for, where it's applicable, and where it's not
+---
+
+Nominal Instrumentation is designed to accelerate test equipment automation and simplify integration with Nominal's platform. This page helps you understand when this library is the right tool for your needs and what responsibilities remain with you as the engineer.
+
+## What This Library Is For
+
+Nominal Instrumentation is primarily used for **scripting and automating test equipment**. It provides:
+
+- **Unified interfaces and code reusability** across different vendors and models of the same equipment type
+- **Seamless integration** with Nominal Core and Nominal Connect through built-in publishers
+
+The library consolidates many software features into one package, making it easier to work with test equipment while maintaining flexibility.
+
+<Warning>
+This library is designed for scripting and automation workflows, not for tight control applications with strict real-time requirements. For applications that require precise timing control, choose instruments that provide hardware-level guarantees (such as hardware triggers or dedicated hardware clocks) and use this library to configure those capabilities.
+</Warning>
+
+## Understanding the Library's Role
+
+### What It Does
+
+Nominal Instrumentation strives to provide the same behavior and user experience across devices within the same type that share the same features. For example, if you have a data acquisition system from National Instruments or LabJack, the library provides a consistent API so your code can work with either vendor by simply changing a configuration parameter.
+
+### What It Doesn't Do
+
+The library has intentional boundaries that preserve your engineering judgment and the capabilities of your chosen hardware:
+
+- **Does not replace equipment selection**: The library does not absolve the need for you to choose the right equipment for your specific application. You remain responsible for selecting hardware that meets your requirements.
+
+- **Does not add hardware capabilities**: If a piece of equipment doesn't inherently have a feature or capability, this library cannot add it. The library works within the bounds of what your hardware can do.
+
+- **Does not guarantee identical performance**: While the library provides consistent interfaces, it leans on each device to deliver its own performance characteristics. A low-cost DAQ and a high-precision DAQ will have the same programming interface, but they will not have the same measurement accuracy or sample rates.
+
+- **Does not validate all configurations**: Except for tactical exceptions, the library relies on the instrument itself to determine if a setting or feature request is valid. The library generally does not guard against all possible configuration or usage errors—it trusts the hardware to report issues.
+
+- **Does not provide tight control**: This library is not designed for applications requiring strict real-time control or deterministic timing. It is intended for scripting and automation workflows, not for tight control loops with critical timing requirements.
+
+## When to Use (and When Not to Use)
+
+### This Library Is Optional
+
+Nominal Instrumentation is **not a requirement** for using hardware with Nominal Core or Nominal Connect. You can always interface with your instruments using manufacturer-provided SDKs and send data to Nominal products through our respective APIs.
+
+### Why You Might Choose to Use It
+
+The library offers significant convenience by:
+
+- **Collapsing multiple concerns into one**: Instead of separately managing instrument communication, data formatting, and transmission to Nominal products, the library handles all of this in an integrated way.
+
+- **Making data transmission transparent**: When using publishers, sending data to Nominal Core or Connect becomes part of programming the hardware itself, not a separate API call. Configure your instrument, start acquisition, and data flows to Nominal automatically.
+
+- **Enabling hardware portability**: Write your test once, and swap between supported vendors without rewriting code.
+
+### When to Use Native Interfaces
+
+Nominal wants you to utilize all the features of your instruments. If this library doesn't expose a feature you need:
+
+- **Don't hesitate to reach out**: Contact Nominal to request the feature be added.
+- **Don't hesitate to go direct**: You are not beholden to this library. Use the instrument's native interfaces directly if that better serves your needs.
+
+A missing feature in this library should never block your work. Your success with your test equipment is more important than using any particular abstraction layer.
+
+## Your Responsibilities
+
+While this library simplifies many aspects of test equipment automation, certain responsibilities remain with you:
+
+### Operating Within Specifications
+
+You are expected to operate equipment within its manufacturer's design specifications. The library does not prevent you from attempting configurations outside these bounds, and it cannot compensate for misuse.
+
+### Understanding Your Instruments
+
+You should be familiar with the specifications and limitations of your equipment, including:
+
+- **Sample rates and timing constraints**
+- **Measurement precision and accuracy**
+- **Voltage and current ranges**
+- **<Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">Channel</Tooltip> count and multiplexing behavior**
+- **Environmental operating conditions**
+
+The library makes these instruments easier to program, but it doesn't eliminate the need to understand their capabilities and limitations.
+
+### Validation and Testing
+
+As with any test system, you should validate that your configuration produces the expected results. The library aims to simplify correct usage, but it's your responsibility to ensure your test setup meets your measurement requirements.
+
+## Implementation Approach
+
+Nominal Instrumentation prioritizes performance and reliability by leveraging compiled binaries where possible:
+
+- **Compiled drivers**: Where available, instrument drivers utilize compiled binaries provided by instrument manufacturers rather than pure Python implementations. This approach provides better performance and reliability for instrument communication.
+
+- **Compiled publishers**: Publishers that handle data transmission to Nominal Core and Connect similarly leverage compiled libraries when available, ensuring efficient data handling and network communication.
+
+- **Python for orchestration**: While the core drivers and publishers utilize compiled code, the Python layer provides the high-level orchestration and abstraction that makes the library easy to use and extend.
+
+This hybrid approach balances performance with developer accessibility—you program in Python, while the heavy lifting happens in optimized compiled code.
+
+## Summary
+
+Nominal Instrumentation is a tool designed to make your work with test equipment easier and more integrated with Nominal's platform. It's built on the principle that you—the engineer—know your requirements best. The library provides convenience and consistency while leaving you free to work directly with hardware when needed. Use it where it helps, skip it where it doesn't, and let us know how we can make it better.

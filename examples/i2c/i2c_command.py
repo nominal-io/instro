@@ -1,0 +1,87 @@
+"""Example: I2C command example.
+
+Requires the Aardvark vendor package — install with ``uv sync --extra i2c``
+(or ``pip install 'instro[i2c]'``).
+"""
+
+from instro.i2c import I2CInterface
+from instro.i2c.drivers.totalphase import Aardvark
+from instro.i2c.types import SystemDefinition
+from instro.utils.publishers import NominalCorePublisher
+
+RESOURCE_ID = "2239-764425"
+
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+
+def my_system_definition() -> SystemDefinition:
+    """Defines the peripherals on the I2C bus.
+
+    Typically, you'd want to put this definition in a seperate file from your main app.
+    """
+    from enum import Enum
+
+    from instro.i2c.types import CommandDef, CommandDevice, CustomScaling, DataFormat
+
+    # For use with ltc2309 ADC
+    ADCChannel = Enum(
+        "ADCChannel",
+        {"CH0": 0x80, "CH1": 0xC0, "CH2": 0x90, "CH3": 0xD0, "CH4": 0xA0, "CH5": 0xE0, "CH6": 0xB0, "CH7": 0xF0},
+    )
+
+    ADCSleepMode = Enum("ADCSleepMode", {"WAKE": 0x00, "SLEEP": 0x04})
+
+    ADCPolarityMode = Enum("ADCPolarityMode", {"BIPOLAR": 0x00, "UNIPOLAR": 0x08})
+
+    def ltc2309_voltage_scaling(shifted: int) -> float:
+        scaled = shifted / 4095 * 5 * 7.2
+        return scaled
+
+    ltc2309_voltage_format = DataFormat(
+        transfer_bits=16, data_width_bits=12, data_lsb=4, scaling=CustomScaling(ltc2309_voltage_scaling)
+    )
+
+    adc1 = CommandDevice(
+        name="VOLTAGE_ADC",
+        address=0x09,
+        valid_commands={
+            "channel": CommandDef(name="channel", values=ADCChannel),
+            "sleep_mode": CommandDef(name="sleep_mode", values=ADCSleepMode),
+            "polarity_mode": CommandDef(name="polarity_mode", values=ADCPolarityMode),
+        },
+        batch_commands={
+            "ch0": [ADCChannel.CH0, ADCPolarityMode.UNIPOLAR, ADCSleepMode.WAKE],
+            "ch1": [ADCChannel.CH1, ADCPolarityMode.UNIPOLAR, ADCSleepMode.WAKE],
+            "ch2": [ADCChannel.CH2, ADCPolarityMode.UNIPOLAR, ADCSleepMode.WAKE],
+        },
+        data_format=ltc2309_voltage_format,
+    )
+
+    return SystemDefinition(
+        devices={
+            adc1.name: adc1,
+        }
+    )
+
+
+# This is the main app. It reads from an LTC2309 ADC.
+
+# A system_definition is passed in which describes the
+# peripherals on the I2C bus.
+
+system_definition = my_system_definition()
+
+i2c = I2CInterface(
+    name="myI2C",
+    driver=Aardvark(serial_number=RESOURCE_ID),
+    system_definition=system_definition,
+)
+i2c.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+i2c.open()
+try:
+    value = i2c.query("VOLTAGE_ADC", "ch0")
+    print(value)
+
+finally:
+    i2c.close()

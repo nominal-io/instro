@@ -1,0 +1,235 @@
+---
+title: Overview
+description: A Python library/framework for interfacing with hardware
+---
+
+Nominal Instrumentation is a Python library with the following objectives:
+
+1. Accelerate the authoring of tests which rely on hardware instruments.
+2. Provide low-code integration with Nominal tools like Connect and Core.
+3. Define entry points for creating instrument interfaces and drivers that integrate with the library.
+4. Provide abstractions that allow code reuse across various instrument models.
+
+It is a Python forward framework that should be accessible to engineers new to Python but
+also extensible and useable by engineers who are Python savvy.
+
+# Problem Space: Before and After
+
+## Before: DAQ to Nominal Core
+
+Here's what is required to read data from various DAQ devices and stream data to Nominal Core.
+
+<AccordionGroup>
+    <Accordion title="LabJack T-Series Devices">
+        ```python
+        import time
+        from labjack import ljm
+        import nominal as nm
+
+        DATASET_RID = "<your dateset rid>"
+
+        # Initial Nominal Config
+        client = NominalClient.from_profile("default")
+        dataset = client.get_dataset(DATASET_RID)
+
+        # Set up labjack
+        aScanList = ljm.namesToAddresses(len(["AIN0", "AIN1"]), ["AIN0", "AIN1"])[0]
+        handle = ljm.openS("ANY", "ANY", "ANY")
+        info = ljm.getHandleInfo(handle)
+        deviceType = info[0]
+        if deviceType == ljm.constants.dtT4:
+            aNames = ["STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX"]
+            aValues = [0, 0]
+        else:
+            ljm.eWriteName(handle, "STREAM_TRIGGER_INDEX", 0)
+            ljm.eWriteName(handle, "STREAM_CLOCK_SOURCE", 0)
+            aNames = ["AIN0_RANGE", "AIN1_RANGE", "STREAM_RESOLUTION_INDEX"]
+            aValues = [10.0, 10.0, 0]
+            if deviceType == ljm.constants.dtT7:
+                aNames.extend(
+                    ["AIN0_NEGATIVE_CH", "STREAM_SETTLING_US", "AIN1_NEGATIVE_CH"]
+                )
+                aValues.extend([199, 0, 199])
+        numFrames = len(aNames)
+        ljm.eWriteNames(handle, numFrames, aNames, aValues)
+
+        # Start the labjack. Read 500 samples 10 times
+        ljm.eStreamStart(handle, 500, len(aScanList), aScanList, 5000)
+        with dataset.get_write_stream() as core_stream:
+            for _ in range(10):
+                # Read from Labjack
+                readings = ljm.eStreamRead(handle)
+                samples = readings[0]
+
+                # Arrange data and send to Nominal Core
+                timestamp = time.time()
+                samples_per_channel = int(len(samples) / len(aScanListNames))
+                dt = 1/5000
+                t0 = timestamp - dt * len(samples_per_channel)
+                for i, channel in enumerate(aScanListNames):
+                    core_stream.enqueue_batch(
+                        channel_name = channel,
+                        timestamps = [t0 + j * dt for j in range(samples_per_channel)],
+                        values = [samples[j * len(aScanListNames) : (i + 1) * len(aScanListNames)] for j in range(samples_per_channel)][i],
+                    )
+
+        ljm.eStreamStop(handle)
+        ```
+    </Accordion>
+    <Accordion title="NI DAQ Devices">
+        ```python
+        import nidaqmx
+        from nidaqmx.constants import AcquisitionType
+        import nominal as nm
+
+        DATASET_RID = "<your dateset rid>"
+
+        # Initial Nominal Config
+        client = NominalClient.from_profile("default")
+        dataset = client.get_dataset(DATASET_RID)
+
+        with nidaqmx.Task() as task:
+            task.ai_channels.add_ai_voltage_chan("Dev1/ai0:1")
+            task.timing.cfg_samp_clk_timing(5000.0, sample_mode=AcquisitionType.CONTINUOUS)
+            task.start()
+
+            with dataset.get_write_stream() as core_stream:
+                for _ in range(10):
+                    # Read from NI DAQ
+                    data = task.read(number_of_samples_per_channel=500)
+
+                    # Arrange data and send to Nominal Core
+                    timestamp = time.time()
+                    t0 = timestamp - 1/5000 * len(data[0])
+                    for i, ch_data in enumerate(data):
+                        core_stream.enqueue(
+                            channel_name = task.channel_names[i],
+                            timestamps = [t0 + j * 1/5000 for j in range(len(ch_data))],
+                            values = ch_data
+                        )
+            task.stop()
+        ```
+    </Accordion>
+
+</AccordionGroup>
+
+## After: InstroDAQ
+
+Here's the same workflow using the Nominal Instrumentation library's `InstroDAQ`.
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.daq.types import Direction
+from instro.utils.publishers import NominalCorePublisher
+
+DATASET_RID = "<your dataset rid>"
+
+# Swap in NIDAQDriver/MCCDriver/Keysight34980A to target a different vendor.
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="<your_device_id>"),
+)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+daq.open()
+
+daq.configure_analog_channel(
+    direction=Direction.INPUT, physical_channel="AIN0", alias="ch_0", range_min=-10, range_max=10
+)
+daq.configure_analog_channel(
+    direction=Direction.INPUT, physical_channel="AIN1", alias="ch_1", range_min=-10, range_max=10
+)
+daq.configure_ai_sample_rate(sample_rate=5000, samples_per_channel=500)
+
+# Start the acquisition and launch a background daemon that fetches from the DAQ buffer
+daq.start()
+
+for _ in range(10):
+    time.sleep(0.5)
+
+daq.stop()
+daq.close()
+```
+
+# Key Concepts of Nominal Instrumentation
+
+- **Code to an interface**, not the specific instrument in use.
+- **Automatic data publishing** to Nominal Core and Nominal Connect out of the box by way of a customizable `Publisher` interface.
+- **Configurable background daemons** read and expose measurements to your script and your publishers.
+
+## Two ways to get data
+
+You can get measurements into your script in two ways. **Both options publish data** whenever a measurement is produced; the difference is who triggers the reads and how often.
+
+|              | Background acquisition                                                                                                                                                                        | On-demand acquisition                                                                                                                                                             |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **How**      | Call `start()`. A background daemon fetches from the instrument at a fixed, configurable rate. Use method `get_channel()` to pull the latest N values into your script if/when you need them. | Skip `start()`. Call the instrument's methods (e.g. `read_analog()`, `get_voltage()`) only when you want a measurement. Each call reads from the device and publishes the result. |
+| **Best for** | Simpler top-level apps where data should always be available and publishing.                                                                                                                  | Applications that only need measurements at specific times; lower system and bus usage. DMMs are a great example.                                                                 |
+
+<Note>
+**Recommendation**
+
+We recommend the **background daemon pattern** for most workflows—data is always available and publishing, and it often simplifies application code, especially for bufferred acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
+
+Depending on your application, you may never need to call `get_channel()`, but the background daemon will always publish measurements for later analysis in tools like Nominal Core.
+
+</Note>
+
+Instrument-specific pages (e.g. [InstroDAQ](/instrumentation/daq)) describe the exact methods and timing options for each type.
+
+# High Level Architecture
+
+1. **Instrument Types / HALs** — Distinct classes for each type of instrument (e.g., DAQ, PSU, ELoad, I2C), each providing an opinionated and unified usage model. This design exposes a tailored interface that reflects typical usage patterns, making common workflows consistent across different vendors and models.
+2. **Drivers** — Vendor- or model-specific drivers that handle low-level communication intricacies. HALs rely on these drivers to implement vendor- or model-specific details within the context of their higher level usage model.
+3. **Publishers** — Components responsible for recording or transmitting instrument data and commands; for example, streaming measurement data to a dataset.
+
+<img src="/images/diagram_architecture.png" />
+
+<Note>
+**Publishers**
+
+Data is published as a direct result of an instrument method being called.
+
+For example, when you call `InstroPSU.get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+
+This makes it easy to ensure measurements and state changes are consistently recorded or streamed without explicitly managing yourself.
+
+</Note>
+
+### Instrument Types
+
+These are the current instrument types that have been developed by Nominal and available out of the box.
+
+- `InstroPSU`: programmable Power Supplies
+- `InstroDAQ`: data Acquisition devices
+- `InstroELoad`: electronic Loads
+- `I2CInterface`: I2C master for communicating to peripherals on an I2C bus
+
+### Drivers
+
+These are the current vendor/model specific drivers that have been developed by Nominal and are available out of the box.
+
+- `InstroPSU`
+  - B&K Precision
+  - Siglent
+  - Rigol
+  - TDK Lambda
+- `InstroDAQ`
+  - National Instruments (NI)
+  - LabJack T-Series
+  - Keysight 34980
+- `InstroELoad`
+  - B&K Precision 85xx Series
+- `I2CInterface`
+  - Total Phase Aardvark
+- `InstroDMM`
+  - Keithley 2400
+  - Agilent/HP/Keysight 34401A
+
+### Publishers
+
+These are the current Publishers that have been developed by Nominal and available out of the box.
+
+- `NominalCorePublisher`: sends data to a Nominal Core dataset
+- `ConnectPublisher`: sends data to Nominal Connect client

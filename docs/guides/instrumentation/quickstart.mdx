@@ -1,0 +1,149 @@
+---
+title: Quickstart
+description: Drive a simulated power supply end-to-end in about five minutes — no hardware required
+---
+
+`instro` ships with a built-in SCPI simulator, so you can try the full library without owning any hardware. This page walks through installing `instro`, launching the simulator, driving it from Python, and reading a measurement back.
+
+<Steps>
+  <Step title="Install instro">
+    The base install is enough for everything in this quickstart. Optional extras like `[daq]` pull in vendor-specific dependencies — install those later when you need them (see [Installation](/instrumentation/installation)).
+
+    ```bash
+    pip install instro
+    ```
+  </Step>
+
+  <Step title="Start the simulated PSU">
+    Open a separate terminal and start the bundled simulator. It listens on `127.0.0.1:5025` and stays running until you press <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+    ```bash
+    python -m instro.psu.scpi_sim_server
+    ```
+
+    Leave it running in the background while you work through the rest of the steps.
+  </Step>
+
+  <Step title="Construct an InstroPSU">
+    In a new Python session or script, create an `InstroPSU` backed by the `SimulatedPSU` driver. The driver owns the VISA transport — you pass it the simulator's socket resource string and `InstroPSU` handles everything else.
+
+    ```python
+    from instro.psu import InstroPSU
+    from instro.psu.drivers import SimulatedPSU
+
+    psu = InstroPSU(
+        name="bench_psu",
+        driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+        num_channels=2,
+    )
+    psu.open()
+    ```
+
+    <Tip>
+    `InstroPSU` is the category-level interface; `SimulatedPSU` is one of several drivers. Swap in `BK9115`, `RigolDP800`, `SiglentSPD3303`, or `TDKLambdaGenesys` to talk to real hardware without changing the rest of your code.
+    </Tip>
+  </Step>
+
+  <Step title="Set a voltage and enable the output">
+    Configure channel 1 with a 5 V setpoint and a 1 A current limit, then enable the output.
+
+    ```python
+    psu.set_voltage(5.0, channel=1)
+    psu.set_current_limit(1.0, channel=1)
+    psu.output_enable(True, channel=1)
+    ```
+  </Step>
+
+  <Step title="Read a measurement back">
+    Measurement getters return a `Measurement` object — use `.latest` to grab the current value. Every measurement is timestamped and tagged automatically, ready to stream to a [Publisher](/instrumentation/publishers).
+
+    ```python
+    voltage = psu.get_voltage(channel=1)
+    current = psu.get_current(channel=1)
+    print(f"V: {voltage.latest:.3f} V")
+    print(f"I: {current.latest:.3f} A")
+    ```
+
+    When you're done, disable the output and close the connection:
+
+    ```python
+    psu.output_enable(False, channel=1)
+    psu.close()
+    ```
+  </Step>
+</Steps>
+
+That's the whole loop: construct → `open()` → configure → measure → `close()`. Every instrument category in `instro` follows the same shape.
+
+## Two ways to manage the lifecycle
+
+You can drive the instrument with explicit `open()` / `close()` calls, or let Python do it for you with a `with` block. Both are first-class — pick whichever fits your script. Every `instro` instrument is a context manager: `__enter__` calls `self.open()`, `__exit__` calls `self.close()` (including when an exception escapes the block, so the daemon and publishers always get torn down). This works for every built-in category (`InstroPSU`, `InstroDMM`, `InstroDAQ`, `InstroELoad`, `I2CInterface`, …) and for any custom `Instrument` subclass — see [Custom instruments](/instrumentation/custom-instruments).
+
+<Tabs>
+<Tab title="Explicit open() / close()">
+
+Best when the instrument's lifetime spans many functions, or when you want to interleave setup and teardown across event handlers, fixtures, or REPL sessions.
+
+```python
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+psu = InstroPSU(
+    name="bench_psu",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+)
+psu.open()
+
+psu.set_voltage(5.0, channel=1)
+psu.set_current_limit(1.0, channel=1)
+psu.output_enable(True, channel=1)
+
+voltage = psu.get_voltage(channel=1)
+print(f"V: {voltage.latest:.3f} V")
+
+psu.output_enable(False, channel=1)
+psu.close()
+```
+
+</Tab>
+<Tab title="with block">
+
+Best for scripts and tests where the instrument is used inside a single scope — `close()` runs automatically on the way out, even if an exception is raised.
+
+```python
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+with InstroPSU(
+    name="bench_psu",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+) as psu:
+    psu.set_voltage(5.0, channel=1)
+    psu.set_current_limit(1.0, channel=1)
+    psu.output_enable(True, channel=1)
+
+    voltage = psu.get_voltage(channel=1)
+    print(f"V: {voltage.latest:.3f} V")
+```
+
+</Tab>
+</Tabs>
+
+## Where to next
+
+<Columns cols={2}>
+  <Card title="Library overview" icon="compass" href="/instrumentation/overview">
+    How instruments, drivers, publishers, and the background daemon fit together.
+  </Card>
+  <Card title="Power supplies in depth" icon="bolt" href="/instrumentation/psu">
+    Multi-channel use, supported vendors, custom driver development, and the background telemetry worker.
+  </Card>
+  <Card title="Stream to Nominal Core" icon="rocket" href="/instrumentation/publishers">
+    Attach a publisher in one line to ship measurements live to Nominal Core, Connect, or a file.
+  </Card>
+  <Card title="Examples gallery" icon="file-code" href="/instrumentation/examples">
+    Runnable end-to-end scripts for every supported instrument category.
+  </Card>
+</Columns>

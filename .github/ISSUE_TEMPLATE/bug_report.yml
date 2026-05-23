@@ -1,0 +1,83 @@
+name: Bug report
+description: Something doesn't work the way the docs say it should.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. The more specific you can be, the faster we can help.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the broken behavior. Include the exact error message if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How can we reproduce it?
+      description: Minimal code snippet or step-by-step. If the bug only shows up against a real device, note that too.
+      render: python
+    validations:
+      required: true
+
+  - type: input
+    id: instro-version
+    attributes:
+      label: instro version
+      placeholder: "e.g. 0.6.0, or a commit SHA if installed from source"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "e.g. 3.12.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (note in description)
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device (if relevant)
+      description: Vendor, model, and firmware version of the instrument involved, if any.
+      placeholder: "e.g. Rigol DP832, firmware 00.01.16"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Any relevant stack trace, log lines, or output. Will be rendered as a code block — no need to wrap it.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've searched existing issues and didn't find a duplicate.
+          required: true

@@ -1,0 +1,48 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Check and test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: false
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ matrix.python-version }}
+      - name: Install just
+        uses: extractions/setup-just@v3
+      - name: Install dependencies
+        run: |
+          just install
+      - name: Check uv lockfile metadata
+        run: |
+          if ! uv lock --check; then echo "::error::`uv lock --check` has failed, ensure you have the latest `uv` version installed with `uv self update` and run `uv sync`"; exit 1; fi
+      - name: Check format
+        run: |
+          just check-format
+      - name: Check import order
+        run: |
+          just check-imports
+      - name: Static type check
+        run: |
+          just check-types
+      - name: Run unit tests
+        run: |
+          just test

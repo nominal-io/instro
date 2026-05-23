@@ -1,0 +1,18 @@
+[project]
+name = "instro-daq-mcc"
+version = "0.2.0"
+description = "MCC DAQ drivers for instro"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<4.0"
+dependencies = ["instro", "mcculw>=1.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+instro = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["instro"]

@@ -1,0 +1,58 @@
+"""Example: PSU without background worker.
+
+Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
+
+"""
+
+import logging
+import time
+
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+from instro.utils.nominal import install_nominal_core_log_handler
+from instro.utils.publishers import NominalCorePublisher
+
+# enable logging
+logging.basicConfig(level=logging.DEBUG)
+
+VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+# forward all debug logs to Nominal Core
+install_nominal_core_log_handler(DATASET_RID, level=logging.DEBUG)
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU(VISA_RESOURCE),
+    num_channels=2,
+)
+
+psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+
+try:
+    # Set up initial state of test
+    psu.open()
+
+    psu.output_enable(False, channel=2)
+    psu.set_current_limit(0.2, channel=2)
+    psu.set_voltage(0, channel=2)
+
+    time.sleep(0.5)
+
+    psu.get_current(channel=2)
+    psu.get_voltage(channel=2)
+
+    psu.output_enable(True, channel=2)
+
+    psu.set_voltage(0.5, channel=2)
+
+    # Voltage sweep
+    for v in range(10):
+        psu.set_voltage(v, channel=2)
+        time.sleep(1)
+
+    psu.output_enable(False, channel=2)
+
+finally:
+    psu.close()

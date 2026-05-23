@@ -1,0 +1,23 @@
+[package]
+name = "instro-ethernetip-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88.0"
+license = "Apache-2.0"
+
+[lib]
+name = "instro_ethernetip_rs"
+path = "src/lib.rs"
+
+[features]
+default = []
+blocking = ["dep:tokio"]
+
+[dependencies]
+rust-ethernet-ip = { version = "0.7", default-features = false }
+thiserror = "1"
+tokio = { version = "1.52", default-features = false, features = ["rt-multi-thread"], optional = true }
+
+[dev-dependencies]
+# Required by the async integration test harness and #[tokio::test]-based test runtime.
+tokio = { version = "1.52", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }

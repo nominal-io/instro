@@ -1,0 +1,20 @@
+[project]
+name = "instro-unstable"
+version = "0.0.1"
+description = "Unstable modules for instro (in-development features)"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "instro",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+instro = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["instro"]

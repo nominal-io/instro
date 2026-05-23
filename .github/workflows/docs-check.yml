@@ -1,0 +1,32 @@
+name: Docs check
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  check-examples-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: false
+          cache-dependency-glob: "uv.lock"
+      - name: Install just
+        uses: extractions/setup-just@v3
+      - name: Install dependencies
+        run: just install
+      - name: Regenerate Mintlify examples
+        run: just gen-examples
+      - name: Verify no drift
+        run: |
+          git add -A docs/guides/instrumentation/examples docs/guides/docs.json
+          if ! git diff --cached --exit-code docs/guides/instrumentation/examples docs/guides/docs.json; then
+            echo "::error::\`just gen-examples\` produced changes. Run it locally and commit the result."
+            exit 1
+          fi

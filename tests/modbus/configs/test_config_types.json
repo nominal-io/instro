@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": {
+    "name": "test_device",
+    "description": "Config types test device",
+    "manufacturer": "Test Corp",
+    "model": "TEST-1000"
+  },
+  "connection": {
+    "transport": "tcp",
+    "host": "127.0.0.1",
+    "port": 5021,
+    "unit_id": 1
+  },
+  "timing": {
+    "poll_interval": 0.5,
+    "write_delay_ms": 50
+  },
+  "registers": [
+    {
+      "name": "temperature",
+      "starting_address": 0,
+      "register_type": "holding",
+      "data_type": "float32"
+    },
+    {
+      "name": "pressure",
+      "starting_address": 2,
+      "register_type": "holding",
+      "data_type": "float32"
+    },
+    {
+      "name": "setpoint",
+      "description": "Temperature setpoint in degrees C",
+      "starting_address": 100,
+      "register_type": "holding",
+      "data_type": "uint16",
+      "scale": {
+        "type": "linear",
+        "gain": 0.1,
+        "offset": 0.0
+      }
+    },
+    {
+      "name": "sensor_raw",
+      "starting_address": 0,
+      "register_type": "input",
+      "data_type": "uint32"
+    },
+    {
+      "name": "uptime",
+      "starting_address": 10,
+      "register_type": "input",
+      "data_type": "uint64"
+    },
+    {
+      "name": "enable",
+      "starting_address": 0,
+      "register_type": "coil",
+      "data_type": "bool"
+    },
+    {
+      "name": "power_good",
+      "starting_address": 0,
+      "register_type": "discrete",
+      "data_type": "bool"
+    },
+    {
+      "name": "swapped_value",
+      "starting_address": 200,
+      "register_type": "holding",
+      "data_type": "uint32",
+      "word_swap": true
+    }
+  ]
+}

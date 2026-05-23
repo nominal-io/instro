@@ -1,0 +1,129 @@
+---
+title: "Building a Modbus config programmatically (no JSON file)"
+---
+
+```python programmatic_config_example.py
+"""Example: Building a Modbus config programmatically (no JSON file).
+
+Constructs a ModbusConfig in Python and passes it directly to ModbusDevice.
+Useful when configs are generated dynamically or assembled from multiple sources.
+
+Start the sim server first:
+    python -m instro.modbus.sim_server
+
+Then run this script.
+"""
+
+import time
+
+from instro.modbus import (
+    DeviceInfo,
+    LinearScale,
+    ModbusConfig,
+    ModbusDevice,
+    RegisterDef,
+    TCPConnection,
+    TimingConfig,
+)
+
+config = ModbusConfig(
+    device=DeviceInfo(
+        name="sim_device",
+        description="Programmatically configured simulated device",
+        manufacturer="Sim Corp",
+        model="SIM-3000",
+    ),
+    connection=TCPConnection(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
+    timing=TimingConfig(poll_interval=0.5),
+    registers=[
+        RegisterDef(
+            name="temperature",
+            starting_address=0,
+            register_type="holding",
+            data_type="float32",
+            write_min=0.0,
+            write_max=500.0,
+        ),
+        RegisterDef(
+            name="pressure",
+            starting_address=2,
+            register_type="input",
+            data_type="float32",
+            read_group="sensors",
+        ),
+        RegisterDef(
+            name="flow_rate",
+            starting_address=4,
+            register_type="input",
+            data_type="float32",
+            read_group="sensors",
+        ),
+        RegisterDef(
+            name="scaled_count",
+            starting_address=16,
+            register_type="input",
+            data_type="uint32",
+            scale=LinearScale(gain=0.001, offset=0),
+        ),
+        RegisterDef(
+            name="mode",
+            starting_address=4096,
+            register_type="holding",
+            data_type="uint16",
+            write_value_map={"off": 0, "standby": 1, "run": 2},
+            write_min=0,
+            write_max=2,
+        ),
+        RegisterDef(
+            name="enable",
+            starting_address=0,
+            register_type="coil",
+        ),
+    ],
+)
+
+
+def main():
+    device = ModbusDevice(config, autostart=True)
+
+    try:
+        print(f"Connected to {config.device.name}")
+        print(
+            f"Polling {len([r for r in config.registers if r.poll])} registers every {config.timing.poll_interval}s\n"
+        )
+
+        # Read sensors
+        print(f"temperature: {device.read('temperature')}")
+        print(f"pressure:    {device.read('pressure')}")
+        print(f"scaled_count: {device.read('scaled_count')}")
+
+        # Write using value_map
+        device.write("mode", "run")
+        print(f"\nWrote mode='run' -> read back: {device.read('mode')}")
+
+        # Write with fat-finger protection
+        device.write("temperature", 75.5)
+        print(f"Wrote temperature=75.5 -> read back: {device.read('temperature')}")
+
+        try:
+            device.write("temperature", 999.0)
+        except ValueError as e:
+            print(f"\nFat-finger protection: {e}")
+
+        # Toggle coil
+        device.write("enable", True)
+        print(f"\nWrote enable=True -> read back: {device.read('enable')}")
+
+        print("\nPolling... (Ctrl+C to stop)")
+        while True:
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nStopping...")
+    finally:
+        device.close()
+
+
+if __name__ == "__main__":
+    main()
+```

@@ -1,0 +1,18 @@
+[project]
+name = "instro-i2c-aardvark"
+version = "0.1.0"
+description = "TotalPhase Aardvark driver for instro"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<4.0"
+dependencies = ["instro", "pyaardvark>=0.8.1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+instro = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["instro"]
