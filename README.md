@@ -17,8 +17,8 @@ Python library for talking to test-and-measurement instruments — power supplie
 pip install instro
 
 # Source install (works today):
-git clone https://github.com/nominal-io/instrumentation.git
-cd instrumentation
+git clone https://github.com/nominal-io/instro.git
+cd instro
 uv sync --extra all
 ```
 
