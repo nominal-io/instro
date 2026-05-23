@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": {
+    "name": "test_rw_device",
+    "description": "Read/write integration test device"
+  },
+  "connection": {
+    "transport": "tcp",
+    "host": "127.0.0.1",
+    "port": 5022,
+    "unit_id": 1
+  },
+  "registers": [
+    { "name": "input_uint16",  "starting_address": 0,  "register_type": "input",   "data_type": "uint16" },
+    { "name": "input_int16",   "starting_address": 1,  "register_type": "input",   "data_type": "int16" },
+    { "name": "input_uint32",  "starting_address": 10, "register_type": "input",   "data_type": "uint32" },
+    { "name": "input_int32",   "starting_address": 12, "register_type": "input",   "data_type": "int32" },
+    { "name": "input_float32", "starting_address": 30, "register_type": "input",   "data_type": "float32" },
+    { "name": "input_float64", "starting_address": 40, "register_type": "input",   "data_type": "float64" },
+    { "name": "input_scaled",  "starting_address": 50, "register_type": "input",   "data_type": "uint16",
+      "scale": { "type": "linear", "gain": 0.1, "offset": 5.0 } },
+    { "name": "holding_uint16",  "starting_address": 100, "register_type": "holding", "data_type": "uint16" },
+    { "name": "holding_int32",   "starting_address": 110, "register_type": "holding", "data_type": "int32" },
+    { "name": "holding_float32", "starting_address": 120, "register_type": "holding", "data_type": "float32" },
+    { "name": "holding_word_swap", "starting_address": 130, "register_type": "holding", "data_type": "uint32", "word_swap": true },
+    { "name": "holding_scaled_uint16", "starting_address": 140, "register_type": "holding", "data_type": "uint16",
+      "scale": { "type": "linear", "gain": 0.3, "offset": 0.0 } },
+    { "name": "coil_1",     "starting_address": 0, "register_type": "coil",     "data_type": "bool" },
+    { "name": "coil_2",     "starting_address": 1, "register_type": "coil",     "data_type": "bool" },
+    { "name": "discrete_1", "starting_address": 0, "register_type": "discrete", "data_type": "bool" },
+    { "name": "discrete_2", "starting_address": 1, "register_type": "discrete", "data_type": "bool" }
+  ]
+}

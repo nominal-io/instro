@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": { "name": "cross_type_test" },
+  "registers": [
+    { "name": "holding_0", "starting_address": 0, "register_type": "holding", "data_type": "uint16" },
+    { "name": "input_0",   "starting_address": 0, "register_type": "input",   "data_type": "uint16" },
+    { "name": "coil_0",    "starting_address": 0, "register_type": "coil",    "data_type": "bool" },
+    { "name": "discrete_0","starting_address": 0, "register_type": "discrete","data_type": "bool" }
+  ]
+}

@@ -1,0 +1,15 @@
+/* Indentating children (e.g. methods are indented below the class) */
+div.doc-contents:not(.first) {
+  padding-left: 25px;
+  border-left: .05rem solid var(--md-typeset-table-color);
+}
+
+.md-header, .md-tabs {
+  background-color: black;
+}
+
+.md-tabs__item--active, md-nav__link--active, md-nav__item:hover {
+  lightgreen;
+}
+
+

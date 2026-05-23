@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": {
+    "name": "heat_exchanger",
+    "description": "Heat exchanger monitoring and control",
+    "manufacturer": "Acme Thermal",
+    "model": "HX-200"
+  },
+  "timing": {
+    "poll_interval": 1.0,
+    "write_delay_ms": 100
+  },
+  "registers": [
+    {
+      "name": "inlet_temp",
+      "starting_address": 0,
+      "register_type": "input",
+      "data_type": "float32",
+      "word_swap": true,
+      "read_group": "temperatures"
+    },
+    {
+      "name": "outlet_temp",
+      "starting_address": 2,
+      "register_type": "input",
+      "data_type": "float32",
+      "word_swap": true,
+      "read_group": "temperatures"
+    },
+    {
+      "name": "flow_rate",
+      "starting_address": 4,
+      "register_type": "input",
+      "data_type": "uint16",
+      "scale": {
+        "type": "linear",
+        "gain": 0.1,
+        "offset": 0
+      }
+    },
+    {
+      "name": "pressure_psi",
+      "starting_address": 5,
+      "register_type": "input",
+      "data_type": "uint16",
+      "scale": {
+        "type": "linear",
+        "gain": 0.01,
+        "offset": 0
+      }
+    },
+    {
+      "name": "setpoint",
+      "starting_address": 100,
+      "register_type": "holding",
+      "data_type": "float32",
+      "word_swap": true,
+      "write_min": 50.0,
+      "write_max": 250.0
+    },
+    {
+      "name": "operating_mode",
+      "starting_address": 102,
+      "register_type": "holding",
+      "data_type": "uint16",
+      "write_value_map": {
+        "off": 0,
+        "standby": 1,
+        "run": 2,
+        "flush": 3
+      },
+      "write_min": 0,
+      "write_max": 3
+    },
+    {
+      "name": "pump_enable",
+      "starting_address": 0,
+      "register_type": "coil"
+    },
+    {
+      "name": "status_register",
+      "starting_address": 200,
+      "register_type": "input",
+      "data_type": "uint16",
+      "bitmap": [
+        {"name": "pump_running", "bit_index": 0},
+        {"name": "alarm_high_temp", "bit_index": 1},
+        {"name": "alarm_low_flow", "bit_index": 2},
+        {"name": "fault", "bit_index": 15}
+      ]
+    }
+  ]
+}

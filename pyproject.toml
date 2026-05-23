@@ -1,0 +1,132 @@
+[project]
+name = "instro"
+version = "0.6.0"
+description = "Nominal instrumentation framework (core library + SCPI/VISA drivers)"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "fastavro[snappy]>=1.12.1",
+    "nominal>=1.99.0,<2.0.0",
+    "pydantic>=2.0",
+    "pymodbus>=3.10,<3.13",
+    "pyserial>=3.5",
+    "pyvisa>=1.15",
+    "thermocouples>=2.1.2",
+]
+
+[project.optional-dependencies]
+# Hardware-specific drivers with vendor SDKs
+daq = ["instro-daq-ni", "instro-daq-labjack", "instro-daq-mcc"]
+labjack = ["instro-daq-labjack"]
+nidaq = ["instro-daq-ni"]
+mccdaq = ["instro-daq-mcc"]
+i2c = ["instro-i2c-aardvark"]
+aardvark = ["instro-i2c-aardvark"]
+all = [
+    "instro-daq-ni",
+    "instro-daq-labjack",
+    "instro-daq-mcc",
+    "instro-i2c-aardvark",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["instro"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.2,<0.13",
+    "mypy>=1.15.0,<2",
+    "pytest>=8.4.0,<9",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.0",
+    "mkdocstrings>=0.30.1",
+    "mkdocstrings-python>=1.19.0",
+    "types-requests>=2.32.4.20250913",
+    "instro-ethernetip-python",
+    "instro-unstable",
+    "instro-contrib",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+instro-daq-ni = { workspace = true }
+instro-daq-labjack = { workspace = true }
+instro-daq-mcc = { workspace = true }
+instro-i2c-aardvark = { workspace = true }
+instro-ethernetip-python = { workspace = true }
+instro-unstable = { workspace = true }
+instro-contrib = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "packages/instro-daq-ni",
+    "packages/instro-daq-labjack",
+    "packages/instro-daq-mcc",
+    "packages/instro-i2c-aardvark",
+    "packages/instro-ethernetip-python",
+    "packages/instro-unstable",
+    "packages/instro-contrib",
+]
+
+[tool.ruff]
+line-length = 120
+include = [
+    "instro/**/*.py",
+    "packages/**/instro/**/*.py",
+    "tests/**/*.py",
+    "examples/**/*.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "I", # isort
+    "D", # pydocstyle (docstring rules)
+]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D107", # Missing docstring in __init__
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+ignore-var-parameters = true
+
+[tool.ruff.lint.pylint]
+max-args = 10
+
+[tool.mypy]
+strict = false
+check_untyped_defs = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = [
+    ".",
+    "packages/instro-daq-ni",
+    "packages/instro-daq-labjack",
+    "packages/instro-daq-mcc",
+    "packages/instro-i2c-aardvark",
+    "packages/instro-ethernetip-python",
+    "packages/instro-unstable",
+    "packages/instro-contrib",
+]
+packages = ["instro", "instro.unstable.ethernetip"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
+# (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc"
+markers = [
+    "hardware: tests that require a physical device and loopback wiring (deselected by default)",
+]

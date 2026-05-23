@@ -1,0 +1,806 @@
+---
+title: Data Acquisition (DAQ)
+description: Using InstroDAQ for vendor-independent data acquisition
+---
+
+# InstroDAQ
+
+InstroDAQ is a hardware abstraction layer (HAL) that provides a unified interface for data acquisition devices from multiple vendors. The key benefit is **vendor-independent code**: swap the driver instance you hand to `InstroDAQ` and the same configuration/acquisition code works across different hardware.
+
+## Supported Vendors
+
+- **National Instruments (NI DAQmx)** - Using NI-DAQmx driver
+- **LabJack T-Series** - T4, T7, T8 models using LJM driver
+- **Measurement Computing (MCC)** - USB and Ethernet DAQ devices using the MCC Universal Library (`mcculw`)
+- **Keysight 34980A** - Multifunction switch/measure unit via SCPI/VISA
+
+## Key Concepts
+
+### Lifecycle Pattern
+
+The typical InstroDAQ workflow follow this pattern:
+
+1. **`InstroDAQ(name, driver, ...)`** - Instantiate the DAQ with a vendor driver
+2. **`open()`** - Establish connection to the hardware
+3. **Configure** - Set up <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channels</Tooltip>, timing, and other settings
+4. **`start()`** - Begin hardware-timed acquisition (if using hardware timing)
+5. **Acquire data** - Read/fetch measurements
+6. **`stop()`** - End acquisition (if using hardware timing)
+7. **`close()`** - Disconnect from hardware
+
+
+### Channels
+
+InstroDAQ supports both analog and digital I/O:
+
+- **Analog Input/Output**: Measurements and generation with configurable ranges
+- **Digital Input/Output**: Line-based or port-based digital I/O
+
+#### Aliases
+Map vendor-specific physical channel names (e.g., "AIN0") to logical names (e.g., "temperature_sensor")
+
+Channel aliases are used as channel names when data is published to Nominal Core or Connect.
+
+### Timing Modes
+
+InstroDAQ supports two acquisition modes:
+
+**Software-Timed (Manual Polling)**
+- You call `read_analog()` when you want a sample
+- No need to call `start()` or `stop()`
+- Use case: Low-frequency monitoring, event-driven sampling
+
+**Hardware-Timed (Buffered Acquisition)**
+- Configure sample rate with `configure_ai_sample_rate()`
+- Call `start()` to begin background acquisition
+- Data automatically published via background thread, OR manually fetch with `read_analog()`
+- Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
+
+## Creating a InstroDAQ Instance
+
+Construct a vendor driver and pass it to `InstroDAQ`:
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+
+# Create a LabJack DAQ
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),  # Vendor-specific resource identifier
+)
+```
+
+### Parameters
+
+- **`name`**: A name for this DAQ instance. Used as a prefix for channel names when publishing to Nominal Core.
+- **`driver`**: A concrete `DAQDriverBase` subclass instance. Each driver owns its own transport (vendor SDK or SCPI/VISA) and accepts vendor-specific connection parameters at construction.
+- **`publishers`**: List of publishers to attach
+- **`dataset_rid`**: Shorthand to add a `NominalCorePublisher`
+
+### Vendor-Specific Driver Examples
+
+```python
+from instro.daq import InstroDAQ
+
+# National Instruments (device name from NI-MAX)
+from instro.daq.drivers.ni import NIDAQDriver
+
+daq = InstroDAQ(name="niDAQ", driver=NIDAQDriver(device_id="Dev1"))
+
+# LabJack (serial number, device name, or IP address)
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+
+daq = InstroDAQ(name="ljDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
+
+# Measurement Computing (MCC device unique ID, optionally suffixed with a board number)
+from instro.daq.drivers.mcc import MCCDriver
+
+daq = InstroDAQ(
+    name="mccDAQ",
+    driver=MCCDriver(device_id="344371:0"),  # "<unique_id>" or "<unique_id>:<board_number>"
+)
+
+# Keysight 34980A (SCPI/VISA device — driver owns its VisaDriver)
+from instro.daq.drivers import Keysight34980A
+
+daq = InstroDAQ(
+    name="keysightDAQ",
+    driver=Keysight34980A("TCPIP0::<IP_ADDRESS>::INSTR"),
+)
+```
+
+## Configuring Channels
+
+### Analog Input Channels
+
+Configure analog input channels with measurement range and logical names:
+
+```python
+from instro.daq.types import Direction
+
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",  # Vendor-specific channel name
+    alias="temperature_sensor",  # Your logical name (used for publishing)
+    range_min=0.0,  # Minimum voltage (V)
+    range_max=5.0   # Maximum voltage (V)
+)
+```
+
+<Note>
+The `physical_channel` naming convention depends on your DAQ vendor:
+- **NI DAQmx**: "ai0", "ai1", etc.
+- **LabJack**: "AIN0", "AIN1", etc.
+- **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
+- **Keysight**: Depends on module slot and channel configuration
+
+Refer to your device's documentation for channel naming.
+</Note>
+
+### Scalers
+
+It's common for the data being read by an analog input channel to need scaling in order to represent a real world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
+
+`InstroDAQ` supports adding a `Scaler` object when you configure your analog channel. The `Measurement` published and returned by `read_analog` will contain these scaled values.
+
+Example of a 0-5V pressure sensor that measures 0-3000 psia.
+```python
+from instro.daq.types import Direction
+from instro.daq.scaling import LinearScaler
+
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",  # Vendor-specific channel name
+    alias="pressure_sensor",  # Your logical name (used for publishing)
+    range_min=0,  # Minimum voltage (V)
+    range_max=5,   # Maximum voltage (V)
+    scaler = LinearScaler(gain = 600, offset = 0, units = "psia")
+)
+```
+
+You can cascade multiple scalers together using the `ScalerPipeline` scaler.
+For example, a thermocouple that's fed into an amplifier and then the DAQ will require two stages of scaling.
+ 1. Scaling out the amplifier to get to the actual voltage seen across the thermocouple terminals.
+ 2. Scaling the voltage seen across the thermocouple terminals to temperature.
+
+ ```python
+ from instro.daq.scaling import ScalerPipeline, ReverseLinearScaler
+ from instro.daq.scaling.thermocouple import ThermocoupleSensor
+
+scaler_pipeline = ScalerPipeline(ReverseLinearScaler(gain=<amplifier gain>, offset=<voltage offset>, units="V"), ThermocoupleSensor(type = <TC_type>, cjc_temp = <cjc temp in Celsius>))
+ ```
+
+ You can create your own scaler by subclassing `Scaler` and implementing `scale` and `units` methods.
+
+
+ ```python
+from instro.daq.scaling import Scaler
+
+class TheAnswer(Scaler):
+
+    def scale(self, raw: float | int) -> float:
+        return raw * 42
+
+    @property
+    def units(self) -> str:
+        return "everything"
+ ```
+
+### Analog Output Channels
+
+Configure analog output channels:
+
+```python
+from instro.daq.types import Direction
+
+daq.configure_analog_channel(
+        direction=Direction.OUTPUT, physical_channel="DAC0", alias=f"ao_0", range_min=0, range_max=5
+    )
+```
+
+<Note>
+The `physical_channel` naming convention depends on your DAQ vendor:
+- **NI DAQmx**: "ao0", "ao1", etc.
+- **LabJack**: "DAC0", "DAC1", etc.
+- **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
+- **Keysight**: Depends on module slot and channel configuration
+
+Refer to your device's documentation for channel naming.
+</Note>
+
+### Digital Channels
+
+Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
+
+- **direction**: Use `Direction.INPUT` for digital input lines or `Direction.OUTPUT` for output lines.
+- **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific—refer to your device documentation.
+- **logic**: Sets whether the channel treats a HIGH or LOW physical level as "True". This is required for correct logic interpretation.
+- **logic_level** *(optional)*: Specifies the voltage threshold (in volts) used to distinguish HIGH from LOW, if your device supports changing this.
+- **alias** *(optional)*: A logical name for the channel, helpful for clarity and for use with publishers.
+- **port_width** *(optional)*: Set this only if you're configuring multiple digital lines as a single port (parallel I/O), not for individual line configuration.
+
+These parameters ensure that your digital channel correctly maps to the desired input/output hardware and logical behavior. For example, to configure a digital input line with a custom logic threshold:
+```python
+from instro.daq.types import Direction, Logic
+
+daq.configure_digital_channel(
+    direction=Direction.INPUT,
+    physical_channel="5101/2",
+    alias="limit_switch",
+    logic=Logic.HIGH,
+    logic_level=2.0    # Optional: 2V threshold for HIGH, if supported by hardware
+)
+```
+If configuring an entire port:
+```python
+from instro.daq.types import Direction, DigitalPortWidth, Logic
+
+daq.configure_digital_channel(
+    direction=Direction.OUTPUT,
+    physical_channel="5101",
+    logic=Logic.HIGH,
+    port_width=DigitalPortWidth.WIDTH_8  # E.g., for 8-bit port
+)
+```
+Refer to your DAQ device's documentation for available physical channel names and supported features.
+
+
+### Hardware-Timed Sample Rate
+
+For continuous hardware-timed acquisition, configure the sample rate.
+
+```python
+daq.configure_ai_sample_rate(
+    sample_rate=1000.0,  # Hz
+    samples_per_channel=500  # Optional: samples per read (defaults to sample_rate/10)
+)
+```
+
+The `samples_per_channel` parameter determines how many samples, per channel, are returned on every call to `read_analog()`.
+* The lower the `samples_per_channel`, the more responsive and lower latency your app will be, but may not be able to keep up with the sample rate.
+* The ratio of `sample_rate` to `samples_per_channel` determines how often data will be fetched from the DAQ buffer.
+   * Example, if `sample_rate` is 1000 and `samples_per_channel` is 500, you'll see 500 sample batches of 1000Hz data twice a second, for every channel.
+* The default for `samples_per_channel`, if left unset, is dynamically set to enable fetching batches 10 times per second. This is a reasonable balance between reliably keeping up with the data stream and app responsiveness.
+
+<Warning>
+**Hardware Timing Constraints**
+
+Different DAQ devices have different timing capabilities:
+- **Multiplexed DAQs** (e.g., LabJack T4/T7, most NI DAQ devices, most MCC devices): Maximum per-channel rate decreases with more channels
+- **Simultaneous DAQs** (e.g., LabJack T8): All channels sampled simultaneously
+- **Sample rate limits**: Check your device specifications
+</Warning>
+
+
+## Analog Input
+
+### Software-Timed Acquisition
+
+For manual, on-demand sampling:
+
+```python
+from instro.daq.types import Direction
+import time
+
+daq.open()
+
+# Configure channels
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",
+    alias="sensor_1",
+    range_min=0,
+    range_max=5
+)
+
+# Read samples on demand
+for i in range(10):
+    measurement = daq.read_analog()
+    print(f"Value: {measurement.latest}")
+    time.sleep(1)  # Wait 1 second between reads
+
+daq.close()
+```
+
+The `read_analog()` method returns a `Measurement` object (or list of `Measurement` objects for multiple channels) containing:
+- `channel_data`: Dictionary mapping channel aliases to lists of values
+- `timestamps`: List of timestamps (nanoseconds since epoch)
+- `value`: Property returning the first value (convenience for single-value reads)
+
+### Hardware-Timed Acquisition with Background Fetching
+See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
+
+For continuous high-speed acquisition.
+
+```python
+import time
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.daq.types import Direction
+from instro.utils.publishers import NominalCorePublisher
+
+DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
+
+# Create DAQ with publisher
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+daq.open()
+
+# Configure analog input channels
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",
+    alias="sensor_1",
+    range_min=0,
+    range_max=5
+)
+
+# Configure hardware timing
+daq.configure_ai_sample_rate(
+    sample_rate=100,  # 100 Hz
+)
+
+# Start background acquisition
+daq.start()
+
+# Data is now flowing to publishers automatically
+while True:
+    try:
+        sensor_1 = daq.get_channel(
+            channel_name = "myDAQ.sensor_1",
+            length = 10,
+            wait_for_latest = True)  # This will block for the next 10 samples from the background worker
+        print("Stopping acquisition")
+        break
+    except KeyboardInterrupt:
+        print("Exiting main loop")
+        break
+
+daq.stop()
+daq.close()
+```
+
+In this mode:
+- `start()` begins hardware-timed acquisition in a background thread
+- `stop()` ends the background acquisition
+
+<Note>
+**Important Note about Publishers**
+
+Data is published as a direct result of an instrument method being called.
+
+For example, when you call `read_analog()`, this not only returns the DAQ data but also causes all attached Publishers to publish the measurements automatically.
+
+Therefore the background worker, which is calling instrument methods, is publishing the data!
+</Note>
+
+### Hardware-Timed Acquisition with Manual Fetching
+
+For hardware-timed acquisition where you control when to fetch buffered data. Disable the Background Worker and manually call `read_analog()`.
+
+```python
+
+# Disable automatic background publishing
+daq.background_enable = False
+
+daq.open()
+
+# Configure channels and timing (same as above)
+daq.configure_analog_channel(...)
+daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+
+# Start hardware acquisition (fills buffer)
+daq.start()
+
+# Manually fetch from buffer when ready
+for i in range(10):
+    measurement = daq.read_analog()
+    print(f"Fetched {len(measurement.timestamps)} samples")
+    time.sleep(0.1)
+
+daq.stop()
+daq.close()
+```
+<Warning>
+Failing to fetch samples from the hardware buffer at a reasonable rate will cause the DAQ data buffer to fill up and data will be either lost or an exception will be raised.
+</Warning>
+When `background_enable = False`, calling `read_analog()` during hardware-timed acquisition fetches from the hardware buffer rather than triggering a new conversion.
+
+## Analog Output
+
+### Software-Timed Generation
+For manual, on demand updates of set points:
+
+```python
+from instro.daq.types import Direction
+
+daq.open()
+
+daq.configure_analog_channel(
+    direction=Direction.OUTPUT,
+    physical_channel=CHANNEL_0,
+    alias=f"ao_0",
+    range_min=0,
+    range_max=5
+)
+daq.write_analog_value("ao_0", 2.2)
+
+daq.close()
+```
+## Digital I/O
+
+### Reading Digital Lines
+
+```python
+from instro.daq.types import Direction, Logic
+
+daq.configure_digital_channel(
+    direction=Direction.INPUT,
+    physical_channel="DIO0",
+    alias="limit_switch",
+    logic=Logic.HIGH
+)
+
+measurement = daq.read_digital_line(channel="limit_switch")
+print(f"Digital state: {measurement.latest}")
+```
+
+### Software Timed Generation
+
+For manual, on-demand setting of analog output channels:
+
+```python
+daq.open()
+
+daq.configure_analog_channel(
+    direction=Direction.OUTPUT, physical_channel=CHANNEL_0, alias=f"ao_0", range_min=0, range_max=5
+)
+daq.configure_analog_channel(
+    direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias=f"ao_1", range_min=0, range_max=5
+)
+
+daq.write_analog_value("ao_0", 2.2)
+daq.write_analog_value("ao_1", 3.4)
+
+daq.close()
+
+```
+### Writing Digital Lines
+
+```python
+from instro.daq.types import Direction, Logic
+
+daq.configure_digital_channel(
+    direction=Direction.OUTPUT,
+    physical_channel="DIO1",
+    alias="enable_signal",
+    logic=Logic.HIGH
+)
+
+# Write high (1)
+daq.write_digital_line(channel="enable_signal", data=1)
+
+# Write low (0)
+daq.write_digital_line(channel="enable_signal", data=0)
+```
+
+### Reading and Writing Digital Ports
+
+For devices that expose digital I/O as parallel ports (multiple lines read or written together), use `read_digital_port()` and `write_digital_port()`. Configure the channel with a `port_width` that matches the hardware port, then read or write the full port as a single integer value.
+
+```python
+from instro.daq.types import Direction, DigitalPortWidth, Logic
+
+# Configure an 8-bit digital output port
+daq.configure_digital_channel(
+    direction=Direction.OUTPUT,
+    physical_channel="FIRSTPORTA",
+    alias="relay_bank",
+    logic=Logic.HIGH,
+    port_width=DigitalPortWidth.WIDTH_8,
+)
+
+# Write all 8 bits at once (0x0F turns on lines 0-3, off 4-7)
+daq.write_digital_port(channel="relay_bank", data=0x0F)
+
+# Configure an 8-bit digital input port and read its value
+daq.configure_digital_channel(
+    direction=Direction.INPUT,
+    physical_channel="FIRSTPORTB",
+    alias="status_bits",
+    logic=Logic.HIGH,
+    port_width=DigitalPortWidth.WIDTH_8,
+)
+
+measurement = daq.read_digital_port(channel="status_bits")
+print(f"Port value: {int(measurement.latest)}")
+```
+
+<Note>
+Port-based I/O is currently implemented for **MCC** devices. For NI DAQmx, LabJack, and Keysight, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`. Use `write_digital_line()` / `read_digital_line()` to address individual lines on those vendors.
+</Note>
+
+## Complete Examples
+
+### Example 1: Multi-Channel Software-Timed Acquisition
+
+```python
+import time
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.daq.types import Direction
+from instro.utils.publishers import NominalCorePublisher
+
+DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
+
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+daq.open()
+
+try:
+    # Configure multiple channels
+    for i, channel in enumerate(["AIN0", "AIN1"]):
+        daq.configure_analog_channel(
+            direction=Direction.INPUT,
+            physical_channel=channel,
+            alias=f"ch_{i}",
+            range_min=0,
+            range_max=5
+        )
+
+    # Read 5 times with 1 second between reads
+    for i in range(5):
+        measurement = daq.read_analog()
+        print(measurement)
+        time.sleep(1)  # Software sleep until time for next sample
+
+except Exception as e:
+    print(f"Exception: {e}")
+finally:
+    daq.close()
+```
+
+### Example 2: Hardware-Timed Continuous Acquisition
+
+```python
+import time
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.daq.types import Direction
+from instro.utils.publishers import NominalCorePublisher
+
+DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
+
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+    dataset_rid=DATASET_RID,
+)
+
+daq.open()
+
+# Configure channel
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",
+    alias="ch_1",
+    range_min=0,
+    range_max=5
+)
+
+# Configure hardware timing for 100 Hz acquisition
+daq.configure_ai_sample_rate(
+    sample_rate=100,
+    samples_per_channel=10
+)
+
+# Start background acquisition
+daq.start()
+
+# Let it run until interrupted
+while True:
+    try:
+        time.sleep(1)
+    except KeyboardInterrupt:
+        print("Exiting main loop")
+        break
+
+daq.stop()
+daq.close()
+```
+
+## Published channels
+
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. For analog, digital, and relay operations, `{alias}` is the alias you assigned with `configure_*_channel(alias=...)` (or the physical channel name if no alias was provided). If you depended on the pre-v1.0 form for digital channels (bare `{alias}` with no `{name}.` prefix and no `.cmd` suffix), pass [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming).
+
+| Method | Descriptor | Type |
+|--------|------------|------|
+| `read_analog()` (per channel) | `{alias}` | telemetry |
+| `write_analog_value(channel)` | `{alias}.cmd` | command |
+| `read_digital_line(channel)` / `read_digital_port(channel)` | `{alias}` | telemetry |
+| `write_digital_line(channel, data)` / `write_digital_port(channel, data)` | `{alias}.cmd` | command |
+| `close_relay(channel)` | `{alias}.cmd` (value `"CLOSED"`) | command |
+| `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
+| `get_points_in_buffer()` | `buffer` | telemetry |
+
+The base `Instrument` background worker additionally publishes per-iteration diagnostic telemetry on `loop_time` and `daemon_work_time`. Those descriptors are shared across all instruments and are not affected by `legacy_naming`.
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroDAQ(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroDAQ instance around a vendor driver |
+| `open()` | Establish connection to the DAQ device |
+| `close()` | Disconnect from device and close publishers |
+| `configure_analog_channel(direction, physical_channel, alias, range_min, range_max)` | Configure an analog I/O channel |
+| `configure_digital_channel(direction, physical_channel, alias, logic, logic_level=None)` | Configure a digital I/O channel |
+| `configure_ai_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input |
+| `start()` | Begin hardware-timed acquisition (background thread) |
+| `stop()` | End hardware-timed acquisition |
+| `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
+| `read_digital_line(channel)` | Read digital input line |
+| `write_digital_line(channel, data)` | Write to digital output line |
+| `read_digital_port(channel)` | Read all lines on a digital input port as a single integer (MCC only) |
+| `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer (MCC only) |
+| `add_publisher(publisher)` | Attach a publisher for data routing |
+| `get_points_in_buffer()` | Get number of samples in hardware buffer |
+
+## Vendor Independence
+
+The power of InstroDAQ is that **the same code works across different vendors**. To switch vendors, just swap the driver instance:
+
+```Python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq.drivers.ni import NIDAQDriver
+from instro.daq import InstroDAQ
+
+# LabJack version
+daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
+
+# Switch to NI DAQmx — same configuration code works!
+daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
+```
+
+The rest of your code (channel configuration, data acquisition, etc.) remains identical.
+
+---
+
+# Driver Development
+
+This section is for developers implementing InstroDAQ support for DAQ devices / vendors that are not supported out of the box.
+
+## Overview
+
+Driver developers implement the [`DAQDriverBase` abstract interface](#daqdriverbase-interface) to add support for new DAQ vendors. The driver is responsible for **translating InstroDAQ's vendor-independent API calls into vendor-specific hardware operations**, ensuring users get consistent behavior regardless of the underlying hardware (within its capabilities).
+
+## Driver Responsibilities
+
+A DAQ driver shall:
+
+1. **Hardware connection lifecycle**: Implement `open()` and `close()` for establishing and terminating hardware connections
+2. **Channel configuration**: Translate generic channel configurations into vendor-specific setup
+3. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background thread for the hardware-timed acquisition.
+4. **Data format conversion**: Convert vendor-specific data formats to `Measurement` objects
+5. **Constraint validation**: Handle vendor-specific hardware constraints and raise clear exceptions when the vendor library cannot.
+
+## DAQDriverBase Interface
+
+All drivers must implement the `DAQDriverBase` abstract base class. Key methods:
+
+### Connection Management
+
+- **`open()`**: Establish connection to the hardware device
+- **`close()`**: Disconnect from the hardware device
+
+### Channel Configuration
+
+- **`define_digital_channel(...)`**: Create a digital line or digital port channel type.
+- **`configure_ai_channel(channel)`**: Configure an analog input channel on the hardware.
+- **`configure_di_channel(channel)`**: Configure a digital input channel on the hardware.
+- **`configure_do_channel(channel)`**: Configure a digital output channel on the hardware.
+
+### Timing Configuration
+
+- **`configure_ai_hw_timing(hw_timing_config)`**: Configure hardware-timed sampling.
+
+### Acquisition Control
+
+- **`start()`**: Begin hardware-timed data acquisition
+  - Start hardware sampling and buffer filling
+
+- **`stop()`**: End hardware-timed acquisition
+  - Stop sampling and flush buffers
+
+### Data Operations
+
+- **`read_analog() -> Any`**: Perform software-timed analog read
+  - Trigger immediate conversion and return data
+
+- **`fetch_analog(hw_timing_config) -> Any`**: Fetch samples from hardware-timed acquisition buffer
+  - Used during hardware-timed acquisition to retrieve buffered samples
+
+- **`read_digital_line(channel) -> int`**: Read digital input line
+
+- **`write_digital_line(channel, data)` Write to digital output line
+
+### Data Conversion
+
+- **`_read_to_measurements(response, channel_list, daq_name, **kwargs) -> list[Measurement]`**: Convert vendor data format to InstroDAQ `Measurement` objects
+  - Maps vendor data to channel names
+  - Creates `Measurement` objects for publishing
+
+### Properties
+
+- **`points_in_buffer`** (int): Number of samples currently in the hardware buffer
+
+## Implementation Considerations
+
+### Resource Handling
+
+Each concrete driver owns its own transport and accepts the connection parameters it needs at construction:
+
+- **Vendor SDK drivers (NI-DAQmx, LabJack LJM, MCC)**: Accept a `device_id` string (device name, serial number, or IP address) and use the vendor library directly.
+
+- **SCPI/VISA drivers (e.g., Keysight 34980A)**: Accept a VISA resource string or a `VisaConfig` and compose a `VisaDriver` internally for all SCPI command/query operations.
+
+### InstroDAQ State Information
+
+Drivers have access to the state information `InstroDAQ` via the `APIInstroDAQ` interface available as an attribute, `self.hal`. `InstroDAQ` keeps track of the settings a user has configured so that the driver doesn't have to keep track of state except where necessary due to vendor implementation details.
+
+```python
+class APIInstroDAQ(Protocol):
+    """API for the InstroDAQ instrument type."""
+    @property
+    def ai_hw_timing_configs(self) -> HWTimingConfig:
+        """Get the hardware timing configuration for the analog input channels."""
+        ...
+    @property
+    def ai_sample_rate(self) -> float:
+        """Get the sample rate for the analog input channels."""
+        ...
+    @property
+    def channels(self) -> list[DAQChannel]:
+        """Get all the configured channels on the DAQ."""
+        ...
+    @property
+    def ai_channels(self) -> dict[str, AnalogChannel]:
+        """Get the configured analog input channels on the DAQ."""
+        ...
+    @property
+    def di_channels(self) -> dict[str, DigitalChannel]:
+        """Get the configured digital input channels on the DAQ."""
+        ...
+    @property
+    def do_channels(self) -> dict[str, DigitalChannel]:
+        """Get the configured digital output channels on the DAQ."""
+```
+This is useful for differences in how vendors expect someone to interact with their device.
+
+#### Example: Vendor Difference Solved with APIInstroDAQ
+
+Different vendors configure timing differently, but InstroDAQ users must always call `configure_ai_sample_rate()` before `start()`.
+
+- **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver shall implement this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()`.
+
+- **LabJack LJM**: Sample rate is configured when `ljm.eStreamStart()` is called. Since `InstroDAQ` stores the configuration information when `InstroDAQ.configure_ai_sample_rate()` is called, the `start()` implementation can grab the `HWTimingConfig` from `InstroDAQ` and configure the device.
+
+**Driver's Job**: Implement these differences so the user interface is consistent at the `InstroDAQ` level.
+
+## Summary
+
+Driver development requires careful abstraction of vendor-specific behaviors to provide the unified InstroDAQ interface. Focus on:
+
+- Implementing all `DAQDriverBase` abstract methods
+- Abstracting timing configuration differences between vendors
+- Validating hardware constraints and providing clear error messages
+- Converting vendor data formats to `Measurement` objects correctly
+- Managing state in a thread-safe manner for background acquisition

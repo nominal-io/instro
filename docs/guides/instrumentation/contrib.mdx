@@ -1,0 +1,62 @@
+---
+title: Contrib drivers
+description: Drivers Nominal accepts on contributor verification rather than direct testing
+---
+
+# Contrib drivers
+
+`instro-contrib` is a separate package containing drivers that have passed code review but were **verified on real hardware by the contributor**, not by Nominal. They typically come from one of two sources:
+
+- **Community contributions** — drivers submitted by users who own the hardware and tested locally.
+- **Staff drops** — drivers Nominal has written for a device we don't have on hand.
+
+If a driver is in `instro-contrib`, that means: it type-checks, it has a unit test against a mocked transport, and a Nominal reviewer has read it. It does **not** mean Nominal has personally run it on the device.
+
+## Install
+
+`instro-contrib` is not yet published as its own distribution. For now, depend on it via a workspace install or a Git ref to this repo; a published release will arrive alongside `instro`'s PyPI publication.
+
+## Import path
+
+Contrib drivers live under `instro.contrib.<category>.drivers.<driver_module>`:
+
+```python
+from instro.contrib.psu.drivers import SomeVendorPSU
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SomeVendorPSU(visa_resource="USB0::..."),
+    num_channels=1,
+)
+```
+
+The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported from core `instro`. Only the concrete driver lives in `instro.contrib`.
+
+## Stability expectations
+
+- **API may change between releases.** A contrib driver's constructor or behavior may be revised based on user feedback or graduation. Pin to a specific commit if you need a frozen target.
+- **No regression verification by Nominal.** A core dependency change (e.g. a `VisaDriver` refactor) might break a contrib driver between releases. The smoke test catches import-level breaks; behavioral breaks may not surface until you run it.
+- **Bugs are accepted as PRs.** If you hit a problem with a contrib driver, the fastest path to a fix is usually contributing one — the original author may not be reachable.
+
+## Available drivers
+
+The list starts empty. Drivers will appear here as they're contributed. To check what's currently available, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instrumentation/tree/main/packages/instro-contrib/instro/contrib) in the repo.
+
+## Graduation to core
+
+When Nominal acquires the hardware and can verify the driver directly, it moves into core `instro`. The import path drops `.contrib`:
+
+```python
+# Before (contrib)
+from instro.contrib.psu.drivers import SomeVendorPSU
+
+# After graduation (core)
+from instro.psu.drivers import SomeVendorPSU
+```
+
+Graduations are noted in `CHANGELOG.md`. The old `instro.contrib` import path is a hard cutover — there is no compatibility shim.
+
+## Contributing a driver
+
+See the **Contrib Package** section of [`CONTRIBUTING.md`](https://github.com/nominal-io/instrumentation/blob/main/CONTRIBUTING.md) for the contribution bar and review process.

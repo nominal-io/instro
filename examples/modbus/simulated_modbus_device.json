@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": {
+    "name": "sim",
+    "description": "Simulated Modbus device demonstrating all config features",
+    "manufacturer": "Sim Corp",
+    "model": "SIM-3000"
+  },
+  "timing": {
+    "poll_interval": 1.0,
+    "write_delay_ms": 0
+  },
+  "registers": [
+    {
+      "name": "temperature",
+      "starting_address": 0,
+      "register_type": "holding",
+      "data_type": "float32",
+      "write_min": -40.0,
+      "write_max": 500.0,
+      "read_group": "holding_floats"
+    },
+    {
+      "name": "pressure",
+      "starting_address": 2,
+      "register_type": "holding",
+      "data_type": "float32",
+      "write_min": 0.0,
+      "write_max": 150.0,
+      "read_group": "holding_floats"
+    },
+    {
+      "name": "setpoint",
+      "starting_address": 4096,
+      "register_type": "holding",
+      "data_type": "uint16",
+      "write_min": 0,
+      "write_max": 500,
+      "scale": {
+        "type": "linear",
+        "gain": 0.1,
+        "offset": 0
+      }
+    },
+    {
+      "name": "mode",
+      "starting_address": 4097,
+      "register_type": "holding",
+      "data_type": "uint16",
+      "write_value_map": {
+        "off": 0,
+        "standby": 1,
+        "heat": 2,
+        "cool": 3,
+        "auto": 4
+      },
+      "write_min": 0,
+      "write_max": 4
+    },
+    {
+      "name": "status_register",
+      "starting_address": 4098,
+      "register_type": "holding",
+      "data_type": "uint16",
+      "bitmap": [
+        {"name": "heater_on", "bit_index": 0},
+        {"name": "compressor_on", "bit_index": 1},
+        {"name": "fan_on", "bit_index": 2},
+        {"name": "alarm_active", "bit_index": 3},
+        {"name": "door_open", "bit_index": 4}
+      ]
+    },
+    {
+      "name": "sensor_1",
+      "starting_address": 2,
+      "register_type": "input",
+      "data_type": "float32",
+      "read_group": "input_sensors"
+    },
+    {
+      "name": "sensor_2",
+      "starting_address": 4,
+      "register_type": "input",
+      "data_type": "float32",
+      "read_group": "input_sensors"
+    },
+    {
+      "name": "raw_count",
+      "starting_address": 16,
+      "register_type": "input",
+      "data_type": "uint32",
+      "scale": {
+        "type": "linear",
+        "gain": 0.001,
+        "offset": 0
+      }
+    },
+    {
+      "name": "uptime_ticks",
+      "starting_address": 64,
+      "register_type": "input",
+      "data_type": "uint64"
+    },
+    {
+      "name": "enable",
+      "starting_address": 0,
+      "register_type": "coil",
+      "read_group": "coils"
+    },
+    {
+      "name": "reset",
+      "starting_address": 1,
+      "register_type": "coil",
+      "read_group": "coils"
+    },
+    {
+      "name": "power_good",
+      "starting_address": 0,
+      "register_type": "discrete",
+      "read_group": "discrete_status"
+    },
+    {
+      "name": "overtemp",
+      "starting_address": 1,
+      "register_type": "discrete",
+      "read_group": "discrete_status"
+    },
+    {
+      "name": "door_closed",
+      "starting_address": 2,
+      "register_type": "discrete",
+      "read_group": "discrete_status"
+    }
+  ]
+}

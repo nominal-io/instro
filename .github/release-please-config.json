@@ -1,0 +1,45 @@
+{
+  "include-component-in-tag": true,
+  "changelog-sections": [
+    {"type": "feat", "section": "Features"},
+    {"type": "fix", "section": "Bug Fixes"},
+    {"type": "perf", "section": "Performance Improvements"},
+    {"type": "docs", "section": "Documentation", "hidden": true},
+    {"type": "chore", "section": "Miscellaneous", "hidden": true},
+    {"type": "refactor", "section": "Miscellaneous", "hidden": true}
+  ],
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "component": "nominal-instro"
+    },
+    "packages/nominal-instro-daq-ni": {
+      "release-type": "python",
+      "component": "nominal-instro-daq-ni"
+    },
+    "packages/nominal-instro-daq-labjack": {
+      "release-type": "python",
+      "component": "nominal-instro-daq-labjack"
+    },
+    "packages/nominal-instro-daq-mcc": {
+      "release-type": "python",
+      "component": "nominal-instro-daq-mcc"
+    },
+    "packages/nominal-instro-i2c-aardvark": {
+      "release-type": "python",
+      "component": "nominal-instro-i2c-aardvark"
+    }
+  },
+  "groups": [
+    {
+      "name": "nominal-instro",
+      "packages": [
+        ".",
+        "packages/nominal-instro-daq-ni",
+        "packages/nominal-instro-daq-labjack",
+        "packages/nominal-instro-daq-mcc",
+        "packages/nominal-instro-i2c-aardvark"
+      ]
+    }
+  ]
+}

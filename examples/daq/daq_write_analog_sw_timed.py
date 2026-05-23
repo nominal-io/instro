@@ -1,0 +1,57 @@
+"""Example: DAQ write analog SW timed."""
+
+from instro.daq import InstroDAQ
+from instro.daq.types import DAQVendor, Direction
+from instro.utils.publishers.nominal_core import NominalCorePublisher
+
+# Configuration: Choose your vendor.
+VENDOR = DAQVendor.LABJACK_T_SERIES
+
+# Vendor-specific configuration. Each vendor driver lives in its own package and
+# owns its transport at construction time.
+match VENDOR:
+    case DAQVendor.LABJACK_T_SERIES:
+        from instro.daq.drivers.labjack import LabJackTSeriesDriver
+
+        CHANNEL_0 = "DAC0"
+        CHANNEL_1 = "DAC1"
+        driver = LabJackTSeriesDriver(device_id="440020473")  # LabJack serial number
+    case DAQVendor.NI:
+        from instro.daq.drivers.ni import NIDAQDriver
+
+        CHANNEL_0 = "ao0"
+        CHANNEL_1 = "ao1"
+        driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
+    case DAQVendor.MCC:
+        from instro.daq.drivers.mcc import MCCDriver
+
+        CHANNEL_0 = "0"
+        CHANNEL_1 = "1"
+        driver = MCCDriver(
+            device_id="344371:0"
+        )  # MCC DAQ device ID, optionally suffixed with ":<board_number>" (default 0)
+
+# Nominal Core dataset to send data to as the instrument is operated.
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+### Main code
+
+daq = InstroDAQ(name="myDAQ", driver=driver)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+daq.open()
+
+try:
+    daq.configure_analog_channel(
+        direction=Direction.OUTPUT, physical_channel=CHANNEL_0, alias=f"ao_0", range_min=0, range_max=5
+    )
+    daq.configure_analog_channel(
+        direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias=f"ao_1", range_min=0, range_max=5
+    )
+
+    daq.write_analog_value("ao_0", 2.2)
+    daq.write_analog_value("ao_1", 3.4)
+
+finally:
+    print("Closing DAQ")
+    daq.close()

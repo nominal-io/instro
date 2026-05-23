@@ -1,0 +1,536 @@
+---
+title: System Definition
+description: Understanding SystemDefinition for I2CInterface configuration
+---
+
+# System Definition
+
+The `SystemDefinition` is a required configuration object that describes all I2C devices in your system, their registers, commands, and data formats. It serves as the bridge between your high-level application code and the low-level I2C hardware details.
+
+## Overview
+
+When you create a `I2CInterface` instrument, you must provide a `SystemDefinition` that describes:
+- All I2C devices on the bus (by name and I2C address)
+- For register-based devices: register maps, bit fields, and data formats
+- For command-based devices: command definitions and response formats
+
+The `SystemDefinition` enables I2CInterface to:
+- Access devices and registers by human-readable names instead of raw addresses
+- Automatically handle bit field extraction and masking
+- Convert between raw register values and physical units using scaling functions
+- Validate and structure command operations
+
+## SystemDefinition Structure
+
+The `SystemDefinition` is a container that holds all device definitions:
+
+```python
+from instro.i2c.types import SystemDefinition
+
+system = SystemDefinition()
+```
+
+### Adding Devices
+
+Add devices to the system definition using `add_device()`:
+
+```python
+system.add_device(register_device)
+system.add_device(command_device)
+```
+
+### Retrieving Devices
+
+Access devices by name when using I2CInterface methods:
+
+```python
+device = system.device("my_device_name")
+```
+
+## Device Types
+
+I2CInterface supports defining two types of I2C devices in the `SystemDefinition`.
+
+1. **RegisterDevice** - Devices that use register addressing (e.g., GPIO expanders, sensors with register maps)
+2. **CommandDevice** - Devices that respond to commands (e.g., ADCs that accept command bytes)
+
+Both device types require:
+- **`name`**: Human-readable identifier used in I2CInterface method calls
+- **`address`**: 7-bit I2C address (0x00 to 0x7F)
+
+## Register-Based Devices
+
+`RegisterDevice` is used for devices that expose a register map, where each register has an address and can contain multiple bit fields.
+
+### RegisterDevice Configuration
+
+```python
+from instro.i2c.types import (
+    DataFormat,
+    FieldDef,
+    RegisterDevice,
+    RegisterDef,
+)
+
+device = RegisterDevice(
+    name="power_gpio", # User defined name for the device
+    address=0x20,  # 7-bit I2C address
+    addr_width_bytes=1,  # Register address width (1 or 2 bytes)
+    registers={
+        "LED_OUTPUT_STATE": RegisterDef(
+            alias="LED_OUTPUT_STATE",
+            register=0x01,
+            default_value=0x00,
+            format=DataFormat(transfer_bits=8),
+            endianness="big",
+            fields={
+                "led0": FieldDef(name="led0", lsb=0, width_bits=1),
+                "led1": FieldDef(name="led1", lsb=1, width_bits=1),
+            }
+        )
+    }
+)
+```
+
+### RegisterDevice Parameters
+
+- **`name`**: Device identifier (used in `i2c.read()`, `i2c.write()`, etc.)
+- **`address`**: 7-bit I2C device address
+- **`addr_width_bytes`**: Number of bytes for register addresses (1 or 2). Most devices use 1 byte.
+- **`registers`**: Dictionary of `RegisterDef` objects keyed by register alias
+
+### Register Definitions
+
+Each register is defined with a `RegisterDef`. Registers can be simple (no bit fields) or contain multiple bit fields for accessing individual settings.
+
+#### Example 1: Simple Register (No Bit Fields)
+
+A temperature sensor register that returns a 16-bit signed value:
+
+```python
+from instro.i2c.types import DataFormat
+
+RegisterDef(
+    alias="TEMPERATURE",  # Human-readable name
+    register=0x05,  # Register address
+    default_value=0x0000,  # Power-on reset value
+    format=DataFormat(transfer_bits=16, signed=True),  # 16-bit signed data
+    endianness="big",  # "little" or "big" for multi-byte data
+    # No fields - read/write the entire register value
+)
+```
+
+#### Example 2: Register with Bit Fields
+
+A GPIO output register where each bit controls an LED:
+
+```python
+from instro.i2c.types import DataFormat, FieldDef
+
+RegisterDef(
+    alias="LED_OUTPUT_STATE",  # Human-readable name
+    register=0x01,  # Register address
+    default_value=0x00,  # All LEDs off by default
+    format=DataFormat(transfer_bits=8),  # 8-bit register
+    endianness="big",
+    fields={  # Each field represents one LED
+        "led0": FieldDef(name="led0", lsb=0, width_bits=1),  # Bit 0
+        "led1": FieldDef(name="led1", lsb=1, width_bits=1),  # Bit 1
+        "led2": FieldDef(name="led2", lsb=2, width_bits=1),  # Bit 2
+        "led3": FieldDef(name="led3", lsb=3, width_bits=1),  # Bit 3
+        "led4": FieldDef(name="led4", lsb=4, width_bits=1),  # Bit 4
+        "led5": FieldDef(name="led5", lsb=5, width_bits=1),  # Bit 5
+        "led6": FieldDef(name="led6", lsb=6, width_bits=1),  # Bit 6
+        "led7": FieldDef(name="led7", lsb=7, width_bits=1),  # Bit 7
+    }
+)
+```
+
+### Bit Fields
+
+Bit fields allow you to access specific bits within a register without manually masking and shifting. Each field can span multiple bits if needed.
+
+**FieldDef Parameters:**
+- **`name`**: Field identifier
+- **`lsb`**: Least significant bit position (0-indexed from the right)
+- **`width_bits`**: Number of bits in the field (default: 1)
+
+**Example with Multi-Bit Fields:**
+
+```python
+from instro.i2c.types import FieldDef
+
+fields = {
+    "enable": FieldDef(name="enable", lsb=0, width_bits=1),  # Single bit (Bit 0)
+    "mode": FieldDef(name="mode", lsb=1, width_bits=2),  # Two bits (Bits [2:1])
+    "rate": FieldDef(name="rate", lsb=3, width_bits=4),  # Four bits (Bits [6:3])
+}
+```
+
+When reading or writing fields, I2CInterface automatically handles the masking and bit shifting:
+
+```python
+# Read just a specific LED field
+led3_state = i2c.read("gpio_expander", "LED_OUTPUT_STATE", field="led3")
+
+# Write to a specific LED (read-modify-write operation)
+i2c.write("gpio_expander", "LED_OUTPUT_STATE", 1, field="led0")  # Turn on LED 0
+
+# Read the entire register (all LEDs at once)
+all_leds = i2c.read("gpio_expander", "LED_OUTPUT_STATE")
+```
+
+## Command-Based Devices
+
+`CommandDevice` is used for devices that respond to command bytes rather than register addressing (e.g., ADCs that accept <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> selection commands).
+
+### CommandDevice Configuration
+
+```python
+from instro.i2c.types import CommandDevice, CommandDef, DataFormat
+from enum import Enum
+
+class ADCChannel(Enum):
+    CH0 = 0x00
+    CH1 = 0x10
+    CH2 = 0x20
+
+device = CommandDevice(
+    name="adc",
+    address=0x48,
+    data_format=DataFormat(transfer_bits=16, signed=True),
+    endianness="little",
+    valid_commands={
+        "channel": CommandDef(name="channel", values=ADCChannel)
+    },
+    batch_commands={
+        "read_ch0": [ADCChannel.CH0],
+        "read_ch1": [ADCChannel.CH1],
+    }
+)
+```
+
+### CommandDevice Parameters
+
+- **`name`**: Device identifier (used in `i2c.query()`)
+- **`address`**: 7-bit I2C device address
+- **`data_format`**: `DataFormat` for command responses (required)
+- **`endianness`**: Byte order for multi-byte responses ("little" or "big")
+- **`valid_commands`**: Dictionary of `CommandDef` objects defining command enums
+- **`batch_commands`**: Predefined combinations of commands (list of enum values)
+
+### Batch Commands
+
+Batch commands allow you to combine multiple command enum values using OR operations:
+
+```python
+# Multiple commands OR'd together automatically
+batch_commands = {
+    "read_ch0_fast": [ADCChannel.CH0, FastMode.ENABLE],
+}
+```
+
+When you call `i2c.query("adc", "read_ch0_fast")`, I2CInterface automatically ORs `ADCChannel.CH0 | FastMode.ENABLE` and sends the result.
+
+## Data Format
+
+The `DataFormat` class defines how raw I2C data is interpreted, extracted, and scaled to physical units.
+
+### DataFormat Overview
+
+```python
+from instro.i2c.types import DataFormat, LinearScaling
+
+format = DataFormat(
+    transfer_bits=16,  # Total bits transferred over I2C
+    data_width_bits=12,  # Logical data bits (if different from transfer_bits)
+    data_lsb=4,  # Starting bit position of logical data
+    signed=True,  # Whether data is signed
+    scaling=LinearScaling(gain=0.1, offset=-40.0),  # Scaling function
+    units="°C"  # Physical units
+)
+```
+
+### DataFormat Parameters
+
+- **`transfer_bits`**: Total bits transferred in the I2C transaction (must be multiple of 8)
+- **`data_width_bits`**: Logical data width if different from transfer bits (None = use all transfer bits)
+- **`data_lsb`**: Starting bit position of logical data (default: 0)
+- **`signed`**: Whether to interpret data as signed (2's complement) (default: False)
+- **`scaling`**: Optional `ScalingFunction` to convert raw values to physical units
+- **`units`**: Physical units string (default: "")
+
+### Data Extraction
+
+The `DataFormat` handles several data extraction scenarios:
+
+**1. Full Transfer Width (no extraction)**
+```python
+# 16-bit register, all bits are data
+DataFormat(transfer_bits=16)
+```
+
+**2. Subset of Transfer Bits**
+```python
+# 16-bit transfer, but only bits [11:4] contain data
+DataFormat(transfer_bits=16, data_width_bits=8, data_lsb=4)
+```
+
+**3. Signed Data**
+```python
+# 12-bit signed value (range: -2048 to 2047)
+DataFormat(transfer_bits=16, data_width_bits=12, signed=True)
+```
+
+### Scaling Functions
+
+Scaling functions convert raw integer values to physical units and vice versa.
+
+#### Linear Scaling
+
+Most sensors use linear scaling:
+
+```python
+from instro.i2c.types import LinearScaling
+
+# Temperature sensor: 0.1°C per count, -40°C offset
+# Raw value 500 → (500 * 0.1) - 40 = 10.0°C
+scaling = LinearScaling(gain=0.1, offset=-40.0)
+```
+
+**Formula:** `physical = offset + gain × raw`
+
+#### Custom Scaling
+
+For non-linear sensors or complex conversions:
+
+```python
+from instro.i2c.types import CustomScaling
+
+# ADC with voltage divider: V = (ADC_value / 4095) * 5.0 * 7.2
+scaling = CustomScaling(
+    to_physical=lambda x: x / 4095 * 5.0 * 7.2,
+    to_raw=lambda v: int(v / 7.2 / 5.0 * 4095)
+)
+```
+
+**CustomScaling Parameters:**
+- **`to_physical_fn`**: Function to convert raw integer → physical float
+- **`to_raw_fn`**: Optional function to convert physical float → raw integer (required for write operations)
+
+<Warning>
+**Inverse Transformation Required for Writes**
+
+If you plan to write values to registers that use custom scaling, you must provide `to_raw_fn`. Otherwise, `NotImplementedError` will be raised when attempting to convert physical values back to raw.
+</Warning>
+
+## Complete Examples
+
+### Example 1: GPIO Expander (RegisterDevice)
+
+A common use case: configuring a GPIO expander with multiple registers and bit fields.
+
+```python
+from instro.i2c.types import (
+    SystemDefinition,
+    RegisterDevice,
+    RegisterDef,
+    FieldDef,
+    DataFormat,
+)
+
+system = SystemDefinition()
+
+# GPIO Expander at address 0x20
+gpio = RegisterDevice(
+    name="gpio_expander",
+    address=0x20,
+    addr_width_bytes=1,
+    registers={
+        "IODIR": RegisterDef(
+            alias="IODIR",  # I/O Direction register
+            register=0x00,
+            default_value=0xFF,  # All inputs by default
+            format=DataFormat(transfer_bits=8),
+            fields={
+                "port0": FieldDef(name="port0", lsb=0, width_bits=1),
+                "port1": FieldDef(name="port1", lsb=1, width_bits=1),
+                # ... more ports
+            }
+        ),
+        "GPIO": RegisterDef(
+            alias="GPIO",  # GPIO Port register
+            register=0x09,
+            default_value=0x00,
+            format=DataFormat(transfer_bits=8),
+        ),
+        "CONFIG": RegisterDef(
+            alias="CONFIG",
+            register=0x0A,
+            default_value=0x00,
+            format=DataFormat(transfer_bits=8),
+            fields={
+                "interrupt_enable": FieldDef(name="interrupt_enable", lsb=0, width_bits=1),
+                "interrupt_polarity": FieldDef(name="interrupt_polarity", lsb=1, width_bits=1),
+                "interrupt_mirror": FieldDef(name="interrupt_mirror", lsb=3, width_bits=1),
+            }
+        ),
+    }
+)
+
+system.add_device(gpio)
+```
+
+**Usage:**
+
+```python
+from instro.i2c.drivers.totalphase import Aardvark
+from instro.i2c import I2CInterface
+
+i2c = I2CInterface(
+    name="main_i2c",
+    driver=Aardvark(serial_number="123456"),
+    system_definition=system,
+)
+
+i2c.open()
+
+# Write to full register
+i2c.write("gpio_expander", "GPIO", 0xFF)
+
+# Write to specific field
+i2c.write("gpio_expander", "CONFIG", 1, field="interrupt_enable")
+
+# Read full register
+state = i2c.read("gpio_expander", "GPIO")
+
+# Read specific field
+interrupt_enabled = i2c.read("gpio_expander", "CONFIG", field="interrupt_enable")
+```
+
+### Example 2: Temperature Sensor (CommandDevice)
+
+A command-based ADC that reads temperature when sent a command.
+
+```python
+from instro.i2c.types import (
+    SystemDefinition,
+    CommandDevice,
+    CommandDef,
+    DataFormat,
+    LinearScaling,
+)
+from enum import Enum
+
+class TempCommand(Enum):
+    START_CONVERSION = 0x01
+    READ_RESULT = 0x02
+
+system = SystemDefinition()
+
+# Temperature sensor at address 0x48
+temp_sensor = CommandDevice(
+    name="temperature_sensor",
+    address=0x48,
+    data_format=DataFormat(
+        transfer_bits=16,
+        data_width_bits=12,
+        signed=True,
+        scaling=LinearScaling(gain=0.0625, offset=0.0),  # 0.0625°C per LSB
+        units="°C"
+    ),
+    endianness="big",
+    batch_commands={
+        "read_temperature": [TempCommand.START_CONVERSION, TempCommand.READ_RESULT],
+    }
+)
+
+system.add_device(temp_sensor)
+```
+
+**Usage:**
+
+```python
+i2c = I2CInterface(
+    name="main_i2c",
+    driver=Aardvark(serial_number="123456"),
+    system_definition=system,
+)
+
+i2c.open()
+
+# Query temperature (sends command and reads back scaled result)
+measurement = i2c.query("temperature_sensor", "read_temperature")
+print(f"Temperature: {measurement.latest}°C")
+```
+
+### Example 3: Mixed System
+
+A system with both register-based and command-based devices:
+
+```python
+system = SystemDefinition()
+
+# Register-based: GPIO expander
+gpio = RegisterDevice(
+    name="gpio",
+    address=0x20,
+    registers={
+        "OUTPUT": RegisterDef(
+            alias="OUTPUT",
+            register=0x01,
+            format=DataFormat(transfer_bits=8),
+        )
+    }
+)
+
+# Command-based: ADC
+class ADCChannel(Enum):
+    CH0 = 0x00
+    CH1 = 0x01
+
+adc = CommandDevice(
+    name="adc",
+    address=0x48,
+    data_format=DataFormat(transfer_bits=16, signed=True),
+    batch_commands={
+        "read_ch0": [ADCChannel.CH0],
+        "read_ch1": [ADCChannel.CH1],
+    }
+)
+
+system.add_device(gpio)
+system.add_device(adc)
+
+# Use with I2CInterface
+i2c = I2CInterface(
+    name="main_i2c",
+    driver=Aardvark(serial_number="123456"),
+    system_definition=system,
+)
+
+i2c.open()
+
+# Register-based operations
+i2c.write("gpio", "OUTPUT", 0xFF)
+state = i2c.read("gpio", "OUTPUT")
+
+# Command-based operations
+voltage = i2c.query("adc", "read_ch0")
+```
+
+## Best Practices
+
+1. **Use descriptive names**: Device and register names should be clear and match your hardware documentation
+2. **Define all registers**: Include all registers you'll access, even if not all fields are defined
+3. **Use field definitions**: For registers with multiple settings, define fields to simplify read-modify-write operations
+4. **Set default values**: Define `default_value` for registers to enable `reset_reg()` functionality
+5. **Use scaling functions**: Define scaling for all sensor data to work in physical units
+6. **Validate addresses**: Ensure I2C addresses are 7-bit (0x00-0x7F) and don't conflict
+7. **Document units**: Always specify `units` in `DataFormat` for clarity
+
+<Tip>
+**SystemDefinition Reusability**
+
+You can reuse a `SystemDefinition` across multiple `I2CInterface` instances if they share the same I2C bus configuration. Create the definition once and pass it to multiple instruments.
+</Tip>

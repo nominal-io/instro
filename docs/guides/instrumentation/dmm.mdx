@@ -1,0 +1,354 @@
+---
+title: Digital Multimeter (DMM)
+description: Using InstroDMM for SCPI-based digital multimeters
+---
+
+# InstroDMM
+
+`InstroDMM` is a hardware abstraction layer (HAL) that provides a unified interface for SCPI-based digital multimeters. The category class defines the vendor-independent API (`set_measurement_function`, `read`, `set_range`, …); a vendor-specific driver (e.g. `Agilent34401A`, `Keithley2400`) owns its connection details and translates those calls into vendor commands.
+
+## Supported Vendors
+
+- **Agilent / HP / Keysight** — 34401A and compatible DMMs via SCPI/VISA (`Agilent34401A`)
+- **Keithley** — 2400 SourceMeter, measurement-only mode (`Keithley2400`)
+
+If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
+
+## Key Concepts
+
+### Driver Composition
+
+A `InstroDMM` is built from a concrete driver:
+
+```
+InstroDMM("name", driver=Agilent34401A("ASRL3::INSTR"))
+```
+
+- **`Agilent34401A`** owns the connection setup and vendor-specific command mapping.
+- **`InstroDMM`** owns the category-level workflow — measurements, commands, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroDMM workflow:
+
+1. **Construct** — instantiate the vendor driver and pass it to `InstroDMM`.
+2. **`open()`** — establishes the VISA connection.
+3. **Configure measurement** — set the measurement function (e.g. DC voltage), and optionally resolution, aperture, and range.
+4. **`read()`** — trigger a measurement and get the value.
+5. **`close()`** — disconnect from hardware.
+
+Optionally, you can use background fetching via `start()` / `stop()`, but it is an atypical use case for a DMM. See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more.
+
+### Measurement Functions
+
+`InstroDMM` supports these measurement functions (availability depends on the driver):
+
+- **DC Voltage**
+- **AC Voltage**
+- **DC Current**
+- **AC Current**
+- **2-Wire Resistance**
+- **4-Wire Resistance**
+
+You must call `set_measurement_function()` before configuring resolution, aperture, range, or calling `read()`.
+
+## Creating a InstroDMM Instance
+
+```python
+from instro.dmm.drivers import Agilent34401A
+from instro.dmm import InstroDMM
+
+dmm = InstroDMM(
+    name="myDMM",
+    driver=Agilent34401A("ASRL3::INSTR"),
+)
+```
+
+### Parameters
+
+- **`name`** — A name for this DMM instance. Used as a prefix for channel names when publishing.
+- **`driver`** — A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model.
+- **`publishers`** — Optional list of publishers to attach.
+- **`**kwargs`** — Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### Choosing a Driver
+
+Choose the concrete driver that matches the DMM model, then pass the instrument connection settings to that driver. For an Agilent 34401A on RS-232, use `Agilent34401A` with the VISA resource string and (optionally) a `SerialConfig`. For a Keithley 2400 SourceMeter, use `Keithley2400`.
+
+To inspect a VISA instrument's identity before choosing a driver:
+
+```python
+from instro.utils.transports import VisaDriver
+
+visa = VisaDriver("ASRL3::INSTR")
+try:
+    visa.open()
+    print(visa.query("*IDN?"))
+finally:
+    visa.close()
+```
+
+## Examples
+
+All measurement methods return [`Measurement`](/instrumentation/library#measurement) objects. This is common amongst all `Instrument` objects.
+
+### Basic Usage
+
+```python
+from instro.dmm.drivers import Agilent34401A
+from instro.dmm import InstroDMM
+from instro.dmm import MeasurementFunction
+from instro.utils.publishers import NominalCorePublisher
+
+VISA_RESOURCE = "ASRL17::INSTR"
+DATASET_RID = "<your dataset here>"
+
+dmm = InstroDMM(
+    name="myDMM",
+    driver=Agilent34401A(VISA_RESOURCE),
+)
+dmm.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+dmm.open()
+
+# Configure for DC voltage measurement
+dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+# Optional: set resolution, aperture, or range
+# dmm.set_digits(6)
+# dmm.set_aperture_nplc(nplc=1.0)
+# dmm.set_range(None)  # auto range
+
+# Trigger a measurement
+measurement = dmm.read()
+print(f"DC Voltage: {measurement.latest}")
+
+dmm.close()
+```
+
+<Note>
+**Important Note about Publishers**
+
+Data is published as a direct result of an instrument method being called.
+
+For example, when you call `read()`, this not only triggers a measurement and returns the value but also causes all attached Publishers to publish the measurement response automatically.
+</Note>
+
+## Published channels
+
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. The `read()` descriptor depends on the active measurement function — substitute the lowercased function name (e.g. `dc_voltage`, `ac_voltage`, `two_wire_resistance`). DMM had no v1.0 channel-naming change; [`legacy_naming`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) is accepted but is a no-op for this category.
+
+| Method | Descriptor | Type |
+|--------|------------|------|
+| `set_measurement_function(...)` | `set_measurement_function.cmd` | command |
+| `set_digits(...)` | `digits.cmd` | command |
+| `set_aperture_seconds(...)` | `aperture_seconds.cmd` | command |
+| `set_aperture_nplc(...)` | `aperture_nplc.cmd` | command |
+| `set_range(value)` | `range_mode.cmd`, and `range.cmd` when `value is not None` | command (multi-key) |
+| `read()` | `{function}` (e.g. `dc_voltage`, `ac_current`) | telemetry |
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroDMM(name, driver, publishers=None, **kwargs)` | Construct a InstroDMM with a vendor driver |
+| `open()` | Establish VISA connection to the DMM |
+| `close()` | Disconnect from DMM and close all publishers |
+| `set_measurement_function(function)` | Set measurement function (DC_VOLTAGE, AC_VOLTAGE, DC_CURRENT, AC_CURRENT, TWO_WIRE_RESISTANCE, FOUR_WIRE_RESISTANCE) |
+| `set_digits(n)` | Set resolution in digits (driver-dependent) |
+| `set_aperture_seconds(seconds)` | Set integration time in seconds |
+| `set_aperture_nplc(nplc)` | Set integration time in power-line cycles |
+| `set_range(value)` | Set manual range in current function's units; `None` = auto range |
+| `read()` | Trigger a measurement and return a Measurement |
+
+---
+
+# Custom Driver Development
+
+This section is for developers implementing `InstroDMM` support for DMMs that aren't supported out of the box.
+
+## Overview
+
+Driver developers subclass `DMMDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver, and that concrete driver exposes connection parameters that make sense for its protocol:
+
+```python
+dmm = InstroDMM(
+    name="labDMM",
+    driver=MyVendorDMM(host="10.0.0.42"),
+)
+```
+
+The driver is responsible for translating `InstroDMM`'s vendor-independent API (`set_measurement_function`, `measure_dc_voltage`, ...) into vendor-specific commands.
+
+## Driver Responsibilities
+
+A DMM driver must:
+
+1. **Expose a protocol-native constructor** — accept inputs like `visa_resource`, `host`, `port`, depending on the instrument.
+2. **Own transport setup** — create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, or other transport object.
+3. **Own lifecycle** — implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands** — translate each abstract method into vendor-specific commands.
+5. **Parse responses** — convert instrument responses to the expected Python types (`float`).
+6. **Report errors** — override `check_errors()` if the instrument exposes an error queue or status register.
+
+## DMMDriverBase Interface
+
+All DMM drivers subclass `DMMDriverBase` and implement these abstract methods:
+
+```python
+def open(self) -> None:
+    """Open the driver's underlying transport and perform any vendor handshake."""
+
+def close(self) -> None:
+    """Close the driver's underlying transport."""
+
+def set_measurement_function(self, function: MeasurementFunction) -> None:
+    """Configure the active measurement function."""
+
+def measure_dc_voltage(self) -> float: ...
+def measure_ac_voltage(self) -> float: ...
+def measure_dc_current(self) -> float: ...
+def measure_ac_current(self) -> float: ...
+def measure_resistance(self) -> float: ...
+```
+
+Optional overrides (raise `NotImplementedError` if not supported):
+
+- **`set_digits(n)`** — Set resolution in digits.
+- **`set_aperture_seconds(seconds)`** — Set integration time in seconds.
+- **Per-function range setters** — `set_dc_voltage_range`, `set_ac_voltage_range`, `set_dc_current_range`, `set_ac_current_range`, `set_two_wire_resistance_range`, `set_four_wire_resistance_range`. Each takes `value: float | None` (None = auto). `InstroDMM` dispatches to the right one based on the active measurement function, so the driver never needs to know which function is active.
+- **Per-function NPLC setters** — `set_dc_voltage_nplc`, `set_ac_voltage_nplc`, `set_dc_current_nplc`, `set_ac_current_nplc`, `set_two_wire_resistance_nplc`, `set_four_wire_resistance_nplc`. Same dispatch shape as the range setters.
+- **`measure_four_wire_resistance()`** — Measure 4-wire resistance.
+- **`check_errors()`** — Defaults to a no-op. Override to query the vendor error queue.
+
+The per-function range/NPLC split keeps `InstroDMM`'s `_measurement_config.function` as the single source of truth — the driver never receives or tracks the active function, so the wrong-function-passed-by-mistake class of bug doesn't exist.
+
+### Talking to the Instrument
+
+Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
+
+- **`self._visa.write(command)`** — Send a SCPI command (no response expected).
+- **`self._visa.query(command)`** — Send a SCPI query and receive the response string.
+
+`VisaDriver` owns the resource lock; concurrent `write` / `query` calls against the same driver are serialized automatically.
+
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference — configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+
+For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
+
+## Implementation Example: Agilent 34401A Driver
+
+Here is the abridged shape of the Agilent 34401A driver:
+
+```python
+from instro.dmm import DMMDriverBase
+from instro.dmm.types import MeasurementFunction
+from instro.utils.transports import VisaConfig, VisaDriver
+
+
+class Agilent34401A(DMMDriverBase):
+    """SCPI mapping for the Agilent/HP/Keysight 34401A DMM."""
+
+    def __init__(self, visa_resource: str | VisaConfig) -> None:
+        self._visa = VisaDriver(visa_resource)
+        self._range: float | None = None
+        self._resolution: float | None = None
+
+    def open(self) -> None:
+        self._visa.open()
+        self._visa.write("*CLS")
+        self._visa.write("SYST:REM")
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def set_measurement_function(self, function: MeasurementFunction) -> None:
+        # Dispatch to the vendor-specific measurement; the 34401A configures via MEAS commands.
+        ...
+
+    def measure_dc_voltage(self) -> float:
+        return float(self._visa.query("MEAS:VOLT:DC?").strip())
+
+    # The 34401A uses one shared range cache regardless of function, so every
+    # per-function range setter delegates to the same private slot.
+    def _store_range(self, value: float | None) -> None:
+        self._range = value
+
+    set_dc_voltage_range = _store_range
+    set_ac_voltage_range = _store_range
+    set_dc_current_range = _store_range
+    set_ac_current_range = _store_range
+    set_two_wire_resistance_range = _store_range
+    set_four_wire_resistance_range = _store_range
+
+    # ...other measure_* methods, set_digits, check_errors...
+```
+
+<Tip>
+**Vendor SCPI Variations**
+
+Different DMM vendors use different SCPI command sets:
+- **Agilent 34401A**: `MEAS:VOLT:DC?`, `MEAS:CURR:DC?`
+- **Keithley 2400**: `:SENS:FUNC 'VOLT'`, `:READ?`
+
+Always consult your DMM's programming manual for the correct SCPI syntax.
+</Tip>
+
+## Using a Custom Driver
+
+For drivers that aren't shipped in the library, construct `InstroDMM` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
+
+```python
+from instro.dmm import MeasurementFunction, InstroDMM
+from instro.dmm import DMMDriverBase
+from instro.utils.transports import VisaDriver
+
+
+class MyCustomDMMDriver(DMMDriverBase):
+    """Custom driver for my lab's proprietary DMM."""
+
+    def __init__(self, visa_resource: str) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        self._visa.open()
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def set_measurement_function(self, function: MeasurementFunction) -> None:
+        self._visa.write(f"FUNC {function.value}")
+
+    def measure_dc_voltage(self) -> float:
+        return float(self._visa.query("MEAS:VOLT?"))
+
+    # ... implement other required methods ...
+
+    def check_errors(self) -> None:
+        err = self._visa.query("ERR?")
+        if err != "OK":
+            raise RuntimeError(f"DMM error: {err}")
+
+
+dmm = InstroDMM(
+    name="labDMM",
+    driver=MyCustomDMMDriver(visa_resource="<VISA_ADDRESS>"),
+)
+
+dmm.open()
+dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+measurement = dmm.read()
+dmm.close()
+```
+
+## Summary
+
+Driver development requires careful mapping of vendor-specific behavior to the unified `InstroDMM` interface. Focus on:
+
+- Subclassing `DMMDriverBase`
+- Designing a constructor around natural connection parameters for the instrument
+- Hiding transport construction inside the driver
+- Implementing all abstract methods on `DMMDriverBase` (and optional overrides where supported)
+- Using the correct vendor protocol or command syntax
+- Converting instrument responses to the expected Python types
+- Overriding `check_errors()` if your vendor exposes an error queue
+- Testing with actual hardware to ensure commands work as expected

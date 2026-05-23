@@ -1,0 +1,92 @@
+---
+title: Library
+description: The `Instrument`, `Measurement`, and `Command` building blocks
+---
+
+<Tip>
+**Building a brand-new instrument type?** See [Custom Instruments](/instrumentation/custom-instruments) for the walkthrough.
+</Tip>
+
+# Library
+
+## Instrument
+`Instrument` is the base class for all instrument types. It's responsibilities include.
+* Handling background daemons for synchronous instrument communication.
+* Holds the `publisher`s an instrument will use.
+* Creates and holds the communication interface for the instrument.
+
+When creating a custom instrument type, you must subclass `Instrument`.
+
+## Measurements and Commands
+Within a `Instrument`, data is packaged into `Measurement` and `Command` objects when data is read from or sent to an instrument, respectively.
+
+The rationale for this is:
+1. Consistency regardless of instrument type or vendor.
+2. Interoperability of publishers across instrument types.
+3. Better integration with Nominal ecosystem by enforcing certain data is always be present, like timestamps.
+
+Both of these classes are imported via `instro.utils`
+
+### Measurement
+A `Measurement` object should be created when reading data from an instrument.
+```py
+@dataclass
+class Measurement:
+    """Data structure to hold measurement data. All channels have a common timebase."""
+
+    channel_data: dict[str, list[float]]
+    timestamps: list[int]
+    tags: dict[str, str] | None = None
+```
+
+### Command
+A `Command` object should be created when telling an instrument to do something.
+```py
+@dataclass
+class Command:
+    """Data structure to hold command data."""
+
+    # Same as Measurement, but with a single datapoint per channel
+    channel_data: dict[str, float | str]
+    timestamp: int
+    tags: dict[str, str] | None = None
+```
+
+### Parameters
+
+- **`channel_data: dict[str, list[float]]`**
+  This dictionary maps <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> names (or numbers, as strings) to lists of numeric measurements. For example, if your instrument has channels `"my_thermocouple1"` and `"my_thermocouple2"`, and you collected 10 samples from each, `channel_data` might look like:
+  ```python
+  {
+      "my_thermocouple1": [0.123, 0.124, ...],
+      "my_thermocouple2": [0.223, 0.224, ...],
+  }
+  ```
+- **`timestamps: list[int]`**
+  A list of POSIX timestamps (in integer milliseconds) for each measurement sample, aligned with the values in `channel_data`. The length of `timestamps` should match the length of each list in `channel_data`.
+
+- **`tags: dict[str, str] | None`**
+  Optional metadata associated with this measurement acquisition. Common tags include test IDs, operator name, or environmental qualifiers. Useful for search, provenance, and analysis.
+
+# Backwards-compatible channel naming (`legacy_naming`)
+
+Every category instrument accepts a `legacy_naming: bool = False` keyword at construction. When set to `True`, the instrument publishes channels under their pre-v1.0 names.
+
+```python
+# Default (v1.0): publishes  main.ch1.voltage, main.ch1.voltage.cmd, ...
+psu_new = InstroPSU(name="main", driver=BK9115(...), num_channels=1)
+
+# Legacy:        publishes  main.ch1_v,       main.ch1_v.cmd,       ...
+psu_legacy = InstroPSU(name="main", driver=BK9115(...), num_channels=1, legacy_naming=True)
+```
+
+**When to use it:**
+- **Backwards compatibility.** If your dashboards or recorded datasets were keyed on the pre-v1.0 channel names, flip the flag on each instrument as a single-line stopgap while you update downstream consumers.
+
+**Scope:**
+- Categories with a v1.0 rename — PSU, ELoad, I2C, DAQ digital channels, Scope — honor the flag.
+- Categories with no v1.0 rename — DMM, Modbus, DAQ analog/relay — ignore the flag (the published names are unchanged either way).
+
+**Limitations:**
+- All-or-nothing per instrument. There is no way to use new names for some channels and legacy for others on the same instance.
+- `legacy_naming` is scheduled for **removal in v2.0**. Plan to migrate downstream consumers within that window.

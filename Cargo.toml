@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip-rs",
+]
+resolver = "2"

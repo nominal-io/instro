@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "protocol": "modbus",
+  "device": { "name": "overlap_test" },
+  "registers": [
+    { "name": "reg_a", "starting_address": 10, "register_type": "holding", "data_type": "uint32" },
+    { "name": "reg_b", "starting_address": 11, "register_type": "holding", "data_type": "uint16" }
+  ]
+}

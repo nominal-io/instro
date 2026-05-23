@@ -1,0 +1,523 @@
+"""Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
+
+from collections.abc import Iterator
+from unittest.mock import MagicMock, call, patch
+
+import pytest
+
+from instro.psu import InstroPSU, PSUDriverBase
+from instro.psu.drivers import BK9115, BK9140, RigolDP800, SiglentSPD3303, SimulatedPSU, TDKLambdaGenesys
+from instro.utils.transports import SerialConfig, VisaConfig
+
+# --- BK9115 ---
+
+
+@pytest.fixture
+def bk_single_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.bk_9115.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def bk_single_visa(bk_single_visa_cls: MagicMock) -> MagicMock:
+    visa = bk_single_visa_cls.return_value
+    visa.query.return_value = '0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def bk_single(bk_single_visa_cls: MagicMock) -> BK9115:
+    return BK9115("USB0::0xFFFF::0x9115::SN::INSTR")
+
+
+def test_bk_single_init_builds_visa_driver_from_resource(bk_single_visa_cls: MagicMock) -> None:
+    BK9115("USB0::0xFFFF::0x9115::SN::INSTR")
+    bk_single_visa_cls.assert_called_once_with("USB0::0xFFFF::0x9115::SN::INSTR")
+
+
+def test_bk_single_init_accepts_prebuilt_connection_config(bk_single_visa_cls: MagicMock) -> None:
+    config = VisaConfig(visa_resource="USB0::example::INSTR")
+    BK9115(config)
+    bk_single_visa_cls.assert_called_once_with(config)
+
+
+def test_bk_single_open_close_delegate_to_visa(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single.open()
+    bk_single_visa.open.assert_called_once()
+    bk_single.close()
+    bk_single_visa.close.assert_called_once()
+
+
+def test_bk_single_set_voltage_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single.set_voltage(5.0)
+    bk_single_visa.write.assert_called_once_with("VOLT 5.000")
+    bk_single_visa.query.assert_called_once_with("SYST:ERR?")
+
+
+def test_bk_single_get_voltage_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single_visa.query.side_effect = ["12.345", '0,"No error"']
+    assert bk_single.get_voltage() == pytest.approx(12.345)
+    assert bk_single_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
+
+
+def test_bk_single_set_current_limit_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single.set_current_limit(1.25)
+    bk_single_visa.write.assert_called_once_with("CURR 1.250")
+    bk_single_visa.query.assert_called_once_with("SYST:ERR?")
+
+
+def test_bk_single_get_current_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single_visa.query.side_effect = ["0.500", '0,"No error"']
+    assert bk_single.get_current() == pytest.approx(0.5)
+
+
+def test_bk_single_output_enable_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single.output_enable(True)
+    bk_single_visa.write.assert_called_once_with("OUTP:STAT ON")
+    bk_single.output_enable(False)
+    assert bk_single_visa.write.call_args_list[-1] == call("OUTP:STAT OFF")
+
+
+def test_bk_single_get_output_status_parses(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single_visa.query.side_effect = ["1", '0,"No error"']
+    assert bk_single.get_output_status() is True
+    bk_single_visa.query.side_effect = ["0", '0,"No error"']
+    assert bk_single.get_output_status() is False
+
+
+def test_bk_single_check_errors_raises_on_nonzero(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
+    bk_single_visa.query.return_value = '-100,"Command error"'
+    with pytest.raises(RuntimeError, match="BK PSU reported error"):
+        bk_single.set_voltage(1.0)
+
+
+# --- BK9140 ---
+
+
+@pytest.fixture
+def bk_multi_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.bk_9140.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def bk_multi_visa(bk_multi_visa_cls: MagicMock) -> MagicMock:
+    visa = bk_multi_visa_cls.return_value
+    visa.query.return_value = '0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def bk_multi(bk_multi_visa_cls: MagicMock) -> BK9140:
+    return BK9140("USB0::0xFFFF::0x9140::SN::INSTR")
+
+
+def test_bk_multi_init_builds_visa_driver_from_resource(bk_multi_visa_cls: MagicMock) -> None:
+    BK9140("USB0::0xFFFF::0x9140::SN::INSTR")
+    bk_multi_visa_cls.assert_called_once_with("USB0::0xFFFF::0x9140::SN::INSTR")
+
+
+def test_bk_multi_set_voltage_selects_channel_then_writes(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi.set_voltage(3.3, channel=2)
+    assert bk_multi_visa.write.call_args_list == [call("INST 1"), call("VOLT 3.300")]
+    bk_multi_visa.query.assert_called_once_with("SYST:ERR?")
+
+
+def test_bk_multi_selects_channel_one_before_first_write(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi.set_voltage(3.3, channel=1)
+    assert bk_multi_visa.write.call_args_list == [call("INST 0"), call("VOLT 3.300")]
+
+
+def test_bk_multi_skips_channel_select_when_active(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi.set_voltage(3.3, channel=1)
+    bk_multi.set_current_limit(0.5, channel=1)
+    assert bk_multi_visa.write.call_args_list == [call("INST 0"), call("VOLT 3.300"), call("CURR 0.500")]
+
+
+def test_bk_multi_get_voltage_returns_float(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi_visa.query.side_effect = ["7.890", '0,"No error"']
+    assert bk_multi.get_voltage(channel=2) == pytest.approx(7.89)
+    assert bk_multi_visa.write.call_args_list == [call("INST 1")]
+    assert bk_multi_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
+
+
+def test_bk_multi_get_output_status_parses(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi_visa.query.side_effect = ["1", '0,"No error"']
+    assert bk_multi.get_output_status(channel=1) is True
+
+
+def test_bk_multi_check_errors_raises_on_nonzero(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
+    bk_multi_visa.query.return_value = '-100,"Command error"'
+    with pytest.raises(RuntimeError, match="BK PSU reported error"):
+        bk_multi.set_voltage(1.0)
+
+
+# --- RigolDP800 ---
+
+
+@pytest.fixture
+def rigol_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.rigol_dp800.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def rigol_visa(rigol_visa_cls: MagicMock) -> MagicMock:
+    visa = rigol_visa_cls.return_value
+    visa.query.return_value = '0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def rigol(rigol_visa_cls: MagicMock) -> RigolDP800:
+    return RigolDP800("TCPIP0::rigol::INSTR")
+
+
+def test_rigol_set_voltage_writes_per_channel(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.set_voltage(5.0, channel=2)
+    rigol_visa.write.assert_called_once_with(":SOUR2:VOLT 5.000")
+    rigol_visa.query.assert_called_once_with(":SYST:ERR?")
+
+
+def test_rigol_get_voltage_uses_meas_command(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["12.000", '0,"No error"']
+    assert rigol.get_voltage(channel=3) == pytest.approx(12.0)
+    assert rigol_visa.query.call_args_list == [call(":MEAS:VOLT? CH3"), call(":SYST:ERR?")]
+
+
+def test_rigol_output_enable_formats_per_channel(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.output_enable(True, channel=1)
+    rigol.output_enable(False, channel=2)
+    assert rigol_visa.write.call_args_list == [call(":OUTP CH1,ON"), call(":OUTP CH2,OFF")]
+
+
+def test_rigol_get_output_status_parses_on(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["ON", '0,"No error"']
+    assert rigol.get_output_status(channel=1) is True
+
+
+def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = '-100,"Command error"'
+    with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
+        rigol.set_voltage(1.0)
+
+
+# --- SiglentSPD3303 ---
+
+
+@pytest.fixture
+def siglent_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.siglent_spd3303.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def siglent_visa(siglent_visa_cls: MagicMock) -> MagicMock:
+    visa = siglent_visa_cls.return_value
+    visa.query.return_value = '+0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def siglent(siglent_visa_cls: MagicMock) -> SiglentSPD3303:
+    return SiglentSPD3303("USB0::Siglent::SN::INSTR")
+
+
+def test_siglent_set_voltage_writes_per_channel(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent.set_voltage(2.5, channel=1)
+    siglent_visa.write.assert_called_once_with("CH1:VOLT 2.500")
+    siglent_visa.query.assert_called_once_with("SYST:ERR?")
+
+
+def test_siglent_get_voltage_returns_float(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.side_effect = ["3.300", '+0,"No error"']
+    assert siglent.get_voltage(channel=2) == pytest.approx(3.3)
+    assert siglent_visa.query.call_args_list == [call("MEAS:VOLT? CH2"), call("SYST:ERR?")]
+
+
+def test_siglent_output_enable_formats_per_channel(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent.output_enable(True, channel=2)
+    siglent_visa.write.assert_called_once_with("OUTP CH2,ON")
+
+
+def test_siglent_get_output_status_decodes_bitmap(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    # bit 4 (ch1_enable) set, bit 5 (ch2_enable) not set -> 0x10
+    siglent_visa.query.side_effect = ["10", '+0,"No error"']
+    assert siglent.get_output_status(channel=1) is True
+    siglent_visa.query.side_effect = ["20", '+0,"No error"']
+    assert siglent.get_output_status(channel=2) is True
+    siglent_visa.query.side_effect = ["00", '+0,"No error"']
+    assert siglent.get_output_status(channel=1) is False
+
+
+def test_siglent_check_errors_raises_on_nonzero(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = '-100,"Command error"'
+    with pytest.raises(RuntimeError, match="Siglent PSU reported error"):
+        siglent.set_voltage(1.0)
+
+
+# --- TDKLambdaGenesys ---
+
+
+@pytest.fixture
+def tdk_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.tdk_lambda_genesys.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def tdk_visa(tdk_visa_cls: MagicMock) -> MagicMock:
+    visa = tdk_visa_cls.return_value
+    visa.query.return_value = '0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def tdk(tdk_visa_cls: MagicMock) -> TDKLambdaGenesys:
+    return TDKLambdaGenesys("TCPIP0::tdk::INSTR")
+
+
+def test_tdk_set_voltage_writes_checked(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
+    tdk.set_voltage(48.0)
+    tdk_visa.write.assert_called_once_with("VOLT 48.000")
+    tdk_visa.query.assert_called_once_with("SYSTEM:ERROR?")
+
+
+def test_tdk_get_current_parses_response(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
+    tdk_visa.query.side_effect = ["2.500", '0,"No error"']
+    assert tdk.get_current() == pytest.approx(2.5)
+    assert tdk_visa.query.call_args_list == [call("MEAS:CURR?"), call("SYSTEM:ERROR?")]
+
+
+def test_tdk_get_output_status_parses_on(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
+    tdk_visa.query.side_effect = ["ON", '0,"No error"']
+    assert tdk.get_output_status() is True
+    tdk_visa.query.side_effect = ["OFF", '0,"No error"']
+    assert tdk.get_output_status() is False
+
+
+def test_tdk_check_errors_raises_on_nonzero(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
+    tdk_visa.query.return_value = '-100,"Command error"'
+    with pytest.raises(RuntimeError, match="TDK Lambda PSU reported error"):
+        tdk.set_voltage(1.0)
+
+
+# --- SimulatedPSU ---
+
+
+@pytest.fixture
+def sim_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.psu.drivers.simulated.VisaDriver", autospec=True) as cls:
+        yield cls
+
+
+@pytest.fixture
+def sim_visa(sim_visa_cls: MagicMock) -> MagicMock:
+    visa = sim_visa_cls.return_value
+    visa.query.return_value = '0,"No error"'
+    return visa
+
+
+@pytest.fixture
+def sim(sim_visa_cls: MagicMock) -> SimulatedPSU:
+    return SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET")
+
+
+def test_sim_set_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim.set_voltage(5.0, channel=2)
+    sim_visa.write.assert_called_once_with("VOLT 5.000 2")
+    sim_visa.query.assert_called_once_with("SYSTEM:ERROR?")
+
+
+def test_sim_get_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["1.234", '0,"No error"']
+    assert sim.get_voltage(channel=2) == pytest.approx(1.234)
+    assert sim_visa.query.call_args_list == [call("MEAS:VOLT? 2"), call("SYSTEM:ERROR?")]
+
+
+def test_sim_output_enable_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim.output_enable(True, channel=2)
+    sim_visa.write.assert_called_once_with("OUTP:STAT ON 2")
+    sim.output_enable(False, channel=2)
+    assert sim_visa.write.call_args_list[-1] == call("OUTP:STAT OFF 2")
+
+
+def test_sim_get_output_status_parses(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["ON", '0,"No error"']
+    assert sim.get_output_status(channel=1) is True
+    sim_visa.query.side_effect = ["OFF", '0,"No error"']
+    assert sim.get_output_status(channel=1) is False
+
+
+# --- InstroPSU composition ---
+
+
+def _stub_driver() -> MagicMock:
+    driver = MagicMock(spec=PSUDriverBase)
+    driver.get_voltage.return_value = 12.0
+    driver.get_current.return_value = 0.5
+    driver.get_output_status.return_value = True
+    return driver
+
+
+def test_nominal_psu_stores_driver() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    assert psu._driver is driver
+
+
+def test_nominal_psu_open_close_delegate_to_driver() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.open()
+    driver.open.assert_called_once()
+    psu.close()
+    driver.close.assert_called_once()
+
+
+def test_nominal_psu_close_stops_background_before_closing_driver() -> None:
+    events: list[str] = []
+    driver = _stub_driver()
+    driver.close.side_effect = lambda: events.append("driver.close")
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.stop = MagicMock(side_effect=lambda: events.append("stop"))  # type: ignore[method-assign]
+
+    psu.close()
+
+    assert events == ["stop", "driver.close"]
+
+
+def test_nominal_psu_set_voltage_delegates() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2)
+    psu.set_voltage(5.0, channel=2)
+    driver.set_voltage.assert_called_once_with(5.0, channel=2)
+
+
+def test_nominal_psu_get_voltage_returns_measurement() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_voltage(channel=1)
+    assert measurement is not None
+    assert "ut.ch1.voltage" in measurement.channel_data
+    assert measurement.channel_data["ut.ch1.voltage"] == [12.0]
+
+
+def test_nominal_psu_get_current_returns_measurement() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_current(channel=1)
+    assert measurement is not None
+    assert "ut.ch1.current" in measurement.channel_data
+    assert measurement.channel_data["ut.ch1.current"] == [0.5]
+
+
+def test_nominal_psu_output_enable_delegates() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.output_enable(True, channel=1)
+    driver.output_enable.assert_called_once_with(True, channel=1)
+
+
+def test_nominal_psu_set_current_limit_delegates() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.set_current_limit(1.5, channel=1)
+    driver.set_current_limit.assert_called_once_with(1.5, channel=1)
+
+
+# --- legacy_naming ---
+
+
+def test_legacy_naming_publishes_old_psu_channel_names() -> None:
+    """`legacy_naming=True` round-trips pre-v1.0 PSU channel names."""
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2, legacy_naming=True)
+
+    voltage = psu.get_voltage(channel=1)
+    current = psu.get_current(channel=1)
+    enabled = psu.get_output_status(channel=2)
+    voltage_cmd = psu.set_voltage(5.0, channel=1)
+    current_cmd = psu.set_current_limit(1.5, channel=1)
+    enabled_cmd = psu.output_enable(True, channel=2)
+
+    assert "ut.ch1_v" in voltage.channel_data  # type: ignore[union-attr]
+    assert "ut.ch1_i" in current.channel_data  # type: ignore[union-attr]
+    assert "ut.ch2_en" in enabled.channel_data  # type: ignore[union-attr]
+    assert "ut.ch1_v.cmd" in voltage_cmd.channel_data
+    assert "ut.ch1_i.cmd" in current_cmd.channel_data
+    assert "ut.ch2_en.cmd" in enabled_cmd.channel_data
+
+
+def test_default_naming_publishes_new_psu_channel_names() -> None:
+    """Default (`legacy_naming=False`) publishes the v1.0 descriptive channel names."""
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+
+    assert "ut.ch1.voltage" in psu.get_voltage(channel=1).channel_data  # type: ignore[union-attr]
+    assert "ut.ch1.voltage.cmd" in psu.set_voltage(5.0, channel=1).channel_data
+
+
+def test_legacy_naming_default_is_false() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    assert psu.legacy_naming is False
+
+
+# --- Publish decorators: type-check invariant ---
+
+
+def test_publish_command_rejects_method_returning_measurement() -> None:
+    """@publish_command raises TypeError when the wrapped method returns a Measurement."""
+    from instro.utils import Measurement
+    from instro.utils.instrument import publish_command
+
+    class _Bad(InstroPSU):
+        @publish_command
+        def bad(self) -> Measurement:  # type: ignore[override]
+            return Measurement(channel_data={"ut.x": [1.0]}, timestamps=[0])
+
+    inst = _Bad(name="ut", driver=_stub_driver(), num_channels=1)
+    with pytest.raises(TypeError, match="must return Command"):
+        inst.bad()
+
+
+def test_publish_measurement_rejects_method_returning_command() -> None:
+    """@publish_measurement raises TypeError when the wrapped method returns a Command."""
+    from instro.utils import Command
+    from instro.utils.instrument import publish_measurement
+
+    class _Bad(InstroPSU):
+        @publish_measurement
+        def bad(self) -> Command:  # type: ignore[override]
+            return Command(channel_data={"ut.x.cmd": 1.0}, timestamp=0)
+
+    inst = _Bad(name="ut", driver=_stub_driver(), num_channels=1)
+    with pytest.raises(TypeError, match="must return Measurement"):
+        inst.bad()
+
+
+def test_publish_measurement_passes_through_none() -> None:
+    """@publish_measurement returns None without publishing when the method returns None."""
+    from instro.utils.instrument import publish_measurement
+
+    class _Quiet(InstroPSU):
+        @publish_measurement
+        def quiet(self) -> None:
+            return None
+
+    inst = _Quiet(name="ut", driver=_stub_driver(), num_channels=1)
+    assert inst.quiet() is None
+
+
+# --- Cross-driver VisaConfig pass-through (representative) ---
+
+
+def test_bk_single_init_passes_prebuilt_config_to_visa_driver(bk_single_visa_cls: MagicMock) -> None:
+    config = VisaConfig(
+        visa_resource="ASRL19::INSTR",
+        visa_backend="@py",
+        serial_config=SerialConfig(baud_rate=19_200),
+    )
+    BK9115(config)
+    bk_single_visa_cls.assert_called_once_with(config)

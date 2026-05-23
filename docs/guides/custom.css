@@ -1,0 +1,6 @@
+/* Nominal brand has hard edges — no rounded corners anywhere. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}

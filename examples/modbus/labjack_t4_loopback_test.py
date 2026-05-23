@@ -1,0 +1,129 @@
+"""Example: ModbusDevice loopback test against a LabJack T4.
+
+Exercises read/write against a T4 over Modbus TCP using register addresses
+from the LabJack T-series Modbus map
+(https://support.labjack.com/docs/3-modbus-map-t-series-datasheet).
+
+Loopback wiring required on the T4:
+    - DAC0  -> AIN0  (analog loopback)
+    - FIO4  -> FIO5  (digital loopback; FIO4 = output, FIO5 = input)
+
+Covers:
+    - Reading device identity (PRODUCT_ID, FIRMWARE_VERSION, SERIAL_NUMBER)
+    - Analog loopback: write DAC0, read AIN0, verify within tolerance
+    - Digital loopback: drive FIO4, read FIO5, verify state matches
+
+Set HOST below to the T4's IP address or hostname before running.
+"""
+
+import time
+
+from instro.modbus import ModbusDevice
+
+HOST = "<device_ip>"
+PORT = 502
+
+# Acceptable error for the DAC->AIN loopback. The T4 DAC has ~10 mV typical
+# accuracy and the AIN has its own noise/offset, so 50 mV is comfortable.
+ANALOG_TOLERANCE_V = 0.05
+
+CONFIG = {
+    "version": 1,
+    "protocol": "modbus",
+    "device": {
+        "name": "labjack_t4",
+        "manufacturer": "LabJack",
+        "model": "T4",
+    },
+    "connection": {
+        "transport": "tcp",
+        "host": HOST,
+        "port": PORT,
+        "unit_id": 1,
+        "timeout": 3.0,
+    },
+    "registers": [
+        # Device identity
+        {"name": "product_id", "starting_address": 60000, "register_type": "holding", "data_type": "float32"},
+        {"name": "firmware_version", "starting_address": 60004, "register_type": "holding", "data_type": "float32"},
+        {"name": "serial_number", "starting_address": 60028, "register_type": "holding", "data_type": "uint32"},
+        # Analog loopback pair
+        {"name": "ain0", "starting_address": 0, "register_type": "holding", "data_type": "float32"},
+        {"name": "dac0", "starting_address": 1000, "register_type": "holding", "data_type": "float32"},
+        # Digital loopback pair. On the T4, DIO#_STATE is a single register
+        # per line at address 2000+#: writing sets the line as output and drives
+        # the given state; reading leaves it as an input and samples it.
+        {"name": "fio4_state", "starting_address": 2004, "register_type": "holding", "data_type": "uint16"},
+        {"name": "fio5_state", "starting_address": 2005, "register_type": "holding", "data_type": "uint16"},
+    ],
+}
+
+
+def _value(measurement, channel: str) -> float:
+    """Unwrap the first sample for a given channel from a Measurement."""
+    return measurement.channel_data[channel][0]
+
+
+def main() -> None:
+    lj = ModbusDevice(config=CONFIG)
+    lj.open()
+
+    failures: list[str] = []
+
+    try:
+        print(f"Connected to LabJack T4 at {HOST}:{PORT}")
+
+        # --- Device identity ---
+        product_id = _value(lj.read("product_id"), f"{lj.name}.product_id")
+        firmware = _value(lj.read("firmware_version"), f"{lj.name}.firmware_version")
+        serial = _value(lj.read("serial_number"), f"{lj.name}.serial_number")
+        print(f"  product_id      = {product_id}")
+        print(f"  firmware        = {firmware}")
+        print(f"  serial_number   = {serial}")
+
+        # --- Analog loopback: DAC0 -> AIN0 ---
+        print("\nAnalog loopback (DAC0 -> AIN0):")
+        for target_v in (0.0, 0.5, 1.25, 2.5, 3.3):
+            lj.write("dac0", target_v)
+            time.sleep(0.05)  # let the DAC settle
+            measured_v = _value(lj.read("ain0"), f"{lj.name}.ain0")
+            error = measured_v - target_v
+            status = "OK" if abs(error) <= ANALOG_TOLERANCE_V else "FAIL"
+            print(f"  dac0 -> {target_v:.3f} V | ain0 = {measured_v:.4f} V | err = {error:+.4f} V [{status}]")
+            if status == "FAIL":
+                failures.append(f"analog: dac0={target_v} V, ain0={measured_v:.4f} V, err={error:+.4f} V")
+
+        # Park DAC0 at 0 V when done.
+        lj.write("dac0", 0.0)
+
+        # --- Digital loopback: FIO4 (out) -> FIO5 (in) ---
+        # On the T4, writing fio4_state implicitly makes FIO4 an output;
+        # reading fio5_state implicitly makes FIO5 an input.
+        print("\nDigital loopback (FIO4 out -> FIO5 in):")
+        for driven_state in (0, 1, 0, 1, 0):
+            lj.write("fio4_state", driven_state)
+            time.sleep(0.05)
+            read_state = int(_value(lj.read("fio5_state"), f"{lj.name}.fio5_state"))
+            status = "OK" if read_state == driven_state else "FAIL"
+            print(f"  fio4 <- {driven_state} | fio5 = {read_state} [{status}]")
+            if status == "FAIL":
+                failures.append(f"digital: fio4={driven_state}, fio5={read_state}")
+
+        # Read fio4_state to revert the line from output back to input.
+        lj.read("fio4_state")
+
+        print()
+        if failures:
+            print(f"LOOPBACK FAILED ({len(failures)} issue(s)):")
+            for f in failures:
+                print(f"  - {f}")
+        else:
+            print("LOOPBACK PASSED")
+
+    finally:
+        print("\nClosing connection")
+        lj.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,327 @@
+---
+title: VisaDriver
+description: VISA transport driver for building custom SCPI instrument drivers
+---
+
+# VisaDriver
+
+`VisaDriver` is the VISA transport that Nominal's built-in SCPI instrument drivers (`BK9115`, `RigolDP800`, `SiglentSPD3303`, `Keithley2400`, `Agilent34401A`, `BK85xxB`, …) sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap [pyvisa](https://pyvisa.readthedocs.io/) themselves.
+
+It is intentionally narrow: it opens, closes, and locks a VISA resource and exposes text and raw byte I/O. The caller chooses the command strings.
+
+<Note>
+[VISA (Virtual Instrument Software Architecture)](https://www.ivifoundation.org/specifications/) is the IVI Foundation standard for talking to instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. `VisaDriver` uses pyvisa under the hood, so any backend pyvisa supports (NI-VISA, Keysight IO Libraries, pyvisa-py) is reachable.
+</Note>
+
+## When to Reach For It
+
+`VisaDriver` is the right starting point when any of the following are true:
+
+| If you want to... | `VisaDriver` is the right fit because... |
+| --- | --- |
+| Talk to a **VISA-addressable** instrument | It wraps pyvisa and supports GPIB, USB-TMC, TCPIP (SOCKET, VXI-11, HiSLIP), and ASRL (serial) |
+| Build a **vendor- or model-specific driver** that plugs into an `Instro*` instrument type (`InstroPSU`, `InstroDMM`, `InstroELoad`, …) for a device Nominal doesn't ship | It's the same transport every built-in SCPI driver uses, so your driver composes the same way |
+| Use a **standalone client** for a SCPI instrument that doesn't fit any existing instrument type | It's usable on its own, without an `Instro*` wrapper |
+
+If you're working with a non-VISA protocol — Modbus, raw TCP without VISA framing, a vendor REST API — use the appropriate protocol module (e.g. [ModbusDevice](/instrumentation/protocols/modbus)) or a plain client library instead.
+
+## Quickstart
+
+The most common use of `VisaDriver` is as a transport inside an instrument driver. Here it is on its own, talking to a VISA instrument directly:
+
+```python
+from instro.utils.transports import VisaDriver
+
+visa = VisaDriver("USB0::0x2A8D::0x0101::MY12345::INSTR")
+visa.open()
+try:
+    identity = visa.query("*IDN?")
+    print(identity)
+finally:
+    visa.close()
+```
+
+A `VisaDriver` is configured with either a plain VISA resource string (defaults applied) or a full [`VisaConfig`](#visaconfig) when you need to override the backend, terminators, timeouts, or serial settings.
+
+## Key Concepts
+
+### Lifecycle
+
+The typical lifecycle is the same as any pyvisa session:
+
+| Step | What happens |
+| --- | --- |
+| **Construct** — `VisaDriver(visa_resource)` or `VisaDriver(VisaConfig(...))` | Configuration is stored. No I/O happens yet. |
+| **`open()`** | Opens the pyvisa `ResourceManager`, opens the resource, applies terminators / timeouts / serial settings. Idempotent. |
+| **`write` / `query` / `read` / `*_raw`** | Issue commands against the open resource. |
+| **`close()`** | Closes the resource and the resource manager. Idempotent. |
+
+`open()` and `close()` are both safe to call more than once. A best-effort `close()` also runs on garbage collection, but you should not rely on this — close explicitly in a `try`/`finally` or wrap the driver in the `open()`/`close()` of a higher-level instrument driver.
+
+### Thread Safety
+
+`VisaDriver` is thread-safe at the I/O level. Each `write`, `query`, `read`, `write_raw`, `read_raw`, and `query_raw` call takes an internal reentrant lock for the duration of the call, so concurrent operations against the same driver are serialized rather than interleaved on the bus.
+
+When several VISA operations need to execute **atomically** — for example a `write` followed by an error-queue check, or a configuration sequence that must not be interrupted by another thread — use [`lock()`](#lock) as a context manager:
+
+```python
+with visa.lock():
+    visa.write("CONF:VOLT:DC")
+    visa.write("RANGE 10")
+    reading = visa.query("READ?")
+```
+
+The lock is reentrant, so calling `write`/`query`/`read` from inside the `with` block does not deadlock the calling thread; other threads still wait until the outer `with` exits.
+
+### Terminators
+
+VISA instruments are line-terminated. `VisaDriver` applies a configurable read terminator (stripped from incoming text) and write terminator (appended to outgoing text) when the resource is opened.
+
+The defaults are `read="\n"` and `write="\r\n"`, which works for most SCPI instruments. Override them through [`TerminatorConfig`](#terminatorconfig) when an instrument's programming manual specifies otherwise — for example USB-TMC devices that use `"\n"` for both directions, or older instruments that expect bare `"\r"`.
+
+<Tip>
+If your first `query` to a new instrument hangs until the timeout fires, the most likely cause is a terminator mismatch. Check the device's programming manual for the expected read/write terminators and pass them through `VisaConfig(terminator=TerminatorConfig(read=..., write=...))`.
+</Tip>
+
+### Timeouts
+
+The `recv` timeout in [`TimeoutConfig`](#timeoutconfig) is specified in seconds and is forwarded to pyvisa as the session timeout (converted to milliseconds internally). It controls how long a `read` or `query` waits for the instrument to respond before raising. The default is 15 seconds.
+
+The `connect` and `send` fields are accepted by `VisaConfig` for forward compatibility but are not yet wired into per-operation overrides — leave them at the defaults unless you have a reason to set them.
+
+### Serial Settings
+
+When the VISA resource is an ASRL (RS-232 / RS-485) interface, `VisaDriver` applies [`SerialConfig`](#serialconfig) — baud rate, data bits, stop bits, parity, and flow control — on `open()`. For any other interface type (USB-TMC, GPIB, TCPIP, …) the serial config is silently ignored, so you can leave it at the defaults.
+
+### Text vs. Raw I/O
+
+`VisaDriver` exposes both a text path and a raw byte path:
+
+| Path | Methods | Behavior | Use for |
+| --- | --- | --- | --- |
+| **Text** | `write`, `read`, `query` | pyvisa applies write/read terminators and decodes responses as strings | SCPI commands and queries |
+| **Raw bytes** | `write_raw`, `read_raw`, `query_raw` | Bytes pass through unchanged on write; reads return `bytes` and are not terminator-stripped | Binary payloads — waveform downloads from oscilloscopes, image transfers, vendor-specific binary blobs |
+
+`query_raw` is a convenience: it writes a text command (so the write terminator is still applied) and then reads the response as raw bytes. This matches the common SCPI pattern of asking for binary data with a text command like `:WAV:DATA?`.
+
+### Backends
+
+`VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Defaults to `"@ivi"`, which uses a vendor VISA implementation (NI-VISA or Keysight IO Libraries) when one is installed on the host. Set it to `"@py"` to use [pyvisa-py](https://pyvisa.readthedocs.io/projects/pyvisa-py/), the pure-Python backend, which avoids the vendor install at the cost of fewer interface types and slower performance.
+
+## Building a Custom Driver
+
+The intended use of `VisaDriver` is as an internal transport inside a vendor-specific instrument driver. Nominal's shipped SCPI drivers all follow the same shape: take a `str | VisaConfig` in the constructor, store a `VisaDriver`, and delegate `open()` / `close()` and all I/O to it.
+
+Here is a minimal `InstroPSU`-compatible driver for a hypothetical SCPI power supply. The same shape applies to any instrument type whose driver base class exposes `open()`, `close()`, and a small set of category methods.
+
+```python
+from instro.psu import PSUDriverBase
+from instro.utils.transports import VisaConfig, VisaDriver
+
+
+class MyVendorPSU(PSUDriverBase):
+    """SCPI mapping for the MyVendor MV-1000 single-channel power supply."""
+
+    def __init__(self, visa_resource: str | VisaConfig) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        self._visa.open()
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+        self._write_checked(f"VOLT {voltage:.3f}")
+
+    def get_voltage(self, channel: int = 1) -> float:
+        return self._query_checked_float("MEAS:VOLT?")
+
+    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+        self._write_checked(f"CURR {current_limit:.3f}")
+
+    def get_current(self, channel: int = 1) -> float:
+        return self._query_checked_float("MEAS:CURR?")
+
+    def output_enable(self, enable: bool, channel: int = 1) -> None:
+        self._write_checked("OUTP ON" if enable else "OUTP OFF")
+
+    def get_output_status(self, channel: int = 1) -> bool:
+        with self._visa.lock():
+            resp = self._visa.query("OUTP?")
+            self._check_errors()
+        return resp == "1"
+
+    def _write_checked(self, command: str) -> None:
+        with self._visa.lock():
+            self._visa.write(command)
+            self._check_errors()
+
+    def _query_checked_float(self, command: str) -> float:
+        with self._visa.lock():
+            value = self._visa.query(command)
+            self._check_errors()
+            return float(value)
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("SYST:ERR?")
+        if not err.startswith("0"):
+            raise RuntimeError(f"MyVendor PSU reported error: {err}")
+```
+
+The driver is then plugged into the instrument type the same way as any built-in driver:
+
+```python
+from instro.psu import InstroPSU
+from instro.utils.publishers import NominalCorePublisher
+
+psu = InstroPSU(
+    name="labPSU",
+    driver=MyVendorPSU(visa_resource="USB0::0x0AAD::0x0197::100001::INSTR"),
+    num_channels=1,
+)
+psu.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
+
+psu.open()
+psu.set_voltage(12.0)
+psu.output_enable(True)
+print(psu.get_voltage())
+psu.close()
+```
+
+Two patterns from this example are worth calling out because they recur in every Nominal SCPI driver:
+
+| Pattern | Why it matters |
+| --- | --- |
+| **Accept `str \| VisaConfig` in the constructor** | Most users pass a bare resource string and accept the defaults; advanced users pass a `VisaConfig` to override terminators, timeouts, or serial settings. The driver inherits both shapes for free by forwarding the argument straight through to `VisaDriver`. |
+| **Atomic write-then-error-check via `self._visa.lock()`** | The `_write_checked` / `_query_checked_float` helpers hold the lock so the operation and its `SYST:ERR?` follow-up cannot be interleaved with another thread's command on the same resource. |
+
+<Note>
+**SYST:ERR? is a SCPI convention, not a `VisaDriver` feature.** `VisaDriver` does not poll the instrument's error queue for you; whether and how to do so is a per-instrument decision. Most SCPI instruments implement `SYST:ERR?` and respond with `0,"No error"` when nothing is wrong, but some use `SYSTEM:ERROR?` (TDK Lambda) or a different status mechanism entirely. Consult the programming manual.
+</Note>
+
+## Configuration
+
+For non-default backends, terminators, timeouts, or serial settings, pass a `VisaConfig` instead of a plain resource string:
+
+```python
+from instro.utils.transports import (
+    ControlFlow,
+    Parity,
+    SerialConfig,
+    StopBits,
+    TerminatorConfig,
+    TimeoutConfig,
+    VisaConfig,
+    VisaDriver,
+)
+
+config = VisaConfig(
+    visa_resource="ASRL/dev/ttyUSB0::INSTR",
+    visa_backend="@py",
+    serial_config=SerialConfig(
+        baud_rate=19200,
+        data_bits=8,
+        stop_bits=StopBits.ONE,
+        parity=Parity.NONE,
+        flow_control=ControlFlow.NONE,
+    ),
+    terminator=TerminatorConfig(read="\r", write="\r"),
+    timeout=TimeoutConfig(recv=30),
+)
+
+visa = VisaDriver(config)
+```
+
+### `VisaConfig`
+
+Top-level connection parameters.
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `visa_resource` | Yes | — | VISA resource string, e.g. `TCPIP0::host::5025::SOCKET` or `USB0::0x2A8D::0x0101::MY12345::INSTR` |
+| `visa_backend` | No | `"@ivi"` | pyvisa backend specifier — `"@ivi"` for vendor VISA, `"@py"` for pyvisa-py |
+| `serial_config` | No | `SerialConfig()` | Serial settings, applied only when the resource is an ASRL interface |
+| `terminator` | No | `TerminatorConfig()` | Read and write terminators |
+| `timeout` | No | `TimeoutConfig()` | Operation timeouts |
+
+### `TerminatorConfig`
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `read` | No | `"\n"` | Terminator stripped from incoming text reads |
+| `write` | No | `"\r\n"` | Terminator appended to outgoing text writes |
+
+### `TimeoutConfig`
+
+Operation timeouts in seconds.
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `recv` | No | `15` | Applied as the pyvisa session timeout. Controls how long `read`/`query` wait for a response |
+| `connect` | No | `30` | Reserved for future per-operation overrides — currently not applied |
+| `send` | No | `15` | Reserved for future per-operation overrides — currently not applied |
+
+### `SerialConfig`
+
+Serial-line settings, applied when the VISA resource is an ASRL (RS-232/RS-485) interface. Ignored for all other interface types.
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `baud_rate` | No | `9600` | Serial baud rate |
+| `data_bits` | No | `8` | Data bits (5–8) |
+| `stop_bits` | No | `StopBits.ONE` | `StopBits.ONE`, `StopBits.ONE_POINT_FIVE`, or `StopBits.TWO` |
+| `parity` | No | `Parity.NONE` | `Parity.NONE`, `Parity.ODD`, `Parity.EVEN`, `Parity.MARK`, or `Parity.SPACE` |
+| `flow_control` | No | `ControlFlow.NONE` | `ControlFlow.NONE`, `ControlFlow.XON_XOFF`, `ControlFlow.RTS_CTS`, or `ControlFlow.DTR_DSR` |
+
+## VISA Resource Strings
+
+`VisaDriver` does not invent its own addressing scheme — the `visa_resource` string is passed straight through to pyvisa's `ResourceManager.open_resource()`. Some commonly used forms:
+
+| Interface | Example resource string |
+|-----------|-------------------------|
+| USB-TMC | `USB0::0x2A8D::0x0101::MY12345::INSTR` |
+| GPIB | `GPIB0::5::INSTR` |
+| TCP/IP — VXI-11 | `TCPIP0::192.168.1.50::inst0::INSTR` |
+| TCP/IP — HiSLIP | `TCPIP0::192.168.1.50::hislip0::INSTR` |
+| TCP/IP — raw SOCKET | `TCPIP0::192.168.1.50::5025::SOCKET` |
+| Serial (Windows) | `ASRL3::INSTR` (COM3) |
+| Serial (Linux/macOS) | `ASRL/dev/ttyUSB0::INSTR` |
+
+<Tip>
+To discover what's attached, you can use pyvisa's resource manager directly:
+
+```python
+import pyvisa
+rm = pyvisa.ResourceManager("@ivi")  # or "@py"
+print(rm.list_resources())
+```
+</Tip>
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `VisaDriver(visa_resource)` | Construct a driver from a VISA resource string or a `VisaConfig`. No I/O yet. |
+| `is_open` | Property — `True` if the underlying VISA resource is open. |
+| `open()` | Open the resource manager and resource; apply terminator/timeout/serial config. Idempotent. |
+| `close()` | Close the resource and resource manager. Idempotent. |
+| `write(command)` | Write a text command; the configured write terminator is appended. |
+| `read()` | Read a single response string up to (and stripping) the read terminator. |
+| `query(command)` | Write a command and read the response as text. |
+| `write_raw(data)` | Write raw bytes exactly as provided. |
+| `read_raw()` | Read raw bytes from the instrument; no terminator stripping. |
+| `query_raw(command)` | Write a text command, then read the response as raw bytes. |
+| `lock()` | Return the reentrant resource lock for use as a context manager when multiple operations must execute atomically. |
+
+## Error Handling
+
+| Error | Cause |
+|-------|-------|
+| `RuntimeError: VisaDriver is not open. Call open() first.` | A `write`/`read`/`query`/`*_raw` call was made before `open()`, or after `close()`. |
+| `pyvisa.errors.VisaIOError` | The underlying VISA call failed — timeout, resource not found, bus error, instrument disconnected, etc. The `error_code` attribute identifies the cause (e.g. `VI_ERROR_TMO` for timeout). |
+| `pyvisa.errors.LibraryError` | The selected VISA backend could not be loaded — typically a missing NI-VISA / Keysight VISA install when using `"@ivi"`. Switch to `"@py"` or install a vendor VISA runtime. |
+
+<Tip>
+`VisaDriver` deliberately does not retry, reconnect, or wrap pyvisa errors. Higher-level recovery — retry policies, reconnection on transient failures, escalation to operators — belongs in the instrument driver or application code on top.
+</Tip>
