@@ -25,18 +25,27 @@ just test     # unit tests (no hardware required)
 
 ## Issues and discussion
 
-For anything beyond a small fix, **open a [GitHub issue](https://github.com/nominal-io/instrumentation/issues) first** to align on scope before writing code. Good candidates for an issue-first discussion:
+**Every change is tracked by a GitHub issue or ticket — no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instrumentation/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.
+
+For larger or cross-cutting work, use the issue to align on scope before writing code. Good candidates for an explicit issue-first discussion:
 
 - A new driver — especially one that requires a native vendor SDK we don't already wrap.
 - A new instrument category (PSU, DMM, etc. aren't an exhaustive list).
 - Anything touching public API or cross-cutting abstractions.
 - Behaviour changes to existing drivers.
 
-Small, self-contained fixes (typos, obvious bugs with a clear repro) can go straight to a PR.
-
 If you find an unrelated issue while working on something else, open a separate issue and keep your current PR focused. That keeps reviews quick and avoids scope creep.
 
 ## Submitting a pull request
+
+### Branches
+
+Every change must be tracked by a GitHub issue or ticket — see [Issues and discussion](#issues-and-discussion). Branch off `main` and name the branch after that issue/ticket ID. Examples:
+
+```
+issue-142-siglent-spd-driver
+con-2498-docstring-cleanup
+```
 
 ### Pull request titles
 
