@@ -9,8 +9,8 @@ Thanks for your interest in contributing. This guide covers the development work
 Clone the repo and install dependencies with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/nominal-io/instrumentation.git
-cd instrumentation
+git clone https://github.com/nominal-io/instro.git
+cd instro
 uv sync --extra all
 ```
 
@@ -25,7 +25,7 @@ just test     # unit tests (no hardware required)
 
 ## Issues and discussion
 
-**Every change is tracked by a GitHub issue or ticket — no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instrumentation/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.
+**Every change is tracked by a GitHub issue or ticket — no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instro/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.
 
 For larger or cross-cutting work, use the issue to align on scope before writing code. Good candidates for an explicit issue-first discussion:
 
