@@ -84,7 +84,7 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 ### Tests and checks
 
-Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern — patch `VisaDriver` / `SerialDriver` with `autospec=True` and assert the wire-level commands).
+Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern — patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
 
 ## Where your contribution belongs
 
