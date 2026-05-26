@@ -79,7 +79,7 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 
 This repo prefers duplicated, explicit code over premature abstraction. The constraints below trace to specific cases where a shared helper, factory, or facade was attempted and walked back. Don't propose extracting a base / mixin / wrapper unless you can name two concrete drivers that share the *exact* behavior — and even then, duplication is often still the right call.
 
-- **`<Category>DriverBase` is a contract surface, not implementation.** Required methods are `@abc.abstractmethod`; optional methods raise `NotImplementedError` by default, and drivers override the ones their instrument actually supports. `DMMDriverBase` is the clearest example — 8 required (`open`, `close`, `set_measurement_function`, plus 5 primary measurements) and ~15 optional (per-function range/NPLC setters, `set_digits`, `measure_four_wire_resistance`) for capabilities that aren't universal across vendors. The base carries no shared helpers, lifecycle, or state.
+- **`<Category>DriverBase` is a contract surface, not implementation.** Required methods are `@abc.abstractmethod`; optional methods raise `NotImplementedError` by default, and drivers override the ones their instrument actually supports. `DMMDriverBase` is the clearest example — 8 required (`open`, `close`, `set_measurement_function`, plus 5 primary measurements) and ~15 optional (per-function range/NPLC setters, `set_digits`, `measure_four_wire_resistance`) for capabilities that aren't universal across vendors. The base carries no shared helpers, lifecycle, or state. `DAQDriverBase` is the one exception: it has a default `__init__` that initializes the channel/timing dicts the driver is required to populate (see [DAQ driver state tracking](#daq-driver-state-tracking)).
 - **Each category can have drivers that use different transports.** `daq` already does: `Keysight34980A` on VISA sits next to `NIDAQ`, `LabJackT7`, and `MCCDAQ` on vendor SDKs, all behind one `DAQDriverBase`. The base never picks a transport; the driver does.
 - **Drivers own their lifecycle (`__init__`, `open`, `close`).** Because transports vary per driver, the resource a driver holds varies in shape: a `VisaDriver` wrapper for SCPI, a bare `int` handle for vendor SDKs (LabJack), a lazily-imported module object (Aardvark). `open()` sometimes does real work — Aardvark defers `import pyaardvark` to keep the optional dep out of import time. No single `self._transport` protocol fits all of these.
 - **`_check_errors` is per-driver because SCPI error semantics vary.** Response prefix (`"0"` for B&K/Rigol, `"+0"` for Siglent), command form (`SYST:ERR?` vs `:SYST:ERR?`), and the vendor name in the raised message are all per-device. A configurable mixin would carry more code than the four duplicated lines.
@@ -87,7 +87,20 @@ This repo prefers duplicated, explicit code over premature abstraction. The cons
 - **`pkgutil.extend_path` in `drivers/__init__.py`** is required for any category whose drivers can come from workspace vendor packages (`daq`, `i2c` currently). Without it, vendor-package subpackages disappear at import time.
 - **VISA drivers' `__init__` accepts `str | VisaConfig`.** `VisaConfig` is the canonical customization vehicle for `VisaDriver`. Don't propose dropping the union. Drivers on other transports take whatever their transport needs.
 - **No vendor-string factory** (`Instrument.create(vendor="bk", ...)`). Construct concrete drivers explicitly and pass them in: `InstroPSU(name="x", driver=BK9115(...), num_channels=1)`.
-- **No driver-side facade or `hal` back-channel.** Pass instrument state to driver methods as parameters; the driver does not have a reference back to the HAL.
+- **No driver-side facade or back-channel.** Drivers don't hold a reference back to the category HAL. Any vendor-specific state a driver needs across calls (e.g. an `nidaqmx.Task` handle, a `VisaDriver`, a cached sample rate) lives on the driver itself.
+
+## DAQ driver state tracking
+
+`DAQDriverBase` is the single source of truth for configured channels and AI/AO/DI/DO timing config. `InstroDAQ` does not hold its own copies — `daq.ai_channels`, `daq.ao_channels`, `daq.di_channels`, `daq.do_channels`, `daq.relay_channels`, `daq.ai_hw_timing_config` (and the AO/DI/DO timing slots), and the aggregate `daq.channels` list are `@property` proxies that delegate to `self._driver`.
+
+Driver authoring rules:
+
+1. **Call `super().__init__()`** at the top of every concrete driver's `__init__`. The base initializes `ai_channels`, `ao_channels`, `di_channels`, `do_channels`, `relay_channels`, all four `*_hw_timing_config` slots, and `points_in_buffer`. Don't reinitialize them in the subclass.
+2. **Populate the dicts inside `configure_*`.** Every implementation of `configure_ai_channel`, `configure_ao_channel`, `configure_di_channel`, `configure_do_channel` ends with `self.<dict>[channel.alias] = channel` after programming the device. `configure_ai_hw_timing` ends with `self.ai_hw_timing_config = hw_timing_config`. The default `DAQDriverBase.define_relay_channel` already records on `self.relay_channels`; overrides must too.
+3. **Read driver-owned state via `self.<dict>`.** Inside `read_analog`, `fetch_analog`, `start`, `write_analog_value`, etc., use `self.ai_channels`, `self.ai_hw_timing_config`, and so on. End users see the same state through the `InstroDAQ` `@property` proxies.
+4. **No `InstroDAQ` reach-back.** Driver modules must not import `InstroDAQ`. There is no back-channel.
+
+See `instro/daq/drivers/keysight_34980a.py` for the reference shape. Tests for `InstroDAQ` that supply a `Mock()` driver should use the `_make_mock_driver()` helper in `tests/daq/test_daq_drivers.py` — it pre-initializes the dicts and wires `configure_*` side-effects so the proxy path behaves like a real driver.
 
 ## Codebase landmarks
 

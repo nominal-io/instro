@@ -104,9 +104,9 @@ class Keysight34980A(DAQDriverBase):
             sync_system_clock: Sync the instrument clock to host UTC on ``open()``
                 so returned timestamps align with the host. Enabled by default.
         """
+        super().__init__()
         self._visa = VisaDriver(visa_resource)
         self._sync_system_clock = sync_system_clock
-        self.points_in_buffer: int = 0
 
     def open(self):
         self._visa.open()
@@ -134,6 +134,8 @@ class Keysight34980A(DAQDriverBase):
             self._turn_on_timestamps()
             self._check_errors()
 
+        self.ai_channels[channel.alias] = channel
+
     def configure_ai_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
@@ -144,6 +146,8 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write(f"TRIG:TIM {hw_timing_config.sample_period / 1e9}")
             self._visa.write("TRIG:COUN INF")
             self._check_errors()
+
+        self.ai_hw_timing_config = hw_timing_config
 
     def start(self, **kwargs):
         """Enable timestamps and ``INIT`` the scan."""
@@ -159,8 +163,7 @@ class Keysight34980A(DAQDriverBase):
             self._check_errors()
 
     def read_analog(self) -> KeysightData:
-        channels = self.hal.ai_channels
-        scan_string = ",".join([ch.physical_channel for ch in channels.values()])
+        scan_string = ",".join([ch.physical_channel for ch in self.ai_channels.values()])
 
         with self._visa.lock():
             response = self._visa.query(f"READ? (@{scan_string})")
@@ -172,10 +175,10 @@ class Keysight34980A(DAQDriverBase):
         self,
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
-        channels = self.hal.ai_channels
-        hw_timing_config = self.hal.ai_hw_timing_configs
-        num_channels = len(channels)
-        min_points_per_fetch = hw_timing_config.samples_per_channel * num_channels
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_hw_timing() must be called before fetch_analog().")
+        num_channels = len(self.ai_channels)
+        min_points_per_fetch = self.ai_hw_timing_config.samples_per_channel * num_channels
 
         with self._visa.lock():
             # Create a blocking call
@@ -260,6 +263,8 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write(f"SOUR:DIG:LEV {channel.logic_level:.2f},(@{channel.physical_channel})")
             self._check_errors()
 
+        self.do_channels[channel.alias] = channel
+
     def configure_di_channel(
         self,
         channel: DigitalChannel,
@@ -274,6 +279,8 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write(f"SOUR:DIG:DRIV ACT,(@{channel.physical_channel})")
             self._visa.write(f"SOUR:DIG:LEV {channel.logic_level:.2f},(@{channel.physical_channel})")
             self._check_errors()
+
+        self.di_channels[channel.alias] = channel
 
     def write_digital_line(
         self,

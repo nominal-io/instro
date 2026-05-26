@@ -86,14 +86,14 @@ REPLACEMENTS: list[tuple[str, str]] = [
     ("nominal_instro.drivers.i2c", "instro.i2c.drivers"),
     # --- class renames (Nominal → Instro / bare) ---
     ("NominalInstrumentationErrorCodes", "InstrumentationErrorCodes"),
-    ("NominalDAQFacade", "InstroDAQFacade"),
-    # `NominalDMMFacade`, `NominalI2CFacade`, and `NominalPSUFacade` were
-    # removed in CON-2287, CON-2289, and CON-2288 respectively. Keep these
-    # rows as passthroughs so the shorter category-class alternatives below
-    # (NominalDMM, NominalI2C, NominalPSU) cannot match inside the facade
-    # names and silently produce a now-nonexistent symbol. Users keep the
-    # original name and hit a clear ImportError they must resolve by
-    # migrating away from the facade pattern.
+    # `NominalDAQFacade`, `NominalDMMFacade`, `NominalI2CFacade`, and
+    # `NominalPSUFacade` were removed in CON-2488, CON-2287, CON-2289, and
+    # CON-2288 respectively. Keep these rows as passthroughs so the shorter
+    # category-class alternatives below (NominalDAQ, NominalDMM, NominalI2C,
+    # NominalPSU) cannot match inside the facade names and silently produce
+    # a now-nonexistent symbol. Users keep the original name and hit a clear
+    # ImportError they must resolve by migrating away from the facade pattern.
+    ("NominalDAQFacade", "NominalDAQFacade"),
     ("NominalDMMFacade", "NominalDMMFacade"),
     ("NominalI2CFacade", "NominalI2CFacade"),
     ("NominalPSUFacade", "NominalPSUFacade"),
