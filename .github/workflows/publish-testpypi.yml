@@ -1,0 +1,65 @@
+name: Publish to TestPyPI
+
+# Triggered by release-please tags (e.g. `instro-v0.6.1`, `instro-daq-ni-v0.4.1`).
+# The package name is derived from the tag by stripping the trailing `-v<version>`.
+#
+# One-time setup on TestPyPI (https://test.pypi.org/manage/account/publishing/):
+#   For each package, register a trusted publisher with:
+#     Owner:           nominal-io
+#     Repository:      instro
+#     Workflow:        publish-testpypi.yml
+#     Environment:     testpypi
+
+on:
+  push:
+    tags:
+      - "instro-v*"
+      - "instro-*-v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.parse.outputs.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: false
+      - name: Parse package name from tag
+        id: parse
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          package="${tag%-v*}"
+          if [[ -z "$package" || "$package" == "$tag" ]]; then
+            echo "::error::Could not parse package name from tag '$tag'"
+            exit 1
+          fi
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+          echo "Building package: $package"
+      - name: Build distributions
+        run: uv build --package "${{ steps.parse.outputs.package }}"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
