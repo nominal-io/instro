@@ -136,7 +136,9 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self.ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
-        pass
+        # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
+        # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
+        self.ao_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
