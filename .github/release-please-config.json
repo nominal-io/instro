@@ -11,34 +11,34 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "component": "nominal-instro"
+      "component": "instro"
     },
-    "packages/nominal-instro-daq-ni": {
+    "packages/instro-daq-ni": {
       "release-type": "python",
-      "component": "nominal-instro-daq-ni"
+      "component": "instro-daq-ni"
     },
-    "packages/nominal-instro-daq-labjack": {
+    "packages/instro-daq-labjack": {
       "release-type": "python",
-      "component": "nominal-instro-daq-labjack"
+      "component": "instro-daq-labjack"
     },
-    "packages/nominal-instro-daq-mcc": {
+    "packages/instro-daq-mcc": {
       "release-type": "python",
-      "component": "nominal-instro-daq-mcc"
+      "component": "instro-daq-mcc"
     },
-    "packages/nominal-instro-i2c-aardvark": {
+    "packages/instro-i2c-aardvark": {
       "release-type": "python",
-      "component": "nominal-instro-i2c-aardvark"
+      "component": "instro-i2c-aardvark"
     }
   },
   "groups": [
     {
-      "name": "nominal-instro",
+      "name": "instro",
       "packages": [
         ".",
-        "packages/nominal-instro-daq-ni",
-        "packages/nominal-instro-daq-labjack",
-        "packages/nominal-instro-daq-mcc",
-        "packages/nominal-instro-i2c-aardvark"
+        "packages/instro-daq-ni",
+        "packages/instro-daq-labjack",
+        "packages/instro-daq-mcc",
+        "packages/instro-i2c-aardvark"
       ]
     }
   ]
