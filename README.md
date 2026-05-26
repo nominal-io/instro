@@ -4,12 +4,6 @@ Python library for talking to test-and-measurement instruments — power supplie
 
 > **Coming soon to PyPI.** `instro` is being prepared for open-source release. Until then, install from source as shown below; once the package is published, `pip install instro` will be the supported install path.
 
-## Why use this?
-
-`instro` gives you one typed interface across SCPI/VISA, Modbus, EtherNet/IP, and vendor-native-SDK instruments. Instead of stitching together `pyvisa`, `pymodbus`, vendor DLLs, and ad-hoc parsing, you compose typed driver objects and call category-level methods (`set_voltage`, `get_current`, `read_analog`, …) that work the same regardless of which vendor wrote the device.
-
-`instro` is **not** a replacement for `pyvisa`, `pymodbus`, or your vendor's SDK — it composes them. The value it adds is the typed, unified API across categories, plus a publisher system for streaming measurements to Nominal Core (or anywhere else).
-
 ## Installation
 
 ```bash
