@@ -30,6 +30,11 @@ all = [
     "instro-i2c-aardvark",
 ]
 
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
