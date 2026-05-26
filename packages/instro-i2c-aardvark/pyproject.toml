@@ -7,6 +7,11 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10,<4.0"
 dependencies = ["instro", "pyaardvark>=0.8.1"]
 
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
