@@ -8,21 +8,19 @@ from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
 from instro.daq.daq import (
-    APIInstroDAQ,
     DAQDriverBase,
     HWTimestamper,
     HWTimingException,
     InstroDAQ,
-    InstroDAQFacade,
 )
-from instro.daq.types import ChannelType, DAQVendor, RelayChannel
+from instro.daq.types import ChannelType, DAQSamples, DAQTask, DAQVendor, RelayChannel
 
 __all__ = [
     "InstroDAQ",
-    "InstroDAQFacade",
     "DAQDriverBase",
     "HWTimestamper",
-    "APIInstroDAQ",
+    "DAQTask",
+    "DAQSamples",
     "ChannelType",
     "DAQVendor",
     "HWTimingException",
