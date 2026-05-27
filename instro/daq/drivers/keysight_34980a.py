@@ -176,7 +176,7 @@ class Keysight34980A(DAQDriverBase):
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
         if self.ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_hw_timing() must be called before fetch_analog().")
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         num_channels = len(self.ai_channels)
         min_points_per_fetch = self.ai_hw_timing_config.samples_per_channel * num_channels
 

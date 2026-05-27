@@ -113,8 +113,8 @@ class DAQDriverBase(abc.ABC):
         self,
         channel: AnalogChannel,
     ):
-        """Register an AO channel. Default is a no-op; override if the driver supports analog output."""
-        ...
+        """Register an AO channel. Override if the driver supports analog output."""
+        raise NotImplementedError("Analog Output has not been configured for this driver")
 
     @abc.abstractmethod
     def configure_ai_hw_timing(

@@ -313,7 +313,7 @@ class MCCDriver(DAQDriverBase):
             )
 
         if self.ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_hw_timing() must be called before start().")
+            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
         hw_timing_config = self.ai_hw_timing_config
         samples_per_channel = hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
@@ -429,7 +429,7 @@ class MCCDriver(DAQDriverBase):
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
 
         if self.ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_hw_timing() must be called before fetch_analog().")
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         samples_per_channel = self.ai_hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
         ai_supported_scan_options = ai_info.supported_scan_options
