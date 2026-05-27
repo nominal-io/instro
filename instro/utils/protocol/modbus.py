@@ -21,13 +21,16 @@ if TYPE_CHECKING:
 
 # ── Connection configuration ──────────────────────────────────────────────────
 
+
 class ModbusConnectionConfigBase(BaseModel):
     unit_id: int = Field(default=1, ge=0, le=255)
     timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
 
-
     def _format_target(self) -> str:
-        raise NotImplementedError(f"Connection information requested from base class which is only aware of the unit_id [{self.unit_id}]")
+        raise NotImplementedError(
+            f"Connection information requested from base class which is only aware of the unit_id [{self.unit_id}]"
+        )
+
 
 class TCPConnectionConfig(ModbusConnectionConfigBase):
     """Modbus TCP connection configuration."""
@@ -38,31 +41,32 @@ class TCPConnectionConfig(ModbusConnectionConfigBase):
 
     def _format_target(self) -> str:
         return f"{self.host}:{self.port}" + (f"@{self.unit_id}" if self.unit_id is not None else "")
-    
+
     @classmethod
-    def _parse_tcp_string(cls, s:str) -> TCPConnectionConfig:
+    def _parse_tcp_string(cls, s: str) -> TCPConnectionConfig:
         """Parse ``"host:port"`` into a :class:`TCPConnectionConfig`."""
         host, _, port_str = s.rpartition(":")
         if not host or not port_str:
-            raise ValueError(
-                f"Invalid Modbus connection string {s!r}. Expected 'host:port', e.g. '192.168.1.10:502'."
-            )
+            raise ValueError(f"Invalid Modbus connection string {s!r}. Expected 'host:port', e.g. '192.168.1.10:502'.")
         return TCPConnectionConfig(host=host, port=int(port_str))
 
 
 class SerialConnectionConfig(ModbusConnectionConfigBase):
     port: str  # e.g. "/dev/ttyUSB0" (Linux), "COM3" (Windows)
     baudrate: int = 9600
-    parity: Literal["N", "E", "O"] = "N" #none/even/odd
+    parity: Literal["N", "E", "O"] = "N"  # none/even/odd
     stopbits: Literal[1, 2] = 1
     bytesize: Literal[5, 6, 7, 8] = 8
-    
+
     def _format_target(self) -> str:
         return self.port + (f"@{self.unit_id}" if self.unit_id is not None else "")
 
+
 class RTUConnectionConfig(SerialConnectionConfig):
     """Modbus RTU (serial) connection configuration."""
+
     transport: Literal["rtu"] = "rtu"
+
 
 class ASCIIConnectionConfig(SerialConnectionConfig):
     transport: Literal["ascii"] = "ascii"
@@ -87,6 +91,7 @@ def _modbus_op(fn):
                     self._client.close()
                     self._client = None
                 raise
+
     return wrapper
 
 
@@ -103,10 +108,13 @@ class ModbusDriver:
     internally by a threading.RLock instance. This is recommended in any situation
     where application design does not ensure single-threaded access.
     """
-    def __init__(self, connection: ModbusConnectionConfig, *,thread_safe:bool = True) -> None:
+
+    def __init__(self, connection: ModbusConnectionConfig, *, thread_safe: bool = True) -> None:
         self._connection = connection
         self._client: ModbusTcpClient | ModbusSerialClient | None = None
-        self._lock: threading.RLock | contextlib.nullcontext = threading.RLock() if thread_safe else contextlib.nullcontext()
+        self._lock: threading.RLock | contextlib.nullcontext = (
+            threading.RLock() if thread_safe else contextlib.nullcontext()
+        )
 
     @property
     def unit_id(self) -> int:
@@ -159,18 +167,18 @@ class ModbusDriver:
         """Close on garbage collection."""
         self.close()
 
-    # FC    Hex   Name                          Object type        Access 
-    # ───   ────  ────────────────────────────  ─────────────────  ────── 
-    # 01    0x01  Read Coils                    Coil (1-bit)       R       
-    # 02    0x02  Read Discrete Inputs          Discrete (1-bit)   R       
-    # 03    0x03  Read Holding Registers        Register (16-bit)  R       
-    # 04    0x04  Read Input Registers          Register (16-bit)  R       
-    # 05    0x05  Write Single Coil             Coil (1-bit)       W       
-    # 06    0x06  Write Single Register         Register (16-bit)  W       
-    # 15    0x0F  Write Multiple Coils          Coil (1-bit)       W       
-    # 16    0x10  Write Multiple Registers      Register (16-bit)  W       
-    # 22    0x16  Mask Write Register           Register (16-bit)  W      
-    # 23    0x17  Read/Write Multiple Registers Register (16-bit)  R/W    
+    # FC    Hex   Name                          Object type        Access
+    # ───   ────  ────────────────────────────  ─────────────────  ──────
+    # 01    0x01  Read Coils                    Coil (1-bit)       R
+    # 02    0x02  Read Discrete Inputs          Discrete (1-bit)   R
+    # 03    0x03  Read Holding Registers        Register (16-bit)  R
+    # 04    0x04  Read Input Registers          Register (16-bit)  R
+    # 05    0x05  Write Single Coil             Coil (1-bit)       W
+    # 06    0x06  Write Single Register         Register (16-bit)  W
+    # 15    0x0F  Write Multiple Coils          Coil (1-bit)       W
+    # 16    0x10  Write Multiple Registers      Register (16-bit)  W
+    # 22    0x16  Mask Write Register           Register (16-bit)  W
+    # 23    0x17  Read/Write Multiple Registers Register (16-bit)  R/W
 
     # ── FC01: Read Coils ─────────────────────────────────────────────────────
 
@@ -192,7 +200,7 @@ class ModbusDriver:
     @_modbus_op
     def read_discrete_inputs(self, address: int, count: int) -> list[bool]:
         """Read discrete inputs (FC02).
-        
+
         ``Address`` is zero-indexed.
         Max ``count`` is 2000.
         """
@@ -207,7 +215,7 @@ class ModbusDriver:
     @_modbus_op
     def read_holding_registers(self, address: int, count: int) -> list[int]:
         """Read holding registers (FC03).
-        
+
         ``Address`` is zero-indexed.
         Max ``count`` is 125.
         """
@@ -222,7 +230,7 @@ class ModbusDriver:
     @_modbus_op
     def read_input_registers(self, address: int, count: int) -> list[int]:
         """Read input registers (FC04).
-        
+
         ``Address`` is zero-indexed.
         Max ``count`` is 125.
         """
@@ -257,7 +265,7 @@ class ModbusDriver:
     @_modbus_op
     def write_coils(self, address: int, values: list[bool]) -> None:
         """Write multiple coils (FC15).
-        
+
         ``Address`` is zero-indexed.
         Max length of ``values`` is 1968.
         """
@@ -271,7 +279,7 @@ class ModbusDriver:
     @_modbus_op
     def write_holding_registers(self, address: int, values: list[int]) -> None:
         """Write multiple holding registers (FC16).
-        
+
         ``Address`` is zero-indexed.
         Max length of ``values`` is 123.
         """
@@ -302,15 +310,18 @@ class ModbusDriver:
         self, read_address: int, read_count: int, write_address: int, write_values: list[int]
     ) -> list[int]:
         """Read and write holding registers in a single transaction (FC23).
-        
+
         ``read_address`` and ``write_address`` are zero-indexed.
         Max ``read_count`` is 125.
         Max length of ``write_values`` is 121.
         """
         assert self._client is not None, "ModbusDriver is not open. Call open() first."
         result = self._client.readwrite_registers(
-            read_address=read_address, read_count=read_count, write_address=write_address,
-            values=write_values, device_id=self.unit_id,
+            read_address=read_address,
+            read_count=read_count,
+            write_address=write_address,
+            values=write_values,
+            device_id=self.unit_id,
         )
         if result.isError():
             raise RuntimeError(
@@ -320,8 +331,6 @@ class ModbusDriver:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 
 
 _EXCEPTION_CODES: dict[int, str] = {
