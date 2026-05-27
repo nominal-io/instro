@@ -8,6 +8,7 @@ Public API:
     ModbusRegisterDriver
 
 """
+
 from __future__ import annotations
 
 import struct
@@ -17,9 +18,9 @@ from pathlib import Path
 from typing import Literal, Mapping, Sequence, cast
 
 from pydantic import BaseModel, Field, model_validator
-from utils.protocol.modbus import ModbusConnectionConfig, ModbusDriver
 
 from instro.register import RegisterBase, RegisterDriverBase, register_value_type
+from instro.utils.protocol.modbus import ModbusConnectionConfig, ModbusDriver
 from instro.utils.types import DeviceInfo, LinearScale, ScaleType
 
 # ============ Bitmap Definition ============
@@ -83,12 +84,13 @@ class TimingConfig(BaseModel):
 
 # ============ Connection Configs ============
 
-# TCPConnection and RTUConnection are defined in instro.lib.modbus and
-# aliased above.  ConnectionType is the discriminated union used by ModbusConfig.
-ConnectionType = ModbusConnectionConfig #union already exists in instro.lib.modbus, alias for compatibility
+# The discriminated union of all supported connection types, defined in
+# instro.utils.protocol.modbus and aliased here for use in ModbusConfig.
+ConnectionType = ModbusConnectionConfig
 
 
 # ============ Register Definition ============
+
 
 class ModbusRegisterDef(RegisterBase):
     """Definition of a Modbus register.
@@ -347,12 +349,12 @@ class ModbusRegisterDef(RegisterBase):
 
         if is_float_register:
             if isinstance(value, bool):
-                raise TypeError(f"Register '{self.name}' is a float type ({data_type}) but got bool. Use a numeric value.")
+                raise TypeError(
+                    f"Register '{self.name}' is a float type ({data_type}) but got bool. Use a numeric value."
+                )
             return
 
-    def _validate_raw_value_range(
-        self, raw_value: int | float | bool
-    ) -> int | float | bool:
+    def _validate_raw_value_range(self, raw_value: int | float | bool) -> int | float | bool:
         """Validate that the raw value (after scaling) is in range for the register's data type."""
         data_type = self.data_type
 
@@ -388,8 +390,7 @@ class ModbusRegisterDef(RegisterBase):
 
         return raw_value
 
-
-    def decode_register_values(self, register_values:list[int]):
+    def decode_register_values(self, register_values: list[int]):
         """Decode raw 16-bit registers into a typed value."""
         raw_bytes = b"".join(reg.to_bytes(2, "big") for reg in register_values)
 
@@ -430,10 +431,8 @@ class ModbusRegisterDef(RegisterBase):
                 return int(register_values[0] != 0)
             case _:
                 raise ValueError(f"Unknown data type: {self.data_type}")
-            
-    def encode_value_to_registers(
-        self, value: int | float | bool
-    ) -> list[int]:
+
+    def encode_value_to_registers(self, value: int | float | bool) -> list[int]:
         """Encode a typed value into 16-bit registers."""
         match self.data_type:
             case "uint16":
@@ -475,7 +474,8 @@ class ModbusRegisterDef(RegisterBase):
 
         return [int.from_bytes(raw_bytes[i : i + 2], "big") for i in range(0, len(raw_bytes), 2)]
 
-RegisterDef = ModbusRegisterDef #compatibility alias
+
+RegisterDef = ModbusRegisterDef  # compatibility alias
 # ============ Top-Level Config ============
 
 
@@ -509,18 +509,18 @@ class ModbusConfig(BaseModel):
     @cached_property
     def _group_index(self) -> Mapping[str, Sequence[RegisterDef]]:
         return self._build_group_index()
-    
+
     @cached_property
     def _writeable_registers(self) -> Sequence[RegisterDef]:
         return [reg for reg in self.registers if reg.register_type in ("holding", "coil")]
-    
+
     @cached_property
     def _writeable_groups(self) -> list[str]:
         return list(self._group_index.keys())
 
     @cached_property
     def _readable_registers(self) -> Sequence[RegisterDef]:
-        #the list-comp-as-copy is technically not needed but it provides some protection
+        # the list-comp-as-copy is technically not needed but it provides some protection
         # against accidental manipulation of the internal self.registers list.
         # the type hint (Sequence) also provides some type-checker protections
         # as Sequence is not mutable.
@@ -678,28 +678,26 @@ class ModbusConfig(BaseModel):
 class ModbusRegisterDriver(RegisterDriverBase):
     """Modbus implementation for register access driver.
 
-    The driver owns the underlying modbus transport. 
+    The driver owns the underlying modbus transport.
     By default this scanner is thread-safe with locks implemented at the driver level.
     If ``thread_safe`` is overridden to False, the Modbus connection resource will no
     longer be thread-safe and it will be up to the consuming code to ensure safety.
     """
 
-    _modbus:ModbusDriver
-    _config:ModbusConfig
-    def __init__(self, configuration: ModbusConfig ,*, thread_safe:bool = True) -> None:
+    _modbus: ModbusDriver
+    _config: ModbusConfig
+
+    def __init__(self, configuration: ModbusConfig, *, thread_safe: bool = True) -> None:
         """Initialize a ModbusRegisterDriver instance.
 
         Args:
             configuration: A ModbusConfig instance, a dict (validated via Pydantic)
-            connection_override: Connection configuration. Takes precedence over any connection
-                in the config. Accepts a TCPConnection, RTUConnection, or a str.
-                Required if the config does not include a connection section.
             thread_safe: If true (default), underlying driver is constructed as thread-safe.
 
         Raises:
             ValueError: If no connection is provided in the config
         """
-        #validate we actually have a connection configuration before doing anything else -- the pydantic ModbusConfig class allows this to be None
+        # validate we actually have a connection configuration before doing anything else -- the pydantic ModbusConfig class allows this to be None
         if configuration.connection is None:
             raise ValueError("Provided configuration has no section for connection information")
         self._config = configuration
@@ -720,7 +718,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
     @property
     def readable_groups(self) -> list[str]:
         return self._config._readable_groups
-    
+
     def enumerate_group_registers(self, group_id: str) -> list[str]:
         return [reg.name for reg in self._config.get_group(group_id)]
 
@@ -739,7 +737,6 @@ class ModbusRegisterDriver(RegisterDriverBase):
         """Unit/slave ID from the connection configuration."""
         return self._modbus.unit_id
 
-
     def _read_register_decoded(self, reg: RegisterDef) -> register_value_type:
         """Read a register and decode based on data type."""
         match reg.register_type:
@@ -757,12 +754,12 @@ class ModbusRegisterDriver(RegisterDriverBase):
                 raise ValueError(f"Unknown register type: {reg.register_type}")
         return reg.decode_register_values(raw_regs)
 
-    def read_raw_scaled(self, register_id: str) -> tuple[register_value_type,register_value_type]:
+    def read_raw_scaled(self, register_id: str) -> tuple[register_value_type, register_value_type]:
         register_def = self._config.get_register(register_id)
         decoded = self._read_register_decoded(register_def)
         scaled = register_def._apply_scaling(decoded)
         return (decoded, scaled)
-    
+
     def read(self, register_id: str) -> register_value_type:
         """Read a register by name and publish the result.
 
@@ -775,7 +772,16 @@ class ModbusRegisterDriver(RegisterDriverBase):
         _, scaled = self.read_raw_scaled(register_id)
         return scaled
 
-    def read_group_raw_scaled(self, group_id:str) -> tuple[list[register_value_type], list[register_value_type]]:   
+    def build_extra_channels(
+        self, register_id: str, raw: register_value_type, scaled: register_value_type
+    ) -> dict[str, list[register_value_type]]:
+        """Extract bitmap bit channels from a uint16 register, if any are defined."""
+        reg = self._config.get_register(register_id)
+        if reg.bitmap is None:
+            return {}
+        return {bit_def.name: [int((int(raw) >> bit_def.bit_index) & 1)] for bit_def in reg.bitmap}
+
+    def read_group_raw_scaled(self, group_id: str) -> tuple[list[register_value_type], list[register_value_type]]:
         """Read a register group by name and return the associated data values.
 
         Args:
@@ -785,7 +791,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
             Tuple of decoded register values and scaled values
         """
         regs = self._config.get_group(group_id)
-        
+
         first = regs[0]
         last = regs[-1]
         start_address = first.starting_address
@@ -823,22 +829,20 @@ class ModbusRegisterDriver(RegisterDriverBase):
                 scaled_value = reg._apply_scaling(decoded_value)
             decoded_registers.append(decoded_value)
             scaled_registers.append(scaled_value)
-        
+
         return decoded_registers, scaled_registers
 
-
-    def read_group(self, group_id:str) -> list[register_value_type]:
+    def read_group(self, group_id: str) -> list[register_value_type]:
         """Read a register group by name and return the associated data values.
 
         Args:
             group_id: Register group alias as defined in the configuration.
 
         Returns:
-            Tuple of decoded register values and scaled values
+            Scaled register values in group register-definition order.
         """
         _, scaled = self.read_group_raw_scaled(group_id)
         return scaled
-    
 
     def _encode_and_write_register(self, reg: RegisterDef, raw_value: register_value_type | bool) -> None:
         """Write a value to a register, encoding based on data type."""
@@ -921,8 +925,10 @@ class ModbusRegisterDriver(RegisterDriverBase):
         """
         regs = self._config.get_group(group_id)
         if len(regs) != len(values):
-            raise ValueError(f'The specified group has {len(regs)} registers defined while only {len(values)} values were provided.')
-        
+            raise ValueError(
+                f"The specified group has {len(regs)} registers defined while only {len(values)} values were provided."
+            )
+
         first = regs[0]
         last = regs[-1]
         start_address = first.starting_address
@@ -933,14 +939,16 @@ class ModbusRegisterDriver(RegisterDriverBase):
         else:
             total_count = (last.starting_address + last.register_count) - start_address
 
-        encoded_boolcoils:list[bool] = []
-        encoded_uintreg:list[int] = []
+        encoded_boolcoils: list[bool] = []
+        encoded_uintreg: list[int] = []
         if is_bit_type:
-            encoded_boolcoils =[False] * total_count 
+            encoded_boolcoils = [False] * total_count
         else:
             encoded_uintreg = [0] * total_count
         for i, (reg, value) in enumerate(zip(regs, values)):
-            offset = reg.starting_address - start_address #this is pulled from the existing design but seems very very wrong for coils
+            offset = (
+                reg.starting_address - start_address
+            )  # this is pulled from the existing design but seems very very wrong for coils
             if is_bit_type:
                 encoded_boolcoils[offset] = bool(value)
             else:
@@ -950,13 +958,12 @@ class ModbusRegisterDriver(RegisterDriverBase):
 
                 raw_value = reg.scale.to_raw(value) if reg.scale is not None else value
                 encoded_value = reg.encode_value_to_registers(raw_value)
-                encoded_uintreg[offset:offset+len(encoded_value)] = encoded_value
-
+                encoded_uintreg[offset : offset + len(encoded_value)] = encoded_value
 
         # Apply write delay
         if self._config.timing is not None and self._config.timing.write_delay_ms > 0:
             time.sleep(self._config.timing.write_delay_ms / 1000.0)
-        
+
         match first.register_type:
             case "holding":
                 self._modbus.write_holding_registers(start_address, encoded_uintreg)
@@ -966,6 +973,5 @@ class ModbusRegisterDriver(RegisterDriverBase):
                 raise ValueError(f"Cannot write to read-only register type: {first.register_type}")
             case _:
                 raise ValueError(f"Unknown register type: {first.register_type}")
-        
-        return cast(list[register_value_type], values) #this is forced by the processing loop above
 
+        return cast(list[register_value_type], values)  # this is forced by the processing loop above

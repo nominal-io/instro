@@ -9,7 +9,6 @@ Public API:
 
 """
 
-
 from __future__ import annotations
 
 import abc
@@ -26,13 +25,12 @@ from instro.utils.types import ScaleType
 logger = logging.getLogger(__name__)
 
 timestamp_ns_type = int
-register_value_type = float|int
-
+register_value_type = int | float
 
 
 class RegisterBase(BaseModel):
     """Definition of a generic register.
-    
+
     Most features will need to be implemented in a descendent class.
 
     Note:
@@ -55,7 +53,7 @@ class RegisterBase(BaseModel):
             return self.scale.to_physical(raw_value)
         return raw_value
 
-    def _string_to_value_map(self, s:str) -> int | float:
+    def _string_to_value_map(self, s: str) -> int | float:
         if self.write_value_map is None:
             raise KeyError(
                 f"Register '{self.name}' has no write_value_map. "
@@ -67,20 +65,18 @@ class RegisterBase(BaseModel):
                 f"Available values: {list(self.write_value_map.keys())}"
             )
         value = self.write_value_map[s]
-        
+
         return value
-    
 
 
 class RegisterDriverBase(abc.ABC):
     """Abstract base class for tag-oriented devices.
-    
+
     Concrete drivers own their transport setup and translate category-level
     calls into vendor-specific commands. The base declares only the category
     contract; transport choice and lifecycle live in the concrete driver.
     """
 
-    
     @abc.abstractmethod
     def open(self) -> None:
         """Open the underlying transport or protocol."""
@@ -90,51 +86,51 @@ class RegisterDriverBase(abc.ABC):
         """Close the underlying transport or protocol."""
 
     @abc.abstractmethod
-    def read(self, register_id:str) -> register_value_type:
+    def read(self, register_id: str) -> register_value_type:
         """Reads a single register value from the underlying device.
-        
+
         Note that some driver implementations may have a different definition of register.
         Ex: A single value read by this API could be spread across multiple modbus registers.
         """
 
     @abc.abstractmethod
-    def read_raw_scaled(self, register_id:str) -> tuple[register_value_type,register_value_type]:
+    def read_raw_scaled(self, register_id: str) -> tuple[register_value_type, register_value_type]:
         """Reads a single register value from the underlying device, returning the raw and scaled value.
-        
+
         Note that some driver implementations may have a different definition of register.
         Ex: A single value read by this API could be spread across multiple modbus registers.
         """
-    
-    @abc.abstractmethod
-    def write(self, register_id:str, value:register_value_type|str) -> register_value_type:
-        """Reads a single register value from the underlying device, returning only the scaled value.
-        
-        Note that some driver implementations may have a different definition of register.
-        Ex: A single value read by this API could be spread across multiple modbus registers.
-        """    
 
     @abc.abstractmethod
-    def read_group(self, group_id:str) -> list[register_value_type]:
+    def write(self, register_id: str, value: register_value_type | str) -> register_value_type:
+        """Write a single register value to the underlying device, returning the written value.
+
+        Note that some driver implementations may have a different definition of register.
+        Ex: A single value written by this API could be spread across multiple modbus registers.
+        """
+
+    @abc.abstractmethod
+    def read_group(self, group_id: str) -> list[register_value_type]:
         """Reads a group of registers from the device, returning scaled values.
-        
-        Note that some driver implementations may have a different definition of register.
-        Ex: A single value read by this API could be spread across multiple modbus registers.
-        """
-    
-    @abc.abstractmethod
-    def read_group_raw_scaled(self, group_id:str) -> tuple[list[register_value_type], list[register_value_type]]:
-        """Reads a group of registers from the device, returning raw and scaled values.
-        
+
         Note that some driver implementations may have a different definition of register.
         Ex: A single value read by this API could be spread across multiple modbus registers.
         """
 
     @abc.abstractmethod
-    def write_group(self, group_id:str, values:list[register_value_type|str]) -> list[register_value_type]:
+    def read_group_raw_scaled(self, group_id: str) -> tuple[list[register_value_type], list[register_value_type]]:
+        """Reads a group of registers from the device, returning raw and scaled values.
+
+        Note that some driver implementations may have a different definition of register.
+        Ex: A single value read by this API could be spread across multiple modbus registers.
+        """
+
+    @abc.abstractmethod
+    def write_group(self, group_id: str, values: list[register_value_type | str]) -> list[register_value_type]:
         """Writes a set of scaled values to a group of registers.
 
         The values field supports numeric types as well as enumerated values as defined by each register.
-        
+
         Note that some driver implementations may have a different definition of register.
         Ex: A single value read by this API could be spread across multiple modbus registers.
         """
@@ -143,8 +139,8 @@ class RegisterDriverBase(abc.ABC):
     @abc.abstractmethod
     def device_name(self) -> str:
         """Returns the name of the connected device.
-        
-        The driver is responsible for determining the best way to provide this name. In most cases, 
+
+        The driver is responsible for determining the best way to provide this name. In most cases,
         it should be a user-defined alias appropriate to reporting data. If no user-defined alias
         is provided, the driver should return an intelligent identifier (such as a serial number)
         """
@@ -153,32 +149,41 @@ class RegisterDriverBase(abc.ABC):
     @abc.abstractmethod
     def writeable_registers(self) -> Sequence[RegisterBase]:
         """Returns a sequence of all registers which may be written by the user.
-        
+
         This sequence is intended to be immutable, but the underlying storage is a list.
         """
-    
+
     @property
     @abc.abstractmethod
     def readable_registers(self) -> Sequence[RegisterBase]:
         """Returns a sequence of all registers which may be read by the user.
-        
+
         This sequence is intended to be immutable, but the underlying storage is a list.
         """
-    
+
     @property
     @abc.abstractmethod
     def writeable_groups(self) -> list[str]:
         """Returns a list of all register groups which may be written by the user."""
-    
+
     @property
     @abc.abstractmethod
     def readable_groups(self) -> list[str]:
         """Returns a list of all register groups which may be read by the user."""
 
     @abc.abstractmethod
-    def enumerate_group_registers(self, group_id:str) -> Sequence[str]:
+    def enumerate_group_registers(self, group_id: str) -> Sequence[str]:
         """Returns the register names associated with a group, in address order."""
 
+    def build_extra_channels(
+        self, register_id: str, raw: register_value_type, scaled: register_value_type
+    ) -> dict[str, list[register_value_type]]:
+        """Return extra derived channel data for a single register read.
+
+        Default returns empty dict. Override to add protocol-specific derived channels
+        (e.g., bitmap bit extraction for Modbus uint16 registers).
+        """
+        return {}
 
 
 class InstroRegisterInstrument(Instrument):
@@ -187,6 +192,7 @@ class InstroRegisterInstrument(Instrument):
     Methods return Measurement and Command data types to be compatible with Nominal Instrumentation
     tools. Alternatively, specific driver implementations may be used which expose register values directly.
     """
+
     _driver: RegisterDriverBase
     name: str
 
@@ -244,19 +250,22 @@ class InstroRegisterInstrument(Instrument):
         self._driver.close()
         logger.info("Closed register device '%s'", self.name)
 
-    def read(self, register_id: str, **kwargs) -> Measurement | None:
+    def read(self, register_id: str, **kwargs) -> Measurement:
         """Read a register directly from the device."""
         timestamp = time.time_ns()
         raw, scaled = self._driver.read_raw_scaled(register_id)
+        channel_data: dict[str, list[register_value_type]] = {f"{self.name}.{register_id}": [scaled]}
+        extra = self._driver.build_extra_channels(register_id, raw, scaled)
+        channel_data.update({f"{self.name}.{k}": v for k, v in extra.items()})
         meas = Measurement(
-            channel_data={f"{self.name}.{register_id}": [scaled], f"{self.name}.{register_id}.raw": [raw]},
+            channel_data=channel_data,
             timestamps=[timestamp],
             tags={**self.default_tags, **(kwargs or {})},
         )
         self.publish(meas)
         return meas
 
-    def write(self, register_id: str, value: float | int | str, **kwargs) -> Command | None:
+    def write(self, register_id: str, value: float | int | str, **kwargs) -> Command:
         """Write a register directly to the device."""
         timestamp = time.time_ns()
         actual_value = self._driver.write(register_id, value)
@@ -268,24 +277,23 @@ class InstroRegisterInstrument(Instrument):
         self.publish(cmd)
         return cmd
 
-    def read_group(self, group_id: str, **kwargs) -> Measurement | None:
+    def read_group(self, group_id: str, **kwargs) -> Measurement:
         """Read a register group directly from the device."""
         timestamp = time.time_ns()
         group_registers = self._driver.enumerate_group_registers(group_id)
-        raw, scaled = self._driver.read_group_raw_scaled(group_id)
-        meas_data = {}
-        for register_id, reg_raw, reg_scaled in zip(group_registers, raw, scaled):
-            meas_data[f"{self.name}.{register_id}"] = [reg_scaled]
-            meas_data[f"{self.name}.{register_id}.raw"] = [reg_raw]
+        _, scaled = self._driver.read_group_raw_scaled(group_id)
+        meas_data = {
+            f"{self.name}.{register_id}": [reg_scaled] for register_id, reg_scaled in zip(group_registers, scaled)
+        }
         meas = Measurement(
             channel_data=meas_data,
-            timestamps=[timestamp] * len(group_registers),
+            timestamps=[timestamp],
             tags={**self.default_tags, **(kwargs or {})},
         )
         self.publish(meas)
         return meas
 
-    def write_group(self, group_id: str, values: list[float | int | str], **kwargs) -> Command | None:
+    def write_group(self, group_id: str, values: list[float | int | str], **kwargs) -> Command:
         """Write a register group directly to the device.
 
         Note that some driver implementations may have a different definition of register.
@@ -295,14 +303,15 @@ class InstroRegisterInstrument(Instrument):
         group_registers = self._driver.enumerate_group_registers(group_id)
         actual_values = self._driver.write_group(group_id, values)
         cmd = Command(
-            channel_data={f"{self.name}.{register_id}.cmd": reg_value for register_id, reg_value in zip(group_registers, actual_values)},
+            channel_data={
+                f"{self.name}.{register_id}.cmd": reg_value
+                for register_id, reg_value in zip(group_registers, actual_values)
+            },
             timestamp=timestamp,
             tags={**self.default_tags, **(kwargs or {})},
         )
         self.publish(cmd)
         return cmd
 
-
     def _define_background_daemon(self):
         pass
-
