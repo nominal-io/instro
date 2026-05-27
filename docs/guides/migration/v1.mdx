@@ -86,14 +86,14 @@ The conventions are:
 
 ### Removed classes
 
-These facade classes were removed entirely as part of the CON-564 driver-shape refactor — they have **no replacement**. The codemod deliberately leaves these names unchanged so you hit a clear `ImportError` and can migrate away from the facade pattern (drivers now compose `VisaDriver` directly).
+These facade classes were removed entirely as part of the INSTRO-231 driver-shape refactor — they have **no replacement**. The codemod deliberately leaves these names unchanged so you hit a clear `ImportError` and can migrate away from the facade pattern (drivers now compose `VisaDriver` directly).
 
 | Removed                | Removed in | Migration                                                                    |
 | ---------------------- | ---------- | ---------------------------------------------------------------------------- |
-| `NominalDMMFacade`     | CON-2287   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalPSUFacade`     | CON-2288   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalI2CFacade`     | CON-2289   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalScopeFacade`   | CON-2410   | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalDMMFacade`     | INSTRO-158 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalPSUFacade`     | INSTRO-157 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalI2CFacade`     | INSTRO-156 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalScopeFacade`   | INSTRO-171 | Drop the facade. Driver methods take the configuration they need directly.   |
 
 ## Automated codemod
 

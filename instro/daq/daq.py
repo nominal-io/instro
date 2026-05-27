@@ -487,7 +487,7 @@ class InstroDAQ(Instrument):
             if not self._background_config.enabled:
                 return self._fetch_analog(**kwargs)
             # Background daemon running. The user can't pull from the buffer mid-flight.
-            # TODO revisit with CON-793 issue ticket.
+            # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
         return self._software_timed_read(**kwargs)

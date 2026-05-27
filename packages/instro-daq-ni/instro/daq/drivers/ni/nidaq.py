@@ -74,8 +74,6 @@ class NIDAQDriver(DAQDriverBase):
 
     def _get_task(self, channel_type: ChannelType) -> nidaqmx.Task:
         """Return (creating if missing) the DAQmx task for ``channel_type``."""
-        # TODO CON-953: refactor this to seperate out hw and sw timed. Only reason to group based on ChannelType
-        # is due to sharing a timing engine per ChannelType, which is not relevant and is restricting for sw timed tasks.
         task = self._tasks.get(channel_type, None)
         if not task:
             # Task does not yet exist for that channel_type
@@ -119,7 +117,6 @@ class NIDAQDriver(DAQDriverBase):
         )
 
     def configure_ao_channel(self, channel: AnalogChannel):
-        # TODO CON-953
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
 
         task = self._ao_sw_tasks.get(channel.alias, None)
