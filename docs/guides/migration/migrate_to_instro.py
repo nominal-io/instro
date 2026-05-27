@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 REPLACEMENTS: list[tuple[str, str]] = [
-    # --- structural import-path rewrites (CON-2349) ---
+    # --- structural import-path rewrites (INSTRO-51) ---
     # `nominal_instro.instruments.<cat>` collapses to `instro.<cat>`. Each
     # category's instrument class and its driver base now live together in
     # `instro/<cat>/<cat>.py` (no separate driver module). Concrete vendor
@@ -88,7 +88,7 @@ REPLACEMENTS: list[tuple[str, str]] = [
     ("NominalInstrumentationErrorCodes", "InstrumentationErrorCodes"),
     ("NominalDAQFacade", "InstroDAQFacade"),
     # `NominalDMMFacade`, `NominalI2CFacade`, and `NominalPSUFacade` were
-    # removed in CON-2287, CON-2289, and CON-2288 respectively. Keep these
+    # removed in INSTRO-158, INSTRO-156, and INSTRO-157 respectively. Keep these
     # rows as passthroughs so the shorter category-class alternatives below
     # (NominalDMM, NominalI2C, NominalPSU) cannot match inside the facade
     # names and silently produce a now-nonexistent symbol. Users keep the

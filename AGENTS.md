@@ -30,9 +30,9 @@ If `just check` and `just test` both pass, CI will pass.
 
 ## Conventions
 
-- **Every change has a tracking issue/ticket.** Branch off `main`; name the branch after the GitHub issue or ticket ID (e.g. `issue-142-siglent-spd-driver`, `con-2498-docstring-cleanup`). No untracked work — open an issue first if one doesn't exist.
+- **Every change has a tracking issue/ticket.** Branch off `main`; name the branch after the GitHub issue or ticket ID (e.g. `issue-142-siglent-spd-driver`, `instro-248-docstring-cleanup`). No untracked work — open an issue first if one doesn't exist.
 - **Conventional Commits** for PR titles and commits: `<type>(<scope>): <imperative description>`. Types: `feat`, `fix`, `chore`, `docs`, `refactor`. Append `!` for breaking changes. Title under 72 chars, no trailing period.
-- **No multi-paragraph docstrings.** One short line max. Don't reintroduce verbose docstrings — the repo went through a deliberate cleanup pass (CON-2498).
+- **No multi-paragraph docstrings.** One short line max. Don't reintroduce verbose docstrings — the repo went through a deliberate cleanup pass (INSTRO-248).
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.

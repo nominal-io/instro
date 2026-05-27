@@ -44,7 +44,7 @@ Every change must be tracked by a GitHub issue or ticket — see [Issues and dis
 
 ```
 issue-142-siglent-spd-driver
-con-2498-docstring-cleanup
+instro-248-docstring-cleanup
 ```
 
 ### Pull request titles
