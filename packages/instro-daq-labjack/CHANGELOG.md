@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.4.0...instro-daq-labjack-v0.5.0) (2026-05-27)
+
+
+### Features
+
+* add PyPI project URLs ([#18](https://github.com/nominal-io/instro/issues/18)) ([5ffe6cf](https://github.com/nominal-io/instro/commit/5ffe6cfa8aec92504c9c4c2af91c33a5d7c3d26f))
+
 ## [0.4.0](https://github.com/nominal-io/instrumentation/compare/instro-daq-labjack-v0.3.2...instro-daq-labjack-v0.4.0) (2026-05-01)
 
 
