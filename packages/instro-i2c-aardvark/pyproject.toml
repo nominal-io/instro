@@ -1,6 +1,6 @@
 [project]
 name = "instro-i2c-aardvark"
-version = "0.1.0"
+version = "0.2.0"
 description = "TotalPhase Aardvark driver for instro"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
