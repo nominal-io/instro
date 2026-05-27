@@ -486,7 +486,7 @@ class ModbusConfig(BaseModel):
     protocol: str = "modbus"
     device: DeviceInfo
     timing: TimingConfig | None = None
-    connection: ConnectionType | None = Field(default=None, discriminator="transport")
+    connection: ConnectionType = Field(discriminator="transport")
     registers: list[RegisterDef] = Field(default_factory=list)
 
     def model_post_init(self, __context) -> None:
