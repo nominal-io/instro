@@ -2,21 +2,25 @@
 
 Python library for talking to test-and-measurement instruments — power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs — from a unified, typed API.
 
-> **Coming soon to PyPI.** `instro` is being prepared for open-source release. Until then, install from source as shown below; once the package is published, `pip install instro` will be the supported install path.
+[![PyPI](https://img.shields.io/pypi/v/instro.svg)](https://pypi.org/project/instro/)
 
 ## Installation
 
 ```bash
-# After the OSS launch (PyPI):
 pip install instro
+```
 
-# Source install (works today):
+Requires [Python 3.10+](https://www.python.org/downloads/).
+
+To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/uv/):
+
+```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
 uv sync --extra all
 ```
 
-The source install requires [Python 3.10+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/). It creates a virtual environment, installs the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
+This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
 ### Optional vendor extras
 
