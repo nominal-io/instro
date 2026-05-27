@@ -1,11 +1,16 @@
 [project]
 name = "instro-daq-mcc"
-version = "0.2.0"
+version = "0.3.0"
 description = "MCC DAQ drivers for instro"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<4.0"
 dependencies = ["instro", "mcculw>=1.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.6.0"
+version = "0.7.0"
 description = "Nominal instrumentation framework (core library + SCPI/VISA drivers)"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -29,6 +29,11 @@ all = [
     "instro-daq-mcc",
     "instro-i2c-aardvark",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
 
 [build-system]
 requires = ["hatchling"]

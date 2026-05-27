@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/nominal-io/instro/compare/instro-v0.6.0...instro-v0.7.0) (2026-05-27)
+
+
+### Features
+
+* add PyPI project URLs ([#18](https://github.com/nominal-io/instro/issues/18)) ([5ffe6cf](https://github.com/nominal-io/instro/commit/5ffe6cfa8aec92504c9c4c2af91c33a5d7c3d26f))
+
 ## [0.6.0](https://github.com/nominal-io/instrumentation/compare/instro-v0.5.2...instro-v0.6.0) (2026-05-01)
 
 
