@@ -22,10 +22,12 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
-from instro.modbus import ModbusConfig, ModbusDevice, RegisterDef
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver, RegisterDef
+from instro.utils.protocol.modbus import TCPConnectionConfig
 from instro.utils.types import DeviceInfo, LinearScale
 
-TEST_PORT = 5023
+TEST_PORT = 5029
 
 
 # ============ Sim Server ============
@@ -84,7 +86,7 @@ def modbus_server():
 def device(modbus_server):
     config = ModbusConfig(
         device=DeviceInfo(name="write_test"),
-        connection={"transport": "tcp", "host": "127.0.0.1", "port": TEST_PORT},
+        connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         registers=[
             RegisterDef(
                 name="mode",
@@ -105,7 +107,7 @@ def device(modbus_server):
             RegisterDef(name="input_reg", starting_address=0, register_type="input", data_type="uint16"),
         ],
     )
-    dev = ModbusDevice(config=config)
+    dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
     dev.open()
     yield dev
     dev.close()
@@ -254,6 +256,7 @@ class TestWriteFieldConfigValidation:
         )
         # Pydantic still coerces stored values to int under the dict[str, int | float]
         # annotation; the point here is just that construction didn't raise.
+        assert reg.write_value_map is not None
         assert set(reg.write_value_map.keys()) == {"on", "off"}
 
     def test_value_map_fractional_float_allowed_when_scale_converts_to_integer(self):

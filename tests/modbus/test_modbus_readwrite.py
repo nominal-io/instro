@@ -24,7 +24,8 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 CONFIG_PATH = CONFIGS_DIR / "test_readwrite_device.json"
@@ -132,8 +133,8 @@ def modbus_server():
 
 @pytest.fixture
 def device(modbus_server):
-    """Create a connected ModbusDevice instance."""
-    dev = ModbusDevice(config=CONFIG_PATH)
+    """Create a connected InstroRegisterInstrument instance."""
+    dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(ModbusConfig.from_json(CONFIG_PATH)))
     dev.open()
     yield dev
     dev.close()
@@ -226,7 +227,7 @@ class TestWriteHoldingRegisters:
 
     def test_write_returns_command(self, device):
         cmd = device.write("holding_uint16", 1234)
-        assert f"test_rw_device.holding_uint16.cmd" in cmd.channel_data
+        assert "test_rw_device.holding_uint16.cmd" in cmd.channel_data
 
     def test_write_preserves_integer_value_type(self, device):
         """Modbus integer writes publish the int value untouched (not coerced to float)."""
@@ -277,12 +278,12 @@ class TestWriteErrors:
 
 class TestConnection:
     def test_read_before_open_raises(self):
-        dev = ModbusDevice(config=CONFIG_PATH)
-        with pytest.raises(RuntimeError, match="not connected"):
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(ModbusConfig.from_json(CONFIG_PATH)))
+        with pytest.raises(RuntimeError, match="not open"):
             dev.read("input_uint16")
 
     def test_close_and_reopen(self, modbus_server):
-        dev = ModbusDevice(config=CONFIG_PATH)
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(ModbusConfig.from_json(CONFIG_PATH)))
         dev.open()
         dev.read("input_uint16")
         dev.close()
