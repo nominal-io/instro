@@ -123,38 +123,39 @@ class ModbusDriver:
 
     def open(self) -> None:
         """Open the Modbus connection. Idempotent."""
-        if self._client is not None:
-            return
-        connection = self._connection
-        if isinstance(connection, TCPConnectionConfig):
-            from pymodbus.client import ModbusTcpClient
+        with self._lock:
+            if self._client is not None:
+                return
+            connection = self._connection
+            if isinstance(connection, TCPConnectionConfig):
+                from pymodbus.client import ModbusTcpClient
 
-            self._client = ModbusTcpClient(
-                host=connection.host,
-                port=connection.port,
-                timeout=connection.timeout,
-            )
-        elif isinstance(connection, RTUConnectionConfig) or isinstance(connection, ASCIIConnectionConfig):
-            from pymodbus.client import ModbusSerialClient
-            from pymodbus.framer import FramerType
+                self._client = ModbusTcpClient(
+                    host=connection.host,
+                    port=connection.port,
+                    timeout=connection.timeout,
+                )
+            elif isinstance(connection, RTUConnectionConfig) or isinstance(connection, ASCIIConnectionConfig):
+                from pymodbus.client import ModbusSerialClient
+                from pymodbus.framer import FramerType
 
-            self._client = ModbusSerialClient(
-                framer=FramerType.RTU if isinstance(connection, RTUConnectionConfig) else FramerType.ASCII,
-                port=connection.port,
-                baudrate=connection.baudrate,
-                parity=connection.parity,
-                stopbits=connection.stopbits,
-                bytesize=connection.bytesize,
-                timeout=connection.timeout,
-            )
-        else:
-            raise ValueError(f"Unknown connection type: {type(connection)}")
+                self._client = ModbusSerialClient(
+                    framer=FramerType.RTU if isinstance(connection, RTUConnectionConfig) else FramerType.ASCII,
+                    port=connection.port,
+                    baudrate=connection.baudrate,
+                    parity=connection.parity,
+                    stopbits=connection.stopbits,
+                    bytesize=connection.bytesize,
+                    timeout=connection.timeout,
+                )
+            else:
+                raise ValueError(f"Unknown connection type: {type(connection)}")
 
-        if not self._client.connect():
-            target = connection._format_target()
-            self._client.close()
-            self._client = None
-            raise ConnectionError(f"Failed to connect to Modbus device at {target}")
+            if not self._client.connect():
+                target = connection._format_target()
+                self._client.close()
+                self._client = None
+                raise ConnectionError(f"Failed to connect to Modbus device at {target}")
 
     def close(self) -> None:
         """Close the Modbus connection. Idempotent."""
