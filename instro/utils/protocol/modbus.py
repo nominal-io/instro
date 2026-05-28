@@ -127,29 +127,46 @@ class ModbusDriver:
             if self._client is not None:
                 return
             connection = self._connection
-            if isinstance(connection, TCPConnectionConfig):
-                from pymodbus.client import ModbusTcpClient
+            match connection.transport:
+                case "tcp":
+                    from pymodbus.client import ModbusTcpClient
 
-                self._client = ModbusTcpClient(
-                    host=connection.host,
-                    port=connection.port,
-                    timeout=connection.timeout,
-                )
-            elif isinstance(connection, RTUConnectionConfig) or isinstance(connection, ASCIIConnectionConfig):
-                from pymodbus.client import ModbusSerialClient
-                from pymodbus.framer import FramerType
+                    assert isinstance(connection, TCPConnectionConfig)
+                    self._client = ModbusTcpClient(
+                        host=connection.host,
+                        port=connection.port,
+                        timeout=connection.timeout,
+                    )
+                case "rtu":
+                    from pymodbus.client import ModbusSerialClient
+                    from pymodbus.framer import FramerType
 
-                self._client = ModbusSerialClient(
-                    framer=FramerType.RTU if isinstance(connection, RTUConnectionConfig) else FramerType.ASCII,
-                    port=connection.port,
-                    baudrate=connection.baudrate,
-                    parity=connection.parity,
-                    stopbits=connection.stopbits,
-                    bytesize=connection.bytesize,
-                    timeout=connection.timeout,
-                )
-            else:
-                raise ValueError(f"Unknown connection type: {type(connection)}")
+                    assert isinstance(connection, RTUConnectionConfig)
+                    self._client = ModbusSerialClient(
+                        framer=FramerType.RTU,
+                        port=connection.port,
+                        baudrate=connection.baudrate,
+                        parity=connection.parity,
+                        stopbits=connection.stopbits,
+                        bytesize=connection.bytesize,
+                        timeout=connection.timeout,
+                    )
+                case "ascii":
+                    from pymodbus.client import ModbusSerialClient
+                    from pymodbus.framer import FramerType
+
+                    assert isinstance(connection, ASCIIConnectionConfig)
+                    self._client = ModbusSerialClient(
+                        framer=FramerType.ASCII,
+                        port=connection.port,
+                        baudrate=connection.baudrate,
+                        parity=connection.parity,
+                        stopbits=connection.stopbits,
+                        bytesize=connection.bytesize,
+                        timeout=connection.timeout,
+                    )
+                case _:
+                    raise ValueError(f"Unknown connection type: {connection.transport!r}")
 
             if not self._client.connect():
                 target = connection._format_target()
