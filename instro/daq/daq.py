@@ -130,39 +130,53 @@ class DAQDriverBase(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def define_digital_channel(
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        """Parse a vendor-specific ``physical_channel`` string into a ``DigitalLineChannel`` or ``DigitalPortChannel``.
+    ):
+        """Parse, program, and register a DI line channel.
 
-        ``port_width`` is supplied for port-mode channels; line-mode channels
-        encode their bit position in ``physical_channel`` per vendor convention
+        ``physical_channel`` encodes a single-bit address per vendor convention
         (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight 34980A,
-        ``"AUXPORT0/1"`` on MCC).
+        ``"AUXPORT0/1"`` on MCC, ``"FIO0"`` on LabJack T-series).
         """
         ...
 
     @abc.abstractmethod
-    def configure_do_channel(
+    def configure_do_line_channel(
         self,
-        channel: DigitalChannel,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
     ):
-        """Register a DO channel (line or port) with the underlying driver."""
+        """Parse, program, and register a DO line channel."""
         ...
 
-    @abc.abstractmethod
-    def configure_di_channel(
+    def configure_di_port_channel(
         self,
-        channel: DigitalChannel,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
     ):
-        """Register a DI channel (line or port) with the underlying driver."""
-        ...
+        """Parse, program, and register a DI port channel. Override if the driver supports port-mode digital input."""
+        raise NotImplementedError("Digital Input port mode has not been configured for this driver")
+
+    def configure_do_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse, program, and register a DO port channel. Override if the driver supports port-mode digital output."""
+        raise NotImplementedError("Digital Output port mode has not been configured for this driver")
 
     @abc.abstractmethod
     def start(self, **kwargs):
@@ -594,40 +608,77 @@ class InstroDAQ(Instrument):
 
         return self._package_command(f"{analog_channel.alias}.cmd", value, timestamp, **kwargs)
 
-    def configure_digital_channel(
+    def configure_digital_line(
         self,
         direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
     ):
-        """Configure a digital channel.
+        """Configure a digital line channel.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
-            physical_channel: Vendor-specific id (e.g. ``"di0"`` or ``"port0/line0"``).
+            physical_channel: Vendor-specific line id (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight, ``"FIO0"`` on LabJack).
             logic: Active-``HIGH`` or active-``LOW``.
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
-            port_width: Port width in bits (8/16/32/64) when treating the channel as a port rather than a line.
         """
-        channel = self._driver.define_digital_channel(
-            direction=direction,
-            physical_channel=physical_channel,
-            logic=logic,
-            logic_level=logic_level,
-            alias=alias,
-            port_width=port_width,
-        )
-
         match direction:
             case Direction.INPUT:
-                self._driver.configure_di_channel(channel)
+                self._driver.configure_di_line_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
             case Direction.OUTPUT:
-                self._driver.configure_do_channel(channel)
-        logger.info("Configured digital channel on DAQ '%s'", self.name)
+                self._driver.configure_do_line_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+        logger.info("Configured digital line channel on DAQ '%s'", self.name)
+
+    def configure_digital_port(
+        self,
+        direction: Direction,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a digital port channel.
+
+        Args:
+            direction: ``INPUT`` or ``OUTPUT``.
+            physical_channel: Vendor-specific port id (e.g. ``"port0"`` on NI, ``"5101"`` on Keysight, ``"AUXPORT0"`` on MCC).
+            logic: Active-``HIGH`` or active-``LOW``.
+            port_width: Port width in bits (8/16/32/64).
+            logic_level: Voltage threshold (volts); the driver default is used when ``None``.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        match direction:
+            case Direction.INPUT:
+                self._driver.configure_di_port_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    port_width=port_width,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+            case Direction.OUTPUT:
+                self._driver.configure_do_port_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    port_width=port_width,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+        logger.info("Configured digital port channel on DAQ '%s'", self.name)
 
     @publish_command
     def write_digital_line(self, channel: str, data: int, **kwargs) -> Command:
@@ -636,7 +687,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
+                f"Call configure_digital_line(Direction.OUTPUT, ...) first."
             )
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_digital_line(digital_channel, data)
@@ -664,7 +715,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.INPUT, ...) first."
+                f"Call configure_digital_line(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_line(digital_channel)
         timestamp = time.time_ns()
@@ -685,7 +736,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
+                f"Call configure_digital_port(Direction.OUTPUT, ...) first."
             )
         self._driver.write_digital_port(digital_channel, data)
         timestamp = time.time_ns()
@@ -708,7 +759,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.INPUT, ...) first."
+                f"Call configure_digital_port(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_port(digital_channel)
         timestamp = time.time_ns()

@@ -213,18 +213,20 @@ Refer to your device's documentation for channel naming.
 
 Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
 
-- **direction**: Use `Direction.INPUT` for digital input lines or `Direction.OUTPUT` for output lines.
+Digital configuration is split along two axes—direction (in/out) and shape (line/port)—so `InstroDAQ` exposes two methods: `configure_digital_line` and `configure_digital_port`.
+
+- **direction**: Use `Direction.INPUT` for digital input or `Direction.OUTPUT` for output.
 - **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific. Refer to your device documentation.
 - **logic**: Sets whether the channel treats a HIGH or LOW physical level as "True". This is required for correct logic interpretation.
 - **logic_level** *(optional)*: Specifies the voltage threshold (in volts) used to distinguish HIGH from LOW, if your device supports changing this.
 - **alias** *(optional)*: A logical name for the channel, helpful for clarity and for use with publishers.
-- **port_width** *(optional)*: Set this only if you're configuring multiple digital lines as a single port (parallel I/O), not for individual line configuration.
+- **port_width** *(port only)*: Port width in bits (8/16/32/64), required by `configure_digital_port`.
 
-These parameters ensure that your digital channel correctly maps to the desired input/output hardware and logical behavior. For example, to configure a digital input line with a custom logic threshold:
+For example, to configure a digital input line with a custom logic threshold:
 ```python
 from instro.daq.types import Direction, Logic
 
-daq.configure_digital_channel(
+daq.configure_digital_line(
     direction=Direction.INPUT,
     physical_channel="5101/2",
     alias="limit_switch",
@@ -236,7 +238,7 @@ If configuring an entire port:
 ```python
 from instro.daq.types import Direction, DigitalPortWidth, Logic
 
-daq.configure_digital_channel(
+daq.configure_digital_port(
     direction=Direction.OUTPUT,
     physical_channel="5101",
     logic=Logic.HIGH,
@@ -439,7 +441,7 @@ daq.close()
 ```python
 from instro.daq.types import Direction, Logic
 
-daq.configure_digital_channel(
+daq.configure_digital_line(
     direction=Direction.INPUT,
     physical_channel="DIO0",
     alias="limit_switch",
@@ -475,7 +477,7 @@ daq.close()
 ```python
 from instro.daq.types import Direction, Logic
 
-daq.configure_digital_channel(
+daq.configure_digital_line(
     direction=Direction.OUTPUT,
     physical_channel="DIO1",
     alias="enable_signal",
@@ -497,7 +499,7 @@ For devices that expose digital I/O as parallel ports (multiple lines read or wr
 from instro.daq.types import Direction, DigitalPortWidth, Logic
 
 # Configure an 8-bit digital output port
-daq.configure_digital_channel(
+daq.configure_digital_port(
     direction=Direction.OUTPUT,
     physical_channel="FIRSTPORTA",
     alias="relay_bank",
@@ -509,7 +511,7 @@ daq.configure_digital_channel(
 daq.write_digital_port(channel="relay_bank", data=0x0F)
 
 # Configure an 8-bit digital input port and read its value
-daq.configure_digital_channel(
+daq.configure_digital_port(
     direction=Direction.INPUT,
     physical_channel="FIRSTPORTB",
     alias="status_bits",
@@ -642,7 +644,8 @@ The base `Instrument` background worker additionally publishes per-iteration dia
 | `open()` | Establish connection to the DAQ device |
 | `close()` | Disconnect from device and close publishers |
 | `configure_analog_channel(direction, physical_channel, alias, range_min, range_max)` | Configure an analog I/O channel |
-| `configure_digital_channel(direction, physical_channel, alias, logic, logic_level=None)` | Configure a digital I/O channel |
+| `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
+| `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
 | `configure_ai_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input |
 | `start()` | Begin hardware-timed acquisition (background thread) |
 | `stop()` | End hardware-timed acquisition |
@@ -706,11 +709,12 @@ All drivers must implement the `DAQDriverBase` abstract base class. Key methods:
 
 Each of the methods below must (a) program the device and (b) record the resulting channel on the driver's own dict (`self.ai_channels`, `self.di_channels`, etc.) so later calls (`read_analog`, `start`, etc.) can find it. See [Driver-owned state](#driver-owned-state) for the full rationale.
 
-- **`define_digital_channel(...)`**: Create a digital line or digital port channel type.
 - **`configure_ai_channel(channel)`**: Configure an analog input channel on the hardware; record on `self.ai_channels[channel.alias]`.
-- **`configure_ao_channel(channel)`**: Configure an analog output channel; record on `self.ao_channels[channel.alias]`. Default is a no-op for drivers that don't support AO.
-- **`configure_di_channel(channel)`**: Configure a digital input channel; record on `self.di_channels[channel.alias]`.
-- **`configure_do_channel(channel)`**: Configure a digital output channel; record on `self.do_channels[channel.alias]`.
+- **`configure_ao_channel(channel)`**: Configure an analog output channel; record on `self.ao_channels[channel.alias]`. Default raises `NotImplementedError` for drivers that don't support AO.
+- **`configure_di_line_channel(physical_channel, logic, ...)`**: Parse, program, and register a digital input line. Record on `self.di_channels[channel.alias]`.
+- **`configure_do_line_channel(physical_channel, logic, ...)`**: Parse, program, and register a digital output line. Record on `self.do_channels[channel.alias]`.
+- **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self.di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
+- **`configure_do_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital output port. Record on `self.do_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 
 ### Timing Configuration
 
@@ -770,8 +774,8 @@ To keep every driver consistent, `DAQDriverBase.__init__` initializes the dicts 
 |---|---|---|---|
 | `ai_channels` | `dict[str, AnalogChannel]` | `configure_ai_channel` | `read_analog`, `fetch_analog`, `start`, … |
 | `ao_channels` | `dict[str, AnalogChannel]` | `configure_ao_channel` | `write_analog_value` |
-| `di_channels` | `dict[str, DigitalChannel]` | `configure_di_channel` | digital-input read paths |
-| `do_channels` | `dict[str, DigitalChannel]` | `configure_do_channel` | digital-output write paths |
+| `di_channels` | `dict[str, DigitalChannel]` | `configure_di_line_channel` / `configure_di_port_channel` | digital-input read paths |
+| `do_channels` | `dict[str, DigitalChannel]` | `configure_do_line_channel` / `configure_do_port_channel` | digital-output write paths |
 | `relay_channels` | `dict[str, RelayChannel]` | `define_relay_channel` (base default already records; overrides must too) | `open_relay` / `close_relay` |
 | `ai_hw_timing_config` | `HWTimingConfig \| None` | `configure_ai_hw_timing` | `start`, `fetch_analog` |
 | `ao_hw_timing_config` / `di_hw_timing_config` / `do_hw_timing_config` | `HWTimingConfig \| None` | (forward-compat; unused today) | — |
@@ -803,7 +807,7 @@ class MyDriver(DAQDriverBase):
             ...
 ```
 
-The same `self.<dict>[channel.alias] = channel` pattern applies to `configure_ao_channel`, `configure_di_channel`, and `configure_do_channel`. `DAQDriverBase.define_relay_channel`'s default builds a `RelayChannel` and records it on `self.relay_channels` already — only override if your hardware needs different parsing, and ensure your override records too.
+The same `self.<dict>[channel.alias] = channel` pattern applies to `configure_ao_channel` and the four digital configure methods (`configure_di_line_channel`, `configure_do_line_channel`, `configure_di_port_channel`, `configure_do_port_channel`). `DAQDriverBase.define_relay_channel`'s default builds a `RelayChannel` and records it on `self.relay_channels` already — only override if your hardware needs different parsing, and ensure your override records too.
 
 #### How InstroDAQ exposes this
 

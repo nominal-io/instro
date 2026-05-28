@@ -96,7 +96,7 @@ This repo prefers duplicated, explicit code over premature abstraction. The cons
 Driver authoring rules:
 
 1. **Call `super().__init__()`** at the top of every concrete driver's `__init__`. The base initializes `ai_channels`, `ao_channels`, `di_channels`, `do_channels`, `relay_channels`, all four `*_hw_timing_config` slots, and `points_in_buffer`. Don't reinitialize them in the subclass.
-2. **Populate the dicts inside `configure_*`.** Every implementation of `configure_ai_channel`, `configure_ao_channel`, `configure_di_channel`, `configure_do_channel` ends with `self.<dict>[channel.alias] = channel` after programming the device. `configure_ai_hw_timing` ends with `self.ai_hw_timing_config = hw_timing_config`. The default `DAQDriverBase.define_relay_channel` already records on `self.relay_channels`; overrides must too.
+2. **Populate the dicts inside `configure_*`.** Every implementation of `configure_ai_channel`, `configure_ao_channel`, `configure_di_line_channel`, `configure_do_line_channel`, `configure_di_port_channel`, `configure_do_port_channel` ends with `self.<dict>[channel.alias] = channel` after programming the device. `configure_ai_hw_timing` ends with `self.ai_hw_timing_config = hw_timing_config`. The default `DAQDriverBase.define_relay_channel` already records on `self.relay_channels`; overrides must too.
 3. **Read driver-owned state via `self.<dict>`.** Inside `read_analog`, `fetch_analog`, `start`, `write_analog_value`, etc., use `self.ai_channels`, `self.ai_hw_timing_config`, and so on. End users see the same state through the `InstroDAQ` `@property` proxies.
 4. **No `InstroDAQ` reach-back.** Driver modules must not import `InstroDAQ`. There is no back-channel.
 

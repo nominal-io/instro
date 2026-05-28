@@ -260,51 +260,48 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
     # ====== DIGITAL ==========
 
-    def define_digital_channel(
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: int | None = None,
-    ) -> DigitalChannel:
-        if port_width:
-            raise ValueError("InstroDAQ does not support LabJack digital channels as ports at this time.")
+    ):
+        if self._model is None:
+            self._initialize_model()
 
-        return DigitalLineChannel(
+        channel = DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
-            direction=direction,
+            alias=alias or physical_channel,
+            direction=Direction.INPUT,
             logic_level=logic_level,  # type: ignore
             logic=logic,
         )
+        self.di_channels[channel.alias] = channel
 
-    def configure_do_channel(
+    def configure_do_line_channel(
         self,
-        channel: DigitalChannel,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
     ):
-        """Configure a channel on the device."""
         if self._model is None:
             self._initialize_model()
 
         # If the FIO/EIO line is an analog input, it needs to first be changed to a
         # digital I/O by reading from the line or setting it to digital I/O with the
         # DIO_ANALOG_ENABLE register.
-        # TODO: explicitely configure the line. Don't do a read and set the acive high/low
-        # Reading from the digital line in case it was previously an analog input.
-        ljm.eReadName(self._handle, channel.physical_channel)
+        ljm.eReadName(self._handle, physical_channel)
 
+        channel = DigitalLineChannel(
+            physical_channel=physical_channel,
+            alias=alias or physical_channel,
+            direction=Direction.OUTPUT,
+            logic_level=logic_level,  # type: ignore
+            logic=logic,
+        )
         self.do_channels[channel.alias] = channel
-
-    def configure_di_channel(
-        self,
-        channel: DigitalChannel,
-    ):
-        if self._model is None:
-            self._initialize_model()
-
-        self.di_channels[channel.alias] = channel
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
         if channel.logic is Logic.LOW:
