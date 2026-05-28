@@ -54,11 +54,11 @@ class SiglentSPD3303(PSUDriverBase):
     def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
         raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by SiglentSPD3303")
 
-    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_remote_sense is not supported by SiglentSPD3303")
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by SiglentSPD3303")
 
-    def get_remote_sense(self, channel: int = 1) -> bool:
-        raise FeatureNotSupportedError("get_remote_sense is not supported by SiglentSPD3303")
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by SiglentSPD3303")
 
     def query_status(self) -> dict:
         """Query the status of the PSU (per-channel mode/enable + tracking mode)."""

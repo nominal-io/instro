@@ -98,13 +98,13 @@ class PSUDriverBase(abc.ABC):
         """Query whether overcurrent protection is enabled on `channel`."""
         raise NotImplementedError(f"get_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
 
-    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
         """Enable or disable remote sense on `channel`."""
-        raise NotImplementedError(f"set_remote_sense is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"set_remote_sense_enabled is not implemented for {type(self).__name__}")
 
-    def get_remote_sense(self, channel: int = 1) -> bool:
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
         """Query whether remote sense is enabled on `channel`."""
-        raise NotImplementedError(f"get_remote_sense is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"get_remote_sense_enabled is not implemented for {type(self).__name__}")
 
 
 class InstroPSU(Instrument):
@@ -358,10 +358,10 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_remote_sense(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
         """Enable or disable remote sense on ``channel``."""
         return self._execute_command(
-            self._driver.set_remote_sense,
+            self._driver.set_remote_sense_enabled,
             value=enabled,
             channel=channel,
             channel_suffix="remote_sense",
@@ -369,10 +369,10 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_remote_sense(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_remote_sense_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether remote sense is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
-            self._driver.get_remote_sense,
+            self._driver.get_remote_sense_enabled,
             channel=channel,
             channel_suffix="remote_sense",
             legacy_suffix="rs",

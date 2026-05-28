@@ -24,7 +24,7 @@ except InstroError:
 from instro.lib.exceptions import FeatureNotSupportedError
 
 try:
-    psu.set_remote_sense(True, channel=1)
+    psu.set_remote_sense_enabled(True, channel=1)
 except FeatureNotSupportedError:
     ...
 ```

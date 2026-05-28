@@ -232,8 +232,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_overcurrent_protection_level(channel=N)` | `ch{N}.ocp` | telemetry |
 | `set_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled.cmd` | command |
 | `get_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled` | telemetry |
-| `set_remote_sense(channel=N)` | `ch{N}.remote_sense.cmd` | command |
-| `get_remote_sense(channel=N)` | `ch{N}.remote_sense` | telemetry |
+| `set_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense.cmd` | command |
+| `get_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense` | telemetry |
 
 ## Method Reference
 
@@ -258,8 +258,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_overcurrent_protection_level(channel=1)` | Read the overcurrent protection threshold in amperes |
 | `set_overcurrent_protection_enabled(enabled, channel=1)` | Enable or disable overcurrent protection |
 | `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
-| `set_remote_sense(enabled, channel=1)` | Enable (True) or disable (False) remote (4-wire) sense |
-| `get_remote_sense(channel=1)` | Query whether remote sense is enabled (returns Measurement with bool value) |
+| `set_remote_sense_enabled(enabled, channel=1)` | Enable or disable remote sense |
+| `get_remote_sense_enabled(channel=1)` | Query whether remote sense is enabled |
 | `start()` | Begin background telemetry thread |
 | `stop()` | End background telemetry thread |
 
@@ -412,10 +412,10 @@ def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> Non
 def get_overcurrent_protection_enabled(self, channel: int) -> bool:
     """Query and return whether overcurrent protection is enabled."""
 
-def set_remote_sense(self, enabled: bool, channel: int) -> None:
+def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
     """Enable or disable remote sense on `channel`."""
 
-def get_remote_sense(self, channel: int) -> bool:
+def get_remote_sense_enabled(self, channel: int) -> bool:
     """Query and return the remote sense enable status on `channel`."""
 ```
 

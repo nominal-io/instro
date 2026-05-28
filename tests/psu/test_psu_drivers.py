@@ -88,6 +88,22 @@ def test_psu_driver_base_ocp_methods_raise_not_implemented(
         getattr(base_only_psu_driver, method_name)(*args)
 
 
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("set_remote_sense_enabled", (True,)),
+        ("get_remote_sense_enabled", ()),
+    ],
+)
+def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
+    base_only_psu_driver: _BaseOnlyPSUDriver,
+    method_name: str,
+    args: tuple[object, ...],
+) -> None:
+    with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
+        getattr(base_only_psu_driver, method_name)(*args)
+
+
 # --- BK9115 ---
 
 
@@ -394,8 +410,8 @@ def test_tdk_check_errors_raises_on_nonzero(tdk: TDKLambdaGenesys, tdk_visa: Mag
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
-        ("set_remote_sense", (True,)),
-        ("get_remote_sense", ()),
+        ("set_remote_sense_enabled", (True,)),
+        ("get_remote_sense_enabled", ()),
     ],
 )
 def test_tdk_unimplemented_optional_features_raise_from_base(
@@ -467,6 +483,7 @@ def _stub_driver() -> MagicMock:
     driver.get_overvoltage_protection_delay.return_value = 0.25
     driver.get_overcurrent_protection_level.return_value = 2.0
     driver.get_overcurrent_protection_enabled.return_value = True
+    driver.get_remote_sense_enabled.return_value = True
     return driver
 
 
@@ -578,6 +595,19 @@ def test_nominal_psu_ocp_methods_delegate_and_package() -> None:
     assert "ut.ch1.ocp" in level.channel_data  # type: ignore[union-attr]
     assert "ut.ch1.ocp.enabled.cmd" in enabled_cmd.channel_data
     assert "ut.ch1.ocp.enabled" in enabled.channel_data  # type: ignore[union-attr]
+
+
+def test_nominal_psu_remote_sense_methods_delegate_and_package() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+
+    enabled_cmd = psu.set_remote_sense_enabled(True, channel=1)
+    enabled = psu.get_remote_sense_enabled(channel=1)
+
+    driver.set_remote_sense_enabled.assert_called_once_with(True, channel=1)
+    driver.get_remote_sense_enabled.assert_called_once_with(channel=1)
+    assert "ut.ch1.remote_sense.cmd" in enabled_cmd.channel_data
+    assert "ut.ch1.remote_sense" in enabled.channel_data  # type: ignore[union-attr]
 
 
 # --- legacy_naming ---

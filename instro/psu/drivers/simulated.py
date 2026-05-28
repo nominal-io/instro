@@ -60,11 +60,11 @@ class SimulatedPSU(PSUDriverBase):
     def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
         raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by SimulatedPSU")
 
-    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_remote_sense is not supported by SimulatedPSU")
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by SimulatedPSU")
 
-    def get_remote_sense(self, channel: int = 1) -> bool:
-        raise FeatureNotSupportedError("get_remote_sense is not supported by SimulatedPSU")
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by SimulatedPSU")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
