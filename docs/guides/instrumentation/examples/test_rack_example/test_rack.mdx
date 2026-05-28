@@ -17,9 +17,9 @@ from instro.daq.types import Direction
 from instro.eload import InstroELoad
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload.types import LoadMode
+from instro.lib.transports import SerialConfig, VisaConfig
 from instro.psu import InstroPSU
 from instro.psu.drivers import BK9115
-from instro.lib.transports import SerialConfig, VisaConfig
 
 # Demo assumes a power supply output is connected to the inputs of an electronic load.
 # Demo assumes there is a DAQ monitoring this line.
