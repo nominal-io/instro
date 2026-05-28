@@ -11,7 +11,9 @@ Public API:
 
 from __future__ import annotations
 
+import contextlib
 import struct
+import threading
 import time
 from functools import cached_property
 from pathlib import Path
@@ -702,6 +704,10 @@ class ModbusRegisterDriver(RegisterDriverBase):
             raise ValueError("Provided configuration has no section for connection information")
         self._config = configuration
         self._modbus = ModbusDriver(configuration.connection, thread_safe=thread_safe)
+        self._last_write_time: float = 0.0
+        self._write_lock: threading.Lock | contextlib.nullcontext = (
+            threading.Lock() if thread_safe else contextlib.nullcontext()
+        )
 
     @property
     def writeable_registers(self) -> Sequence[RegisterDef]:
@@ -860,6 +866,13 @@ class ModbusRegisterDriver(RegisterDriverBase):
             case _:
                 raise ValueError(f"Unknown register type: {reg.register_type}")
 
+    def _apply_write_delay(self) -> None:
+        if self._config.timing is not None and self._config.timing.write_delay_ms > 0:
+            delay_s = self._config.timing.write_delay_ms / 1000.0
+            remaining_s = delay_s - (time.monotonic() - self._last_write_time)
+            if remaining_s > 0:
+                time.sleep(remaining_s)
+
     def write(self, register_id: str, value: register_value_type | str) -> register_value_type:
         """Write a value to a register by register_id and publish the command.
 
@@ -905,11 +918,10 @@ class ModbusRegisterDriver(RegisterDriverBase):
 
         raw_value = reg._validate_raw_value_range(raw_value)
 
-        # Apply write delay
-        if self._config.timing is not None and self._config.timing.write_delay_ms > 0:
-            time.sleep(self._config.timing.write_delay_ms / 1000.0)
-
-        self._encode_and_write_register(reg, raw_value)
+        with self._write_lock:
+            self._apply_write_delay()
+            self._encode_and_write_register(reg, raw_value)
+            self._last_write_time = time.monotonic()
 
         return value
 
@@ -960,18 +972,17 @@ class ModbusRegisterDriver(RegisterDriverBase):
                 encoded_value = reg.encode_value_to_registers(raw_value)
                 encoded_uintreg[offset : offset + len(encoded_value)] = encoded_value
 
-        # Apply write delay
-        if self._config.timing is not None and self._config.timing.write_delay_ms > 0:
-            time.sleep(self._config.timing.write_delay_ms / 1000.0)
-
-        match first.register_type:
-            case "holding":
-                self._modbus.write_holding_registers(start_address, encoded_uintreg)
-            case "coil":
-                self._modbus.write_coils(start_address, encoded_boolcoils)
-            case "discrete" | "input":
-                raise ValueError(f"Cannot write to read-only register type: {first.register_type}")
-            case _:
-                raise ValueError(f"Unknown register type: {first.register_type}")
+        with self._write_lock:
+            self._apply_write_delay()
+            match first.register_type:
+                case "holding":
+                    self._modbus.write_holding_registers(start_address, encoded_uintreg)
+                case "coil":
+                    self._modbus.write_coils(start_address, encoded_boolcoils)
+                case "discrete" | "input":
+                    raise ValueError(f"Cannot write to read-only register type: {first.register_type}")
+                case _:
+                    raise ValueError(f"Unknown register type: {first.register_type}")
+            self._last_write_time = time.monotonic()
 
         return cast(list[register_value_type], values)  # this is forced by the processing loop above
