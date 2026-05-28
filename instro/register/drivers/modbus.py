@@ -518,7 +518,9 @@ class ModbusConfig(BaseModel):
 
     @cached_property
     def _writeable_groups(self) -> list[str]:
-        return list(self._group_index.keys())
+        # Groups are defined via read_group on registers; there is no config-level
+        # mechanism to designate a group as writable, so this is always empty.
+        return []
 
     @cached_property
     def _readable_registers(self) -> Sequence[RegisterDef]:
@@ -530,7 +532,8 @@ class ModbusConfig(BaseModel):
 
     @cached_property
     def _readable_groups(self) -> list[str]:
-        return []
+        # All defined groups are readable — read_group is the only way to create a group.
+        return list(self._group_index.keys())
 
     def _validate_protocol(self) -> None:
         """Reject configs whose ``protocol`` field is not ``"modbus"``."""
