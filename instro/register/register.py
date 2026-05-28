@@ -234,8 +234,6 @@ class InstroRegisterInstrument(Instrument):
 
         self._driver = driver
 
-        self._define_background_daemon()
-
     def open(self):
         """Establish connection to the device."""
         logger.info("Opening register device '%s'", self.name)
@@ -312,6 +310,3 @@ class InstroRegisterInstrument(Instrument):
         )
         self.publish(cmd)
         return cmd
-
-    def _define_background_daemon(self):
-        pass

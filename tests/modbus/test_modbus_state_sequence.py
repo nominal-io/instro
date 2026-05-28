@@ -20,7 +20,7 @@ from pymodbus.datastore import (
 from pymodbus.server import StartAsyncTcpServer
 
 from instro.register import InstroRegisterInstrument
-from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver, RegisterDef, TimingConfig
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver, TimingConfig
 from instro.utils.protocol.modbus import TCPConnectionConfig
 from instro.utils.types import DeviceInfo
 
@@ -78,7 +78,7 @@ def _make_config(name: str, *, with_timing: bool = False) -> ModbusConfig:
         device=DeviceInfo(name=name),
         connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         timing=TimingConfig(poll_interval=1.0) if with_timing else None,
-        registers=[RegisterDef(name="standalone", starting_address=100, data_type="uint16")],
+        registers=[ModbusRegisterDef(name="standalone", starting_address=100, data_type="uint16")],
     )
 
 

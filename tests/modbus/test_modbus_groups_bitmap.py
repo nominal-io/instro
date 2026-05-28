@@ -24,7 +24,7 @@ from pymodbus.datastore import (
 from pymodbus.server import StartAsyncTcpServer
 
 from instro.register import InstroRegisterInstrument
-from instro.register.drivers.modbus import BitDef, ModbusConfig, ModbusRegisterDriver, RegisterDef
+from instro.register.drivers.modbus import BitDef, ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver
 from instro.utils.protocol.modbus import TCPConnectionConfig
 from instro.utils.types import DeviceInfo
 
@@ -115,9 +115,9 @@ def device(modbus_server):
         device=DeviceInfo(name="group_test"),
         connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         registers=[
-            RegisterDef(name="temperature", starting_address=0, data_type="float32", read_group="sensors"),
-            RegisterDef(name="pressure", starting_address=2, data_type="float32", read_group="sensors"),
-            RegisterDef(
+            ModbusRegisterDef(name="temperature", starting_address=0, data_type="float32", read_group="sensors"),
+            ModbusRegisterDef(name="pressure", starting_address=2, data_type="float32", read_group="sensors"),
+            ModbusRegisterDef(
                 name="status",
                 starting_address=10,
                 data_type="uint16",
@@ -127,13 +127,13 @@ def device(modbus_server):
                     BitDef(name="bit_5", bit_index=5),
                 ],
             ),
-            RegisterDef(name="standalone", starting_address=100, data_type="uint16"),
-            RegisterDef(name="coil_a", starting_address=0, register_type="coil", read_group="coils"),
-            RegisterDef(name="coil_b", starting_address=1, register_type="coil", read_group="coils"),
-            RegisterDef(name="coil_c", starting_address=2, register_type="coil", read_group="coils"),
-            RegisterDef(name="di_a", starting_address=0, register_type="discrete", read_group="inputs"),
-            RegisterDef(name="di_b", starting_address=1, register_type="discrete", read_group="inputs"),
-            RegisterDef(name="di_c", starting_address=2, register_type="discrete", read_group="inputs"),
+            ModbusRegisterDef(name="standalone", starting_address=100, data_type="uint16"),
+            ModbusRegisterDef(name="coil_a", starting_address=0, register_type="coil", read_group="coils"),
+            ModbusRegisterDef(name="coil_b", starting_address=1, register_type="coil", read_group="coils"),
+            ModbusRegisterDef(name="coil_c", starting_address=2, register_type="coil", read_group="coils"),
+            ModbusRegisterDef(name="di_a", starting_address=0, register_type="discrete", read_group="inputs"),
+            ModbusRegisterDef(name="di_b", starting_address=1, register_type="discrete", read_group="inputs"),
+            ModbusRegisterDef(name="di_c", starting_address=2, register_type="discrete", read_group="inputs"),
         ],
     )
     dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
@@ -202,8 +202,8 @@ class TestGroupConfigValidation:
                 device=DeviceInfo(name="bad"),
                 connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
-                    RegisterDef(name="a", starting_address=0, register_type="holding", read_group="g1"),
-                    RegisterDef(name="b", starting_address=0, register_type="input", read_group="g1"),
+                    ModbusRegisterDef(name="a", starting_address=0, register_type="holding", read_group="g1"),
+                    ModbusRegisterDef(name="b", starting_address=0, register_type="input", read_group="g1"),
                 ],
             )
 
@@ -213,8 +213,8 @@ class TestGroupConfigValidation:
                 device=DeviceInfo(name="bad"),
                 connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
-                    RegisterDef(name="a", starting_address=0, read_group="g1"),
-                    RegisterDef(name="b", starting_address=1, read_group="g1", poll=False),
+                    ModbusRegisterDef(name="a", starting_address=0, read_group="g1"),
+                    ModbusRegisterDef(name="b", starting_address=1, read_group="g1", poll=False),
                 ],
             )
 
@@ -224,10 +224,10 @@ class TestGroupConfigValidation:
                 device=DeviceInfo(name="bad"),
                 connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
-                    RegisterDef(name="a", starting_address=0, read_group="g1"),
-                    RegisterDef(name="b", starting_address=1, read_group="g1"),
-                    RegisterDef(name="c", starting_address=2),  # non-member inside span
-                    RegisterDef(name="d", starting_address=3, read_group="g1"),
+                    ModbusRegisterDef(name="a", starting_address=0, read_group="g1"),
+                    ModbusRegisterDef(name="b", starting_address=1, read_group="g1"),
+                    ModbusRegisterDef(name="c", starting_address=2),  # non-member inside span
+                    ModbusRegisterDef(name="d", starting_address=3, read_group="g1"),
                 ],
             )
 
@@ -236,9 +236,9 @@ class TestGroupConfigValidation:
             device=DeviceInfo(name="ok"),
             connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
             registers=[
-                RegisterDef(name="a", starting_address=0, read_group="g1"),
-                RegisterDef(name="b", starting_address=1, read_group="g1"),
-                RegisterDef(name="c", starting_address=5),  # outside span — fine
+                ModbusRegisterDef(name="a", starting_address=0, read_group="g1"),
+                ModbusRegisterDef(name="b", starting_address=1, read_group="g1"),
+                ModbusRegisterDef(name="c", starting_address=5),  # outside span — fine
             ],
         )
 
@@ -246,7 +246,7 @@ class TestGroupConfigValidation:
 class TestBitmapConfigValidation:
     def test_bitmap_wrong_data_type(self):
         with pytest.raises(ValidationError, match="uint16"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint32",
@@ -255,7 +255,7 @@ class TestBitmapConfigValidation:
 
     def test_bitmap_wrong_register_type(self):
         with pytest.raises(ValidationError, match="holding or input"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 register_type="coil",
@@ -264,7 +264,7 @@ class TestBitmapConfigValidation:
 
     def test_bitmap_duplicate_bit_indices(self):
         with pytest.raises(ValidationError, match="Duplicate bit_index"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 bitmap=[BitDef(name="a", bit_index=0), BitDef(name="b", bit_index=0)],
@@ -276,8 +276,8 @@ class TestBitmapConfigValidation:
                 device=DeviceInfo(name="bad"),
                 connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
-                    RegisterDef(name="collision", starting_address=0),
-                    RegisterDef(
+                    ModbusRegisterDef(name="collision", starting_address=0),
+                    ModbusRegisterDef(
                         name="status",
                         starting_address=1,
                         bitmap=[BitDef(name="collision", bit_index=0)],

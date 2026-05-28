@@ -3,9 +3,11 @@
 from instro.register.drivers.modbus import (
     BitDef,
     ModbusConfig,
+    ModbusRegisterDef,
     ModbusRegisterDriver,
-    RegisterDef,
     TimingConfig,
 )
 
-__all__ = ["ModbusRegisterDriver", "ModbusConfig", "RegisterDef", "BitDef", "TimingConfig"]
+RegisterDef = ModbusRegisterDef  # backwards-compatible alias
+
+__all__ = ["ModbusRegisterDriver", "ModbusConfig", "ModbusRegisterDef", "RegisterDef", "BitDef", "TimingConfig"]

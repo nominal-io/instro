@@ -1,4 +1,4 @@
-"""Unit tests for Modbus config types (ModbusConfig, RegisterDef, connections).
+"""Unit tests for Modbus config types (ModbusConfig, ModbusRegisterDef, connections).
 
 Tests cover custom logic only — Pydantic field defaults and constraints are not tested.
 Scaling tests are in test_protocol_scaling.py.
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from instro.register.drivers.modbus import ModbusConfig, RegisterDef
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef
 from instro.utils.protocol.modbus import RTUConnectionConfig as RTUConnection
 from instro.utils.protocol.modbus import TCPConnectionConfig as TCPConnection
 from instro.utils.types import DeviceInfo, LinearScale
@@ -95,17 +95,17 @@ class TestTimingConfig:
 class TestRegisterDef:
     def test_register_count_16bit(self):
         for dt in ("uint16", "int16", "bool"):
-            reg = RegisterDef(name="test", starting_address=0, data_type=dt)
+            reg = ModbusRegisterDef(name="test", starting_address=0, data_type=dt)
             assert reg.register_count == 1, f"{dt} should span 1 register"
 
     def test_register_count_32bit(self):
         for dt in ("uint32", "int32", "float32"):
-            reg = RegisterDef(name="test", starting_address=0, data_type=dt)
+            reg = ModbusRegisterDef(name="test", starting_address=0, data_type=dt)
             assert reg.register_count == 2, f"{dt} should span 2 registers"
 
     def test_register_count_64bit(self):
         for dt in ("uint64", "int64", "float64"):
-            reg = RegisterDef(name="test", starting_address=0, data_type=dt)
+            reg = ModbusRegisterDef(name="test", starting_address=0, data_type=dt)
             assert reg.register_count == 4, f"{dt} should span 4 registers"
 
     def test_description_from_json(self):
@@ -150,8 +150,8 @@ class TestModbusConfigValidation:
                 device=DeviceInfo(name="dupes"),
                 connection=TCPConnection(host="127.0.0.1", port=502),
                 registers=[
-                    RegisterDef(name="temp", starting_address=0),
-                    RegisterDef(name="temp", starting_address=1),
+                    ModbusRegisterDef(name="temp", starting_address=0),
+                    ModbusRegisterDef(name="temp", starting_address=1),
                 ],
             )
 
@@ -182,7 +182,7 @@ class TestProgrammaticConfig:
             device=DeviceInfo(name="prog_test"),
             connection=TCPConnection(host="127.0.0.1", port=502),
             registers=[
-                RegisterDef(name="reg1", starting_address=0, data_type="uint16"),
+                ModbusRegisterDef(name="reg1", starting_address=0, data_type="uint16"),
             ],
         )
         assert config.device.name == "prog_test"

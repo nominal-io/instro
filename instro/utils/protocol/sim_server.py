@@ -19,8 +19,8 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class LoggingDataBlock(ModbusSequentialDataBlock):

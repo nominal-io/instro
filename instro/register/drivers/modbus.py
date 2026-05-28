@@ -146,7 +146,7 @@ class ModbusRegisterDef(RegisterBase):
         return data
 
     @model_validator(mode="after")
-    def _validate_register_type_constraints(self) -> "RegisterDef":
+    def _validate_register_type_constraints(self) -> ModbusRegisterDef:
         """Cross-field validation: scale, swap flags, address span, write limits, bitmap, write_value_map."""
         # scale is not allowed for coils and discrete inputs (single-bit values)
         if self.register_type in ("coil", "discrete") and self.scale is not None:
@@ -472,7 +472,6 @@ class ModbusRegisterDef(RegisterBase):
         return [int.from_bytes(raw_bytes[i : i + 2], "big") for i in range(0, len(raw_bytes), 2)]
 
 
-RegisterDef = ModbusRegisterDef  # compatibility alias
 # ============ Top-Level Config ============
 
 
@@ -484,7 +483,7 @@ class ModbusConfig(BaseModel):
     device: DeviceInfo
     timing: TimingConfig | None = None
     connection: ConnectionType = Field(discriminator="transport")
-    registers: list[RegisterDef] = Field(default_factory=list)
+    registers: list[ModbusRegisterDef] = Field(default_factory=list)
 
     def model_post_init(self, __context) -> None:
         """Cross-register validation: uniqueness, overlap, groups."""
@@ -501,15 +500,15 @@ class ModbusConfig(BaseModel):
     # so rebuilding on every access was real wasted work.
     # Type hints reflect the immutability (Mapping and Sequence are not mutable)
     @cached_property
-    def _register_index(self) -> Mapping[str, RegisterDef]:
+    def _register_index(self) -> Mapping[str, ModbusRegisterDef]:
         return {reg.name: reg for reg in self.registers}
 
     @cached_property
-    def _group_index(self) -> Mapping[str, Sequence[RegisterDef]]:
+    def _group_index(self) -> Mapping[str, Sequence[ModbusRegisterDef]]:
         return self._build_group_index()
 
     @cached_property
-    def _writeable_registers(self) -> Sequence[RegisterDef]:
+    def _writeable_registers(self) -> Sequence[ModbusRegisterDef]:
         return [reg for reg in self.registers if reg.register_type in ("holding", "coil")]
 
     @cached_property
@@ -519,7 +518,7 @@ class ModbusConfig(BaseModel):
         return []
 
     @cached_property
-    def _readable_registers(self) -> Sequence[RegisterDef]:
+    def _readable_registers(self) -> Sequence[ModbusRegisterDef]:
         # the list-comp-as-copy is technically not needed but it provides some protection
         # against accidental manipulation of the internal self.registers list.
         # the type hint (Sequence) also provides some type-checker protections
@@ -553,7 +552,7 @@ class ModbusConfig(BaseModel):
 
     def _validate_no_register_overlap(self) -> None:
         """Reject overlapping address ranges within each register type."""
-        by_type: dict[str, list[RegisterDef]] = {}
+        by_type: dict[str, list[ModbusRegisterDef]] = {}
         for reg in self.registers:
             by_type.setdefault(reg.register_type, []).append(reg)
 
@@ -620,9 +619,9 @@ class ModbusConfig(BaseModel):
             else:
                 groups[reg.read_group] = reg.register_type
 
-    def _build_group_index(self) -> Mapping[str, Sequence[RegisterDef]]:
+    def _build_group_index(self) -> Mapping[str, Sequence[ModbusRegisterDef]]:
         """Build an index of group_id -> registers, sorted by starting_address."""
-        groups: dict[str, list[RegisterDef]] = {}
+        groups: dict[str, list[ModbusRegisterDef]] = {}
         for reg in self.registers:
             if reg.read_group is not None:
                 groups.setdefault(reg.read_group, []).append(reg)
@@ -678,7 +677,7 @@ class ModbusConfig(BaseModel):
                         f"A write_group call would overwrite this register with a default value."
                     )
 
-    def get_group(self, group_id: str) -> Sequence[RegisterDef]:
+    def get_group(self, group_id: str) -> Sequence[ModbusRegisterDef]:
         """Get all registers in a group, sorted by starting address."""
         regs = self._group_index.get(group_id)
         if regs is not None:
@@ -696,7 +695,7 @@ class ModbusConfig(BaseModel):
 
         return cls.model_validate(raw)
 
-    def get_register(self, name: str) -> RegisterDef:
+    def get_register(self, name: str) -> ModbusRegisterDef:
         """Return the register definition for ``name``. Raises ``KeyError`` if not found."""
         reg = self._register_index.get(name)
         if reg is not None:
@@ -734,7 +733,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
         )
 
     @property
-    def writeable_registers(self) -> Sequence[RegisterDef]:
+    def writeable_registers(self) -> Sequence[ModbusRegisterDef]:
         return self._config._writeable_registers
 
     @property
@@ -742,7 +741,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
         return self._config._writeable_groups
 
     @property
-    def readable_registers(self) -> Sequence[RegisterDef]:
+    def readable_registers(self) -> Sequence[ModbusRegisterDef]:
         return self._config._readable_registers
 
     @property
@@ -767,7 +766,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
         """Unit/slave ID from the connection configuration."""
         return self._modbus.unit_id
 
-    def _read_register_decoded(self, reg: RegisterDef) -> register_value_type:
+    def _read_register_decoded(self, reg: ModbusRegisterDef) -> register_value_type:
         """Read a register and decode based on data type."""
         match reg.register_type:
             case "holding":
@@ -874,7 +873,7 @@ class ModbusRegisterDriver(RegisterDriverBase):
         _, scaled = self.read_group_raw_scaled(group_id)
         return scaled
 
-    def _encode_and_write_register(self, reg: RegisterDef, raw_value: register_value_type | bool) -> None:
+    def _encode_and_write_register(self, reg: ModbusRegisterDef, raw_value: register_value_type | bool) -> None:
         """Write a value to a register, encoding based on data type."""
         match reg.register_type:
             case "holding":

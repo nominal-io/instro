@@ -15,8 +15,8 @@ from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import (
     BitDef,
     ModbusConfig,
+    ModbusRegisterDef,
     ModbusRegisterDriver,
-    RegisterDef,
     TimingConfig,
 )
 from instro.utils.protocol.modbus import TCPConnectionConfig
@@ -32,7 +32,7 @@ config = ModbusConfig(
     connection=TCPConnectionConfig(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
     timing=TimingConfig(poll_interval=0.5),
     registers=[
-        RegisterDef(
+        ModbusRegisterDef(
             name="temperature",
             starting_address=0,
             register_type="holding",
@@ -40,28 +40,28 @@ config = ModbusConfig(
             write_min=0.0,
             write_max=500.0,
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="pressure",
             starting_address=2,
             register_type="input",
             data_type="float32",
             read_group="sensors",
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="flow_rate",
             starting_address=4,
             register_type="input",
             data_type="float32",
             read_group="sensors",
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="scaled_count",
             starting_address=16,
             register_type="input",
             data_type="uint32",
             scale=LinearScale(gain=0.001, offset=0),
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="mode",
             starting_address=4096,
             register_type="holding",
@@ -70,7 +70,7 @@ config = ModbusConfig(
             write_min=0,
             write_max=2,
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="enable",
             starting_address=0,
             register_type="coil",

@@ -23,7 +23,7 @@ from pymodbus.datastore import (
 from pymodbus.server import StartAsyncTcpServer
 
 from instro.register import InstroRegisterInstrument
-from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver, RegisterDef
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver
 from instro.utils.protocol.modbus import TCPConnectionConfig
 from instro.utils.types import DeviceInfo, LinearScale
 
@@ -88,23 +88,23 @@ def device(modbus_server):
         device=DeviceInfo(name="write_test"),
         connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         registers=[
-            RegisterDef(
+            ModbusRegisterDef(
                 name="mode",
                 starting_address=0,
                 data_type="uint16",
                 write_value_map={"off": 0, "heat": 1, "cool": 2, "auto": 3},
             ),
-            RegisterDef(
+            ModbusRegisterDef(
                 name="limited",
                 starting_address=10,
                 data_type="uint16",
                 write_min=100,
                 write_max=1000,
             ),
-            RegisterDef(name="plain_uint16", starting_address=20, data_type="uint16"),
-            RegisterDef(name="plain_float32", starting_address=30, data_type="float32"),
-            RegisterDef(name="coil", starting_address=0, register_type="coil", data_type="bool"),
-            RegisterDef(name="input_reg", starting_address=0, register_type="input", data_type="uint16"),
+            ModbusRegisterDef(name="plain_uint16", starting_address=20, data_type="uint16"),
+            ModbusRegisterDef(name="plain_float32", starting_address=30, data_type="float32"),
+            ModbusRegisterDef(name="coil", starting_address=0, register_type="coil", data_type="bool"),
+            ModbusRegisterDef(name="input_reg", starting_address=0, register_type="input", data_type="uint16"),
         ],
     )
     dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
@@ -201,15 +201,15 @@ class TestTypeChecking:
 class TestWriteFieldConfigValidation:
     def test_write_fields_on_input_rejected(self):
         with pytest.raises(ValidationError, match="holding registers"):
-            RegisterDef(name="bad", starting_address=0, register_type="input", write_min=0)
+            ModbusRegisterDef(name="bad", starting_address=0, register_type="input", write_min=0)
 
     def test_inverted_min_max_rejected(self):
         with pytest.raises(ValidationError, match="less than or equal"):
-            RegisterDef(name="bad", starting_address=0, write_min=100, write_max=10)
+            ModbusRegisterDef(name="bad", starting_address=0, write_min=100, write_max=10)
 
     def test_value_map_duplicate_values_rejected(self):
         with pytest.raises(ValidationError, match="Duplicate value"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 write_value_map={"a": 1, "b": 1},
@@ -217,7 +217,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_exceeds_write_max_rejected(self):
         with pytest.raises(ValidationError, match="above write_max"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 write_max=10,
@@ -226,7 +226,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_float_for_int_type_rejected(self):
         with pytest.raises(ValidationError, match="non-integer float"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -239,7 +239,7 @@ class TestWriteFieldConfigValidation:
         # non-bool registers and rejects them, mirroring the runtime rejection of direct
         # bool writes to integer registers.
         with pytest.raises(ValidationError, match="is a bool"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -248,7 +248,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_bool_allowed_on_bool_register(self):
         # On a bool-type register, bool is the natural value type — keep it accepted.
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="bool",
@@ -263,7 +263,7 @@ class TestWriteFieldConfigValidation:
         # gain=0.1 means physical 22.5 -> raw 225, which is a valid uint16.
         # The old validator unconditionally rejected fractional floats; the runtime
         # only rejects them when scale is None, so this config should be accepted.
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="uint16",
@@ -277,7 +277,7 @@ class TestWriteFieldConfigValidation:
         # integer register. Runtime _validate_raw_value_range rejects this
         # (abs(raw - round(raw)) > 1e-6); config validation must match.
         with pytest.raises(ValidationError, match="not an integer"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -291,7 +291,7 @@ class TestWriteFieldConfigValidation:
         # Using a holding register with data_type="bool" exercises this without
         # coupling the test to whether write_value_map is allowed on coil itself.
         with pytest.raises(ValidationError, match="True/False or 0/1"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="bool",
@@ -300,7 +300,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_on_bool_register_rejects_non_binary_int(self):
         with pytest.raises(ValidationError, match="True/False or 0/1"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="bool",
@@ -308,7 +308,7 @@ class TestWriteFieldConfigValidation:
             )
 
     def test_value_map_on_bool_register_accepts_bool_and_binary_int(self):
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="bool",
