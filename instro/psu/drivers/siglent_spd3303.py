@@ -36,11 +36,11 @@ class SiglentSPD3303(PSUDriverBase):
     def get_output_status(self, channel: int = 1) -> bool:
         return bool(self.query_status()[f"ch{channel}_enable"])
 
-    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by SiglentSPD3303")
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection_level is not supported by SiglentSPD3303")
 
-    def get_overvoltage_protection(self, channel: int = 1) -> float:
-        raise FeatureNotSupportedError("get_overvoltage_protection is not supported by SiglentSPD3303")
+    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection_level is not supported by SiglentSPD3303")
 
     def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
         raise FeatureNotSupportedError("set_overcurrent_protection is not supported by SiglentSPD3303")

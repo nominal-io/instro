@@ -222,8 +222,12 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=N)` | `ch{N}.current` | telemetry |
 | `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
 | `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
-| `set_overvoltage_protection(channel=N)` | `ch{N}.ovp.cmd` | command |
-| `get_overvoltage_protection(channel=N)` | `ch{N}.ovp` | telemetry |
+| `set_overvoltage_protection_level(channel=N)` | `ch{N}.ovp.cmd` | command |
+| `get_overvoltage_protection_level(channel=N)` | `ch{N}.ovp` | telemetry |
+| `set_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled.cmd` | command |
+| `get_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled` | telemetry |
+| `set_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay.cmd` | command |
+| `get_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay` | telemetry |
 | `set_overcurrent_protection(channel=N)` | `ch{N}.ocp.cmd` | command |
 | `get_overcurrent_protection(channel=N)` | `ch{N}.ocp` | telemetry |
 | `set_remote_sense(channel=N)` | `ch{N}.remote_sense.cmd` | command |
@@ -242,8 +246,12 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=1)` | Read measured output current in amperes |
 | `output_enable(enable, channel=1)` | Enable (True) or disable (False) the output |
 | `get_output_status(channel=1)` | Query output enable state (returns Measurement with bool value) |
-| `set_overvoltage_protection(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
-| `get_overvoltage_protection(channel=1)` | Read the overvoltage protection threshold in volts |
+| `set_overvoltage_protection_level(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
+| `get_overvoltage_protection_level(channel=1)` | Read the overvoltage protection threshold in volts |
+| `set_overvoltage_protection_enabled(enabled, channel=1)` | Enable or disable overvoltage protection |
+| `get_overvoltage_protection_enabled(channel=1)` | Query whether overvoltage protection is enabled |
+| `set_overvoltage_protection_delay(delay, channel=1)` | Set the overvoltage protection trip delay in seconds |
+| `get_overvoltage_protection_delay(channel=1)` | Read the overvoltage protection trip delay in seconds |
 | `set_overcurrent_protection(current, channel=1)` | Set the overcurrent protection threshold in amperes |
 | `get_overcurrent_protection(channel=1)` | Read the overcurrent protection threshold in amperes |
 | `set_remote_sense(enabled, channel=1)` | Enable (True) or disable (False) remote (4-wire) sense |
@@ -370,11 +378,23 @@ def output_enable(self, enable: bool, channel: int) -> None:
 def get_output_status(self, channel: int) -> bool:
     """Query and return the output enable status on `channel`."""
 
-def set_overvoltage_protection(self, voltage: float, channel: int) -> None:
+def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
     """Set the overvoltage protection threshold (volts) on `channel`."""
 
-def get_overvoltage_protection(self, channel: int) -> float:
+def get_overvoltage_protection_level(self, channel: int) -> float:
     """Query and return the overvoltage protection threshold in volts."""
+
+def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overvoltage protection on `channel`."""
+
+def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overvoltage protection is enabled."""
+
+def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+    """Set the overvoltage protection trip delay (seconds) on `channel`."""
+
+def get_overvoltage_protection_delay(self, channel: int) -> float:
+    """Query and return the overvoltage protection trip delay in seconds."""
 
 def set_overcurrent_protection(self, current: float, channel: int) -> None:
     """Set the overcurrent protection threshold (amperes) on `channel`."""
@@ -389,19 +409,7 @@ def get_remote_sense(self, channel: int) -> bool:
     """Query and return the remote sense enable status on `channel`."""
 ```
 
-Every method on `PSUDriverBase` is declared with `@abc.abstractmethod`, so each concrete driver must explicitly implement or opt out of every method. For unsupported features, raise [`FeatureNotSupportedError`](/instrumentation/exceptions#featurenotsupportederror):
-
-```python
-from instro.psu import PSUDriverBase
-from instro.lib.exceptions import FeatureNotSupportedError
-
-
-class MyPSU(PSUDriverBase):
-    ...
-
-    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by MyPSU")
-```
+Required output-control and measurement methods on `PSUDriverBase` are declared with `@abc.abstractmethod`. Optional protection and sense methods default to `NotImplementedError`; override the ones the driver implements. See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling.
 
 ### Talking to the Instrument
 

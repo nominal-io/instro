@@ -37,24 +37,6 @@ class TDKLambdaGenesys(PSUDriverBase):
             self._check_errors()
         return resp == "ON"
 
-    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
-        raise NotImplementedError("set_overvoltage_protection is not implemented for TDKLambdaGenesys")
-
-    def get_overvoltage_protection(self, channel: int = 1) -> float:
-        raise NotImplementedError("get_overvoltage_protection is not implemented for TDKLambdaGenesys")
-
-    def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
-        raise NotImplementedError("set_overcurrent_protection is not implemented for TDKLambdaGenesys")
-
-    def get_overcurrent_protection(self, channel: int = 1) -> float:
-        raise NotImplementedError("get_overcurrent_protection is not implemented for TDKLambdaGenesys")
-
-    def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
-        raise NotImplementedError("set_remote_sense is not implemented for TDKLambdaGenesys")
-
-    def get_remote_sense(self, channel: int = 1) -> bool:
-        raise NotImplementedError("get_remote_sense is not implemented for TDKLambdaGenesys")
-
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
             self._visa.write(command)

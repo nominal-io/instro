@@ -38,12 +38,6 @@ class BK9115(PSUDriverBase):
             self._check_errors()
         return resp == "1"
 
-    def set_overvoltage_protection(self, voltage: float, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overvoltage_protection is not supported by BK9115")
-
-    def get_overvoltage_protection(self, channel: int = 1) -> float:
-        raise FeatureNotSupportedError("get_overvoltage_protection is not supported by BK9115")
-
     def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
         raise FeatureNotSupportedError("set_overcurrent_protection is not supported by BK9115")
 
