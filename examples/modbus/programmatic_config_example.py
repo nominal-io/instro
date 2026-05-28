@@ -1,6 +1,6 @@
 """Example: Building a Modbus config programmatically (no JSON file).
 
-Constructs a ModbusConfig in Python and passes it directly to ModbusDevice.
+Constructs a ModbusConfig in Python and passes it directly to ModbusRegisterDriver.
 Useful when configs are generated dynamically or assembled from multiple sources.
 
 Start the sim server first:
@@ -11,15 +11,16 @@ Then run this script.
 
 import time
 
-from instro.modbus import (
-    DeviceInfo,
-    LinearScale,
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import (
+    BitDef,
     ModbusConfig,
-    ModbusDevice,
+    ModbusRegisterDriver,
     RegisterDef,
-    TCPConnection,
     TimingConfig,
 )
+from instro.utils.protocol.modbus import TCPConnectionConfig
+from instro.utils.types import DeviceInfo, LinearScale
 
 config = ModbusConfig(
     device=DeviceInfo(
@@ -28,7 +29,7 @@ config = ModbusConfig(
         manufacturer="Sim Corp",
         model="SIM-3000",
     ),
-    connection=TCPConnection(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
+    connection=TCPConnectionConfig(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
     timing=TimingConfig(poll_interval=0.5),
     registers=[
         RegisterDef(
@@ -79,13 +80,11 @@ config = ModbusConfig(
 
 
 def main():
-    device = ModbusDevice(config, autostart=True)
+    device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+    device.open()
 
     try:
         print(f"Connected to {config.device.name}")
-        print(
-            f"Polling {len([r for r in config.registers if r.poll])} registers every {config.timing.poll_interval}s\n"
-        )
 
         # Read sensors
         print(f"temperature: {device.read('temperature')}")

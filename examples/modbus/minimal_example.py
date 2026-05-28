@@ -4,19 +4,23 @@ Start the sim server first:
     python -m instro.modbus.sim_server
 
 Then in another shell:
-    python -m instro.modbus.examples.minimal_example
+    uv run python examples/modbus/minimal_example.py
 """
 
+import json
 from pathlib import Path
 
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
 CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020}
 
 
 def main() -> None:
-    device = ModbusDevice(config=CONFIG_PATH, connection=CONNECTION)
+    raw = json.loads(CONFIG_PATH.read_text())
+    config = ModbusConfig.model_validate({**raw, "connection": CONNECTION})
+    device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
     device.open()
     try:
         # Read a holding register (float32 temperature, seeded to 72.5 in the sim).
