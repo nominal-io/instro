@@ -731,9 +731,6 @@ class ModbusRegisterDriver(RegisterDriverBase):
         Raises:
             ValueError: If no connection is provided in the config
         """
-        # validate we actually have a connection configuration before doing anything else -- the pydantic ModbusConfig class allows this to be None
-        if configuration.connection is None:
-            raise ValueError("Provided configuration has no section for connection information")
         self._config = configuration
         self._modbus = ModbusDriver(configuration.connection, thread_safe=thread_safe)
         self._last_write_time: float = 0.0
