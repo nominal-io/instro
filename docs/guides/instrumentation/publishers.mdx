@@ -114,7 +114,7 @@ The `NominalCorePublisher` includes built-in batching via the Nominal Core Pytho
 
 ### NominalConnectPublisher
 
-Streams real-time data to Nominal Connect for live visualization and monitoring during tests that utilize the Nominal Connect Desktop Application.
+Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application.
 
 **Constructor Parameters:**
 
@@ -172,7 +172,7 @@ If `custom_file_name` is not provided, the output file is named `measurements-YY
 
 - **`avro`** (default): Compact binary format with snappy compression. Uses the same schema as Nominal Core ingest, so captured files can be uploaded after the fact without transformation. Recommended for production captures.
 - **`csv`**: One row per `(timestamp, channel, value, tags)` tuple. Good for quick inspection in spreadsheet tools.
-- **`json`**: Appends each publish to a JSON array. Convenient for debugging small runs — not recommended for high-rate data, as the file is re-read and rewritten on every publish call.
+- **`json`**: Appends each publish to a JSON array. Convenient for debugging small runs, but not recommended for high-rate data, as the file is re-read and rewritten on every publish call.
 
 **Example:**
 

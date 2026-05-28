@@ -9,11 +9,11 @@ The Protocols module extends the Nominal Instrumentation Library to support comm
 
 ## Why Protocols?
 
-The Instrumentation Library's [instrument drivers](/instrumentation/overview) (PSU, DMM, ELoad, etc.) provide rich, purpose-built interfaces for specific instrument categories. The Protocols module takes a complementary approach — instead of building a dedicated driver for every device, it lets you describe any device's communication interface in a configuration file and start collecting data immediately.
+The Instrumentation Library's [instrument drivers](/instrumentation/overview) (PSU, DMM, ELoad, etc.) provide rich, purpose-built interfaces for specific instrument categories. The Protocols module takes a complementary approach. Instead of building a dedicated driver for every device, it lets you describe any device's communication interface in a configuration file and start collecting data immediately.
 
 This is valuable for several reasons:
 
-- **Broader hardware coverage, faster.** Industrial environments are full of devices that communicate over standard protocols — PLCs, sensors, motor controllers, environmental monitors, and more. Rather than waiting for a dedicated driver for each one, you can write a config file and be up and running in minutes.
+- **Broader hardware coverage, faster.** Industrial environments are full of devices that communicate over standard protocols: PLCs, sensors, motor controllers, environmental monitors, and more. Rather than waiting for a dedicated driver for each one, you can write a config file and be up and running in minutes.
 
 - **Config-driven workflows.** The configuration file becomes a portable, shareable description of how to talk to a device. Teams can version control their device configs, reuse them across test setups, and onboard new hardware without writing any Python. Changing which registers to poll or adjusting scaling factors is a config edit, not a code change.
 
@@ -23,4 +23,4 @@ This is valuable for several reasons:
 
 ## Supported Protocols
 
-- **[Modbus](/instrumentation/protocols/modbus)** — Modbus TCP and RTU client with config-driven register access, automatic polling, and full publisher support.
+- **[Modbus](/instrumentation/protocols/modbus)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and full publisher support.

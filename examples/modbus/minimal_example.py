@@ -24,7 +24,7 @@ def main() -> None:
         print(f"temperature: {m.latest}")
 
         # Write a holding register. `setpoint` declares a linear scale (gain=0.1),
-        # so we pass the physical value — the driver converts to raw internally.
+        # so we pass the physical value. The driver converts to raw internally.
         device.write("setpoint", 30.0)
 
         # Read back to confirm the write landed.

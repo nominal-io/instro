@@ -84,8 +84,8 @@ psu_legacy = InstroPSU(name="main", driver=BK9115(...), num_channels=1, legacy_n
 - **Backwards compatibility.** If your dashboards or recorded datasets were keyed on the pre-v1.0 channel names, flip the flag on each instrument as a single-line stopgap while you update downstream consumers.
 
 **Scope:**
-- Categories with a v1.0 rename — PSU, ELoad, I2C, DAQ digital channels, Scope — honor the flag.
-- Categories with no v1.0 rename — DMM, Modbus, DAQ analog/relay — ignore the flag (the published names are unchanged either way).
+- Categories with a v1.0 rename (PSU, ELoad, I2C, DAQ digital channels, Scope) honor the flag.
+- Categories with no v1.0 rename (DMM, Modbus, DAQ analog/relay) ignore the flag (the published names are unchanged either way).
 
 **Limitations:**
 - All-or-nothing per instrument. There is no way to use new names for some channels and legacy for others on the same instance.

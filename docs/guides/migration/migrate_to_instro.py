@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 REPLACEMENTS: list[tuple[str, str]] = [
-    # --- structural import-path rewrites (CON-2349) ---
+    # --- structural import-path rewrites (INSTRO-51) ---
     # `nominal_instro.instruments.<cat>` collapses to `instro.<cat>`. Each
     # category's instrument class and its driver base now live together in
     # `instro/<cat>/<cat>.py` (no separate driver module). Concrete vendor
@@ -87,12 +87,13 @@ REPLACEMENTS: list[tuple[str, str]] = [
     # --- class renames (Nominal → Instro / bare) ---
     ("NominalInstrumentationErrorCodes", "InstrumentationErrorCodes"),
     # `NominalDAQFacade`, `NominalDMMFacade`, `NominalI2CFacade`, and
-    # `NominalPSUFacade` were removed in CON-2488, CON-2287, CON-2289, and
-    # CON-2288 respectively. Keep these rows as passthroughs so the shorter
-    # category-class alternatives below (NominalDAQ, NominalDMM, NominalI2C,
-    # NominalPSU) cannot match inside the facade names and silently produce
-    # a now-nonexistent symbol. Users keep the original name and hit a clear
-    # ImportError they must resolve by migrating away from the facade pattern.
+    # `NominalPSUFacade` were removed in INSTRO-311, INSTRO-158, INSTRO-156,
+    # and INSTRO-157 respectively. Keep these rows as passthroughs so the
+    # shorter category-class alternatives below (NominalDAQ, NominalDMM,
+    # NominalI2C, NominalPSU) cannot match inside the facade names and
+    # silently produce a now-nonexistent symbol. Users keep the original
+    # name and hit a clear ImportError they must resolve by migrating away
+    # from the facade pattern.
     ("NominalDAQFacade", "NominalDAQFacade"),
     ("NominalDMMFacade", "NominalDMMFacade"),
     ("NominalI2CFacade", "NominalI2CFacade"),

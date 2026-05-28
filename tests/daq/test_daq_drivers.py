@@ -375,7 +375,7 @@ def test_hw_timestamper_many_batches_no_drift():
 def test_hw_timestamper_rapid_reads_no_overlap():
     """Regression: two reads returning 0.5ms apart still produce non-overlapping timestamps.
 
-    This is the exact bug scenario from CON-1531. At 1kHz with 100 samples per batch,
+    This is the exact bug scenario from INSTRO-150. At 1kHz with 100 samples per batch,
     each batch covers 100ms of data. If a second read returns only 0.5ms after the first,
     HWTimestamper must still place batch2 entirely after batch1.
     """

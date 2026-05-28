@@ -1,6 +1,6 @@
 """Example: I2C basic example.
 
-Requires the Aardvark vendor package — install with ``uv sync --extra i2c``
+Requires the Aardvark vendor package: install with ``uv sync --extra i2c``
 (or ``pip install 'instro[i2c]'``).
 """
 

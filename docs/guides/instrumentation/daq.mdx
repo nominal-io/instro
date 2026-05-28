@@ -101,7 +101,7 @@ daq = InstroDAQ(
     driver=MCCDriver(device_id="344371:0"),  # "<unique_id>" or "<unique_id>:<board_number>"
 )
 
-# Keysight 34980A (SCPI/VISA device — driver owns its VisaDriver)
+# Keysight 34980A (SCPI/VISA device: driver owns its VisaDriver)
 from instro.daq.drivers import Keysight34980A
 
 daq = InstroDAQ(
@@ -140,7 +140,7 @@ Refer to your device's documentation for channel naming.
 
 ### Scalers
 
-It's common for the data being read by an analog input channel to need scaling in order to represent a real world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
+It's common for the data being read by an analog input channel to need scaling to represent a real-world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
 
 `InstroDAQ` supports adding a `Scaler` object when you configure your analog channel. The `Measurement` published and returned by `read_analog` will contain these scaled values.
 
@@ -214,7 +214,7 @@ Refer to your device's documentation for channel naming.
 Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
 
 - **direction**: Use `Direction.INPUT` for digital input lines or `Direction.OUTPUT` for output lines.
-- **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific—refer to your device documentation.
+- **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific. Refer to your device documentation.
 - **logic**: Sets whether the channel treats a HIGH or LOW physical level as "True". This is required for correct logic interpretation.
 - **logic_level** *(optional)*: Specifies the voltage threshold (in volts) used to distinguish HIGH from LOW, if your device supports changing this.
 - **alias** *(optional)*: A logical name for the channel, helpful for clarity and for use with publishers.
@@ -666,7 +666,7 @@ from instro.daq import InstroDAQ
 # LabJack version
 daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 
-# Switch to NI DAQmx — same configuration code works!
+# Switch to NI DAQmx: same configuration code works!
 daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
 ```
 

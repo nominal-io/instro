@@ -20,7 +20,7 @@ from instro.daq.types import (
 from instro.utils import Measurement
 from labjack import ljm
 
-# TODO: Remove this for [CON-987: Add Context Managers](https://linear.app/nominal-io/issue/CON-987/add-context-managers)
+# TODO: Remove this for [INSTRO-89: Add Context Managers](https://linear.app/nominal-io/issue/INSTRO-89/add-context-managers)
 # We use a callback functionality of the LJM driver. This is for performance reasons vs. python threading.
 # Registering this python callback to the c library
 # can create python segmentation faults when the python interpreter is shutting down.
