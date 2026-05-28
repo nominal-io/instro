@@ -8,7 +8,7 @@ description: External vendor drivers and libraries required to use Nominal Instr
 <Note>
 **Understanding the distinction**: These vendor-installable drivers are **different from** the driver classes that a `Instrument` is composed with:
 
-- **Vendor-installable drivers**: External libraries/drivers developed by instrument vendors that must be installed to your system operating system. These are necessary to install, regardless of using `instro`, in order to interact with the vendor hardware on the system in any way/environment.
+- **Vendor-installable drivers**: External libraries/drivers developed by instrument vendors that must be installed to your system operating system. These are necessary to install, regardless of using `instro`, to interact with the vendor hardware on the system in any way/environment.
 - **Nominal driver classes**: The vendor/model-specific Python code that `Instrument` uses to interact with the external software drivers.
 </Note>
 
@@ -87,7 +87,7 @@ The MCC Universal Library is the Measurement Computing driver stack for their US
 ### Installation
 
 1. Download and install the MCC DAQ Software (includes InstaCal and the Universal Library) from the [Measurement Computing website](https://digilent.com/reference/software/instacal/start).
-2. Open **InstaCal** and confirm your device appears in the board list. Note the device's unique ID—you pass this as the `device_id` argument to `MCCDriver()` when constructing the driver handed to `InstroDAQ`.
+2. Open **InstaCal** and confirm your device appears in the board list. Note the device's unique ID. You pass this as the `device_id` argument to `MCCDriver()` when constructing the driver handed to `InstroDAQ`.
 3. The Python bindings (`mcculw`) are installed automatically when you install the `instro[mccdaq]` or `instro[daq]` extras.
 
 <Note>

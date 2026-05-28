@@ -160,7 +160,7 @@ daq.close()
 
 ## Two ways to get data
 
-You can get measurements into your script in two ways. **Both options publish data** whenever a measurement is produced; the difference is who triggers the reads and how often.
+You can get measurements into your script in two ways. **Both options publish data** whenever a measurement is produced. The difference is who triggers the reads and how often.
 
 |              | Background acquisition                                                                                                                                                                        | On-demand acquisition                                                                                                                                                             |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -170,7 +170,7 @@ You can get measurements into your script in two ways. **Both options publish da
 <Note>
 **Recommendation**
 
-We recommend the **background daemon pattern** for most workflows—data is always available and publishing, and it often simplifies application code, especially for bufferred acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
+Nominal recommends the **background daemon pattern** for most workflows. Data is always available and publishing, and it often simplifies application code, especially for bufferred acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
 
 Depending on your application, you may never need to call `get_channel()`, but the background daemon will always publish measurements for later analysis in tools like Nominal Core.
 
@@ -180,9 +180,9 @@ Instrument-specific pages (e.g. [InstroDAQ](/instrumentation/daq)) describe the 
 
 # High Level Architecture
 
-1. **Instrument Types / HALs** — Distinct classes for each type of instrument (e.g., DAQ, PSU, ELoad, I2C), each providing an opinionated and unified usage model. This design exposes a tailored interface that reflects typical usage patterns, making common workflows consistent across different vendors and models.
-2. **Drivers** — Vendor- or model-specific drivers that handle low-level communication intricacies. HALs rely on these drivers to implement vendor- or model-specific details within the context of their higher level usage model.
-3. **Publishers** — Components responsible for recording or transmitting instrument data and commands; for example, streaming measurement data to a dataset.
+1. **Instrument Types / HALs**: Distinct classes for each type of instrument (e.g., DAQ, PSU, ELoad, I2C), each providing an opinionated and unified usage model. This design exposes a tailored interface that reflects typical usage patterns, making common workflows consistent across different vendors and models.
+2. **Drivers**: Vendor- or model-specific drivers that handle low-level communication intricacies. HALs rely on these drivers to implement vendor- or model-specific details within the context of their higher level usage model.
+3. **Publishers**: Components responsible for recording or transmitting instrument data and commands. For example, streaming measurement data to a dataset.
 
 <img src="/images/diagram_architecture.png" />
 
