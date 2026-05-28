@@ -19,7 +19,7 @@ from instro.daq.types import (
 )
 from instro.lib import Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
-from instro.lib.publishers.publisher import Publisher
+from instro.lib.publishers import Publisher
 from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)

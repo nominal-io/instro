@@ -5,7 +5,7 @@ import time
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
-from instro.lib.publishers.publisher import Publisher
+from instro.lib.publishers import Publisher
 from instro.unstable.scope.driver import ScopeDriverBase
 from instro.unstable.scope.types import (
     AcquisitionMode,

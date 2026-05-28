@@ -10,11 +10,10 @@ import time
 from importlib.metadata import version
 from typing import Callable
 
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
-from instro.lib.publishers.publisher import Publisher
 from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
 
 

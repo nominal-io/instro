@@ -12,7 +12,7 @@ from typing import Callable
 from instro.dmm.types import DMMMeasurementConfig, MeasurementFunction, RangeMode
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
-from instro.lib.publishers.publisher import Publisher
+from instro.lib.publishers import Publisher
 
 logger = logging.getLogger(__name__)
 
