@@ -986,7 +986,8 @@ class ModbusRegisterDriver(RegisterDriverBase):
             encoded_boolcoils = [False] * total_count
         else:
             encoded_uintreg = [0] * total_count
-        for i, (reg, value) in enumerate(zip(regs, values)):
+        written: list[register_value_type] = []
+        for reg, value in zip(regs, values):
             # NOTE: Addresses within this span that are not covered by any configured register
             # will be written with 0/False. If the device has a dense register map, it may
             # expect a non-zero value at a gap address — writing 0 could be incorrect. If the
@@ -994,17 +995,16 @@ class ModbusRegisterDriver(RegisterDriverBase):
             # undefined device register and is usually harmless. Some devices actively reject
             # writes to undefined/reserved registers, which would surface as a Modbus error;
             # there is no way to prevent this at the driver level.
+            if isinstance(value, str):
+                value = reg._string_to_value_map(value)
             offset = reg.starting_address - start_address
             if is_bit_type:
                 encoded_boolcoils[offset] = bool(value)
             else:
-                if isinstance(value, str):
-                    value = reg._string_to_value_map(value)
-                    values[i] = value
-
                 raw_value = reg.scale.to_raw(value) if reg.scale is not None else value
                 encoded_value = reg.encode_value_to_registers(raw_value)
                 encoded_uintreg[offset : offset + len(encoded_value)] = encoded_value
+            written.append(value)
 
         with self._write_lock:
             self._apply_write_delay()
