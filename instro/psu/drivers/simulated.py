@@ -48,11 +48,17 @@ class SimulatedPSU(PSUDriverBase):
     def get_overvoltage_protection_level(self, channel: int = 1) -> float:
         raise FeatureNotSupportedError("get_overvoltage_protection_level is not supported by SimulatedPSU")
 
-    def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overcurrent_protection is not supported by SimulatedPSU")
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_level is not supported by SimulatedPSU")
 
-    def get_overcurrent_protection(self, channel: int = 1) -> float:
-        raise FeatureNotSupportedError("get_overcurrent_protection is not supported by SimulatedPSU")
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection_level is not supported by SimulatedPSU")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_enabled is not supported by SimulatedPSU")
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by SimulatedPSU")
 
     def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
         raise FeatureNotSupportedError("set_remote_sense is not supported by SimulatedPSU")

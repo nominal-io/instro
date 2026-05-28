@@ -228,8 +228,10 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled` | telemetry |
 | `set_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay.cmd` | command |
 | `get_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay` | telemetry |
-| `set_overcurrent_protection(channel=N)` | `ch{N}.ocp.cmd` | command |
-| `get_overcurrent_protection(channel=N)` | `ch{N}.ocp` | telemetry |
+| `set_overcurrent_protection_level(channel=N)` | `ch{N}.ocp.cmd` | command |
+| `get_overcurrent_protection_level(channel=N)` | `ch{N}.ocp` | telemetry |
+| `set_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled.cmd` | command |
+| `get_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled` | telemetry |
 | `set_remote_sense(channel=N)` | `ch{N}.remote_sense.cmd` | command |
 | `get_remote_sense(channel=N)` | `ch{N}.remote_sense` | telemetry |
 
@@ -252,8 +254,10 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_overvoltage_protection_enabled(channel=1)` | Query whether overvoltage protection is enabled |
 | `set_overvoltage_protection_delay(delay, channel=1)` | Set the overvoltage protection trip delay in seconds |
 | `get_overvoltage_protection_delay(channel=1)` | Read the overvoltage protection trip delay in seconds |
-| `set_overcurrent_protection(current, channel=1)` | Set the overcurrent protection threshold in amperes |
-| `get_overcurrent_protection(channel=1)` | Read the overcurrent protection threshold in amperes |
+| `set_overcurrent_protection_level(current, channel=1)` | Set the overcurrent protection threshold in amperes |
+| `get_overcurrent_protection_level(channel=1)` | Read the overcurrent protection threshold in amperes |
+| `set_overcurrent_protection_enabled(enabled, channel=1)` | Enable or disable overcurrent protection |
+| `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
 | `set_remote_sense(enabled, channel=1)` | Enable (True) or disable (False) remote (4-wire) sense |
 | `get_remote_sense(channel=1)` | Query whether remote sense is enabled (returns Measurement with bool value) |
 | `start()` | Begin background telemetry thread |
@@ -396,11 +400,17 @@ def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
 def get_overvoltage_protection_delay(self, channel: int) -> float:
     """Query and return the overvoltage protection trip delay in seconds."""
 
-def set_overcurrent_protection(self, current: float, channel: int) -> None:
+def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
     """Set the overcurrent protection threshold (amperes) on `channel`."""
 
-def get_overcurrent_protection(self, channel: int) -> float:
+def get_overcurrent_protection_level(self, channel: int) -> float:
     """Query and return the overcurrent protection threshold in amperes."""
+
+def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overcurrent protection on `channel`."""
+
+def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overcurrent protection is enabled."""
 
 def set_remote_sense(self, enabled: bool, channel: int) -> None:
     """Enable or disable remote sense on `channel`."""

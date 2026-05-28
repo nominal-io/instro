@@ -82,13 +82,21 @@ class PSUDriverBase(abc.ABC):
         """Query the overvoltage protection trip delay (seconds) on `channel`."""
         raise NotImplementedError(f"get_overvoltage_protection_delay is not implemented for {type(self).__name__}")
 
-    def set_overcurrent_protection(self, current: float, channel: int = 1) -> None:
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
         """Set the overcurrent protection threshold (amperes) on `channel`."""
-        raise NotImplementedError(f"set_overcurrent_protection is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"set_overcurrent_protection_level is not implemented for {type(self).__name__}")
 
-    def get_overcurrent_protection(self, channel: int = 1) -> float:
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
         """Query the overcurrent protection threshold (amperes) on `channel`."""
-        raise NotImplementedError(f"get_overcurrent_protection is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"get_overcurrent_protection_level is not implemented for {type(self).__name__}")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        """Enable or disable overcurrent protection on `channel`."""
+        raise NotImplementedError(f"set_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+        """Query whether overcurrent protection is enabled on `channel`."""
+        raise NotImplementedError(f"get_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
 
     def set_remote_sense(self, enabled: bool, channel: int = 1) -> None:
         """Enable or disable remote sense on `channel`."""
@@ -308,10 +316,10 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overcurrent_protection(self, current: float, channel: int = 1, **kwargs) -> Command:
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1, **kwargs) -> Command:
         """Set the overcurrent protection threshold (amperes) on ``channel``."""
         return self._execute_command(
-            self._driver.set_overcurrent_protection,
+            self._driver.set_overcurrent_protection_level,
             value=current,
             channel=channel,
             channel_suffix="ocp",
@@ -319,13 +327,34 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overcurrent_protection(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overcurrent_protection_level(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the overcurrent protection threshold (amperes) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
-            self._driver.get_overcurrent_protection,
+            self._driver.get_overcurrent_protection_level,
             channel=channel,
             channel_suffix="ocp",
             legacy_suffix="ocp",
+            **kwargs,
+        )
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+        """Enable or disable overcurrent protection on ``channel``."""
+        return self._execute_command(
+            self._driver.set_overcurrent_protection_enabled,
+            value=enabled,
+            channel=channel,
+            channel_suffix="ocp.enabled",
+            legacy_suffix="ocp_en",
+            **kwargs,
+        )
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
+        """Query whether overcurrent protection is enabled on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_overcurrent_protection_enabled,
+            channel=channel,
+            channel_suffix="ocp.enabled",
+            legacy_suffix="ocp_en",
             **kwargs,
         )
 
