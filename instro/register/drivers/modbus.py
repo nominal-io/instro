@@ -499,6 +499,7 @@ class ModbusConfig(BaseModel):
         self._validate_no_register_overlap()
         self._validate_group_register_types()
         self._validate_group_span()
+        self._validate_no_non_group_register_in_group_span()
 
     # `registers` is effectively immutable after __init__ (no callers mutate it), so both
     # indices are safe to cache. These are hit on every background poll via _read_group,
@@ -653,6 +654,34 @@ class ModbusConfig(BaseModel):
                     f"(addresses {first.starting_address}-{last.starting_address + (0 if is_bit_type else last.register_count - 1)}), "
                     f"which exceeds the Modbus limit of {limit} {unit} per read."
                 )
+
+    def _validate_no_non_group_register_in_group_span(self) -> None:
+        """Reject configs where a non-group register falls within a group's address span.
+
+        A write_group call bulk-writes the entire address span from the first to the
+        last register in the group. A non-member register within that span would be
+        silently overwritten with 0/False.
+        """
+        for group_id, group_regs in self._group_index.items():
+            # group_regs is sorted by starting_address — see _build_group_index
+            first = group_regs[0]
+            last = group_regs[-1]
+            is_bit_type = first.register_type in ("coil", "discrete")
+            group_start = first.starting_address
+            group_end = last.starting_address if is_bit_type else last.starting_address + last.register_count - 1
+            group_member_names = {r.name for r in group_regs}
+
+            for reg in self.registers:
+                if reg.name in group_member_names or reg.register_type != first.register_type:
+                    continue
+                reg_start = reg.starting_address
+                reg_end = reg.starting_address if is_bit_type else reg.starting_address + reg.register_count - 1
+                if reg_start <= group_end and reg_end >= group_start:
+                    raise ValueError(
+                        f"Register '{reg.name}' (addresses {reg_start}-{reg_end}) falls within "
+                        f"the address span of group '{group_id}' (addresses {group_start}-{group_end}). "
+                        f"A write_group call would overwrite this register with a default value."
+                    )
 
     def get_group(self, group_id: str) -> Sequence[RegisterDef]:
         """Get all registers in a group, sorted by starting address."""
@@ -961,9 +990,14 @@ class ModbusRegisterDriver(RegisterDriverBase):
         else:
             encoded_uintreg = [0] * total_count
         for i, (reg, value) in enumerate(zip(regs, values)):
-            offset = (
-                reg.starting_address - start_address
-            )  # this is pulled from the existing design but seems very very wrong for coils
+            # NOTE: Addresses within this span that are not covered by any configured register
+            # will be written with 0/False. If the device has a dense register map, it may
+            # expect a non-zero value at a gap address — writing 0 could be incorrect. If the
+            # device has a sparse register map, a gap in the config likely reflects an
+            # undefined device register and is usually harmless. Some devices actively reject
+            # writes to undefined/reserved registers, which would surface as a Modbus error;
+            # there is no way to prevent this at the driver level.
+            offset = reg.starting_address - start_address
             if is_bit_type:
                 encoded_boolcoils[offset] = bool(value)
             else:

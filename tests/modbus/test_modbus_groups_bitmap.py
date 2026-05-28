@@ -218,6 +218,30 @@ class TestGroupConfigValidation:
                 ],
             )
 
+    def test_non_group_register_within_group_span(self):
+        with pytest.raises(ValidationError, match="falls within the address span"):
+            ModbusConfig(
+                device=DeviceInfo(name="bad"),
+                connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+                registers=[
+                    RegisterDef(name="a", starting_address=0, read_group="g1"),
+                    RegisterDef(name="b", starting_address=1, read_group="g1"),
+                    RegisterDef(name="c", starting_address=2),  # non-member inside span
+                    RegisterDef(name="d", starting_address=3, read_group="g1"),
+                ],
+            )
+
+    def test_non_group_register_outside_group_span_is_valid(self):
+        ModbusConfig(
+            device=DeviceInfo(name="ok"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+            registers=[
+                RegisterDef(name="a", starting_address=0, read_group="g1"),
+                RegisterDef(name="b", starting_address=1, read_group="g1"),
+                RegisterDef(name="c", starting_address=5),  # outside span — fine
+            ],
+        )
+
 
 class TestBitmapConfigValidation:
     def test_bitmap_wrong_data_type(self):
