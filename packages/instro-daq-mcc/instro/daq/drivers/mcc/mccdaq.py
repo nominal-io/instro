@@ -57,6 +57,7 @@ class MCCDriver(DAQDriverBase):
             buffer_multiplier: Circular-buffer size relative to per-fetch size.
                 Higher values tolerate more jitter at the cost of memory.
         """
+        super().__init__()
         self._info: DaqDeviceInfo | None = None
         if ":" in device_id:
             serial, board_number = device_id.split(":", 1)
@@ -70,10 +71,10 @@ class MCCDriver(DAQDriverBase):
         self._memhandle: int = 0
         self._buffer_size: int = 0  # Actual buffer size (fetch_size * multiplier)
 
-        self.points_in_buffer: int = 0
         self._samples_consumed: int = 0  # Track consumed samples for streaming reads
         self._actual_sample_period: int = 0
         self._timestamper: HWTimestamper | None = None
+
         self._ai_channel_ranges: dict[str, ULRange] = {}  # Cache for resolved ULRange per AI channel
         self._ao_channel_ranges: dict[str, ULRange] = {}  # Cache for resolved ULRange per AO channel
 
@@ -155,13 +156,13 @@ class MCCDriver(DAQDriverBase):
         gain_list: list[ULRange] = []
 
         # Add analog input channels
-        for channel in self.hal.ai_channels.values():
+        for channel in self.ai_channels.values():
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(self._ai_channel_ranges[channel.physical_channel])
 
         # Uncomment when hardware timed digital input is supported
-        # for channel in self.hal.di_channels.values():
+        # for channel in self.di_channels.values():
         #     if isinstance(channel, DigitalPortChannel):
         #         port = self._get_port(channel.physical_channel)
         #         channel_list.append(port.type)
@@ -217,6 +218,8 @@ class MCCDriver(DAQDriverBase):
         except Exception:
             pass
 
+        self.ai_channels[channel.alias] = channel
+
     def configure_ao_channel(self, channel: AnalogChannel):
         """Configure an analog output channel on the MCC DAQ device."""
         ao_info = self._info.get_ao_info()
@@ -244,6 +247,8 @@ class MCCDriver(DAQDriverBase):
             )
         except Exception:
             pass
+
+        self.ao_channels[channel.alias] = channel
 
     def _get_range(self, channel: AnalogChannel) -> ULRange:
         # Find the tightest ULRange that includes the configured range
@@ -279,7 +284,7 @@ class MCCDriver(DAQDriverBase):
             )
 
         # TODO: mcculw supports per channel samples rates
-        for channel in self.hal.ai_channels.values():
+        for channel in self.ai_channels.values():
             try:
                 ul.set_config(
                     InfoType.BOARDINFO,
@@ -290,6 +295,8 @@ class MCCDriver(DAQDriverBase):
                 )
             except Exception:
                 pass
+
+        self.ai_hw_timing_config = hw_timing_config
 
     def start(self, **kwargs):
         """Start the MCC DAQ device for hw timed data acquisition."""
@@ -305,7 +312,9 @@ class MCCDriver(DAQDriverBase):
                 "Consider using software-timed acquisition or a device that supports DaqInScan."
             )
 
-        hw_timing_config = self.hal.ai_hw_timing_configs
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
+        hw_timing_config = self.ai_hw_timing_config
         samples_per_channel = hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
 
@@ -419,7 +428,9 @@ class MCCDriver(DAQDriverBase):
         if not self._memhandle:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
 
-        samples_per_channel = self.hal.ai_hw_timing_configs.samples_per_channel
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
+        samples_per_channel = self.ai_hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
         ai_supported_scan_options = ai_info.supported_scan_options
 
@@ -536,7 +547,7 @@ class MCCDriver(DAQDriverBase):
 
     def write_analog_value(self, channel: AnalogChannel, value: float):
         """Write an analog value to an analog output channel."""
-        if channel not in self.hal.ao_channels.values():
+        if channel not in self.ao_channels.values():
             raise ValueError(f"Channel '{channel}' is not configured as an analog output channel")
 
         # TODO: add support for non-voltage output channels
@@ -643,6 +654,8 @@ class MCCDriver(DAQDriverBase):
         else:
             raise ValueError(f"Unsupported digital channel type: {type(channel)}")
 
+        self.do_channels[channel.alias] = channel
+
     def configure_di_channel(self, channel: DigitalChannel):
         """Configure a digital input channel on the MCC DAQ device."""
         port = self._get_port(channel.physical_channel)
@@ -663,6 +676,8 @@ class MCCDriver(DAQDriverBase):
                 ) from e
         else:
             raise ValueError(f"Unsupported digital channel type: {type(channel)}")
+
+        self.di_channels[channel.alias] = channel
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
         """Write 0/1 to a single DO line (``DigitalLineChannel``)."""
