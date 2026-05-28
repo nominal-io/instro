@@ -106,21 +106,16 @@ class ModbusRegisterDef(RegisterBase):
         - `scale` is not allowed for coils and discrete inputs.
     """
 
-    # name: str = Field(description="Unique name/alias for this register") #moved to RegisterBase
-    # description: str | None = None #moved to RegisterBase
     starting_address: int = Field(ge=0, le=65535)
     register_type: Literal["holding", "input", "coil", "discrete"] = "holding"
     data_type: DataType = "uint16"
     byte_swap: bool = False
     word_swap: bool = False
     long_swap: bool = False
-    # scale: ScaleType | None = None #moved to RegisterBase
     bitmap: list[BitDef] | None = None
     poll: bool = True
     write_min: float | int | None = None
     write_max: float | int | None = None
-    # write_value_map: dict[str, int | float] | None = None #moved to RegisterBase
-    # read_group: str | None = None #moved to RegisterBase
 
     @model_validator(mode="before")
     @classmethod
