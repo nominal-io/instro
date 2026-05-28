@@ -21,7 +21,7 @@ import time
 from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-HOST = "192.168.100.26"
+HOST = "<set your device IP here, ie 192.168...>"
 PORT = 502
 
 # Acceptable error for the DAC->AIN loopback. The T4 DAC has ~10 mV typical
