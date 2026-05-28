@@ -3,8 +3,9 @@
 Connect via a TCP socket VISA resource such as ``TCPIP0::127.0.0.1::5025::SOCKET``.
 """
 
-from instro.psu import FeatureNotSupportedError, PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
+from instro.psu import PSUDriverBase
 
 
 class SimulatedPSU(PSUDriverBase):

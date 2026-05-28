@@ -17,10 +17,10 @@ from instro.daq.types import (
     RelayChannel,
     TerminalConfig,
 )
-from instro.utils import Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
-from instro.utils.types import Command
+from instro.lib import Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers.publisher import Publisher
+from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
 

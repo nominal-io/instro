@@ -1,0 +1,32 @@
+---
+title: Exceptions
+description: Handling Instro-specific errors
+---
+
+# Exceptions
+
+Instro-specific errors inherit from `InstroError`.
+
+```python
+from instro.lib.exceptions import InstroError
+
+try:
+    ...
+except InstroError:
+    ...
+```
+
+## FeatureNotSupportedError
+
+`FeatureNotSupportedError` is raised when a driver cannot provide a requested feature.
+
+```python
+from instro.lib.exceptions import FeatureNotSupportedError
+
+try:
+    psu.set_remote_sense(True, channel=1)
+except FeatureNotSupportedError:
+    ...
+```
+
+Use `FeatureNotSupportedError` when the connected instrument or driver interface does not expose the feature. Use `NotImplementedError` when the feature exists but the driver has not implemented it yet.

@@ -10,12 +10,12 @@ import time
 from importlib.metadata import version
 from typing import Callable
 
-from instro.utils.publishers import NominalCorePublisher
-from instro.utils.publishers.channel_buffer import (
+from instro.lib.publishers import NominalCorePublisher
+from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
-from instro.utils.publishers.publisher import Publisher
-from instro.utils.types import BackgroundDaemonConfig, Command, Measurement
+from instro.lib.publishers.publisher import Publisher
+from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
 
 
 def publish_command(func: Callable) -> Callable:

@@ -9,9 +9,9 @@ import time
 from typing import Callable
 
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers.publisher import Publisher
 
 logger = logging.getLogger(__name__)
 

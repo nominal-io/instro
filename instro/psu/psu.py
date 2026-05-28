@@ -8,23 +8,15 @@ import threading
 import time
 from typing import Any, Callable
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers.publisher import Publisher
 
 logger = logging.getLogger(__name__)
 
 
-class FeatureNotSupportedError(Exception):
-    """Raised when a PSU driver is asked to use a feature its hardware does not expose."""
-
-
 class PSUDriverBase(abc.ABC):
-    """Vendor PSU driver contract. Concrete drivers own their transport and lifecycle.
-
-    Every method is ``@abc.abstractmethod``. Drivers whose hardware does not expose
-    a given feature raise ``FeatureNotSupportedError`` from their override.
-    """
+    """Base class for PSU drivers."""
 
     @abc.abstractmethod
     def open(self) -> None:

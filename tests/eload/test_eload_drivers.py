@@ -8,7 +8,7 @@ import pytest
 from instro.eload import ELoadDriverBase, InstroELoad
 from instro.eload.drivers.bk_85xxb import BK85XXB, loadmode_to_unit
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils.transports import SerialConfig, VisaConfig
+from instro.lib.transports import SerialConfig, VisaConfig
 
 # --- BK85XXB unit tests (driver-owned transport over a mocked VisaDriver) ---
 

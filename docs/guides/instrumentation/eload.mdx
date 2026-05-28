@@ -78,7 +78,7 @@ Choose the concrete driver that matches the electronic load model, then pass the
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::...")
 try:
@@ -100,7 +100,7 @@ import time
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload import InstroELoad
 from instro.eload import LoadMode
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -141,7 +141,7 @@ import time
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload import InstroELoad
 from instro.eload import LoadMode
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -359,7 +359,7 @@ Here's the complete driver implementation for B&K Precision 85xx Series electron
 ```python
 from instro.eload import ELoadDriverBase
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 def loadmode_to_unit(mode: LoadMode) -> str:
@@ -433,7 +433,7 @@ For drivers that aren't shipped in the library, construct `InstroELoad` with you
 ```python
 from instro.eload import LoadMode, InstroELoad
 from instro.eload import ELoadDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomELoadDriver(ELoadDriverBase):

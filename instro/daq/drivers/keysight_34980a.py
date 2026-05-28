@@ -19,8 +19,8 @@ from instro.daq.types import (
     Logic,
     RelayChannel,
 )
-from instro.utils.transports.visa import VisaConfig, VisaDriver
-from instro.utils.types import Measurement
+from instro.lib.transports.visa import VisaConfig, VisaDriver
+from instro.lib.types import Measurement
 
 
 @dataclass

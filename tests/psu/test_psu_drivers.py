@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from instro.lib.transports import SerialConfig, VisaConfig
 from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.drivers import BK9115, BK9140, RigolDP800, SiglentSPD3303, SimulatedPSU, TDKLambdaGenesys
-from instro.utils.transports import SerialConfig, VisaConfig
 
 # --- BK9115 ---
 
@@ -469,8 +469,8 @@ def test_legacy_naming_default_is_false() -> None:
 
 def test_publish_command_rejects_method_returning_measurement() -> None:
     """@publish_command raises TypeError when the wrapped method returns a Measurement."""
-    from instro.utils import Measurement
-    from instro.utils.instrument import publish_command
+    from instro.lib import Measurement
+    from instro.lib.instrument import publish_command
 
     class _Bad(InstroPSU):
         @publish_command
@@ -484,8 +484,8 @@ def test_publish_command_rejects_method_returning_measurement() -> None:
 
 def test_publish_measurement_rejects_method_returning_command() -> None:
     """@publish_measurement raises TypeError when the wrapped method returns a Command."""
-    from instro.utils import Command
-    from instro.utils.instrument import publish_measurement
+    from instro.lib import Command
+    from instro.lib.instrument import publish_measurement
 
     class _Bad(InstroPSU):
         @publish_measurement
@@ -499,7 +499,7 @@ def test_publish_measurement_rejects_method_returning_command() -> None:
 
 def test_publish_measurement_passes_through_none() -> None:
     """@publish_measurement returns None without publishing when the method returns None."""
-    from instro.utils.instrument import publish_measurement
+    from instro.lib.instrument import publish_measurement
 
     class _Quiet(InstroPSU):
         @publish_measurement

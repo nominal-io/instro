@@ -14,8 +14,8 @@ import time
 from instro.eload import InstroELoad
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload.types import LoadMode
-from instro.utils.publishers.nominal_core import NominalCorePublisher
-from instro.utils.transports import SerialConfig, VisaConfig
+from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.transports import SerialConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL7::INSTR"
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

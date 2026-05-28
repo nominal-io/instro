@@ -45,8 +45,8 @@ Every custom instrument is a subclass of `Instrument`. The base class owns the p
 import random
 import time
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class SimpleTempController(Instrument):
@@ -132,7 +132,7 @@ print(f"current={latest:.1f}")
 To stream the same data to Nominal Core instead of (or in addition to) the in-memory buffer, attach a publisher before `start()`:
 
 ```python
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 controller.add_publisher(NominalCorePublisher("<dataset_rid>"))
 ```

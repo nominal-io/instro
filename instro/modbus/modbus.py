@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 
 from pymodbus.exceptions import ConnectionException as PymodbusConnectionException
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers.publisher import Publisher
 
 from .types import (
     BOOL_DATA_TYPES,

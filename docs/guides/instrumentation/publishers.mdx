@@ -27,7 +27,7 @@ daq = InstroDAQ(
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 daq = InstroDAQ(
     name="myDAQ",
@@ -54,7 +54,7 @@ All publishers implement a simple protocol with two required methods:
 
 ```python
 from typing import Protocol
-from instro.utils.types import Measurement, Command
+from instro.lib.types import Measurement, Command
 
 class Publisher(Protocol):
     def publish(self, data: Measurement | Command, **kwargs):
@@ -97,7 +97,7 @@ NominalCorePublisher(
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.abc123..."
 
@@ -132,7 +132,7 @@ NominalConnectPublisher(
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers.nominal_connect import NominalConnectPublisher
+from instro.lib.publishers.nominal_connect import NominalConnectPublisher
 
 import connect_python
 
@@ -179,7 +179,7 @@ If `custom_file_name` is not provided, the output file is named `measurements-YY
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers import FilePublisher
+from instro.lib.publishers import FilePublisher
 
 daq = InstroDAQ(
     name="myDAQ",
@@ -194,7 +194,7 @@ daq = InstroDAQ(
 
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.utils.publishers import FilePublisher, NominalCorePublisher
+from instro.lib.publishers import FilePublisher, NominalCorePublisher
 
 daq = InstroDAQ(
     name="myDAQ",
@@ -218,7 +218,7 @@ If you only need a local file as a fallback for when network connectivity to Nom
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 daq = InstroDAQ(
     name="myDAQ",
@@ -232,7 +232,7 @@ daq = InstroDAQ(
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 daq.add_publisher(NominalCorePublisher(dataset_rid="ri.catalog..."))
@@ -266,7 +266,7 @@ class Publisher(Protocol):
 ### Example
 This publisher prints to the console every time a `Measurement` is published corresponding to a predefied <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
 ```python
-from instro.utils.types import Measurement, Command
+from instro.lib.types import Measurement, Command
 
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
@@ -313,8 +313,8 @@ BasicBufferedPublisher(
 import time
 from instro.psu.drivers import SimulatedPSU
 from instro.psu import InstroPSU
-from instro.utils.publishers import BasicBufferedPublisher
-from instro.utils.types import Measurement, Command
+from instro.lib.publishers import BasicBufferedPublisher
+from instro.lib.types import Measurement, Command
 
 # Custom publisher that prints to console
 class PrintChannelPublisher:
@@ -381,8 +381,8 @@ QueuedPublisher(
 import time
 from instro.psu.drivers import SimulatedPSU
 from instro.psu import InstroPSU
-from instro.utils.publishers import QueuedPublisher
-from instro.utils.types import Measurement, Command
+from instro.lib.publishers import QueuedPublisher
+from instro.lib.types import Measurement, Command
 
 # Custom publisher with artificial delay to simulate slow I/O
 class SlowPublisher:

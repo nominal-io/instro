@@ -10,6 +10,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.publishers.publisher import Publisher
 from instro.unstable.ethernetip.ethernetip_types import (
     BOOL_DATA_TYPES,
     INTEGER_DATA_TYPES,
@@ -17,8 +19,6 @@ from instro.unstable.ethernetip.ethernetip_types import (
     EtherNetIPConnectionInfo,
     TagDef,
 )
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.publishers.publisher import Publisher
 
 
 def _load_native_ethernetip() -> SimpleNamespace:

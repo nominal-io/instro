@@ -30,7 +30,7 @@ If you're working with a non-VISA protocol — Modbus, raw TCP without VISA fram
 The most common use of `VisaDriver` is as a transport inside an instrument driver. Here it is on its own, talking to a VISA instrument directly:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::0x2A8D::0x0101::MY12345::INSTR")
 visa.open()
@@ -116,7 +116,7 @@ Here is a minimal `InstroPSU`-compatible driver for a hypothetical SCPI power su
 
 ```python
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class MyVendorPSU(PSUDriverBase):
@@ -173,7 +173,7 @@ The driver is then plugged into the instrument type the same way as any built-in
 
 ```python
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 psu = InstroPSU(
     name="labPSU",
@@ -205,7 +205,7 @@ Two patterns from this example are worth calling out because they recur in every
 For non-default backends, terminators, timeouts, or serial settings, pass a `VisaConfig` instead of a plain resource string:
 
 ```python
-from instro.utils.transports import (
+from instro.lib.transports import (
     ControlFlow,
     Parity,
     SerialConfig,

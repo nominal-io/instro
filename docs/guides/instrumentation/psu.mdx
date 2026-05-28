@@ -70,7 +70,7 @@ Choose the concrete driver that matches the power supply model, then pass the in
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::...")
 try:
@@ -91,7 +91,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -129,7 +129,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -250,22 +250,6 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_remote_sense(channel=1)` | Query whether remote sense is enabled (returns Measurement with bool value) |
 | `start()` | Begin background telemetry thread |
 | `stop()` | End background telemetry thread |
-
-## FeatureNotSupportedError
-
-`FeatureNotSupportedError` is raised by an `InstroPSU` method when the underlying driver does not support the requested feature on the connected hardware. Power supplies vary widely in which features they expose over their remote-control interface — for example, some bench supplies omit programmable overvoltage and overcurrent protection, and most do not expose remote (4-wire) sense as a software-controlled setting. The error is the driver's way of telling the caller "this instrument does not expose this feature," as opposed to a transport failure or an invalid argument.
-
-```python
-from instro.psu import FeatureNotSupportedError
-
-try:
-    psu.set_overvoltage_protection(15.0, channel=1)
-except FeatureNotSupportedError:
-    # The connected driver does not expose OVP.
-    ...
-```
-
----
 
 # Simulated Power Supply
 
@@ -405,10 +389,11 @@ def get_remote_sense(self, channel: int) -> bool:
     """Query and return the remote sense enable status on `channel`."""
 ```
 
-Every method on `PSUDriverBase` is declared with `@abc.abstractmethod`, so each concrete driver must explicitly implement or opt out of every method. For features the hardware does not expose, raise `FeatureNotSupportedError`:
+Every method on `PSUDriverBase` is declared with `@abc.abstractmethod`, so each concrete driver must explicitly implement or opt out of every method. For unsupported features, raise [`FeatureNotSupportedError`](/instrumentation/exceptions#featurenotsupportederror):
 
 ```python
-from instro.psu import FeatureNotSupportedError, PSUDriverBase
+from instro.psu import PSUDriverBase
+from instro.lib.exceptions import FeatureNotSupportedError
 
 
 class MyPSU(PSUDriverBase):
@@ -437,7 +422,7 @@ Here's a representative driver implementation for the B&K Precision 9115-series 
 
 ```python
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class BK9115(PSUDriverBase):
@@ -508,7 +493,7 @@ For drivers that aren't shipped in the library, construct `InstroPSU` with your 
 ```python
 from instro.psu import InstroPSU
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomPSUDriver(PSUDriverBase):

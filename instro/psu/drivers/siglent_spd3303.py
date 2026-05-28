@@ -1,7 +1,8 @@
 """Siglent SPD3303-series PSU driver."""
 
-from instro.psu import FeatureNotSupportedError, PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
+from instro.psu import PSUDriverBase
 
 
 class SiglentSPD3303(PSUDriverBase):
