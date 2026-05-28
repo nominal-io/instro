@@ -72,7 +72,7 @@ The conventions are:
 
 | Old                                  | New                                |
 | ------------------------------------ | ---------------------------------- |
-| `NominalDAQ`, `NominalDAQFacade`     | `InstroDAQ`, `InstroDAQFacade`     |
+| `NominalDAQ`                         | `InstroDAQ`                        |
 | `NominalDMM`                         | `InstroDMM`                        |
 | `NominalPSU`                         | `InstroPSU`                        |
 | `NominalI2C`                         | `I2CInterface`                     |
@@ -94,6 +94,7 @@ These facade classes were removed entirely as part of the INSTRO-231 driver-shap
 | `NominalPSUFacade`     | INSTRO-157 | Drop the facade. Driver methods take the configuration they need directly.   |
 | `NominalI2CFacade`     | INSTRO-156 | Drop the facade. Driver methods take the configuration they need directly.   |
 | `NominalScopeFacade`   | INSTRO-171 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalDAQFacade`     | INSTRO-311 | Drop the facade. Drivers track their own channels and timing state.          |
 
 ## Automated codemod
 

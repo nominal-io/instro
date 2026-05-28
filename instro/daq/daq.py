@@ -3,7 +3,7 @@
 import abc
 import logging
 import time
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.types import (
@@ -23,31 +23,6 @@ from instro.utils.publishers.publisher import Publisher
 from instro.utils.types import Command
 
 logger = logging.getLogger(__name__)
-
-
-class APIInstroDAQ(Protocol):
-    """Read-only view of InstroDAQ state exposed to drivers (timing + per-direction channel maps)."""
-
-    @property
-    def ai_hw_timing_configs(self) -> HWTimingConfig: ...
-
-    @property
-    def ai_sample_rate(self) -> float: ...
-
-    @property
-    def channels(self) -> list[DAQChannel]: ...
-
-    @property
-    def ai_channels(self) -> dict[str, AnalogChannel]: ...
-
-    @property
-    def ao_channels(self) -> dict[str, AnalogChannel]: ...
-
-    @property
-    def di_channels(self) -> dict[str, DigitalChannel]: ...
-
-    @property
-    def do_channels(self) -> dict[str, DigitalChannel]: ...
 
 
 class HWTimestamper:
@@ -77,15 +52,44 @@ class HWTimestamper:
 
 
 class DAQDriverBase(abc.ABC):
-    """Vendor DAQ driver contract. Concrete drivers own their transport and lifecycle.
+    """Vendor DAQ driver contract.
 
-    The composed ``InstroDAQ`` installs an ``InstroDAQFacade`` (implements
-    ``APIInstroDAQ``) onto ``self.hal`` so drivers can read back configured
-    channels and timing without coupling to the instrument's internal state.
+    The driver is the single source of truth for configured channels and
+    timing config. The base initializes empty dicts/slots in ``__init__`` so
+    every concrete driver has the same shape; subclasses call
+    ``super().__init__()`` and then populate the dicts inside their own
+    ``configure_*`` methods (``self.ai_channels[channel.alias] = channel``,
+    ``self.ai_hw_timing_config = hw_timing_config``, etc.). ``InstroDAQ``
+    proxies these via ``@property`` for user introspection — it does not
+    keep its own copies.
     """
 
     points_in_buffer: int
-    hal: APIInstroDAQ
+
+    ai_channels: dict[str, AnalogChannel]
+    ao_channels: dict[str, AnalogChannel]
+    di_channels: dict[str, DigitalChannel]
+    do_channels: dict[str, DigitalChannel]
+    relay_channels: dict[str, RelayChannel]
+
+    ai_hw_timing_config: HWTimingConfig | None
+    ao_hw_timing_config: HWTimingConfig | None
+    di_hw_timing_config: HWTimingConfig | None
+    do_hw_timing_config: HWTimingConfig | None
+
+    def __init__(self) -> None:
+        self.points_in_buffer = 0
+
+        self.ai_channels = {}
+        self.ao_channels = {}
+        self.di_channels = {}
+        self.do_channels = {}
+        self.relay_channels = {}
+
+        self.ai_hw_timing_config = None
+        self.ao_hw_timing_config = None
+        self.di_hw_timing_config = None
+        self.do_hw_timing_config = None
 
     @abc.abstractmethod
     def open(self):
@@ -109,8 +113,8 @@ class DAQDriverBase(abc.ABC):
         self,
         channel: AnalogChannel,
     ):
-        """Register an AO channel. Default is a no-op; override if the driver supports analog output."""
-        ...
+        """Register an AO channel. Override if the driver supports analog output."""
+        raise NotImplementedError("Analog Output has not been configured for this driver")
 
     @abc.abstractmethod
     def configure_ai_hw_timing(
@@ -240,14 +244,17 @@ class DAQDriverBase(abc.ABC):
         """Build a ``RelayChannel`` for ``physical_channel`` (e.g. ``"3101"`` = slot 3 / channel 101).
 
         Default implementation suits the Keysight 34980A's slot/channel
-        addressing; override if the driver needs different parsing.
+        addressing; override if the driver needs different parsing. Overrides
+        must also record the resulting channel on ``self.relay_channels``.
         """
         alias = alias or physical_channel
-        return RelayChannel(
+        channel = RelayChannel(
             physical_channel=physical_channel,
             alias=alias,
             direction=Direction.OUTPUT,  # Relay control is treated as an output command
         )
+        self.relay_channels[channel.alias] = channel
+        return channel
 
     def close_relay(self, channel: RelayChannel):
         """Close the relay (connect the circuit). Override if the driver supports relays."""
@@ -303,24 +310,61 @@ class InstroDAQ(Instrument):
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
-        self._driver.hal = InstroDAQFacade(self)
-
-        self._channels: list[DAQChannel] = []
-
-        self._analog_input_channels: dict[str, AnalogChannel] = {}
-        self._analog_output_channels: dict[str, AnalogChannel] = {}
-        self._digital_input_channels: dict[str, DigitalChannel] = {}
-        self._digital_output_channels: dict[str, DigitalChannel] = {}
-        self._relay_channels: dict[str, RelayChannel] = {}
-
-        self._ai_hw_timing_config: HWTimingConfig | None = None
-        self._ao_hw_timing_config: HWTimingConfig | None = None
-        self._di_hw_timing_config: HWTimingConfig | None = None
-        self._do_hw_timing_config: HWTimingConfig | None = None
 
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
         )
+
+    @property
+    def driver(self) -> DAQDriverBase:
+        """The underlying vendor driver. Source of truth for all channel/timing state."""
+        return self._driver
+
+    @property
+    def channels(self) -> list[DAQChannel]:
+        """All configured AI/AO/DI/DO channels (excludes relays)."""
+        return [
+            *self._driver.ai_channels.values(),
+            *self._driver.ao_channels.values(),
+            *self._driver.di_channels.values(),
+            *self._driver.do_channels.values(),
+        ]
+
+    @property
+    def ai_channels(self) -> dict[str, AnalogChannel]:
+        return self._driver.ai_channels
+
+    @property
+    def ao_channels(self) -> dict[str, AnalogChannel]:
+        return self._driver.ao_channels
+
+    @property
+    def di_channels(self) -> dict[str, DigitalChannel]:
+        return self._driver.di_channels
+
+    @property
+    def do_channels(self) -> dict[str, DigitalChannel]:
+        return self._driver.do_channels
+
+    @property
+    def relay_channels(self) -> dict[str, RelayChannel]:
+        return self._driver.relay_channels
+
+    @property
+    def ai_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._driver.ai_hw_timing_config
+
+    @property
+    def ao_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._driver.ao_hw_timing_config
+
+    @property
+    def di_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._driver.di_hw_timing_config
+
+    @property
+    def do_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._driver.do_hw_timing_config
 
     # Need to ensure background interval never adds a wait for InstroDAQ
     @property
@@ -401,14 +445,10 @@ class InstroDAQ(Instrument):
             terminal_config=terminal_config,
         )
 
-        self._channels.append(channel)
-
         match direction:
             case Direction.INPUT:
-                self._analog_input_channels.update({channel.alias: channel})
                 self._driver.configure_ai_channel(channel)
             case Direction.OUTPUT:
-                self._analog_output_channels.update({channel.alias: channel})
                 self._driver.configure_ao_channel(channel)
             case _:
                 raise ValueError(
@@ -432,15 +472,13 @@ class InstroDAQ(Instrument):
         if not samples_per_channel:
             samples_per_channel = int(sample_rate // 10)
 
-        self._ai_hw_timing_config = HWTimingConfig(
+        hw_timing_config = HWTimingConfig(
             sample_rate=sample_rate,
             sample_period=round(1e9 / sample_rate),
             samples_per_channel=samples_per_channel,
         )
 
-        self._driver.configure_ai_hw_timing(
-            hw_timing_config=self._ai_hw_timing_config,
-        )
+        self._driver.configure_ai_hw_timing(hw_timing_config=hw_timing_config)
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
@@ -483,7 +521,7 @@ class InstroDAQ(Instrument):
         Hardware-timed with the background daemon running raises — the daemon owns the buffer.
         Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
         """
-        if self._ai_hw_timing_config:
+        if self.ai_hw_timing_config:
             if not self._background_config.enabled:
                 return self._fetch_analog(**kwargs)
             # Background daemon running. The user can't pull from the buffer mid-flight.
@@ -498,7 +536,7 @@ class InstroDAQ(Instrument):
         response = self._driver.read_analog()
         measurements = self._driver._read_to_measurements(
             response=response,
-            channel_list=self._analog_input_channels,
+            channel_list=self.ai_channels,
             daq_name=self.name,
             default_tags=self.default_tags,
             **kwargs,
@@ -509,7 +547,7 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def _fetch_analog(self, **kwargs) -> Measurement | list[Measurement]:
         """Fetch buffered samples from a hardware-timed acquisition; also publishes buffer depth on ``{name}.buffer``."""
-        if not self._ai_hw_timing_config:
+        if not self.ai_hw_timing_config:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
                 "Call configure_ai_sample_rate() before starting a hardware-timed acquisition."
@@ -518,7 +556,7 @@ class InstroDAQ(Instrument):
         response = self._driver.fetch_analog()
         measurements = self._driver._read_to_measurements(
             response=response,
-            channel_list=self._analog_input_channels,
+            channel_list=self.ai_channels,
             daq_name=self.name,
             default_tags=self.default_tags,
             **kwargs,
@@ -532,7 +570,7 @@ class InstroDAQ(Instrument):
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:
-            for ch_name, ch_config in self._analog_input_channels.items():
+            for ch_name, ch_config in self.ai_channels.items():
                 if ch_config.scaler:
                     ch_meas = measurement._get_channel(f"{self.name}.{ch_name}")
                     scaled_values = [
@@ -544,10 +582,10 @@ class InstroDAQ(Instrument):
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
         """Write ``value`` (volts) to AO ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
-        if (analog_channel := self._analog_output_channels.get(channel, None)) is None:
+        if (analog_channel := self.ao_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Analog output channel '{channel}' is not configured. "
-                f"Configured analog output channels: {list(self._analog_output_channels.keys())}. "
+                f"Configured analog output channels: {list(self.ao_channels.keys())}. "
                 f"Call configure_analog_channel(Direction.OUTPUT, ...) first."
             )
         logger.debug("Sending DAQ write_analog_value command to '%s' for channel '%s'", self.name, channel)
@@ -584,24 +622,20 @@ class InstroDAQ(Instrument):
             port_width=port_width,
         )
 
-        self._channels.append(channel)
-
         match direction:
             case Direction.INPUT:
-                self._digital_input_channels.update({channel.alias: channel})
                 self._driver.configure_di_channel(channel)
             case Direction.OUTPUT:
-                self._digital_output_channels.update({channel.alias: channel})
                 self._driver.configure_do_channel(channel)
         logger.info("Configured digital channel on DAQ '%s'", self.name)
 
     @publish_command
     def write_digital_line(self, channel: str, data: int, **kwargs) -> Command:
         """Write 0/1 to DO line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
-        if (digital_channel := self._digital_output_channels.get(channel, None)) is None:
+        if (digital_channel := self.do_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
-                f"Configured digital output channels: {list(self._digital_output_channels.keys())}. "
+                f"Configured digital output channels: {list(self.do_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
             )
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
@@ -626,10 +660,10 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def read_digital_line(self, channel: str, **kwargs) -> Measurement:
         """Read DI line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
-        if (digital_channel := self._digital_input_channels.get(channel, None)) is None:
+        if (digital_channel := self.di_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
-                f"Configured digital input channels: {list(self._digital_input_channels.keys())}. "
+                f"Configured digital input channels: {list(self.di_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_line(digital_channel)
@@ -647,10 +681,10 @@ class InstroDAQ(Instrument):
     @publish_command
     def write_digital_port(self, channel: str, data: int, **kwargs) -> Command:
         """Write ``data`` to DO port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
-        if (digital_channel := self._digital_output_channels.get(channel, None)) is None:
+        if (digital_channel := self.do_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
-                f"Configured digital output channels: {list(self._digital_output_channels.keys())}. "
+                f"Configured digital output channels: {list(self.do_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
             )
         self._driver.write_digital_port(digital_channel, data)
@@ -670,10 +704,10 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def read_digital_port(self, channel: str, **kwargs) -> Measurement:
         """Read DI port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
-        if (digital_channel := self._digital_input_channels.get(channel, None)) is None:
+        if (digital_channel := self.di_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
-                f"Configured digital input channels: {list(self._digital_input_channels.keys())}. "
+                f"Configured digital input channels: {list(self.di_channels.keys())}. "
                 f"Call configure_digital_channel(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_port(digital_channel)
@@ -693,20 +727,19 @@ class InstroDAQ(Instrument):
         alias: str | None = None,
     ):
         """Configure a relay channel (``physical_channel`` e.g. ``"3101"`` = slot 3 / channel 101)."""
-        channel = self._driver.define_relay_channel(
+        self._driver.define_relay_channel(
             physical_channel=physical_channel,
             alias=alias,
         )
-        self._relay_channels[channel.alias] = channel
         logger.info("Configured relay channel on DAQ '%s'", self.name)
 
     @publish_command
     def close_relay(self, channel: str, **kwargs) -> Command:
         """Close relay ``channel`` (alias) — connects the circuit."""
-        if (relay_channel := self._relay_channels.get(channel, None)) is None:
+        if (relay_channel := self.relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
-                f"Configured relay channels: {list(self._relay_channels.keys())}. "
+                f"Configured relay channels: {list(self.relay_channels.keys())}. "
                 f"Call configure_relay_channel() first."
             )
         logger.debug("Sending DAQ close_relay command to '%s' for channel '%s'", self.name, channel)
@@ -718,10 +751,10 @@ class InstroDAQ(Instrument):
     @publish_command
     def open_relay(self, channel: str, **kwargs) -> Command:
         """Open relay ``channel`` (alias) — disconnects the circuit."""
-        if (relay_channel := self._relay_channels.get(channel, None)) is None:
+        if (relay_channel := self.relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
-                f"Configured relay channels: {list(self._relay_channels.keys())}. "
+                f"Configured relay channels: {list(self.relay_channels.keys())}. "
                 f"Call configure_relay_channel() first."
             )
         logger.debug("Sending DAQ open_relay command to '%s' for channel '%s'", self.name, channel)
@@ -732,7 +765,7 @@ class InstroDAQ(Instrument):
 
     def _define_background_daemon(self):
         """Register ``_fetch_analog`` as the daemon function when AI channels exist."""
-        if self._analog_input_channels:
+        if self.ai_channels:
             self.add_background_daemon_function(self._fetch_analog)
 
     def get_actual_sample_rate(self) -> float | None:
@@ -746,45 +779,3 @@ class InstroDAQ(Instrument):
 
 
 class HWTimingException(Exception): ...
-
-
-class InstroDAQFacade:
-    """Read-only view of an ``InstroDAQ`` exposed to drivers (implements ``APIInstroDAQ``)."""
-
-    # Implements APIInstroDAQ
-    def __init__(self, nominal_daq: InstroDAQ):
-        self._nominal_daq = nominal_daq
-
-    @property
-    def ai_hw_timing_configs(self) -> HWTimingConfig:
-        """AI hardware-timing config. Raises ``ValueError`` if ``configure_ai_sample_rate`` was not called."""
-        if config := self._nominal_daq._ai_hw_timing_config:
-            return config
-        raise ValueError(
-            "Hardware timing has not been configured for analog input channels. Call configure_ai_sample_rate() first."
-        )
-
-    @property
-    def ai_sample_rate(self) -> float:
-        """AI sample rate (Hz). Raises ``ValueError`` if hardware timing isn't configured."""
-        return self.ai_hw_timing_configs.sample_rate
-
-    @property
-    def channels(self) -> list[DAQChannel]:
-        return self._nominal_daq._channels
-
-    @property
-    def ai_channels(self) -> dict[str, AnalogChannel]:
-        return self._nominal_daq._analog_input_channels
-
-    @property
-    def ao_channels(self) -> dict[str, AnalogChannel]:
-        return self._nominal_daq._analog_output_channels
-
-    @property
-    def di_channels(self) -> dict[str, DigitalChannel]:
-        return self._nominal_daq._digital_input_channels
-
-    @property
-    def do_channels(self) -> dict[str, DigitalChannel]:
-        return self._nominal_daq._digital_output_channels
