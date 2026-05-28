@@ -23,7 +23,9 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
-from instro.modbus import BitDef, ModbusConfig, ModbusDevice, RegisterDef
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import BitDef, ModbusConfig, ModbusRegisterDriver, RegisterDef
+from instro.utils.protocol.modbus import TCPConnectionConfig
 from instro.utils.types import DeviceInfo
 
 TEST_PORT = 5024
@@ -111,7 +113,7 @@ def modbus_server():
 def device(modbus_server):
     config = ModbusConfig(
         device=DeviceInfo(name="group_test"),
-        connection={"transport": "tcp", "host": "127.0.0.1", "port": TEST_PORT},
+        connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         registers=[
             RegisterDef(name="temperature", starting_address=0, data_type="float32", read_group="sensors"),
             RegisterDef(name="pressure", starting_address=2, data_type="float32", read_group="sensors"),
@@ -134,7 +136,7 @@ def device(modbus_server):
             RegisterDef(name="di_c", starting_address=2, register_type="discrete", read_group="inputs"),
         ],
     )
-    dev = ModbusDevice(config=config)
+    dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
     dev.open()
     yield dev
     dev.close()
@@ -164,12 +166,12 @@ class TestBitmap:
 
 class TestReadGroup:
     def test_group_read_returns_all_channels(self, device):
-        m = device._read_group("sensors")
+        m = device.read_group("sensors")
         assert "group_test.temperature" in m.channel_data
         assert "group_test.pressure" in m.channel_data
 
     def test_group_read_values(self, device):
-        m = device._read_group("sensors")
+        m = device.read_group("sensors")
         assert m.channel_data["group_test.temperature"][0] == pytest.approx(72.5, rel=1e-5)
         assert m.channel_data["group_test.pressure"][0] == pytest.approx(14.7, rel=1e-5)
 
@@ -178,13 +180,13 @@ class TestReadGroup:
         assert m.latest == 42
 
     def test_group_read_coils(self, device):
-        m = device._read_group("coils")
+        m = device.read_group("coils")
         assert m.channel_data["group_test.coil_a"] == [1]
         assert m.channel_data["group_test.coil_b"] == [0]
         assert m.channel_data["group_test.coil_c"] == [1]
 
     def test_group_read_discrete_inputs(self, device):
-        m = device._read_group("inputs")
+        m = device.read_group("inputs")
         assert m.channel_data["group_test.di_a"] == [1]
         assert m.channel_data["group_test.di_b"] == [0]
         assert m.channel_data["group_test.di_c"] == [1]
@@ -198,6 +200,7 @@ class TestGroupConfigValidation:
         with pytest.raises(ValidationError, match="mixed register types"):
             ModbusConfig(
                 device=DeviceInfo(name="bad"),
+                connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
                     RegisterDef(name="a", starting_address=0, register_type="holding", read_group="g1"),
                     RegisterDef(name="b", starting_address=0, register_type="input", read_group="g1"),
@@ -208,6 +211,7 @@ class TestGroupConfigValidation:
         with pytest.raises(ValidationError, match="poll=false"):
             ModbusConfig(
                 device=DeviceInfo(name="bad"),
+                connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
                     RegisterDef(name="a", starting_address=0, read_group="g1"),
                     RegisterDef(name="b", starting_address=1, read_group="g1", poll=False),
@@ -246,6 +250,7 @@ class TestBitmapConfigValidation:
         with pytest.raises(ValidationError, match="Duplicate names"):
             ModbusConfig(
                 device=DeviceInfo(name="bad"),
+                connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
                     RegisterDef(name="collision", starting_address=0),
                     RegisterDef(

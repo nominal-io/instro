@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from instro.modbus import ModbusConfig, RegisterDef, RTUConnection, TCPConnection
+from instro.register.drivers.modbus import ModbusConfig, RegisterDef
+from instro.utils.protocol.modbus import RTUConnectionConfig as RTUConnection
+from instro.utils.protocol.modbus import TCPConnectionConfig as TCPConnection
 from instro.utils.types import DeviceInfo, LinearScale
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
@@ -70,9 +72,6 @@ class TestConnectionDiscriminator:
         )
         assert isinstance(config.connection, RTUConnection)
 
-    def test_no_connection_is_valid(self):
-        config = ModbusConfig(device=DeviceInfo(name="no_conn"))
-        assert config.connection is None
 
 
 # ============ Timing ============
@@ -86,7 +85,7 @@ class TestTimingConfig:
         assert config.timing.write_delay_ms == 50
 
     def test_timing_optional(self):
-        config = ModbusConfig(device=DeviceInfo(name="no_timing"))
+        config = ModbusConfig(device=DeviceInfo(name="no_timing"), connection=TCPConnection(host="127.0.0.1", port=502))
         assert config.timing is None
 
 
@@ -142,12 +141,14 @@ class TestModbusConfigValidation:
             ModbusConfig(
                 protocol="scpi",
                 device=DeviceInfo(name="wrong"),
+                connection=TCPConnection(host="127.0.0.1", port=502)
             )
 
     def test_duplicate_register_names(self):
         with pytest.raises(ValidationError, match="Duplicate register names"):
             ModbusConfig(
                 device=DeviceInfo(name="dupes"),
+                connection=TCPConnection(host="127.0.0.1", port=502),
                 registers=[
                     RegisterDef(name="temp", starting_address=0),
                     RegisterDef(name="temp", starting_address=1),
@@ -179,6 +180,7 @@ class TestProgrammaticConfig:
     def test_minimal_config(self):
         config = ModbusConfig(
             device=DeviceInfo(name="prog_test"),
+            connection=TCPConnection(host="127.0.0.1", port=502),
             registers=[
                 RegisterDef(name="reg1", starting_address=0, data_type="uint16"),
             ],
