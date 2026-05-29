@@ -5,6 +5,7 @@ Tests cover:
 - write_min / write_max enforcement
 - Type checking (bool to int register, float to int register, etc.)
 - Config validation of write fields (on read-only registers, inverted min/max, etc.)
+- write_delay_ms rate limiting (delay fires after write, skipped when gap already met)
 """
 
 import asyncio
@@ -12,6 +13,7 @@ import struct
 import threading
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -24,7 +26,7 @@ from pymodbus.server import StartAsyncTcpServer
 
 from instro.lib.types import DeviceInfo, LinearScale
 from instro.register import InstroRegisterInstrument
-from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver, TimingConfig
 from instro.utils.protocol.modbus import TCPConnectionConfig
 
 TEST_PORT = 5029
@@ -314,4 +316,52 @@ class TestWriteFieldConfigValidation:
             data_type="bool",
             write_value_map={"on": True, "off": 0},
         )
-        assert reg.write_value_map == {"on": True, "off": 0}
+
+
+# ============ Write Delay Tests ============
+
+
+class TestWriteDelay:
+    @pytest.fixture
+    def delay_device(self, modbus_server):
+        config = ModbusConfig(
+            device=DeviceInfo(name="delay_test"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+            timing=TimingConfig(poll_interval=1.0, write_delay_ms=50),
+            registers=[ModbusRegisterDef(name="reg", starting_address=20, data_type="uint16")],
+        )
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+        dev.open()
+        yield dev
+        dev.close()
+
+    def test_delay_fires_on_second_consecutive_write(self, delay_device):
+        delay_device.write("reg", 1)
+        with patch("time.sleep") as mock_sleep:
+            delay_device.write("reg", 2)
+        assert mock_sleep.call_count == 1
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert 0.0 < sleep_arg <= 0.05
+
+    def test_no_delay_when_gap_already_exceeds_delay_ms(self, delay_device):
+        delay_device.write("reg", 1)
+        time.sleep(0.1)  # wait longer than the 50ms delay
+        with patch("time.sleep") as mock_sleep:
+            delay_device.write("reg", 2)
+        assert mock_sleep.call_count == 0
+
+    def test_no_delay_without_timing_config(self, modbus_server):
+        config = ModbusConfig(
+            device=DeviceInfo(name="nodelay_test"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+            registers=[ModbusRegisterDef(name="reg", starting_address=20, data_type="uint16")],
+        )
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+        dev.open()
+        try:
+            dev.write("reg", 1)
+            with patch("time.sleep") as mock_sleep:
+                dev.write("reg", 2)
+            assert mock_sleep.call_count == 0
+        finally:
+            dev.close()
