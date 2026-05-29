@@ -137,12 +137,7 @@ class DAQDriverBase(abc.ABC):
         logic_level: float | None = None,
         alias: str | None = None,
     ):
-        """Parse, program, and register a DI line channel.
-
-        ``physical_channel`` encodes a single-bit address per vendor convention
-        (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight 34980A,
-        ``"AUXPORT0/1"`` on MCC, ``"FIO0"`` on LabJack T-series).
-        """
+        """Parse, program, and register a DI line channel."""
         ...
 
     @abc.abstractmethod
