@@ -91,7 +91,7 @@ def _hint_aardvark(_os: str) -> str:
 
 _PYVISA = Driver(
     label="VISA backend",
-    native_lib_names=("visa", "VISA"),
+    native_lib_names=("visa", "VISA", "visa64", "visa32"),  # NI-VISA ships visa64/visa32 on Windows
     supported_os=_ALL_OS,
     install_hint=_hint_visa,
     python_fallback="pyvisa_py",  # pyvisa-py satisfies the backend requirement on its own
