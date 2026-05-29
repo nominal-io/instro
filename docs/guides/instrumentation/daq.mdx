@@ -213,7 +213,7 @@ Refer to your device's documentation for channel naming.
 
 Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
 
-Digital configuration is split along two axes—direction (in/out) and shape (line/port)—so `InstroDAQ` exposes two methods: `configure_digital_line` and `configure_digital_port`.
+`InstroDAQ` exposes two methods: `configure_digital_line` and `configure_digital_port`.
 
 - **direction**: Use `Direction.INPUT` for digital input or `Direction.OUTPUT` for output.
 - **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific. Refer to your device documentation.
