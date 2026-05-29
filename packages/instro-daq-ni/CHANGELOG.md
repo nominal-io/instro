@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-ni-v0.5.0...instro-daq-ni-v1.0.0) (2026-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41))
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19))
+
+### Features
+
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41)) ([a9dbdfd](https://github.com/nominal-io/instro/commit/a9dbdfd481dca8424da4e892d28986acce024d87))
+* **psu:** add ovp, ocp, and remote sense method signatures ([#31](https://github.com/nominal-io/instro/issues/31)) ([ecd4071](https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd))
+
+
+### Miscellaneous
+
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19)) ([cd43847](https://github.com/nominal-io/instro/commit/cd43847904a492b83cc3c2f8da97e356a06e9435))
+
 ## [0.5.0](https://github.com/nominal-io/instro/compare/instro-daq-ni-v0.4.0...instro-daq-ni-v0.5.0) (2026-05-27)
 
 

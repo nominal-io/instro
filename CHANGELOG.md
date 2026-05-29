@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.0](https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v1.0.0) (2026-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41))
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19))
+
+### Features
+
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41)) ([a9dbdfd](https://github.com/nominal-io/instro/commit/a9dbdfd481dca8424da4e892d28986acce024d87))
+* **psu:** add ovp, ocp, and remote sense method signatures ([#31](https://github.com/nominal-io/instro/issues/31)) ([ecd4071](https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd))
+
+
+### Bug Fixes
+
+* **tests:** add tests/__init__.py so pyaardvark's bundled tests package stops shadowing ([#44](https://github.com/nominal-io/instro/issues/44)) ([d755f95](https://github.com/nominal-io/instro/commit/d755f95fcdf906fcb89cd41d1888a49ada2d45c1))
+
+
+### Miscellaneous
+
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19)) ([cd43847](https://github.com/nominal-io/instro/commit/cd43847904a492b83cc3c2f8da97e356a06e9435))
+
 ## [0.7.0](https://github.com/nominal-io/instro/compare/instro-v0.6.0...instro-v0.7.0) (2026-05-27)
 
 
