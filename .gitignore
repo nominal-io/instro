@@ -214,3 +214,6 @@ playground/
 
 # Claude Code
 settings.local.json
+
+# DAQ hardware regression suite: real device IDs, wiring, and generated Nominal RIDs
+tests/daq/regression_config.json

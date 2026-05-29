@@ -1,0 +1,40 @@
+"""Example: DAQ read digital port (MCC).
+
+Port-mode digital I/O is currently implemented only for MCC devices. NI, LabJack,
+and Keysight raise NotImplementedError for read/write_digital_port; use the digital
+line examples for those vendors.
+"""
+
+from instro.daq import InstroDAQ
+from instro.daq.drivers.mcc import MCCDriver
+from instro.daq.types import DigitalPortWidth, Direction, Logic
+from instro.utils.publishers import NominalCorePublisher
+
+PORT = "FIRSTPORTB"
+driver = MCCDriver(device_id="344371:0")  # MCC DAQ device ID, optionally suffixed with ":<board_number>" (default 0)
+
+# Nominal Core dataset to send data to as the instrument is operated.
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+### Main code
+
+daq = InstroDAQ(name="myDAQ", driver=driver)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+daq.open()
+
+try:
+    daq.configure_digital_port(
+        direction=Direction.INPUT,
+        physical_channel=PORT,
+        port_width=DigitalPortWidth.WIDTH_8,
+        logic=Logic.HIGH,
+        alias="di_port",
+    )
+
+    read = daq.read_digital_port(channel="di_port")
+    print(f"Port value: {int(read.latest):#010b}")
+
+finally:
+    print("Closing DAQ")
+    daq.close()

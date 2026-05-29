@@ -1,0 +1,30 @@
+{
+  "_comment": "Copy this file to tests/daq/regression_config.json (gitignored) and fill in the real values. Confirm each device_id/address and the DO->DI loopback wiring matches your bench before running the hardware suite. The 'generated' section is written by the harness on first run and reused on later runs.",
+  "profile": "default",
+  "template_rid": "<shared workbook template RID — FILL IN>",
+  "data_scope_name": "daq",
+  "_data_scope_comment": "Must match the refname the shared workbook template binds its channels to.",
+  "drivers": {
+    "labjack": {
+      "enabled": true,
+      "device_id": "440020473",
+      "line": { "do": "FIO4", "di": "FIO5" }
+    },
+    "mcc": {
+      "enabled": true,
+      "device_id": "344371:0",
+      "port": { "do": "FIRSTPORTA", "di": "FIRSTPORTB", "width": 8, "mask": 3 }
+    },
+    "ni": {
+      "enabled": true,
+      "device_id": "Dev1",
+      "line": { "do": "port0/line0", "di": "port0/line1" }
+    },
+    "keysight": {
+      "enabled": true,
+      "address": "USB0::0x0957::0x0507::MY44001757::INSTR",
+      "line": { "do": "5101/0", "di": "5101/1" }
+    }
+  },
+  "generated": {}
+}

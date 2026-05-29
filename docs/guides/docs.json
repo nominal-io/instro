@@ -93,9 +93,11 @@
               "instrumentation/examples/daq/daq_read_analog_hw_timed_no_background",
               "instrumentation/examples/daq/daq_read_analog_sw_timed",
               "instrumentation/examples/daq/daq_read_digital_line",
+              "instrumentation/examples/daq/daq_read_digital_port",
               "instrumentation/examples/daq/daq_relays",
               "instrumentation/examples/daq/daq_write_analog_sw_timed",
-              "instrumentation/examples/daq/daq_write_digital_line"
+              "instrumentation/examples/daq/daq_write_digital_line",
+              "instrumentation/examples/daq/daq_write_digital_port"
             ]
           },
           {
