@@ -453,6 +453,7 @@ dependencies = [
     { name = "pymodbus" },
     { name = "pyserial" },
     { name = "pyvisa" },
+    { name = "rich" },
     { name = "thermocouples" },
 ]
 
@@ -519,6 +520,7 @@ requires-dist = [
     { name = "pymodbus", specifier = ">=3.10,<3.13" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "pyvisa", specifier = ">=1.15" },
+    { name = "rich", specifier = ">=13.0" },
     { name = "thermocouples", specifier = ">=2.1.2" },
 ]
 provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "all"]
