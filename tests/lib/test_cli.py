@@ -119,6 +119,28 @@ def test_visa_python_fallback_satisfies_backend(capture, monkeypatch):
     assert "Using Python backend: pyvisa_py" in out
 
 
+def test_visa_backend_probes_windows_dll_names():
+    """NI-VISA ships visa64/visa32 on Windows; the candidate names must include them."""
+    assert cli._PYVISA.native_lib_names == ("visa", "VISA", "visa64", "visa32")
+
+
+@patch("instro.lib.cli.platform.system", return_value="Windows")
+def test_doctor_finds_windows_ni_visa(_mock_os, capture, monkeypatch):
+    """A Windows NI-VISA install (visa64.dll) should register as a found backend."""
+    monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
+    monkeypatch.setattr(
+        cli,
+        "_find_native_lib",
+        _fake_find_native({"visa64": r"C:\windows\system32\visa64.dll"}),
+    )
+    monkeypatch.setattr(cli, "_version_of", lambda dist: "0.6.0" if dist == "instro" else None)
+
+    code, out = capture(["doctor"])
+
+    assert code == 0
+    assert r"C:\windows\system32\visa64.dll" in out
+
+
 def test_doctor_optional_extras_missing(capture, monkeypatch):
     """Optional packages absent: still exit 0, each row shows pip install hint."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec(set()))
