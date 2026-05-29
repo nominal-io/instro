@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from instro.utils import cli
+from instro.lib import cli
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def _fake_find_native(found: dict[str, str]):
     return _impl
 
 
-@patch("instro.utils.cli.platform.system", return_value="Linux")
+@patch("instro.lib.cli.platform.system", return_value="Linux")
 def test_doctor_all_present(_mock_os, capture, monkeypatch):
     """Every package installed + every native lib found: exit 0, 'Ready to go'."""
     extras_present = {
@@ -174,7 +174,7 @@ def test_native_lib_missing_shows_install_hint(capture, monkeypatch):
     assert "❌" in out
 
 
-@patch("instro.utils.cli.platform.system", return_value="Darwin")
+@patch("instro.lib.cli.platform.system", return_value="Darwin")
 def test_macos_unsupported_drivers_marked_na(_mock_os, capture, monkeypatch):
     """On macOS, NI-DAQmx and MCC drivers should show 'Not supported on macOS'."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
@@ -189,7 +189,7 @@ def test_macos_unsupported_drivers_marked_na(_mock_os, capture, monkeypatch):
     assert "⛔" in out
 
 
-@patch("instro.utils.cli.platform.system", return_value="Linux")
+@patch("instro.lib.cli.platform.system", return_value="Linux")
 def test_linux_mcc_unsupported(_mock_os, capture, monkeypatch):
     """On Linux, MCC is Windows-only."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
@@ -200,7 +200,7 @@ def test_linux_mcc_unsupported(_mock_os, capture, monkeypatch):
     assert "Not supported on Linux" in out
 
 
-@patch("instro.utils.cli.platform.system", return_value="Windows")
+@patch("instro.lib.cli.platform.system", return_value="Windows")
 def test_windows_supports_everything(_mock_os, capture, monkeypatch):
     """On Windows every driver's OS gate passes."""
     monkeypatch.setattr(cli.importlib.util, "find_spec", _fake_find_spec({"pyvisa_py"}))
@@ -230,8 +230,8 @@ def test_no_command_errors(capture):
 
 
 def test_doctor_invokable_as_module():
-    """`python -m instro.utils.cli doctor` should be a valid invocation path."""
-    mod = importlib.import_module("instro.utils.cli")
+    """`python -m instro.lib.cli doctor` should be a valid invocation path."""
+    mod = importlib.import_module("instro.lib.cli")
     assert callable(mod.main)
 
 

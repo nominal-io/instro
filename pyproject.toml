@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-instro = "instro.utils.cli:main"
+instro = "instro.lib.cli:main"
 
 [project.optional-dependencies]
 # Hardware-specific drivers with vendor SDKs
