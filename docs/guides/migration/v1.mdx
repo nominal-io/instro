@@ -4,12 +4,14 @@ description: "Move your codebase from nominal-instro (<=0.6.x) to instro (>=0.7)
 ---
 
 <Info>
-  This is **v1** of the migration guide. It covers two changes that shipped in
+  This is **v1** of the migration guide. It covers three changes that shipped in
   the same migration window: the mechanical rename from `nominal-instro` to
-  `instro` (automated via the [codemod](#automated-codemod)), and the v1.0
+  `instro` (automated via the [codemod](#automated-codemod)), the v1.0
   channel-naming standardization (no code change required: set
   [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming)
-  on each instrument to preserve the pre-v1.0 wire format).
+  on each instrument to preserve the pre-v1.0 wire format), and
+  [NI physical channel naming](#ni-physical-channel-naming) (NI DAQmx channels
+  must now be fully qualified, with no compatibility flag).
 </Info>
 
 ## What changed
@@ -302,6 +304,28 @@ class InstroMyThing(Instrument):
 ```
 
 If you previously copied the old `_read_to_command` / `_read_to_measurement` helper pattern into your subclass, delete those copies. The base class methods replace them, and the decorators enforce the channel-naming contract at runtime.
+
+## NI physical channel naming
+
+This change is separate from the published-name standardization above. It affects the `physical_channel` value you pass when configuring a channel, not the name the channel publishes under. `legacy_naming` does not gate it, and there is no compatibility flag: NI channel strings must be updated before the driver will configure them.
+
+The NI DAQmx driver (`NIDAQDriver`) no longer prepends its `device_id` constructor argument to `physical_channel`. The value now reaches NI-DAQmx verbatim, so it must be the fully qualified name (`Dev1/ai0`, `Dev1/port0/line0`) rather than the device-relative form (`ai0`, `port0/line0`).
+
+```python
+# Before: device-relative channel, device_id prepended for you
+daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
+daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do_0", logic=Logic.HIGH)
+
+# After: fully qualified channel
+daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
+daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="Dev1/ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="Dev1/port0/line0", alias="do_0", logic=Logic.HIGH)
+```
+
+The `device_id` argument stays on the constructor: the driver still uses it to verify the device is present and to name its DAQmx tasks. Channel aliases and published names are unchanged, so dashboards and datasets keyed off aliases need no update. Only the NI driver is affected. LabJack, MCC, and Keysight already passed `physical_channel` through verbatim.
+
+There is no reliable regex for these string literals, the same as DAQ digital aliases above. Find your NI channel strings by hand and prefix each with the device name.
 
 ## Rollback
 

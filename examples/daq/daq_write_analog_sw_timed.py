@@ -19,8 +19,8 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        CHANNEL_0 = "ao0"
-        CHANNEL_1 = "ao1"
+        CHANNEL_0 = "Dev1/ao0"
+        CHANNEL_1 = "Dev1/ao1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.MCC:
         from instro.daq.drivers.mcc import MCCDriver
