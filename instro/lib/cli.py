@@ -1,12 +1,4 @@
-"""Command-line interface for the instro library.
-
-Entry point: ``instro <command>``. Currently the only command is ``doctor``,
-which prints a health report so users can debug missing extras or missing
-system-level vendor drivers before they hit a confusing import error.
-
-Adding new subcommands is a matter of writing another `_cmd_*` function
-and adding a parser in `main()`.
-"""
+"""Command-line interface for the instro library (``instro <command>``)."""
 
 from __future__ import annotations
 
@@ -28,10 +20,7 @@ from rich.table import Table
 from rich.text import Text
 
 # --- Status icons ------------------------------------------------------------
-# Use emoji-width glyphs (✅ ❌ ⛔) — these render at "wide" cell width in most
-# terminals, so they visually pop next to the column text without needing any
-# special font support. They're standard Unicode, supported by macOS / Linux /
-# Windows Terminal out of the box.
+# Wide-cell emoji glyphs so status pops next to column text; standard Unicode, no special font needed.
 
 _OK = "✅"
 _MISSING = "❌"
@@ -45,18 +34,7 @@ _ALL_OS = ("Darwin", "Linux", "Windows")
 
 @dataclass(frozen=True)
 class Driver:
-    """A system-level vendor driver an extras package depends on.
-
-    The doctor checks the *native* binary library (e.g. `libLabJackM.dylib`,
-    `nicaiu.dll`, `aardvark.so`). It does **not** check the Python wrapper —
-    we assume `pip install 'instro[<extras>]'` brought it in transitively.
-
-    `native_lib_names` are passed to `ctypes.util.find_library` in order;
-    the first one that resolves and successfully loads via `ctypes.CDLL`
-    counts as "installed". `python_fallback` is for cases where a Python
-    package can stand in for the native lib (currently only PyVISA's
-    pyvisa-py).
-    """
+    """A system-level vendor native library an extras package depends on (checked via ctypes, not the Python wrapper)."""
 
     label: str  # human-readable: "LJM library", "Aardvark API"
     native_lib_names: tuple[str, ...]
@@ -209,14 +187,7 @@ def _version_of(distribution: str) -> str | None:
 
 
 def _find_native_lib(names: Iterable[str]) -> str | None:
-    """Locate a system-level native library by trying each name in order.
-
-    Uses `ctypes.util.find_library` (which knows about the OS-specific
-    library search path: dyld cache on macOS, ldconfig on Linux, standard
-    DLL search on Windows) and then verifies the result by attempting to
-    actually load the library with `ctypes.CDLL`. Returns the resolved
-    path/identifier on success, or None.
-    """
+    """Locate a native library by trying each name with find_library, verifying it loads via ctypes.CDLL."""
     for name in names:
         resolved = ctypes.util.find_library(name)
         if not resolved:
