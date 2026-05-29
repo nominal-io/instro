@@ -113,7 +113,6 @@ class ModbusRegisterDef(RegisterBase):
     word_swap: bool = False
     long_swap: bool = False
     bitmap: list[BitDef] | None = None
-    poll: bool = True
     write_min: float | int | None = None
     write_max: float | int | None = None
 

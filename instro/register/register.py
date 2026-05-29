@@ -43,6 +43,7 @@ class RegisterBase(BaseModel):
 
     name: str = Field(description="Unique name/alias for this register")
     description: str | None = None
+    poll: bool = True
     scale: ScaleType | None = None
     write_value_map: dict[str, register_value_type] | None = None
     read_group: str | None = None
@@ -233,6 +234,7 @@ class InstroRegisterInstrument(Instrument):
         super().__init__(self.name, connection_config=None, publishers=publishers, **kwargs)
 
         self._driver = driver
+        self._define_background_daemon()
 
     def open(self):
         """Establish connection to the device."""
@@ -310,3 +312,14 @@ class InstroRegisterInstrument(Instrument):
         )
         self.publish(cmd)
         return cmd
+
+    def _define_background_daemon(self) -> None:
+        """Register daemon polling: one call per read_group; individual reads for ungrouped registers."""
+        grouped_register_names: set[str] = set()
+        for group_id in self._driver.readable_groups:
+            self.add_background_daemon_function(self.read_group, group_id)
+            grouped_register_names.update(self._driver.enumerate_group_registers(group_id))
+
+        for reg in self._driver.readable_registers:
+            if reg.poll and reg.name not in grouped_register_names:
+                self.add_background_daemon_function(self.read, reg.name)
