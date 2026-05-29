@@ -325,6 +325,8 @@ daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="Dev1
 
 The `device_id` argument stays on the constructor: the driver still uses it to verify the device is present and to name its DAQmx tasks. Channel aliases and published names are unchanged, so dashboards and datasets keyed off aliases need no update. Only the NI driver is affected. LabJack, MCC, and Keysight already passed `physical_channel` through verbatim.
 
+Pass one fully qualified channel per call. The NI driver hands `physical_channel` to NI-DAQmx verbatim and configures it as a single channel, so NI-DAQmx range and list syntax (`Dev1/ai0:3`, `Dev1/ai0,Dev1/ai2`) is not supported; call `configure_analog_channel` once per channel instead. Digital ports (`Dev1/port0`) are supported as a single port channel: pass `port_width` to `configure_digital_channel` to define one. NI's [physical channel naming reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx/page/physchannames.html#GUID-7CB1537B-6D48-41A9-BF7E-5510456B6CB4) documents how DAQmx names devices, channels, ports, and lines. To confirm the device and channel names on a given system, including ones renamed from the defaults, use [NI MAX](https://www.ni.com/en/support/documentation/supplemental/21/what-is-ni-measurement---automation-explorer--ni-max--.html) or the [NI Hardware Configuration Utility](https://www.ni.com/docs/en-US/bundle/hardwareconfigurationutility/page/definition.html).
+
 There is no reliable regex for these string literals, the same as DAQ digital aliases above. Find your NI channel strings by hand and prefix each with the device name.
 
 ## Rollback

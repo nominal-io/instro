@@ -52,8 +52,17 @@ class NIDAQDriver(DAQDriverBase):
         """NI-DAQmx has no explicit connect — verifies the device is present in ``niSystem.local()``."""
         # Verify device exists
         system = niSystem.local()
-        if self._device_id not in [dev.name for dev in system.devices]:
-            raise RuntimeError(f"Device {self._device_id} not found")
+        connected = [dev.name for dev in system.devices]
+        if self._device_id not in connected:
+            tools = "NI MAX or the NI Hardware Configuration Utility"
+            if connected:
+                detail = f"Connected devices: {connected}. Confirm the intended device's name in {tools}."
+            else:
+                detail = (
+                    "No NI devices are connected; check the hardware connection and NI-DAQmx installation, "
+                    f"then confirm the device appears in {tools}."
+                )
+            raise RuntimeError(f"Device {self._device_id} not found. {detail}")
 
     def close(self):
         """Close every DAQmx task this driver owns."""
@@ -101,11 +110,22 @@ class NIDAQDriver(DAQDriverBase):
                     f"Invalid terminal configuration: {terminal_config}, must be one of {[cfg.name for cfg in TerminalConfig]}"
                 )
 
+    @staticmethod
+    def _reject_channel_range_or_list(physical_channel: str):
+        """Reject NI-DAQmx range/list syntax; one physical_channel maps to one channel."""
+        if ":" in physical_channel or "," in physical_channel:
+            raise ValueError(
+                "physical_channel must name a single channel. NI-DAQmx range and list syntax "
+                "(e.g. 'Dev1/ai0:3', 'Dev1/ai0,Dev1/ai2') is not supported; configure each channel "
+                f"with its own call. Received {physical_channel}."
+            )
+
     def configure_ai_channel(
         self,
         channel: AnalogChannel,
     ):
         """Configure a channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
         task = self._get_task(ChannelType.ANALOG_INPUT)
         terminal_config = self._get_terminal_config(channel.terminal_config)
 
@@ -120,6 +140,7 @@ class NIDAQDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel: AnalogChannel):
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
 
         task = self._ao_sw_tasks.get(channel.alias, None)
         if task:
