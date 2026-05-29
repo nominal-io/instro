@@ -59,14 +59,14 @@ The old `nominal_instro/instruments/<category>/` + `nominal_instro/drivers/<cate
 | `from nominal_instro.instruments.i2c import NominalI2C`          | `from instro.i2c import I2CInterface`               |
 | `from nominal_instro.drivers.i2c.totalphase import Aardvark`     | `from instro.i2c.drivers.totalphase import Aardvark`|
 | `from nominal_instro.protocols.modbus import NominalModbus`      | `from instro.modbus import ModbusDevice`            |
-| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.utils import VisaDriver, Instrument`   |
-| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.utils.types import DeviceInfo`  |
+| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.lib import VisaDriver, Instrument`   |
+| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.lib.types import DeviceInfo`  |
 
 The conventions are:
 
 - Each category root (`instro.daq`, `instro.dmm`, …) re-exports the instrument class **and** the category base driver, so custom-driver authors only need to remember one import path per category.
 - Concrete drivers shipped in the main `instro` distribution live flat under `<category>/drivers/` (no per-vendor subfolder). Workspace packages like `instro-daq-labjack` keep their vendor folder (`instro.daq.drivers.labjack`) because that's where their `__init__.py` lives.
-- `instro.utils` (formerly `instro.lib`) is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc. Renamed to sort out of the middle of the category list.
+- `instro.lib` is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc.
 
 ## Class rename table
 
@@ -281,8 +281,8 @@ Two helpers on `Instrument` build the right object:
 A typical set/get method now looks like this:
 
 ```python
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class InstroMyThing(Instrument):

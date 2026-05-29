@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.scope.driver import ScopeDriverBase
 from instro.unstable.scope.types import (
     AcquisitionMode,
@@ -16,7 +17,6 @@ from instro.unstable.scope.types import (
     TriggerType,
     WaveformData,
 )
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 _ACQ_MODE_TO_SCPI = {
     AcquisitionMode.NORMAL: "NORMal",

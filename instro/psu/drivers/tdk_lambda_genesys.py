@@ -1,7 +1,7 @@
 """TDK Lambda Genesys-family PSU driver (single-channel)."""
 
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class TDKLambdaGenesys(PSUDriverBase):

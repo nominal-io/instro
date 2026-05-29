@@ -17,7 +17,7 @@ from instro.daq.types import (
     HWTimingConfig,
     Logic,
 )
-from instro.utils import Measurement
+from instro.lib import Measurement
 from labjack import ljm
 
 # TODO: Remove this for [INSTRO-89: Add Context Managers](https://linear.app/nominal-io/issue/INSTRO-89/add-context-managers)

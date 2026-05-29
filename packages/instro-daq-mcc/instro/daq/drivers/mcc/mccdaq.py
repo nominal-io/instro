@@ -35,7 +35,7 @@ from instro.daq.types import (
     Logic,
     TerminalConfig,
 )
-from instro.utils import Measurement
+from instro.lib import Measurement
 
 
 @dataclass

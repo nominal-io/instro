@@ -2,7 +2,7 @@
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction, Logic
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES

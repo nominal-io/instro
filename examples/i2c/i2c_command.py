@@ -7,7 +7,7 @@ Requires the Aardvark vendor package: install with ``uv sync --extra i2c``
 from instro.i2c import I2CInterface
 from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c.types import SystemDefinition
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 RESOURCE_ID = "2239-764425"
 

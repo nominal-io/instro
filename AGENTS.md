@@ -22,7 +22,7 @@ If `just check` and `just test` both pass, CI will pass.
 |---|---|
 | `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`. |
 | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
-| `instro/utils/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
+| `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
 | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
 | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
 | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
@@ -108,7 +108,7 @@ See `instro/daq/drivers/keysight_34980a.py` for the reference shape. Tests for `
 |---|---|
 | Driver shape | `instro/psu/drivers/bk_9115.py` |
 | Category HAL | `instro/psu/psu.py` |
-| Transport driver | `instro/utils/transports/visa.py` |
+| Transport driver | `instro/lib/transports/visa.py` |
 | Test pattern (mocked transport) | `tests/psu/test_psu_drivers.py` |
 | Public API usage | `examples/<category>/`: runnable scripts showing what a user's code looks like |
 | Workspace vendor package | `packages/instro-daq-ni/` |

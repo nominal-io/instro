@@ -1,5 +1,6 @@
 """Modbus protocol support (experimental). All public names re-exported here — no submodule imports needed."""
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.modbus.modbus import ModbusDevice
 from instro.modbus.types import (
     BitDef,
@@ -9,7 +10,6 @@ from instro.modbus.types import (
     TCPConnection,
     TimingConfig,
 )
-from instro.utils.types import DeviceInfo, LinearScale
 
 __all__ = [
     "ModbusDevice",

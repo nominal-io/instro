@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from instro.utils.types import DeviceInfo
+from instro.lib.types import DeviceInfo
 
 __all__ = [
     "DeviceInfo",

@@ -1,7 +1,7 @@
 """B&K Precision 9140-series PSU driver. SCPI surface is shared with other multi-channel B&K models."""
 
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class BK9140(PSUDriverBase):

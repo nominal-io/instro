@@ -22,7 +22,7 @@ Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
 ```python
 import time
 
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 from instro.modbus import ModbusDevice
 
 RID = "<dataset_rid>" # Replace with your dataset RID.
@@ -706,7 +706,7 @@ The `connection` parameter allows you to separate device-specific register maps 
 Use `add_publisher()` to attach a [publisher](/instrumentation/publishers) for automatic data streaming:
 
 ```python
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 device.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 ```
@@ -753,7 +753,7 @@ When a `timing` section is present in the config, you can use `autostart=True` f
 
 ```python
 from instro.modbus import ModbusDevice
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # autostart opens the connection and begins polling immediately
 device = ModbusDevice(config="heat_exchanger.json", autostart=True)
@@ -775,7 +775,7 @@ device.close()
 
 ```python
 from instro.modbus import ModbusDevice
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 device = ModbusDevice(config="heat_exchanger.json")
 device.add_publisher(NominalCorePublisher(dataset_rid="ri.datasets.main.dataset.abc123"))

@@ -13,7 +13,7 @@ import pytest
 from instro.dmm import DMMDriverBase, InstroDMM
 from instro.dmm.drivers import Agilent34401A, Keithley2400
 from instro.dmm.types import MeasurementFunction
-from instro.utils.transports import SerialConfig, VisaConfig
+from instro.lib.transports import SerialConfig, VisaConfig
 
 # --- Agilent34401A unit tests (driver-owned transport over a mocked VisaDriver) ---
 

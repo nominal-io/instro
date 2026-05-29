@@ -8,7 +8,7 @@ import typing as _typing
 if _typing.TYPE_CHECKING:
     from connect_python.client import Client  # type: ignore
 
-from instro.utils.types import Command, Measurement
+from instro.lib.types import Command, Measurement
 
 logger = logging.getLogger(__name__)
 

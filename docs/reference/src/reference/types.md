@@ -1,3 +1,3 @@
 # Types
 
-::: instro.utils.types
+::: instro.lib.types

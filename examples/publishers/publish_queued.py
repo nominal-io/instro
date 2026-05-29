@@ -6,9 +6,9 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 import time
 
+from instro.lib.publishers import NominalCorePublisher, QueuedPublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils.publishers import NominalCorePublisher, QueuedPublisher
 
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"

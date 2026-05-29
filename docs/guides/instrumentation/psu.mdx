@@ -70,7 +70,7 @@ Choose the concrete driver that matches the power supply model, then pass the in
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::...")
 try:
@@ -91,7 +91,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -129,7 +129,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -222,6 +222,18 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=N)` | `ch{N}.current` | telemetry |
 | `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
 | `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
+| `set_overvoltage_protection_level(channel=N)` | `ch{N}.ovp.cmd` | command |
+| `get_overvoltage_protection_level(channel=N)` | `ch{N}.ovp` | telemetry |
+| `set_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled.cmd` | command |
+| `get_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled` | telemetry |
+| `set_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay.cmd` | command |
+| `get_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay` | telemetry |
+| `set_overcurrent_protection_level(channel=N)` | `ch{N}.ocp.cmd` | command |
+| `get_overcurrent_protection_level(channel=N)` | `ch{N}.ocp` | telemetry |
+| `set_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled.cmd` | command |
+| `get_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled` | telemetry |
+| `set_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense.cmd` | command |
+| `get_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense` | telemetry |
 
 ## Method Reference
 
@@ -236,10 +248,20 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=1)` | Read measured output current in amperes |
 | `output_enable(enable, channel=1)` | Enable (True) or disable (False) the output |
 | `get_output_status(channel=1)` | Query output enable state (returns Measurement with bool value) |
+| `set_overvoltage_protection_level(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
+| `get_overvoltage_protection_level(channel=1)` | Read the overvoltage protection threshold in volts |
+| `set_overvoltage_protection_enabled(enabled, channel=1)` | Enable or disable overvoltage protection |
+| `get_overvoltage_protection_enabled(channel=1)` | Query whether overvoltage protection is enabled |
+| `set_overvoltage_protection_delay(delay, channel=1)` | Set the overvoltage protection trip delay in seconds |
+| `get_overvoltage_protection_delay(channel=1)` | Read the overvoltage protection trip delay in seconds |
+| `set_overcurrent_protection_level(current, channel=1)` | Set the overcurrent protection threshold in amperes |
+| `get_overcurrent_protection_level(channel=1)` | Read the overcurrent protection threshold in amperes |
+| `set_overcurrent_protection_enabled(enabled, channel=1)` | Enable or disable overcurrent protection |
+| `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
+| `set_remote_sense_enabled(enabled, channel=1)` | Enable or disable remote sense |
+| `get_remote_sense_enabled(channel=1)` | Query whether remote sense is enabled |
 | `start()` | Begin background telemetry thread |
 | `stop()` | End background telemetry thread |
-
----
 
 # Simulated Power Supply
 
@@ -359,7 +381,45 @@ def output_enable(self, enable: bool, channel: int) -> None:
 
 def get_output_status(self, channel: int) -> bool:
     """Query and return the output enable status on `channel`."""
+
+def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
+    """Set the overvoltage protection threshold (volts) on `channel`."""
+
+def get_overvoltage_protection_level(self, channel: int) -> float:
+    """Query and return the overvoltage protection threshold in volts."""
+
+def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overvoltage protection on `channel`."""
+
+def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overvoltage protection is enabled."""
+
+def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+    """Set the overvoltage protection trip delay (seconds) on `channel`."""
+
+def get_overvoltage_protection_delay(self, channel: int) -> float:
+    """Query and return the overvoltage protection trip delay in seconds."""
+
+def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
+    """Set the overcurrent protection threshold (amperes) on `channel`."""
+
+def get_overcurrent_protection_level(self, channel: int) -> float:
+    """Query and return the overcurrent protection threshold in amperes."""
+
+def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overcurrent protection on `channel`."""
+
+def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overcurrent protection is enabled."""
+
+def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable remote sense on `channel`."""
+
+def get_remote_sense_enabled(self, channel: int) -> bool:
+    """Query and return the remote sense enable status on `channel`."""
 ```
+
+Required output-control and measurement methods on `PSUDriverBase` are declared with `@abc.abstractmethod`. Optional protection and sense methods default to `NotImplementedError`; override the ones the driver implements. See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling.
 
 ### Talking to the Instrument
 
@@ -380,7 +440,7 @@ Here's a representative driver implementation for the B&K Precision 9115-series 
 
 ```python
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class BK9115(PSUDriverBase):
@@ -451,7 +511,7 @@ For drivers that aren't shipped in the library, construct `InstroPSU` with your 
 ```python
 from instro.psu import InstroPSU
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomPSUDriver(PSUDriverBase):
