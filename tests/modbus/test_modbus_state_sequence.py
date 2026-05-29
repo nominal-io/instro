@@ -19,10 +19,10 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
+from instro.lib.types import DeviceInfo
 from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver, TimingConfig
 from instro.utils.protocol.modbus import TCPConnectionConfig
-from instro.utils.types import DeviceInfo
 
 TEST_PORT = 5025
 
@@ -122,4 +122,3 @@ class TestConnectionLifecycle:
                 dev.read("standalone")
         finally:
             dev.close()
-

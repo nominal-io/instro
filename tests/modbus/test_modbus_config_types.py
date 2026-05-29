@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef
 from instro.utils.protocol.modbus import RTUConnectionConfig as RTUConnection
 from instro.utils.protocol.modbus import TCPConnectionConfig as TCPConnection
-from instro.utils.types import DeviceInfo, LinearScale
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 CONFIG_PATH = CONFIGS_DIR / "test_config_types.json"
@@ -71,7 +71,6 @@ class TestConnectionDiscriminator:
             }
         )
         assert isinstance(config.connection, RTUConnection)
-
 
 
 # ============ Timing ============
@@ -139,9 +138,7 @@ class TestModbusConfigValidation:
     def test_wrong_protocol(self):
         with pytest.raises(ValidationError, match="expected 'modbus'"):
             ModbusConfig(
-                protocol="scpi",
-                device=DeviceInfo(name="wrong"),
-                connection=TCPConnection(host="127.0.0.1", port=502)
+                protocol="scpi", device=DeviceInfo(name="wrong"), connection=TCPConnection(host="127.0.0.1", port=502)
             )
 
     def test_duplicate_register_names(self):

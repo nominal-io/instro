@@ -1,7 +1,7 @@
 """Rigol DP800-series PSU driver. Covers DP811, DP821, DP831, DP832."""
 
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class RigolDP800(PSUDriverBase):

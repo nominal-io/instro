@@ -11,6 +11,7 @@ Then run this script.
 
 import time
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import (
     BitDef,
@@ -20,7 +21,6 @@ from instro.register.drivers.modbus import (
     TimingConfig,
 )
 from instro.utils.protocol.modbus import TCPConnectionConfig
-from instro.utils.types import DeviceInfo, LinearScale
 
 config = ModbusConfig(
     device=DeviceInfo(

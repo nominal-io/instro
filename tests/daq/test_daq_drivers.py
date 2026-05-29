@@ -9,10 +9,35 @@ from instro.daq.drivers import HWTimestamper
 from instro.daq.types import Direction, Logic
 
 
+def _make_mock_driver() -> Mock:
+    """Mock driver with state dicts pre-initialized and ``configure_*`` side-effects that populate them.
+
+    ``InstroDAQ.ai_channels`` etc. are ``@property`` proxies into the driver — so tests need a driver
+    whose dicts behave like real dicts, and whose ``configure_*`` methods actually record the channel
+    on the right dict (matching real-driver contract).
+    """
+    driver = Mock()
+    driver.ai_channels = {}
+    driver.ao_channels = {}
+    driver.di_channels = {}
+    driver.do_channels = {}
+    driver.relay_channels = {}
+    driver.ai_hw_timing_config = None
+    driver.ao_hw_timing_config = None
+    driver.di_hw_timing_config = None
+    driver.do_hw_timing_config = None
+
+    driver.configure_ai_channel.side_effect = lambda ch: driver.ai_channels.update({ch.alias: ch})
+    driver.configure_ao_channel.side_effect = lambda ch: driver.ao_channels.update({ch.alias: ch})
+    driver.configure_di_channel.side_effect = lambda ch: driver.di_channels.update({ch.alias: ch})
+    driver.configure_do_channel.side_effect = lambda ch: driver.do_channels.update({ch.alias: ch})
+    return driver
+
+
 def test_write_digital_line_configured_channel():
     """Test that writing to a configured channel works without error."""
     # Arrange: Create a mock driver with proper return values
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     # Mock the channel object that define_digital_channel should return
     mock_channel = Mock()
@@ -40,7 +65,7 @@ def test_write_digital_line_configured_channel():
 def test_write_digital_line_unconfigured_channel():
     """Test that writing to an unconfigured channel raises an error."""
     # Arrange: Create a mock driver with proper return values
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     # Mock the channel object that define_digital_channel should return
     mock_channel = Mock()
@@ -68,7 +93,7 @@ def test_write_digital_line_unconfigured_channel():
 def test_read_digital_line_configured_channel():
     """Test that reading from a configured channel works without error."""
     # Arrange: Create a mock driver with proper return values
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     # Mock the channel object that define_digital_channel should return
     mock_channel = Mock()
@@ -99,7 +124,7 @@ def test_read_digital_line_configured_channel():
 def test_read_digital_line_unconfigured_channel():
     """Test that reading from an unconfigured channel raises an error."""
     # Arrange: Create a mock driver with proper return values
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     # Mock the channel object that define_digital_channel should return
     mock_channel = Mock()
@@ -126,7 +151,7 @@ def test_read_digital_line_unconfigured_channel():
 
 def test_write_analog_value_unconfigured_channel():
     """Test that writing to an unconfigured analog output channel raises an error."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
@@ -141,7 +166,7 @@ def test_write_analog_value_unconfigured_channel():
 
 def test_close_relay_unconfigured_channel():
     """Test that closing an unconfigured relay channel raises an error."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
@@ -156,7 +181,7 @@ def test_close_relay_unconfigured_channel():
 
 def test_open_relay_unconfigured_channel():
     """Test that opening an unconfigured relay channel raises an error."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
@@ -171,7 +196,7 @@ def test_open_relay_unconfigured_channel():
 
 def test_write_digital_port_configured_channel():
     """Test that writing to a configured port channel works without error."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     mock_channel = Mock()
     mock_channel.alias = "test_port"
@@ -193,7 +218,7 @@ def test_write_digital_port_configured_channel():
 
 def test_write_digital_port_unconfigured_channel():
     """Test that writing to an unconfigured port channel raises KeyError."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
@@ -208,7 +233,7 @@ def test_write_digital_port_unconfigured_channel():
 
 def test_read_digital_port_configured_channel():
     """Test that reading from a configured port channel works without error."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     mock_channel = Mock()
     mock_channel.alias = "test_port"
@@ -231,7 +256,7 @@ def test_read_digital_port_configured_channel():
 
 def test_read_digital_port_unconfigured_channel():
     """Test that reading from an unconfigured port channel raises KeyError."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
@@ -350,7 +375,7 @@ def test_hw_timestamper_many_batches_no_drift():
 def test_hw_timestamper_rapid_reads_no_overlap():
     """Regression: two reads returning 0.5ms apart still produce non-overlapping timestamps.
 
-    This is the exact bug scenario from CON-1531. At 1kHz with 100 samples per batch,
+    This is the exact bug scenario from INSTRO-150. At 1kHz with 100 samples per batch,
     each batch covers 100ms of data. If a second read returns only 0.5ms after the first,
     HWTimestamper must still place batch2 entirely after batch1.
     """
@@ -466,12 +491,21 @@ def test_hw_timestamper_driver_usage_pattern():
 
 def _legacy_daq_with_digital_channel(direction: Direction):
     """Build an InstroDAQ(legacy_naming=True) with a single configured digital channel."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
     mock_channel = Mock()
     mock_channel.alias = "di0"
     mock_driver.define_digital_channel.return_value = mock_channel
     mock_driver.read_digital_line.return_value = 1
     mock_driver.read_digital_port.return_value = 5
+
+    # configure_di_channel / configure_do_channel side_effects record the channel — make sure the
+    # populated dict uses `mock_channel.alias`, not whatever the channel arg's alias happens to be.
+    mock_driver.configure_di_channel.side_effect = lambda ch: mock_driver.di_channels.update(
+        {mock_channel.alias: mock_channel}
+    )
+    mock_driver.configure_do_channel.side_effect = lambda ch: mock_driver.do_channels.update(
+        {mock_channel.alias: mock_channel}
+    )
 
     daq = InstroDAQ(name="ut", driver=mock_driver, legacy_naming=True)
     daq.configure_digital_channel(direction=direction, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
@@ -497,7 +531,7 @@ def test_legacy_naming_read_digital_line_publishes_bare_alias():
 
 def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
     """Default DAQ digital writes are prefixed and suffixed (v1.0 form)."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
     mock_channel = Mock()
     mock_channel.alias = "do0"
     mock_driver.define_digital_channel.return_value = mock_channel
@@ -512,7 +546,7 @@ def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
 
 def test_default_naming_write_digital_line_preserves_int_value_type():
     """DAQ digital writes publish the raw int value, not a float-coerced copy."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
     mock_channel = Mock()
     mock_channel.alias = "do0"
     mock_driver.define_digital_channel.return_value = mock_channel
@@ -530,7 +564,7 @@ def test_default_naming_write_digital_line_preserves_int_value_type():
 
 def test_default_naming_write_digital_port_preserves_int_value_type():
     """DAQ digital port writes publish the raw int value (e.g. a byte pattern), not a float-coerced copy."""
-    mock_driver = Mock()
+    mock_driver = _make_mock_driver()
     mock_channel = Mock()
     mock_channel.alias = "port0"
     mock_driver.define_digital_channel.return_value = mock_channel

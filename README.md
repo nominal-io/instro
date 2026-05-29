@@ -1,6 +1,6 @@
 # ⟢ instro
 
-Python library for talking to test-and-measurement instruments — power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs — from a unified, typed API.
+Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg)](https://pypi.org/project/instro/)
 
@@ -37,15 +37,15 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 
 ## Quickstart
 
-Talk to a simulated PSU — no hardware required.
+Talk to a simulated PSU. No hardware required.
 
 ```bash
-# Terminal 1 — start the in-process SCPI sim server:
+# Terminal 1: start the in-process SCPI sim server:
 uv run python -m instro.psu.scpi_sim_server
 ```
 
 ```python
-# Terminal 2 — run this:
+# Terminal 2: run this:
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 
@@ -59,7 +59,7 @@ with InstroPSU(
     print(psu.get_voltage(channel=1))  # Measurement(channel_data={'my-psu.ch1.voltage': [3.31...]}, ...)
 ```
 
-For the full walkthrough — including publishing to Nominal Core and the background polling daemon — see the [official documentation](https://instro.nominal.io).
+For the full walkthrough (including publishing to Nominal Core and the background polling daemon), see the [official documentation](https://instro.nominal.io).
 
 ## Supported devices
 
@@ -78,8 +78,8 @@ Don't see your vendor? Drivers the maintainers can't verify directly against the
 
 In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
 
-- **`InstroScope`** — oscilloscope category, with drivers for Keysight 1200x and Tektronix 2-series. Import via `instro.unstable.scope`.
-- **`EtherNetIPDevice`** — EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
+- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x and Tektronix 2-series. Import via `instro.unstable.scope`.
+- **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
 
 Opt in by depending on `instro-unstable` explicitly.
 
@@ -89,8 +89,8 @@ Full guides, API reference, and per-category walkthroughs live at **[instro.nomi
 
 ## Contributing
 
-- **Humans** — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …) — see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows.
+- **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
+- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows.
 
 ## License
 

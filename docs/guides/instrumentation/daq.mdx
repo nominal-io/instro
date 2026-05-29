@@ -101,7 +101,7 @@ daq = InstroDAQ(
     driver=MCCDriver(device_id="344371:0"),  # "<unique_id>" or "<unique_id>:<board_number>"
 )
 
-# Keysight 34980A (SCPI/VISA device — driver owns its VisaDriver)
+# Keysight 34980A (SCPI/VISA device: driver owns its VisaDriver)
 from instro.daq.drivers import Keysight34980A
 
 daq = InstroDAQ(
@@ -140,7 +140,7 @@ Refer to your device's documentation for channel naming.
 
 ### Scalers
 
-It's common for the data being read by an analog input channel to need scaling in order to represent a real world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
+It's common for the data being read by an analog input channel to need scaling to represent a real-world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
 
 `InstroDAQ` supports adding a `Scaler` object when you configure your analog channel. The `Measurement` published and returned by `read_analog` will contain these scaled values.
 
@@ -214,7 +214,7 @@ Refer to your device's documentation for channel naming.
 Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
 
 - **direction**: Use `Direction.INPUT` for digital input lines or `Direction.OUTPUT` for output lines.
-- **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific—refer to your device documentation.
+- **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific. Refer to your device documentation.
 - **logic**: Sets whether the channel treats a HIGH or LOW physical level as "True". This is required for correct logic interpretation.
 - **logic_level** *(optional)*: Specifies the voltage threshold (in volts) used to distinguish HIGH from LOW, if your device supports changing this.
 - **alias** *(optional)*: A logical name for the channel, helpful for clarity and for use with publishers.
@@ -318,7 +318,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 
@@ -534,7 +534,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 
@@ -576,7 +576,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 
@@ -666,7 +666,7 @@ from instro.daq import InstroDAQ
 # LabJack version
 daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 
-# Switch to NI DAQmx — same configuration code works!
+# Switch to NI DAQmx: same configuration code works!
 daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
 ```
 
@@ -686,11 +686,12 @@ Driver developers implement the [`DAQDriverBase` abstract interface](#daqdriverb
 
 A DAQ driver shall:
 
-1. **Hardware connection lifecycle**: Implement `open()` and `close()` for establishing and terminating hardware connections
-2. **Channel configuration**: Translate generic channel configurations into vendor-specific setup
-3. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background thread for the hardware-timed acquisition.
-4. **Data format conversion**: Convert vendor-specific data formats to `Measurement` objects
-5. **Constraint validation**: Handle vendor-specific hardware constraints and raise clear exceptions when the vendor library cannot.
+1. **Hardware connection lifecycle**: Implement `open()` and `close()` for establishing and terminating hardware connections.
+2. **Channel and state tracking**: The driver is the single source of truth for what's configured. `DAQDriverBase.__init__` initializes the dicts (`ai_channels`, `ao_channels`, `di_channels`, `do_channels`, `relay_channels`) and the timing-config slots (`ai_hw_timing_config`, plus AO/DI/DO slots); concrete drivers call `super().__init__()`, then populate those dicts inside their `configure_*` methods and read from them in `read_analog`, `fetch_analog`, `start`, `write_analog_value`, etc. `InstroDAQ` exposes the same state to end users via `@property` proxies (`daq.ai_channels`, `daq.ai_hw_timing_config`, …) — no duplication. See [Driver-owned state](#driver-owned-state) below.
+3. **Channel configuration**: Translate generic channel configurations into vendor-specific setup.
+4. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background thread for the hardware-timed acquisition.
+5. **Data format conversion**: Convert vendor-specific data formats to `Measurement` objects.
+6. **Constraint validation**: Handle vendor-specific hardware constraints and raise clear exceptions when the vendor library cannot.
 
 ## DAQDriverBase Interface
 
@@ -703,14 +704,17 @@ All drivers must implement the `DAQDriverBase` abstract base class. Key methods:
 
 ### Channel Configuration
 
+Each of the methods below must (a) program the device and (b) record the resulting channel on the driver's own dict (`self.ai_channels`, `self.di_channels`, etc.) so later calls (`read_analog`, `start`, etc.) can find it. See [Driver-owned state](#driver-owned-state) for the full rationale.
+
 - **`define_digital_channel(...)`**: Create a digital line or digital port channel type.
-- **`configure_ai_channel(channel)`**: Configure an analog input channel on the hardware.
-- **`configure_di_channel(channel)`**: Configure a digital input channel on the hardware.
-- **`configure_do_channel(channel)`**: Configure a digital output channel on the hardware.
+- **`configure_ai_channel(channel)`**: Configure an analog input channel on the hardware; record on `self.ai_channels[channel.alias]`.
+- **`configure_ao_channel(channel)`**: Configure an analog output channel; record on `self.ao_channels[channel.alias]`. Default is a no-op for drivers that don't support AO.
+- **`configure_di_channel(channel)`**: Configure a digital input channel; record on `self.di_channels[channel.alias]`.
+- **`configure_do_channel(channel)`**: Configure a digital output channel; record on `self.do_channels[channel.alias]`.
 
 ### Timing Configuration
 
-- **`configure_ai_hw_timing(hw_timing_config)`**: Configure hardware-timed sampling.
+- **`configure_ai_hw_timing(hw_timing_config)`**: Program hardware-timed sampling on the device, then record on `self.ai_hw_timing_config` so `start`/`fetch_analog` can read it back.
 
 ### Acquisition Control
 
@@ -752,46 +756,89 @@ Each concrete driver owns its own transport and accepts the connection parameter
 
 - **SCPI/VISA drivers (e.g., Keysight 34980A)**: Accept a VISA resource string or a `VisaConfig` and compose a `VisaDriver` internally for all SCPI command/query operations.
 
-### InstroDAQ State Information
+### Driver-owned state
 
-Drivers have access to the state information `InstroDAQ` via the `APIInstroDAQ` interface available as an attribute, `self.hal`. `InstroDAQ` keeps track of the settings a user has configured so that the driver doesn't have to keep track of state except where necessary due to vendor implementation details.
+**The driver is the single source of truth for every channel and every timing config that has been configured.** `InstroDAQ` does not hold its own copies — `daq.ai_channels`, `daq.ai_hw_timing_config`, and friends are `@property` proxies that delegate straight to `self._driver`. There is no back-channel into `InstroDAQ`, and the driver does not import `InstroDAQ`.
+
+To keep every driver consistent, `DAQDriverBase.__init__` initializes the dicts and slots; concrete drivers call `super().__init__()` once and then **populate** them inside their `configure_*` methods.
+
+#### State on every driver
+
+`DAQDriverBase.__init__` initializes the following — populate them inside the matching `configure_*` method, and read from them anywhere the driver needs to know what's configured:
+
+| Attribute | Type | Populated in | Read by (typical) |
+|---|---|---|---|
+| `ai_channels` | `dict[str, AnalogChannel]` | `configure_ai_channel` | `read_analog`, `fetch_analog`, `start`, … |
+| `ao_channels` | `dict[str, AnalogChannel]` | `configure_ao_channel` | `write_analog_value` |
+| `di_channels` | `dict[str, DigitalChannel]` | `configure_di_channel` | digital-input read paths |
+| `do_channels` | `dict[str, DigitalChannel]` | `configure_do_channel` | digital-output write paths |
+| `relay_channels` | `dict[str, RelayChannel]` | `define_relay_channel` (base default already records; overrides must too) | `open_relay` / `close_relay` |
+| `ai_hw_timing_config` | `HWTimingConfig \| None` | `configure_ai_hw_timing` | `start`, `fetch_analog` |
+| `ao_hw_timing_config` / `di_hw_timing_config` / `do_hw_timing_config` | `HWTimingConfig \| None` | (forward-compat; unused today) | — |
+| `points_in_buffer` | `int` | `fetch_analog` (per-call) | `InstroDAQ.get_points_in_buffer` |
+
+Add vendor-specific state alongside these as needed (NI keeps an `nidaqmx.Task` per `ChannelType`; MCC caches a `ULRange` per channel; LabJack holds its LJM handle — all live on the driver instance, declared in the driver's own `__init__` *after* `super().__init__()`).
+
+#### Pattern
 
 ```python
-class APIInstroDAQ(Protocol):
-    """API for the InstroDAQ instrument type."""
-    @property
-    def ai_hw_timing_configs(self) -> HWTimingConfig:
-        """Get the hardware timing configuration for the analog input channels."""
-        ...
-    @property
-    def ai_sample_rate(self) -> float:
-        """Get the sample rate for the analog input channels."""
-        ...
-    @property
-    def channels(self) -> list[DAQChannel]:
-        """Get all the configured channels on the DAQ."""
-        ...
-    @property
-    def ai_channels(self) -> dict[str, AnalogChannel]:
-        """Get the configured analog input channels on the DAQ."""
-        ...
-    @property
-    def di_channels(self) -> dict[str, DigitalChannel]:
-        """Get the configured digital input channels on the DAQ."""
-        ...
-    @property
-    def do_channels(self) -> dict[str, DigitalChannel]:
-        """Get the configured digital output channels on the DAQ."""
-```
-This is useful for differences in how vendors expect someone to interact with their device.
+class MyDriver(DAQDriverBase):
+    def __init__(self, resource: str) -> None:
+        super().__init__()  # initializes ai_channels, ao_channels, di_channels,
+                            # do_channels, relay_channels, *_hw_timing_config slots,
+                            # and points_in_buffer.
+        self._transport = SomeTransport(resource)  # vendor-specific state
 
-#### Example: Vendor Difference Solved with APIInstroDAQ
+    def configure_ai_channel(self, channel: AnalogChannel) -> None:
+        ...  # program the device
+        self.ai_channels[channel.alias] = channel
+
+    def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
+        ...  # program the device
+        self.ai_hw_timing_config = hw_timing_config
+
+    def fetch_analog(self) -> Any:
+        config = self.ai_hw_timing_config  # read driver-owned state
+        for ch in self.ai_channels.values():
+            ...
+```
+
+The same `self.<dict>[channel.alias] = channel` pattern applies to `configure_ao_channel`, `configure_di_channel`, and `configure_do_channel`. `DAQDriverBase.define_relay_channel`'s default builds a `RelayChannel` and records it on `self.relay_channels` already — only override if your hardware needs different parsing, and ensure your override records too.
+
+#### How InstroDAQ exposes this
+
+```python
+# In InstroDAQ:
+@property
+def ai_channels(self) -> dict[str, AnalogChannel]:
+    return self._driver.ai_channels
+
+@property
+def ai_hw_timing_config(self) -> HWTimingConfig | None:
+    return self._driver.ai_hw_timing_config
+# ... and so on for ao_channels, di_channels, do_channels, relay_channels,
+# ao_hw_timing_config, di_hw_timing_config, do_hw_timing_config.
+
+@property
+def channels(self) -> list[DAQChannel]:
+    """Aggregate of every configured AI/AO/DI/DO channel (excludes relays)."""
+    return [
+        *self._driver.ai_channels.values(),
+        *self._driver.ao_channels.values(),
+        *self._driver.di_channels.values(),
+        *self._driver.do_channels.values(),
+    ]
+```
+
+End users see `daq.ai_channels` as a dict, but mutating it would be mutating the driver's dict — treat these as read-only views. Users who want the underlying driver can reach it via `daq.driver`.
+
+#### Example: Vendor differences in timing
 
 Different vendors configure timing differently, but InstroDAQ users must always call `configure_ai_sample_rate()` before `start()`.
 
-- **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver shall implement this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()`.
+- **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver implements this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()` and then stores the config on `self.ai_hw_timing_config`.
 
-- **LabJack LJM**: Sample rate is configured when `ljm.eStreamStart()` is called. Since `InstroDAQ` stores the configuration information when `InstroDAQ.configure_ai_sample_rate()` is called, the `start()` implementation can grab the `HWTimingConfig` from `InstroDAQ` and configure the device.
+- **LabJack LJM**: Sample rate is configured when `ljm.eStreamStart()` is called. The driver records the `HWTimingConfig` in `configure_ai_hw_timing()` and reads it back from `self.ai_hw_timing_config` inside `start()`.
 
 **Driver's Job**: Implement these differences so the user interface is consistent at the `InstroDAQ` level.
 

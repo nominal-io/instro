@@ -9,7 +9,7 @@ import queue
 import threading
 from typing import Protocol
 
-from instro.utils.types import Command, Measurement
+from instro.lib.types import Command, Measurement
 
 logger = logging.getLogger(__name__)
 

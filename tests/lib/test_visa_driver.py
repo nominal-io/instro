@@ -10,7 +10,7 @@ import pytest
 from pyvisa.constants import InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
-from instro.utils.transports import (
+from instro.lib.transports import (
     ControlFlow,
     Parity,
     SerialConfig,
@@ -48,7 +48,7 @@ def _make_driver(
 @pytest.fixture
 def mock_pyvisa():
     """Patch pyvisa.ResourceManager and yield (rm_class, rm_instance, resource)."""
-    with patch("instro.utils.transports.visa.pyvisa.ResourceManager") as rm_class:
+    with patch("instro.lib.transports.visa.pyvisa.ResourceManager") as rm_class:
         rm_instance = MagicMock()
         rm_class.return_value = rm_instance
         resource = MagicMock()

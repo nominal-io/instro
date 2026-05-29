@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
-from instro.utils.transports.visa import VisaConfig, VisaDriver
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 
 class Keithley2400(DMMDriverBase):

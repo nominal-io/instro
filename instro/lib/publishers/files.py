@@ -8,7 +8,7 @@ from typing import Any, Literal, Protocol
 
 import fastavro
 
-from instro.utils.types import Command, Measurement
+from instro.lib.types import Command, Measurement
 
 
 class FileWriter(Protocol):

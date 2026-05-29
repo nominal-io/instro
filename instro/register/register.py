@@ -18,9 +18,9 @@ from typing import Sequence
 
 from pydantic import BaseModel, Field
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.publishers.publisher import Publisher
-from instro.utils.types import ScaleType
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.publishers.publisher import Publisher
+from instro.lib.types import ScaleType
 
 logger = logging.getLogger(__name__)
 

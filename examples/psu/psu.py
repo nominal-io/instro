@@ -7,10 +7,10 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 import logging
 import time
 
+from instro.lib.nominal import install_nominal_core_log_handler
+from instro.lib.publishers import NominalCorePublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils.nominal import install_nominal_core_log_handler
-from instro.utils.publishers import NominalCorePublisher
 
 # enable logging
 logging.basicConfig(level=logging.DEBUG)

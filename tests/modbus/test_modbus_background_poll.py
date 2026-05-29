@@ -18,16 +18,16 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
+from instro.lib.types import DeviceInfo
 from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver, TimingConfig
 from instro.utils.protocol.modbus import TCPConnectionConfig
-from instro.utils.types import DeviceInfo
 
 TEST_PORT = 5025
 
-HR_REG_A = 42   # holding register at address 100
-HR_REG_B = 17   # holding register at address 101
-HR_REG_C = 99   # holding register at address 102
+HR_REG_A = 42  # holding register at address 100
+HR_REG_B = 17  # holding register at address 101
+HR_REG_C = 99  # holding register at address 102
 
 
 # ============ Sim Server ============

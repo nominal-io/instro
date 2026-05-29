@@ -7,7 +7,7 @@ description: "Move your codebase from nominal-instro (<=0.6.x) to instro (>=0.7)
   This is **v1** of the migration guide. It covers two changes that shipped in
   the same migration window: the mechanical rename from `nominal-instro` to
   `instro` (automated via the [codemod](#automated-codemod)), and the v1.0
-  channel-naming standardization (no code change required — set
+  channel-naming standardization (no code change required: set
   [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming)
   on each instrument to preserve the pre-v1.0 wire format).
 </Info>
@@ -18,8 +18,8 @@ The Python package `nominal-instro` has been renamed to `instro`. This affects:
 
 1. **PyPI distribution names**: `nominal-instro` → `instro`, and every workspace package (`nominal-instro-daq-ni`, `nominal-instro-daq-labjack`, etc.) drops its `nominal-` prefix.
 2. **Python import path**: `from nominal_instro...` → `from instro...`.
-3. **Class names**: instrument facades drop the `Nominal` prefix in favor of `Instro` (e.g. `NominalDAQ` → `InstroDAQ`). The base class `NominalInstrument` becomes `Instrument`. `NominalI2C` and `NominalModbus` become `I2CInterface` and `ModbusDevice` (bare protocol names, no `Instro` prefix — see *Folder layout*).
-4. **Folder layout**: the library now uses a **category-first** layout — each category owns its instrument class and its drivers together (`instro/daq/`, `instro/dmm/`, etc.), and I2C and Modbus lift to their own top-level packages because they are protocols, not role-abstractions. See [Folder layout & import paths](#folder-layout--import-paths) below.
+3. **Class names**: instrument facades drop the `Nominal` prefix in favor of `Instro` (e.g. `NominalDAQ` → `InstroDAQ`). The base class `NominalInstrument` becomes `Instrument`. `NominalI2C` and `NominalModbus` become `I2CInterface` and `ModbusDevice` (bare protocol names, no `Instro` prefix: see *Folder layout*).
+4. **Folder layout**: the library now uses a **category-first** layout: each category owns its instrument class and its drivers together (`instro/daq/`, `instro/dmm/`, etc.), and I2C and Modbus lift to their own top-level packages because they are protocols, not role-abstractions. See [Folder layout & import paths](#folder-layout--import-paths) below.
 
 Two classes intentionally **keep** the `Nominal` prefix because the prefix refers to the Nominal *platform* they integrate with, not the package namespace:
 
@@ -42,7 +42,7 @@ Extras (`pip install nominal-instro[daq]`) keep the same extras names, just on t
 
 ## Folder layout & import paths
 
-The old `nominal_instro/instruments/<category>/` + `nominal_instro/drivers/<category>/<vendor>/` split has been collapsed into one folder per category, with concrete drivers living under each category's own `drivers/` subfolder. Two protocols — **I2C** and **Modbus** — leave `instruments`/`protocols` for top-level packages because the protocol *is* the device identity, with no swappable wire format underneath.
+The old `nominal_instro/instruments/<category>/` + `nominal_instro/drivers/<category>/<vendor>/` split has been collapsed into one folder per category, with concrete drivers living under each category's own `drivers/` subfolder. Two protocols (**I2C** and **Modbus**) leave `instruments`/`protocols` for top-level packages because the protocol *is* the device identity, with no swappable wire format underneath.
 
 | Old import                                                       | New import                                          |
 | ---------------------------------------------------------------- | --------------------------------------------------- |
@@ -59,20 +59,20 @@ The old `nominal_instro/instruments/<category>/` + `nominal_instro/drivers/<cate
 | `from nominal_instro.instruments.i2c import NominalI2C`          | `from instro.i2c import I2CInterface`               |
 | `from nominal_instro.drivers.i2c.totalphase import Aardvark`     | `from instro.i2c.drivers.totalphase import Aardvark`|
 | `from nominal_instro.protocols.modbus import NominalModbus`      | `from instro.modbus import ModbusDevice`            |
-| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.utils import VisaDriver, Instrument`   |
-| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.utils.types import DeviceInfo`  |
+| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.lib import VisaDriver, Instrument`   |
+| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.lib.types import DeviceInfo`  |
 
 The conventions are:
 
 - Each category root (`instro.daq`, `instro.dmm`, …) re-exports the instrument class **and** the category base driver, so custom-driver authors only need to remember one import path per category.
 - Concrete drivers shipped in the main `instro` distribution live flat under `<category>/drivers/` (no per-vendor subfolder). Workspace packages like `instro-daq-labjack` keep their vendor folder (`instro.daq.drivers.labjack`) because that's where their `__init__.py` lives.
-- `instro.utils` (formerly `instro.lib`) is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc. Renamed to sort out of the middle of the category list.
+- `instro.lib` is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc.
 
 ## Class rename table
 
 | Old                                  | New                                |
 | ------------------------------------ | ---------------------------------- |
-| `NominalDAQ`, `NominalDAQFacade`     | `InstroDAQ`, `InstroDAQFacade`     |
+| `NominalDAQ`                         | `InstroDAQ`                        |
 | `NominalDMM`                         | `InstroDMM`                        |
 | `NominalPSU`                         | `InstroPSU`                        |
 | `NominalI2C`                         | `I2CInterface`                     |
@@ -86,18 +86,19 @@ The conventions are:
 
 ### Removed classes
 
-These facade classes were removed entirely as part of the CON-564 driver-shape refactor — they have **no replacement**. The codemod deliberately leaves these names unchanged so you hit a clear `ImportError` and can migrate away from the facade pattern (drivers now compose `VisaDriver` directly).
+These facade classes were removed entirely as part of the INSTRO-231 driver-shape refactor. They have **no replacement**. The codemod deliberately leaves these names unchanged so you hit a clear `ImportError` and can migrate away from the facade pattern (drivers now compose `VisaDriver` directly).
 
 | Removed                | Removed in | Migration                                                                    |
 | ---------------------- | ---------- | ---------------------------------------------------------------------------- |
-| `NominalDMMFacade`     | CON-2287   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalPSUFacade`     | CON-2288   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalI2CFacade`     | CON-2289   | Drop the facade. Driver methods take the configuration they need directly.   |
-| `NominalScopeFacade`   | CON-2410   | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalDMMFacade`     | INSTRO-158 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalPSUFacade`     | INSTRO-157 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalI2CFacade`     | INSTRO-156 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalScopeFacade`   | INSTRO-171 | Drop the facade. Driver methods take the configuration they need directly.   |
+| `NominalDAQFacade`     | INSTRO-311 | Drop the facade. Drivers track their own channels and timing state.          |
 
 ## Automated codemod
 
-We ship a standalone Python script that applies all of the above renames to your codebase. It requires no dependencies beyond the standard library and works on any Python 3.10+ installation.
+`instro` ships a standalone Python script that applies all of the above renames to your codebase. It requires no dependencies beyond the standard library and works on any Python 3.10+ installation.
 
 ### 1. Download the script
 
@@ -161,11 +162,11 @@ pytest
 
 ## What the codemod handles
 
-The script walks every `.py`, `.pyi`, `.toml`, `.md`, `.mdx`, `.yml`, `.yaml`, `.txt`, `.cfg`, and `.ini` file (skipping `.venv`, `.git`, `target`, `dist`, `build`, `__pycache__`, `.mypy_cache`, `node_modules`, `.tox`, `.pytest_cache`) and applies the literal package, import, and class renames. The renames are applied in a fixed order to avoid prefix collisions — for example, `NominalInstrumentationErrorCodes` is rewritten **before** `NominalInstrument` so the longer name isn't partially mangled.
+The script walks every `.py`, `.pyi`, `.toml`, `.md`, `.mdx`, `.yml`, `.yaml`, `.txt`, `.cfg`, and `.ini` file (skipping `.venv`, `.git`, `target`, `dist`, `build`, `__pycache__`, `.mypy_cache`, `node_modules`, `.tox`, `.pytest_cache`) and applies the literal package, import, and class renames. The renames are applied in a fixed order to avoid prefix collisions: for example, `NominalInstrumentationErrorCodes` is rewritten **before** `NominalInstrument` so the longer name isn't partially mangled.
 
 Both `NominalCorePublisher` and `NominalConnectPublisher` do **not** match any rewrite pattern, so they pass through untouched.
 
-The codemod **does not touch channel-name strings** (see [Channel name changes](#channel-name-changes)) — those are easier to handle via `legacy_naming=True`, or by hand with the translation table below if you want to fully migrate now.
+The codemod **does not touch channel-name strings** (see [Channel name changes](#channel-name-changes)). Those are easier to handle via `legacy_naming=True`, or by hand with the translation table below if you want to fully migrate now.
 
 ## What you may need to do by hand
 
@@ -188,29 +189,29 @@ The only hits should be inside vendored or generated content you do not control.
 
 ## Channel name changes
 
-Published channel names changed for **PSU**, **ELoad**, **I2C**, **DAQ digital channels**, and **Scope**. The change touches Python source *and* downstream consumers (dashboards, recorded datasets, alert configs that key off channel names) — and the downstream side is the part automation can't fix.
+Published channel names changed for **PSU**, **ELoad**, **I2C**, **DAQ digital channels**, and **Scope**. The change touches Python source *and* downstream consumers (dashboards, recorded datasets, alert configs that key off channel names), and the downstream side is the part automation can't fix.
 
 ### Recommended: set `legacy_naming=True` and migrate at your own pace
 
-Every category instrument accepts a `legacy_naming: bool = False` constructor kwarg. Setting it `True` makes the instrument publish channels under their pre-v1.0 names — no Python rewrites, no dashboard updates. Migrate the flag-flip first, then update consumers on your schedule.
+Every category instrument accepts a `legacy_naming: bool = False` constructor kwarg. Setting it `True` makes the instrument publish channels under their pre-v1.0 names, with no Python rewrites and no dashboard updates. Migrate the flag-flip first, then update consumers on your schedule.
 
 ```python
 psu = InstroPSU(name="main", driver=..., num_channels=1, legacy_naming=True)
 # publishes  main.ch1_v, main.ch1_v.cmd, main.ch1_i, ...  (pre-v1.0 names)
 ```
 
-See [Backwards-compatible channel naming](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) for the full feature. The flag is scheduled for removal in **v2.0** — use the window to migrate consumers.
+See [Backwards-compatible channel naming](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) for the full feature. The flag is scheduled for removal in **v2.0**. Use the window to migrate consumers.
 
 ### After the migration
 
 - Every part of a channel name is dot-separated. The legacy underscore separator inside I2C channel keys and the leading bare `{alias}` form for DAQ digital channels are gone.
-- Every command channel ends in `.cmd`. Previously I2C used `_cmd`; that's been normalized.
+- Every command channel ends in `.cmd`. Previously I2C used `_cmd`. That's been normalized.
 - Cryptic single-letter suffixes (`_v`, `_i`, `_en`) on PSU and ELoad telemetry were expanded to descriptive words (`.voltage`, `.current`, `.enabled`).
-- Scope channels switched their separator from `_` to `.`; the abbreviation `probe_atten` was expanded to `probe_attenuation`.
+- Scope channels switched their separator from `_` to `.`. The abbreviation `probe_atten` was expanded to `probe_attenuation`.
 
 ### Translation table
 
-`{name}` is the instrument instance name you pass to the constructor; `{N}` is the channel number; `{periph}`, `{reg}`, `{field}`, `{alias}` come from your own configuration.
+`{name}` is the instrument instance name you pass to the constructor. `{N}` is the channel number. `{periph}`, `{reg}`, `{field}`, and `{alias}` come from your own configuration.
 
 | Category | Old | New |
 | --- | --- | --- |
@@ -254,34 +255,34 @@ done
 rg -l '\.ch\d+_probe_atten\b' | xargs sed -E -i '' 's/\.ch([0-9]+)_probe_atten\b/.ch\1.probe_attenuation/g'
 ```
 
-The `sed -E -i ''` form is BSD/macOS; on GNU sed use `sed -E -i` (no empty string). Run on a clean git working tree so you can review the diff.
+The `sed -E -i ''` form is BSD/macOS. On GNU sed, use `sed -E -i` (no empty string). Run on a clean git working tree so you can review the diff.
 
-**I2C and DAQ digital are not regex-friendly.** I2C's `{name}_{periph}_{reg}` form requires knowing your peripheral/register names to know where to insert dots; DAQ digital's bare-alias form is indistinguishable from random other string literals. For those, find references manually:
+**I2C and DAQ digital are not regex-friendly.** I2C's `{name}_{periph}_{reg}` form requires knowing your peripheral/register names to know where to insert dots. DAQ digital's bare-alias form is indistinguishable from random other string literals. For those, find references manually:
 
 ```bash
 rg '"[A-Za-z_][A-Za-z0-9_]*_[A-Za-z_][A-Za-z0-9_]*_cmd"'   # I2C-style _cmd string literals
 rg 'channel_data\[\s*"[^."]+"\s*\]'                         # channel_data keyed by bare alias (DAQ digital candidate)
 ```
 
-**Downstream tooling (dashboards, datasets, alerts) that stores channel names by string match needs updating alongside the code.** No automation will reach into your dashboard config — that's the part `legacy_naming=True` is most valuable for.
+**Downstream tooling (dashboards, datasets, alerts) that stores channel names by string match needs updating alongside the code.** No automation will reach into your dashboard config. That's the part `legacy_naming=True` is most valuable for.
 
 ### Custom instrument authors
 
 If you subclassed `Instrument` to build your own instrument type, the publish pipeline now goes through two decorators on the base class:
 
-- `@publish_command` — wraps methods that return a `Command`. Publishes the result and raises `TypeError` if the method returned the wrong type.
-- `@publish_measurement` — wraps methods that return a `Measurement`, a `list[Measurement]`, or `None`. Publishes each item; `None` is passed through.
+- `@publish_command`: wraps methods that return a `Command`. Publishes the result and raises `TypeError` if the method returned the wrong type.
+- `@publish_measurement`: wraps methods that return a `Measurement`, a `list[Measurement]`, or `None`. Publishes each item. `None` is passed through.
 
 Two helpers on `Instrument` build the right object:
 
-- `self._package_command(channel, data, timestamp, **tags)` — returns a `Command` keyed under `{self.name}.{channel}`. Pass `channel` *with* the trailing `.cmd` so the literal string appears at the call site.
-- `self._package_measurement(channel, data, timestamp, **tags)` — returns a `Measurement` keyed under `{self.name}.{channel}`. Do not include `.cmd` in `channel`.
+- `self._package_command(channel, data, timestamp, **tags)`: returns a `Command` keyed under `{self.name}.{channel}`. Pass `channel` *with* the trailing `.cmd` so the literal string appears at the call site.
+- `self._package_measurement(channel, data, timestamp, **tags)`: returns a `Measurement` keyed under `{self.name}.{channel}`. Do not include `.cmd` in `channel`.
 
 A typical set/get method now looks like this:
 
 ```python
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class InstroMyThing(Instrument):
@@ -300,7 +301,7 @@ class InstroMyThing(Instrument):
         return self._package_measurement(f"ch{channel}.readback", value, ts, **kwargs)
 ```
 
-If you previously copied the old `_read_to_command` / `_read_to_measurement` helper pattern into your subclass, delete those copies — the base class methods replace them, and the decorators enforce the channel-naming contract at runtime.
+If you previously copied the old `_read_to_command` / `_read_to_measurement` helper pattern into your subclass, delete those copies. The base class methods replace them, and the decorators enforce the channel-naming contract at runtime.
 
 ## Rollback
 

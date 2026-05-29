@@ -10,13 +10,13 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef
 from instro.utils.protocol.modbus import TCPConnectionConfig
-from instro.utils.types import DeviceInfo, LinearScale
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 
-TEST_PORT=5020
+TEST_PORT = 5020
 # ============ ModbusRegisterDef Swap Validation ============
 
 

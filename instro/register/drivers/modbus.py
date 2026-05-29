@@ -21,9 +21,9 @@ from typing import Literal, Mapping, Sequence, cast
 
 from pydantic import BaseModel, Field, model_validator
 
+from instro.lib.types import DeviceInfo, LinearScale, ScaleType
 from instro.register import RegisterBase, RegisterDriverBase, register_value_type
 from instro.utils.protocol.modbus import ModbusConnectionConfig, ModbusDriver
-from instro.utils.types import DeviceInfo, LinearScale, ScaleType
 
 # ============ Bitmap Definition ============
 

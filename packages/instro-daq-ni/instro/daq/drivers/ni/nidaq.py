@@ -21,7 +21,7 @@ from instro.daq.types import (
     Logic,
     TerminalConfig,
 )
-from instro.utils import Measurement
+from instro.lib import Measurement
 
 
 @dataclass
@@ -35,10 +35,10 @@ class NIDAQDriver(DAQDriverBase):
     """NI-DAQmx DAQ driver."""
 
     def __init__(self, device_id: str):
+        super().__init__()
         self._device_id = device_id
         self._tasks: dict[ChannelType, nidaqmx.Task] = {}
         self._ao_sw_tasks: dict[str, nidaqmx.Task] = {}
-        self.points_in_buffer: int = 0
 
         self._actual_sample_period: int | None = None
         self._actual_sample_rate: float | None = None
@@ -74,8 +74,6 @@ class NIDAQDriver(DAQDriverBase):
 
     def _get_task(self, channel_type: ChannelType) -> nidaqmx.Task:
         """Return (creating if missing) the DAQmx task for ``channel_type``."""
-        # TODO CON-953: refactor this to seperate out hw and sw timed. Only reason to group based on ChannelType
-        # is due to sharing a timing engine per ChannelType, which is not relevant and is restricting for sw timed tasks.
         task = self._tasks.get(channel_type, None)
         if not task:
             # Task does not yet exist for that channel_type
@@ -118,8 +116,9 @@ class NIDAQDriver(DAQDriverBase):
             terminal_config=terminal_config,
         )
 
+        self.ai_channels[channel.alias] = channel
+
     def configure_ao_channel(self, channel: AnalogChannel):
-        # TODO CON-953
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
 
         task = self._ao_sw_tasks.get(channel.alias, None)
@@ -136,6 +135,8 @@ class NIDAQDriver(DAQDriverBase):
             max_val=channel.range_max,
         )
 
+        self.ao_channels[channel.alias] = channel
+
     def configure_ai_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
@@ -149,6 +150,8 @@ class NIDAQDriver(DAQDriverBase):
             samps_per_chan=hw_timing_config.samples_per_channel,
             sample_mode=AcquisitionType.CONTINUOUS,
         )
+
+        self.ai_hw_timing_config = hw_timing_config
 
     def define_digital_channel(
         self,
@@ -219,6 +222,8 @@ class NIDAQDriver(DAQDriverBase):
             line_grouping=line_grouping,
         )
 
+        self.do_channels[channel.alias] = channel
+
     def configure_di_channel(
         self,
         channel: DigitalChannel,
@@ -242,6 +247,8 @@ class NIDAQDriver(DAQDriverBase):
             name_to_assign_to_lines=channel.alias,
             line_grouping=line_grouping,
         )
+
+        self.di_channels[channel.alias] = channel
 
     def start(self, **kwargs):
         """Start the DAQ device for data acquisition."""
@@ -272,11 +279,13 @@ class NIDAQDriver(DAQDriverBase):
             self._running_channel_types.add(channel_type)
 
     def _capture_sample_rate(self):
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
         ai_task = self._tasks[ChannelType.ANALOG_INPUT]
         actual_rate = ai_task.timing.samp_clk_rate
         self._actual_sample_rate = actual_rate
         self._actual_sample_period = round(1e9 / actual_rate)
-        requested_rate = self.hal.ai_hw_timing_configs.sample_rate
+        requested_rate = self.ai_hw_timing_config.sample_rate
         if abs(actual_rate - requested_rate) / requested_rate > 0.1:
             print(
                 f"Warning: Requested sample rate ({requested_rate}) "
@@ -311,10 +320,11 @@ class NIDAQDriver(DAQDriverBase):
         return DAQmxData(data=data, timestamp=timestamp, dt=None)
 
     def fetch_analog(self) -> DAQmxData:
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
-        hw_timing_config = self.hal.ai_hw_timing_configs
 
-        data = task.read(number_of_samples_per_channel=hw_timing_config.samples_per_channel)
+        data = task.read(number_of_samples_per_channel=self.ai_hw_timing_config.samples_per_channel)
         timestamp = time.time_ns()  # DAQmx does not do hardware timed samples, for the most part
 
         if isinstance(data[0], float):

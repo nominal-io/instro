@@ -5,16 +5,16 @@ description: Using InstroPSU for SCPI-based programmable power supplies
 
 # InstroPSU
 
-`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …); a vendor-specific driver (e.g. `BK9115`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
+`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
-- **B&K Precision** — 9115-series single-channel via SCPI/VISA (`BK9115`)
-- **B&K Precision** — 9140-series multi-channel via SCPI/VISA (`BK9140`)
-- **Rigol** — DP-series via SCPI/VISA (`RigolDP800`)
-- **Siglent** — SPD-series via SCPI/VISA (`SiglentSPD3303`)
-- **TDK Lambda** — Genesys family via SCPI/VISA (`TDKLambdaGenesys`)
-- **Simulated** — `SimulatedPSU` for use with the bundled SCPI simulator
+- **B&K Precision**: 9115-series single-channel via SCPI/VISA (`BK9115`)
+- **B&K Precision**: 9140-series multi-channel via SCPI/VISA (`BK9140`)
+- **Rigol**: DP-series via SCPI/VISA (`RigolDP800`)
+- **Siglent**: SPD-series via SCPI/VISA (`SiglentSPD3303`)
+- **TDK Lambda**: Genesys family via SCPI/VISA (`TDKLambdaGenesys`)
+- **Simulated**: `SimulatedPSU` for use with the bundled SCPI simulator
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -29,18 +29,18 @@ InstroPSU("name", driver=BK9115(visa_resource="USB0::..."), num_channels=1)
 ```
 
 - The **vendor driver** (e.g. `BK9115`) owns the connection setup and vendor-specific command mapping.
-- **`InstroPSU`** owns the category-level workflow — measurements, commands, publishers, the background daemon.
+- **`InstroPSU`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
 
 ### Lifecycle
 
 The typical InstroPSU workflow:
 
-1. **Construct** — instantiate the vendor driver and pass it to `InstroPSU`.
-2. **`open()`** — establishes the VISA connection.
-3. **Configure and measure** — set voltage/current limits, enable outputs, read measurements.
-4. **`start()`** — begins a periodic background worker. (Optional)
-5. **`stop()`** — ends the background worker (if started).
-6. **`close()`** — disconnects from hardware.
+1. **Construct**: instantiate the vendor driver and pass it to `InstroPSU`.
+2. **`open()`**: establishes the VISA connection.
+3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements.
+4. **`start()`**: begins a periodic background worker. (Optional)
+5. **`stop()`**: ends the background worker (if started).
+6. **`close()`**: disconnects from hardware.
 
 ## Creating a InstroPSU Instance
 
@@ -57,11 +57,11 @@ psu = InstroPSU(
 
 ### Parameters
 
-- **`name`** — A name for this PSU instance. Used as a prefix for channel names when publishing.
-- **`driver`** — A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
-- **`num_channels`** — Number of output channels on the power supply.
-- **`publishers`** — Optional list of publishers to attach.
-- **`**kwargs`** — Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
+- **`num_channels`**: Number of output channels on the power supply.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### Choosing a Driver
 
@@ -70,7 +70,7 @@ Choose the concrete driver that matches the power supply model, then pass the in
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::...")
 try:
@@ -91,7 +91,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -129,7 +129,7 @@ import time
 
 from instro.psu.drivers import SiglentSPD3303
 from instro.psu import InstroPSU
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -222,6 +222,18 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=N)` | `ch{N}.current` | telemetry |
 | `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
 | `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
+| `set_overvoltage_protection_level(channel=N)` | `ch{N}.ovp.cmd` | command |
+| `get_overvoltage_protection_level(channel=N)` | `ch{N}.ovp` | telemetry |
+| `set_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled.cmd` | command |
+| `get_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled` | telemetry |
+| `set_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay.cmd` | command |
+| `get_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay` | telemetry |
+| `set_overcurrent_protection_level(channel=N)` | `ch{N}.ocp.cmd` | command |
+| `get_overcurrent_protection_level(channel=N)` | `ch{N}.ocp` | telemetry |
+| `set_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled.cmd` | command |
+| `get_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled` | telemetry |
+| `set_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense.cmd` | command |
+| `get_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense` | telemetry |
 
 ## Method Reference
 
@@ -236,10 +248,20 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=1)` | Read measured output current in amperes |
 | `output_enable(enable, channel=1)` | Enable (True) or disable (False) the output |
 | `get_output_status(channel=1)` | Query output enable state (returns Measurement with bool value) |
+| `set_overvoltage_protection_level(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
+| `get_overvoltage_protection_level(channel=1)` | Read the overvoltage protection threshold in volts |
+| `set_overvoltage_protection_enabled(enabled, channel=1)` | Enable or disable overvoltage protection |
+| `get_overvoltage_protection_enabled(channel=1)` | Query whether overvoltage protection is enabled |
+| `set_overvoltage_protection_delay(delay, channel=1)` | Set the overvoltage protection trip delay in seconds |
+| `get_overvoltage_protection_delay(channel=1)` | Read the overvoltage protection trip delay in seconds |
+| `set_overcurrent_protection_level(current, channel=1)` | Set the overcurrent protection threshold in amperes |
+| `get_overcurrent_protection_level(channel=1)` | Read the overcurrent protection threshold in amperes |
+| `set_overcurrent_protection_enabled(enabled, channel=1)` | Enable or disable overcurrent protection |
+| `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
+| `set_remote_sense_enabled(enabled, channel=1)` | Enable or disable remote sense |
+| `get_remote_sense_enabled(channel=1)` | Query whether remote sense is enabled |
 | `start()` | Begin background telemetry thread |
 | `stop()` | End background telemetry thread |
-
----
 
 # Simulated Power Supply
 
@@ -324,12 +346,12 @@ The driver is responsible for translating `InstroPSU`'s vendor-independent API (
 
 A PSU driver must:
 
-1. **Expose a protocol-native constructor** — accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
-2. **Own transport setup** — create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
-3. **Own lifecycle** — implement `open()` and `close()` by opening and closing the underlying transport.
-4. **Map commands** — translate each abstract method into vendor-specific commands.
-5. **Parse responses** — convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors** — query the instrument's error queue (where one exists) and raise on non-zero status.
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
+3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands**: translate each abstract method into vendor-specific commands.
+5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
+6. **Report errors**: query the instrument's error queue (where one exists) and raise on non-zero status.
 
 ## PSUDriverBase Interface
 
@@ -359,18 +381,56 @@ def output_enable(self, enable: bool, channel: int) -> None:
 
 def get_output_status(self, channel: int) -> bool:
     """Query and return the output enable status on `channel`."""
+
+def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
+    """Set the overvoltage protection threshold (volts) on `channel`."""
+
+def get_overvoltage_protection_level(self, channel: int) -> float:
+    """Query and return the overvoltage protection threshold in volts."""
+
+def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overvoltage protection on `channel`."""
+
+def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overvoltage protection is enabled."""
+
+def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+    """Set the overvoltage protection trip delay (seconds) on `channel`."""
+
+def get_overvoltage_protection_delay(self, channel: int) -> float:
+    """Query and return the overvoltage protection trip delay in seconds."""
+
+def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
+    """Set the overcurrent protection threshold (amperes) on `channel`."""
+
+def get_overcurrent_protection_level(self, channel: int) -> float:
+    """Query and return the overcurrent protection threshold in amperes."""
+
+def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable overcurrent protection on `channel`."""
+
+def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+    """Query and return whether overcurrent protection is enabled."""
+
+def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
+    """Enable or disable remote sense on `channel`."""
+
+def get_remote_sense_enabled(self, channel: int) -> bool:
+    """Query and return the remote sense enable status on `channel`."""
 ```
+
+Required output-control and measurement methods on `PSUDriverBase` are declared with `@abc.abstractmethod`. Optional protection and sense methods default to `NotImplementedError`; override the ones the driver implements. See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling.
 
 ### Talking to the Instrument
 
 Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
 
-- **`self._visa.write(command)`** — Send a SCPI command (no response expected).
-- **`self._visa.query(command)`** — Send a SCPI query and receive the response string.
+- **`self._visa.write(command)`**: Send a SCPI command (no response expected).
+- **`self._visa.query(command)`**: Send a SCPI query and receive the response string.
 
-`VisaDriver` owns the resource lock; concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a write and its error check need to execute atomically.
+`VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a write and its error check need to execute atomically.
 
-See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference — configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
 
 For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
 
@@ -380,7 +440,7 @@ Here's a representative driver implementation for the B&K Precision 9115-series 
 
 ```python
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class BK9115(PSUDriverBase):
@@ -451,7 +511,7 @@ For drivers that aren't shipped in the library, construct `InstroPSU` with your 
 ```python
 from instro.psu import InstroPSU
 from instro.psu import PSUDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomPSUDriver(PSUDriverBase):

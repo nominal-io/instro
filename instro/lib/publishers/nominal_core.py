@@ -7,7 +7,7 @@ from typing import Literal
 
 from nominal_streaming import NominalDatasetStream
 
-from instro.utils.types import Command, Measurement
+from instro.lib.types import Command, Measurement
 
 from ..nominal import _resolve_nominal_client_and_dataset
 

@@ -22,10 +22,10 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.register import InstroRegisterInstrument
 from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver
 from instro.utils.protocol.modbus import TCPConnectionConfig
-from instro.utils.types import DeviceInfo, LinearScale
 
 TEST_PORT = 5029
 
