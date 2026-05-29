@@ -1,7 +1,7 @@
 """Tests for Modbus config validation rules.
 
 Tests cover:
-- RegisterDef: swap applicability, scale restrictions for coils/discrete
+- ModbusRegisterDef: swap applicability, scale restrictions for coils/discrete
 - ModbusConfig: register overlap detection within same type, cross-type allowed
 """
 
@@ -11,45 +11,46 @@ import pytest
 from pydantic import ValidationError
 
 from instro.lib.types import DeviceInfo, LinearScale
-from instro.modbus import ModbusConfig, RegisterDef
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef
+from instro.utils.protocol.modbus import TCPConnectionConfig
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 
-
-# ============ RegisterDef Swap Validation ============
+TEST_PORT = 5020
+# ============ ModbusRegisterDef Swap Validation ============
 
 
 class TestSwapValidation:
     def test_word_swap_rejected_for_uint16(self):
         with pytest.raises(ValidationError, match="word_swap is not applicable"):
-            RegisterDef(name="bad", starting_address=0, data_type="uint16", word_swap=True)
+            ModbusRegisterDef(name="bad", starting_address=0, data_type="uint16", word_swap=True)
 
     def test_word_swap_rejected_for_int16(self):
         with pytest.raises(ValidationError, match="word_swap is not applicable"):
-            RegisterDef(name="bad", starting_address=0, data_type="int16", word_swap=True)
+            ModbusRegisterDef(name="bad", starting_address=0, data_type="int16", word_swap=True)
 
     def test_word_swap_rejected_for_bool(self):
         with pytest.raises(ValidationError, match="word_swap is not applicable"):
-            RegisterDef(name="bad", starting_address=0, data_type="bool", word_swap=True)
+            ModbusRegisterDef(name="bad", starting_address=0, data_type="bool", word_swap=True)
 
     def test_word_swap_allowed_for_32bit(self):
-        reg = RegisterDef(name="ok", starting_address=0, data_type="uint32", word_swap=True)
+        reg = ModbusRegisterDef(name="ok", starting_address=0, data_type="uint32", word_swap=True)
         assert reg.word_swap is True
 
     def test_word_swap_allowed_for_64bit(self):
-        reg = RegisterDef(name="ok", starting_address=0, data_type="float64", word_swap=True)
+        reg = ModbusRegisterDef(name="ok", starting_address=0, data_type="float64", word_swap=True)
         assert reg.word_swap is True
 
     def test_long_swap_rejected_for_32bit(self):
         with pytest.raises(ValidationError, match="long_swap is not applicable"):
-            RegisterDef(name="bad", starting_address=0, data_type="uint32", long_swap=True)
+            ModbusRegisterDef(name="bad", starting_address=0, data_type="uint32", long_swap=True)
 
     def test_long_swap_rejected_for_16bit(self):
         with pytest.raises(ValidationError, match="long_swap is not applicable"):
-            RegisterDef(name="bad", starting_address=0, data_type="uint16", long_swap=True)
+            ModbusRegisterDef(name="bad", starting_address=0, data_type="uint16", long_swap=True)
 
     def test_long_swap_allowed_for_64bit(self):
-        reg = RegisterDef(name="ok", starting_address=0, data_type="uint64", long_swap=True)
+        reg = ModbusRegisterDef(name="ok", starting_address=0, data_type="uint64", long_swap=True)
         assert reg.long_swap is True
 
 
@@ -59,7 +60,7 @@ class TestSwapValidation:
 class TestScaleRestrictions:
     def test_scale_rejected_for_coil(self):
         with pytest.raises(ValidationError, match="scale is not allowed"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 register_type="coil",
@@ -68,7 +69,7 @@ class TestScaleRestrictions:
 
     def test_scale_rejected_for_discrete(self):
         with pytest.raises(ValidationError, match="scale is not allowed"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 register_type="discrete",
@@ -76,7 +77,7 @@ class TestScaleRestrictions:
             )
 
     def test_scale_allowed_for_holding(self):
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             register_type="holding",
@@ -85,7 +86,7 @@ class TestScaleRestrictions:
         assert reg.scale is not None
 
     def test_scale_allowed_for_input(self):
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             register_type="input",
@@ -114,9 +115,10 @@ class TestRegisterOverlap:
         """uint32 at addr 10 spans 10-11, uint16 at addr 12 is fine."""
         config = ModbusConfig(
             device=DeviceInfo(name="adj"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
             registers=[
-                RegisterDef(name="a", starting_address=10, data_type="uint32"),
-                RegisterDef(name="b", starting_address=12, data_type="uint16"),
+                ModbusRegisterDef(name="a", starting_address=10, data_type="uint32"),
+                ModbusRegisterDef(name="b", starting_address=12, data_type="uint16"),
             ],
         )
         assert len(config.registers) == 2
@@ -126,8 +128,9 @@ class TestRegisterOverlap:
         with pytest.raises(ValidationError, match="overlap"):
             ModbusConfig(
                 device=DeviceInfo(name="bad"),
+                connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
                 registers=[
-                    RegisterDef(name="a", starting_address=10, data_type="uint32"),
-                    RegisterDef(name="b", starting_address=11, data_type="uint16"),
+                    ModbusRegisterDef(name="a", starting_address=10, data_type="uint32"),
+                    ModbusRegisterDef(name="b", starting_address=11, data_type="uint16"),
                 ],
             )

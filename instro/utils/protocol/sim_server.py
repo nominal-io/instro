@@ -1,6 +1,8 @@
 """Simple Modbus TCP server for testing.
 
-Starts a server with holding registers, input registers, coils, and discrete inputs.
+Starts a server with holding registers, input registers, coils, and discrete inputs whose
+layout matches ``examples/modbus/simulated_modbus_device.json``. Used by modbus examples
+and integration tests that exercise ``ModbusRegisterDriver``.
 
 Usage:
     python -m instro.modbus.sim_server
@@ -17,8 +19,8 @@ from pymodbus.datastore import (
 )
 from pymodbus.server import StartAsyncTcpServer
 
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class LoggingDataBlock(ModbusSequentialDataBlock):

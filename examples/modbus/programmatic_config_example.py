@@ -1,6 +1,6 @@
 """Example: Building a Modbus config programmatically (no JSON file).
 
-Constructs a ModbusConfig in Python and passes it directly to ModbusDevice.
+Constructs a ModbusConfig in Python and passes it directly to ModbusRegisterDriver.
 Useful when configs are generated dynamically or assembled from multiple sources.
 
 Start the sim server first:
@@ -11,15 +11,16 @@ Then run this script.
 
 import time
 
-from instro.modbus import (
-    DeviceInfo,
-    LinearScale,
+from instro.lib.types import DeviceInfo, LinearScale
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import (
+    BitDef,
     ModbusConfig,
-    ModbusDevice,
-    RegisterDef,
-    TCPConnection,
+    ModbusRegisterDef,
+    ModbusRegisterDriver,
     TimingConfig,
 )
+from instro.utils.protocol.modbus import TCPConnectionConfig
 
 config = ModbusConfig(
     device=DeviceInfo(
@@ -28,10 +29,10 @@ config = ModbusConfig(
         manufacturer="Sim Corp",
         model="SIM-3000",
     ),
-    connection=TCPConnection(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
+    connection=TCPConnectionConfig(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
     timing=TimingConfig(poll_interval=0.5),
     registers=[
-        RegisterDef(
+        ModbusRegisterDef(
             name="temperature",
             starting_address=0,
             register_type="holding",
@@ -39,28 +40,28 @@ config = ModbusConfig(
             write_min=0.0,
             write_max=500.0,
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="pressure",
             starting_address=2,
             register_type="input",
             data_type="float32",
             read_group="sensors",
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="flow_rate",
             starting_address=4,
             register_type="input",
             data_type="float32",
             read_group="sensors",
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="scaled_count",
             starting_address=16,
             register_type="input",
             data_type="uint32",
             scale=LinearScale(gain=0.001, offset=0),
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="mode",
             starting_address=4096,
             register_type="holding",
@@ -69,7 +70,7 @@ config = ModbusConfig(
             write_min=0,
             write_max=2,
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="enable",
             starting_address=0,
             register_type="coil",
@@ -79,13 +80,11 @@ config = ModbusConfig(
 
 
 def main():
-    device = ModbusDevice(config, autostart=True)
+    device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+    device.open()
 
     try:
         print(f"Connected to {config.device.name}")
-        print(
-            f"Polling {len([r for r in config.registers if r.poll])} registers every {config.timing.poll_interval}s\n"
-        )
 
         # Read sensors
         print(f"temperature: {device.read('temperature')}")

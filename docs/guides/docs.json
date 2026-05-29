@@ -43,7 +43,8 @@
               "instrumentation/psu",
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq"
+              "instrumentation/daq",
+              "instrumentation/register"
             ]
           },
           {

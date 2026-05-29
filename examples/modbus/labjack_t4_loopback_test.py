@@ -18,9 +18,10 @@ Set HOST below to the T4's IP address or hostname before running.
 
 import time
 
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-HOST = "<device_ip>"
+HOST = "<set your device IP here, ie 192.168...>"
 PORT = 502
 
 # Acceptable error for the DAC->AIN loopback. The T4 DAC has ~10 mV typical
@@ -65,7 +66,8 @@ def _value(measurement, channel: str) -> float:
 
 
 def main() -> None:
-    lj = ModbusDevice(config=CONFIG)
+    config = ModbusConfig.model_validate(CONFIG)
+    lj = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
     lj.open()
 
     failures: list[str] = []
