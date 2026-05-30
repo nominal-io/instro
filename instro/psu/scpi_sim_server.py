@@ -1,9 +1,4 @@
-"""In-process SMU SCPI emulator (TCP socket transport).
-
-Internal physical model (CV/CC/compliance switching, probe resistance, EMF
-on load) drives realistic responses to the standard SCPI surface — no
-simulator-only extensions.
-"""
+"""In-process SCPI power-supply emulator."""
 
 from __future__ import annotations
 
@@ -11,19 +6,22 @@ import argparse
 import logging
 import math
 import random
+import re
 import socket
 import threading
 import time
 from collections import deque
-from enum import Enum
-from typing import Any, Callable
+from dataclasses import dataclass
+from enum import Enum, IntEnum
+from typing import Any, Callable, cast
 
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Vertical, VerticalScroll
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.message import Message
 from textual.screen import ModalScreen
-from textual.widgets import Footer, Header, Input, Label, ListItem, ListView, Log, Static
+from textual.widgets import Footer, Header, Input, Label, Log, Static
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +29,12 @@ DEFAULT_PORT = 5025
 DEFAULT_NUM_CHANNELS = 2
 DEFAULT_LOAD_RESISTANCE = 1000.0  # ohms
 DEFAULT_PROBE_RESISTANCE = 10.0  # ohms
+DEFAULT_VOLTAGE_MAX = 60.0
+DEFAULT_CURRENT_MAX = 10.0
+DEFAULT_OVP_MAX = 66.0
+DEFAULT_OCP_MAX = 10.0
+CHANNEL_MIN = 0.0
+PROTECTION_MIN = 0.0
 
 
 def add_noise(value: float, percent: float) -> float:
@@ -40,50 +44,61 @@ def add_noise(value: float, percent: float) -> float:
     return random.gauss(value, std_dev)
 
 
-class SCPIError(Enum):
-    """SCPI error table — standard SCPI errors only."""
+class SCPIError(IntEnum):
+    """SCPI and simulator error table."""
 
-    NO_ERROR = 0
+    _message: str
+
+    NO_ERROR = (0, "No error")
     # Command errors (-100 to -178)
-    COMMAND_ERROR = -100
-    INVALID_CHARACTER = -101
-    SYNTAX_ERROR = -102
-    INVALID_SEPARATOR = -103
-    DATA_TYPE_ERROR = -104
-    PARAMETER_NOT_ALLOWED = -108
-    MISSING_PARAMETER = -109
-    UNDEFINED_HEADER = -113
-    HEADER_SUFFIX_OUT_OF_RANGE = -114
-    INVALID_SUFFIX = -131
-    SUFFIX_NOT_ALLOWED = -138
-    INVALID_CHARACTER_DATA = -141
+    COMMAND_ERROR = (-100, "Command error")
+    INVALID_CHARACTER = (-101, "Invalid character")
+    SYNTAX_ERROR = (-102, "Syntax error")
+    INVALID_SEPARATOR = (-103, "Invalid separator")
+    DATA_TYPE_ERROR = (-104, "Data type error")
+    PARAMETER_NOT_ALLOWED = (-108, "Parameter not allowed")
+    MISSING_PARAMETER = (-109, "Missing parameter")
+    UNDEFINED_HEADER = (-113, "Undefined header")
+    HEADER_SUFFIX_OUT_OF_RANGE = (-114, "Header suffix out of range")
+    INVALID_SUFFIX = (-131, "Invalid suffix")
+    SUFFIX_NOT_ALLOWED = (-138, "Suffix not allowed")
+    INVALID_CHARACTER_DATA = (-141, "Invalid character data")
     # Execution errors (-200 to -241)
-    EXECUTION_ERROR = -200
-    SETTINGS_CONFLICT = -221
-    DATA_OUT_OF_RANGE = -222
-    ILLEGAL_PARAMETER_VALUE = -224
-    HARDWARE_MISSING = -241
-    # Device-dependent errors (-300 to -350)
-    DEVICE_SPECIFIC_ERROR = -300
-    SYSTEM_ERROR = -310
-    QUEUE_OVERFLOW = -350
+    EXECUTION_ERROR = (-200, "Execution error")
+    SETTINGS_CONFLICT = (-221, "Settings conflict")
+    DATA_OUT_OF_RANGE = (-222, "Data out of range")
+    ILLEGAL_PARAMETER_VALUE = (-224, "Illegal parameter value")
+    HARDWARE_MISSING = (-241, "Hardware missing")
+    SYSTEM_ERROR = (-310, "System error")
+    PV_ABOVE_OVP = (301, "PV Above OVP")
+    PC_ABOVE_OCP = (303, "PC Above OCP")
+    OVP_BELOW_PV = (304, "OVP Below PV")
+    OCP_BELOW_PC = (305, "OCP Below PC")
+    OVERCURRENT_PROTECTION_TRIPPED = (323, "Overcurrent protection tripped")
+    OVERVOLTAGE_PROTECTION_TRIPPED = (324, "Overvoltage protection tripped")
+    QUEUE_OVERFLOW = (-350, "Queue overflow")
     # Query errors (-400 to -440)
-    QUERY_ERROR = -400
+    QUERY_ERROR = (-400, "Query error")
+
+    def __new__(cls, code: int, message: str) -> Any:
+        obj = int.__new__(cls, code)
+        obj._value_ = code
+        obj._message = message
+        return obj
+
+    @classmethod
+    def from_code(cls, code: int) -> "SCPIError":
+        return cast(SCPIError, cls._value2member_map_[code])
 
     @property
     def message(self) -> str:
-        return self.name.replace("_", " ").lower().capitalize()
+        return self._message
 
 
 class OperatingMode(Enum):
     OFF = "OFF"
     CV = "CV"  # voltage regulated
-    CC = "CC"  # current regulated (compliance reached when in voltage-source mode)
-
-
-class SourceMode(Enum):
-    VOLTAGE = "VOLT"
-    CURRENT = "CURR"
+    CC = "CC"  # current regulated
 
 
 class SimulatedLoad:
@@ -101,7 +116,7 @@ class SimulatedLoad:
 
 
 class SimulatedPSUChannel:
-    """Per-channel state — setpoints, compliance limits, sense mode, observed values."""
+    """Per-channel state: setpoints, protection, sense mode, and observed values."""
 
     def __init__(
         self,
@@ -109,18 +124,16 @@ class SimulatedPSUChannel:
         load: SimulatedLoad | None = None,
     ) -> None:
         self.channel_id = channel_id
-        # Source side
-        self.source_mode = SourceMode.VOLTAGE
+        self.voltage_max = DEFAULT_VOLTAGE_MAX
+        self.current_max = DEFAULT_CURRENT_MAX
+        self.overvoltage_protection_max = DEFAULT_OVP_MAX
+        self.overcurrent_protection_max = DEFAULT_OCP_MAX
         self.voltage_setpoint = 0.0
-        self.current_setpoint = 0.0
-        # Compliance (sense-side protection). Symmetric defaults; positive/negative
-        # tracked separately to allow asymmetric limits per B2900.
-        self.voltage_compliance = math.inf
-        self.current_compliance = math.inf
-        # Protection latch enable (OUTPut:PROTection[:STATe]). When True, hitting
-        # compliance turns output off automatically and immediately.
-        self.protection_enabled = False
-        # Remote (4-wire) sense enable.
+        self.current_limit = 0.0
+        self.overvoltage_protection_level = self.overvoltage_protection_max
+        self.overvoltage_protection_enabled = False
+        self.overcurrent_protection_level = self.overcurrent_protection_max
+        self.overcurrent_protection_enabled = False
         self.remote_sense = False
         self.output_enabled = False
         self.load = load if load is not None else SimulatedLoad()
@@ -129,71 +142,26 @@ class SimulatedPSUChannel:
         self.load_voltage = 0.0
         self.current = 0.0
         self.mode = OperatingMode.OFF
-        self.voltage_compliance_tripped = False
-        self.current_compliance_tripped = False
-        self.protection_latched = False  # True after OUTP:PROT auto-shutdown
-
-
-# --- SCPI normalization ---
-
-# SCPI keyword long form → short form. Used to canonicalize header parts so
-# `:OUTPut:PROTection:STATe` and `:OUTP:PROT:STAT` both dispatch the same way.
-_SHORT_FORMS: dict[str, str] = {
-    "OUTPUT": "OUTP",
-    "STATE": "STAT",
-    "PROTECTION": "PROT",
-    "SOURCE": "SOUR",
-    "VOLTAGE": "VOLT",
-    "CURRENT": "CURR",
-    "LEVEL": "LEV",
-    "IMMEDIATE": "IMM",
-    "AMPLITUDE": "AMPL",
-    "SENSE": "SENS",
-    "MEASURE": "MEAS",
-    "SYSTEM": "SYST",
-    "ERROR": "ERR",
-    "REMOTE": "REM",
-    "FUNCTION": "FUNC",
-    "TRIPPED": "TRIP",
-    "POSITIVE": "POS",
-    "NEGATIVE": "NEG",
-}
-
-
-def _normalize_part(part: str) -> tuple[str, int | None]:
-    """Canonicalize one SCPI header part to its short form and pull off any trailing channel suffix."""
-    upper = part.upper()
-    i = len(upper)
-    while i > 0 and upper[i - 1].isdigit():
-        i -= 1
-    base = upper[:i]
-    suffix_str = upper[i:]
-    suffix = int(suffix_str) if suffix_str else None
-    canonical = _SHORT_FORMS.get(base, base)
-    return canonical, suffix
+        self.overvoltage_tripped = False
+        self.overcurrent_tripped = False
+        self.protection_latched = False
 
 
 def _normalize_header(header: str) -> tuple[str, int]:
-    """Parse a SCPI header. Returns (canonical_header, channel).
-
-    Numeric suffix on any path component is treated as the channel number.
-    The first numeric suffix wins; default is channel 1 if none present.
-    Strips an optional leading colon.
-    """
-    if header.startswith(":"):
-        header = header[1:]
     channel = 1
-    canonical_parts: list[str] = []
-    for raw in header.split(":"):
-        canonical, suffix = _normalize_part(raw)
-        if suffix is not None:
-            channel = suffix
-        canonical_parts.append(canonical)
-    return ":".join(canonical_parts), channel
+    parts: list[str] = []
+    for raw in header.removeprefix(":").split(":"):
+        upper = raw.upper()
+        base = upper.rstrip("0123456789")
+        suffix = upper[len(base) :]
+        if suffix:
+            channel = int(suffix)
+        parts.append(base)
+    return ":".join(parts), channel
 
 
 class SimulatedPSU:
-    """Emulates a source measurement unit — two independent SMU outputs in voltage-source mode."""
+    """Simulated programmable power supply."""
 
     id = "NOMINAL,SIMULATED_PSU,000001,1.0"
 
@@ -252,16 +220,16 @@ class SimulatedPSU:
             return None
 
         positional = [a.strip() for a in rest.split(",") if a.strip()] if rest else []
+        if is_query and positional:
+            self._push_error(SCPIError.PARAMETER_NOT_ALLOWED)
+            return None
+
         logger.info("Cmd %s channel=%d args=%s", key, channel, positional)
         try:
             return handler(self, channel, positional)
         except ValueError:
             logger.warning("Invalid parameter in command: %s", cmd)
             self._push_error(SCPIError.INVALID_CHARACTER_DATA)
-            return None
-        except Exception:
-            logger.exception("Unhandled error processing command: %s", cmd)
-            self._push_error(SCPIError.DEVICE_SPECIFIC_ERROR)
             return None
 
     def _record_log(self, cmd: str, response: Any, errors_before: int) -> None:
@@ -272,10 +240,7 @@ class SimulatedPSU:
                 resp_text = resp_text[:57] + "..."
             parts.append(f"-> {resp_text}")
         for code in list(self._error_queue)[errors_before:]:
-            try:
-                err = SCPIError(code)
-            except ValueError:
-                err = SCPIError.DEVICE_SPECIFIC_ERROR
+            err = SCPIError.from_code(code)
             parts.append(f"! {code:+d} {err.message}")
         self._command_log.append("  ".join(parts))
         self._command_log_seq += 1
@@ -288,15 +253,29 @@ class SimulatedPSU:
 
     def _get_error(self, channel: int, args: list[str]) -> str:
         code = self._error_queue.popleft() if self._error_queue else SCPIError.NO_ERROR.value
-        try:
-            err = SCPIError(code)
-        except ValueError:
-            err = SCPIError.DEVICE_SPECIFIC_ERROR
-        return f'{code:+d},"{err.message}"'
+        err = SCPIError.from_code(code)
+        return f'{code:d},"{err.message}"'
 
     def _reset(self, channel: int, args: list[str]) -> None:
         for ch in self.channels:
-            ch.__init__(ch.channel_id, ch.load)  # type: ignore[misc]
+            limits = (
+                ch.voltage_max,
+                ch.current_max,
+                ch.overvoltage_protection_max,
+                ch.overcurrent_protection_max,
+            )
+            load = ch.load
+            remote_sense = ch.remote_sense
+            ch.__init__(ch.channel_id, load)  # type: ignore[misc]
+            (
+                ch.voltage_max,
+                ch.current_max,
+                ch.overvoltage_protection_max,
+                ch.overcurrent_protection_max,
+            ) = limits
+            ch.remote_sense = remote_sense
+            ch.overvoltage_protection_level = ch.overvoltage_protection_max
+            ch.overcurrent_protection_level = ch.overcurrent_protection_max
         self._error_queue.clear()
 
     def _clear_status(self, channel: int, args: list[str]) -> None:
@@ -304,47 +283,117 @@ class SimulatedPSU:
 
     # ---- SOURce subsystem ----
 
-    def _set_source_mode(self, channel: int, args: list[str]) -> None:
-        ch = self._require_channel(channel)
-        if ch is None or not self._require_args(args):
-            return
-        token = args[0].upper()
-        if token in ("VOLT", "VOLTAGE"):
-            ch.source_mode = SourceMode.VOLTAGE
-        elif token in ("CURR", "CURRENT"):
-            ch.source_mode = SourceMode.CURRENT
-        else:
-            self._push_error(SCPIError.ILLEGAL_PARAMETER_VALUE)
-            return
-        self._update()
-
-    def _query_source_mode(self, channel: int, args: list[str]) -> str:
-        ch = self._require_channel(channel)
-        if ch is None:
-            return ""
-        return ch.source_mode.value
-
     def _set_voltage(self, channel: int, args: list[str]) -> None:
         ch = self._require_channel(channel)
         if ch is None or not self._require_args(args):
             return
-        ch.voltage_setpoint = float(args[0])
+        voltage = self._parse_ranged_value(args[0], CHANNEL_MIN, ch.voltage_max)
+        if voltage is None:
+            return
+        if voltage > ch.overvoltage_protection_level:
+            self._push_error(SCPIError.PV_ABOVE_OVP)
+            return
+        ch.voltage_setpoint = voltage
         self._update()
 
     def _query_voltage(self, channel: int, args: list[str]) -> float:
         ch = self._require_channel(channel)
-        return ch.voltage_setpoint if ch else 0.0
+        if ch is None:
+            return 0.0
+        return ch.voltage_setpoint
 
     def _set_current(self, channel: int, args: list[str]) -> None:
         ch = self._require_channel(channel)
         if ch is None or not self._require_args(args):
             return
-        ch.current_setpoint = float(args[0])
+        current_limit = self._parse_ranged_value(args[0], CHANNEL_MIN, ch.current_max)
+        if current_limit is None:
+            return
+        if current_limit > ch.overcurrent_protection_level:
+            self._push_error(SCPIError.PC_ABOVE_OCP)
+            return
+        ch.current_limit = current_limit
         self._update()
 
     def _query_current(self, channel: int, args: list[str]) -> float:
         ch = self._require_channel(channel)
-        return ch.current_setpoint if ch else 0.0
+        if ch is None:
+            return 0.0
+        return ch.current_limit
+
+    def _set_ocp_level(self, channel: int, args: list[str]) -> None:
+        ch = self._require_channel(channel)
+        if ch is None or not self._require_args(args):
+            return
+        level = self._parse_ranged_value(
+            args[0],
+            PROTECTION_MIN,
+            ch.overcurrent_protection_max,
+        )
+        if level is None:
+            return
+        if level < ch.current_limit:
+            self._push_error(SCPIError.OCP_BELOW_PC)
+            return
+        ch.overcurrent_protection_level = level
+        self._update()
+
+    def _query_ocp_level(self, channel: int, args: list[str]) -> float:
+        ch = self._require_channel(channel)
+        if ch is None:
+            return 0.0
+        return ch.overcurrent_protection_level
+
+    def _set_ocp_state(self, channel: int, args: list[str]) -> None:
+        ch = self._require_channel(channel)
+        if ch is None or not self._require_args(args):
+            return
+        enable = self._parse_bool(args[0])
+        if enable is None:
+            return
+        ch.overcurrent_protection_enabled = enable
+        self._update()
+
+    def _query_ocp_state(self, channel: int, args: list[str]) -> int:
+        ch = self._require_channel(channel)
+        return 1 if (ch and ch.overcurrent_protection_enabled) else 0
+
+    def _set_ovp_level(self, channel: int, args: list[str]) -> None:
+        ch = self._require_channel(channel)
+        if ch is None or not self._require_args(args):
+            return
+        level = self._parse_ranged_value(
+            args[0],
+            PROTECTION_MIN,
+            ch.overvoltage_protection_max,
+        )
+        if level is None:
+            return
+        if level < ch.voltage_setpoint:
+            self._push_error(SCPIError.OVP_BELOW_PV)
+            return
+        ch.overvoltage_protection_level = level
+        self._update()
+
+    def _query_ovp_level(self, channel: int, args: list[str]) -> float:
+        ch = self._require_channel(channel)
+        if ch is None:
+            return 0.0
+        return ch.overvoltage_protection_level
+
+    def _set_ovp_state(self, channel: int, args: list[str]) -> None:
+        ch = self._require_channel(channel)
+        if ch is None or not self._require_args(args):
+            return
+        enable = self._parse_bool(args[0])
+        if enable is None:
+            return
+        ch.overvoltage_protection_enabled = enable
+        self._update()
+
+    def _query_ovp_state(self, channel: int, args: list[str]) -> int:
+        ch = self._require_channel(channel)
+        return 1 if (ch and ch.overvoltage_protection_enabled) else 0
 
     # ---- OUTPut subsystem ----
 
@@ -355,9 +404,10 @@ class SimulatedPSU:
         enable = self._parse_bool(args[0])
         if enable is None:
             return
-        if enable and ch.protection_latched:
-            self._push_error(SCPIError.SETTINGS_CONFLICT)
-            return
+        if enable:
+            ch.protection_latched = False
+            ch.overvoltage_tripped = False
+            ch.overcurrent_tripped = False
         ch.output_enabled = enable
         self._update()
 
@@ -365,71 +415,36 @@ class SimulatedPSU:
         ch = self._require_channel(channel)
         return 1 if (ch and ch.output_enabled) else 0
 
-    def _set_output_protection(self, channel: int, args: list[str]) -> None:
-        ch = self._require_channel(channel)
-        if ch is None or not self._require_args(args):
-            return
-        enable = self._parse_bool(args[0])
-        if enable is None:
-            return
-        ch.protection_enabled = enable
-        self._update()
-
-    def _query_output_protection(self, channel: int, args: list[str]) -> int:
-        ch = self._require_channel(channel)
-        return 1 if (ch and ch.protection_enabled) else 0
-
     def _clear_protection_latch(self, channel: int, args: list[str]) -> None:
         ch = self._require_channel(channel)
         if ch is None:
             return
         ch.protection_latched = False
-
-    # ---- SENSe subsystem ----
-
-    def _set_voltage_compliance(self, channel: int, args: list[str]) -> None:
-        ch = self._require_channel(channel)
-        if ch is None or not self._require_args(args):
-            return
-        ch.voltage_compliance = self._parse_limit(args[0])
+        ch.overvoltage_tripped = False
+        ch.overcurrent_tripped = False
         self._update()
 
-    def _query_voltage_compliance(self, channel: int, args: list[str]) -> float:
+    def _query_protection_tripped(self, channel: int, args: list[str]) -> int:
         ch = self._require_channel(channel)
-        return ch.voltage_compliance if ch else 0.0
+        if ch is None:
+            return 0
+        return 1 if (ch.protection_latched or ch.overvoltage_tripped or ch.overcurrent_tripped) else 0
 
-    def _query_voltage_compliance_tripped(self, channel: int, args: list[str]) -> int:
-        ch = self._require_channel(channel)
-        return 1 if (ch and ch.voltage_compliance_tripped) else 0
-
-    def _set_current_compliance(self, channel: int, args: list[str]) -> None:
-        ch = self._require_channel(channel)
-        if ch is None or not self._require_args(args):
-            return
-        ch.current_compliance = self._parse_limit(args[0])
-        self._update()
-
-    def _query_current_compliance(self, channel: int, args: list[str]) -> float:
-        ch = self._require_channel(channel)
-        return ch.current_compliance if ch else 0.0
-
-    def _query_current_compliance_tripped(self, channel: int, args: list[str]) -> int:
-        ch = self._require_channel(channel)
-        return 1 if (ch and ch.current_compliance_tripped) else 0
+    # ---- SYSTem subsystem ----
 
     def _set_remote_sense(self, channel: int, args: list[str]) -> None:
         ch = self._require_channel(channel)
         if ch is None or not self._require_args(args):
             return
-        enable = self._parse_bool(args[0])
+        enable = self._parse_remote_sense_state(args[0])
         if enable is None:
             return
         ch.remote_sense = enable
         self._update()
 
-    def _query_remote_sense(self, channel: int, args: list[str]) -> int:
+    def _query_remote_sense(self, channel: int, args: list[str]) -> str:
         ch = self._require_channel(channel)
-        return 1 if (ch and ch.remote_sense) else 0
+        return "REM" if (ch and ch.remote_sense) else "LOC"
 
     # ---- MEASure subsystem ----
 
@@ -469,13 +484,26 @@ class SimulatedPSU:
         self._push_error(SCPIError.ILLEGAL_PARAMETER_VALUE)
         return None
 
-    def _parse_limit(self, token: str) -> float:
+    def _parse_ranged_value(self, token: str, minimum: float, maximum: float) -> float | None:
         upper = token.upper()
         if upper in ("MAX", "MAXIMUM"):
-            return math.inf
+            return maximum
         if upper in ("MIN", "MINIMUM", "DEF", "DEFAULT"):
-            return 0.0
-        return float(token)
+            return minimum
+        value = float(token)
+        if not minimum <= value <= maximum:
+            self._push_error(SCPIError.DATA_OUT_OF_RANGE)
+            return None
+        return value
+
+    def _parse_remote_sense_state(self, token: str) -> bool | None:
+        upper = token.upper()
+        if upper == "REM":
+            return True
+        if upper == "LOC":
+            return False
+        self._push_error(SCPIError.ILLEGAL_PARAMETER_VALUE)
+        return None
 
     # ---- Physics ----
 
@@ -489,27 +517,35 @@ class SimulatedPSU:
             ch.load_voltage = 0.0
             ch.current = 0.0
             ch.mode = OperatingMode.OFF
-            ch.voltage_compliance_tripped = False
-            ch.current_compliance_tripped = False
             return
 
-        if ch.source_mode == SourceMode.VOLTAGE:
-            self._update_voltage_source(ch)
-        else:
-            self._update_current_source(ch)
+        self._update_voltage_source(ch)
 
-        # Output protection: if enabled and any compliance reached, latch output off.
-        if ch.protection_enabled and (ch.current_compliance_tripped or ch.voltage_compliance_tripped):
+        if ch.overvoltage_protection_enabled and self._sense_voltage(ch) > ch.overvoltage_protection_level:
             ch.protection_latched = True
             ch.output_enabled = False
+            ch.overvoltage_tripped = True
+            self._push_error(SCPIError.OVERVOLTAGE_PROTECTION_TRIPPED)
             ch.terminal_voltage = 0.0
             ch.load_voltage = 0.0
             ch.current = 0.0
             ch.mode = OperatingMode.OFF
+            return
+
+        if ch.overcurrent_protection_enabled and abs(ch.current) > ch.overcurrent_protection_level:
+            ch.protection_latched = True
+            ch.output_enabled = False
+            ch.overcurrent_tripped = True
+            self._push_error(SCPIError.OVERCURRENT_PROTECTION_TRIPPED)
+            ch.terminal_voltage = 0.0
+            ch.load_voltage = 0.0
+            ch.current = 0.0
+            ch.mode = OperatingMode.OFF
+            return
 
     def _update_voltage_source(self, ch: SimulatedPSUChannel) -> None:
         v_set = ch.voltage_setpoint
-        i_limit = ch.current_compliance
+        i_limit = ch.current_limit
         r_load = ch.load.resistance
         r_probe = ch.load.probe_resistance
         emf = ch.load.emf
@@ -523,7 +559,7 @@ class SimulatedPSU:
         else:
             i_demand = (v_set - emf) / r_total
 
-        if abs(i_demand) <= i_limit:
+        if i_demand <= i_limit:
             ch.mode = OperatingMode.CV
             ch.current = i_demand
             if ch.remote_sense:
@@ -532,129 +568,136 @@ class SimulatedPSU:
             else:
                 ch.terminal_voltage = v_set
                 ch.load_voltage = v_set - i_demand * r_probe
-            ch.current_compliance_tripped = False
         else:
             ch.mode = OperatingMode.CC
-            ch.current = i_limit if i_demand > 0 else -i_limit
+            ch.current = i_limit
             if math.isfinite(r_load):
                 ch.load_voltage = ch.current * r_load + emf
                 ch.terminal_voltage = ch.load_voltage + ch.current * r_probe
             else:
                 ch.load_voltage = 0.0
                 ch.terminal_voltage = 0.0
-            ch.current_compliance_tripped = True
 
-        ch.voltage_compliance_tripped = abs(ch.terminal_voltage) > ch.voltage_compliance
-
-    def _update_current_source(self, ch: SimulatedPSUChannel) -> None:
-        i_set = ch.current_setpoint
-        v_limit = ch.voltage_compliance
-        r_load = ch.load.resistance
-        r_probe = ch.load.probe_resistance
-        emf = ch.load.emf
-        r_total = r_load + r_probe
-
-        if not math.isfinite(r_load):
-            v_demand = math.copysign(math.inf, i_set) if i_set != 0 else emf
-        else:
-            v_demand = i_set * r_total + emf
-
-        if abs(v_demand) <= v_limit:
-            ch.mode = OperatingMode.CC
-            ch.current = i_set
-            if math.isfinite(r_load):
-                ch.load_voltage = i_set * r_load + emf
-                ch.terminal_voltage = ch.load_voltage + i_set * r_probe
-            else:
-                ch.load_voltage = 0.0
-                ch.terminal_voltage = 0.0
-            ch.voltage_compliance_tripped = False
-        else:
-            ch.mode = OperatingMode.CV
-            v_terminal = v_limit if v_demand > 0 else -v_limit
-            ch.terminal_voltage = v_terminal
-            if math.isfinite(r_total) and r_total > 0:
-                ch.current = (v_terminal - emf) / r_total
-                ch.load_voltage = ch.current * r_load + emf if math.isfinite(r_load) else v_terminal
-            else:
-                ch.current = 0.0
-                ch.load_voltage = v_terminal
-            ch.voltage_compliance_tripped = True
-
-        ch.current_compliance_tripped = abs(ch.current) > ch.current_compliance
+    def _sense_voltage(self, ch: SimulatedPSUChannel) -> float:
+        return ch.load_voltage if ch.remote_sense else ch.terminal_voltage
 
 
-# ---- Command dispatch table (keyed on canonical SCPI short-form header + optional ?) ----
+@dataclass(frozen=True)
+class _SCPICommand:
+    command: str
+    write: Callable[..., Any] | None = None
+    query: Callable[..., Any] | None = None
 
-_COMMAND_TABLE: dict[str, Callable[..., Any]] = {
-    "*IDN?": SimulatedPSU._get_id,
-    "*RST": SimulatedPSU._reset,
-    "*CLS": SimulatedPSU._clear_status,
-    "SYST:ERR?": SimulatedPSU._get_error,
-    "SYST:ERR:NEXT?": SimulatedPSU._get_error,
-    "SOUR:FUNC:MODE": SimulatedPSU._set_source_mode,
-    "SOUR:FUNC:MODE?": SimulatedPSU._query_source_mode,
-    # [:SOURce] is an optional prefix on the B2900 — accept bare forms too.
-    "FUNC:MODE": SimulatedPSU._set_source_mode,
-    "FUNC:MODE?": SimulatedPSU._query_source_mode,
-    "VOLT": SimulatedPSU._set_voltage,
-    "VOLT?": SimulatedPSU._query_voltage,
-    "CURR": SimulatedPSU._set_current,
-    "CURR?": SimulatedPSU._query_current,
-    "SOUR:VOLT": SimulatedPSU._set_voltage,
-    "SOUR:VOLT?": SimulatedPSU._query_voltage,
-    "SOUR:VOLT:LEV": SimulatedPSU._set_voltage,
-    "SOUR:VOLT:LEV?": SimulatedPSU._query_voltage,
-    "SOUR:VOLT:LEV:IMM:AMPL": SimulatedPSU._set_voltage,
-    "SOUR:VOLT:LEV:IMM:AMPL?": SimulatedPSU._query_voltage,
-    "SOUR:CURR": SimulatedPSU._set_current,
-    "SOUR:CURR?": SimulatedPSU._query_current,
-    "SOUR:CURR:LEV": SimulatedPSU._set_current,
-    "SOUR:CURR:LEV?": SimulatedPSU._query_current,
-    "OUTP": SimulatedPSU._set_output,
-    "OUTP?": SimulatedPSU._query_output,
-    "OUTP:STAT": SimulatedPSU._set_output,
-    "OUTP:STAT?": SimulatedPSU._query_output,
-    "OUTP:PROT": SimulatedPSU._set_output_protection,
-    "OUTP:PROT?": SimulatedPSU._query_output_protection,
-    "OUTP:PROT:STAT": SimulatedPSU._set_output_protection,
-    "OUTP:PROT:STAT?": SimulatedPSU._query_output_protection,
-    "OUTP:PROT:CLE": SimulatedPSU._clear_protection_latch,
-    "SENS:VOLT:PROT": SimulatedPSU._set_voltage_compliance,
-    "SENS:VOLT:PROT?": SimulatedPSU._query_voltage_compliance,
-    "SENS:VOLT:PROT:LEV": SimulatedPSU._set_voltage_compliance,
-    "SENS:VOLT:PROT:LEV?": SimulatedPSU._query_voltage_compliance,
-    "SENS:VOLT:DC:PROT": SimulatedPSU._set_voltage_compliance,
-    "SENS:VOLT:DC:PROT?": SimulatedPSU._query_voltage_compliance,
-    "SENS:VOLT:PROT:TRIP?": SimulatedPSU._query_voltage_compliance_tripped,
-    "SENS:VOLT:DC:PROT:TRIP?": SimulatedPSU._query_voltage_compliance_tripped,
-    "SENS:CURR:PROT": SimulatedPSU._set_current_compliance,
-    "SENS:CURR:PROT?": SimulatedPSU._query_current_compliance,
-    "SENS:CURR:PROT:LEV": SimulatedPSU._set_current_compliance,
-    "SENS:CURR:PROT:LEV?": SimulatedPSU._query_current_compliance,
-    "SENS:CURR:DC:PROT": SimulatedPSU._set_current_compliance,
-    "SENS:CURR:DC:PROT?": SimulatedPSU._query_current_compliance,
-    "SENS:CURR:PROT:TRIP?": SimulatedPSU._query_current_compliance_tripped,
-    "SENS:CURR:DC:PROT:TRIP?": SimulatedPSU._query_current_compliance_tripped,
-    "SENS:REM": SimulatedPSU._set_remote_sense,
-    "SENS:REM?": SimulatedPSU._query_remote_sense,
-    "MEAS:VOLT?": SimulatedPSU._measure_voltage,
-    "MEAS:VOLT:DC?": SimulatedPSU._measure_voltage,
-    "MEAS:CURR?": SimulatedPSU._measure_current,
-    "MEAS:CURR:DC?": SimulatedPSU._measure_current,
-}
+    def headers(self) -> tuple[str, ...]:
+        prefix, required, suffix = self._split_segments()
+        headers = [required + suffix[:count] for count in range(len(suffix) + 1)]
+        if prefix:
+            headers += [prefix + header for header in headers]
+        return tuple(":".join(path) for header in headers for path in _paths_for(header))
+
+    def register(self, table: dict[str, Callable[..., Any]]) -> None:
+        for header in self.headers():
+            if self.write is not None:
+                table[header] = self.write
+            if self.query is not None:
+                table[f"{header}?"] = self.query
+
+    def _split_segments(self) -> tuple[list[str], list[str], list[str]]:
+        segments = self._segments()
+        required_indexes = [index for index, (_, optional) in enumerate(segments) if not optional]
+        if not required_indexes:
+            raise ValueError(f"unsupported SCPI optional layout: {self.command}")
+        start = required_indexes[0]
+        stop = required_indexes[-1] + 1
+        if any(optional for _, optional in segments[start:stop]):
+            raise ValueError(f"unsupported SCPI optional layout: {self.command}")
+        return (
+            [part for part, _ in segments[:start]],
+            [part for part, _ in segments[start:stop]],
+            [part for part, _ in segments[stop:]],
+        )
+
+    def _segments(self) -> list[tuple[str, bool]]:
+        segments: list[tuple[str, bool]] = []
+        for optional, required in re.findall(r"\[([^\]]+)\]|([^\[\]]+)", self.command):
+            text = optional or required
+            segments.extend((part, bool(optional)) for part in text.strip(":").split(":") if part)
+        return segments
+
+
+def _keyword_forms(text: str) -> tuple[str, ...]:
+    long = text.upper()
+    short = "".join(char for char in text if not char.isalpha() or char.isupper()).upper()
+    if short == long:
+        return (short,)
+    return (short, long)
+
+
+def _paths_for(parts: list[str]) -> list[tuple[str, ...]]:
+    paths: list[tuple[str, ...]] = [()]
+    for part in parts:
+        paths = [path + (form,) for path in paths for form in _keyword_forms(part)]
+    return paths
+
+
+_SCPI_COMMANDS = (
+    _SCPICommand("*IDN", query=SimulatedPSU._get_id),
+    _SCPICommand("*RST", SimulatedPSU._reset),
+    _SCPICommand("*CLS", SimulatedPSU._clear_status),
+    _SCPICommand("SYSTem:ERRor", query=SimulatedPSU._get_error),
+    _SCPICommand("OUTPut[:STATe]", SimulatedPSU._set_output, query=SimulatedPSU._query_output),
+    _SCPICommand("OUTPut:PROTection:CLEar", SimulatedPSU._clear_protection_latch),
+    _SCPICommand("OUTPut:PROTection:TRIPped", query=SimulatedPSU._query_protection_tripped),
+    _SCPICommand("MEASure:VOLTage", query=SimulatedPSU._measure_voltage),
+    _SCPICommand("MEASure:CURRent", query=SimulatedPSU._measure_current),
+    _SCPICommand(
+        "[SOURce:]VOLTage[:LEVel][:IMMediate][:AMPLitude]",
+        SimulatedPSU._set_voltage,
+        query=SimulatedPSU._query_voltage,
+    ),
+    _SCPICommand(
+        "[SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude]",
+        SimulatedPSU._set_current,
+        query=SimulatedPSU._query_current,
+    ),
+    _SCPICommand(
+        "[SOURce:]CURRent:PROTection[:LEVel]",
+        SimulatedPSU._set_ocp_level,
+        query=SimulatedPSU._query_ocp_level,
+    ),
+    _SCPICommand(
+        "[SOURce:]CURRent:PROTection:STATe",
+        SimulatedPSU._set_ocp_state,
+        query=SimulatedPSU._query_ocp_state,
+    ),
+    _SCPICommand(
+        "[SOURce:]VOLTage:PROTection[:LEVel]",
+        SimulatedPSU._set_ovp_level,
+        query=SimulatedPSU._query_ovp_level,
+    ),
+    _SCPICommand(
+        "[SOURce:]VOLTage:PROTection:STATe",
+        SimulatedPSU._set_ovp_state,
+        query=SimulatedPSU._query_ovp_state,
+    ),
+    _SCPICommand(
+        "SYSTem:SENSe[:STATe]",
+        SimulatedPSU._set_remote_sense,
+        query=SimulatedPSU._query_remote_sense,
+    ),
+)
+
+
+_COMMAND_TABLE: dict[str, Callable[..., Any]] = {}
+for command in _SCPI_COMMANDS:
+    command.register(_COMMAND_TABLE)
 
 
 # ---- Background TCP server ----
 
 
 class SimulatedPSUServer:
-    """TCP socket server that hands incoming SCPI lines to the simulator.
-
-    Runs in a daemon thread so the foreground console can keep accepting input.
-    A single lock guards every access to the simulator state, so console writes
-    and SCPI reads/writes don't tear each other.
-    """
+    """TCP socket server that hands incoming SCPI lines to the simulator."""
 
     def __init__(self, psu: SimulatedPSU, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> None:
         self.psu = psu
@@ -735,8 +778,16 @@ class SimulatedPSUServer:
 
 def _fmt_limit(value: float) -> str:
     if not math.isfinite(value):
-        return "max" if value > 0 else "-max"
+        return "MAX" if value > 0 else "-MAX"
     return f"{value:.3f}"
+
+
+def _field(label: str, value: str, width: int = 7) -> str:
+    return f"[dim]{label + ':':<{width}}[/] [bold]{value}[/]"
+
+
+def _title(text: str, color: str = "#60a5fa") -> str:
+    return f"[bold {color}]{text}[/]"
 
 
 class _PromptScreen(ModalScreen[str | None]):
@@ -780,28 +831,120 @@ class _PromptScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+def _channel_action_id(channel_id: int, action: str) -> str:
+    return f"ch-{channel_id}-{action}"
+
+
+class ActionSelected(Message):
+    """Message emitted when a TUI action is selected."""
+
+    def __init__(self, cell: "_ActionCell") -> None:
+        super().__init__()
+        self.cell = cell
+
+
+class _ActionCell(Static):
+    """Focusable text action."""
+
+    can_focus = True
+
+    DEFAULT_CSS = """
+    _ActionCell {
+        height: 1;
+        padding: 0 1;
+        margin: 0 1 0 0;
+        content-align: center middle;
+        color: #fbbf24;
+        text-style: bold;
+    }
+
+    _ActionCell:focus {
+        background: #fbbf24;
+        color: #111827;
+        text-style: bold;
+    }
+
+    _ActionCell:hover {
+        background: $boost;
+        color: #fde68a;
+    }
+    """
+
+    def _select(self) -> None:
+        self.post_message(ActionSelected(self))
+
+    def on_click(self, event: events.Click) -> None:
+        self.focus()
+        self._select()
+        event.stop()
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in {"enter", "space"}:
+            self._select()
+            event.stop()
+
+
+def _control_cell(label: str, cell_id: str, classes: str = "") -> _ActionCell:
+    return _ActionCell(label, id=cell_id, classes=classes)
+
+
 class _ChannelPanel(Container):
-    """Per-channel panel: live status info on top, editable actions list below."""
+    """Per-channel panel with live status and channel controls."""
 
     DEFAULT_CSS = """
     _ChannelPanel {
         border: round $primary;
         padding: 0 1;
-        margin: 0 0 1 0;
+        margin: 0 1 0 0;
+        width: 1fr;
         height: auto;
     }
-    _ChannelPanel > Static {
+
+    _ChannelPanel .metric-row {
         height: auto;
     }
-    _ChannelPanel > ListView {
+
+    _ChannelPanel .status-section {
+        width: 1fr;
         height: auto;
-        margin-top: 1;
-        background: transparent;
+        margin: 0 1 0 0;
+    }
+
+    _ChannelPanel .metric-section {
+        width: 1fr;
+        height: auto;
+        margin: 0 1 0 0;
+    }
+
+    _ChannelPanel .last-section {
+        margin: 0;
+    }
+
+    _ChannelPanel .section-title {
+        height: 1;
+        text-style: bold;
+    }
+
+    _ChannelPanel .section-info {
+        height: 5;
+    }
+
+    _ChannelPanel .section-actions {
+        height: 1;
+    }
+
+    _ChannelPanel _ActionCell {
+        width: 11;
+    }
+
+    _ChannelPanel _ActionCell.remove-action {
+        color: #f87171;
+        width: 8;
     }
     """
 
     def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
-        super().__init__(id=f"ch-{channel_id}")
+        super().__init__(id=f"ch-{channel_id}-channel")
         self._server = server
         self._channel_id = channel_id
         self.border_title = f"Channel {channel_id}"
@@ -811,46 +954,234 @@ class _ChannelPanel(Container):
         return self._channel_id
 
     def compose(self) -> ComposeResult:
-        yield Static(id="info")
-        yield ListView(
-            ListItem(Label("Set load R"), id="load"),
-            ListItem(Label("Set EMF"), id="emf"),
-            ListItem(Label("Set probe R"), id="probe"),
-            ListItem(Label("Remove channel"), id="remove"),
-            id=f"ch-{self._channel_id}-actions",
-        )
+        with Horizontal(classes="metric-row"):
+            with Vertical(classes="status-section"):
+                yield Static(_title("Status"), classes="section-title")
+                yield Static(id="status-info", classes="section-info")
+                with Horizontal(classes="section-actions"):
+                    yield _control_cell(
+                        "Remove",
+                        _channel_action_id(self._channel_id, "remove"),
+                        classes="remove-action",
+                    )
+            with Vertical(classes="metric-section"):
+                yield Static(_title("Voltage"), classes="section-title")
+                yield Static(id="voltage-info", classes="section-info")
+                with Horizontal(classes="section-actions"):
+                    yield _control_cell("V limit", _channel_action_id(self._channel_id, "voltage-limit"))
+                    yield _control_cell("OVP level", _channel_action_id(self._channel_id, "ovp-level"))
+            with Vertical(classes="metric-section last-section"):
+                yield Static(_title("Current"), classes="section-title")
+                yield Static(id="current-info", classes="section-info")
+                with Horizontal(classes="section-actions"):
+                    yield _control_cell("I limit", _channel_action_id(self._channel_id, "current-limit"))
+                    yield _control_cell("OCP level", _channel_action_id(self._channel_id, "ocp-level"))
 
     def refresh_state(self) -> None:
         with self._server.lock:
             ch = self._server.psu._channel(self._channel_id)
             if ch is None:
-                self.query_one("#info", Static).update("(removed)")
+                self.query_one("#status-info", Static).update("(removed)")
+                self.query_one("#voltage-info", Static).update("")
+                self.query_one("#current-info", Static).update("")
                 return
             self._server.psu._update()
             tripped: list[str] = []
             if ch.protection_latched:
                 tripped.append("LATCHED")
-            if ch.current_compliance_tripped:
-                tripped.append("Icomp")
-            if ch.voltage_compliance_tripped:
-                tripped.append("Vcomp")
-            sense_label = "EXT (4-wire)" if ch.remote_sense else "INT (2-wire)"
-            source_label = "voltage" if ch.source_mode == SourceMode.VOLTAGE else "current"
-            text = (
-                f"Mode: {ch.mode.value}   Source: {source_label}   "
-                f"Output: {'on' if ch.output_enabled else 'off'}   "
-                f"Sense: {sense_label}   Tripped: {', '.join(tripped) or '-'}\n"
-                f"\n"
-                f"Voltage:  set {ch.voltage_setpoint:.3f} V   "
-                f"meas {ch.terminal_voltage:.3f} V   "
-                f"V limit {_fmt_limit(ch.voltage_compliance)}\n"
-                f"Current:  set {ch.current_setpoint:.3f} A   "
-                f"meas {ch.current:.3f} A   "
-                f"I limit {_fmt_limit(ch.current_compliance)}\n"
-                f"\n"
-                f"Load: R={ch.load.resistance} ohm   EMF={ch.load.emf} V   Probe={ch.load.probe_resistance} ohm"
+            if ch.overcurrent_tripped:
+                tripped.append("OCP")
+            if ch.overvoltage_tripped:
+                tripped.append("OVP")
+            sense_label = "EXT (4-WIRE)" if ch.remote_sense else "INT (2-WIRE)"
+            ovp_state = "ON" if ch.overvoltage_protection_enabled else "OFF"
+            ocp_state = "ON" if ch.overcurrent_protection_enabled else "OFF"
+            trip_label = ", ".join(tripped) or "-"
+            status_text = (
+                f"{_field('Mode', ch.mode.value)}\n"
+                f"{_field('Output', 'ON' if ch.output_enabled else 'OFF')}\n"
+                f"{_field('Sense', sense_label)}\n"
+                f"{_field('Trip', trip_label)}"
             )
-        self.query_one("#info", Static).update(text)
+            voltage_text = (
+                f"{_field('Actual', f'{_fmt_limit(ch.terminal_voltage)} V')}\n"
+                f"{_field('Set', f'{_fmt_limit(ch.voltage_setpoint)} V')}\n"
+                f"{_field('Limit', f'{_fmt_limit(ch.voltage_max)} V')}\n"
+                f"{_field('OVP', f'{ovp_state} @ {_fmt_limit(ch.overvoltage_protection_level)} V')}"
+            )
+            current_text = (
+                f"{_field('Actual', f'{_fmt_limit(ch.current)} A')}\n"
+                f"{_field('Limit', f'{_fmt_limit(ch.current_limit)} A')}\n"
+                f"{_field('Range', f'{_fmt_limit(ch.current_max)} A')}\n"
+                f"{_field('OCP', f'{ocp_state} @ {_fmt_limit(ch.overcurrent_protection_level)} A')}"
+            )
+        self.query_one("#status-info", Static).update(status_text)
+        self.query_one("#voltage-info", Static).update(voltage_text)
+        self.query_one("#current-info", Static).update(current_text)
+
+
+class _LoadPanel(Container):
+    """Per-channel load panel with load state and controls."""
+
+    DEFAULT_CSS = """
+    _LoadPanel {
+        border: round #dc2626;
+        padding: 0 1;
+        width: 28;
+        height: auto;
+    }
+
+    _LoadPanel .load-info {
+        height: 6;
+    }
+
+    _LoadPanel .action-row {
+        height: 1;
+    }
+
+    _LoadPanel _ActionCell {
+        width: 7;
+    }
+    """
+
+    def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
+        super().__init__(id=f"ch-{channel_id}-load")
+        self._server = server
+        self._channel_id = channel_id
+        self.border_title = "Load"
+
+    @property
+    def channel_id(self) -> int:
+        return self._channel_id
+
+    def compose(self) -> ComposeResult:
+        yield Static(id="load-info", classes="load-info")
+        with Horizontal(classes="action-row"):
+            yield _control_cell("R", _channel_action_id(self._channel_id, "load"))
+            yield _control_cell("EMF", _channel_action_id(self._channel_id, "emf"))
+
+    def refresh_state(self) -> None:
+        with self._server.lock:
+            ch = self._server.psu._channel(self._channel_id)
+            if ch is None:
+                self.query_one("#load-info", Static).update("(removed)")
+                return
+            load_text = (
+                f"{_title('Load', '#dc2626')}\n"
+                f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n"
+                f"{_field('EMF', f'{ch.load.emf} V', width=5)}"
+            )
+        self.query_one("#load-info", Static).update(load_text)
+
+
+class _ProbePanel(Container):
+    """Per-channel probe panel with probe state and controls."""
+
+    DEFAULT_CSS = """
+    _ProbePanel {
+        border: round #7c3aed;
+        padding: 0 1;
+        margin: 0 1 0 0;
+        width: 24;
+        height: auto;
+    }
+
+    _ProbePanel .probe-info {
+        height: 6;
+    }
+
+    _ProbePanel .action-row {
+        height: 1;
+    }
+
+    _ProbePanel _ActionCell {
+        width: 9;
+    }
+    """
+
+    def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
+        super().__init__(id=f"ch-{channel_id}-probe")
+        self._server = server
+        self._channel_id = channel_id
+        self.border_title = "Probe"
+
+    @property
+    def channel_id(self) -> int:
+        return self._channel_id
+
+    def compose(self) -> ComposeResult:
+        yield Static(id="probe-info", classes="probe-info")
+        with Horizontal(classes="action-row"):
+            yield _control_cell("Probe R", _channel_action_id(self._channel_id, "probe"))
+
+    def refresh_state(self) -> None:
+        with self._server.lock:
+            ch = self._server.psu._channel(self._channel_id)
+            if ch is None:
+                self.query_one("#probe-info", Static).update("(removed)")
+                return
+            probe_text = f"{_title('Sense Lead', '#7c3aed')}\n{_field('R', f'{ch.load.probe_resistance} OHM', width=5)}"
+        self.query_one("#probe-info", Static).update(probe_text)
+
+
+class _ChannelRow(Container):
+    """Layout row containing one channel box and adjacent probe/load boxes."""
+
+    DEFAULT_CSS = """
+    _ChannelRow {
+        height: auto;
+        margin: 0;
+    }
+
+    _ChannelRow > Horizontal {
+        height: auto;
+        width: 100%;
+    }
+
+    _ChannelRow .aux-row {
+        height: auto;
+        width: auto;
+    }
+
+    _ChannelRow.compact > Horizontal {
+        layout: vertical;
+    }
+
+    _ChannelRow.compact _ChannelPanel {
+        margin: 0;
+        width: 100%;
+    }
+
+    _ChannelRow.compact .aux-row {
+        width: 100%;
+    }
+
+    _ChannelRow.compact _ProbePanel {
+        width: 1fr;
+        min-width: 24;
+    }
+
+    _ChannelRow.compact _LoadPanel {
+        width: 1fr;
+        min-width: 28;
+    }
+    """
+
+    def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
+        super().__init__(id=f"ch-{channel_id}-row")
+        self._server = server
+        self._channel_id = channel_id
+
+    @property
+    def channel_id(self) -> int:
+        return self._channel_id
+
+    def compose(self) -> ComposeResult:
+        with Horizontal():
+            yield _ChannelPanel(self._server, self._channel_id)
+            with Horizontal(classes="aux-row"):
+                yield _ProbePanel(self._server, self._channel_id)
+                yield _LoadPanel(self._server, self._channel_id)
 
 
 class _PsuPanel(Static):
@@ -860,7 +1191,7 @@ class _PsuPanel(Static):
     _PsuPanel {
         border: round $accent;
         padding: 0 1;
-        margin: 0 0 1 0;
+        margin: 0;
         height: auto;
     }
     """
@@ -875,9 +1206,6 @@ class _PsuPanel(Static):
             psu_id = self._server.psu.id
         resource = f"TCPIP0::{self._server._host}::{self._server._port}::SOCKET"
         self.update(f"ID:            {psu_id}\nVISA Resource: {resource}")
-
-
-_ACTIONS_LIST_SUFFIX = "-actions"
 
 
 class _LogPanel(Log):
@@ -911,30 +1239,29 @@ class _LogPanel(Log):
 
 
 class _AddChannelPanel(Container):
-    """Bordered panel matching the channel-panel style, holding the '+ Add channel' action."""
+    """Action panel for adding channels."""
 
     DEFAULT_CSS = """
     _AddChannelPanel {
         border: round $primary;
         padding: 0 1;
-        margin: 0 0 1 0;
+        margin: 0;
         height: auto;
     }
-    _AddChannelPanel > ListView {
+    _AddChannelPanel _ActionCell {
+        width: 16;
         height: auto;
-        background: transparent;
     }
     """
 
     def compose(self) -> ComposeResult:
-        yield ListView(
-            ListItem(Label("+ Add channel"), id="add"),
-            id="add-channel",
-        )
+        yield _control_cell("+ channel", "add-channel")
 
 
 class SimulatedPSUApp(App[None]):
     """Textual app: PSU panel on top, channels stacked vertically with per-channel actions, '+ Add channel' at the bottom."""
+
+    _COMPACT_WIDTH = 128
 
     CSS = """
     Screen {
@@ -975,40 +1302,62 @@ class SimulatedPSUApp(App[None]):
         with self._server.lock:
             channel_ids = [c.channel_id for c in self._server.psu.channels]
         for ch_id in channel_ids:
-            container.mount(_ChannelPanel(self._server, ch_id))
+            container.mount(_ChannelRow(self._server, ch_id))
         self.set_interval(0.25, self._refresh)
-        # Move focus to the first ListView so the keyboard works immediately.
-        self.call_after_refresh(self._focus_first_list)
+        self.call_after_refresh(self._sync_responsive_layout)
+        self.call_after_refresh(self._focus_first_action)
 
-    def _focus_first_list(self) -> None:
-        for lv in self.query(ListView).results():
-            lv.focus()
+    def on_resize(self, event: events.Resize) -> None:
+        self._sync_responsive_layout(event.size.width)
+
+    def _sync_responsive_layout(self, width: int | None = None) -> None:
+        if width is None:
+            width = self.size.width
+        compact = width < self._COMPACT_WIDTH
+        for row in self.query(_ChannelRow).results():
+            row.set_class(compact, "compact")
+
+    def _focus_first_action(self) -> None:
+        for action in self.query(_ActionCell).results():
+            if action.id and action.id.endswith("-remove"):
+                continue
+            action.focus()
             return
 
     def on_key(self, event: events.Key) -> None:
-        """Wrap arrow-key navigation across consecutive ListViews so the user can move from one channel's actions straight into the next channel's."""
-        focused = self.focused
-        if not isinstance(focused, ListView):
+        if event.key not in {"left", "right", "up", "down"}:
             return
-        if event.key == "down" and focused.index is not None and focused.index >= len(focused) - 1:
-            if self._focus_sibling_list(focused, +1):
-                event.stop()
-        elif event.key == "up" and (focused.index is None or focused.index <= 0):
-            if self._focus_sibling_list(focused, -1):
-                event.stop()
+        focused = self.focused
+        if not isinstance(focused, _ActionCell):
+            return
+        if self._focus_adjacent_action(focused, event.key):
+            event.stop()
 
-    def _focus_sibling_list(self, current: ListView, direction: int) -> bool:
-        lists = list(self.query(ListView).results())
-        try:
-            idx = lists.index(current)
-        except ValueError:
+    def _focus_adjacent_action(self, current: _ActionCell, direction: str) -> bool:
+        actions = [action for action in self.query(_ActionCell).results() if not action.disabled]
+        if current not in actions:
             return False
-        target_idx = idx + direction
-        if not 0 <= target_idx < len(lists):
+        regions = {action: action.region for action in actions}
+        current_region = regions[current]
+        same_row = [action for action in actions if regions[action].y == current_region.y]
+        if direction in {"left", "right"}:
+            row = sorted(same_row, key=lambda action: regions[action].x)
+            index = row.index(current)
+            target_index = index + (-1 if direction == "left" else 1)
+            if not 0 <= target_index < len(row):
+                return False
+            row[target_index].focus()
+            return True
+
+        if direction == "up":
+            row_y = max((regions[action].y for action in actions if regions[action].y < current_region.y), default=None)
+        else:
+            row_y = min((regions[action].y for action in actions if regions[action].y > current_region.y), default=None)
+        if row_y is None:
             return False
-        target = lists[target_idx]
+        row = [action for action in actions if regions[action].y == row_y]
+        target = min(row, key=lambda action: abs(regions[action].x - current_region.x))
         target.focus()
-        target.index = 0 if direction > 0 else max(0, len(target) - 1)
         return True
 
     def _refresh(self) -> None:
@@ -1016,28 +1365,41 @@ class SimulatedPSUApp(App[None]):
             psu_panel.refresh_state()
         for channel_panel in self.query(_ChannelPanel).results():
             channel_panel.refresh_state()
+        for probe_panel in self.query(_ProbePanel).results():
+            probe_panel.refresh_state()
+        for load_panel in self.query(_LoadPanel).results():
+            load_panel.refresh_state()
         for log_panel in self.query(_LogPanel).results():
             log_panel.refresh_state()
 
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        list_id = event.list_view.id
-        item_id = event.item.id
-        if list_id == "add-channel" and item_id == "add":
+    def on_action_selected(self, event: ActionSelected) -> None:
+        action_id = event.cell.id
+        if action_id == "add-channel":
             self._add_channel()
             return
-        if list_id and list_id.endswith(_ACTIONS_LIST_SUFFIX):
-            try:
-                ch_id = int(list_id[len("ch-") : -len(_ACTIONS_LIST_SUFFIX)])
-            except ValueError:
-                return
-            if item_id == "load":
-                self._prompt_set(ch_id, "load", "Load resistance (ohms):")
-            elif item_id == "emf":
-                self._prompt_set(ch_id, "emf", "Series EMF (volts):")
-            elif item_id == "probe":
-                self._prompt_set(ch_id, "probe", "Probe resistance (ohms):")
-            elif item_id == "remove":
-                self._remove_channel(ch_id)
+        if action_id is None or not action_id.startswith("ch-"):
+            return
+        try:
+            _, channel_text, action = action_id.split("-", 2)
+            ch_id = int(channel_text)
+        except ValueError:
+            return
+        if action == "load":
+            self._prompt_set(ch_id, "load", "Load resistance (ohms):")
+        elif action == "emf":
+            self._prompt_set(ch_id, "emf", "Series EMF (volts):")
+        elif action == "probe":
+            self._prompt_set(ch_id, "probe", "Probe resistance (ohms):")
+        elif action == "voltage-limit":
+            self._prompt_set_limit(ch_id, "voltage", "V limit (volts):")
+        elif action == "current-limit":
+            self._prompt_set_limit(ch_id, "current", "I limit (amps):")
+        elif action == "ovp-level":
+            self._prompt_set_limit(ch_id, "ovp", "OVP level (volts):")
+        elif action == "ocp-level":
+            self._prompt_set_limit(ch_id, "ocp", "OCP level (amps):")
+        elif action == "remove":
+            self._remove_channel(ch_id)
 
     # ---- channel actions ----
 
@@ -1045,13 +1407,15 @@ class SimulatedPSUApp(App[None]):
         with self._server.lock:
             next_id = max((c.channel_id for c in self._server.psu.channels), default=0) + 1
             self._server.psu.channels.append(SimulatedPSUChannel(channel_id=next_id))
-        self.query_one("#channels", Vertical).mount(_ChannelPanel(self._server, next_id))
+        row = _ChannelRow(self._server, next_id)
+        row.set_class(self.size.width < self._COMPACT_WIDTH, "compact", update=False)
+        self.query_one("#channels", Vertical).mount(row)
 
     def _remove_channel(self, ch_id: int) -> None:
         with self._server.lock:
             self._server.psu.channels = [c for c in self._server.psu.channels if c.channel_id != ch_id]
         try:
-            self.query_one(f"#ch-{ch_id}", _ChannelPanel).remove()
+            self.query_one(f"#ch-{ch_id}-row", _ChannelRow).remove()
         except Exception:
             pass
 
@@ -1085,6 +1449,45 @@ class SimulatedPSUApp(App[None]):
                 elif param == "probe":
                     ch.load.probe_resistance = value
                 self._server.psu._update()
+
+        self.push_screen(_PromptScreen(prompt, initial=current), _on_value)
+
+    def _prompt_set_limit(self, ch_id: int, param: str, prompt: str) -> None:
+        with self._server.lock:
+            ch = self._server.psu._channel(ch_id)
+            current = ""
+            if ch is not None:
+                if param == "voltage":
+                    current = str(ch.voltage_max)
+                elif param == "current":
+                    current = str(ch.current_max)
+                elif param == "ovp":
+                    current = str(ch.overvoltage_protection_max)
+                elif param == "ocp":
+                    current = str(ch.overcurrent_protection_max)
+
+        def _on_value(value_str: str | None) -> None:
+            if not value_str:
+                return
+            try:
+                value = float(value_str)
+            except ValueError:
+                return
+            if value < CHANNEL_MIN:
+                return
+            with self._server.lock:
+                ch = self._server.psu._channel(ch_id)
+                if ch is None:
+                    return
+                if param == "voltage":
+                    ch.voltage_max = value
+                elif param == "current":
+                    ch.current_max = value
+                elif param == "ovp":
+                    ch.overvoltage_protection_max = value
+                elif param == "ocp":
+                    ch.overcurrent_protection_max = value
+                self._server.psu.process_scpi_command("*RST")
 
         self.push_screen(_PromptScreen(prompt, initial=current), _on_value)
 

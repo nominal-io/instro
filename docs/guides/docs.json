@@ -40,7 +40,13 @@
             "group": "Instruments",
             "icon": "microchip",
             "pages": [
-              "instrumentation/psu",
+              {
+                "group": "PSU",
+                "pages": [
+                  "instrumentation/psu",
+                  "instrumentation/psu-simulator"
+                ]
+              },
               "instrumentation/eload",
               "instrumentation/dmm",
               "instrumentation/daq",
