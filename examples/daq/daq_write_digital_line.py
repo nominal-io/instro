@@ -2,7 +2,7 @@
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction, Logic
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -19,8 +19,8 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        CHANNEL_0 = "port0/line0"
-        CHANNEL_1 = "port0/line1"
+        CHANNEL_0 = "Dev1/port0/line0"
+        CHANNEL_1 = "Dev1/port0/line1"
         driver = NIDAQDriver(device_id="Dev1")
     case DAQVendor.KEYSIGHT_34980:
         from instro.daq.drivers import Keysight34980A

@@ -44,7 +44,7 @@ mode = i2c.read("gpio_expander", "CONFIG", field="mode")
 See the [System Definition](/instrumentation/protocols/i2c/system-definition) page for detailed information on creating and configuring your `SystemDefinition`.
 
 <Tip>
-We recommend creating your SystemDefinition in a separate file and importing it into your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
+Nominal recommends creating your SystemDefinition in a separate file and importing it into your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
 </Tip>
 
 
@@ -93,7 +93,7 @@ This is useful for using I2C devices that I2CInterface doesn't yet provide lower
 
 ## Creating an I2CInterface Instance
 
-Construct `I2CInterface` directly. The caller picks a vendor driver and passes it in — there is no factory method or vendor enum.
+Construct `I2CInterface` directly. The caller picks a vendor driver and passes it in. There is no factory method or vendor enum.
 
 ```python
 from instro.i2c.drivers.totalphase import Aardvark
@@ -503,7 +503,7 @@ def close(self) -> None:
 ### Driver Composition
 
 Concrete I2C drivers own their transport SDK. `I2CInterface` calls `driver.open()` /
-`driver.close()` and forwards I2C transactions to the driver; the driver does not
+`driver.close()` and forwards I2C transactions to the driver. The driver does not
 need a back-reference to the instrument.
 
 ## Implementation Example: Total Phase Driver

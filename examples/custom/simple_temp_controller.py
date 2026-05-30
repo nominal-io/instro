@@ -1,10 +1,10 @@
-"""A minimal custom `Instrument` — a simulated temperature controller whose reading lags the commanded setpoint."""
+"""A minimal custom `Instrument`, a simulated temperature controller whose reading lags the commanded setpoint."""
 
 import random
 import time
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class SimpleTempController(Instrument):
@@ -27,7 +27,7 @@ class SimpleTempController(Instrument):
     @publish_measurement
     def read_temperature(self, **kwargs) -> Measurement:
         # Each tick: move 20% of the way toward the setpoint, plus a little noise.
-        # That lag is the "physics" — enough to make the command visibly do work.
+        # That lag is the "physics", enough to make the command visibly do work.
         drift = (self._setpoint_c - self._temperature_c) * 0.2
         self._temperature_c += drift + random.uniform(-0.1, 0.1)
         return self._package_measurement("temperature_c", self._temperature_c, time.time_ns(), **kwargs)
@@ -39,7 +39,7 @@ class SimpleTempController(Instrument):
 
 
 def main() -> None:
-    # `with` calls open() on entry and close() on exit — close() stops the daemon
+    # `with` calls open() on entry and close() on exit. close() stops the daemon
     # and closes publishers even if an exception escapes the block.
     with SimpleTempController(name="controller") as controller:
         controller.start()

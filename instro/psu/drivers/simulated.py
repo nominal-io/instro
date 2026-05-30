@@ -3,8 +3,9 @@
 Connect via a TCP socket VISA resource such as ``TCPIP0::127.0.0.1::5025::SOCKET``.
 """
 
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class SimulatedPSU(PSUDriverBase):
@@ -40,6 +41,30 @@ class SimulatedPSU(PSUDriverBase):
             resp = self._visa.query(f"OUTP:STAT? {channel}")
             self._check_errors()
         return resp == "ON"
+
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection_level is not supported by SimulatedPSU")
+
+    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection_level is not supported by SimulatedPSU")
+
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_level is not supported by SimulatedPSU")
+
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection_level is not supported by SimulatedPSU")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_enabled is not supported by SimulatedPSU")
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by SimulatedPSU")
+
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by SimulatedPSU")
+
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by SimulatedPSU")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():

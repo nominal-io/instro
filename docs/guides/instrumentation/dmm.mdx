@@ -5,12 +5,12 @@ description: Using InstroDMM for SCPI-based digital multimeters
 
 # InstroDMM
 
-`InstroDMM` is a hardware abstraction layer (HAL) that provides a unified interface for SCPI-based digital multimeters. The category class defines the vendor-independent API (`set_measurement_function`, `read`, `set_range`, …); a vendor-specific driver (e.g. `Agilent34401A`, `Keithley2400`) owns its connection details and translates those calls into vendor commands.
+`InstroDMM` is a hardware abstraction layer (HAL) that provides a unified interface for SCPI-based digital multimeters. The category class defines the vendor-independent API (`set_measurement_function`, `read`, `set_range`, …). A vendor-specific driver (e.g. `Agilent34401A`, `Keithley2400`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
-- **Agilent / HP / Keysight** — 34401A and compatible DMMs via SCPI/VISA (`Agilent34401A`)
-- **Keithley** — 2400 SourceMeter, measurement-only mode (`Keithley2400`)
+- **Agilent / HP / Keysight**: 34401A and compatible DMMs via SCPI/VISA (`Agilent34401A`)
+- **Keithley**: 2400 SourceMeter, measurement-only mode (`Keithley2400`)
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -25,17 +25,17 @@ InstroDMM("name", driver=Agilent34401A("ASRL3::INSTR"))
 ```
 
 - **`Agilent34401A`** owns the connection setup and vendor-specific command mapping.
-- **`InstroDMM`** owns the category-level workflow — measurements, commands, publishers, the background daemon.
+- **`InstroDMM`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
 
 ### Lifecycle
 
 The typical InstroDMM workflow:
 
-1. **Construct** — instantiate the vendor driver and pass it to `InstroDMM`.
-2. **`open()`** — establishes the VISA connection.
-3. **Configure measurement** — set the measurement function (e.g. DC voltage), and optionally resolution, aperture, and range.
-4. **`read()`** — trigger a measurement and get the value.
-5. **`close()`** — disconnect from hardware.
+1. **Construct**: instantiate the vendor driver and pass it to `InstroDMM`.
+2. **`open()`**: establishes the VISA connection.
+3. **Configure measurement**: set the measurement function (e.g. DC voltage), and optionally resolution, aperture, and range.
+4. **`read()`**: trigger a measurement and get the value.
+5. **`close()`**: disconnect from hardware.
 
 Optionally, you can use background fetching via `start()` / `stop()`, but it is an atypical use case for a DMM. See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more.
 
@@ -66,10 +66,10 @@ dmm = InstroDMM(
 
 ### Parameters
 
-- **`name`** — A name for this DMM instance. Used as a prefix for channel names when publishing.
-- **`driver`** — A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model.
-- **`publishers`** — Optional list of publishers to attach.
-- **`**kwargs`** — Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+- **`name`**: A name for this DMM instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### Choosing a Driver
 
@@ -78,7 +78,7 @@ Choose the concrete driver that matches the DMM model, then pass the instrument 
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("ASRL3::INSTR")
 try:
@@ -98,7 +98,7 @@ All measurement methods return [`Measurement`](/instrumentation/library#measurem
 from instro.dmm.drivers import Agilent34401A
 from instro.dmm import InstroDMM
 from instro.dmm import MeasurementFunction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "ASRL17::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -135,7 +135,7 @@ For example, when you call `read()`, this not only triggers a measurement and re
 
 ## Published channels
 
-Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. The `read()` descriptor depends on the active measurement function — substitute the lowercased function name (e.g. `dc_voltage`, `ac_voltage`, `two_wire_resistance`). DMM had no v1.0 channel-naming change; [`legacy_naming`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) is accepted but is a no-op for this category.
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. The `read()` descriptor depends on the active measurement function. Substitute the lowercased function name (e.g. `dc_voltage`, `ac_voltage`, `two_wire_resistance`). DMM had no v1.0 channel-naming change. [`legacy_naming`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) is accepted but is a no-op for this category.
 
 | Method | Descriptor | Type |
 |--------|------------|------|
@@ -183,12 +183,12 @@ The driver is responsible for translating `InstroDMM`'s vendor-independent API (
 
 A DMM driver must:
 
-1. **Expose a protocol-native constructor** — accept inputs like `visa_resource`, `host`, `port`, depending on the instrument.
-2. **Own transport setup** — create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, or other transport object.
-3. **Own lifecycle** — implement `open()` and `close()` by opening and closing the underlying transport.
-4. **Map commands** — translate each abstract method into vendor-specific commands.
-5. **Parse responses** — convert instrument responses to the expected Python types (`float`).
-6. **Report errors** — override `check_errors()` if the instrument exposes an error queue or status register.
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, or other transport object.
+3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands**: translate each abstract method into vendor-specific commands.
+5. **Parse responses**: convert instrument responses to the expected Python types (`float`).
+6. **Report errors**: override `check_errors()` if the instrument exposes an error queue or status register.
 
 ## DMMDriverBase Interface
 
@@ -213,25 +213,25 @@ def measure_resistance(self) -> float: ...
 
 Optional overrides (raise `NotImplementedError` if not supported):
 
-- **`set_digits(n)`** — Set resolution in digits.
-- **`set_aperture_seconds(seconds)`** — Set integration time in seconds.
-- **Per-function range setters** — `set_dc_voltage_range`, `set_ac_voltage_range`, `set_dc_current_range`, `set_ac_current_range`, `set_two_wire_resistance_range`, `set_four_wire_resistance_range`. Each takes `value: float | None` (None = auto). `InstroDMM` dispatches to the right one based on the active measurement function, so the driver never needs to know which function is active.
-- **Per-function NPLC setters** — `set_dc_voltage_nplc`, `set_ac_voltage_nplc`, `set_dc_current_nplc`, `set_ac_current_nplc`, `set_two_wire_resistance_nplc`, `set_four_wire_resistance_nplc`. Same dispatch shape as the range setters.
-- **`measure_four_wire_resistance()`** — Measure 4-wire resistance.
-- **`check_errors()`** — Defaults to a no-op. Override to query the vendor error queue.
+- **`set_digits(n)`**: Set resolution in digits.
+- **`set_aperture_seconds(seconds)`**: Set integration time in seconds.
+- **Per-function range setters**: `set_dc_voltage_range`, `set_ac_voltage_range`, `set_dc_current_range`, `set_ac_current_range`, `set_two_wire_resistance_range`, `set_four_wire_resistance_range`. Each takes `value: float | None` (None = auto). `InstroDMM` dispatches to the right one based on the active measurement function, so the driver never needs to know which function is active.
+- **Per-function NPLC setters**: `set_dc_voltage_nplc`, `set_ac_voltage_nplc`, `set_dc_current_nplc`, `set_ac_current_nplc`, `set_two_wire_resistance_nplc`, `set_four_wire_resistance_nplc`. Same dispatch shape as the range setters.
+- **`measure_four_wire_resistance()`**: Measure 4-wire resistance.
+- **`check_errors()`**: Defaults to a no-op. Override to query the vendor error queue.
 
-The per-function range/NPLC split keeps `InstroDMM`'s `_measurement_config.function` as the single source of truth — the driver never receives or tracks the active function, so the wrong-function-passed-by-mistake class of bug doesn't exist.
+The per-function range/NPLC split keeps `InstroDMM`'s `_measurement_config.function` as the single source of truth. The driver never receives or tracks the active function, so the wrong-function-passed-by-mistake class of bug doesn't exist.
 
 ### Talking to the Instrument
 
 Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
 
-- **`self._visa.write(command)`** — Send a SCPI command (no response expected).
-- **`self._visa.query(command)`** — Send a SCPI query and receive the response string.
+- **`self._visa.write(command)`**: Send a SCPI command (no response expected).
+- **`self._visa.query(command)`**: Send a SCPI query and receive the response string.
 
-`VisaDriver` owns the resource lock; concurrent `write` / `query` calls against the same driver are serialized automatically.
+`VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically.
 
-See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference — configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
 
 For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
 
@@ -242,7 +242,7 @@ Here is the abridged shape of the Agilent 34401A driver:
 ```python
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class Agilent34401A(DMMDriverBase):
@@ -300,7 +300,7 @@ For drivers that aren't shipped in the library, construct `InstroDMM` with your 
 ```python
 from instro.dmm import MeasurementFunction, InstroDMM
 from instro.dmm import DMMDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomDMMDriver(DMMDriverBase):

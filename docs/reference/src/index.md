@@ -7,20 +7,20 @@ collecting measurements, and publishing data to [Nominal](https://nominal.io).
 
 The SDK is organized into several key components:
 
-- **Library** — Base classes and infrastructure for building instrument integrations,
+- **Library**: Base classes and infrastructure for building instrument integrations,
   including the [`Instrument`](reference/nominal_instrument.md) base class, communication interfaces,
   and data publishers.
 
-- **Instruments** — High-level, vendor-agnostic interfaces for common instrument types:
+- **Instruments**: High-level, vendor-agnostic interfaces for common instrument types:
   [DAQ](instruments/daq.md), [DMM](instruments/dmm.md), [PSU](instruments/psu.md),
   [Electronic Load](instruments/eload.md), and [I2C](instruments/i2c.md).
 
-- **Protocols** — Config-driven clients for direct hardware communication via standard
+- **Protocols**: Config-driven clients for direct hardware communication via standard
   wire protocols: [Modbus](protocols/modbus.md).
 
-- **Drivers** — Vendor-specific implementations that connect instrument interfaces to real hardware.
+- **Drivers**: Vendor-specific implementations that connect instrument interfaces to real hardware.
 
-- **Publishers** — Data publishing backends for exposing measurements to other services.  
+- **Publishers**: Data publishing backends for exposing measurements to other services.  
   [Nominal Core](reference/publishers.md#nominal-core-publisher),
   [Nominal Connect](reference/publishers.md#nominal-connect-publisher),
   writing to [files](reference/publishers.md#file-publishers), or custom implementations.

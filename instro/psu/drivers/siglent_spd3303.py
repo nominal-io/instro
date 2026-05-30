@@ -1,7 +1,8 @@
 """Siglent SPD3303-series PSU driver."""
 
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class SiglentSPD3303(PSUDriverBase):
@@ -34,6 +35,30 @@ class SiglentSPD3303(PSUDriverBase):
 
     def get_output_status(self, channel: int = 1) -> bool:
         return bool(self.query_status()[f"ch{channel}_enable"])
+
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection_level is not supported by SiglentSPD3303")
+
+    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection_level is not supported by SiglentSPD3303")
+
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_level is not supported by SiglentSPD3303")
+
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection_level is not supported by SiglentSPD3303")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_enabled is not supported by SiglentSPD3303")
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by SiglentSPD3303")
+
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by SiglentSPD3303")
+
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by SiglentSPD3303")
 
     def query_status(self) -> dict:
         """Query the status of the PSU (per-channel mode/enable + tracking mode)."""

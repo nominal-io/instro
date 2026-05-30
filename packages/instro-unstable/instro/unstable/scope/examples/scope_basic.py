@@ -7,6 +7,8 @@ settings, capturing a waveform, and taking built-in measurements.
 
 import time
 
+from instro.lib.publishers import NominalCorePublisher
+from instro.lib.transports.visa import VisaConfig
 from instro.unstable.scope import (
     AcquisitionMode,
     Coupling,
@@ -17,8 +19,6 @@ from instro.unstable.scope import (
     TriggerType,
 )
 from instro.unstable.scope.drivers.keysight import Keysight1200X
-from instro.utils.publishers import NominalCorePublisher
-from instro.utils.transports.visa import VisaConfig
 
 # VISA_RESOURCE = "TCPIP0::127.0.0.1::INSTR"
 # VISA_RESOURCE = "USB0::0x2A8D::0x039B::CN64191203::INSTR"

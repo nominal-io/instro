@@ -15,7 +15,7 @@ from nominal import exceptions
 from nominal.core import Dataset, NominalClient
 from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
 
-from instro.utils.types import Measurement
+from instro.lib.types import Measurement
 
 
 class CoreEnqueueDict(TypedDict):

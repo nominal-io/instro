@@ -2,20 +2,20 @@
 
 ## Publisher Protocol & Base Classes
 
-::: instro.utils.publishers.publisher
+::: instro.lib.publishers.publisher
 
 ## File Publishers
 
-::: instro.utils.publishers.files
+::: instro.lib.publishers.files
 
 ## Nominal Core Publisher
 
-::: instro.utils.publishers.nominal_core
+::: instro.lib.publishers.nominal_core
 
 ## Nominal Connect Publisher
 
-::: instro.utils.publishers.nominal_connect
+::: instro.lib.publishers.nominal_connect
 
 ## Channel Buffers
 
-::: instro.utils.publishers.channel_buffer
+::: instro.lib.publishers.channel_buffer

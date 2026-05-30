@@ -5,11 +5,11 @@ description: Using InstroELoad for SCPI-based programmable electronic loads
 
 # InstroELoad
 
-`InstroELoad` is a hardware abstraction layer (HAL) that provides a unified interface for programmable electronic loads. The category class defines the vendor-independent API (`set_mode`, `set_level`, `get_voltage`, …); a vendor-specific driver (e.g. `BK85XXB`) owns its connection details and translates those calls into vendor commands.
+`InstroELoad` is a hardware abstraction layer (HAL) that provides a unified interface for programmable electronic loads. The category class defines the vendor-independent API (`set_mode`, `set_level`, `get_voltage`, …). A vendor-specific driver (e.g. `BK85XXB`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
-- **B&K Precision** — 85xx Series via SCPI/VISA (`BK85XXB`)
+- **B&K Precision**: 85xx Series via SCPI/VISA (`BK85XXB`)
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -24,32 +24,32 @@ InstroELoad("name", driver=BK85XXB(visa_resource="USB0::..."))
 ```
 
 - **`BK85XXB`** owns the connection setup and vendor-specific command mapping.
-- **`InstroELoad`** owns the category-level workflow — measurements, commands, publishers, the background daemon.
+- **`InstroELoad`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
 
 ### Lifecycle
 
 The typical InstroELoad workflow:
 
-1. **Construct** — instantiate the vendor driver and pass it to `InstroELoad`.
-2. **`open()`** — establishes the VISA connection.
-3. **Configure and measure** — set operating mode, level, range, and read measurements.
-4. **`start()`** — begins a periodic background worker. (Optional)
-5. **`stop()`** — ends the background worker (if started).
-6. **`close()`** — disconnects from hardware.
+1. **Construct**: instantiate the vendor driver and pass it to `InstroELoad`.
+2. **`open()`**: establishes the VISA connection.
+3. **Configure and measure**: set operating mode, level, range, and read measurements.
+4. **`start()`**: begins a periodic background worker. (Optional)
+5. **`stop()`**: ends the background worker (if started).
+6. **`close()`**: disconnects from hardware.
 
 ### Operating Modes
 
 Electronic loads can operate in four modes:
 
-- **CC (Constant Current)** — the load draws a constant current regardless of voltage
-- **CV (Constant Voltage)** — the load maintains a constant voltage across its terminals
-- **CR (Constant Resistance)** — the load simulates a constant resistance
-- **CP (Constant Power)** — the load draws constant power
+- **CC (Constant Current)**: the load draws a constant current regardless of voltage
+- **CV (Constant Voltage)**: the load maintains a constant voltage across its terminals
+- **CR (Constant Resistance)**: the load simulates a constant resistance
+- **CP (Constant Power)**: the load draws constant power
 
 <Note>
 **Mode Configuration Required**
 
-The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes — consult your instrument's manual.
+The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes. Consult your instrument's manual.
 </Note>
 
 ## Creating a InstroELoad Instance
@@ -66,10 +66,10 @@ eload = InstroELoad(
 
 ### Parameters
 
-- **`name`** — A name for this electronic load instance. Used as a prefix for channel names when publishing.
-- **`driver`** — A concrete `ELoadDriverBase` instance (e.g. `BK85XXB`) configured with the connection details for that model.
-- **`publishers`** — Optional list of publishers to attach.
-- **`**kwargs`** — Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+- **`name`**: A name for this electronic load instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `ELoadDriverBase` instance (e.g. `BK85XXB`) configured with the connection details for that model.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### Choosing a Driver
 
@@ -78,7 +78,7 @@ Choose the concrete driver that matches the electronic load model, then pass the
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("USB0::...")
 try:
@@ -100,7 +100,7 @@ import time
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload import InstroELoad
 from instro.eload import LoadMode
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -141,7 +141,7 @@ import time
 from instro.eload.drivers.bk_85xxb import BK85XXB
 from instro.eload import InstroELoad
 from instro.eload import LoadMode
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0x0614::0x0960::8514B12345::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -276,12 +276,12 @@ The driver is responsible for translating `InstroELoad`'s vendor-independent API
 
 An electronic load driver must:
 
-1. **Expose a protocol-native constructor** — accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
-2. **Own transport setup** — create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
-3. **Own lifecycle** — implement `open()` and `close()` by opening and closing the underlying transport.
-4. **Map commands** — translate each abstract method into vendor-specific commands.
-5. **Parse responses** — convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors** — override `check_errors()` if the instrument exposes an error queue or status register.
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
+3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands**: translate each abstract method into vendor-specific commands.
+5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
+6. **Report errors**: override `check_errors()` if the instrument exposes an error queue or status register.
 
 ## ELoadDriverBase Interface
 
@@ -332,12 +332,12 @@ def get_current(self, channel: int) -> float:
 
 Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
 
-- **`self._visa.write(command)`** — Send a SCPI command (no response expected).
-- **`self._visa.query(command)`** — Send a SCPI query and receive the response string.
+- **`self._visa.write(command)`**: Send a SCPI command (no response expected).
+- **`self._visa.query(command)`**: Send a SCPI query and receive the response string.
 
-`VisaDriver` owns the resource lock; concurrent `write` / `query` calls against the same driver are serialized automatically.
+`VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically.
 
-See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference — configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
 
 For non-VISA instruments, follow the same shape with the protocol client your driver needs:
 
@@ -359,7 +359,7 @@ Here's the complete driver implementation for B&K Precision 85xx Series electron
 ```python
 from instro.eload import ELoadDriverBase
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 def loadmode_to_unit(mode: LoadMode) -> str:
@@ -433,7 +433,7 @@ For drivers that aren't shipped in the library, construct `InstroELoad` with you
 ```python
 from instro.eload import LoadMode, InstroELoad
 from instro.eload import ELoadDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomELoadDriver(ELoadDriverBase):

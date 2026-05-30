@@ -1,8 +1,8 @@
-# Nominal Instrumentation — User Documentation
+# Nominal Instrumentation: User Documentation
 
 Prose / conceptual documentation for [Nominal Instrumentation](https://nominal-io.github.io/instrumentation/), Nominal's Python library for scripting and automating test equipment.
 
-This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/reference/` (mkdocs), which auto-generates the API reference from docstrings; this Mintlify site holds the prose, examples, and getting-started content.
+This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/reference/` (mkdocs), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
 
 ## Local development
 

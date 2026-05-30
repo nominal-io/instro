@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from instro.utils.types import Command, Measurement
+from instro.lib.types import Command, Measurement
 
 
 class ChannelNotFoundError(TimeoutError):

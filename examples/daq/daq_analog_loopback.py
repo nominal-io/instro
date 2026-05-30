@@ -4,7 +4,7 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction
-from instro.utils.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers.nominal_core import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -23,10 +23,10 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        AO_CH0 = "ao0"
-        AO_CH1 = "ao1"
-        AI_CH0 = "ai0"
-        AI_CH1 = "ai1"
+        AO_CH0 = "Dev1/ao0"
+        AO_CH1 = "Dev1/ao1"
+        AI_CH0 = "Dev1/ai0"
+        AI_CH1 = "Dev1/ai1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.MCC:
         from instro.daq.drivers.mcc import MCCDriver

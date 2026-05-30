@@ -1,4 +1,4 @@
-"""Modbus configuration types (Pydantic). ``DeviceInfo``/``LinearScale``/``ScaleType`` come from ``instro.utils.types``."""
+"""Modbus configuration types (Pydantic). ``DeviceInfo``/``LinearScale``/``ScaleType`` come from ``instro.lib.types``."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from instro.utils.types import (
+from instro.lib.types import (
     DeviceInfo,
     LinearScale,
     ScaleType,

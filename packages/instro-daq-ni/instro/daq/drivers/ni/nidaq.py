@@ -21,7 +21,7 @@ from instro.daq.types import (
     Logic,
     TerminalConfig,
 )
-from instro.utils import Measurement
+from instro.lib import Measurement
 
 
 @dataclass
@@ -35,10 +35,10 @@ class NIDAQDriver(DAQDriverBase):
     """NI-DAQmx DAQ driver."""
 
     def __init__(self, device_id: str):
+        super().__init__()
         self._device_id = device_id
         self._tasks: dict[ChannelType, nidaqmx.Task] = {}
         self._ao_sw_tasks: dict[str, nidaqmx.Task] = {}
-        self.points_in_buffer: int = 0
 
         self._actual_sample_period: int | None = None
         self._actual_sample_rate: float | None = None
@@ -52,8 +52,17 @@ class NIDAQDriver(DAQDriverBase):
         """NI-DAQmx has no explicit connect — verifies the device is present in ``niSystem.local()``."""
         # Verify device exists
         system = niSystem.local()
-        if self._device_id not in [dev.name for dev in system.devices]:
-            raise RuntimeError(f"Device {self._device_id} not found")
+        connected = [dev.name for dev in system.devices]
+        if self._device_id not in connected:
+            tools = "NI MAX or the NI Hardware Configuration Utility"
+            if connected:
+                detail = f"Connected devices: {connected}. Confirm the intended device's name in {tools}."
+            else:
+                detail = (
+                    "No NI devices are connected; check the hardware connection and NI-DAQmx installation, "
+                    f"then confirm the device appears in {tools}."
+                )
+            raise RuntimeError(f"Device {self._device_id} not found. {detail}")
 
     def close(self):
         """Close every DAQmx task this driver owns."""
@@ -101,23 +110,37 @@ class NIDAQDriver(DAQDriverBase):
                     f"Invalid terminal configuration: {terminal_config}, must be one of {[cfg.name for cfg in TerminalConfig]}"
                 )
 
+    @staticmethod
+    def _reject_channel_range_or_list(physical_channel: str):
+        """Reject NI-DAQmx range/list syntax; one physical_channel maps to one channel."""
+        if ":" in physical_channel or "," in physical_channel:
+            raise ValueError(
+                "physical_channel must name a single channel. NI-DAQmx range and list syntax "
+                "(e.g. 'Dev1/ai0:3', 'Dev1/ai0,Dev1/ai2') is not supported; configure each channel "
+                f"with its own call. Received {physical_channel}."
+            )
+
     def configure_ai_channel(
         self,
         channel: AnalogChannel,
     ):
         """Configure a channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
         task = self._get_task(ChannelType.ANALOG_INPUT)
         terminal_config = self._get_terminal_config(channel.terminal_config)
 
         task.ai_channels.add_ai_voltage_chan(
-            physical_channel=f"{self._device_id}/{channel.physical_channel}",
+            physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
             terminal_config=terminal_config,
         )
 
+        self.ai_channels[channel.alias] = channel
+
     def configure_ao_channel(self, channel: AnalogChannel):
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
 
         task = self._ao_sw_tasks.get(channel.alias, None)
         if task:
@@ -128,10 +151,12 @@ class NIDAQDriver(DAQDriverBase):
         self._ao_sw_tasks[channel.alias] = task
 
         task.ao_channels.add_ao_voltage_chan(
-            physical_channel=f"{self._device_id}/{channel.physical_channel}",
+            physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
+
+        self.ao_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -147,6 +172,8 @@ class NIDAQDriver(DAQDriverBase):
             sample_mode=AcquisitionType.CONTINUOUS,
         )
 
+        self.ai_hw_timing_config = hw_timing_config
+
     def define_digital_channel(
         self,
         direction: Direction,
@@ -156,15 +183,14 @@ class NIDAQDriver(DAQDriverBase):
         alias: str | None = None,
         port_width: DigitalPortWidth | None = None,
     ) -> DigitalChannel:
-        # A port should be defined as portN where N is the port. ex 'port2'
-        # A line should be defined as portN/lineB where N is port, and B is the line. ex 'port2/line3'
+        # physical_channel is the fully qualified DAQmx name: a port is 'DevN/portM', a line is 'DevN/portM/lineP'.
         alias = alias or physical_channel
 
         if port_width:
-            if "/" in physical_channel:
+            if "/line" in physical_channel:
                 raise ValueError(
                     f"port_width is set to {port_width} but physical_channel implies a line. "
-                    "Define the physical channel as portM where M is the port. ex 'port2'."
+                    "Define the physical channel as DevN/portM. ex 'Dev1/port2'. "
                     f"Received {physical_channel}."
                 )
 
@@ -180,7 +206,7 @@ class NIDAQDriver(DAQDriverBase):
         if "/line" not in physical_channel:
             raise ValueError(
                 "physical_channel does not define the line within the channel to create a channel from. "
-                "Define the physical channel as portM/lineN where M is port, and N is the line. ex 'port2/line3'."
+                "Define the physical channel as DevN/portM/lineP. ex 'Dev1/port2/line3'."
             )
 
         channel = DigitalLineChannel(
@@ -211,10 +237,12 @@ class NIDAQDriver(DAQDriverBase):
             raise TypeError("Unsupported digital channel type")
 
         task.do_channels.add_do_chan(
-            lines=f"{self._device_id}/{channel.physical_channel}",
+            lines=channel.physical_channel,
             name_to_assign_to_lines=channel.alias,
             line_grouping=line_grouping,
         )
+
+        self.do_channels[channel.alias] = channel
 
     def configure_di_channel(
         self,
@@ -235,10 +263,12 @@ class NIDAQDriver(DAQDriverBase):
             raise TypeError("Unsupported digital channel type")
 
         task.di_channels.add_di_chan(
-            lines=f"{self._device_id}/{channel.physical_channel}",
+            lines=channel.physical_channel,
             name_to_assign_to_lines=channel.alias,
             line_grouping=line_grouping,
         )
+
+        self.di_channels[channel.alias] = channel
 
     def start(self, **kwargs):
         """Start the DAQ device for data acquisition."""
@@ -269,11 +299,13 @@ class NIDAQDriver(DAQDriverBase):
             self._running_channel_types.add(channel_type)
 
     def _capture_sample_rate(self):
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
         ai_task = self._tasks[ChannelType.ANALOG_INPUT]
         actual_rate = ai_task.timing.samp_clk_rate
         self._actual_sample_rate = actual_rate
         self._actual_sample_period = round(1e9 / actual_rate)
-        requested_rate = self.hal.ai_hw_timing_configs.sample_rate
+        requested_rate = self.ai_hw_timing_config.sample_rate
         if abs(actual_rate - requested_rate) / requested_rate > 0.1:
             print(
                 f"Warning: Requested sample rate ({requested_rate}) "
@@ -308,10 +340,11 @@ class NIDAQDriver(DAQDriverBase):
         return DAQmxData(data=data, timestamp=timestamp, dt=None)
 
     def fetch_analog(self) -> DAQmxData:
+        if self.ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
-        hw_timing_config = self.hal.ai_hw_timing_configs
 
-        data = task.read(number_of_samples_per_channel=hw_timing_config.samples_per_channel)
+        data = task.read(number_of_samples_per_channel=self.ai_hw_timing_config.samples_per_channel)
         timestamp = time.time_ns()  # DAQmx does not do hardware timed samples, for the most part
 
         if isinstance(data[0], float):

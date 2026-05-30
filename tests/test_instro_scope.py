@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from instro.lib.transports.visa import SerialConfig, VisaConfig
 from instro.unstable.scope import (
     AcquisitionMode,
     Coupling,
@@ -21,7 +22,6 @@ from instro.unstable.scope import (
 from instro.unstable.scope.driver import ScopeDriverBase
 from instro.unstable.scope.drivers.keysight import Keysight1200X
 from instro.unstable.scope.drivers.tektronix import Tektronix2SeriesMSO
-from instro.utils.transports.visa import SerialConfig, VisaConfig
 
 
 def _make_temp_timeout_cm() -> MagicMock:

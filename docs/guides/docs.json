@@ -31,6 +31,7 @@
             "pages": [
               "instrumentation/publishers",
               "instrumentation/library",
+              "instrumentation/exceptions",
               "instrumentation/custom-instruments",
               "instrumentation/contrib"
             ]

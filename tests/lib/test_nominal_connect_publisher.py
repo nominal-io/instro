@@ -2,8 +2,8 @@
 
 from unittest.mock import Mock, patch
 
-from instro.utils.publishers.nominal_connect import NominalConnectPublisher
-from instro.utils.types import Measurement
+from instro.lib.publishers.nominal_connect import NominalConnectPublisher
+from instro.lib.types import Measurement
 
 
 def test_constructor_uses_instrumentation_source_by_default():
@@ -52,7 +52,7 @@ def test_missing_set_source_logs_warning_and_does_not_change_stream_source():
             self.sent.append({**kwargs, "source": self.source})
 
     client = PublicSourceClient()
-    with patch("instro.utils.publishers.nominal_connect.logger.warning") as warn_mock:
+    with patch("instro.lib.publishers.nominal_connect.logger.warning") as warn_mock:
         publisher = NominalConnectPublisher(client=client, stream_id="stream-123")
         measurement = Measurement(channel_data={"channel_a": [1.0]}, timestamps=[1])
 
@@ -77,7 +77,7 @@ def test_set_source_exception_logs_warning_and_does_not_change_stream_source():
             self.sent.append({**kwargs, "source": self._source})
 
     client = FailingHiddenSourceClient()
-    with patch("instro.utils.publishers.nominal_connect.logger.warning") as warn_mock:
+    with patch("instro.lib.publishers.nominal_connect.logger.warning") as warn_mock:
         publisher = NominalConnectPublisher(client=client, stream_id="stream-123")
         measurement = Measurement(channel_data={"channel_a": [1.0]}, timestamps=[1])
 
