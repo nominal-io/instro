@@ -65,7 +65,7 @@ Each **Channel** row shows the live state for one output.
 | --- | --- |
 | Status | Output mode, output state, sense mode, protection trips, and the remove action |
 | Voltage | Terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level |
-| Current | Output current, current limit, current range, OCP state, and OCP level |
+| Current | Output current, programmed current limit, I limit, OCP state, and OCP level |
 | Probe | Sense lead resistance and the probe-resistance action |
 | Load | Load resistance, series electromotive force (EMF), and load actions |
 
@@ -120,26 +120,6 @@ Highlight **I limit** and press Enter.
 Enter the new current limit in amps and press Enter.
 
 <img alt="PSU simulator terminal UI showing the current limit prompt" src="/images/psu-simulator-set-current-limit-prompt.svg" />
-
-### Change OVP level
-
-Highlight **OVP level** and press Enter.
-
-<img alt="PSU simulator terminal UI with OVP level highlighted" src="/images/psu-simulator-set-ovp-level.svg" />
-
-Enter the new OVP level in volts and press Enter.
-
-<img alt="PSU simulator terminal UI showing the OVP level prompt" src="/images/psu-simulator-set-ovp-level-prompt.svg" />
-
-### Change OCP level
-
-Highlight **OCP level** and press Enter.
-
-<img alt="PSU simulator terminal UI with OCP level highlighted" src="/images/psu-simulator-set-ocp-level.svg" />
-
-Enter the new OCP level in amps and press Enter.
-
-<img alt="PSU simulator terminal UI showing the OCP level prompt" src="/images/psu-simulator-set-ocp-level-prompt.svg" />
 
 Changing **V limit** or **I limit** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
 

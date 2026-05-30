@@ -961,13 +961,11 @@ class _ChannelPanel(Container):
                 yield Static(id="voltage-info", classes="section-info")
                 with Horizontal(classes="section-actions"):
                     yield _control_cell("V limit", _channel_action_id(self._channel_id, "voltage-limit"))
-                    yield _control_cell("OVP level", _channel_action_id(self._channel_id, "ovp-level"))
             with Vertical(classes="metric-section last-section"):
                 yield Static(_title("Current"), classes="section-title")
                 yield Static(id="current-info", classes="section-info")
                 with Horizontal(classes="section-actions"):
                     yield _control_cell("I limit", _channel_action_id(self._channel_id, "current-limit"))
-                    yield _control_cell("OCP level", _channel_action_id(self._channel_id, "ocp-level"))
 
     def refresh_state(self) -> None:
         with self._server.lock:
@@ -1386,10 +1384,6 @@ class SimulatedPSUApp(App[None]):
             self._prompt_set_limit(ch_id, "voltage", "V limit (volts):")
         elif action == "current-limit":
             self._prompt_set_limit(ch_id, "current", "I limit (amps):")
-        elif action == "ovp-level":
-            self._prompt_set_limit(ch_id, "ovp", "OVP level (volts):")
-        elif action == "ocp-level":
-            self._prompt_set_limit(ch_id, "ocp", "OCP level (amps):")
         elif action == "remove":
             self._remove_channel(ch_id)
 
@@ -1453,10 +1447,6 @@ class SimulatedPSUApp(App[None]):
                     current = str(ch.voltage_max)
                 elif param == "current":
                     current = str(ch.current_max)
-                elif param == "ovp":
-                    current = str(ch.overvoltage_protection_level)
-                elif param == "ocp":
-                    current = str(ch.overcurrent_protection_level)
 
         def _on_value(value_str: str | None) -> None:
             if not value_str:
@@ -1477,16 +1467,6 @@ class SimulatedPSUApp(App[None]):
                 elif param == "current":
                     ch.current_max = value
                     self._server.psu.process_scpi_command("*RST")
-                elif param == "ovp":
-                    if value > ch.voltage_max or value < ch.voltage_setpoint:
-                        return
-                    ch.overvoltage_protection_level = value
-                    self._server.psu._update()
-                elif param == "ocp":
-                    if value > ch.current_max or value < ch.current_limit:
-                        return
-                    ch.overcurrent_protection_level = value
-                    self._server.psu._update()
 
         self.push_screen(_PromptScreen(prompt, initial=current), _on_value)
 
