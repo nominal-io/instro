@@ -69,8 +69,8 @@ def test_default_protection_levels_equal_max(psu: SimulatedPSU) -> None:
     ch = psu.channels[0]
 
     assert ch.current_limit == pytest.approx(0.0)
-    assert ch.overvoltage_protection_level == pytest.approx(ch.overvoltage_protection_max)
-    assert ch.overcurrent_protection_level == pytest.approx(ch.overcurrent_protection_max)
+    assert ch.overvoltage_protection_level == pytest.approx(ch.voltage_max)
+    assert ch.overcurrent_protection_level == pytest.approx(ch.current_max)
 
 
 @pytest.mark.parametrize("command", ["*IDN?", "*idn?"])
@@ -219,8 +219,6 @@ def test_min_max_keywords_use_channel_limits(psu: SimulatedPSU) -> None:
     ch = psu.channels[0]
     ch.voltage_max = 7.0
     ch.current_max = 3.0
-    ch.overvoltage_protection_max = 8.0
-    ch.overcurrent_protection_max = 4.0
 
     psu.process_scpi_command(":VOLT MIN")
     assert psu.process_scpi_command(":VOLT?") == pytest.approx(0.0)
@@ -234,12 +232,12 @@ def test_min_max_keywords_use_channel_limits(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT:PROT MIN")
     assert psu.process_scpi_command(":VOLT:PROT?") == pytest.approx(0.0)
     psu.process_scpi_command(":VOLT:PROT MAX")
-    assert psu.process_scpi_command(":VOLT:PROT?") == pytest.approx(8.0)
+    assert psu.process_scpi_command(":VOLT:PROT?") == pytest.approx(7.0)
     psu.process_scpi_command(":CURR MIN")
     psu.process_scpi_command(":CURR:PROT MIN")
     assert psu.process_scpi_command(":CURR:PROT?") == pytest.approx(0.0)
     psu.process_scpi_command(":CURR:PROT MAX")
-    assert psu.process_scpi_command(":CURR:PROT?") == pytest.approx(4.0)
+    assert psu.process_scpi_command(":CURR:PROT?") == pytest.approx(3.0)
 
 
 @pytest.mark.parametrize(
@@ -259,8 +257,6 @@ def test_numeric_values_above_channel_limits_record_out_of_range(
     ch = psu.channels[0]
     ch.voltage_max = 5.0
     ch.current_max = 5.0
-    ch.overvoltage_protection_max = 5.0
-    ch.overcurrent_protection_max = 5.0
     unchanged = getattr(ch, attribute)
 
     psu.process_scpi_command(command)
@@ -379,9 +375,7 @@ def test_ovp_level_accepted_forms_round_trip(psu: SimulatedPSU, header: str) -> 
 
 def test_ovp_max_keyword_maps_to_channel_limit(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT:PROT:LEV MAX")
-    assert psu.process_scpi_command(":VOLT:PROT:LEV?") == pytest.approx(
-        psu.channels[0].overvoltage_protection_max,
-    )
+    assert psu.process_scpi_command(":VOLT:PROT:LEV?") == pytest.approx(psu.channels[0].voltage_max)
 
 
 @pytest.mark.parametrize(
@@ -413,9 +407,7 @@ def test_ovp_below_voltage_records_ovp_below_pv_error(psu: SimulatedPSU) -> None
     psu.process_scpi_command(":VOLT:PROT:LEV 4.0")
 
     assert psu.process_scpi_command("SYST:ERR?") == '304,"OVP Below PV"'
-    assert psu.channels[0].overvoltage_protection_level == pytest.approx(
-        psu.channels[0].overvoltage_protection_max,
-    )
+    assert psu.channels[0].overvoltage_protection_level == pytest.approx(psu.channels[0].voltage_max)
 
 
 def test_disabled_ovp_does_not_latch_output(psu: SimulatedPSU) -> None:
@@ -459,9 +451,7 @@ def test_ocp_level_accepted_forms_round_trip(psu: SimulatedPSU, header: str) -> 
 
 def test_ocp_max_keyword_maps_to_channel_limit(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR:PROT MAX")
-    assert psu.process_scpi_command(":CURR:PROT?") == pytest.approx(
-        psu.channels[0].overcurrent_protection_max,
-    )
+    assert psu.process_scpi_command(":CURR:PROT?") == pytest.approx(psu.channels[0].current_max)
 
 
 @pytest.mark.parametrize(
@@ -494,9 +484,7 @@ def test_ocp_below_current_records_ocp_below_pc_error(psu: SimulatedPSU) -> None
     psu.process_scpi_command(":CURR:PROT 2.0")
 
     assert psu.process_scpi_command("SYST:ERR?") == '305,"OCP Below PC"'
-    assert psu.channels[0].overcurrent_protection_level == pytest.approx(
-        psu.channels[0].overcurrent_protection_max,
-    )
+    assert psu.channels[0].overcurrent_protection_level == pytest.approx(psu.channels[0].current_max)
 
 
 @pytest.mark.parametrize(
@@ -727,18 +715,14 @@ def test_rst_preserves_channel_limits(psu: SimulatedPSU) -> None:
     ch = psu.channels[0]
     ch.voltage_max = 70.0
     ch.current_max = 12.0
-    ch.overvoltage_protection_max = 88.0
-    ch.overcurrent_protection_max = 14.0
 
     psu.process_scpi_command("*RST")
 
     assert ch.voltage_max == pytest.approx(70.0)
     assert ch.current_max == pytest.approx(12.0)
-    assert ch.overvoltage_protection_max == pytest.approx(88.0)
-    assert ch.overcurrent_protection_max == pytest.approx(14.0)
     assert ch.current_limit == pytest.approx(0.0)
-    assert ch.overvoltage_protection_level == pytest.approx(ch.overvoltage_protection_max)
-    assert ch.overcurrent_protection_level == pytest.approx(ch.overcurrent_protection_max)
+    assert ch.overvoltage_protection_level == pytest.approx(ch.voltage_max)
+    assert ch.overcurrent_protection_level == pytest.approx(ch.current_max)
 
 
 def test_rst_preserves_sim_channel_configuration(psu: SimulatedPSU) -> None:

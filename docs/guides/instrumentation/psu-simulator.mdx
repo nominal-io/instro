@@ -141,7 +141,7 @@ Enter the new OCP level in amps and press Enter.
 
 <img alt="PSU simulator terminal UI showing the OCP level prompt" src="/images/psu-simulator-set-ocp-level-prompt.svg" />
 
-Changing **V limit**, **I limit**, **OVP level**, or **OCP level** updates the simulator channel setting and runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to their configured maximums.
+Changing **V limit** or **I limit** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
 
 ### Remove a channel
 
@@ -168,7 +168,7 @@ Angle brackets mark command arguments. They are notation only; do not include th
 
 The pipe character (`|`) means OR. For example, <code>&lt;LOC|REM&gt;</code> accepts `LOC` or `REM`, and <code>&lt;NRf+|MIN|MAX&gt;</code> accepts one numeric value, `MIN`, or `MAX`. Do not send the pipe character in the command.
 
-`MIN` maps to `0`. `MAX` maps to the channel setting configured in the terminal UI for that command. Do not send `MIN` or `MAX` to queries.
+`MIN` maps to `0`. `MAX` maps to **V limit** for voltage and OVP commands, and **I limit** for current and OCP commands. Do not send `MIN` or `MAX` to queries.
 
 ### Defaults and reset
 
