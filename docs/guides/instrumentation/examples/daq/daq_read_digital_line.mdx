@@ -57,13 +57,13 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 daq.open()
 
 try:
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_0,
         alias=f"di_0",
         logic=Logic.HIGH,
     )
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_1,
         alias=f"di_1",

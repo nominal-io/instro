@@ -233,14 +233,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_digital_ports(self, daq: InstroDAQ):
         """Configure FIRSTPORTA as output and FIRSTPORTB as input (8-bit ports)."""
-        daq.configure_digital_channel(
+        daq.configure_digital_port(
             direction=Direction.OUTPUT,
             physical_channel=DO_PORT,
             logic=Logic.HIGH,
             alias="do_port_a",
             port_width=DigitalPortWidth.WIDTH_8,
         )
-        daq.configure_digital_channel(
+        daq.configure_digital_port(
             direction=Direction.INPUT,
             physical_channel=DI_PORT,
             logic=Logic.HIGH,
