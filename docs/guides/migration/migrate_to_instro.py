@@ -27,21 +27,21 @@ REPLACEMENTS: list[tuple[str, str]] = [
     ("nominal_instro.protocols.modbus.modbus", "instro.modbus.modbus"),
     ("nominal_instro.protocols.modbus.sim_server", "instro.modbus.sim_server"),
     ("nominal_instro.protocols.modbus", "instro.modbus"),
-    ("nominal_instro.protocols.common_types", "instro.utils.types"),
-    # `nominal_instro.lib` renamed to `instro.utils` to sort the
-    # shared-building-blocks folder out of the middle of the category list.
+    ("nominal_instro.protocols.common_types", "instro.lib.types"),
+    # `nominal_instro.lib` maps to `instro.lib`, which holds the
+    # shared building blocks outside the category packages.
     # Files that *moved* within lib (rather than just being renamed) need
     # explicit entries — the broader `nominal_instro.lib` substring rewrite
     # would otherwise produce stale paths that no longer exist:
-    #   lib/visa.py            → utils/transports/visa.py (moved into transports/)
-    #   lib/logging.py         → utils/nominal.py (merged with Nominal helpers)
-    #   lib/utils.py           → utils/nominal.py (renamed + merged)
-    #   lib/util/nominal.py    → utils/nominal.py (folder collapsed)
-    ("nominal_instro.lib.visa", "instro.utils.transports.visa"),
-    ("nominal_instro.lib.logging", "instro.utils.nominal"),
-    ("nominal_instro.lib.utils", "instro.utils.nominal"),
-    ("nominal_instro.lib.util.nominal", "instro.utils.nominal"),
-    ("nominal_instro.lib", "instro.utils"),
+    #   lib/visa.py            → lib/transports/visa.py (moved into transports/)
+    #   lib/logging.py         → lib/nominal.py (merged with Nominal helpers)
+    #   lib/utils.py           → lib/nominal.py (renamed + merged)
+    #   lib/util/nominal.py    → lib/nominal.py (folder collapsed)
+    ("nominal_instro.lib.visa", "instro.lib.transports.visa"),
+    ("nominal_instro.lib.logging", "instro.lib.nominal"),
+    ("nominal_instro.lib.utils", "instro.lib.nominal"),
+    ("nominal_instro.lib.util.nominal", "instro.lib.nominal"),
+    ("nominal_instro.lib", "instro.lib"),
     ("nominal_instro.instruments.daq.scaling", "instro.daq.scaling"),
     # Per-category driver bases are re-exported at the category root, so
     # rewrite to the public path rather than the underscore-prefixed module.

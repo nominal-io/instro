@@ -269,7 +269,7 @@ Reading `status_register` returns the raw value plus each bit as a separate chan
 
 ### Shared Types
 
-::: instro.utils.types
+::: instro.lib.types
     options:
       members:
         - DeviceInfo

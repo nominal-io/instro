@@ -130,7 +130,7 @@ daq.configure_analog_channel(
 
 <Note>
 The `physical_channel` naming convention depends on your DAQ vendor:
-- **NI DAQmx**: "ai0", "ai1", etc.
+- **NI DAQmx**: fully qualified `device/channel`, for example "Dev1/ai0", "Dev1/ai1".
 - **LabJack**: "AIN0", "AIN1", etc.
 - **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
 - **Keysight**: Depends on module slot and channel configuration
@@ -201,7 +201,7 @@ daq.configure_analog_channel(
 
 <Note>
 The `physical_channel` naming convention depends on your DAQ vendor:
-- **NI DAQmx**: "ao0", "ao1", etc.
+- **NI DAQmx**: fully qualified `device/channel`, for example "Dev1/ao0", "Dev1/ao1".
 - **LabJack**: "DAC0", "DAC1", etc.
 - **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
 - **Keysight**: Depends on module slot and channel configuration
@@ -320,7 +320,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 
@@ -536,7 +536,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 
@@ -578,7 +578,7 @@ import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
 from instro.daq.types import Direction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
 

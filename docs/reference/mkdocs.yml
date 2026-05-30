@@ -21,6 +21,7 @@ nav:
   - Library:
       - Instrument: reference/instrument.md
       - Types: reference/types.md
+      - Exceptions: reference/exceptions.md
       - Publishers: reference/publishers.md
 
   - Instruments:

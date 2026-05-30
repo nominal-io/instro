@@ -1,7 +1,8 @@
 """B&K Precision 9115-series PSU driver. SCPI surface is shared with other single-channel B&K models."""
 
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class BK9115(PSUDriverBase):
@@ -36,6 +37,24 @@ class BK9115(PSUDriverBase):
             resp = self._visa.query("OUTP:STAT?")
             self._check_errors()
         return resp == "1"
+
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_level is not supported by BK9115")
+
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overcurrent_protection_level is not supported by BK9115")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overcurrent_protection_enabled is not supported by BK9115")
+
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by BK9115")
+
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by BK9115")
+
+    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by BK9115")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():

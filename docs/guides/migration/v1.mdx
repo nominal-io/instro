@@ -4,12 +4,14 @@ description: "Move your codebase from nominal-instro (<=0.6.x) to instro (>=0.7)
 ---
 
 <Info>
-  This is **v1** of the migration guide. It covers two changes that shipped in
+  This is **v1** of the migration guide. It covers three changes that shipped in
   the same migration window: the mechanical rename from `nominal-instro` to
-  `instro` (automated via the [codemod](#automated-codemod)), and the v1.0
+  `instro` (automated via the [codemod](#automated-codemod)), the v1.0
   channel-naming standardization (no code change required: set
   [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming)
-  on each instrument to preserve the pre-v1.0 wire format).
+  on each instrument to preserve the pre-v1.0 wire format), and
+  [NI physical channel naming](#ni-physical-channel-naming) (NI DAQmx channels
+  must now be fully qualified, with no compatibility flag).
 </Info>
 
 ## What changed
@@ -59,14 +61,14 @@ The old `nominal_instro/instruments/<category>/` + `nominal_instro/drivers/<cate
 | `from nominal_instro.instruments.i2c import NominalI2C`          | `from instro.i2c import I2CInterface`               |
 | `from nominal_instro.drivers.i2c.totalphase import Aardvark`     | `from instro.i2c.drivers.totalphase import Aardvark`|
 | `from nominal_instro.protocols.modbus import NominalModbus`      | `from instro.modbus import ModbusDevice`            |
-| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.utils import VisaDriver, Instrument`   |
-| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.utils.types import DeviceInfo`  |
+| `from nominal_instro.lib import VisaDriver, Instrument`          | `from instro.lib import VisaDriver, Instrument`   |
+| `from nominal_instro.protocols.common_types import DeviceInfo`   | `from instro.lib.types import DeviceInfo`  |
 
 The conventions are:
 
 - Each category root (`instro.daq`, `instro.dmm`, …) re-exports the instrument class **and** the category base driver, so custom-driver authors only need to remember one import path per category.
 - Concrete drivers shipped in the main `instro` distribution live flat under `<category>/drivers/` (no per-vendor subfolder). Workspace packages like `instro-daq-labjack` keep their vendor folder (`instro.daq.drivers.labjack`) because that's where their `__init__.py` lives.
-- `instro.utils` (formerly `instro.lib`) is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc. Renamed to sort out of the middle of the category list.
+- `instro.lib` is the home of cross-category building blocks: `VisaDriver`, `Instrument`, `Measurement`, `LinearScale`, etc.
 
 ## Class rename table
 
@@ -281,8 +283,8 @@ Two helpers on `Instrument` build the right object:
 A typical set/get method now looks like this:
 
 ```python
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class InstroMyThing(Instrument):
@@ -302,6 +304,30 @@ class InstroMyThing(Instrument):
 ```
 
 If you previously copied the old `_read_to_command` / `_read_to_measurement` helper pattern into your subclass, delete those copies. The base class methods replace them, and the decorators enforce the channel-naming contract at runtime.
+
+## NI physical channel naming
+
+This change is separate from the published-name standardization above. It affects the `physical_channel` value you pass when configuring a channel, not the name the channel publishes under. `legacy_naming` does not gate it, and there is no compatibility flag: NI channel strings must be updated before the driver will configure them.
+
+The NI DAQmx driver (`NIDAQDriver`) no longer prepends its `device_id` constructor argument to `physical_channel`. The value now reaches NI-DAQmx verbatim, so it must be the fully qualified name (`Dev1/ai0`, `Dev1/port0/line0`) rather than the device-relative form (`ai0`, `port0/line0`).
+
+```python
+# Before: device-relative channel, device_id prepended for you
+daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
+daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do_0", logic=Logic.HIGH)
+
+# After: fully qualified channel
+daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
+daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="Dev1/ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="Dev1/port0/line0", alias="do_0", logic=Logic.HIGH)
+```
+
+The `device_id` argument stays on the constructor: the driver still uses it to verify the device is present and to name its DAQmx tasks. Channel aliases and published names are unchanged, so dashboards and datasets keyed off aliases need no update. Only the NI driver is affected. LabJack, MCC, and Keysight already passed `physical_channel` through verbatim.
+
+Pass one fully qualified channel per call. The NI driver hands `physical_channel` to NI-DAQmx verbatim and configures it as a single channel, so NI-DAQmx range and list syntax (`Dev1/ai0:3`, `Dev1/ai0,Dev1/ai2`) is not supported; call `configure_analog_channel` once per channel instead. Digital ports (`Dev1/port0`) are supported as a single port channel: pass `port_width` to `configure_digital_channel` to define one. NI's [physical channel naming reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx/page/physchannames.html#GUID-7CB1537B-6D48-41A9-BF7E-5510456B6CB4) documents how DAQmx names devices, channels, ports, and lines. To confirm the device and channel names on a given system, including ones renamed from the defaults, use [NI MAX](https://www.ni.com/en/support/documentation/supplemental/21/what-is-ni-measurement---automation-explorer--ni-max--.html) or the [NI Hardware Configuration Utility](https://www.ni.com/docs/en-US/bundle/hardwareconfigurationutility/page/definition.html).
+
+There is no reliable regex for these string literals, the same as DAQ digital aliases above. Find your NI channel strings by hand and prefix each with the device name.
 
 ## Rollback
 

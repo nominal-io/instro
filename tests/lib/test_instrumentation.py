@@ -1,8 +1,8 @@
 from importlib.metadata import version
 
+from instro.lib import Instrument
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils import Instrument
 
 
 def test_default_tag_set_base_class():

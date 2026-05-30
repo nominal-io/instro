@@ -71,7 +71,7 @@ from nominal.core import EventType, NominalClient
 from instro.daq import InstroDAQ
 from instro.daq.drivers.mcc import MCCDriver
 from instro.daq.types import DigitalPortWidth, Direction, Logic, TerminalConfig
-from instro.utils.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers.nominal_core import NominalCorePublisher
 
 # ---------------------------------------------------------------------------
 # Configuration from environment

@@ -6,7 +6,7 @@ import time
 
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
-from instro.utils.transports.visa import VisaConfig, VisaDriver
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 
 class Agilent34401A(DMMDriverBase):

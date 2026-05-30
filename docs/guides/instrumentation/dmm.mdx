@@ -78,7 +78,7 @@ Choose the concrete driver that matches the DMM model, then pass the instrument 
 To inspect a VISA instrument's identity before choosing a driver:
 
 ```python
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 visa = VisaDriver("ASRL3::INSTR")
 try:
@@ -98,7 +98,7 @@ All measurement methods return [`Measurement`](/instrumentation/library#measurem
 from instro.dmm.drivers import Agilent34401A
 from instro.dmm import InstroDMM
 from instro.dmm import MeasurementFunction
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "ASRL17::INSTR"
 DATASET_RID = "<your dataset here>"
@@ -242,7 +242,7 @@ Here is the abridged shape of the Agilent 34401A driver:
 ```python
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
-from instro.utils.transports import VisaConfig, VisaDriver
+from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class Agilent34401A(DMMDriverBase):
@@ -300,7 +300,7 @@ For drivers that aren't shipped in the library, construct `InstroDMM` with your 
 ```python
 from instro.dmm import MeasurementFunction, InstroDMM
 from instro.dmm import DMMDriverBase
-from instro.utils.transports import VisaDriver
+from instro.lib.transports import VisaDriver
 
 
 class MyCustomDMMDriver(DMMDriverBase):

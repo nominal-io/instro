@@ -1,6 +1,6 @@
 """Transport drivers (VISA today; EtherNet/IP, OPC-UA, raw socket as they graduate from ``unstable``)."""
 
-from instro.utils.transports.visa import (
+from instro.lib.transports.visa import (
     ControlFlow,
     Parity,
     SerialConfig,

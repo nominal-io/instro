@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.modbus import ModbusConfig, RegisterDef
-from instro.utils.types import DeviceInfo, LinearScale
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 
