@@ -31,8 +31,6 @@ DEFAULT_LOAD_RESISTANCE = 1000.0  # ohms
 DEFAULT_PROBE_RESISTANCE = 10.0  # ohms
 DEFAULT_VOLTAGE_MAX = 60.0
 DEFAULT_CURRENT_MAX = 10.0
-DEFAULT_OVP_MAX = 66.0
-DEFAULT_OCP_MAX = 10.0
 CHANNEL_MIN = 0.0
 PROTECTION_MIN = 0.0
 
@@ -126,13 +124,11 @@ class SimulatedPSUChannel:
         self.channel_id = channel_id
         self.voltage_max = DEFAULT_VOLTAGE_MAX
         self.current_max = DEFAULT_CURRENT_MAX
-        self.overvoltage_protection_max = DEFAULT_OVP_MAX
-        self.overcurrent_protection_max = DEFAULT_OCP_MAX
         self.voltage_setpoint = 0.0
         self.current_limit = 0.0
-        self.overvoltage_protection_level = self.overvoltage_protection_max
+        self.overvoltage_protection_level = self.voltage_max
         self.overvoltage_protection_enabled = False
-        self.overcurrent_protection_level = self.overcurrent_protection_max
+        self.overcurrent_protection_level = self.current_max
         self.overcurrent_protection_enabled = False
         self.remote_sense = False
         self.output_enabled = False
@@ -261,8 +257,6 @@ class SimulatedPSU:
             limits = (
                 ch.voltage_max,
                 ch.current_max,
-                ch.overvoltage_protection_max,
-                ch.overcurrent_protection_max,
             )
             load = ch.load
             remote_sense = ch.remote_sense
@@ -270,12 +264,10 @@ class SimulatedPSU:
             (
                 ch.voltage_max,
                 ch.current_max,
-                ch.overvoltage_protection_max,
-                ch.overcurrent_protection_max,
             ) = limits
             ch.remote_sense = remote_sense
-            ch.overvoltage_protection_level = ch.overvoltage_protection_max
-            ch.overcurrent_protection_level = ch.overcurrent_protection_max
+            ch.overvoltage_protection_level = ch.voltage_max
+            ch.overcurrent_protection_level = ch.current_max
         self._error_queue.clear()
 
     def _clear_status(self, channel: int, args: list[str]) -> None:
@@ -328,7 +320,7 @@ class SimulatedPSU:
         level = self._parse_ranged_value(
             args[0],
             PROTECTION_MIN,
-            ch.overcurrent_protection_max,
+            ch.current_max,
         )
         if level is None:
             return
@@ -365,7 +357,7 @@ class SimulatedPSU:
         level = self._parse_ranged_value(
             args[0],
             PROTECTION_MIN,
-            ch.overvoltage_protection_max,
+            ch.voltage_max,
         )
         if level is None:
             return
@@ -1006,13 +998,13 @@ class _ChannelPanel(Container):
             voltage_text = (
                 f"{_field('Actual', f'{_fmt_limit(ch.terminal_voltage)} V')}\n"
                 f"{_field('Set', f'{_fmt_limit(ch.voltage_setpoint)} V')}\n"
-                f"{_field('Limit', f'{_fmt_limit(ch.voltage_max)} V')}\n"
+                f"{_field('V limit', f'{_fmt_limit(ch.voltage_max)} V')}\n"
                 f"{_field('OVP', f'{ovp_state} @ {_fmt_limit(ch.overvoltage_protection_level)} V')}"
             )
             current_text = (
                 f"{_field('Actual', f'{_fmt_limit(ch.current)} A')}\n"
-                f"{_field('Limit', f'{_fmt_limit(ch.current_limit)} A')}\n"
-                f"{_field('Range', f'{_fmt_limit(ch.current_max)} A')}\n"
+                f"{_field('Set', f'{_fmt_limit(ch.current_limit)} A')}\n"
+                f"{_field('I limit', f'{_fmt_limit(ch.current_max)} A')}\n"
                 f"{_field('OCP', f'{ocp_state} @ {_fmt_limit(ch.overcurrent_protection_level)} A')}"
             )
         self.query_one("#status-info", Static).update(status_text)
@@ -1462,9 +1454,9 @@ class SimulatedPSUApp(App[None]):
                 elif param == "current":
                     current = str(ch.current_max)
                 elif param == "ovp":
-                    current = str(ch.overvoltage_protection_max)
+                    current = str(ch.overvoltage_protection_level)
                 elif param == "ocp":
-                    current = str(ch.overcurrent_protection_max)
+                    current = str(ch.overcurrent_protection_level)
 
         def _on_value(value_str: str | None) -> None:
             if not value_str:
@@ -1481,13 +1473,20 @@ class SimulatedPSUApp(App[None]):
                     return
                 if param == "voltage":
                     ch.voltage_max = value
+                    self._server.psu.process_scpi_command("*RST")
                 elif param == "current":
                     ch.current_max = value
+                    self._server.psu.process_scpi_command("*RST")
                 elif param == "ovp":
-                    ch.overvoltage_protection_max = value
+                    if value > ch.voltage_max or value < ch.voltage_setpoint:
+                        return
+                    ch.overvoltage_protection_level = value
+                    self._server.psu._update()
                 elif param == "ocp":
-                    ch.overcurrent_protection_max = value
-                self._server.psu.process_scpi_command("*RST")
+                    if value > ch.current_max or value < ch.current_limit:
+                        return
+                    ch.overcurrent_protection_level = value
+                    self._server.psu._update()
 
         self.push_screen(_PromptScreen(prompt, initial=current), _on_value)
 
