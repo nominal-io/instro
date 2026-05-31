@@ -9,14 +9,16 @@ Demonstrates all config features against the sim server:
 - Scaled registers (linear gain + offset)
 - Bitmap extraction (individual bit channels)
 - All register types (holding, input, coil, discrete)
+- Background daemon polling via get_channel
 
 Start the sim server first:
-    python -m instro.modbus.sim_server
+    python -m instro.utils.protocol.sim_server
 
 Then run this script.
 """
 
 import json
+import time
 from pathlib import Path
 
 from instro.lib.publishers import NominalCorePublisher
@@ -30,7 +32,7 @@ CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 def main():
     raw = json.loads(CONFIG_PATH.read_text())
     config = ModbusConfig.model_validate({**raw, "connection": CONNECTION})
-    device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+    device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config, thread_safe=True))
     try:
         device.add_publisher(
             NominalCorePublisher("ri.catalog.cerulean-staging.dataset.056356ba-5c64-479c-9fc8-da0eba27ae0b")
@@ -38,6 +40,7 @@ def main():
     except (RuntimeError, ConnectionError) as e:
         print(f"Warning: Nominal publisher unavailable, continuing without it: {e}")
     device.open()
+    device.start()
 
     try:
         # --- Read groups: sensor_1 and sensor_2 are read in a single Modbus transaction ---
@@ -85,6 +88,32 @@ def main():
         print(f"  power_good:  {device.read('power_good')}")
         print(f"  overtemp:    {device.read('overtemp')}")
         print(f"  door_closed: {device.read('door_closed')}")
+
+        # --- Background daemon: data is polled automatically at poll_interval ---
+        print("\n=== Background Daemon (polled via get_channel) ===")
+        measurement = device.get_channel("sim.sensor_1", length=2, wait_for_latest=True)
+        print(f"  sensor_1 (2 samples): {measurement.channel_data['sim.sensor_1']}")
+
+        measurement = device.get_channel("sim.temperature", length=2, wait_for_latest=True)
+        print(f"  temperature (2 samples): {measurement.channel_data['sim.temperature']}")
+
+        # --- Continuous loop (daemon continues polling in background) ---
+        print("\n=== Continuous Updates (Ctrl+C to stop) ===")
+        print("  (daemon continues polling in background)\n")
+
+        i = 0
+        while True:
+            temp = 70.0 + (i % 20)
+            device.write("temperature", temp)
+            device.write("setpoint", (i % 50))
+            device.write("mode", "heat" if i % 2 == 0 else "cool")
+            device.write("enable", i % 3 != 0)
+            device.write("status_register", i % 32)
+
+            buffered = device.get_channel("sim.temperature", length=1)
+            print(f"  tick {i}: temp={temp}, buffered={buffered.channel_data['sim.temperature'][0]}")
+            i += 1
+            time.sleep(1)
 
     except KeyboardInterrupt:
         print("\nStopping...")
