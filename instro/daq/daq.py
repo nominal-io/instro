@@ -403,7 +403,7 @@ class InstroDAQ(Instrument):
             # Never wait. Let fetch block
             self._background_config.interval = 0
         else:
-            # Give background thread a big wait so as not to eat cycles
+            # Give the background daemon a big wait so as not to eat cycles
             self._background_config.interval = 1
 
         self._background_config.enabled = enable
@@ -503,7 +503,7 @@ class InstroDAQ(Instrument):
         channel_type = kwargs.get("channel_type", None)
 
         # TODO
-        # Need to evaluate spinning up a different worker per channel type, but this
+        # Need to evaluate spinning up a different daemon per channel type, but this
         # gets weird with different devices. DAQmx's channel types are their own things
         # whereas labjack is all one timing engine. Tricky architecture.
         # Baselining ai sample rate as the rate right now, which will break as soon as

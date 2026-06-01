@@ -581,7 +581,7 @@ Each register in the `registers` array defines a named access point for a specif
 | `poll_interval` | Yes | | Polling interval in seconds (0.01 to 10.0) |
 | `write_delay_ms` | No | `0` | Delay in milliseconds applied after every write operation |
 
-When the `timing` section is present, all registers with `poll: true` are read at the specified interval in a background thread. Polled measurements are automatically published and buffered for retrieval.
+When the `timing` section is present, all registers with `poll: true` are read at the specified interval by the background daemon. Polled measurements are automatically published and buffered for retrieval.
 
 The `write_delay_ms` field is useful for devices that need a short delay between consecutive writes (e.g., controllers that process commands sequentially).
 
@@ -602,7 +602,7 @@ The configuration is validated at load time. Invalid configs produce clear error
 
 Modbus TCP connections drop for all the usual reasons, such as network blips, device reboots, and power cycles on a PLC. ModbusDevice handles this transparently. When a read or write hits a transport error, the driver closes the dead socket and pymodbus opens a fresh one on the next operation. No custom retry loop, no explicit `open()` after a disconnect.
 
-Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. If you're running with `autostart=True` and background polling, transient errors from a single poll are logged without tearing down the worker. The next tick will succeed as soon as the device comes back.
+Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. If you're running with `autostart=True` and background polling, transient errors from a single poll are logged without tearing down the daemon. The next tick will succeed as soon as the device comes back.
 
 ## Prototyping Without a Device
 

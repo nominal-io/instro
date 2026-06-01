@@ -109,7 +109,7 @@
             "group": "PSU",
             "pages": [
               "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_worker"
+              "instrumentation/examples/psu/psu_background_daemon"
             ]
           },
           {
