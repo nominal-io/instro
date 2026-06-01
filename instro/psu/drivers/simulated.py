@@ -1,5 +1,6 @@
 """Simulated PSU driver."""
 
+from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
 
@@ -51,6 +52,12 @@ class SimulatedPSU(PSUDriverBase):
             resp = self._visa.query(f":SOUR{channel}:VOLT:PROT:STAT?")
             self._check_errors()
         return resp.strip() == "1"
+
+    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection_delay is not supported by SimulatedPSU")
+
+    def get_overvoltage_protection_delay(self, channel: int = 1) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection_delay is not supported by SimulatedPSU")
 
     def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
         self._write_checked(f":SOUR{channel}:CURR:PROT {current:.3f}")
