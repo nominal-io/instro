@@ -1,4 +1,4 @@
-"""Example: PSU without background worker.
+"""Example: PSU without background daemon.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
