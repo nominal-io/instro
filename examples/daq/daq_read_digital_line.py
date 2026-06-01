@@ -23,8 +23,8 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        CHANNEL_0 = "port0/line0"
-        CHANNEL_1 = "port0/line1"
+        CHANNEL_0 = "Dev1/port0/line0"
+        CHANNEL_1 = "Dev1/port0/line1"
         driver = NIDAQDriver(device_id="Dev1")
     case DAQVendor.KEYSIGHT_34980:
         from instro.daq.drivers import Keysight34980A
@@ -52,13 +52,13 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 daq.open()
 
 try:
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_0,
         alias=f"di_0",
         logic=Logic.HIGH,
     )
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_1,
         alias=f"di_1",
