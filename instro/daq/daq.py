@@ -733,6 +733,13 @@ class InstroDAQ(Instrument):
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
                 f"Call configure_digital_port(Direction.OUTPUT, ...) first."
             )
+        if (width := getattr(digital_channel, "width", None)) is not None:
+            max_value = (1 << int(width)) - 1
+            if not 0 <= data <= max_value:
+                raise ValueError(
+                    f"Value {data} does not fit the {int(width)}-bit port '{channel}'; "
+                    f"valid range is 0 to {max_value} (0x{max_value:X})."
+                )
         self._driver.write_digital_port(digital_channel, data)
         timestamp = time.time_ns()
 

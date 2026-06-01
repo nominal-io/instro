@@ -22,6 +22,14 @@ from instro.daq.types import (
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Measurement
 
+# A single grouped 34950A digital channel addresses at most 32 bits (LWORd). WIDTH_64 spans
+# separate banks and must be configured as two channels, so it is rejected at configure time.
+_PORT_WIDTH_TOKENS = {
+    DigitalPortWidth.WIDTH_8: "BYTE",
+    DigitalPortWidth.WIDTH_16: "WORD",
+    DigitalPortWidth.WIDTH_32: "LWOR",
+}
+
 
 @dataclass
 class KeysightData:
@@ -285,6 +293,11 @@ class Keysight34980A(DAQDriverBase):
                 "Define the physical channel as MNNN where M is the slot and NNN is the channel. ex '5101'."
                 f" Received {physical_channel}."
             )
+        if port_width not in _PORT_WIDTH_TOKENS:
+            raise ValueError(
+                f"Keysight 34980A digital ports support up to 32-bit ({DigitalPortWidth.WIDTH_32!r}); "
+                f"got {port_width!r}. Configure a 64-bit span as two separate channels."
+            )
         return DigitalPortChannel(
             physical_channel=physical_channel,
             alias=alias or physical_channel,
@@ -296,8 +309,9 @@ class Keysight34980A(DAQDriverBase):
 
     def _program_port(self, channel: DigitalChannel, direction: Direction) -> None:
         dir_token = "INP" if direction is Direction.INPUT else "OUTP"
+        width_token = _PORT_WIDTH_TOKENS[channel.width] if isinstance(channel, DigitalPortChannel) else "BYTE"
         with self._visa.lock():
-            self._visa.write(f"CONF:DIG:WIDT BYTE,(@{channel.physical_channel})")
+            self._visa.write(f"CONF:DIG:WIDT {width_token},(@{channel.physical_channel})")
             self._visa.write(f"CONF:DIG:DIR {dir_token},(@{channel.physical_channel})")
             self._visa.write(
                 f"CONF:DIG:POL {'INV' if channel.logic is Logic.LOW else 'NORM'},(@{channel.physical_channel})"
@@ -331,10 +345,30 @@ class Keysight34980A(DAQDriverBase):
         return int(response)
 
     def write_digital_port(self, channel: DigitalChannel, data: int):
-        raise NotImplementedError("write_digital_port is not yet implemented for Keysight 34980A.")
+        """Drive a DO port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"write_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use write_digital_line for single-bit writes."
+            )
+        width_token = _PORT_WIDTH_TOKENS[channel.width]
+        with self._visa.lock():
+            self._visa.write(f"SOUR:DIG:DATA:{width_token} {data},(@{channel.physical_channel})")
+            self._check_errors()
 
     def read_digital_port(self, channel: DigitalChannel) -> int:
-        raise NotImplementedError("read_digital_port is not yet implemented for Keysight 34980A.")
+        """Sample a DI port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"read_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use read_digital_line for single-bit reads."
+            )
+        width_token = _PORT_WIDTH_TOKENS[channel.width]
+        with self._visa.lock():
+            response = self._visa.query(f"SENS:DIG:DATA:{width_token}? (@{channel.physical_channel})")
+            self._check_errors()
+
+        return int(response)
 
     # ====== RELAY ========
 
