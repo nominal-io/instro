@@ -464,7 +464,10 @@ def test_keysight_e36100_overvoltage_protection_delay_raises_unsupported(
     method_name: str,
     args: tuple[object, ...],
 ) -> None:
-    with pytest.raises(FeatureNotSupportedError, match=f"{method_name} is not supported by KeysightE36100"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match=f"{method_name} is not supported by the Keysight E36100-series PSU",
+    ):
         getattr(keysight_e36100, method_name)(*args)
 
 
@@ -546,7 +549,7 @@ def test_keysight_e36100_check_errors_raises_on_nonzero(
     keysight_e36100_visa: MagicMock,
 ) -> None:
     keysight_e36100_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="Keysight E36100 PSU reported error"):
+    with pytest.raises(RuntimeError, match="The Keysight E36100-series PSU reported error"):
         keysight_e36100.set_voltage(1.0)
 
 
