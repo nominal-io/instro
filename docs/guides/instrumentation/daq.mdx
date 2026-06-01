@@ -524,7 +524,7 @@ print(f"Port value: {int(measurement.latest)}")
 ```
 
 <Note>
-Port-based I/O is currently implemented for **MCC** devices. For NI DAQmx, LabJack, and Keysight, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`. Use `write_digital_line()` / `read_digital_line()` to address individual lines on those vendors.
+Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels.
 </Note>
 
 ## Complete Examples
@@ -652,8 +652,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
-| `read_digital_port(channel)` | Read all lines on a digital input port as a single integer (MCC only) |
-| `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer (MCC only) |
+| `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
+| `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer |
 | `add_publisher(publisher)` | Attach a publisher for data routing |
 | `get_points_in_buffer()` | Get number of samples in hardware buffer |
 
