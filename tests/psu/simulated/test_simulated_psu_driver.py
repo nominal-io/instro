@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import socket
-from collections.abc import Iterator
-from dataclasses import dataclass
-
 import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
@@ -14,88 +10,34 @@ from instro.psu.drivers.simulated import SimulatedPSU
 from instro.psu.scpi_sim_server import SimulatedPSU as SimulatedPSUSimulator
 from instro.psu.scpi_sim_server import SimulatedPSUServer
 
-# When copying this file for real hardware, uncomment the marker below so the
-# tests only run when pytest is explicitly invoked with `-m hardware`.
+# HARDWARE TEST TEMPLATE:
+#
+# Copy this file into tests/psu/<vendor>/test_<driver>_hardware.py, uncomment
+# pytestmark, set VISA_ADDRESS to the bench instrument address, and instantiate
+# the real driver in driver(). Keep reset_before_each_test() for SCPI/VISA
+# instruments that accept *RST; replace it for hardware with a different reset
+# path. Delete sim_target, _SimulatedTarget, and simulator imports because real
+# hardware tests do not need to launch the local SCPI simulator.
 # pytestmark = pytest.mark.hardware
 
-
-@dataclass(frozen=True)
-class ChannelConfig:
-    channel: int
-    voltage_range: tuple[float, float]
-    current_range: tuple[float, float]
-    voltage_readback_tolerance: float
-    current_readback_tolerance: float
-
-    @staticmethod
-    def relative_range_value(value_range: tuple[float, float], fraction: float) -> float:
-        minimum, maximum = value_range
-        return minimum + (maximum - minimum) * fraction
-
-    def programmed_voltage(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.10)
-
-    def low_programmed_voltage(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.05)
-
-    def programmed_current_limit(self) -> float:
-        return self.relative_range_value(self.current_range, 0.10)
-
-    def low_programmed_current_limit(self) -> float:
-        return self.relative_range_value(self.current_range, 0.05)
-
-    def ovp_level(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.20)
-
-    def low_ovp_level(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.05)
-
-    def ocp_level(self) -> float:
-        return self.relative_range_value(self.current_range, 0.20)
-
-    def low_ocp_level(self) -> float:
-        return self.relative_range_value(self.current_range, 0.05)
-
-    def overrange_voltage(self) -> float:
-        return self.voltage_range[1] + 1.0
-
-    def overrange_current(self) -> float:
-        return self.current_range[1] + 1.0
-
-
-CHANNELS = [
-    ChannelConfig(
-        channel=1,
-        voltage_range=(0.0, 60.0),
-        current_range=(0.0, 10.0),
-        voltage_readback_tolerance=0.15,
-        current_readback_tolerance=0.01,
-    ),
-    ChannelConfig(
-        channel=2,
-        voltage_range=(0.0, 60.0),
-        current_range=(0.0, 10.0),
-        voltage_readback_tolerance=0.15,
-        current_readback_tolerance=0.01,
-    ),
-]
+VISA_ADDRESS = "TCPIP0::127.0.0.1::5025::SOCKET"
 
 
 @pytest.fixture(scope="module")
-def driver(sim_target: "_SimulatedTarget") -> Iterator[SimulatedPSU]:
+def driver(request: pytest.FixtureRequest, sim_target: "_SimulatedTarget") -> SimulatedPSU:
     psu_driver = SimulatedPSU(
         VisaConfig(
-            visa_resource=f"TCPIP0::{sim_target.host}::{sim_target.port}::SOCKET",
+            visa_resource=sim_target.visa_address,
         )
     )
     try:
         psu_driver.open()
-        yield psu_driver
     except Exception:
         psu_driver.close()
         raise
-    finally:
-        psu_driver.close()
+
+    request.addfinalizer(psu_driver.close)
+    return psu_driver
 
 
 @pytest.fixture(autouse=True)
@@ -103,361 +45,527 @@ def reset_before_each_test(driver: SimulatedPSU) -> None:
     driver._visa.write("*RST")
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_voltage(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-    driver.output_enable(True, channel=channel_config.channel)
+@pytest.mark.parametrize(
+    ("channel", "current_limit", "voltage"),
+    [
+        (1, 1.0, 6.0),
+        (2, 1.5, 7.5),
+    ],
+)
+def test_set_voltage(driver: SimulatedPSU, channel: int, current_limit: float, voltage: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+    driver.set_voltage(voltage, channel=channel)
+    driver.output_enable(True, channel=channel)
 
-    assert driver.get_voltage(channel=channel_config.channel) == pytest.approx(
-        channel_config.programmed_voltage(),
-        abs=channel_config.voltage_readback_tolerance,
-    )
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_voltage(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-    driver.output_enable(True, channel=channel_config.channel)
-
-    voltage = driver.get_voltage(channel=channel_config.channel)
-
-    assert voltage == pytest.approx(
-        channel_config.programmed_voltage(),
-        abs=channel_config.voltage_readback_tolerance,
-    )
+    assert driver.get_voltage(channel=channel) == pytest.approx(voltage, abs=0.15)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_current_limit(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
+@pytest.mark.parametrize(
+    ("channel", "current_limit", "voltage"),
+    [
+        (1, 1.0, 6.0),
+        (2, 1.5, 7.5),
+    ],
+)
+def test_get_voltage(driver: SimulatedPSU, channel: int, current_limit: float, voltage: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+    driver.set_voltage(voltage, channel=channel)
+    driver.output_enable(True, channel=channel)
 
-    assert driver.get_current(channel=channel_config.channel) == pytest.approx(
-        0.0,
-        abs=channel_config.current_readback_tolerance,
-    )
+    measured_voltage = driver.get_voltage(channel=channel)
 
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_current(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-
-    current = driver.get_current(channel=channel_config.channel)
-
-    assert current == pytest.approx(
-        0.0,
-        abs=channel_config.current_readback_tolerance,
-    )
+    assert measured_voltage == pytest.approx(voltage, abs=0.15)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_output_enable(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.output_enable(True, channel=channel_config.channel)
-    assert driver.get_output_status(channel=channel_config.channel) is True
+@pytest.mark.parametrize(
+    ("channel", "current_limit", "voltage"),
+    [
+        (1, 1.0, 6.0),
+        (2, 1.5, 7.5),
+    ],
+)
+def test_set_current_limit(driver: SimulatedPSU, channel: int, current_limit: float, voltage: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+    driver.set_voltage(voltage, channel=channel)
 
-    driver.output_enable(False, channel=channel_config.channel)
-    assert driver.get_output_status(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_output_status(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    assert driver.get_output_status(channel=channel_config.channel) is False
-
-    driver.output_enable(True, channel=channel_config.channel)
-
-    assert driver.get_output_status(channel=channel_config.channel) is True
+    assert driver.get_current(channel=channel) == pytest.approx(0.0, abs=0.01)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overvoltage_protection_level(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overvoltage_protection_level(channel_config.ovp_level(), channel=channel_config.channel)
+@pytest.mark.parametrize(
+    ("channel", "current_limit", "voltage"),
+    [
+        (1, 1.0, 6.0),
+        (2, 1.5, 7.5),
+    ],
+)
+def test_get_current(driver: SimulatedPSU, channel: int, current_limit: float, voltage: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+    driver.set_voltage(voltage, channel=channel)
 
-    assert driver.get_overvoltage_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ovp_level()
-    )
+    current = driver.get_current(channel=channel)
 
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_overvoltage_protection_level(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overvoltage_protection_level(channel_config.ovp_level(), channel=channel_config.channel)
-
-    level = driver.get_overvoltage_protection_level(channel=channel_config.channel)
-
-    assert level == pytest.approx(channel_config.ovp_level())
+    assert current == pytest.approx(0.0, abs=0.01)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overvoltage_protection_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overvoltage_protection_enabled(True, channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is True
+@pytest.mark.parametrize(
+    ("channel", "enabled", "disabled"),
+    [
+        (1, True, False),
+        (2, True, False),
+    ],
+)
+def test_output_enable(driver: SimulatedPSU, channel: int, enabled: bool, disabled: bool) -> None:
+    driver.output_enable(enabled, channel=channel)
+    assert driver.get_output_status(channel=channel) is True
 
-    driver.set_overvoltage_protection_enabled(False, channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_overvoltage_protection_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is False
-
-    driver.set_overvoltage_protection_enabled(True, channel=channel_config.channel)
-
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is True
+    driver.output_enable(disabled, channel=channel)
+    assert driver.get_output_status(channel=channel) is False
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overvoltage_protection_delay_unsupported(
-    driver: SimulatedPSU,
-    channel_config: ChannelConfig,
-) -> None:
+@pytest.mark.parametrize(
+    ("channel", "enabled"),
+    [
+        (1, True),
+        (2, True),
+    ],
+)
+def test_get_output_status(driver: SimulatedPSU, channel: int, enabled: bool) -> None:
+    assert driver.get_output_status(channel=channel) is False
+
+    driver.output_enable(enabled, channel=channel)
+
+    assert driver.get_output_status(channel=channel) is True
+
+
+@pytest.mark.parametrize(
+    ("channel", "ovp_level"),
+    [
+        (1, 12.0),
+        (2, 13.0),
+    ],
+)
+def test_set_overvoltage_protection_level(driver: SimulatedPSU, channel: int, ovp_level: float) -> None:
+    driver.set_overvoltage_protection_level(ovp_level, channel=channel)
+
+    assert driver.get_overvoltage_protection_level(channel=channel) == pytest.approx(ovp_level)
+
+
+@pytest.mark.parametrize(
+    ("channel", "ovp_level"),
+    [
+        (1, 12.0),
+        (2, 13.0),
+    ],
+)
+def test_get_overvoltage_protection_level(driver: SimulatedPSU, channel: int, ovp_level: float) -> None:
+    driver.set_overvoltage_protection_level(ovp_level, channel=channel)
+
+    level = driver.get_overvoltage_protection_level(channel=channel)
+
+    assert level == pytest.approx(ovp_level)
+
+
+@pytest.mark.parametrize(
+    ("channel", "enabled", "disabled"),
+    [
+        (1, True, False),
+        (2, True, False),
+    ],
+)
+def test_set_overvoltage_protection_enabled(driver: SimulatedPSU, channel: int, enabled: bool, disabled: bool) -> None:
+    driver.set_overvoltage_protection_enabled(enabled, channel=channel)
+    assert driver.get_overvoltage_protection_enabled(channel=channel) is True
+
+    driver.set_overvoltage_protection_enabled(disabled, channel=channel)
+    assert driver.get_overvoltage_protection_enabled(channel=channel) is False
+
+
+@pytest.mark.parametrize(
+    ("channel", "enabled"),
+    [
+        (1, True),
+        (2, True),
+    ],
+)
+def test_get_overvoltage_protection_enabled(driver: SimulatedPSU, channel: int, enabled: bool) -> None:
+    assert driver.get_overvoltage_protection_enabled(channel=channel) is False
+
+    driver.set_overvoltage_protection_enabled(enabled, channel=channel)
+
+    assert driver.get_overvoltage_protection_enabled(channel=channel) is True
+
+
+@pytest.mark.parametrize(
+    ("channel", "delay"),
+    [
+        (1, 0.1),
+        (2, 0.2),
+    ],
+)
+def test_set_overvoltage_protection_delay_unsupported(driver: SimulatedPSU, channel: int, delay: float) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overvoltage_protection_delay is not supported"):
-        driver.set_overvoltage_protection_delay(0.1, channel=channel_config.channel)
+        driver.set_overvoltage_protection_delay(delay, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_overvoltage_protection_delay_unsupported(
-    driver: SimulatedPSU,
-    channel_config: ChannelConfig,
-) -> None:
+@pytest.mark.parametrize("channel", [1, 2])
+def test_get_overvoltage_protection_delay_unsupported(driver: SimulatedPSU, channel: int) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overvoltage_protection_delay is not supported"):
-        driver.get_overvoltage_protection_delay(channel=channel_config.channel)
+        driver.get_overvoltage_protection_delay(channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overcurrent_protection_level(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overcurrent_protection_level(channel_config.ocp_level(), channel=channel_config.channel)
+@pytest.mark.parametrize(
+    ("channel", "ocp_level"),
+    [
+        (1, 2.0),
+        (2, 2.5),
+    ],
+)
+def test_set_overcurrent_protection_level(driver: SimulatedPSU, channel: int, ocp_level: float) -> None:
+    driver.set_overcurrent_protection_level(ocp_level, channel=channel)
 
-    assert driver.get_overcurrent_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ocp_level()
-    )
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_overcurrent_protection_level(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overcurrent_protection_level(channel_config.ocp_level(), channel=channel_config.channel)
-
-    level = driver.get_overcurrent_protection_level(channel=channel_config.channel)
-
-    assert level == pytest.approx(channel_config.ocp_level())
+    assert driver.get_overcurrent_protection_level(channel=channel) == pytest.approx(ocp_level)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overcurrent_protection_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_overcurrent_protection_enabled(True, channel=channel_config.channel)
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is True
+@pytest.mark.parametrize(
+    ("channel", "ocp_level"),
+    [
+        (1, 2.0),
+        (2, 2.5),
+    ],
+)
+def test_get_overcurrent_protection_level(driver: SimulatedPSU, channel: int, ocp_level: float) -> None:
+    driver.set_overcurrent_protection_level(ocp_level, channel=channel)
 
-    driver.set_overcurrent_protection_enabled(False, channel=channel_config.channel)
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is False
+    level = driver.get_overcurrent_protection_level(channel=channel)
 
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_overcurrent_protection_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is False
-
-    driver.set_overcurrent_protection_enabled(True, channel=channel_config.channel)
-
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is True
+    assert level == pytest.approx(ocp_level)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_remote_sense_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_remote_sense_enabled(True, channel=channel_config.channel)
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is True
+@pytest.mark.parametrize(
+    ("channel", "enabled", "disabled"),
+    [
+        (1, True, False),
+        (2, True, False),
+    ],
+)
+def test_set_overcurrent_protection_enabled(driver: SimulatedPSU, channel: int, enabled: bool, disabled: bool) -> None:
+    driver.set_overcurrent_protection_enabled(enabled, channel=channel)
+    assert driver.get_overcurrent_protection_enabled(channel=channel) is True
 
-    driver.set_remote_sense_enabled(False, channel=channel_config.channel)
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_get_remote_sense_enabled(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is False
-
-    driver.set_remote_sense_enabled(True, channel=channel_config.channel)
-
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is True
+    driver.set_overcurrent_protection_enabled(disabled, channel=channel)
+    assert driver.get_overcurrent_protection_enabled(channel=channel) is False
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "enabled"),
+    [
+        (1, True),
+        (2, True),
+    ],
+)
+def test_get_overcurrent_protection_enabled(driver: SimulatedPSU, channel: int, enabled: bool) -> None:
+    assert driver.get_overcurrent_protection_enabled(channel=channel) is False
+
+    driver.set_overcurrent_protection_enabled(enabled, channel=channel)
+
+    assert driver.get_overcurrent_protection_enabled(channel=channel) is True
+
+
+@pytest.mark.parametrize(
+    ("channel", "enabled", "disabled"),
+    [
+        (1, True, False),
+        (2, True, False),
+    ],
+)
+def test_set_remote_sense_enabled(driver: SimulatedPSU, channel: int, enabled: bool, disabled: bool) -> None:
+    driver.set_remote_sense_enabled(enabled, channel=channel)
+    assert driver.get_remote_sense_enabled(channel=channel) is True
+
+    driver.set_remote_sense_enabled(disabled, channel=channel)
+    assert driver.get_remote_sense_enabled(channel=channel) is False
+
+
+@pytest.mark.parametrize(
+    ("channel", "enabled"),
+    [
+        (1, True),
+        (2, True),
+    ],
+)
+def test_get_remote_sense_enabled(driver: SimulatedPSU, channel: int, enabled: bool) -> None:
+    assert driver.get_remote_sense_enabled(channel=channel) is False
+
+    driver.set_remote_sense_enabled(enabled, channel=channel)
+
+    assert driver.get_remote_sense_enabled(channel=channel) is True
+
+
+@pytest.mark.parametrize(
+    ("channel", "ovp_level", "voltage"),
+    [
+        (1, 3.0, 6.0),
+        (2, 4.0, 7.5),
+    ],
+)
 def test_set_voltage_above_overvoltage_protection_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    ovp_level: float,
+    voltage: float,
 ) -> None:
-    driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
+    driver.set_overvoltage_protection_level(ovp_level, channel=channel)
 
     with pytest.raises(RuntimeError, match="PV Above OVP"):
-        driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
+        driver.set_voltage(voltage, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "ocp_level", "current_limit"),
+    [
+        (1, 0.5, 1.0),
+        (2, 0.75, 1.5),
+    ],
+)
 def test_set_current_limit_above_overcurrent_protection_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    ocp_level: float,
+    current_limit: float,
 ) -> None:
-    driver.set_overcurrent_protection_level(channel_config.low_ocp_level(), channel=channel_config.channel)
+    driver.set_overcurrent_protection_level(ocp_level, channel=channel)
 
     with pytest.raises(RuntimeError, match="PC Above OCP"):
-        driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
+        driver.set_current_limit(current_limit, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "voltage", "ovp_level"),
+    [
+        (1, 6.0, 3.0),
+        (2, 7.5, 4.0),
+    ],
+)
 def test_set_overvoltage_protection_below_programmed_voltage_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    voltage: float,
+    ovp_level: float,
 ) -> None:
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
+    driver.set_voltage(voltage, channel=channel)
 
     with pytest.raises(RuntimeError, match="OVP Below PV"):
-        driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
+        driver.set_overvoltage_protection_level(ovp_level, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "current_limit", "ocp_level"),
+    [
+        (1, 1.0, 0.5),
+        (2, 1.5, 0.75),
+    ],
+)
 def test_set_overcurrent_protection_below_programmed_current_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    current_limit: float,
+    ocp_level: float,
 ) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
+    driver.set_current_limit(current_limit, channel=channel)
 
     with pytest.raises(RuntimeError, match="OCP Below PC"):
-        driver.set_overcurrent_protection_level(channel_config.low_ocp_level(), channel=channel_config.channel)
+        driver.set_overcurrent_protection_level(ocp_level, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_voltage_out_of_range_raises(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
+@pytest.mark.parametrize(
+    ("channel", "voltage"),
+    [
+        (1, 61.0),
+        (2, 61.0),
+    ],
+)
+def test_set_voltage_out_of_range_raises(driver: SimulatedPSU, channel: int, voltage: float) -> None:
     with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_voltage(channel_config.overrange_voltage(), channel=channel_config.channel)
+        driver.set_voltage(voltage, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_current_limit_out_of_range_raises(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
+@pytest.mark.parametrize(
+    ("channel", "current_limit"),
+    [
+        (1, 11.0),
+        (2, 11.0),
+    ],
+)
+def test_set_current_limit_out_of_range_raises(driver: SimulatedPSU, channel: int, current_limit: float) -> None:
     with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_current_limit(channel_config.overrange_current(), channel=channel_config.channel)
+        driver.set_current_limit(current_limit, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "ovp_level"),
+    [
+        (1, 61.0),
+        (2, 61.0),
+    ],
+)
 def test_set_overvoltage_protection_out_of_range_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    ovp_level: float,
 ) -> None:
     with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_overvoltage_protection_level(channel_config.overrange_voltage(), channel=channel_config.channel)
+        driver.set_overvoltage_protection_level(ovp_level, channel=channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+@pytest.mark.parametrize(
+    ("channel", "ocp_level"),
+    [
+        (1, 11.0),
+        (2, 11.0),
+    ],
+)
 def test_set_overcurrent_protection_out_of_range_raises(
     driver: SimulatedPSU,
-    channel_config: ChannelConfig,
+    channel: int,
+    ocp_level: float,
 ) -> None:
     with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_overcurrent_protection_level(channel_config.overrange_current(), channel=channel_config.channel)
+        driver.set_overcurrent_protection_level(ocp_level, channel=channel)
 
 
-@pytest.fixture(scope="module")
-def invalid_channel() -> int:
-    return max(channel.channel for channel in CHANNELS) + 1
-
-
-def test_set_voltage_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+@pytest.mark.parametrize(("invalid_channel", "voltage"), [(3, 6.0)])
+def test_set_voltage_invalid_channel(driver: SimulatedPSU, invalid_channel: int, voltage: float) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_voltage(CHANNELS[0].programmed_voltage(), channel=invalid_channel)
+        driver.set_voltage(voltage, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_voltage_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_voltage(channel=invalid_channel)
 
 
-def test_set_current_limit_invalid_channel(
-    driver: SimulatedPSU,
-    invalid_channel: int,
-) -> None:
+@pytest.mark.parametrize(("invalid_channel", "current_limit"), [(3, 1.0)])
+def test_set_current_limit_invalid_channel(driver: SimulatedPSU, invalid_channel: int, current_limit: float) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_current_limit(CHANNELS[0].programmed_current_limit(), channel=invalid_channel)
+        driver.set_current_limit(current_limit, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_current_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_current(channel=invalid_channel)
 
 
-def test_output_enable_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+@pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])
+def test_output_enable_invalid_channel(driver: SimulatedPSU, invalid_channel: int, enabled: bool) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.output_enable(True, channel=invalid_channel)
+        driver.output_enable(enabled, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_output_status_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_output_status(channel=invalid_channel)
 
 
+@pytest.mark.parametrize(("invalid_channel", "ovp_level"), [(3, 12.0)])
 def test_set_overvoltage_protection_level_invalid_channel(
     driver: SimulatedPSU,
     invalid_channel: int,
+    ovp_level: float,
 ) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overvoltage_protection_level(CHANNELS[0].ovp_level(), channel=invalid_channel)
+        driver.set_overvoltage_protection_level(ovp_level, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_overvoltage_protection_level_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_overvoltage_protection_level(channel=invalid_channel)
 
 
-def test_set_overvoltage_protection_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+@pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])
+def test_set_overvoltage_protection_enabled_invalid_channel(
+    driver: SimulatedPSU,
+    invalid_channel: int,
+    enabled: bool,
+) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overvoltage_protection_enabled(True, channel=invalid_channel)
+        driver.set_overvoltage_protection_enabled(enabled, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_overvoltage_protection_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_overvoltage_protection_enabled(channel=invalid_channel)
 
 
+@pytest.mark.parametrize(("invalid_channel", "ocp_level"), [(3, 2.0)])
 def test_set_overcurrent_protection_level_invalid_channel(
     driver: SimulatedPSU,
     invalid_channel: int,
+    ocp_level: float,
 ) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overcurrent_protection_level(CHANNELS[0].ocp_level(), channel=invalid_channel)
+        driver.set_overcurrent_protection_level(ocp_level, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_overcurrent_protection_level_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_overcurrent_protection_level(channel=invalid_channel)
 
 
-def test_set_overcurrent_protection_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+@pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])
+def test_set_overcurrent_protection_enabled_invalid_channel(
+    driver: SimulatedPSU,
+    invalid_channel: int,
+    enabled: bool,
+) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overcurrent_protection_enabled(True, channel=invalid_channel)
+        driver.set_overcurrent_protection_enabled(enabled, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_overcurrent_protection_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_overcurrent_protection_enabled(channel=invalid_channel)
 
 
-def test_set_remote_sense_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+@pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])
+def test_set_remote_sense_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int, enabled: bool) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_remote_sense_enabled(True, channel=invalid_channel)
+        driver.set_remote_sense_enabled(enabled, channel=invalid_channel)
 
 
+@pytest.mark.parametrize("invalid_channel", [3])
 def test_get_remote_sense_enabled_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_remote_sense_enabled(channel=invalid_channel)
 
 
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_driver_recovers_after_simulator_error(driver: SimulatedPSU, channel_config: ChannelConfig) -> None:
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
+@pytest.mark.parametrize(
+    ("channel", "voltage", "low_ovp_level", "ovp_level"),
+    [
+        (1, 6.0, 3.0, 12.0),
+        (2, 7.5, 4.0, 13.0),
+    ],
+)
+def test_driver_recovers_after_simulator_error(
+    driver: SimulatedPSU,
+    channel: int,
+    voltage: float,
+    low_ovp_level: float,
+    ovp_level: float,
+) -> None:
+    driver.set_voltage(voltage, channel=channel)
 
     with pytest.raises(RuntimeError, match="OVP Below PV"):
-        driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
+        driver.set_overvoltage_protection_level(low_ovp_level, channel=channel)
 
-    driver.set_overvoltage_protection_level(channel_config.ovp_level(), channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ovp_level()
-    )
+    driver.set_overvoltage_protection_level(ovp_level, channel=channel)
+    assert driver.get_overvoltage_protection_level(channel=channel) == pytest.approx(ovp_level)
 
 
 @pytest.fixture(scope="module")
@@ -468,26 +576,17 @@ def sim_target(request: pytest.FixtureRequest) -> "_SimulatedTarget":
 
 
 class _SimulatedTarget:
-    def __init__(self, simulator: SimulatedPSUSimulator, server: SimulatedPSUServer, host: str, port: int) -> None:
+    def __init__(self, simulator: SimulatedPSUSimulator, server: SimulatedPSUServer, visa_address: str) -> None:
         self.simulator = simulator
         self.server = server
-        self.host = host
-        self.port = port
+        self.visa_address = visa_address
 
     @classmethod
     def start(cls) -> "_SimulatedTarget":
-        host = "127.0.0.1"
-        port = _free_port(host)
         simulator = SimulatedPSUSimulator(num_channels=2)
-        server = SimulatedPSUServer(simulator, host=host, port=port)
+        server = SimulatedPSUServer(simulator, host="127.0.0.1", port=5025)
         server.start()
-        return cls(simulator, server, host, port)
+        return cls(simulator, server, VISA_ADDRESS)
 
     def shutdown(self) -> None:
         self.server.shutdown()
-
-
-def _free_port(host: str) -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind((host, 0))
-        return int(sock.getsockname()[1])
