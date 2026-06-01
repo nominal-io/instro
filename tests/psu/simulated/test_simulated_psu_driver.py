@@ -3,64 +3,32 @@
 from __future__ import annotations
 
 import socket
-from dataclasses import dataclass
 
 import pytest
 
 from instro.lib.transports import VisaConfig
+from instro.psu import PSUDriverBase
 from instro.psu.drivers.simulated import SimulatedPSU
 from instro.psu.scpi_sim_server import SimulatedPSU as SimulatedPSUSimulator
 from instro.psu.scpi_sim_server import SimulatedPSUServer
+from tests.psu.psu_driver_test_suite import PSUChannelConfig, PSUDriverTestSuite
 
-# Uncomment with real hardware to make all tests optional
+# ============================================================================
+# REAL HARDWARE TEMPLATE: EDIT THIS SECTION WHEN COPYING THIS FILE
+#
+# 1. Uncomment pytestmark so physical hardware tests are optional.
+# 2. Replace CHANNELS with the real channel numbers and ranges.
+# 3. Replace driver() with the concrete driver and bench resource.
+# 4. Replace reset_before_each_test() if the driver is not SCPI/VISA-backed.
+# 5. Rename TestSimulatedPSUDriver for the instrument under test.
+# 6. Delete the simulation-only target setup at the bottom of the file.
+# ============================================================================
+
+# EDIT FOR REAL HARDWARE: uncomment this line.
 # pytestmark = pytest.mark.hardware
 
-
-@dataclass(frozen=True)
-class PSUChannelConfig:
-    channel: int
-    voltage_range: tuple[float, float]
-    current_range: tuple[float, float]
-    voltage_readback_tolerance: float
-    current_readback_tolerance: float
-
-    @staticmethod
-    def relative_range_value(value_range: tuple[float, float], fraction: float) -> float:
-        minimum, maximum = value_range
-        return minimum + (maximum - minimum) * fraction
-
-    def programmed_voltage(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.10)
-
-    def low_programmed_voltage(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.05)
-
-    def programmed_current_limit(self) -> float:
-        return self.relative_range_value(self.current_range, 0.10)
-
-    def low_programmed_current_limit(self) -> float:
-        return self.relative_range_value(self.current_range, 0.05)
-
-    def ovp_level(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.20)
-
-    def low_ovp_level(self) -> float:
-        return self.relative_range_value(self.voltage_range, 0.05)
-
-    def ocp_level(self) -> float:
-        return self.relative_range_value(self.current_range, 0.20)
-
-    def low_ocp_level(self) -> float:
-        return self.relative_range_value(self.current_range, 0.05)
-
-    def overrange_voltage(self) -> float:
-        return self.voltage_range[1] + 1.0
-
-    def overrange_current(self) -> float:
-        return self.current_range[1] + 1.0
-
-
-VISA_HOST = "127.0.0.1"
+# EDIT FOR REAL HARDWARE: set each physical output's channel number,
+# programmable ranges, and acceptable readback tolerance.
 CHANNELS = [
     PSUChannelConfig(
         channel=1,
@@ -79,13 +47,15 @@ CHANNELS = [
 ]
 
 
-def _invalid_channel() -> int:
-    return max(channel.channel for channel in CHANNELS) + 1
-
-
 @pytest.fixture(scope="module")
-def driver(request: pytest.FixtureRequest, driver_config: VisaConfig) -> SimulatedPSU:
-    psu_driver = SimulatedPSU(driver_config)
+def driver(request: pytest.FixtureRequest, sim_target: "_SimulatedTarget") -> PSUDriverBase:
+    # EDIT FOR REAL HARDWARE: instantiate the concrete driver here.
+    # Example: psu_driver = KeysightE36100("USB0::...::INSTR")
+    psu_driver = SimulatedPSU(
+        VisaConfig(
+            visa_resource=f"TCPIP0::{sim_target.host}::{sim_target.port}::SOCKET",
+        )
+    )
     try:
         psu_driver.open()
     except Exception:
@@ -97,263 +67,26 @@ def driver(request: pytest.FixtureRequest, driver_config: VisaConfig) -> Simulat
 
 
 @pytest.fixture(autouse=True)
-def reset_driver(driver: SimulatedPSU) -> None:
-    driver._visa.write("*RST")
+def reset_before_each_test(driver: PSUDriverBase) -> None:
+    # EDIT FOR REAL HARDWARE: keep this for SCPI/VISA drivers, or replace this
+    # fixture with the safest reset path for the instrument under test.
+    driver._visa.write("*RST")  # type: ignore[attr-defined]
 
 
+# EDIT FOR REAL HARDWARE: rename this class for the driver under test.
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_voltage_and_output_readback(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-    driver.output_enable(True, channel=channel_config.channel)
-
-    assert driver.get_output_status(channel=channel_config.channel) is True
-    assert driver.get_voltage(channel=channel_config.channel) == pytest.approx(
-        channel_config.programmed_voltage(),
-        abs=channel_config.voltage_readback_tolerance,
-    )
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_current_readback(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-
-    assert driver.get_current(channel=channel_config.channel) == pytest.approx(
-        0.0,
-        abs=channel_config.current_readback_tolerance,
-    )
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_output_disable_readback(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-    driver.output_enable(True, channel=channel_config.channel)
-    driver.output_enable(False, channel=channel_config.channel)
-
-    assert driver.get_output_status(channel=channel_config.channel) is False
-    assert driver.get_voltage(channel=channel_config.channel) == pytest.approx(
-        0.0,
-        abs=channel_config.voltage_readback_tolerance,
-    )
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_overvoltage_protection_round_trips(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_voltage(channel_config.low_programmed_voltage(), channel=channel_config.channel)
-    driver.set_overvoltage_protection_level(channel_config.ovp_level(), channel=channel_config.channel)
-
-    assert driver.get_overvoltage_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ovp_level()
-    )
-
-    driver.set_overvoltage_protection_enabled(True, channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is True
-
-    driver.set_overvoltage_protection_enabled(False, channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_enabled(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_overcurrent_protection_round_trips(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_current_limit(channel_config.low_programmed_current_limit(), channel=channel_config.channel)
-    driver.set_overcurrent_protection_level(channel_config.ocp_level(), channel=channel_config.channel)
-
-    assert driver.get_overcurrent_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ocp_level()
-    )
-
-    driver.set_overcurrent_protection_enabled(True, channel=channel_config.channel)
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is True
-
-    driver.set_overcurrent_protection_enabled(False, channel=channel_config.channel)
-    assert driver.get_overcurrent_protection_enabled(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_remote_sense_round_trips(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_remote_sense_enabled(True, channel=channel_config.channel)
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is True
-
-    driver.set_remote_sense_enabled(False, channel=channel_config.channel)
-    assert driver.get_remote_sense_enabled(channel=channel_config.channel) is False
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_voltage_above_overvoltage_protection_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
-
-    with pytest.raises(RuntimeError, match="PV Above OVP"):
-        driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_current_limit_above_overcurrent_protection_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    driver.set_overcurrent_protection_level(channel_config.low_ocp_level(), channel=channel_config.channel)
-
-    with pytest.raises(RuntimeError, match="PC Above OCP"):
-        driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overvoltage_protection_below_programmed_voltage_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-
-    with pytest.raises(RuntimeError, match="OVP Below PV"):
-        driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overcurrent_protection_below_programmed_current_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
-
-    with pytest.raises(RuntimeError, match="OCP Below PC"):
-        driver.set_overcurrent_protection_level(channel_config.low_ocp_level(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_voltage_out_of_range_raises(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_voltage(channel_config.overrange_voltage(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_current_limit_out_of_range_raises(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_current_limit(channel_config.overrange_current(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overvoltage_protection_out_of_range_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_overvoltage_protection_level(channel_config.overrange_voltage(), channel=channel_config.channel)
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_set_overcurrent_protection_out_of_range_raises(
-    driver: SimulatedPSU,
-    channel_config: PSUChannelConfig,
-) -> None:
-    with pytest.raises(RuntimeError, match="Data out of range"):
-        driver.set_overcurrent_protection_level(channel_config.overrange_current(), channel=channel_config.channel)
-
-
-def test_set_voltage_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_voltage(CHANNELS[0].programmed_voltage(), channel=_invalid_channel())
-
-
-def test_get_voltage_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_voltage(channel=_invalid_channel())
-
-
-def test_set_current_limit_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_current_limit(CHANNELS[0].programmed_current_limit(), channel=_invalid_channel())
-
-
-def test_get_current_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_current(channel=_invalid_channel())
-
-
-def test_output_enable_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.output_enable(True, channel=_invalid_channel())
-
-
-def test_get_output_status_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_output_status(channel=_invalid_channel())
-
-
-def test_set_overvoltage_protection_level_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overvoltage_protection_level(CHANNELS[0].ovp_level(), channel=_invalid_channel())
-
-
-def test_get_overvoltage_protection_level_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_overvoltage_protection_level(channel=_invalid_channel())
-
-
-def test_set_overvoltage_protection_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overvoltage_protection_enabled(True, channel=_invalid_channel())
-
-
-def test_get_overvoltage_protection_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_overvoltage_protection_enabled(channel=_invalid_channel())
-
-
-def test_set_overcurrent_protection_level_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overcurrent_protection_level(CHANNELS[0].ocp_level(), channel=_invalid_channel())
-
-
-def test_get_overcurrent_protection_level_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_overcurrent_protection_level(channel=_invalid_channel())
-
-
-def test_set_overcurrent_protection_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_overcurrent_protection_enabled(True, channel=_invalid_channel())
-
-
-def test_get_overcurrent_protection_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_overcurrent_protection_enabled(channel=_invalid_channel())
-
-
-def test_set_remote_sense_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.set_remote_sense_enabled(True, channel=_invalid_channel())
-
-
-def test_get_remote_sense_enabled_invalid_channel_raises(driver: SimulatedPSU) -> None:
-    with pytest.raises(RuntimeError, match="Header suffix out of range"):
-        driver.get_remote_sense_enabled(channel=_invalid_channel())
-
-
-@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
-def test_driver_recovers_after_simulator_error(driver: SimulatedPSU, channel_config: PSUChannelConfig) -> None:
-    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
-
-    with pytest.raises(RuntimeError, match="OVP Below PV"):
-        driver.set_overvoltage_protection_level(channel_config.low_ovp_level(), channel=channel_config.channel)
-
-    driver.set_overvoltage_protection_level(channel_config.ovp_level(), channel=channel_config.channel)
-    assert driver.get_overvoltage_protection_level(channel=channel_config.channel) == pytest.approx(
-        channel_config.ovp_level()
-    )
-
-
-# Simulation-only target setup. Real hardware smoke tests do not need this
-# section; provide the bench instrument resource directly in driver_config().
+class TestSimulatedPSUDriver(PSUDriverTestSuite):
+    pass
 
 
 @pytest.fixture(scope="module")
-def driver_config(sim_target: "_SimulatedTarget") -> VisaConfig:
-    return sim_target.driver_config
+def invalid_channel() -> int:
+    return max(channel.channel for channel in CHANNELS) + 1
+
+
+# ============================================================================
+# SIMULATION ONLY: DELETE THIS SECTION IN REAL HARDWARE TEST FILES
+# ============================================================================
 
 
 @pytest.fixture(scope="module")
@@ -364,30 +97,26 @@ def sim_target(request: pytest.FixtureRequest) -> "_SimulatedTarget":
 
 
 class _SimulatedTarget:
-    def __init__(self, simulator: SimulatedPSUSimulator, server: SimulatedPSUServer, port: int) -> None:
+    def __init__(self, simulator: SimulatedPSUSimulator, server: SimulatedPSUServer, host: str, port: int) -> None:
         self.simulator = simulator
         self.server = server
+        self.host = host
         self.port = port
 
     @classmethod
     def start(cls) -> "_SimulatedTarget":
-        port = _free_port()
+        host = "127.0.0.1"
+        port = _free_port(host)
         simulator = SimulatedPSUSimulator(num_channels=2)
-        server = SimulatedPSUServer(simulator, host=VISA_HOST, port=port)
+        server = SimulatedPSUServer(simulator, host=host, port=port)
         server.start()
-        return cls(simulator, server, port)
-
-    @property
-    def driver_config(self) -> VisaConfig:
-        return VisaConfig(
-            visa_resource=f"TCPIP0::{VISA_HOST}::{self.port}::SOCKET",
-        )
+        return cls(simulator, server, host, port)
 
     def shutdown(self) -> None:
         self.server.shutdown()
 
 
-def _free_port() -> int:
+def _free_port(host: str) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind((VISA_HOST, 0))
+        sock.bind((host, 0))
         return int(sock.getsockname()[1])
