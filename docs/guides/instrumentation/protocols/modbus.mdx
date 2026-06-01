@@ -1,11 +1,11 @@
 ---
 title: Modbus
-description: Using ModbusDevice for Modbus TCP and RTU device communication
+description: Using InstroRegisterInstrument with ModbusRegisterDriver for Modbus TCP and RTU device communication
 ---
 
-# ModbusDevice
+# Modbus
 
-ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the Nominal publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
+`InstroRegisterInstrument` with `ModbusRegisterDriver` is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the Nominal publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
 
 <Note>
 [Modbus Application Protocol Specification](https://www.modbus.org/modbus-specifications)
@@ -23,15 +23,16 @@ Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
 import time
 
 from instro.lib.publishers import NominalCorePublisher
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-RID = "<dataset_rid>" # Replace with your dataset RID.
+RID = "<dataset_rid>"  # Replace with your dataset RID.
 
-# Instantiate device with JSON config. The autostart flag opens and begins polling
-modbus_device = ModbusDevice(config="my_device.json", autostart=True)
-
-# Add publisher to flow data to Nominal Core
+config = ModbusConfig.from_json("my_device.json")
+modbus_device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 modbus_device.add_publisher(NominalCorePublisher(dataset_rid=RID))
+modbus_device.open()
+modbus_device.start()
 
 # Allow some time for background daemon reads
 time.sleep(10)
@@ -91,17 +92,17 @@ modbus_device.close()
 
 ## When to Use Each Feature
 
-Most devices can be brought online with just a connection, a few registers, and `autostart=True`. The features below each solve a specific problem you'll run into as soon as you're working with real hardware. Use this table to jump to the right section.
+Most devices can be brought online with just a connection, a few registers, and `open()` + `start()`. The features below each solve a specific problem you'll run into as soon as you're working with real hardware. Use this table to jump to the right section.
 
 | If you're trying to... | Reach for... |
 | --- | --- |
-| Stream live data to Nominal Core with the shortest possible setup | [`autostart=True`](#lifecycle-pattern) + [`add_publisher()`](#creating-a-nominalmodbus-instance) |
+| Stream live data to Nominal Core with the shortest possible setup | [`open()` + `start()`](#lifecycle-pattern) + [`add_publisher()`](#creating-an-instroregisterinstrument-instance) |
 | Read raw ADC counts or tick values as physical/engineering units | [`scale`](#linear-scaling) |
 | Protect equipment from out-of-range or wrong-type writes | [`write_min` / `write_max`](#write-limits) |
 | Replace magic numbers with human-readable labels for mode/state writes | [`write_value_map`](#write-value-maps) |
 | Unpack a packed status word into individual boolean channels | [`bitmap`](#bitmap-extraction) |
 | Minimize round-trips when polling many adjacent registers | [`read_group`](#read-groups) |
-| Share one device config across test benches with different networking | Pass [`connection` separately](#creating-a-nominalmodbus-instance) to the constructor |
+| Share one device config across test benches with different networking | [Merge `connection` into `ModbusConfig`](#creating-an-instroregisterinstrument-instance) at construction |
 | Work with a device that uses little-endian or "Modbus-style" word ordering | [`byte_swap` / `word_swap` / `long_swap`](#byte-ordering) |
 | Throttle commands to a device that processes writes sequentially | [`write_delay_ms`](#timing-section) |
 | Prototype a config without real hardware | The built-in [simulator](#prototyping-without-a-device) |
@@ -110,18 +111,14 @@ Most devices can be brought online with just a connection, a few registers, and 
 
 ### Lifecycle Pattern
 
-The typical ModbusDevice workflow follows this pattern:
+The typical workflow follows this pattern:
 
 1. **Define your device**: Create a JSON config file or build a `ModbusConfig` in Python
-2. **`ModbusDevice(config)`**: Instantiate the client with your config (and optionally a separate `connection`)
+2. **Instantiate**: Construct `ModbusRegisterDriver(config)` and wrap it in `InstroRegisterInstrument(driver=...)`
 3. **`open()`**: Establish connection to the Modbus device
-4. **`start()`**: Begin background polling (if timing is configured)
+4. **`start()`**: Begin background polling (requires a `timing` section in the config)
 5. **Read or Write**: Access registers by alias with automatic type handling and scaling
 6. **`close()`**: Disconnect and stop any background polling
-
-<Tip>
-Pass `autostart=True` to combine steps 3 and 4. The connection opens and polling begins immediately on instantiation. This requires a `timing` section in the config.
-</Tip>
 
 ### Register Types
 
@@ -156,7 +153,7 @@ Coil and discrete input registers are always read and written as booleans regard
 
 ### Byte Ordering
 
-Modbus devices can vary in how they order bytes within multi-register values. ModbusDevice provides three swap options to handle these differences:
+Modbus devices can vary in how they order bytes within multi-register values. The driver provides three swap options to handle these differences:
 
 - **`byte_swap`** - Swaps bytes within each 16-bit word. Applies to all data types.
 - **`word_swap`** - Swaps 16-bit words within 32-bit or 64-bit values. Not valid for 16-bit types.
@@ -399,7 +396,7 @@ Write limits are validated **before** scaling is applied, so they represent the 
 
 ## Configuration
 
-ModbusDevice is configured through a JSON file. Every config file must include:
+Modbus is configured through a JSON file (or a `ModbusConfig` built in Python). Every config file must include:
 
 - **`version`**: identifies the config schema version, ensuring forward compatibility as the format evolves.
 - **`protocol`**: must be `"modbus"`. This field identifies which protocol the config is intended for, so that an incorrect config file is caught immediately with a clear error rather than failing with confusing type mismatches.
@@ -600,39 +597,44 @@ The configuration is validated at load time. Invalid configs produce clear error
 
 ## Connection Resilience
 
-Modbus TCP connections drop for all the usual reasons, such as network blips, device reboots, and power cycles on a PLC. ModbusDevice handles this transparently. When a read or write hits a transport error, the driver closes the dead socket and pymodbus opens a fresh one on the next operation. No custom retry loop, no explicit `open()` after a disconnect.
+Modbus TCP connections drop for all the usual reasons, such as network blips, device reboots, and power cycles on a PLC. The driver handles this transparently. When a read or write hits a transport error, the driver closes the dead socket and pymodbus opens a fresh one on the next operation. No custom retry loop, no explicit `open()` after a disconnect.
 
-Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. If you're running with `autostart=True` and background polling, transient errors from a single poll are logged without tearing down the worker. The next tick will succeed as soon as the device comes back.
+Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. When background polling is running via `start()`, transient errors from a single poll are logged without tearing down the worker. The next tick will succeed as soon as the device comes back.
 
 ## Prototyping Without a Device
 
-Not every development environment has a PLC sitting on the bench. For config authoring, CI tests, and demos, the Modbus package ships with a lightweight TCP simulator you can run alongside your code:
+Not every development environment has a PLC sitting on the bench. For config authoring, CI tests, and demos, the library ships with a lightweight TCP simulator you can run alongside your code:
 
 ```bash
-python -m instro.modbus.sim_server
+python -m instro.utils.protocol.sim_server
 ```
 
-The sim server listens on `127.0.0.1:5020` and exposes holding registers, input registers, coils, and discrete inputs seeded with representative values. Point any TCP config at it by overriding the connection at construction:
+The sim server listens on `127.0.0.1:5020` and exposes holding registers, input registers, coils, and discrete inputs seeded with representative values. Point any TCP config at it by merging the connection at construction:
 
 ```python
-from instro.modbus import ModbusDevice
+import json
+from pathlib import Path
 
-device = ModbusDevice(
-    config="my_device.json",
-    connection={"transport": "tcp", "host": "127.0.0.1", "port": 5020},
-)
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+raw = json.loads(Path("my_device.json").read_text())
+config = ModbusConfig.model_validate({**raw, "connection": {"transport": "tcp", "host": "127.0.0.1", "port": 5020}})
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 ```
 
-## Creating a ModbusDevice Instance
+## Creating an InstroRegisterInstrument Instance
 
 <Tabs>
 
 <Tab title="From JSON File">
 
 ```python
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-device = ModbusDevice(config="my_device.json")
+config = ModbusConfig.from_json("my_device.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 device.open()
 ```
 
@@ -641,11 +643,17 @@ device.open()
 <Tab title="From JSON + Separate Connection">
 
 ```python
-from instro.modbus import ModbusDevice
+import json
+from pathlib import Path
 
-# Connection is separate: useful when config is shared across environments
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+# Merge the environment-specific connection into the shared config at runtime
+raw = json.loads(Path("my_device.json").read_text())
 connection = {"transport": "tcp", "host": "192.168.1.100", "port": 502}
-device = ModbusDevice(config="my_device.json", connection=connection)
+config = ModbusConfig.model_validate({**raw, "connection": connection})
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 device.open()
 ```
 
@@ -654,17 +662,22 @@ device.open()
 <Tab title="Programmatic Config">
 
 ```python
-from instro.modbus import ModbusConfig, ModbusDevice
-from instro.modbus import (
-    DeviceInfo, LinearScale, RegisterDef, TCPConnection, TimingConfig,
+from instro.lib.types import DeviceInfo, LinearScale
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import (
+    ModbusConfig,
+    ModbusRegisterDef,
+    ModbusRegisterDriver,
+    TimingConfig,
 )
+from instro.utils.protocol.modbus import TCPConnectionConfig
 
 config = ModbusConfig(
     device=DeviceInfo(name="my_device", manufacturer="Acme", model="X-100"),
-    connection=TCPConnection(host="192.168.1.100", port=502, unit_id=1),
+    connection=TCPConnectionConfig(host="192.168.1.100", port=502, unit_id=1),
     timing=TimingConfig(poll_interval=0.5),
     registers=[
-        RegisterDef(
+        ModbusRegisterDef(
             name="temperature",
             starting_address=0,
             register_type="holding",
@@ -672,7 +685,7 @@ config = ModbusConfig(
             write_min=0.0,
             write_max=500.0,
         ),
-        RegisterDef(
+        ModbusRegisterDef(
             name="mode",
             starting_address=100,
             register_type="holding",
@@ -682,7 +695,9 @@ config = ModbusConfig(
     ],
 )
 
-device = ModbusDevice(config, autostart=True)
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+device.open()
+device.start()  # begin background polling (requires timing section in config)
 ```
 
 </Tab>
@@ -693,14 +708,11 @@ device = ModbusDevice(config, autostart=True)
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `config` | Yes | | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
-| `connection` | No | | A `TCPConnection`, `RTUConnection`, or `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
-| `name` | No | `device.name` | Override the instrument name used for channel naming |
+| `driver` | Yes | | A `ModbusRegisterDriver` instance wrapping a `ModbusConfig` |
 | `publishers` | No | `None` | List of publishers to attach at construction time |
-| `autostart` | No | `False` | If `True` and the config contains a `timing` section, opens the connection and starts background polling on instantiation |
 
 <Tip>
-The `connection` parameter allows you to separate device-specific register maps from environment-specific connection details. One JSON config can be shared across test benches while each environment passes its own connection.
+Separate environment-specific connection details from the shared device config by building a `ModbusConfig` via `model_validate({**raw_json, "connection": connection})`. One JSON config can be shared across test benches while each environment supplies its own connection.
 </Tip>
 
 Use `add_publisher()` to attach a [publisher](/instrumentation/publishers) for automatic data streaming:
@@ -716,9 +728,11 @@ device.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 ### Basic Read and Write
 
 ```python
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-device = ModbusDevice(config="temperature_controller.json")
+config = ModbusConfig.from_json("temperature_controller.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 device.open()
 
 # Read a register value by alias
@@ -745,62 +759,42 @@ Modbus had no v1.0 channel-naming change. [`legacy_naming`](/instrumentation/lib
 
 ### Background Polling with Publishers
 
-When a `timing` section is present in the config, you can use `autostart=True` for a one-liner setup, or call `open()` and `start()` explicitly for more control:
-
-<Tabs>
-
-<Tab title="With autostart">
+When a `timing` section is present in the config, call `open()` and `start()` to begin background polling:
 
 ```python
-from instro.modbus import ModbusDevice
 from instro.lib.publishers import NominalCorePublisher
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-# autostart opens the connection and begins polling immediately
-device = ModbusDevice(config="heat_exchanger.json", autostart=True)
+config = ModbusConfig.from_json("heat_exchanger.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
 device.add_publisher(NominalCorePublisher(dataset_rid="ri.datasets.main.dataset.abc123"))
+
+# Open connection and start polling
+device.open()
+device.start()
 
 # All registers with poll: true are now being read at the configured interval
 # and published to Nominal Core automatically.
 
-# You can also retrieve buffered poll data:
+# Retrieve buffered poll data:
 recent_temps = device.get_channel("heat_exchanger.inlet_temp", length=100)
 
 # When done, close stops polling and disconnects
 device.close()
 ```
 
-</Tab>
-
-<Tab title="Explicit open/start">
-
-```python
-from instro.modbus import ModbusDevice
-from instro.lib.publishers import NominalCorePublisher
-
-device = ModbusDevice(config="heat_exchanger.json")
-device.add_publisher(NominalCorePublisher(dataset_rid="ri.datasets.main.dataset.abc123"))
-
-# Open connection and start polling when ready
-device.open()
-device.start()
-
-recent_temps = device.get_channel("heat_exchanger.inlet_temp", length=100)
-
-device.close()
-```
-
-</Tab>
-
-</Tabs>
-
 ### Write Value Maps and Write Limits
 
 Write value maps eliminate magic numbers, and write limits provide protection against accidental out-of-range writes:
 
 ```python
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
-device = ModbusDevice(config="heat_exchanger.json", autostart=True)
+config = ModbusConfig.from_json("heat_exchanger.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+device.open()
 
 # Write using human-readable string labels
 device.write("operating_mode", "run")
@@ -855,12 +849,19 @@ The only difference for RTU is in the config file. The Python code is identical:
 This example demonstrates programming a thermal profile on a Watlow F4T controller using write value maps and write delays. The config uses `write_delay_ms: 300` because the F4T processes commands sequentially and `word_swap: true` for its byte ordering convention.
 
 ```python
+import json
 import time
+from pathlib import Path
 
-from instro.modbus import ModbusDevice
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
 
+raw = json.loads(Path("watlow_f4t.json").read_text())
 connection = {"transport": "tcp", "host": "192.168.5.222", "port": 502}
-f4t = ModbusDevice("watlow_f4t.json", connection=connection, autostart=True)
+config = ModbusConfig.model_validate({**raw, "connection": connection})
+f4t = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+f4t.open()
+f4t.start()
 
 try:
     # Set zone 1 to auto mode using write_value_map (no magic numbers)
@@ -887,20 +888,21 @@ finally:
 
 | Method | Purpose |
 |--------|---------|
-| `ModbusDevice(config, connection=None, name=None, publishers=None, autostart=False)` | Create a new Modbus client from a JSON config file, `dict`, or `ModbusConfig` instance. Optionally pass a separate connection. |
+| `InstroRegisterInstrument(driver, publishers=None)` | Construct the instrument from a `ModbusRegisterDriver`. |
+| `ModbusRegisterDriver(config, thread_safe=False)` | Construct the driver from a `ModbusConfig`. Pass `thread_safe=True` when `start()` will run concurrently with manual reads/writes. |
 | `add_publisher(publisher)` | Attach a publisher for automatic data streaming |
 | `open()` | Open connection to the Modbus device (TCP or RTU) |
 | `close()` | Close connection and stop background polling |
-| `read(alias, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
-| `write(alias, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
-| `unit_id` | Property: returns the Modbus unit/slave ID from config |
+| `read(register_id, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
+| `write(register_id, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
+| `read_group(group_id, **kwargs)` | Read all registers in a group in a single Modbus transaction, return `Measurement` |
 | `get_channel(channel_name, length=1, wait_for_latest=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
-| `start()` | Start background polling daemon |
+| `start()` | Start background polling daemon (requires `timing` in config) |
 | `stop()` | Stop background polling daemon |
 
 ## Error Handling
 
-ModbusDevice raises descriptive errors for common issues:
+The driver raises descriptive errors for common issues:
 
 | Error | Cause |
 |-------|-------|

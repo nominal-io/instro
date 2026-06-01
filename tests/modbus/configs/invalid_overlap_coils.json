@@ -2,6 +2,12 @@
   "version": 1,
   "protocol": "modbus",
   "device": { "name": "overlap_coils_test" },
+  "connection": {
+    "transport": "tcp",
+    "host": "127.0.0.1",
+    "port": 5021,
+    "unit_id": 1
+  },
   "registers": [
     { "name": "coil_a", "starting_address": 5, "register_type": "coil", "data_type": "bool" },
     { "name": "coil_b", "starting_address": 5, "register_type": "coil", "data_type": "bool" }

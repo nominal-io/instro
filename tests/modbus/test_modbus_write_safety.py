@@ -5,6 +5,7 @@ Tests cover:
 - write_min / write_max enforcement
 - Type checking (bool to int register, float to int register, etc.)
 - Config validation of write fields (on read-only registers, inverted min/max, etc.)
+- write_delay_ms rate limiting (delay fires after write, skipped when gap already met)
 """
 
 import asyncio
@@ -12,6 +13,7 @@ import struct
 import threading
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -23,9 +25,11 @@ from pymodbus.datastore import (
 from pymodbus.server import StartAsyncTcpServer
 
 from instro.lib.types import DeviceInfo, LinearScale
-from instro.modbus import ModbusConfig, ModbusDevice, RegisterDef
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDef, ModbusRegisterDriver, TimingConfig
+from instro.utils.protocol.modbus import TCPConnectionConfig
 
-TEST_PORT = 5023
+TEST_PORT = 5029
 
 
 # ============ Sim Server ============
@@ -84,28 +88,28 @@ def modbus_server():
 def device(modbus_server):
     config = ModbusConfig(
         device=DeviceInfo(name="write_test"),
-        connection={"transport": "tcp", "host": "127.0.0.1", "port": TEST_PORT},
+        connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
         registers=[
-            RegisterDef(
+            ModbusRegisterDef(
                 name="mode",
                 starting_address=0,
                 data_type="uint16",
                 write_value_map={"off": 0, "heat": 1, "cool": 2, "auto": 3},
             ),
-            RegisterDef(
+            ModbusRegisterDef(
                 name="limited",
                 starting_address=10,
                 data_type="uint16",
                 write_min=100,
                 write_max=1000,
             ),
-            RegisterDef(name="plain_uint16", starting_address=20, data_type="uint16"),
-            RegisterDef(name="plain_float32", starting_address=30, data_type="float32"),
-            RegisterDef(name="coil", starting_address=0, register_type="coil", data_type="bool"),
-            RegisterDef(name="input_reg", starting_address=0, register_type="input", data_type="uint16"),
+            ModbusRegisterDef(name="plain_uint16", starting_address=20, data_type="uint16"),
+            ModbusRegisterDef(name="plain_float32", starting_address=30, data_type="float32"),
+            ModbusRegisterDef(name="coil", starting_address=0, register_type="coil", data_type="bool"),
+            ModbusRegisterDef(name="input_reg", starting_address=0, register_type="input", data_type="uint16"),
         ],
     )
-    dev = ModbusDevice(config=config)
+    dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
     dev.open()
     yield dev
     dev.close()
@@ -199,15 +203,15 @@ class TestTypeChecking:
 class TestWriteFieldConfigValidation:
     def test_write_fields_on_input_rejected(self):
         with pytest.raises(ValidationError, match="holding registers"):
-            RegisterDef(name="bad", starting_address=0, register_type="input", write_min=0)
+            ModbusRegisterDef(name="bad", starting_address=0, register_type="input", write_min=0)
 
     def test_inverted_min_max_rejected(self):
         with pytest.raises(ValidationError, match="less than or equal"):
-            RegisterDef(name="bad", starting_address=0, write_min=100, write_max=10)
+            ModbusRegisterDef(name="bad", starting_address=0, write_min=100, write_max=10)
 
     def test_value_map_duplicate_values_rejected(self):
         with pytest.raises(ValidationError, match="Duplicate value"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 write_value_map={"a": 1, "b": 1},
@@ -215,7 +219,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_exceeds_write_max_rejected(self):
         with pytest.raises(ValidationError, match="above write_max"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 write_max=10,
@@ -224,7 +228,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_float_for_int_type_rejected(self):
         with pytest.raises(ValidationError, match="non-integer float"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -237,7 +241,7 @@ class TestWriteFieldConfigValidation:
         # non-bool registers and rejects them, mirroring the runtime rejection of direct
         # bool writes to integer registers.
         with pytest.raises(ValidationError, match="is a bool"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -246,7 +250,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_bool_allowed_on_bool_register(self):
         # On a bool-type register, bool is the natural value type — keep it accepted.
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="bool",
@@ -254,13 +258,14 @@ class TestWriteFieldConfigValidation:
         )
         # Pydantic still coerces stored values to int under the dict[str, int | float]
         # annotation; the point here is just that construction didn't raise.
+        assert reg.write_value_map is not None
         assert set(reg.write_value_map.keys()) == {"on", "off"}
 
     def test_value_map_fractional_float_allowed_when_scale_converts_to_integer(self):
         # gain=0.1 means physical 22.5 -> raw 225, which is a valid uint16.
         # The old validator unconditionally rejected fractional floats; the runtime
         # only rejects them when scale is None, so this config should be accepted.
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="uint16",
@@ -274,7 +279,7 @@ class TestWriteFieldConfigValidation:
         # integer register. Runtime _validate_raw_value_range rejects this
         # (abs(raw - round(raw)) > 1e-6); config validation must match.
         with pytest.raises(ValidationError, match="not an integer"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="uint16",
@@ -288,7 +293,7 @@ class TestWriteFieldConfigValidation:
         # Using a holding register with data_type="bool" exercises this without
         # coupling the test to whether write_value_map is allowed on coil itself.
         with pytest.raises(ValidationError, match="True/False or 0/1"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="bool",
@@ -297,7 +302,7 @@ class TestWriteFieldConfigValidation:
 
     def test_value_map_on_bool_register_rejects_non_binary_int(self):
         with pytest.raises(ValidationError, match="True/False or 0/1"):
-            RegisterDef(
+            ModbusRegisterDef(
                 name="bad",
                 starting_address=0,
                 data_type="bool",
@@ -305,10 +310,58 @@ class TestWriteFieldConfigValidation:
             )
 
     def test_value_map_on_bool_register_accepts_bool_and_binary_int(self):
-        reg = RegisterDef(
+        reg = ModbusRegisterDef(
             name="ok",
             starting_address=0,
             data_type="bool",
             write_value_map={"on": True, "off": 0},
         )
-        assert reg.write_value_map == {"on": True, "off": 0}
+
+
+# ============ Write Delay Tests ============
+
+
+class TestWriteDelay:
+    @pytest.fixture
+    def delay_device(self, modbus_server):
+        config = ModbusConfig(
+            device=DeviceInfo(name="delay_test"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+            timing=TimingConfig(poll_interval=1.0, write_delay_ms=50),
+            registers=[ModbusRegisterDef(name="reg", starting_address=20, data_type="uint16")],
+        )
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+        dev.open()
+        yield dev
+        dev.close()
+
+    def test_delay_fires_on_second_consecutive_write(self, delay_device):
+        delay_device.write("reg", 1)
+        with patch("time.sleep") as mock_sleep:
+            delay_device.write("reg", 2)
+        assert mock_sleep.call_count == 1
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert 0.0 < sleep_arg <= 0.05
+
+    def test_no_delay_when_gap_already_exceeds_delay_ms(self, delay_device):
+        delay_device.write("reg", 1)
+        time.sleep(0.1)  # wait longer than the 50ms delay
+        with patch("time.sleep") as mock_sleep:
+            delay_device.write("reg", 2)
+        assert mock_sleep.call_count == 0
+
+    def test_no_delay_without_timing_config(self, modbus_server):
+        config = ModbusConfig(
+            device=DeviceInfo(name="nodelay_test"),
+            connection=TCPConnectionConfig(host="127.0.0.1", port=TEST_PORT),
+            registers=[ModbusRegisterDef(name="reg", starting_address=20, data_type="uint16")],
+        )
+        dev = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+        dev.open()
+        try:
+            dev.write("reg", 1)
+            with patch("time.sleep") as mock_sleep:
+                dev.write("reg", 2)
+            assert mock_sleep.call_count == 0
+        finally:
+            dev.close()

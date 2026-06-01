@@ -1,0 +1,248 @@
+---
+title: Register Instrument
+description: Using InstroRegisterInstrument for alias-based register access across Modbus and other register-mapped protocols
+---
+
+# InstroRegisterInstrument
+
+`InstroRegisterInstrument` is a hardware abstraction layer (HAL) for register-mapped instruments. It provides a unified interface for reading and writing named registers, background polling, and publisher integration. A protocol-specific driver (e.g. `ModbusRegisterDriver`) owns the connection details and translates those calls into wire-level reads and writes.
+
+## Supported Drivers
+
+- **Modbus TCP/RTU**: `ModbusRegisterDriver` which wraps pymodbus
+
+If your protocol is not listed, see [Custom Driver Development](#custom-driver-development) below.
+
+## Key Concepts
+
+### Driver Composition
+
+An `InstroRegisterInstrument` is built from a concrete driver:
+
+```python
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+config = ModbusConfig.from_json("my_device.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+```
+
+- The **driver** (e.g. `ModbusRegisterDriver`) owns transport setup, the register map, and protocol-level read/write logic.
+- It can be configured by file (as shown) or by constructing the configuration in memory.
+- **`InstroRegisterInstrument`** owns the category-level workflow: measurements, commands, publishers, and the background daemon.
+
+### Lifecycle
+
+The typical `InstroRegisterInstrument` workflow:
+
+1. **Construct**: instantiate the driver and pass it to `InstroRegisterInstrument`.
+2. **`open()`**: establishes the transport connection.
+3. **Configure and measure**: read and write registers by alias.
+4. **`start()`**: begins a periodic background worker. (Optional, requires `timing` in config.)
+5. **`stop()`**: ends the background worker (if started).
+6. **`close()`**: disconnects from hardware.
+
+## Creating an InstroRegisterInstrument Instance
+
+```python
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+config = ModbusConfig.from_json("my_device.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+```
+
+### Parameters
+
+- **`driver`**: A concrete `RegisterDriverBase` instance (e.g. `ModbusRegisterDriver`) configured with the connection details and register map.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags on every emitted `Measurement` and `Command`.
+
+### Thread Safety
+
+Pass `thread_safe=True` to `ModbusRegisterDriver` when background polling (`start()`) will run concurrently with manual reads or writes:
+
+```python
+driver = ModbusRegisterDriver(config, thread_safe=True)
+device = InstroRegisterInstrument(driver=driver)
+```
+
+## Examples
+
+All read methods return [`Measurement`](/instrumentation/library#measurement) objects.
+
+### Basic Read and Write
+
+```python
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+config = ModbusConfig.from_json("temperature_controller.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config))
+device.open()
+
+# Read a register by alias
+temp = device.read("process_temp")
+print(f"Temperature: {temp.latest}")
+
+# Write a register by alias
+device.write("setpoint", 75.0)
+
+device.close()
+```
+
+### Background Polling with Publishers
+
+When the driver config includes a `timing` section, call `start()` to begin background polling:
+
+```python
+from instro.lib.publishers import NominalCorePublisher
+from instro.register import InstroRegisterInstrument
+from instro.register.drivers.modbus import ModbusConfig, ModbusRegisterDriver
+
+DATASET_RID = "<your dataset here>"
+
+config = ModbusConfig.from_json("my_device.json")
+device = InstroRegisterInstrument(driver=ModbusRegisterDriver(config, thread_safe=True))
+device.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+device.open()
+device.start()
+
+# All registers with poll: true are now read at the configured interval
+# and published automatically.
+
+# Retrieve buffered poll data:
+recent = device.get_channel("my_device.temperature", length=10)
+
+device.stop()
+device.close()
+```
+
+### Grouped Reads
+
+Registers assigned to the same `read_group` are read in a single transaction:
+
+```python
+group_meas = device.read_group("temperatures")
+print(group_meas.channel_data)
+```
+
+## Published Channels
+
+Every call produces a channel keyed under `{device_name}.{register_name}`:
+
+| Method | Channel key | Type |
+|--------|-------------|------|
+| `read(register_id)` | `{device_name}.{register_id}` | telemetry |
+| `read(register_id)` (per bit in a bitmap) | `{device_name}.{bit_name}` | telemetry |
+| `read_group(group_id)` | `{device_name}.{register_id}` (one per register in the group) | telemetry |
+| `write(register_id, value)` | `{device_name}.{register_id}.cmd` | command |
+
+The `device_name` comes from `driver.device_name`, which is sourced from the `device.name` field in the driver's config.
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroRegisterInstrument(driver, publishers=None, **kwargs)` | Construct from a concrete `RegisterDriverBase` driver |
+| `open()` | Open the transport connection |
+| `close()` | Disconnect and stop all publishers |
+| `read(register_id, **kwargs)` | Read a register by alias; return `Measurement` |
+| `write(register_id, value, **kwargs)` | Write a value to a register; return `Command` |
+| `read_group(group_id, **kwargs)` | Read all registers in a group in one transaction; return `Measurement` |
+| `write_group(group_id, values, **kwargs)` | Write values to all registers in a group; return `Command` |
+| `add_publisher(publisher)` | Attach a publisher for automatic data streaming |
+| `get_channel(channel_name, length=1, wait_for_latest=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
+| `start()` | Start the background polling daemon |
+| `stop()` | Stop the background polling daemon |
+
+---
+
+# Custom Driver Development
+
+This section is for developers implementing `InstroRegisterInstrument` support for a new register-mapped protocol.
+
+## Overview
+
+Driver developers subclass `RegisterDriverBase` and own whatever transport their instrument needs. The driver exposes the register map and translates category-level calls into protocol-specific reads and writes:
+
+```python
+device = InstroRegisterInstrument(
+    driver=MyProtocolDriver(host="10.0.0.42", port=1234),
+)
+```
+
+## Driver Responsibilities
+
+A register driver must:
+
+1. **Expose a protocol-native constructor**: accept connection parameters appropriate for the transport (host/port, serial device, etc.).
+2. **Own transport setup**: create and hold the transport internally.
+3. **Own lifecycle**: implement `open()` and `close()`.
+4. **Declare the register map**: expose `readable_registers`, `writeable_registers`, `readable_groups`, and `writeable_groups`.
+5. **Implement reads and writes**: translate `read()`, `write()`, `read_group()`, and `write_group()` into protocol-specific operations.
+
+## RegisterDriverBase Interface
+
+All register drivers subclass `RegisterDriverBase` and implement these abstract methods:
+
+```python
+def open(self) -> None:
+    """Open the underlying transport or protocol."""
+
+def close(self) -> None:
+    """Close the underlying transport or protocol."""
+
+def read(self, register_id: str) -> int | float:
+    """Read a single register by alias; return the scaled value."""
+
+def read_raw_scaled(self, register_id: str) -> tuple[int | float, int | float]:
+    """Read a single register; return (raw, scaled) values."""
+
+def write(self, register_id: str, value: int | float | str) -> int | float:
+    """Write a value to a register; return the written value."""
+
+def read_group(self, group_id: str) -> list[int | float]:
+    """Read all registers in a group; return scaled values."""
+
+def read_group_raw_scaled(self, group_id: str) -> tuple[list[int | float], list[int | float]]:
+    """Read all registers in a group; return (raw_values, scaled_values)."""
+
+def write_group(self, group_id: str, values: list[int | float | str]) -> list[int | float]:
+    """Write values to all registers in a group; return written values."""
+
+@property
+def device_name(self) -> str:
+    """Return the device name used as the channel prefix."""
+
+@property
+def readable_registers(self) -> Sequence[RegisterBase]:
+    """All registers that can be read."""
+
+@property
+def writeable_registers(self) -> Sequence[RegisterBase]:
+    """All registers that can be written."""
+
+@property
+def readable_groups(self) -> list[str]:
+    """All group IDs that can be read."""
+
+@property
+def writeable_groups(self) -> list[str]:
+    """All group IDs that can be written."""
+
+def enumerate_group_registers(self, group_id: str) -> Sequence[str]:
+    """Return register names in a group, in address order."""
+```
+
+## Summary
+
+Driver development requires mapping a register-mapped protocol onto the `RegisterDriverBase` contract. Focus on:
+
+- Subclassing `RegisterDriverBase`
+- Designing a constructor around the natural connection parameters for the protocol
+- Hiding transport construction inside the driver
+- Implementing all abstract methods
+- Returning raw and scaled values separately from `read_raw_scaled` and `read_group_raw_scaled`
+- Making `readable_registers` and `readable_groups` available before `open()` so `InstroRegisterInstrument` can configure the background daemon at construction time
