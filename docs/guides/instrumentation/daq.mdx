@@ -53,7 +53,7 @@ InstroDAQ supports two acquisition modes:
 **Hardware-Timed (Buffered Acquisition)**
 - Configure sample rate with `configure_ai_sample_rate()`
 - Call `start()` to begin background acquisition
-- Data automatically published via background thread, OR manually fetch with `read_analog()`
+- Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
 
 ## Creating a InstroDAQ Instance
@@ -356,7 +356,7 @@ while True:
         sensor_1 = daq.get_channel(
             channel_name = "myDAQ.sensor_1",
             length = 10,
-            wait_for_latest = True)  # This will block for the next 10 samples from the background worker
+            wait_for_latest = True)  # This will block for the next 10 samples from the background daemon
         print("Stopping acquisition")
         break
     except KeyboardInterrupt:
@@ -368,7 +368,7 @@ daq.close()
 ```
 
 In this mode:
-- `start()` begins hardware-timed acquisition in a background thread
+- `start()` begins hardware-timed acquisition in the background daemon
 - `stop()` ends the background acquisition
 
 <Note>
@@ -378,12 +378,12 @@ Data is published as a direct result of an instrument method being called.
 
 For example, when you call `read_analog()`, this not only returns the DAQ data but also causes all attached Publishers to publish the measurements automatically.
 
-Therefore the background worker, which is calling instrument methods, is publishing the data!
+Therefore the background daemon, which is calling instrument methods, is publishing the data!
 </Note>
 
 ### Hardware-Timed Acquisition with Manual Fetching
 
-For hardware-timed acquisition where you control when to fetch buffered data. Disable the Background Worker and manually call `read_analog()`.
+For hardware-timed acquisition where you control when to fetch buffered data. Disable the Background Daemon and manually call `read_analog()`.
 
 ```python
 
@@ -524,7 +524,7 @@ print(f"Port value: {int(measurement.latest)}")
 ```
 
 <Note>
-Port-based I/O is currently implemented for **MCC** devices. For NI DAQmx, LabJack, and Keysight, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`. Use `write_digital_line()` / `read_digital_line()` to address individual lines on those vendors.
+Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels.
 </Note>
 
 ## Complete Examples
@@ -634,7 +634,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
 | `get_points_in_buffer()` | `buffer` | telemetry |
 
-The base `Instrument` background worker additionally publishes per-iteration diagnostic telemetry on `loop_time` and `daemon_work_time`. Those descriptors are shared across all instruments and are not affected by `legacy_naming`.
+The base `Instrument` background daemon additionally publishes per-iteration diagnostic telemetry on `loop_time` and `daemon_work_time`. Those descriptors are shared across all instruments and are not affected by `legacy_naming`.
 
 ## Method Reference
 
@@ -647,13 +647,13 @@ The base `Instrument` background worker additionally publishes per-iteration dia
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
 | `configure_ai_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input |
-| `start()` | Begin hardware-timed acquisition (background thread) |
+| `start()` | Begin hardware-timed acquisition (background daemon) |
 | `stop()` | End hardware-timed acquisition |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
-| `read_digital_port(channel)` | Read all lines on a digital input port as a single integer (MCC only) |
-| `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer (MCC only) |
+| `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
+| `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer |
 | `add_publisher(publisher)` | Attach a publisher for data routing |
 | `get_points_in_buffer()` | Get number of samples in hardware buffer |
 
@@ -692,7 +692,7 @@ A DAQ driver shall:
 1. **Hardware connection lifecycle**: Implement `open()` and `close()` for establishing and terminating hardware connections.
 2. **Channel and state tracking**: The driver is the single source of truth for what's configured. `DAQDriverBase.__init__` initializes the dicts (`ai_channels`, `ao_channels`, `di_channels`, `do_channels`, `relay_channels`) and the timing-config slots (`ai_hw_timing_config`, plus AO/DI/DO slots); concrete drivers call `super().__init__()`, then populate those dicts inside their `configure_*` methods and read from them in `read_analog`, `fetch_analog`, `start`, `write_analog_value`, etc. `InstroDAQ` exposes the same state to end users via `@property` proxies (`daq.ai_channels`, `daq.ai_hw_timing_config`, …) — no duplication. See [Driver-owned state](#driver-owned-state) below.
 3. **Channel configuration**: Translate generic channel configurations into vendor-specific setup.
-4. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background thread for the hardware-timed acquisition.
+4. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background daemon for the hardware-timed acquisition.
 5. **Data format conversion**: Convert vendor-specific data formats to `Measurement` objects.
 6. **Constraint validation**: Handle vendor-specific hardware constraints and raise clear exceptions when the vendor library cannot.
 

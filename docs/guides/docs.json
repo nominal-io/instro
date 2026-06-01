@@ -96,7 +96,9 @@
               "instrumentation/examples/daq/daq_read_digital_line",
               "instrumentation/examples/daq/daq_relays",
               "instrumentation/examples/daq/daq_write_analog_sw_timed",
-              "instrumentation/examples/daq/daq_write_digital_line"
+              "instrumentation/examples/daq/daq_write_digital_line",
+              "instrumentation/examples/daq/daq_read_digital_port",
+              "instrumentation/examples/daq/daq_write_digital_port"
             ]
           },
           {
@@ -109,7 +111,7 @@
             "group": "PSU",
             "pages": [
               "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_worker"
+              "instrumentation/examples/psu/psu_background_daemon"
             ]
           },
           {

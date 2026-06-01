@@ -187,6 +187,28 @@ def test_write_digital_port_configured_channel():
     mock_driver.write_digital_port.assert_called_once()
 
 
+def test_write_digital_port_value_exceeds_width():
+    """Test that writing a value wider than the configured port raises ValueError."""
+    mock_driver = _make_mock_driver()
+
+    daq = InstroDAQ(
+        name="Test DAQ",
+        driver=mock_driver,
+    )
+
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
+    )
+
+    with pytest.raises(ValueError, match="does not fit the 8-bit port 'test_port'"):
+        daq.write_digital_port("test_port", 0x100)
+
+    with pytest.raises(ValueError, match="does not fit the 8-bit port 'test_port'"):
+        daq.write_digital_port("test_port", -1)
+
+    mock_driver.write_digital_port.assert_not_called()
+
+
 def test_write_digital_port_unconfigured_channel():
     """Test that writing to an unconfigured port channel raises KeyError."""
     mock_driver = _make_mock_driver()

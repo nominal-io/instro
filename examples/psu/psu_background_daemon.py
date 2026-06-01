@@ -1,9 +1,4 @@
----
-title: "PSU with background worker"
----
-
-```python psu_background_worker.py
-"""Example: PSU with background worker.
+"""Example: PSU with background daemon.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
@@ -55,4 +50,3 @@ try:
 
 finally:
     psu.close()
-```

@@ -403,7 +403,7 @@ class InstroDAQ(Instrument):
             # Never wait. Let fetch block
             self._background_config.interval = 0
         else:
-            # Give background thread a big wait so as not to eat cycles
+            # Give the background daemon a big wait so as not to eat cycles
             self._background_config.interval = 1
 
         self._background_config.enabled = enable
@@ -503,7 +503,7 @@ class InstroDAQ(Instrument):
         channel_type = kwargs.get("channel_type", None)
 
         # TODO
-        # Need to evaluate spinning up a different worker per channel type, but this
+        # Need to evaluate spinning up a different daemon per channel type, but this
         # gets weird with different devices. DAQmx's channel types are their own things
         # whereas labjack is all one timing engine. Tricky architecture.
         # Baselining ai sample rate as the rate right now, which will break as soon as
@@ -733,6 +733,13 @@ class InstroDAQ(Instrument):
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
                 f"Call configure_digital_port(Direction.OUTPUT, ...) first."
             )
+        if (width := getattr(digital_channel, "width", None)) is not None:
+            max_value = (1 << int(width)) - 1
+            if not 0 <= data <= max_value:
+                raise ValueError(
+                    f"Value {data} does not fit the {int(width)}-bit port '{channel}'; "
+                    f"valid range is 0 to {max_value} (0x{max_value:X})."
+                )
         self._driver.write_digital_port(digital_channel, data)
         timestamp = time.time_ns()
 
