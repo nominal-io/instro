@@ -46,7 +46,6 @@ packages = ["instro"]
 dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
-    "pytest>=8.4.0,<9",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
@@ -56,9 +55,14 @@ dev = [
     "instro-unstable",
     "instro-contrib",
 ]
+test = [
+    "pytest>=8.4.0,<9",
+    "pyusb>=1.3.1",
+    "pyvisa-py>=0.8.1",
+]
 
 [tool.uv]
-default-groups = ["dev"]
+default-groups = ["dev", "test"]
 
 [tool.uv.sources]
 instro-daq-ni = { workspace = true }
