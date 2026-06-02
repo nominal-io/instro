@@ -50,5 +50,5 @@ class TDKLambdaGenesys(PSUDriverBase):
 
     def _check_errors(self) -> None:
         err = self._visa.query("SYSTEM:ERROR?")
-        if not err.startswith("0"):
+        if not err.startswith("+0"):
             raise RuntimeError(f"TDK Lambda PSU reported error: {err}")
