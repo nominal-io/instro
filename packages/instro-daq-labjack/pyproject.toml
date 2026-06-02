@@ -1,6 +1,6 @@
 [project]
 name = "instro-daq-labjack"
-version = "0.5.0"
+version = "1.0.0"
 description = "LabJack DAQ drivers for instro"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

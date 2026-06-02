@@ -1,6 +1,6 @@
 [project]
 name = "instro-daq-mcc"
-version = "0.3.0"
+version = "1.0.0"
 description = "MCC DAQ drivers for instro"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
