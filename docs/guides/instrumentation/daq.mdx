@@ -733,16 +733,21 @@ Each of the methods below must (a) program the device and (b) record the resulti
 - **`read_analog() -> Any`**: Perform software-timed analog read
   - Trigger immediate conversion and return data
 
-- **`fetch_analog(hw_timing_config) -> Any`**: Fetch samples from hardware-timed acquisition buffer
-  - Used during hardware-timed acquisition to retrieve buffered samples
+- **`fetch_analog() -> Any`**: Fetch samples from hardware-timed acquisition buffer
+  - Used during hardware-timed acquisition to retrieve buffered samples; reads timing from `self.ai_hw_timing_config`
 
-- **`read_digital_line(channel) -> int`**: Read digital input line
+- **`read_digital_line(channel) -> int`**: Read a digital input line
 
-- **`write_digital_line(channel, data)` Write to digital output line
+- **`write_digital_line(channel, data)`**: Write to a digital output line
+
+- **`read_digital_port(channel) -> int`**: Read a digital input port
+
+- **`write_digital_port(channel, data)`**: Write to a digital output port
+  - Port read/write are required of every driver; LabJack T-Series raises `NotImplementedError`
 
 ### Data Conversion
 
-- **`_read_to_measurements(response, channel_list, daq_name, **kwargs) -> list[Measurement]`**: Convert vendor data format to InstroDAQ `Measurement` objects
+- **`_read_to_measurements(response, channel_list, daq_name, default_tags, **kwargs) -> list[Measurement]`**: Convert vendor data format to InstroDAQ `Measurement` objects
   - Maps vendor data to channel names
   - Creates `Measurement` objects for publishing
 

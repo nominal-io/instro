@@ -195,7 +195,7 @@ The default polling interval is 1 second, configurable via the `background_inter
 </Note>
 
 **Custom Background Daemon**
-* To define your own background daemon, call `define_background_daemon()`.
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
 * To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -351,7 +351,6 @@ A PSU driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors**: query the instrument's error queue (where one exists) and raise on non-zero status.
 
 ## PSUDriverBase Interface
 

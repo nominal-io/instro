@@ -474,10 +474,10 @@ def write_read(self, address: int, data: bytes, read_len: int) -> bytes:
     """
 
 def set_bitrate(self, bitrate: int) -> None:
-    """Set the I2C bus bitrate.
+    """Set the I2C master clock rate in kHz.
 
     Args:
-        bitrate: Desired bitrate in Hz (e.g., 100000 for 100 kHz)
+        bitrate: Desired bus clock rate in kHz (e.g., 100 for 100 kHz)
     """
 
 def set_pullups(self, enable: bool) -> None:

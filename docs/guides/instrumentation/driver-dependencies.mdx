@@ -20,7 +20,7 @@ Before using `instro` with specific instrument types, you must install the corre
 |--------------|--------------|------------------------|
 | **VISA** | SCPI/VISA-based instruments (PSUs, ELoads, Keysight DAQ) | All VISA-based driver implementations |
 | **NI-DAQmx** | National Instruments DAQ devices | `NIDAQDriver` |
-| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackDAQDriver` |
+| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackTSeriesDriver` |
 | **MCC Universal Library (`mcculw`)** | Measurement Computing DAQ devices | `MCCDriver` |
 | **Total Phase USB Drivers** | Total Phase Aardvark I2C/SPI Host Adapter | `Aardvark` |
 
@@ -68,7 +68,7 @@ LJM is the LabJack Module library required to communicate with LabJack T-Series 
 
 ### Used By
 
-- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackDAQDriver`)
+- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackTSeriesDriver`)
 
 ### Installation
 

@@ -204,7 +204,9 @@ These are the current instrument types that have been developed by Nominal and a
 - `InstroPSU`: programmable Power Supplies
 - `InstroDAQ`: data Acquisition devices
 - `InstroELoad`: electronic Loads
+- `InstroDMM`: digital Multimeters
 - `I2CInterface`: I2C master for communicating to peripherals on an I2C bus
+- `ModbusDevice`: Modbus register/coil device (TCP or RTU)
 
 ### Drivers
 
@@ -218,6 +220,7 @@ These are the current vendor/model specific drivers that have been developed by 
 - `InstroDAQ`
   - National Instruments (NI)
   - LabJack T-Series
+  - Measurement Computing (MCC)
   - Keysight 34980
 - `InstroELoad`
   - B&K Precision 85xx Series
@@ -232,4 +235,4 @@ These are the current vendor/model specific drivers that have been developed by 
 These are the current Publishers that have been developed by Nominal and available out of the box.
 
 - `NominalCorePublisher`: sends data to a Nominal Core dataset
-- `ConnectPublisher`: sends data to Nominal Connect client
+- `NominalConnectPublisher`: sends data to Nominal Connect client

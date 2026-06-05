@@ -205,7 +205,7 @@ The default polling interval is 1 second, configurable via the `background_inter
 </Note>
 
 **Custom Background Daemon**
-* To define your own background daemon, call `define_background_daemon()`.
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
 * To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -281,7 +281,6 @@ An electronic load driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors**: override `check_errors()` if the instrument exposes an error queue or status register.
 
 ## ELoadDriverBase Interface
 
@@ -326,7 +325,7 @@ def get_current(self, channel: int) -> float:
     """Query and return the measured input current in amperes."""
 ```
 
-`check_errors()` is also part of the contract but defaults to a no-op on the base class. Override it if your vendor exposes an error queue.
+Error checking is not part of the base contract: if your vendor exposes an error queue, add a private `_check_errors()` helper and call it from your write/query paths (see the representative driver below).
 
 ### Talking to the Instrument
 
@@ -414,7 +413,7 @@ class BK85XXB(ELoadDriverBase):
     def get_voltage(self, channel: int) -> float:
         return float(self._visa.query("MEASure:VOLTage?"))
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         err = self._visa.query("SYST:ERR?")
         if not err.startswith("0"):
             raise RuntimeError(f"BK85XXB reported error: {err}")
@@ -456,7 +455,7 @@ class MyCustomELoadDriver(ELoadDriverBase):
 
     # ... implement other required methods ...
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         err = self._visa.query("ERR?")
         if err != "OK":
             raise RuntimeError(f"Electronic load error: {err}")
@@ -483,5 +482,5 @@ Driver development requires careful mapping of vendor-specific behavior to the u
 - Implementing all abstract methods on `ELoadDriverBase`
 - Using the correct vendor protocol or command syntax
 - Converting instrument responses to the expected Python types
-- Overriding `check_errors()` if your vendor exposes an error queue or status register
+- Adding a private `_check_errors()` helper if your vendor exposes an error queue or status register
 - Testing with actual hardware to ensure commands work as expected
