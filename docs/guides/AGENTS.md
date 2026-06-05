@@ -2,7 +2,7 @@
 
 ## About this project
 
-- Open-source documentation for [Nominal Instrumentation](https://nominal-io.github.io/instrumentation/), Nominal's Python library for test equipment automation.
+- Open-source documentation for [Nominal Instrumentation](https://instro.nominal.io), Nominal's Python library for test equipment automation.
 - Built on [Mintlify](https://mintlify.com). Pages are MDX files with YAML frontmatter.
 - Configuration lives in `docs.json`.
 - Run `mint dev` to preview locally. Run `mint broken-links` before opening a PR.

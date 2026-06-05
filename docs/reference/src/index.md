@@ -8,7 +8,7 @@ collecting measurements, and publishing data to [Nominal](https://nominal.io).
 The SDK is organized into several key components:
 
 - **Library**: Base classes and infrastructure for building instrument integrations,
-  including the [`Instrument`](reference/nominal_instrument.md) base class, communication interfaces,
+  including the [`Instrument`](reference/instrument.md) base class, communication interfaces,
   and data publishers.
 
 - **Instruments**: High-level, vendor-agnostic interfaces for common instrument types:
@@ -29,5 +29,5 @@ The SDK is organized into several key components:
 
 | Section | Description |
 |---------|-------------|
-| [Library](reference/nominal_instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
+| [Library](reference/instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
 | [Changelog](changelog.md) | Release history and version changes |

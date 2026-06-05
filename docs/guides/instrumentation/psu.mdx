@@ -195,7 +195,7 @@ The default polling interval is 1 second, configurable via the `background_inter
 </Note>
 
 **Custom Background Daemon**
-* To define your own background daemon, call `define_background_daemon()`.
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
 * To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.

@@ -164,17 +164,17 @@
       "anchors": [
         {
           "anchor": "SDK Reference",
-          "href": "https://nominal-io.github.io/instrumentation/",
+          "href": "https://nominal-io.github.io/instro/",
           "icon": "book-open-cover"
         },
         {
           "anchor": "GitHub",
-          "href": "https://github.com/nominal-io/instrumentation",
+          "href": "https://github.com/nominal-io/instro",
           "icon": "github"
         },
         {
           "anchor": "Changelog",
-          "href": "https://nominal-io.github.io/instrumentation/changelog/",
+          "href": "https://nominal-io.github.io/instro/changelog/",
           "icon": "book"
         }
       ]
@@ -212,7 +212,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/nominal_io",
-      "github": "https://github.com/nominal-io/instrumentation",
+      "github": "https://github.com/nominal-io/instro",
       "linkedin": "https://linkedin.com/company/nominal-io"
     }
   },

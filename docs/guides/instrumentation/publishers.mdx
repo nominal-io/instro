@@ -277,7 +277,7 @@ class PrintChannelPublisher:
         try:
             if isinstance(data, Measurement):
                 if data.channel_data.get(self.channel_name, None):
-                    print(f"{self.channel_name}: {data.value}")
+                    print(f"{self.channel_name}: {data.latest}")
         except Exception as e:
             print(f"Error publishing data: {e}")
 
@@ -324,7 +324,7 @@ class PrintChannelPublisher:
     def publish(self, data: Measurement | Command, **kwargs):
         if isinstance(data, Measurement):
             if data.channel_data.get(self.channel_name, None):
-                print(f"{self.channel_name}: {data.value}")
+                print(f"{self.channel_name}: {data.latest}")
 
     def close(self):
         print("Publisher closed")

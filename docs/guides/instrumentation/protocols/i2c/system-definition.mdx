@@ -309,8 +309,8 @@ from instro.i2c.types import CustomScaling
 
 # ADC with voltage divider: V = (ADC_value / 4095) * 5.0 * 7.2
 scaling = CustomScaling(
-    to_physical=lambda x: x / 4095 * 5.0 * 7.2,
-    to_raw=lambda v: int(v / 7.2 / 5.0 * 4095)
+    to_physical_fn=lambda x: x / 4095 * 5.0 * 7.2,
+    to_raw_fn=lambda v: int(v / 7.2 / 5.0 * 4095)
 )
 ```
 
