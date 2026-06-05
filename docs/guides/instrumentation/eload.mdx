@@ -281,7 +281,6 @@ An electronic load driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Check errors (optional)**: if the instrument exposes an error queue (`SYST:ERR?`), add a private `_check_errors()` helper and call it from your write/query paths. This is a per-driver convention; the base class has no `check_errors`.
 
 ## ELoadDriverBase Interface
 
