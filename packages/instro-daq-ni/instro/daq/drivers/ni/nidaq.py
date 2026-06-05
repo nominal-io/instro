@@ -147,7 +147,7 @@ class NIDAQDriver(DAQDriverBase):
             terminal_config=terminal_config,
         )
 
-        self.ai_channels[channel.alias] = channel
+        self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
@@ -167,7 +167,7 @@ class NIDAQDriver(DAQDriverBase):
             max_val=channel.range_max,
         )
 
-        self.ao_channels[channel.alias] = channel
+        self._ao_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -183,7 +183,7 @@ class NIDAQDriver(DAQDriverBase):
             sample_mode=AcquisitionType.CONTINUOUS,
         )
 
-        self.ai_hw_timing_config = hw_timing_config
+        self._ai_hw_timing_config = hw_timing_config
 
     def configure_di_line_channel(
         self,
@@ -201,7 +201,7 @@ class NIDAQDriver(DAQDriverBase):
             name_to_assign_to_lines=channel.alias,
             line_grouping=LineGrouping.CHAN_PER_LINE,
         )
-        self.di_channels[channel.alias] = channel
+        self._di_channels[channel.alias] = channel
 
     def configure_do_line_channel(
         self,
@@ -219,7 +219,7 @@ class NIDAQDriver(DAQDriverBase):
             name_to_assign_to_lines=channel.alias,
             line_grouping=LineGrouping.CHAN_PER_LINE,
         )
-        self.do_channels[channel.alias] = channel
+        self._do_channels[channel.alias] = channel
 
     def configure_di_port_channel(
         self,
@@ -238,7 +238,7 @@ class NIDAQDriver(DAQDriverBase):
             line_grouping=LineGrouping.CHAN_FOR_ALL_LINES,
         )
         self._di_port_tasks[channel.alias] = task
-        self.di_channels[channel.alias] = channel
+        self._di_channels[channel.alias] = channel
 
     def configure_do_port_channel(
         self,
@@ -257,7 +257,7 @@ class NIDAQDriver(DAQDriverBase):
             line_grouping=LineGrouping.CHAN_FOR_ALL_LINES,
         )
         self._do_port_tasks[channel.alias] = task
-        self.do_channels[channel.alias] = channel
+        self._do_channels[channel.alias] = channel
 
     def _build_line_channel(
         self,
@@ -333,13 +333,13 @@ class NIDAQDriver(DAQDriverBase):
             self._running_channel_types.add(channel_type)
 
     def _capture_sample_rate(self):
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
         ai_task = self._tasks[ChannelType.ANALOG_INPUT]
         actual_rate = ai_task.timing.samp_clk_rate
         self._actual_sample_rate = actual_rate
         self._actual_sample_period = round(1e9 / actual_rate)
-        requested_rate = self.ai_hw_timing_config.sample_rate
+        requested_rate = self._ai_hw_timing_config.sample_rate
         if abs(actual_rate - requested_rate) / requested_rate > 0.1:
             print(
                 f"Warning: Requested sample rate ({requested_rate}) "
@@ -374,11 +374,11 @@ class NIDAQDriver(DAQDriverBase):
         return DAQmxData(data=data, timestamp=timestamp, dt=None)
 
     def fetch_analog(self) -> DAQmxData:
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
 
-        data = task.read(number_of_samples_per_channel=self.ai_hw_timing_config.samples_per_channel)
+        data = task.read(number_of_samples_per_channel=self._ai_hw_timing_config.samples_per_channel)
         timestamp = time.time_ns()  # DAQmx does not do hardware timed samples, for the most part
 
         if isinstance(data[0], float):

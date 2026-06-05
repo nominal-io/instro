@@ -142,7 +142,7 @@ class Keysight34980A(DAQDriverBase):
             self._turn_on_timestamps()
             self._check_errors()
 
-        self.ai_channels[channel.alias] = channel
+        self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -155,7 +155,7 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write("TRIG:COUN INF")
             self._check_errors()
 
-        self.ai_hw_timing_config = hw_timing_config
+        self._ai_hw_timing_config = hw_timing_config
 
     def start(self, **kwargs):
         """Enable timestamps and ``INIT`` the scan."""
@@ -171,7 +171,7 @@ class Keysight34980A(DAQDriverBase):
             self._check_errors()
 
     def read_analog(self) -> KeysightData:
-        scan_string = ",".join([ch.physical_channel for ch in self.ai_channels.values()])
+        scan_string = ",".join([ch.physical_channel for ch in self._ai_channels.values()])
 
         with self._visa.lock():
             response = self._visa.query(f"READ? (@{scan_string})")
@@ -183,10 +183,10 @@ class Keysight34980A(DAQDriverBase):
         self,
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
-        num_channels = len(self.ai_channels)
-        min_points_per_fetch = self.ai_hw_timing_config.samples_per_channel * num_channels
+        num_channels = len(self._ai_channels)
+        min_points_per_fetch = self._ai_hw_timing_config.samples_per_channel * num_channels
 
         with self._visa.lock():
             # Create a blocking call
@@ -215,7 +215,7 @@ class Keysight34980A(DAQDriverBase):
         """Parse ``MNNN/B`` (slot/channel/bit), program the port for DI, and register the line."""
         channel = self._build_line_channel(physical_channel, Direction.INPUT, logic, logic_level, alias)
         self._program_port(channel, direction=Direction.INPUT)
-        self.di_channels[channel.alias] = channel
+        self._di_channels[channel.alias] = channel
 
     def configure_do_line_channel(
         self,
@@ -227,7 +227,7 @@ class Keysight34980A(DAQDriverBase):
         """Parse ``MNNN/B`` (slot/channel/bit), program the port for DO, and register the line."""
         channel = self._build_line_channel(physical_channel, Direction.OUTPUT, logic, logic_level, alias)
         self._program_port(channel, direction=Direction.OUTPUT)
-        self.do_channels[channel.alias] = channel
+        self._do_channels[channel.alias] = channel
 
     def configure_di_port_channel(
         self,
@@ -240,7 +240,7 @@ class Keysight34980A(DAQDriverBase):
         """Parse ``MNNN`` (slot/channel), program the port for DI, and register the port."""
         channel = self._build_port_channel(physical_channel, Direction.INPUT, logic, port_width, logic_level, alias)
         self._program_port(channel, direction=Direction.INPUT)
-        self.di_channels[channel.alias] = channel
+        self._di_channels[channel.alias] = channel
 
     def configure_do_port_channel(
         self,
@@ -253,7 +253,7 @@ class Keysight34980A(DAQDriverBase):
         """Parse ``MNNN`` (slot/channel), program the port for DO, and register the port."""
         channel = self._build_port_channel(physical_channel, Direction.OUTPUT, logic, port_width, logic_level, alias)
         self._program_port(channel, direction=Direction.OUTPUT)
-        self.do_channels[channel.alias] = channel
+        self._do_channels[channel.alias] = channel
 
     def _build_line_channel(
         self,
