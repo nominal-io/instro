@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "1.0.0"
+version = "0.8.0"
 description = "Nominal instrumentation framework (core library + SCPI/VISA drivers)"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

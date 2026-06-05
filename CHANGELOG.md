@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v1.0.0) (2026-06-02)
+## [0.8.0](https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v0.8.0) (2026-06-02)
 
 
 ### ⚠ BREAKING CHANGES

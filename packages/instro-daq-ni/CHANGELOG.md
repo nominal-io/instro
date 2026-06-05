@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-ni-v0.5.0...instro-daq-ni-v1.0.0) (2026-06-02)
+## [0.6.0](https://github.com/nominal-io/instro/compare/instro-daq-ni-v0.5.0...instro-daq-ni-v0.6.0) (2026-06-02)
 
 
 ### ⚠ BREAKING CHANGES

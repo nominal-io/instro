@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.5.0...instro-daq-labjack-v1.0.0) (2026-06-02)
+## [0.6.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.5.0...instro-daq-labjack-v0.6.0) (2026-06-02)
 
 
 ### ⚠ BREAKING CHANGES

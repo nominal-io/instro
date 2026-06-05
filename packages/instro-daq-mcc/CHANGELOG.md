@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.3.0...instro-daq-mcc-v1.0.0) (2026-06-02)
+## [0.4.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.3.0...instro-daq-mcc-v0.4.0) (2026-06-02)
 
 
 ### ⚠ BREAKING CHANGES

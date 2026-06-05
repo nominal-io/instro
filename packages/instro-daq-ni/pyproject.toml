@@ -1,6 +1,6 @@
 [project]
 name = "instro-daq-ni"
-version = "1.0.0"
+version = "0.6.0"
 description = "National Instruments DAQ drivers for instro"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
