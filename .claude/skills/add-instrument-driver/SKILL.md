@@ -62,6 +62,22 @@ read an existing driver in `instro/<category>/drivers/` first — the method set
 and transport differ. Match the surrounding code's idiom, naming, and comment
 density.
 
+**Let the category you're adding to decide layout and conventions — the paths
+below are the core-category default, not universal.** Categories in
+`instro-unstable` (e.g. `scope`) diverge, and a real driver in the category is
+the source of truth. Things that vary, observed in `scope`:
+
+- **Directory layout.** `scope` nests drivers under a vendor subdir
+  (`drivers/<vendor>/<vendor>_<model>.py` + a `drivers/<vendor>/__init__.py`),
+  not the flat `drivers/<vendor>_<model>.py`.
+- **Docstring style.** A category's base class may carry multi-paragraph
+  docstrings (`ScopeDriverBase` does) even though the one-line rule holds
+  elsewhere. Match the *concrete* sibling driver's idiom (Keysight/Tektronix
+  scope drivers use one-liners), not the base.
+- **Unsupported-feature exception.** Core PSU/DMM raise
+  `FeatureNotSupportedError`; `scope` drivers raise plain `NotImplementedError`.
+  Use whatever the category's reference driver uses.
+
 ## Step 3 — Read the category base class
 
 `instro/<category>/<category>.py` defines `<Category>DriverBase`. Note:
@@ -74,8 +90,13 @@ density.
 
 ## Step 4 — Write the driver module
 
-Create `instro/<category>/drivers/<vendor>_<model>.py` (snake_case file; e.g.
-`siglent_spd3303.py`). Class name is `<Vendor><Model>` (e.g. `SiglentSPD3303`).
+Create the driver at the path the category actually uses (see Step 2): core
+categories use `instro/<category>/drivers/<vendor>_<model>.py`; vendor-subdir
+categories like `scope` use
+`packages/instro-unstable/instro/unstable/<category>/drivers/<vendor>/<vendor>_<model>.py`.
+File name is the snake_case form (e.g. `siglent_spd3303.py`,
+`siglent_sds1000x_e.py`). Class name is `<Vendor><Model>` (e.g. `SiglentSPD3303`,
+`SiglentSDS1000XE`).
 
 Rules (from `AGENTS.md` "Patterns and constraints"):
 
@@ -116,14 +137,27 @@ exactly (reference: `instro/daq/drivers/keysight_34980a.py`):
 
 ## Step 5 — Register the driver
 
-Edit `instro/<category>/drivers/__init__.py`: add both the import and the entry
-in `__all__`. For contrib drivers, register in the corresponding contrib
-`drivers/__init__.py` (the smoke test picks it up automatically).
+Registration follows the category's existing pattern — check how a sibling
+driver is wired before assuming:
+
+- **Core categories:** edit `instro/<category>/drivers/__init__.py`, adding both
+  the import and the `__all__` entry.
+- **Vendor-subdir categories (e.g. `scope`):** register in the vendor
+  subpackage's `drivers/<vendor>/__init__.py` (import + `__all__`). The top-level
+  `drivers/__init__.py` may be intentionally empty and drivers are imported
+  directly from the vendor subpackage (`from ...scope.drivers.siglent import
+  SiglentSDS1000XE`) — don't add a top-level re-export if siblings don't have one.
+- **Contrib drivers:** register in the corresponding contrib
+  `drivers/__init__.py` (the smoke test picks it up automatically).
 
 ## Step 6 — Write tests
 
-Create/extend `tests/<category>/test_<category>_drivers.py`. The canonical
-pattern is in `tests/psu/test_psu_drivers.py`:
+Put tests where the category's existing driver tests live — don't assume the
+path. Core categories use `tests/<category>/test_<category>_drivers.py`; some
+categories keep driver tests in a single top-level file (e.g. `scope` →
+`tests/test_instro_scope.py`). Grep for an existing driver class name in `tests/`
+to find the right file. The canonical pattern is in
+`tests/psu/test_psu_drivers.py`:
 
 - Patch the driver's `VisaDriver` reference with `autospec=True`:
   `patch("instro.<category>.drivers.<vendor>_<model>.VisaDriver", autospec=True)`.
@@ -141,7 +175,9 @@ pattern is in `tests/psu/test_psu_drivers.py`:
 
 Per `AGENTS.md` "Documentation":
 
-- **`README.md` "Supported devices" table** — add the model to the category row.
+- **`README.md`** — add the model to the **"Supported devices"** table for core
+  categories. Categories in `instro-unstable` (e.g. `scope`) are listed under
+  **"Experimental modules"** instead — update that prose, not the table.
 - **`docs/guides/instrumentation/<category>.mdx`** — add a guide entry only if
   the device introduces a new user-facing workflow.
 - If a new public API/category was introduced (rare for a single driver), update
