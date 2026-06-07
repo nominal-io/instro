@@ -660,3 +660,50 @@ def test_channels_property_returns_immutable_tuple():
 
     assert isinstance(daq.channels, tuple)
     assert {ch.alias for ch in daq.channels} == {"do0"}
+
+
+# --- start(background=...) and read_analog dispatch ---
+
+
+def _hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and a hardware sample rate configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+    return daq, mock_driver
+
+
+def test_start_background_false_does_not_spin_daemon():
+    """start(background=False) begins hardware acquisition without spinning the daemon thread."""
+    daq, mock_driver = _hw_timed_daq()
+
+    daq.start(background=False)
+
+    mock_driver.start.assert_called_once()
+    assert daq._background_thread is None
+
+
+def test_start_background_false_read_analog_fetches_from_buffer():
+    """With no daemon running, read_analog() during HW-timed acquisition fetches the buffer."""
+    daq, mock_driver = _hw_timed_daq()
+    daq.start(background=False)
+
+    daq.read_analog()
+
+    mock_driver.fetch_analog.assert_called_once()
+
+
+def test_start_default_spins_daemon_and_read_analog_raises():
+    """Default start() spins the daemon, which owns the buffer; a manual read_analog() then raises."""
+    daq, _ = _hw_timed_daq()
+
+    daq.start()
+    try:
+        assert daq._background_thread is not None
+        assert daq._background_thread.is_alive()
+        with pytest.raises(RuntimeError, match="background acquisition daemon is running"):
+            daq.read_analog()
+    finally:
+        daq.stop()

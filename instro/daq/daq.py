@@ -436,30 +436,8 @@ class InstroDAQ(Instrument):
 
     @background_interval.setter
     def background_interval(self, seconds: float):
-        """No-op for DAQ — the interval is fixed at 0 while the daemon is enabled."""
+        """No-op for DAQ — the interval is fixed at 0 so the blocking fetch implicitly times the loop."""
         return
-
-    @property
-    def background_enable(self) -> bool:
-        """Whether the background daemon is enabled."""
-        return self._background_config.enabled
-
-    @background_enable.setter
-    def background_enable(self, enable: bool):
-        """Enable/disable the background daemon.
-
-        When enabled, the daemon continuously fetches the DAQ buffer; the interval
-        is set to 0 so the blocking fetch implicitly times the loop. When
-        disabled, the interval is bumped to 1 s so the loop doesn't burn cycles.
-        """
-        if enable:
-            # Never wait. Let fetch block
-            self._background_config.interval = 0
-        else:
-            # Give the background daemon a big wait so as not to eat cycles
-            self._background_config.interval = 1
-
-        self._background_config.enabled = enable
 
     def open(self):
         """Open the underlying driver."""
@@ -546,10 +524,13 @@ class InstroDAQ(Instrument):
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
         logger.info("Configured AI hardware timing on DAQ '%s'", self.name)
 
-    def start(self, **kwargs):
+    def start(self, background: bool = True, **kwargs):
         """Start hardware-timed acquisition.
 
         Args:
+            background: When True (default), spin the daemon thread to continuously
+                fetch the buffer. When False, begin hardware acquisition only and
+                fetch the buffer yourself by calling ``read_analog()``.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         # DAQmx allows starting different channel_types independently.
@@ -563,9 +544,10 @@ class InstroDAQ(Instrument):
         # we add other channel type capabilities that are hardware timed.
 
         self._driver.start(channel_type=channel_type)
-        self._define_background_daemon()
 
-        super().start()
+        if background:
+            self._define_background_daemon()
+            super().start()
 
     def stop(self, **kwargs):
         """Stop the DAQ device."""
@@ -584,7 +566,7 @@ class InstroDAQ(Instrument):
         Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
         """
         if self.ai_hw_timing_config:
-            if not self._background_config.enabled:
+            if not (self._background_thread and self._background_thread.is_alive()):
                 return self._fetch_analog(**kwargs)
             # Background daemon running. The user can't pull from the buffer mid-flight.
             # TODO revisit with INSTRO-149 issue ticket.
