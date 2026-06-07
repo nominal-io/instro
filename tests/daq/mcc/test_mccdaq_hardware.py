@@ -423,7 +423,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -466,12 +465,11 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.background_enable = False
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.start()
+                daq.start(background=False)
 
                 try:
                     daq.write_analog_value("ao_0", 4.0)
@@ -508,7 +506,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -557,7 +554,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -596,7 +592,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
