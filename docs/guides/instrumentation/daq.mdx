@@ -18,7 +18,7 @@ InstroDAQ is a hardware abstraction layer (HAL) that provides a unified interfac
 
 ### Lifecycle Pattern
 
-The typical InstroDAQ workflow follow this pattern:
+The typical InstroDAQ workflow follows this pattern:
 
 1. **`InstroDAQ(name, driver, ...)`** - Instantiate the DAQ with a vendor driver
 2. **`open()`** - Establish connection to the hardware
@@ -56,7 +56,7 @@ InstroDAQ supports two acquisition modes:
 - Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
 
-## Creating a InstroDAQ Instance
+## Creating an InstroDAQ Instance
 
 Construct a vendor driver and pass it to `InstroDAQ`:
 

@@ -5,7 +5,7 @@ description: Using ModbusDevice for Modbus TCP and RTU device communication
 
 # ModbusDevice
 
-ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the Nominal publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
+ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the `instro` publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
 
 <Note>
 [Modbus Application Protocol Specification](https://www.modbus.org/modbus-specifications)
@@ -13,7 +13,7 @@ ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-base
 
 ## Quickstart
 
-Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
+Publishing Modbus data to Nominal Core with instro
 
 <Tabs>
 
@@ -27,7 +27,8 @@ from instro.modbus import ModbusDevice
 
 RID = "<dataset_rid>" # Replace with your dataset RID.
 
-# Instantiate device with JSON config. The autostart flag opens and begins polling
+# Instantiate from a JSON config. autostart opens the connection and begins polling.
+# It requires a `timing` section in the config (present in my_device.json below).
 modbus_device = ModbusDevice(config="my_device.json", autostart=True)
 
 # Add publisher to flow data to Nominal Core
@@ -49,7 +50,7 @@ modbus_device.close()
   "protocol": "modbus",
   "device": {
     "name": "example_device",
-    "description": "Example device for Nominal docs",
+    "description": "Example device for instro docs",
     "manufacturer": "Nominal",
     "model": "Sim Device 3000"
   },
@@ -95,13 +96,13 @@ Most devices can be brought online with just a connection, a few registers, and 
 
 | If you're trying to... | Reach for... |
 | --- | --- |
-| Stream live data to Nominal Core with the shortest possible setup | [`autostart=True`](#lifecycle-pattern) + [`add_publisher()`](#creating-a-nominalmodbus-instance) |
+| Stream live data to Nominal Core with the shortest possible setup | [`autostart=True`](#lifecycle-pattern) + [`add_publisher()`](#creating-a-modbusdevice-instance) |
 | Read raw ADC counts or tick values as physical/engineering units | [`scale`](#linear-scaling) |
 | Protect equipment from out-of-range or wrong-type writes | [`write_min` / `write_max`](#write-limits) |
 | Replace magic numbers with human-readable labels for mode/state writes | [`write_value_map`](#write-value-maps) |
 | Unpack a packed status word into individual boolean channels | [`bitmap`](#bitmap-extraction) |
 | Minimize round-trips when polling many adjacent registers | [`read_group`](#read-groups) |
-| Share one device config across test benches with different networking | Pass [`connection` separately](#creating-a-nominalmodbus-instance) to the constructor |
+| Share one device config across test benches with different networking | Pass [`connection` separately](#creating-a-modbusdevice-instance) to the constructor |
 | Work with a device that uses little-endian or "Modbus-style" word ordering | [`byte_swap` / `word_swap` / `long_swap`](#byte-ordering) |
 | Throttle commands to a device that processes writes sequentially | [`write_delay_ms`](#timing-section) |
 | Prototype a config without real hardware | The built-in [simulator](#prototyping-without-a-device) |
@@ -860,7 +861,7 @@ import time
 from instro.modbus import ModbusDevice
 
 connection = {"transport": "tcp", "host": "192.168.5.222", "port": 502}
-f4t = ModbusDevice("watlow_f4t.json", connection=connection, autostart=True)
+f4t = ModbusDevice(config="watlow_f4t.json", connection=connection, autostart=True)
 
 try:
     # Set zone 1 to auto mode using write_value_map (no magic numbers)
