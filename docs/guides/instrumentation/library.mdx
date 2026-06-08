@@ -10,7 +10,7 @@ description: The `Instrument`, `Measurement`, and `Command` building blocks
 # Library
 
 ## Instrument
-`Instrument` is the base class for all instrument types. It's responsibilities include.
+`Instrument` is the base class for all instrument types. Its responsibilities include:
 * Handling background daemons for synchronous instrument communication.
 * Holds the `publisher`s an instrument will use.
 * Creates and holds the communication interface for the instrument.
@@ -18,14 +18,14 @@ description: The `Instrument`, `Measurement`, and `Command` building blocks
 When creating a custom instrument type, you must subclass `Instrument`.
 
 ## Measurements and Commands
-Within a `Instrument`, data is packaged into `Measurement` and `Command` objects when data is read from or sent to an instrument, respectively.
+Within an `Instrument`, data is packaged into `Measurement` and `Command` objects when data is read from or sent to an instrument, respectively.
 
 The rationale for this is:
 1. Consistency regardless of instrument type or vendor.
 2. Interoperability of publishers across instrument types.
-3. Better integration with Nominal ecosystem by enforcing certain data is always be present, like timestamps.
+3. Better integration with the Nominal ecosystem by enforcing that certain data, like timestamps, is always present.
 
-Both of these classes are imported via `instro.lib`
+`Measurement` and `Command` are defined in `instro.lib.types` and re-exported from `instro.lib`, so either import path works: `from instro.lib import Measurement, Command` or `from instro.lib.types import Measurement, Command`.
 
 ### Measurement
 A `Measurement` object should be created when reading data from an instrument.
@@ -52,6 +52,8 @@ class Command:
     tags: dict[str, str] | None = None
 ```
 
+Unlike `Measurement`, a `Command` carries a single datapoint per channel (`float | str`, not `list[float]`) and a single `timestamp`. The `str` option covers categorical commands whose value is not numeric: mode names and relay states such as `OPEN` / `CLOSED`.
+
 ### Parameters
 
 - **`channel_data: dict[str, list[float]]`**
@@ -63,7 +65,7 @@ class Command:
   }
   ```
 - **`timestamps: list[int]`**
-  A list of POSIX timestamps (in integer milliseconds) for each measurement sample, aligned with the values in `channel_data`. The length of `timestamps` should match the length of each list in `channel_data`.
+  A list of timestamps in integer nanoseconds since the Unix epoch, one per measurement sample, aligned with the values in `channel_data`. The length of `timestamps` should match the length of each list in `channel_data`.
 
 - **`tags: dict[str, str] | None`**
   Optional metadata associated with this measurement acquisition. Common tags include test IDs, operator name, or environmental qualifiers. Useful for search, provenance, and analysis.
@@ -84,7 +86,7 @@ psu_legacy = InstroPSU(name="main", driver=BK9115(...), num_channels=1, legacy_n
 - **Backwards compatibility.** If your dashboards or recorded datasets were keyed on the pre-v1.0 channel names, flip the flag on each instrument as a single-line stopgap while you update downstream consumers.
 
 **Scope:**
-- Categories with a v1.0 rename (PSU, ELoad, I2C, DAQ digital channels, Scope) honor the flag.
+- Categories with a v1.0 rename (PSU, ELoad, I2C, DAQ digital channels, and the experimental `InstroScope` in `instro-unstable`) honor the flag.
 - Categories with no v1.0 rename (DMM, Modbus, DAQ analog/relay) ignore the flag (the published names are unchanged either way).
 
 **Limitations:**

@@ -172,7 +172,7 @@ If `custom_file_name` is not provided, the output file is named `measurements-YY
 
 - **`avro`** (default): Compact binary format with snappy compression. Uses the same schema as Nominal Core ingest, so captured files can be uploaded after the fact without transformation. Recommended for production captures.
 - **`csv`**: One row per `(timestamp, channel, value, tags)` tuple. Good for quick inspection in spreadsheet tools.
-- **`json`**: Appends each publish to a JSON array. Convenient for debugging small runs, but not recommended for high-rate data, as the file is re-read and rewritten on every publish call.
+- **`json`**: Appends each publish to a JSON array. Convenient for debugging small runs, but not recommended for high-rate data: the entire file is re-read and rewritten on every publish call, so the cost of a capture grows quadratically (O(n^2)) with the number of records.
 
 **Example:**
 
@@ -264,7 +264,7 @@ class Publisher(Protocol):
 ```
 
 ### Example
-This publisher prints to the console every time a `Measurement` is published corresponding to a predefied <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
+This publisher prints to the console every time a `Measurement` is published corresponding to a predefined <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
 ```python
 from instro.lib.types import Measurement, Command
 
@@ -289,9 +289,9 @@ class PrintChannelPublisher:
 
 Publisher wrappers modify the behavior of other publishers by adding buffering or asynchronous processing. They're composable - wrap any publisher to add new capabilities.
 
-### BufferedPublisher
+### BasicBufferedPublisher
 
-Collects data in memory and publishes in batches, reducing the overhead of frequent publish calls.
+`BasicBufferedPublisher` collects data in memory and publishes in batches, reducing the overhead of frequent publish calls. It is the concrete implementation of the abstract `BufferedPublisher` base, so instantiate `BasicBufferedPublisher`.
 
 **When to use:**
 - You're making many small publish calls and want to reduce overhead
@@ -335,7 +335,7 @@ buffered_publisher = BasicBufferedPublisher(print_publisher, buffer_size=5)
 
 psu = InstroPSU(
     name="myPSU",
-    driver=SimulatedPSU("TCPIP0::192.168.1.100::5025::SOCKET"),
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
     num_channels=2,
 )
 psu.add_publisher(buffered_publisher)
@@ -403,7 +403,7 @@ queued_publisher = QueuedPublisher(
 
 psu = InstroPSU(
     name="myPSU",
-    driver=SimulatedPSU("TCPIP0::192.168.1.100::5025::SOCKET"),
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
     num_channels=2,
 )
 psu.add_publisher(queued_publisher)

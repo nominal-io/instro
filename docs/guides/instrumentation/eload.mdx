@@ -17,7 +17,7 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-A `InstroELoad` is built from a concrete driver:
+An `InstroELoad` is built from a concrete driver:
 
 ```
 InstroELoad("name", driver=BK85XXB(visa_resource="USB0::..."))
@@ -52,7 +52,7 @@ Electronic loads can operate in four modes:
 The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes. Consult your instrument's manual.
 </Note>
 
-## Creating a InstroELoad Instance
+## Creating an InstroELoad Instance
 
 ```python
 from instro.eload.drivers.bk_85xxb import BK85XXB
@@ -177,7 +177,7 @@ while True:
         ch1_current = eload.get_channel(
             channel_name = "myELoad.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immedietly return with the last 5 measurements for this channel (if available).
+            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
 
     except KeyboardInterrupt:
         print("Stopping...")
@@ -239,7 +239,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Purpose |
 |--------|---------|
-| `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct a InstroELoad with a vendor driver |
+| `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroELoad with a vendor driver |
 | `open()` | Establish VISA connection to the electronic load |
 | `close()` | Disconnect from electronic load and close all publishers |
 | `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |
