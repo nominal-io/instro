@@ -195,8 +195,27 @@ just test     # mocked unit tests, no hardware
 ```
 
 If both pass, CI will pass. Then summarize for the user: the new driver, what
-optional capabilities it supports/omits (and why), and remind them the wire-level
-behavior should still be confirmed against real hardware before merge.
+optional capabilities it supports/omits (and why).
+
+## Step 9 — Offer hardware validation
+
+Mocked unit tests prove the wire commands are *shaped* right; they cannot prove
+the driver works against the real instrument. Once the driver is written and the
+mocked gates pass, **ask the user whether they have the physical device on hand**:
+
+> The driver passes its mocked unit tests. Do you have the actual `<vendor>
+> <model>` connected right now? If so, I can write a standalone
+> hardware-validation script that exercises every method against the real device
+> and self-correct the driver from what it finds.
+
+- **If yes:** gather the device identifier/connection string, exact model, vendor,
+  channel count, and what's wired to each channel (stimulus/loopback), then run the
+  **`validate-driver-hardware` skill** (`.agents/skills/validate-driver-hardware/SKILL.md`)
+  with those details. It writes a hardware validation script, runs it
+  against the device, and iterates on the driver until every supported method passes.
+- **If no:** stop here. Remind the user the wire-level behavior should still be
+  confirmed against real hardware before merge, and that they can run the
+  `validate-driver-hardware` skill later when the device is available.
 
 ## Anti-patterns to refuse
 

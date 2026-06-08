@@ -132,8 +132,10 @@ Available now:
 
 | Name | Kind | What it does |
 |---|---|---|
-| `add-instrument-driver` | skill | Scaffold a new vendor driver from a programming manual/API, wired in per this file's conventions (driver module, registration, mocked tests, doc updates). |
+| `add-instrument-driver` | skill | Scaffold a new vendor driver from a programming manual/API, wired in per this file's conventions (driver module, registration, mocked tests, doc updates). On completion, offers to hand off to `validate-driver-hardware`. |
 | `manual-spec-extractor` | subagent | Read-only worker that extracts a structured, wire-level command spec (per-method SCPI commands, error-query semantics, channel model) from a manual/PDF/URL so the heavy document tokens stay out of the main conversation. `add-instrument-driver` Step 1 delegates to it. |
+| `validate-driver-hardware` | skill | Write a standalone, self-contained (no publishers) hardware-validation script that exercises every method an authored driver implements, run it against the connected device, and iterate on the driver to fix real bugs the hardware surfaces. Lands a `@pytest.mark.hardware` test under `tests/<category>/<vendor>/`. |
+| `hardware-test-runner` | subagent | Run/read-only worker that executes the validation script against the instrument and returns a structured triage (per-step pass/fail, trimmed errors, driver-bug vs script-config vs hardware-wiring hypotheses) so noisy transport I/O stays out of the main conversation. `validate-driver-hardware` Step 4 delegates to it. |
 
 When you add or change a skill/subagent, update **both** toolchains' copies and this table. New skills/subagents are a "Contributor workflow, repo convention, or tooling change" in the [Documentation](#documentation) table.
 
