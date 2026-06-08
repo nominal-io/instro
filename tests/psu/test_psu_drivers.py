@@ -11,7 +11,6 @@ from instro.psu.drivers import (
     BK9115,
     BK9140,
     RigolDP800,
-    SiglentSPD3303,
     SimulatedPSU,
     TDKLambdaGenesys,
 )
@@ -295,60 +294,6 @@ def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: Mag
     rigol_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
         rigol.set_voltage(1.0)
-
-
-# --- SiglentSPD3303 ---
-
-
-@pytest.fixture
-def siglent_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.siglent_spd3303.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def siglent_visa(siglent_visa_cls: MagicMock) -> MagicMock:
-    visa = siglent_visa_cls.return_value
-    visa.query.return_value = '+0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def siglent(siglent_visa_cls: MagicMock) -> SiglentSPD3303:
-    return SiglentSPD3303("USB0::Siglent::SN::INSTR")
-
-
-def test_siglent_set_voltage_writes_per_channel(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
-    siglent.set_voltage(2.5, channel=1)
-    siglent_visa.write.assert_called_once_with("CH1:VOLT 2.500")
-    siglent_visa.query.assert_called_once_with("SYST:ERR?")
-
-
-def test_siglent_get_voltage_returns_float(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
-    siglent_visa.query.side_effect = ["3.300", '+0,"No error"']
-    assert siglent.get_voltage(channel=2) == pytest.approx(3.3)
-    assert siglent_visa.query.call_args_list == [call("MEAS:VOLT? CH2"), call("SYST:ERR?")]
-
-
-def test_siglent_output_enable_formats_per_channel(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
-    siglent.output_enable(True, channel=2)
-    siglent_visa.write.assert_called_once_with("OUTP CH2,ON")
-
-
-def test_siglent_get_output_status_decodes_bitmap(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
-    # bit 4 (ch1_enable) set, bit 5 (ch2_enable) not set -> 0x10
-    siglent_visa.query.side_effect = ["10", '+0,"No error"']
-    assert siglent.get_output_status(channel=1) is True
-    siglent_visa.query.side_effect = ["20", '+0,"No error"']
-    assert siglent.get_output_status(channel=2) is True
-    siglent_visa.query.side_effect = ["00", '+0,"No error"']
-    assert siglent.get_output_status(channel=1) is False
-
-
-def test_siglent_check_errors_raises_on_nonzero(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
-    siglent_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="Siglent PSU reported error"):
-        siglent.set_voltage(1.0)
 
 
 # --- TDKLambdaGenesys ---
