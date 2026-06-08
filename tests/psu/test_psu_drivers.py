@@ -669,7 +669,7 @@ def tdk_visa_cls() -> Iterator[MagicMock]:
 @pytest.fixture
 def tdk_visa(tdk_visa_cls: MagicMock) -> MagicMock:
     visa = tdk_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
+    visa.query.return_value = '+0,"No error"'
     return visa
 
 
@@ -685,15 +685,15 @@ def test_tdk_set_voltage_writes_checked(tdk: TDKLambdaGenesys, tdk_visa: MagicMo
 
 
 def test_tdk_get_current_parses_response(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk_visa.query.side_effect = ["2.500", '0,"No error"']
+    tdk_visa.query.side_effect = ["2.500", '+0,"No error"']
     assert tdk.get_current() == pytest.approx(2.5)
     assert tdk_visa.query.call_args_list == [call("MEAS:CURR?"), call("SYSTEM:ERROR?")]
 
 
 def test_tdk_get_output_status_parses_on(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk_visa.query.side_effect = ["ON", '0,"No error"']
+    tdk_visa.query.side_effect = ["ON", '+0,"No error"']
     assert tdk.get_output_status() is True
-    tdk_visa.query.side_effect = ["OFF", '0,"No error"']
+    tdk_visa.query.side_effect = ["OFF", '+0,"No error"']
     assert tdk.get_output_status() is False
 
 

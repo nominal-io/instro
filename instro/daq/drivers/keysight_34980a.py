@@ -22,6 +22,14 @@ from instro.daq.types import (
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Measurement
 
+# A single grouped 34950A digital channel addresses at most 32 bits (LWORd). WIDTH_64 spans
+# separate banks and must be configured as two channels, so it is rejected at configure time.
+_PORT_WIDTH_TOKENS = {
+    DigitalPortWidth.WIDTH_8: "BYTE",
+    DigitalPortWidth.WIDTH_16: "WORD",
+    DigitalPortWidth.WIDTH_32: "LWOR",
+}
+
 
 @dataclass
 class KeysightData:
@@ -134,7 +142,7 @@ class Keysight34980A(DAQDriverBase):
             self._turn_on_timestamps()
             self._check_errors()
 
-        self.ai_channels[channel.alias] = channel
+        self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -147,7 +155,7 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write("TRIG:COUN INF")
             self._check_errors()
 
-        self.ai_hw_timing_config = hw_timing_config
+        self._ai_hw_timing_config = hw_timing_config
 
     def start(self, **kwargs):
         """Enable timestamps and ``INIT`` the scan."""
@@ -163,7 +171,7 @@ class Keysight34980A(DAQDriverBase):
             self._check_errors()
 
     def read_analog(self) -> KeysightData:
-        scan_string = ",".join([ch.physical_channel for ch in self.ai_channels.values()])
+        scan_string = ",".join([ch.physical_channel for ch in self._ai_channels.values()])
 
         with self._visa.lock():
             response = self._visa.query(f"READ? (@{scan_string})")
@@ -175,10 +183,10 @@ class Keysight34980A(DAQDriverBase):
         self,
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
-        num_channels = len(self.ai_channels)
-        min_points_per_fetch = self.ai_hw_timing_config.samples_per_channel * num_channels
+        num_channels = len(self._ai_channels)
+        min_points_per_fetch = self._ai_hw_timing_config.samples_per_channel * num_channels
 
         with self._visa.lock():
             # Create a blocking call
@@ -197,90 +205,120 @@ class Keysight34980A(DAQDriverBase):
 
     # ====== DIGITAL ========
 
-    def define_digital_channel(
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        # A port should be defined as MNNN where M is slot and NNN is channel. ex '5101'
-        # A line should be defined as MNNN/B where M is slot, NNN is channel, and B is bit. ex '5101/3'
-        alias = alias or physical_channel
+    ):
+        """Parse ``MNNN/B`` (slot/channel/bit), program the port for DI, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.INPUT, logic, logic_level, alias)
+        self._program_port(channel, direction=Direction.INPUT)
+        self._di_channels[channel.alias] = channel
 
-        # Logic level is configurable on these devices. Set to 3.3V if nothing is provided.
-        logic_level = logic_level or 3.3
+    def configure_do_line_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``MNNN/B`` (slot/channel/bit), program the port for DO, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.OUTPUT, logic, logic_level, alias)
+        self._program_port(channel, direction=Direction.OUTPUT)
+        self._do_channels[channel.alias] = channel
 
-        if port_width:
-            if "/" in physical_channel:
-                raise ValueError(
-                    f"port_width is set to {port_width} but physical_channel implies a line. "
-                    "Define the physical channel as MNNN where M is the slot and NNN is the channel. ex '5101'."
-                    f"Received {physical_channel}."
-                )
+    def configure_di_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``MNNN`` (slot/channel), program the port for DI, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.INPUT, logic, port_width, logic_level, alias)
+        self._program_port(channel, direction=Direction.INPUT)
+        self._di_channels[channel.alias] = channel
 
-            return DigitalPortChannel(
-                physical_channel=physical_channel,
-                alias=alias,
-                direction=direction,
-                logic_level=logic_level,
-                logic=logic,
-                width=port_width,
-            )
+    def configure_do_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``MNNN`` (slot/channel), program the port for DO, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.OUTPUT, logic, port_width, logic_level, alias)
+        self._program_port(channel, direction=Direction.OUTPUT)
+        self._do_channels[channel.alias] = channel
 
+    def _build_line_channel(
+        self,
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalLineChannel:
         if "/" not in physical_channel:
             raise ValueError(
                 "physical_channel does not define the bit within the channel to create a channel from. "
                 "Define the physical channel as MNNN/B where M is the slot, NNN is the channel, and B is bit. ex '5101/3'."
             )
-
         channel_name, bit = physical_channel.split("/")
-
-        channel = DigitalLineChannel(
+        return DigitalLineChannel(
             physical_channel=channel_name,
-            alias=alias,
+            alias=alias or physical_channel,
             direction=direction,
-            logic_level=logic_level,  # type: ignore
+            logic_level=logic_level or 3.3,
             logic=logic,
             bit_position=int(bit),
         )
-        return channel
 
-    def configure_do_channel(
+    def _build_port_channel(
         self,
-        channel: DigitalChannel,
-    ):
-        """Configure DO width/direction/polarity/drive/level for ``channel``."""
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalPortChannel:
+        if "/" in physical_channel:
+            raise ValueError(
+                f"port_width is set to {port_width} but physical_channel implies a line. "
+                "Define the physical channel as MNNN where M is the slot and NNN is the channel. ex '5101'."
+                f" Received {physical_channel}."
+            )
+        if port_width not in _PORT_WIDTH_TOKENS:
+            raise ValueError(
+                f"Keysight 34980A digital ports support up to 32-bit ({DigitalPortWidth.WIDTH_32!r}); "
+                f"got {port_width!r}. Configure a 64-bit span as two separate channels."
+            )
+        return DigitalPortChannel(
+            physical_channel=physical_channel,
+            alias=alias or physical_channel,
+            direction=direction,
+            logic_level=logic_level or 3.3,
+            logic=logic,
+            width=port_width,
+        )
+
+    def _program_port(self, channel: DigitalChannel, direction: Direction) -> None:
+        dir_token = "INP" if direction is Direction.INPUT else "OUTP"
+        width_token = _PORT_WIDTH_TOKENS[channel.width] if isinstance(channel, DigitalPortChannel) else "BYTE"
         with self._visa.lock():
-            self._visa.write(f"CONF:DIG:WIDT BYTE,(@{channel.physical_channel})")
-            self._visa.write(f"CONF:DIG:DIR OUTP,(@{channel.physical_channel})")
+            self._visa.write(f"CONF:DIG:WIDT {width_token},(@{channel.physical_channel})")
+            self._visa.write(f"CONF:DIG:DIR {dir_token},(@{channel.physical_channel})")
             self._visa.write(
                 f"CONF:DIG:POL {'INV' if channel.logic is Logic.LOW else 'NORM'},(@{channel.physical_channel})"
             )
             self._visa.write(f"SOUR:DIG:DRIV ACT,(@{channel.physical_channel})")
             self._visa.write(f"SOUR:DIG:LEV {channel.logic_level:.2f},(@{channel.physical_channel})")
             self._check_errors()
-
-        self.do_channels[channel.alias] = channel
-
-    def configure_di_channel(
-        self,
-        channel: DigitalChannel,
-    ):
-        """Configure DI width/direction/polarity/drive/level for ``channel``."""
-        with self._visa.lock():
-            self._visa.write(f"CONF:DIG:WIDT BYTE,(@{channel.physical_channel})")
-            self._visa.write(f"CONF:DIG:DIR INP,(@{channel.physical_channel})")
-            self._visa.write(
-                f"CONF:DIG:POL {'INV' if channel.logic is Logic.LOW else 'NORM'},(@{channel.physical_channel})"
-            )
-            self._visa.write(f"SOUR:DIG:DRIV ACT,(@{channel.physical_channel})")
-            self._visa.write(f"SOUR:DIG:LEV {channel.logic_level:.2f},(@{channel.physical_channel})")
-            self._check_errors()
-
-        self.di_channels[channel.alias] = channel
 
     def write_digital_line(
         self,
@@ -307,10 +345,30 @@ class Keysight34980A(DAQDriverBase):
         return int(response)
 
     def write_digital_port(self, channel: DigitalChannel, data: int):
-        raise NotImplementedError("write_digital_port is not yet implemented for Keysight 34980A.")
+        """Drive a DO port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"write_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use write_digital_line for single-bit writes."
+            )
+        width_token = _PORT_WIDTH_TOKENS[channel.width]
+        with self._visa.lock():
+            self._visa.write(f"SOUR:DIG:DATA:{width_token} {data},(@{channel.physical_channel})")
+            self._check_errors()
 
     def read_digital_port(self, channel: DigitalChannel) -> int:
-        raise NotImplementedError("read_digital_port is not yet implemented for Keysight 34980A.")
+        """Sample a DI port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"read_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use read_digital_line for single-bit reads."
+            )
+        width_token = _PORT_WIDTH_TOKENS[channel.width]
+        with self._visa.lock():
+            response = self._visa.query(f"SENS:DIG:DATA:{width_token}? (@{channel.physical_channel})")
+            self._check_errors()
+
+        return int(response)
 
     # ====== RELAY ========
 

@@ -1,7 +1,7 @@
 # This code is derived from concepts in the py-lab-hal codebase (Apache 2.0 licensed)
 # Original py-lab-hal repository: https://github.com/google/py-lab-hal
 
-"""Base instrument interface and background worker support."""
+"""Base instrument interface and background daemon support."""
 
 import functools
 import logging
@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 
 class Instrument:
-    """Base class for Nominal instrument interfaces. Owns publishing and the background-worker daemon."""
+    """Base class for Nominal instrument interfaces. Owns publishing and the background daemon."""
 
     def __init__(
         self,
@@ -188,7 +188,7 @@ class Instrument:
 
     @publish_measurement
     def _publish_daemon_timing(self, loop_time_s: float, work_time_s: float, timestamp: int) -> Measurement:
-        """Publish per-iteration diagnostic timing from the background worker loop."""
+        """Publish per-iteration diagnostic timing from the background daemon loop."""
         return Measurement(
             channel_data={
                 f"{self.name}.loop_time": [loop_time_s],
@@ -231,21 +231,12 @@ class Instrument:
 
     @property
     def background_interval(self):
-        """Seconds between background-worker iterations (0 = no wait)."""
+        """Seconds between background daemon iterations (0 = no wait)."""
         return self._background_config.interval
 
     @background_interval.setter
     def background_interval(self, seconds: float):
         self._background_config.interval = seconds
-
-    @property
-    def background_enable(self):
-        """Whether the background worker daemon is enabled (must still be ``start()``-ed)."""
-        return self._background_config.enabled
-
-    @background_enable.setter
-    def background_enable(self, enable: bool):
-        self._background_config.enabled = enable
 
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
         """Append ``method`` to the daemon's call list. Use ``define_background_daemon`` to replace instead."""
@@ -260,40 +251,39 @@ class Instrument:
         self.add_publisher(self._channel_buffer)
 
     def start(self):
-        """Start the background-worker daemon thread. No-op if already running."""
+        """Start the background daemon thread. No-op if already running."""
         # Check if a thread is already running
         if self._background_thread and self._background_thread.is_alive():
-            logger.info("Background worker already running for instrument '%s'", self.name)
+            logger.info("Background daemon already running for instrument '%s'", self.name)
             return
 
         self._setup_channel_buffer(self._channel_buffer_length)
 
         self._background_stop_event.clear()
         self._background_thread = threading.Thread(
-            target=self._background_worker, daemon=True, name=f"{self.name}_background"
+            target=self._background_daemon_loop, daemon=True, name=f"{self.name}_background"
         )
         self._background_thread.start()
         logger.info(
-            "Started background worker for instrument '%s' (thread=%s, enabled=%s, interval_s=%s)",
+            "Started background daemon for instrument '%s' (thread=%s, interval_s=%s)",
             self.name,
             self._background_thread.name,
-            self._background_config.enabled,
             self._background_config.interval,
         )
 
     def stop(self):
-        """Signal the background-worker daemon to stop and join it. No-op if not running."""
+        """Signal the background daemon to stop and join it. No-op if not running."""
         if self._background_thread and self._background_thread.is_alive():
-            logger.info("Stopping background worker for instrument '%s'", self.name)
+            logger.info("Stopping background daemon for instrument '%s'", self.name)
             self._background_stop_event.set()
             self._background_thread.join()
 
             # Clear out the channel_buffer
             assert self._channel_buffer
             self._channel_buffer.close()
-            logger.info("Stopped background worker for instrument '%s'", self.name)
+            logger.info("Stopped background daemon for instrument '%s'", self.name)
         else:
-            logger.info("Background worker not running for instrument '%s'; stop() is a no-op", self.name)
+            logger.info("Background daemon not running for instrument '%s'; stop() is a no-op", self.name)
 
     def get_channel(
         self, channel_name: str, length: int = 1, wait_for_latest: bool = False, timeout: float = 10.0
@@ -317,22 +307,19 @@ class Instrument:
 
         raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
 
-    def _background_worker(self):
+    def _background_daemon_loop(self):
         """Daemon loop: run registered functions every ``background_interval``, publish loop timing."""
         while not self._background_stop_event.is_set():
             daemon_loop_start = time.time_ns()
-            if self._background_config.enabled:
-                self._background_daemon()
+            self._background_daemon()
             daemon_work_stop = time.time_ns()
 
             daemon_work_time_s = (daemon_work_stop - daemon_loop_start) * 1e-9
             self._background_stop_event.wait(max(0, self._background_config.interval - daemon_work_time_s))
 
             daemon_loop_stop = time.time_ns()
-            # Only publish if the background loop is running
-            if self._background_config.enabled:
-                daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
-                self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
+            daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
+            self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
 
     def _background_daemon(self):
         """Invoke each registered daemon function once.
@@ -346,7 +333,7 @@ class Instrument:
                 if self._background_stop_event.is_set():
                     return
                 logger.exception(
-                    "Background worker error in instrument '%s' while calling %s: %s",
+                    "Background daemon error in instrument '%s' while calling %s: %s",
                     self.name,
                     method.__name__,
                     e,

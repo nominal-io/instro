@@ -1,4 +1,4 @@
-# Contribute to the Nominal Instrumentation documentation
+# Contribute to the instro documentation
 
 Thank you for your interest in contributing! This guide will help you get started.
 

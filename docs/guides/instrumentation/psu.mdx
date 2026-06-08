@@ -23,7 +23,7 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-A `InstroPSU` is built from a concrete driver:
+An `InstroPSU` is built from a concrete driver:
 
 ```
 InstroPSU("name", driver=BK9115(visa_resource="USB0::..."), num_channels=1)
@@ -39,11 +39,11 @@ The typical InstroPSU workflow:
 1. **Construct**: instantiate the vendor driver and pass it to `InstroPSU`.
 2. **`open()`**: establishes the VISA connection.
 3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements.
-4. **`start()`**: begins a periodic background worker. (Optional)
-5. **`stop()`**: ends the background worker (if started).
+4. **`start()`**: begins a periodic background daemon. (Optional)
+5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
 
-## Creating a InstroPSU Instance
+## Creating an InstroPSU Instance
 
 ```python
 from instro.psu.drivers import SiglentSPD3303
@@ -123,7 +123,7 @@ psu.output_enable(False, channel=1)
 psu.close()
 ```
 
-### Background Worker for Continuous Monitoring
+### Background Daemon for Continuous Monitoring
 
 ```python
 import time
@@ -147,7 +147,7 @@ psu.background_interval = 0.5  # Poll every 500ms
 
 psu.open()
 
-# Start background worker
+# Start background daemon
 psu.start()
 
 # Configure channel 1
@@ -158,15 +158,15 @@ psu.output_enable(True, channel=1)
 # Data flows automatically to publishers
 while True:
     try:
-        # Optionally grab data being produced by the background worker.
+        # Optionally grab data being produced by the background daemon.
         ch1_voltage = psu.get_channel(
             channel_name = "myPSU.ch1.voltage",
             length = 1,
-            wait_for_latest = True)  # This will block for the next sample from the background worker
+            wait_for_latest = True)  # This will block for the next sample from the background daemon
         ch1_current = psu.get_channel(
             channel_name = "myPSU.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immedietly return with the last 5 measurements for this channel (if available).
+            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
         print(f"Voltage, Channel 1: {ch1_voltage}")
         print(f"Current, Channel 1: {ch1_current}")
     except KeyboardInterrupt:
@@ -175,17 +175,17 @@ while True:
 
 psu.output_enable(False, channel=1)
 
-# Stop background worker
+# Stop background daemon
 psu.stop()
 psu.close()
 ```
 
 In this mode:
-- `start()` begins a background worker, executing a function or list of functions periodically.
-- `stop()` ends the background worker.
+- `start()` begins a background daemon, executing a function or list of functions periodically.
+- `stop()` ends the background daemon.
 
 <Note>
-**Default PSU Background Worker**
+**Default PSU Background Daemon**
 
 For each <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip>:
 - Output voltage (via `get_voltage()`)
@@ -195,9 +195,9 @@ For each <Tooltip tip="A named signal for a series of measurements or computed v
 The default polling interval is 1 second, configurable via the `background_interval` property.
 </Note>
 
-**Custom Background Worker**
-* To define your own background worker, call `define_background_daemon()`.
-* To add a method to the background worker stack, call `add_background_daemon_function()`.
+**Custom Background Daemon**
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
+* To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
 
@@ -208,7 +208,7 @@ Data is published as a direct result of an instrument method being called.
 
 For example, when you call `get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
 
-Therefore the background worker, when calling these instrument methods, is publishing data in the background as well!
+Therefore the background daemon, when calling these instrument methods, is publishing data in the background as well!
 </Note>
 
 ## Published channels
@@ -240,7 +240,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Purpose |
 |--------|---------|
-| `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct a InstroPSU with a vendor driver |
+| `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
 | `set_voltage(voltage, channel=1)` | Set voltage setpoint in volts |
@@ -261,12 +261,12 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
 | `set_remote_sense_enabled(enabled, channel=1)` | Enable or disable remote sense |
 | `get_remote_sense_enabled(channel=1)` | Query whether remote sense is enabled |
-| `start()` | Begin background telemetry thread |
-| `stop()` | End background telemetry thread |
+| `start()` | Begin background telemetry daemon |
+| `stop()` | End background telemetry daemon |
 
 # Simulated Power Supply
 
-For development and testing without physical hardware, Nominal Instrumentation includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
+For development and testing without physical hardware, `instro` includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
 
 ## Starting the Simulation Server
 
@@ -352,7 +352,6 @@ A PSU driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors**: query the instrument's error queue (where one exists) and raise on non-zero status.
 
 ## PSUDriverBase Interface
 

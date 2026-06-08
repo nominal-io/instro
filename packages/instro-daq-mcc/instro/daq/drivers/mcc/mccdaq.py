@@ -156,13 +156,13 @@ class MCCDriver(DAQDriverBase):
         gain_list: list[ULRange] = []
 
         # Add analog input channels
-        for channel in self.ai_channels.values():
+        for channel in self._ai_channels.values():
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(self._ai_channel_ranges[channel.physical_channel])
 
         # Uncomment when hardware timed digital input is supported
-        # for channel in self.di_channels.values():
+        # for channel in self._di_channels.values():
         #     if isinstance(channel, DigitalPortChannel):
         #         port = self._get_port(channel.physical_channel)
         #         channel_list.append(port.type)
@@ -218,7 +218,7 @@ class MCCDriver(DAQDriverBase):
         except Exception:
             pass
 
-        self.ai_channels[channel.alias] = channel
+        self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Configure an analog output channel on the MCC DAQ device."""
@@ -248,7 +248,7 @@ class MCCDriver(DAQDriverBase):
         except Exception:
             pass
 
-        self.ao_channels[channel.alias] = channel
+        self._ao_channels[channel.alias] = channel
 
     def _get_range(self, channel: AnalogChannel) -> ULRange:
         # Find the tightest ULRange that includes the configured range
@@ -284,7 +284,7 @@ class MCCDriver(DAQDriverBase):
             )
 
         # TODO: mcculw supports per channel samples rates
-        for channel in self.ai_channels.values():
+        for channel in self._ai_channels.values():
             try:
                 ul.set_config(
                     InfoType.BOARDINFO,
@@ -296,7 +296,7 @@ class MCCDriver(DAQDriverBase):
             except Exception:
                 pass
 
-        self.ai_hw_timing_config = hw_timing_config
+        self._ai_hw_timing_config = hw_timing_config
 
     def start(self, **kwargs):
         """Start the MCC DAQ device for hw timed data acquisition."""
@@ -312,9 +312,9 @@ class MCCDriver(DAQDriverBase):
                 "Consider using software-timed acquisition or a device that supports DaqInScan."
             )
 
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
-        hw_timing_config = self.ai_hw_timing_config
+        hw_timing_config = self._ai_hw_timing_config
         samples_per_channel = hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
 
@@ -428,9 +428,9 @@ class MCCDriver(DAQDriverBase):
         if not self._memhandle:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
 
-        if self.ai_hw_timing_config is None:
+        if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
-        samples_per_channel = self.ai_hw_timing_config.samples_per_channel
+        samples_per_channel = self._ai_hw_timing_config.samples_per_channel
         ai_info = self._info.get_ai_info()
         ai_supported_scan_options = ai_info.supported_scan_options
 
@@ -547,7 +547,7 @@ class MCCDriver(DAQDriverBase):
 
     def write_analog_value(self, channel: AnalogChannel, value: float):
         """Write an analog value to an analog output channel."""
-        if channel not in self.ao_channels.values():
+        if channel not in self._ao_channels.values():
             raise ValueError(f"Channel '{channel}' is not configured as an analog output channel")
 
         # TODO: add support for non-voltage output channels
@@ -555,64 +555,137 @@ class MCCDriver(DAQDriverBase):
             self._board_number, int(channel.physical_channel), self._ao_channel_ranges[channel.physical_channel], value
         )
 
-    def define_digital_channel(
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        """Define a digital channel on the MCC DAQ device."""
-        # physical_channel must be one of DigitalPortType enums support by ul.enums: https://github.com/mccdaq/mcculw/blob/master/mcculw/enums.py#L589-L626
-        # a port should be defined as the enum field of the DigitalPortType, ex. 'AUXPORT0' or 'FIRSTPORTA'
-        # a line should be defined as DigitalPortType/#, where # is the decimal bit position of the line within the port, ex. 'FIRSTPORTA/0' or 'AUXPORT0/1'
+    ):
+        """Parse ``DigitalPortType/#``, configure the bit for DI, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.INPUT, logic, logic_level, alias)
+        port = self._get_port(channel.physical_channel)
+        try:
+            ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.IN)
+        except Exception as e:
+            raise RuntimeError(
+                f"Device does not support per-bit digital configuration for port {port.type.name}. "
+                f"Configure the entire port as a DigitalPortChannel instead, then use read_digital_line "
+                f"to read specific lines on the port."
+            ) from e
+        self._di_channels[channel.alias] = channel
+
+    def configure_do_line_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DigitalPortType/#``, configure the bit for DO, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.OUTPUT, logic, logic_level, alias)
+        port = self._get_port(channel.physical_channel)
+        try:
+            ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.OUT)
+        except Exception as e:
+            raise RuntimeError(
+                f"Device does not support per-bit digital configuration for port {port.type.name}. "
+                f"Configure the entire port as a DigitalPortChannel instead, then use write_digital_line "
+                f"to write to specific lines on the port."
+            ) from e
+        self._do_channels[channel.alias] = channel
+
+    def configure_di_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DigitalPortType``, configure the port for DI, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.INPUT, logic, port_width, logic_level, alias)
+        port = self._get_port(channel.physical_channel)
+        try:
+            ul.d_config_port(self._board_number, port.type, DigitalIODirection.IN)
+        except Exception:
+            pass
+        self._di_channels[channel.alias] = channel
+
+    def configure_do_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DigitalPortType``, configure the port for DO, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.OUTPUT, logic, port_width, logic_level, alias)
+        port = self._get_port(channel.physical_channel)
+        try:
+            ul.d_config_port(self._board_number, port.type, DigitalIODirection.OUT)
+        except Exception:
+            pass
+        self._do_channels[channel.alias] = channel
+
+    def _build_line_channel(
+        self,
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalLineChannel:
         if not self._info.get_dio_info().is_supported:
             raise ValueError("Digital I/O is not supported by this device, cannot define digital channels.")
-
-        port = self._get_port(physical_channel)
-
-        alias = alias or physical_channel
-
-        if port_width:
-            if "/" in physical_channel:
-                raise ValueError(
-                    f"port_width is set to {port_width} but physical_channel implies a line. "
-                    "Define the physical channel as the enum field of the DigitalPortType, ex. 'AUXPORT0' or 'FIRSTPORTA'."
-                    f"Received {physical_channel}."
-                )
-
-            if port_width != port.num_bits:
-                raise ValueError(
-                    f"MCC DAQ does not support user-configurable port widths. port_width must match the number of bits in the defined port. "
-                    f"Received {port_width} for port {port}, but the number of bits in the port is {port.num_bits}."
-                )
-
-            return DigitalPortChannel(
-                physical_channel=physical_channel,
-                alias=alias,
-                direction=direction,
-                logic_level=logic_level,
-                logic=logic,
-                width=port_width,
-            )
-
         if "/" not in physical_channel:
             raise ValueError(
                 "physical_channel does not define the line within the channel to create a channel from. "
                 "Define the physical channel as DigitalPortType/#, where # is the decimal bit position of the line within the port, ex. 'FIRSTPORTA/0' or 'AUXPORT0/1'."
             )
-
+        # Validate the port exists on this device.
+        self._get_port(physical_channel)
         _, bit = physical_channel.split("/")
-
         return DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias,
+            alias=alias or physical_channel,
             direction=direction,
             logic_level=logic_level,
             logic=logic,
             bit_position=int(bit),
+        )
+
+    def _build_port_channel(
+        self,
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalPortChannel:
+        if not self._info.get_dio_info().is_supported:
+            raise ValueError("Digital I/O is not supported by this device, cannot define digital channels.")
+        if "/" in physical_channel:
+            raise ValueError(
+                f"port_width is set to {port_width} but physical_channel implies a line. "
+                "Define the physical channel as the enum field of the DigitalPortType, ex. 'AUXPORT0' or 'FIRSTPORTA'."
+                f" Received {physical_channel}."
+            )
+        port = self._get_port(physical_channel)
+        if port_width != port.num_bits:
+            raise ValueError(
+                f"MCC DAQ does not support user-configurable port widths. port_width must match the number of bits in the defined port. "
+                f"Received {port_width} for port {port}, but the number of bits in the port is {port.num_bits}."
+            )
+        return DigitalPortChannel(
+            physical_channel=physical_channel,
+            alias=alias or physical_channel,
+            direction=direction,
+            logic_level=logic_level,
+            logic=logic,
+            width=port_width,
         )
 
     def _get_port(self, physical_channel: str) -> DigitalPortType:
@@ -633,51 +706,6 @@ class MCCDriver(DAQDriverBase):
             return ChannelType.DIGITAL16
         else:
             return ChannelType.DIGITAL
-
-    def configure_do_channel(self, channel: DigitalChannel):
-        """Configure a digital output channel on the MCC DAQ device."""
-        port = self._get_port(channel.physical_channel)
-        if isinstance(channel, DigitalPortChannel):
-            try:
-                ul.d_config_port(self._board_number, port.type, DigitalIODirection.OUT)
-            except Exception:
-                pass
-        elif isinstance(channel, DigitalLineChannel):
-            try:
-                ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.OUT)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Device does not support per-bit digital configuration for port {port.type.name}. "
-                    f"Configure the entire port as a DigitalPortChannel instead, then use write_digital_line "
-                    f"to write to specific lines on the port."
-                ) from e
-        else:
-            raise ValueError(f"Unsupported digital channel type: {type(channel)}")
-
-        self.do_channels[channel.alias] = channel
-
-    def configure_di_channel(self, channel: DigitalChannel):
-        """Configure a digital input channel on the MCC DAQ device."""
-        port = self._get_port(channel.physical_channel)
-        if isinstance(channel, DigitalPortChannel):
-            try:
-                ul.d_config_port(self._board_number, port.type, DigitalIODirection.IN)
-            except Exception:
-                pass
-        elif isinstance(channel, DigitalLineChannel):
-            # TODO: add digital line channel to state for HW timed acquisition
-            try:
-                ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.IN)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Device does not support per-bit digital configuration for port {port.type.name}. "
-                    f"Configure the entire port as a DigitalPortChannel instead, then use read_digital_line "
-                    f"to read specific lines on the port."
-                ) from e
-        else:
-            raise ValueError(f"Unsupported digital channel type: {type(channel)}")
-
-        self.di_channels[channel.alias] = channel
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
         """Write 0/1 to a single DO line (``DigitalLineChannel``)."""

@@ -75,7 +75,7 @@ try:
     while True:
         try:
             ch_1 = daq.get_channel("myDAQ.ch_0", 1, True)  # This will block for the latest sample
-            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immedietly return with 10 samples.
+            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immediately return with 10 samples.
             print(f"Channel 1 latest: {ch_1.latest}")
             print(f"Channel 1 samples: {ch_1.values}")
             print(f"Channel 2 latest: {ch_2.latest}")

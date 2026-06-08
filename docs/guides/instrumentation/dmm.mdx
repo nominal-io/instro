@@ -18,7 +18,7 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-A `InstroDMM` is built from a concrete driver:
+An `InstroDMM` is built from a concrete driver:
 
 ```
 InstroDMM("name", driver=Agilent34401A("ASRL3::INSTR"))
@@ -52,7 +52,7 @@ Optionally, you can use background fetching via `start()` / `stop()`, but it is 
 
 You must call `set_measurement_function()` before configuring resolution, aperture, range, or calling `read()`.
 
-## Creating a InstroDMM Instance
+## Creating an InstroDMM Instance
 
 ```python
 from instro.dmm.drivers import Agilent34401A
@@ -150,15 +150,19 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Purpose |
 |--------|---------|
-| `InstroDMM(name, driver, publishers=None, **kwargs)` | Construct a InstroDMM with a vendor driver |
+| `InstroDMM(name, driver, publishers=None, **kwargs)` | Construct an InstroDMM with a vendor driver |
 | `open()` | Establish VISA connection to the DMM |
 | `close()` | Disconnect from DMM and close all publishers |
 | `set_measurement_function(function)` | Set measurement function (DC_VOLTAGE, AC_VOLTAGE, DC_CURRENT, AC_CURRENT, TWO_WIRE_RESISTANCE, FOUR_WIRE_RESISTANCE) |
 | `set_digits(n)` | Set resolution in digits (driver-dependent) |
-| `set_aperture_seconds(seconds)` | Set integration time in seconds |
+| `set_aperture_seconds(seconds)` | Set integration time in seconds (not implemented by the bundled drivers; see note) |
 | `set_aperture_nplc(nplc)` | Set integration time in power-line cycles |
 | `set_range(value)` | Set manual range in current function's units; `None` = auto range |
 | `read()` | Trigger a measurement and return a Measurement |
+
+<Note>
+`set_aperture_seconds` is part of the DMM contract but is not implemented by either bundled driver (Agilent 34401A, Keithley 2400). Calling it on those drivers raises `NotImplementedError`. Use `set_aperture_nplc` to set integration time on the shipped drivers. See [Exceptions](/instrumentation/exceptions) for the distinction between `NotImplementedError` and `FeatureNotSupportedError`.
+</Note>
 
 ---
 
@@ -188,7 +192,6 @@ A DMM driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`).
-6. **Report errors**: override `check_errors()` if the instrument exposes an error queue or status register.
 
 ## DMMDriverBase Interface
 
@@ -214,11 +217,10 @@ def measure_resistance(self) -> float: ...
 Optional overrides (raise `NotImplementedError` if not supported):
 
 - **`set_digits(n)`**: Set resolution in digits.
-- **`set_aperture_seconds(seconds)`**: Set integration time in seconds.
+- **`set_aperture_seconds(seconds)`**: Set integration time in seconds. (Not implemented by the bundled Agilent 34401A or Keithley 2400 drivers.)
 - **Per-function range setters**: `set_dc_voltage_range`, `set_ac_voltage_range`, `set_dc_current_range`, `set_ac_current_range`, `set_two_wire_resistance_range`, `set_four_wire_resistance_range`. Each takes `value: float | None` (None = auto). `InstroDMM` dispatches to the right one based on the active measurement function, so the driver never needs to know which function is active.
 - **Per-function NPLC setters**: `set_dc_voltage_nplc`, `set_ac_voltage_nplc`, `set_dc_current_nplc`, `set_ac_current_nplc`, `set_two_wire_resistance_nplc`, `set_four_wire_resistance_nplc`. Same dispatch shape as the range setters.
 - **`measure_four_wire_resistance()`**: Measure 4-wire resistance.
-- **`check_errors()`**: Defaults to a no-op. Override to query the vendor error queue.
 
 The per-function range/NPLC split keeps `InstroDMM`'s `_measurement_config.function` as the single source of truth. The driver never receives or tracks the active function, so the wrong-function-passed-by-mistake class of bug doesn't exist.
 
@@ -280,7 +282,7 @@ class Agilent34401A(DMMDriverBase):
     set_two_wire_resistance_range = _store_range
     set_four_wire_resistance_range = _store_range
 
-    # ...other measure_* methods, set_digits, check_errors...
+    # ...other measure_* methods, set_digits, _check_errors...
 ```
 
 <Tip>
@@ -323,7 +325,7 @@ class MyCustomDMMDriver(DMMDriverBase):
 
     # ... implement other required methods ...
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         err = self._visa.query("ERR?")
         if err != "OK":
             raise RuntimeError(f"DMM error: {err}")
@@ -350,5 +352,5 @@ Driver development requires careful mapping of vendor-specific behavior to the u
 - Implementing all abstract methods on `DMMDriverBase` (and optional overrides where supported)
 - Using the correct vendor protocol or command syntax
 - Converting instrument responses to the expected Python types
-- Overriding `check_errors()` if your vendor exposes an error queue
+- Adding a private `_check_errors()` helper if your vendor exposes an error queue
 - Testing with actual hardware to ensure commands work as expected

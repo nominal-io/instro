@@ -1,151 +1,189 @@
 """Unit tests for DAQ driver functionality."""
 
+from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import InstroDAQ
+from instro.daq import DAQDriverBase, InstroDAQ
 from instro.daq.drivers import HWTimestamper
-from instro.daq.types import Direction, Logic
+from instro.daq.types import (
+    DigitalLineChannel,
+    DigitalPortChannel,
+    DigitalPortWidth,
+    Direction,
+    Logic,
+)
 
 
-def _make_mock_driver() -> Mock:
-    """Mock driver with state dicts pre-initialized and ``configure_*`` side-effects that populate them.
+class _RecordingDriver(DAQDriverBase):
+    """Concrete driver for ``InstroDAQ`` boundary tests.
 
-    ``InstroDAQ.ai_channels`` etc. are ``@property`` proxies into the driver — so tests need a driver
-    whose dicts behave like real dicts, and whose ``configure_*`` methods actually record the channel
-    on the right dict (matching real-driver contract).
+    ``configure_*`` record real frozen channels on the private dicts (matching the real-driver
+    contract), so the read-only ``@property`` snapshots behave exactly as they do in production.
+    The action methods are per-instance ``Mock``s so tests can assert calls and set return values.
     """
-    driver = Mock()
-    driver.ai_channels = {}
-    driver.ao_channels = {}
-    driver.di_channels = {}
-    driver.do_channels = {}
-    driver.relay_channels = {}
-    driver.ai_hw_timing_config = None
-    driver.ao_hw_timing_config = None
-    driver.di_hw_timing_config = None
-    driver.do_hw_timing_config = None
 
-    driver.configure_ai_channel.side_effect = lambda ch: driver.ai_channels.update({ch.alias: ch})
-    driver.configure_ao_channel.side_effect = lambda ch: driver.ao_channels.update({ch.alias: ch})
-    driver.configure_di_channel.side_effect = lambda ch: driver.di_channels.update({ch.alias: ch})
-    driver.configure_do_channel.side_effect = lambda ch: driver.do_channels.update({ch.alias: ch})
-    return driver
+    # Concrete bodies clear the abstractmethod flags; __init__ shadows these with per-instance Mocks.
+    def open(self): ...
+    def close(self): ...
+    def start(self, **kwargs): ...
+    def stop(self, **kwargs): ...
+    def read_analog(self): ...
+    def fetch_analog(self): ...
+    def write_digital_line(self, channel, data): ...
+    def read_digital_line(self, channel): ...
+    def write_digital_port(self, channel, data): ...
+    def read_digital_port(self, channel): ...
+    def _read_to_measurements(self, response, channel_list, daq_name, default_tags, **kwargs): ...
+
+    _ACTION_METHODS = (
+        "open",
+        "close",
+        "start",
+        "stop",
+        "read_analog",
+        "fetch_analog",
+        "write_analog_value",
+        "write_digital_line",
+        "read_digital_line",
+        "write_digital_port",
+        "read_digital_port",
+        "close_relay",
+        "open_relay",
+        "_read_to_measurements",
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        for name in self._ACTION_METHODS:
+            setattr(self, name, Mock(name=name))
+
+    def configure_ai_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_channel(self, channel):
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_hw_timing(self, hw_timing_config):
+        self._ai_hw_timing_config = hw_timing_config
+
+    def configure_di_line_channel(self, physical_channel, logic, logic_level=None, alias=None):
+        key = alias or physical_channel
+        self._di_channels[key] = DigitalLineChannel(
+            physical_channel=physical_channel,
+            alias=key,
+            direction=Direction.INPUT,
+            logic_level=logic_level,
+            logic=logic,
+        )
+
+    def configure_do_line_channel(self, physical_channel, logic, logic_level=None, alias=None):
+        key = alias or physical_channel
+        self._do_channels[key] = DigitalLineChannel(
+            physical_channel=physical_channel,
+            alias=key,
+            direction=Direction.OUTPUT,
+            logic_level=logic_level,
+            logic=logic,
+        )
+
+    def configure_di_port_channel(self, physical_channel, logic, port_width, logic_level=None, alias=None):
+        key = alias or physical_channel
+        self._di_channels[key] = DigitalPortChannel(
+            physical_channel=physical_channel,
+            alias=key,
+            direction=Direction.INPUT,
+            logic_level=logic_level,
+            logic=logic,
+            width=DigitalPortWidth(port_width),
+        )
+
+    def configure_do_port_channel(self, physical_channel, logic, port_width, logic_level=None, alias=None):
+        key = alias or physical_channel
+        self._do_channels[key] = DigitalPortChannel(
+            physical_channel=physical_channel,
+            alias=key,
+            direction=Direction.OUTPUT,
+            logic_level=logic_level,
+            logic=logic,
+            width=DigitalPortWidth(port_width),
+        )
+
+
+def _make_mock_driver() -> _RecordingDriver:
+    """A concrete ``DAQDriverBase`` whose ``configure_*`` record real channels and whose action methods are Mocks."""
+    return _RecordingDriver()
 
 
 def test_write_digital_line_configured_channel():
     """Test that writing to a configured channel works without error."""
-    # Arrange: Create a mock driver with proper return values
     mock_driver = _make_mock_driver()
 
-    # Mock the channel object that define_digital_channel should return
-    mock_channel = Mock()
-    mock_channel.alias = "test_channel"
-    mock_driver.define_digital_channel.return_value = mock_channel
-
-    # Create DAQ instance
     daq = InstroDAQ(
         name="Test DAQ",
         driver=mock_driver,
     )
 
-    # Configure a digital output channel
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH, alias="test_channel"
     )
 
-    # Act: Write to the channel
     daq.write_digital_line("test_channel", 1)
 
-    # Assert: Verify write was called
     mock_driver.write_digital_line.assert_called_once()
 
 
 def test_write_digital_line_unconfigured_channel():
     """Test that writing to an unconfigured channel raises an error."""
-    # Arrange: Create a mock driver with proper return values
     mock_driver = _make_mock_driver()
 
-    # Mock the channel object that define_digital_channel should return
-    mock_channel = Mock()
-    mock_channel.alias = "test_channel"
-    mock_driver.define_digital_channel.return_value = mock_channel
-
-    # Create DAQ instance
     daq = InstroDAQ(
         name="Test DAQ",
         driver=mock_driver,
     )
 
-    # Do not configure a digital output channel
-
-    # Act: Write to an unconfigured channel
     with pytest.raises(KeyError, match="Digital output channel 'unconfigured_channel' is not configured") as exc_info:
         daq.write_digital_line("unconfigured_channel", 1)
 
     print(f"\nRaised error: {exc_info.value}")
 
-    # Assert: Verify write was not called
     mock_driver.write_digital_line.assert_not_called()
 
 
 def test_read_digital_line_configured_channel():
     """Test that reading from a configured channel works without error."""
-    # Arrange: Create a mock driver with proper return values
     mock_driver = _make_mock_driver()
-
-    # Mock the channel object that define_digital_channel should return
-    mock_channel = Mock()
-    mock_channel.alias = "test_channel"
-    mock_driver.define_digital_channel.return_value = mock_channel
-
-    # Mock the read_digital_line to return an actual number (otherwise it returns a Mock object)
     mock_driver.read_digital_line.return_value = 1
 
-    # Create DAQ instance
     daq = InstroDAQ(
         name="Test DAQ",
         driver=mock_driver,
     )
 
-    # Configure a digital input channel
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT, physical_channel="port0/line0", alias="test_channel", logic=Logic.HIGH
     )
 
-    # Act: Write to the channel
     daq.read_digital_line("test_channel")
 
-    # Assert: Verify write was called
     mock_driver.read_digital_line.assert_called_once()
 
 
 def test_read_digital_line_unconfigured_channel():
     """Test that reading from an unconfigured channel raises an error."""
-    # Arrange: Create a mock driver with proper return values
     mock_driver = _make_mock_driver()
 
-    # Mock the channel object that define_digital_channel should return
-    mock_channel = Mock()
-    mock_channel.alias = "test_channel"
-    mock_driver.define_digital_channel.return_value = mock_channel
-
-    # Create DAQ instance
     daq = InstroDAQ(
         name="Test DAQ",
         driver=mock_driver,
     )
 
-    # Do not configure a digital output channel
-
-    # Act: Write to an unconfigured channel
     with pytest.raises(KeyError, match="Digital input channel 'unconfigured_channel' is not configured") as exc_info:
         daq.read_digital_line("unconfigured_channel")
 
     print(f"\nRaised error: {exc_info.value}")
 
-    # Assert: Verify read was not called
     mock_driver.read_digital_line.assert_not_called()
 
 
@@ -198,22 +236,40 @@ def test_write_digital_port_configured_channel():
     """Test that writing to a configured port channel works without error."""
     mock_driver = _make_mock_driver()
 
-    mock_channel = Mock()
-    mock_channel.alias = "test_port"
-    mock_driver.define_digital_channel.return_value = mock_channel
+    daq = InstroDAQ(
+        name="Test DAQ",
+        driver=mock_driver,
+    )
+
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
+    )
+
+    daq.write_digital_port("test_port", 0xFF)
+
+    mock_driver.write_digital_port.assert_called_once()
+
+
+def test_write_digital_port_value_exceeds_width():
+    """Test that writing a value wider than the configured port raises ValueError."""
+    mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(
         name="Test DAQ",
         driver=mock_driver,
     )
 
-    daq.configure_digital_channel(
-        direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, alias="test_port"
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
     )
 
-    daq.write_digital_port("test_port", 0xFF)
+    with pytest.raises(ValueError, match="does not fit the 8-bit port 'test_port'"):
+        daq.write_digital_port("test_port", 0x100)
 
-    mock_driver.write_digital_port.assert_called_once()
+    with pytest.raises(ValueError, match="does not fit the 8-bit port 'test_port'"):
+        daq.write_digital_port("test_port", -1)
+
+    mock_driver.write_digital_port.assert_not_called()
 
 
 def test_write_digital_port_unconfigured_channel():
@@ -234,10 +290,6 @@ def test_write_digital_port_unconfigured_channel():
 def test_read_digital_port_configured_channel():
     """Test that reading from a configured port channel works without error."""
     mock_driver = _make_mock_driver()
-
-    mock_channel = Mock()
-    mock_channel.alias = "test_port"
-    mock_driver.define_digital_channel.return_value = mock_channel
     mock_driver.read_digital_port.return_value = 0xFF
 
     daq = InstroDAQ(
@@ -245,8 +297,8 @@ def test_read_digital_port_configured_channel():
         driver=mock_driver,
     )
 
-    daq.configure_digital_channel(
-        direction=Direction.INPUT, physical_channel="port0", logic=Logic.HIGH, alias="test_port"
+    daq.configure_digital_port(
+        direction=Direction.INPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
     )
 
     daq.read_digital_port("test_port")
@@ -490,25 +542,13 @@ def test_hw_timestamper_driver_usage_pattern():
 
 
 def _legacy_daq_with_digital_channel(direction: Direction):
-    """Build an InstroDAQ(legacy_naming=True) with a single configured digital channel."""
+    """Build an InstroDAQ(legacy_naming=True) with a single configured digital line channel."""
     mock_driver = _make_mock_driver()
-    mock_channel = Mock()
-    mock_channel.alias = "di0"
-    mock_driver.define_digital_channel.return_value = mock_channel
     mock_driver.read_digital_line.return_value = 1
     mock_driver.read_digital_port.return_value = 5
 
-    # configure_di_channel / configure_do_channel side_effects record the channel — make sure the
-    # populated dict uses `mock_channel.alias`, not whatever the channel arg's alias happens to be.
-    mock_driver.configure_di_channel.side_effect = lambda ch: mock_driver.di_channels.update(
-        {mock_channel.alias: mock_channel}
-    )
-    mock_driver.configure_do_channel.side_effect = lambda ch: mock_driver.do_channels.update(
-        {mock_channel.alias: mock_channel}
-    )
-
     daq = InstroDAQ(name="ut", driver=mock_driver, legacy_naming=True)
-    daq.configure_digital_channel(direction=direction, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_digital_line(direction=direction, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
     return daq
 
 
@@ -532,12 +572,9 @@ def test_legacy_naming_read_digital_line_publishes_bare_alias():
 def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
     """Default DAQ digital writes are prefixed and suffixed (v1.0 form)."""
     mock_driver = _make_mock_driver()
-    mock_channel = Mock()
-    mock_channel.alias = "do0"
-    mock_driver.define_digital_channel.return_value = mock_channel
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
     command = daq.write_digital_line("do0", 1)
@@ -547,12 +584,9 @@ def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
 def test_default_naming_write_digital_line_preserves_int_value_type():
     """DAQ digital writes publish the raw int value, not a float-coerced copy."""
     mock_driver = _make_mock_driver()
-    mock_channel = Mock()
-    mock_channel.alias = "do0"
-    mock_driver.define_digital_channel.return_value = mock_channel
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
     command = daq.write_digital_line("do0", 1)
@@ -565,13 +599,111 @@ def test_default_naming_write_digital_line_preserves_int_value_type():
 def test_default_naming_write_digital_port_preserves_int_value_type():
     """DAQ digital port writes publish the raw int value (e.g. a byte pattern), not a float-coerced copy."""
     mock_driver = _make_mock_driver()
-    mock_channel = Mock()
-    mock_channel.alias = "port0"
-    mock_driver.define_digital_channel.return_value = mock_channel
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="port0", alias="port0", logic=Logic.HIGH)
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT, physical_channel="port0", alias="port0", logic=Logic.HIGH, port_width=8
+    )
     command = daq.write_digital_port("port0", 0xAA)
     value = command.channel_data["ut.port0.cmd"]
     assert value == 0xAA
     assert isinstance(value, int)
+
+
+# --- read-only / frozen-snapshot contract ---
+
+
+def test_channel_mapping_is_read_only():
+    """The channel-dict properties return read-only mappings; mutating them raises."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.configure_digital_line(
+        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
+    )
+
+    with pytest.raises(TypeError):
+        daq.do_channels["do0"] = "x"  # type: ignore[index]
+    with pytest.raises(AttributeError):
+        daq.do_channels.clear()  # type: ignore[attr-defined]
+
+
+def test_channel_objects_are_frozen():
+    """Channels handed back through a snapshot are frozen; attribute writes raise."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.configure_digital_line(
+        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
+    )
+
+    channel = daq.do_channels["do0"]
+    with pytest.raises(FrozenInstanceError):
+        channel.alias = "renamed"  # type: ignore[misc]
+
+
+def test_channel_snapshot_is_not_a_live_view():
+    """A captured snapshot does not reflect channels configured afterwards."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="a", logic=Logic.HIGH)
+
+    snapshot = daq.do_channels
+    daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line1", alias="b", logic=Logic.HIGH)
+
+    assert "b" not in snapshot
+    assert set(snapshot) == {"a"}
+    assert set(daq.do_channels) == {"a", "b"}
+
+
+def test_channels_property_returns_immutable_tuple():
+    """The aggregate ``channels`` property returns a tuple snapshot."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.configure_digital_line(
+        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
+    )
+
+    assert isinstance(daq.channels, tuple)
+    assert {ch.alias for ch in daq.channels} == {"do0"}
+
+
+# --- start(background=...) and read_analog dispatch ---
+
+
+def _hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and a hardware sample rate configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+    return daq, mock_driver
+
+
+def test_start_background_false_does_not_spin_daemon():
+    """start(background=False) begins hardware acquisition without spinning the daemon thread."""
+    daq, mock_driver = _hw_timed_daq()
+
+    daq.start(background=False)
+
+    mock_driver.start.assert_called_once()
+    assert daq._background_thread is None
+
+
+def test_start_background_false_read_analog_fetches_from_buffer():
+    """With no daemon running, read_analog() during HW-timed acquisition fetches the buffer."""
+    daq, mock_driver = _hw_timed_daq()
+    daq.start(background=False)
+
+    daq.read_analog()
+
+    mock_driver.fetch_analog.assert_called_once()
+
+
+def test_start_default_spins_daemon_and_read_analog_raises():
+    """Default start() spins the daemon, which owns the buffer; a manual read_analog() then raises."""
+    daq, _ = _hw_timed_daq()
+
+    daq.start()
+    try:
+        assert daq._background_thread is not None
+        assert daq._background_thread.is_alive()
+        with pytest.raises(RuntimeError, match="background acquisition daemon is running"):
+            daq.read_analog()
+    finally:
+        daq.stop()

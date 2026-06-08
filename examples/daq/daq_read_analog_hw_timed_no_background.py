@@ -51,10 +51,6 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 daq.open()
 
-# Do not allow a background daemon to manage fetching data from the DAQ.
-# We will do that ourselves in the main app loop
-daq.background_enable = False
-
 try:
     daq.configure_analog_channel(
         direction=Direction.INPUT, physical_channel=CHANNEL_0, alias=f"ch_0", range_min=0, range_max=5
@@ -66,8 +62,9 @@ try:
     # Set the sample rate but also the number of samples we will fetch each time daq.read_analog() is called.
     daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=50)
 
-    # Start the acquisition
-    daq.start()
+    # Start hardware acquisition without a background daemon. We fetch the buffer
+    # ourselves in the main app loop via read_analog().
+    daq.start(background=False)
 
     while True:
         try:

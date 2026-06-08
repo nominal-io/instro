@@ -3,6 +3,7 @@
 import abc
 import logging
 import time
+from types import MappingProxyType
 from typing import Any, Mapping
 
 from instro.daq.scaling.scaling import Scaler
@@ -55,41 +56,93 @@ class DAQDriverBase(abc.ABC):
     """Vendor DAQ driver contract.
 
     The driver is the single source of truth for configured channels and
-    timing config. The base initializes empty dicts/slots in ``__init__`` so
+    timing config, held in private dicts/slots that ``__init__`` initializes so
     every concrete driver has the same shape; subclasses call
-    ``super().__init__()`` and then populate the dicts inside their own
-    ``configure_*`` methods (``self.ai_channels[channel.alias] = channel``,
-    ``self.ai_hw_timing_config = hw_timing_config``, etc.). ``InstroDAQ``
-    proxies these via ``@property`` for user introspection — it does not
-    keep its own copies.
+    ``super().__init__()`` and then populate those privates inside their own
+    ``configure_*`` methods (``self._ai_channels[channel.alias] = channel``,
+    ``self._ai_hw_timing_config = hw_timing_config``, etc.). Read-only
+    ``@property`` accessors hand back frozen snapshots so the state can't be
+    mutated from outside the ``configure_*`` path; ``InstroDAQ`` exposes the
+    same snapshots for user introspection — it does not keep its own copies.
     """
 
     points_in_buffer: int
 
-    ai_channels: dict[str, AnalogChannel]
-    ao_channels: dict[str, AnalogChannel]
-    di_channels: dict[str, DigitalChannel]
-    do_channels: dict[str, DigitalChannel]
-    relay_channels: dict[str, RelayChannel]
+    _ai_channels: dict[str, AnalogChannel]
+    _ao_channels: dict[str, AnalogChannel]
+    _di_channels: dict[str, DigitalChannel]
+    _do_channels: dict[str, DigitalChannel]
+    _relay_channels: dict[str, RelayChannel]
 
-    ai_hw_timing_config: HWTimingConfig | None
-    ao_hw_timing_config: HWTimingConfig | None
-    di_hw_timing_config: HWTimingConfig | None
-    do_hw_timing_config: HWTimingConfig | None
+    _ai_hw_timing_config: HWTimingConfig | None
+    _ao_hw_timing_config: HWTimingConfig | None
+    _di_hw_timing_config: HWTimingConfig | None
+    _do_hw_timing_config: HWTimingConfig | None
 
     def __init__(self) -> None:
         self.points_in_buffer = 0
 
-        self.ai_channels = {}
-        self.ao_channels = {}
-        self.di_channels = {}
-        self.do_channels = {}
-        self.relay_channels = {}
+        self._ai_channels = {}
+        self._ao_channels = {}
+        self._di_channels = {}
+        self._do_channels = {}
+        self._relay_channels = {}
 
-        self.ai_hw_timing_config = None
-        self.ao_hw_timing_config = None
-        self.di_hw_timing_config = None
-        self.do_hw_timing_config = None
+        self._ai_hw_timing_config = None
+        self._ao_hw_timing_config = None
+        self._di_hw_timing_config = None
+        self._do_hw_timing_config = None
+
+    @property
+    def channels(self) -> tuple[DAQChannel, ...]:
+        """Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays)."""
+        return (
+            *self._ai_channels.values(),
+            *self._ao_channels.values(),
+            *self._di_channels.values(),
+            *self._do_channels.values(),
+        )
+
+    @property
+    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+        """Frozen snapshot of configured AI channels, keyed by alias."""
+        return MappingProxyType(dict(self._ai_channels))
+
+    @property
+    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+        """Frozen snapshot of configured AO channels, keyed by alias."""
+        return MappingProxyType(dict(self._ao_channels))
+
+    @property
+    def di_channels(self) -> Mapping[str, DigitalChannel]:
+        """Frozen snapshot of configured DI channels, keyed by alias."""
+        return MappingProxyType(dict(self._di_channels))
+
+    @property
+    def do_channels(self) -> Mapping[str, DigitalChannel]:
+        """Frozen snapshot of configured DO channels, keyed by alias."""
+        return MappingProxyType(dict(self._do_channels))
+
+    @property
+    def relay_channels(self) -> Mapping[str, RelayChannel]:
+        """Frozen snapshot of configured relay channels, keyed by alias."""
+        return MappingProxyType(dict(self._relay_channels))
+
+    @property
+    def ai_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._ai_hw_timing_config
+
+    @property
+    def ao_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._ao_hw_timing_config
+
+    @property
+    def di_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._di_hw_timing_config
+
+    @property
+    def do_hw_timing_config(self) -> HWTimingConfig | None:
+        return self._do_hw_timing_config
 
     @abc.abstractmethod
     def open(self):
@@ -130,39 +183,48 @@ class DAQDriverBase(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def define_digital_channel(
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        """Parse a vendor-specific ``physical_channel`` string into a ``DigitalLineChannel`` or ``DigitalPortChannel``.
-
-        ``port_width`` is supplied for port-mode channels; line-mode channels
-        encode their bit position in ``physical_channel`` per vendor convention
-        (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight 34980A,
-        ``"AUXPORT0/1"`` on MCC).
-        """
+    ):
+        """Parse, program, and register a DI line channel."""
         ...
 
     @abc.abstractmethod
-    def configure_do_channel(
+    def configure_do_line_channel(
         self,
-        channel: DigitalChannel,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
     ):
-        """Register a DO channel (line or port) with the underlying driver."""
+        """Parse, program, and register a DO line channel."""
         ...
 
-    @abc.abstractmethod
-    def configure_di_channel(
+    def configure_di_port_channel(
         self,
-        channel: DigitalChannel,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
     ):
-        """Register a DI channel (line or port) with the underlying driver."""
-        ...
+        """Parse, program, and register a DI port channel. Override if the driver supports port-mode digital input."""
+        raise NotImplementedError("Digital Input port mode has not been configured for this driver")
+
+    def configure_do_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse, program, and register a DO port channel. Override if the driver supports port-mode digital output."""
+        raise NotImplementedError("Digital Output port mode has not been configured for this driver")
 
     @abc.abstractmethod
     def start(self, **kwargs):
@@ -245,7 +307,7 @@ class DAQDriverBase(abc.ABC):
 
         Default implementation suits the Keysight 34980A's slot/channel
         addressing; override if the driver needs different parsing. Overrides
-        must also record the resulting channel on ``self.relay_channels``.
+        must also record the resulting channel on ``self._relay_channels``.
         """
         alias = alias or physical_channel
         channel = RelayChannel(
@@ -253,7 +315,7 @@ class DAQDriverBase(abc.ABC):
             alias=alias,
             direction=Direction.OUTPUT,  # Relay control is treated as an output command
         )
-        self.relay_channels[channel.alias] = channel
+        self._relay_channels[channel.alias] = channel
         return channel
 
     def close_relay(self, channel: RelayChannel):
@@ -321,33 +383,33 @@ class InstroDAQ(Instrument):
         return self._driver
 
     @property
-    def channels(self) -> list[DAQChannel]:
-        """All configured AI/AO/DI/DO channels (excludes relays)."""
-        return [
-            *self._driver.ai_channels.values(),
-            *self._driver.ao_channels.values(),
-            *self._driver.di_channels.values(),
-            *self._driver.do_channels.values(),
-        ]
+    def channels(self) -> tuple[DAQChannel, ...]:
+        """Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays)."""
+        return self._driver.channels
 
     @property
-    def ai_channels(self) -> dict[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+        """Frozen snapshot of configured AI channels, keyed by alias."""
         return self._driver.ai_channels
 
     @property
-    def ao_channels(self) -> dict[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+        """Frozen snapshot of configured AO channels, keyed by alias."""
         return self._driver.ao_channels
 
     @property
-    def di_channels(self) -> dict[str, DigitalChannel]:
+    def di_channels(self) -> Mapping[str, DigitalChannel]:
+        """Frozen snapshot of configured DI channels, keyed by alias."""
         return self._driver.di_channels
 
     @property
-    def do_channels(self) -> dict[str, DigitalChannel]:
+    def do_channels(self) -> Mapping[str, DigitalChannel]:
+        """Frozen snapshot of configured DO channels, keyed by alias."""
         return self._driver.do_channels
 
     @property
-    def relay_channels(self) -> dict[str, RelayChannel]:
+    def relay_channels(self) -> Mapping[str, RelayChannel]:
+        """Frozen snapshot of configured relay channels, keyed by alias."""
         return self._driver.relay_channels
 
     @property
@@ -374,30 +436,8 @@ class InstroDAQ(Instrument):
 
     @background_interval.setter
     def background_interval(self, seconds: float):
-        """No-op for DAQ — the interval is fixed at 0 while the daemon is enabled."""
+        """No-op for DAQ — the interval is fixed at 0 so the blocking fetch implicitly times the loop."""
         return
-
-    @property
-    def background_enable(self) -> bool:
-        """Whether the background daemon is enabled."""
-        return self._background_config.enabled
-
-    @background_enable.setter
-    def background_enable(self, enable: bool):
-        """Enable/disable the background daemon.
-
-        When enabled, the daemon continuously fetches the DAQ buffer; the interval
-        is set to 0 so the blocking fetch implicitly times the loop. When
-        disabled, the interval is bumped to 1 s so the loop doesn't burn cycles.
-        """
-        if enable:
-            # Never wait. Let fetch block
-            self._background_config.interval = 0
-        else:
-            # Give background thread a big wait so as not to eat cycles
-            self._background_config.interval = 1
-
-        self._background_config.enabled = enable
 
     def open(self):
         """Open the underlying driver."""
@@ -484,26 +524,30 @@ class InstroDAQ(Instrument):
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
         logger.info("Configured AI hardware timing on DAQ '%s'", self.name)
 
-    def start(self, **kwargs):
+    def start(self, background: bool = True, **kwargs):
         """Start hardware-timed acquisition.
 
         Args:
+            background: When True (default), spin the daemon thread to continuously
+                fetch the buffer. When False, begin hardware acquisition only and
+                fetch the buffer yourself by calling ``read_analog()``.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         # DAQmx allows starting different channel_types independently.
         channel_type = kwargs.get("channel_type", None)
 
         # TODO
-        # Need to evaluate spinning up a different worker per channel type, but this
+        # Need to evaluate spinning up a different daemon per channel type, but this
         # gets weird with different devices. DAQmx's channel types are their own things
         # whereas labjack is all one timing engine. Tricky architecture.
         # Baselining ai sample rate as the rate right now, which will break as soon as
         # we add other channel type capabilities that are hardware timed.
 
         self._driver.start(channel_type=channel_type)
-        self._define_background_daemon()
 
-        super().start()
+        if background:
+            self._define_background_daemon()
+            super().start()
 
     def stop(self, **kwargs):
         """Stop the DAQ device."""
@@ -522,7 +566,7 @@ class InstroDAQ(Instrument):
         Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
         """
         if self.ai_hw_timing_config:
-            if not self._background_config.enabled:
+            if not (self._background_thread and self._background_thread.is_alive()):
                 return self._fetch_analog(**kwargs)
             # Background daemon running. The user can't pull from the buffer mid-flight.
             # TODO revisit with INSTRO-149 issue ticket.
@@ -594,40 +638,77 @@ class InstroDAQ(Instrument):
 
         return self._package_command(f"{analog_channel.alias}.cmd", value, timestamp, **kwargs)
 
-    def configure_digital_channel(
+    def configure_digital_line(
         self,
         direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
     ):
-        """Configure a digital channel.
+        """Configure a digital line channel.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
-            physical_channel: Vendor-specific id (e.g. ``"di0"`` or ``"port0/line0"``).
+            physical_channel: Vendor-specific line id (e.g. ``"port0/line3"`` on NI, ``"5101/3"`` on Keysight, ``"FIO0"`` on LabJack).
             logic: Active-``HIGH`` or active-``LOW``.
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
-            port_width: Port width in bits (8/16/32/64) when treating the channel as a port rather than a line.
         """
-        channel = self._driver.define_digital_channel(
-            direction=direction,
-            physical_channel=physical_channel,
-            logic=logic,
-            logic_level=logic_level,
-            alias=alias,
-            port_width=port_width,
-        )
-
         match direction:
             case Direction.INPUT:
-                self._driver.configure_di_channel(channel)
+                self._driver.configure_di_line_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
             case Direction.OUTPUT:
-                self._driver.configure_do_channel(channel)
-        logger.info("Configured digital channel on DAQ '%s'", self.name)
+                self._driver.configure_do_line_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+        logger.info("Configured digital line channel on DAQ '%s'", self.name)
+
+    def configure_digital_port(
+        self,
+        direction: Direction,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a digital port channel.
+
+        Args:
+            direction: ``INPUT`` or ``OUTPUT``.
+            physical_channel: Vendor-specific port id (e.g. ``"port0"`` on NI, ``"5101"`` on Keysight, ``"AUXPORT0"`` on MCC).
+            logic: Active-``HIGH`` or active-``LOW``.
+            port_width: Port width in bits (8/16/32/64).
+            logic_level: Voltage threshold (volts); the driver default is used when ``None``.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        match direction:
+            case Direction.INPUT:
+                self._driver.configure_di_port_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    port_width=port_width,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+            case Direction.OUTPUT:
+                self._driver.configure_do_port_channel(
+                    physical_channel=physical_channel,
+                    logic=logic,
+                    port_width=port_width,
+                    logic_level=logic_level,
+                    alias=alias,
+                )
+        logger.info("Configured digital port channel on DAQ '%s'", self.name)
 
     @publish_command
     def write_digital_line(self, channel: str, data: int, **kwargs) -> Command:
@@ -636,7 +717,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
+                f"Call configure_digital_line(Direction.OUTPUT, ...) first."
             )
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_digital_line(digital_channel, data)
@@ -664,7 +745,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.INPUT, ...) first."
+                f"Call configure_digital_line(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_line(digital_channel)
         timestamp = time.time_ns()
@@ -685,8 +766,15 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.OUTPUT, ...) first."
+                f"Call configure_digital_port(Direction.OUTPUT, ...) first."
             )
+        if (width := getattr(digital_channel, "width", None)) is not None:
+            max_value = (1 << int(width)) - 1
+            if not 0 <= data <= max_value:
+                raise ValueError(
+                    f"Value {data} does not fit the {int(width)}-bit port '{channel}'; "
+                    f"valid range is 0 to {max_value} (0x{max_value:X})."
+                )
         self._driver.write_digital_port(digital_channel, data)
         timestamp = time.time_ns()
 
@@ -708,7 +796,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_channel(Direction.INPUT, ...) first."
+                f"Call configure_digital_port(Direction.INPUT, ...) first."
             )
         response = self._driver.read_digital_port(digital_channel)
         timestamp = time.time_ns()

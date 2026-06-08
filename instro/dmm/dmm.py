@@ -192,7 +192,7 @@ class InstroDMM(Instrument):
         self._define_background_daemon()
 
     def start(self) -> None:
-        """Start the background worker thread.
+        """Start the background daemon thread.
 
         Raises:
             ValueError: ``set_measurement_function`` has not been called.

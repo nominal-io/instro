@@ -17,7 +17,7 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-A `InstroELoad` is built from a concrete driver:
+An `InstroELoad` is built from a concrete driver:
 
 ```
 InstroELoad("name", driver=BK85XXB(visa_resource="USB0::..."))
@@ -33,8 +33,8 @@ The typical InstroELoad workflow:
 1. **Construct**: instantiate the vendor driver and pass it to `InstroELoad`.
 2. **`open()`**: establishes the VISA connection.
 3. **Configure and measure**: set operating mode, level, range, and read measurements.
-4. **`start()`**: begins a periodic background worker. (Optional)
-5. **`stop()`**: ends the background worker (if started).
+4. **`start()`**: begins a periodic background daemon. (Optional)
+5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
 
 ### Operating Modes
@@ -52,7 +52,7 @@ Electronic loads can operate in four modes:
 The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes. Consult your instrument's manual.
 </Note>
 
-## Creating a InstroELoad Instance
+## Creating an InstroELoad Instance
 
 ```python
 from instro.eload.drivers.bk_85xxb import BK85XXB
@@ -133,7 +133,7 @@ eload.output_enable(False, channel=1)
 eload.close()
 ```
 
-### Background Worker for Continuous Monitoring
+### Background Daemon for Continuous Monitoring
 
 ```python
 import time
@@ -157,7 +157,7 @@ eload.background_interval = 0.5  # Poll every 500ms
 
 eload.open()
 
-# Start background worker
+# Start background daemon
 eload.start()
 
 # Configure constant power mode
@@ -169,15 +169,15 @@ eload.output_enable(True, channel=1)
 # Data flows automatically to publishers
 while True:
     try:
-        # Optionally grab data being produced by the background worker.
+        # Optionally grab data being produced by the background daemon.
         ch1_voltage = eload.get_channel(
             channel_name = "myELoad.ch1.voltage",
             length = 1,
-            wait_for_latest = True)  # This will block for the next sample from the background worker
+            wait_for_latest = True)  # This will block for the next sample from the background daemon
         ch1_current = eload.get_channel(
             channel_name = "myELoad.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immedietly return with the last 5 measurements for this channel (if available).
+            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
 
     except KeyboardInterrupt:
         print("Stopping...")
@@ -185,17 +185,17 @@ while True:
 
 eload.output_enable(False, channel=1)
 
-# Stop background worker
+# Stop background daemon
 eload.stop()
 eload.close()
 ```
 
 In this mode:
-- `start()` begins a background worker, executing a function or list of functions periodically.
-- `stop()` ends the background worker.
+- `start()` begins a background daemon, executing a function or list of functions periodically.
+- `stop()` ends the background daemon.
 
 <Note>
-**Default ELoad Background Worker**
+**Default ELoad Background Daemon**
 
 For each <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip>:
 - Output voltage (via `get_voltage()`)
@@ -204,9 +204,9 @@ For each <Tooltip tip="A named signal for a series of measurements or computed v
 The default polling interval is 1 second, configurable via the `background_interval` property.
 </Note>
 
-**Custom Background Worker**
-* To define your own background worker, call `define_background_daemon()`.
-* To add a method to the background worker stack, call `add_background_daemon_function()`.
+**Custom Background Daemon**
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
+* To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
 
@@ -217,7 +217,7 @@ Data is published as a direct result of an instrument method being called.
 
 For example, when you call `get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
 
-Therefore the background worker, when calling these instrument methods, is publishing data in the background as well!
+Therefore the background daemon, when calling these instrument methods, is publishing data in the background as well!
 </Note>
 
 ## Published channels
@@ -239,7 +239,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Purpose |
 |--------|---------|
-| `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct a InstroELoad with a vendor driver |
+| `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroELoad with a vendor driver |
 | `open()` | Establish VISA connection to the electronic load |
 | `close()` | Disconnect from electronic load and close all publishers |
 | `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |
@@ -250,8 +250,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `short_output(enable, channel=1)` | Short the load channel (occurs immediately) |
 | `get_voltage(channel=1)` | Read measured input voltage |
 | `get_current(channel=1)` | Read measured input current |
-| `start()` | Begin background telemetry thread |
-| `stop()` | End background telemetry thread |
+| `start()` | Begin background telemetry daemon |
+| `stop()` | End background telemetry daemon |
 
 ---
 
@@ -281,7 +281,6 @@ An electronic load driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors**: override `check_errors()` if the instrument exposes an error queue or status register.
 
 ## ELoadDriverBase Interface
 
@@ -326,7 +325,7 @@ def get_current(self, channel: int) -> float:
     """Query and return the measured input current in amperes."""
 ```
 
-`check_errors()` is also part of the contract but defaults to a no-op on the base class. Override it if your vendor exposes an error queue.
+Error checking is not part of the base contract: if your vendor exposes an error queue, add a private `_check_errors()` helper and call it from your write/query paths (see the representative driver below).
 
 ### Talking to the Instrument
 
@@ -414,7 +413,7 @@ class BK85XXB(ELoadDriverBase):
     def get_voltage(self, channel: int) -> float:
         return float(self._visa.query("MEASure:VOLTage?"))
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         err = self._visa.query("SYST:ERR?")
         if not err.startswith("0"):
             raise RuntimeError(f"BK85XXB reported error: {err}")
@@ -456,7 +455,7 @@ class MyCustomELoadDriver(ELoadDriverBase):
 
     # ... implement other required methods ...
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         err = self._visa.query("ERR?")
         if err != "OK":
             raise RuntimeError(f"Electronic load error: {err}")
@@ -483,5 +482,5 @@ Driver development requires careful mapping of vendor-specific behavior to the u
 - Implementing all abstract methods on `ELoadDriverBase`
 - Using the correct vendor protocol or command syntax
 - Converting instrument responses to the expected Python types
-- Overriding `check_errors()` if your vendor exposes an error queue or status register
+- Adding a private `_check_errors()` helper if your vendor exposes an error queue or status register
 - Testing with actual hardware to ensure commands work as expected
