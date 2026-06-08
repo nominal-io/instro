@@ -1,4 +1,4 @@
-"""Unit tests for the Siglent SPD3303 PSU driver."""
+"""Software tests for the Siglent SPD3303 PSU driver."""
 
 from collections.abc import Iterator
 from unittest.mock import MagicMock, call, patch
