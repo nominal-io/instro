@@ -1,7 +1,8 @@
 [project]
 name = "instro"
 version = "0.8.0"
-description = "Nominal instrumentation framework (core library + SCPI/VISA drivers)"
+description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<4.0"
