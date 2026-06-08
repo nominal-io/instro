@@ -3,7 +3,7 @@ title: Overview
 description: A Python library/framework for interfacing with hardware
 ---
 
-Nominal Instrumentation is a Python library with the following objectives:
+`instro` is a Python library with the following objectives:
 
 1. Accelerate the authoring of tests which rely on hardware instruments.
 2. Provide low-code integration with Nominal tools like Connect and Core.
@@ -115,7 +115,7 @@ Here's what is required to read data from various DAQ devices and stream data to
 
 ## After: InstroDAQ
 
-Here's the same workflow using the Nominal Instrumentation library's `InstroDAQ`.
+Here's the same workflow using `instro`'s `InstroDAQ`.
 
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
@@ -152,7 +152,7 @@ daq.stop()
 daq.close()
 ```
 
-# Key Concepts of Nominal Instrumentation
+# Key Concepts of instro
 
 - **Code to an interface**, not the specific instrument in use.
 - **Automatic data publishing** to Nominal Core and Nominal Connect out of the box by way of a customizable `Publisher` interface.
@@ -162,15 +162,15 @@ daq.close()
 
 You can get measurements into your script in two ways. **Both options publish data** whenever a measurement is produced. The difference is who triggers the reads and how often.
 
-|              | Background acquisition                                                                                                                                                                        | On-demand acquisition                                                                                                                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **How**      | Call `start()`. A background daemon fetches from the instrument at a fixed, configurable rate. Use method `get_channel()` to pull the latest N values into your script if/when you need them. | Skip `start()`. Call the instrument's methods (e.g. `read_analog()`, `get_voltage()`) only when you want a measurement. Each call reads from the device and publishes the result. |
-| **Best for** | Simpler top-level apps where data should always be available and publishing.                                                                                                                  | Applications that only need measurements at specific times; lower system and bus usage. DMMs are a great example.                                                                 |
+|              | Background acquisition | On-demand acquisition |
+| ------------ | ---------------------- | --------------------- |
+| **How**      | Call `start()`. A background daemon reads from the instrument at a fixed, configurable rate. Pull the latest N values with `get_channel()` when you need them. | Skip `start()`. Call read methods (`read_analog()`, `get_voltage()`, …) only when you want a measurement. Each call reads the device and publishes the result. |
+| **Best for** | Apps where data should always be available and publishing. | Apps that need measurements only at specific times; lower system and bus load. DMMs are a good example. |
 
 <Note>
 **Recommendation**
 
-Nominal recommends the **background daemon pattern** for most workflows. Data is always available and publishing, and it often simplifies application code, especially for bufferred acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
+Use the **background daemon pattern** for most workflows. Data is always available and publishing, and it often simplifies application code, especially for buffered acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
 
 Depending on your application, you may never need to call `get_channel()`, but the background daemon will always publish measurements for later analysis in tools like Nominal Core.
 
@@ -199,16 +199,23 @@ This makes it easy to ensure measurements and state changes are consistently rec
 
 ### Instrument Types
 
-These are the current instrument types that have been developed by Nominal and available out of the box.
+These are the instrument types available out of the box.
 
 - `InstroPSU`: programmable Power Supplies
 - `InstroDAQ`: data Acquisition devices
 - `InstroELoad`: electronic Loads
+- `InstroDMM`: digital Multimeters
 - `I2CInterface`: I2C master for communicating to peripherals on an I2C bus
+- `ModbusDevice`: Modbus register/coil device (TCP or RTU)
+
+Additional instrument types are in development in the separate `instro-unstable` package, where APIs may change between releases:
+
+- `InstroScope`: oscilloscopes (Keysight 1200x, Tektronix 2-series), via `instro.unstable.scope`
+- `EtherNetIPDevice`: EtherNet/IP and CIP devices, via `instro.unstable.ethernetip`
 
 ### Drivers
 
-These are the current vendor/model specific drivers that have been developed by Nominal and are available out of the box.
+These are the vendor/model-specific drivers available out of the box.
 
 - `InstroPSU`
   - B&K Precision
@@ -218,6 +225,7 @@ These are the current vendor/model specific drivers that have been developed by 
 - `InstroDAQ`
   - National Instruments (NI)
   - LabJack T-Series
+  - Measurement Computing (MCC)
   - Keysight 34980
 - `InstroELoad`
   - B&K Precision 85xx Series
@@ -229,7 +237,10 @@ These are the current vendor/model specific drivers that have been developed by 
 
 ### Publishers
 
-These are the current Publishers that have been developed by Nominal and available out of the box.
+These are the publishers available out of the box.
 
 - `NominalCorePublisher`: sends data to a Nominal Core dataset
-- `ConnectPublisher`: sends data to Nominal Connect client
+- `NominalConnectPublisher`: sends data to a Nominal Connect client
+- `FilePublisher`: writes data to a local file in Avro, CSV, or JSON
+
+`BasicBufferedPublisher` and `QueuedPublisher` wrap any of the above to add in-memory batching or non-blocking background delivery. See [Publishers](/instrumentation/publishers) for configuration and examples.

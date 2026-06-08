@@ -1,26 +1,26 @@
 ---
 title: Driver Dependencies
-description: External vendor drivers and libraries required to use Nominal Instrumentation
+description: External vendor drivers and libraries required to use instro
 ---
 
-`instro` depends on external software to be installed for various hardware interactions to be successful. These must be installed on your system before you can use the corresponding Nominal Instrumentation drivers.
+`instro` depends on external software to be installed for various hardware interactions to be successful. These must be installed on your system before you can use the corresponding `instro` drivers.
 
 <Note>
-**Understanding the distinction**: These vendor-installable drivers are **different from** the driver classes that a `Instrument` is composed with:
+**Understanding the distinction**: These vendor-installable drivers are **different from** the driver classes that an `Instrument` is composed with:
 
 - **Vendor-installable drivers**: External libraries/drivers developed by instrument vendors that must be installed to your system operating system. These are necessary to install, regardless of using `instro`, to interact with the vendor hardware on the system in any way/environment.
-- **Nominal driver classes**: The vendor/model-specific Python code that `Instrument` uses to interact with the external software drivers.
+- **`instro` driver classes**: The vendor/model-specific Python code that `Instrument` uses to interact with the external software drivers.
 </Note>
 
 ## Overview
 
-Before using `instro` with specific instrument types, you must install the corresponding vendor driver or library. The table below shows which vendor drivers are required for which Nominal instrument types:
+Before using `instro` with specific instrument types, you must install the corresponding vendor driver or library. The table below shows which vendor drivers are required for which `instro` instrument types:
 
-| Vendor Driver | Required For | Used By Nominal Drivers |
+| Vendor Driver | Required For | Used By instro Drivers |
 |--------------|--------------|------------------------|
 | **VISA** | SCPI/VISA-based instruments (PSUs, ELoads, Keysight DAQ) | All VISA-based driver implementations |
 | **NI-DAQmx** | National Instruments DAQ devices | `NIDAQDriver` |
-| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackDAQDriver` |
+| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackTSeriesDriver` |
 | **MCC Universal Library (`mcculw`)** | Measurement Computing DAQ devices | `MCCDriver` |
 | **Total Phase USB Drivers** | Total Phase Aardvark I2C/SPI Host Adapter | `Aardvark` |
 
@@ -68,7 +68,7 @@ LJM is the LabJack Module library required to communicate with LabJack T-Series 
 
 ### Used By
 
-- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackDAQDriver`)
+- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackTSeriesDriver`)
 
 ### Installation
 

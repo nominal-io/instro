@@ -22,7 +22,7 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-A `InstroPSU` is built from a concrete driver:
+An `InstroPSU` is built from a concrete driver:
 
 ```
 InstroPSU("name", driver=BK9115(visa_resource="USB0::..."), num_channels=1)
@@ -42,7 +42,7 @@ The typical InstroPSU workflow:
 5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
 
-## Creating a InstroPSU Instance
+## Creating an InstroPSU Instance
 
 ```python
 from instro.psu.drivers import SiglentSPD3303
@@ -165,7 +165,7 @@ while True:
         ch1_current = psu.get_channel(
             channel_name = "myPSU.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immedietly return with the last 5 measurements for this channel (if available).
+            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
         print(f"Voltage, Channel 1: {ch1_voltage}")
         print(f"Current, Channel 1: {ch1_current}")
     except KeyboardInterrupt:
@@ -195,7 +195,7 @@ The default polling interval is 1 second, configurable via the `background_inter
 </Note>
 
 **Custom Background Daemon**
-* To define your own background daemon, call `define_background_daemon()`.
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
 * To add a method to the background daemon stack, call `add_background_daemon_function()`.
 
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -239,7 +239,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Purpose |
 |--------|---------|
-| `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct a InstroPSU with a vendor driver |
+| `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
 | `set_voltage(voltage, channel=1)` | Set voltage setpoint in volts |
@@ -265,7 +265,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 # Simulated Power Supply
 
-For development and testing without physical hardware, Nominal Instrumentation includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
+For development and testing without physical hardware, `instro` includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
 
 ## Starting the Simulation Server
 
@@ -351,7 +351,6 @@ A PSU driver must:
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
 5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
-6. **Report errors**: query the instrument's error queue (where one exists) and raise on non-zero status.
 
 ## PSUDriverBase Interface
 

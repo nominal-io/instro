@@ -1,6 +1,6 @@
-site_name: "Nominal Instrumentation SDK"
-repo_url: "https://github.com/nominal-io/instrumentation"
-repo_name: "nominal-io/instrumentation"
+site_name: "instro SDK"
+repo_url: "https://github.com/nominal-io/instro"
+repo_name: "nominal-io/instro"
 site_dir: site
 watch: [mkdocs.yml, ../../README.md, ../../CHANGELOG.md, ../../instro, ../../packages]
 copyright: Copyright &copy; Nominal, Inc.

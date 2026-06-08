@@ -1,8 +1,8 @@
-# Nominal Instrumentation docs: agent instructions
+# instro docs: agent instructions
 
 ## About this project
 
-- Open-source documentation for [Nominal Instrumentation](https://nominal-io.github.io/instrumentation/), Nominal's Python library for test equipment automation.
+- Open-source documentation for [`instro`](https://instro.nominal.io), a Python library for test equipment automation.
 - Built on [Mintlify](https://mintlify.com). Pages are MDX files with YAML frontmatter.
 - Configuration lives in `docs.json`.
 - Run `mint dev` to preview locally. Run `mint broken-links` before opening a PR.
@@ -10,7 +10,7 @@
 
 ## Terminology
 
-- Refer to the library as **Nominal Instrumentation** (or `instro`, the package name).
+- Refer to the library as **`instro`** (the package name). Reserve *Nominal* for the platform it integrates with (Nominal Core, Nominal Connect, the Nominal publishers).
 - The instrument HALs are **`InstroPSU`**, **`InstroELoad`**, **`InstroDMM`**, **`InstroDAQ`**, **`I2CInterface`**: keep the casing.
 - A *channel* is a named signal for a series of measurements or computed values. The inline glossary tooltip is in `snippets/glossary/channel.mdx`.
 
@@ -30,4 +30,4 @@ Follow Nominal's writing style guide. The rules that bite most often here:
 
 ## Content boundaries
 
-- This repo documents Nominal Instrumentation only. Nominal Core, Nominal Connect, and the dashboard are documented elsewhere: link out, don't re-document.
+- This repo documents `instro` only. Nominal Core, Nominal Connect, and the dashboard are documented elsewhere: link out, don't re-document.

@@ -5,7 +5,7 @@ description: VISA transport driver for building custom SCPI instrument drivers
 
 # VisaDriver
 
-`VisaDriver` is the VISA transport that Nominal's built-in SCPI instrument drivers (`BK9115`, `RigolDP800`, `SiglentSPD3303`, `Keithley2400`, `Agilent34401A`, `BK85xxB`, …) sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap [pyvisa](https://pyvisa.readthedocs.io/) themselves.
+`VisaDriver` is the VISA transport that `instro`'s built-in SCPI instrument drivers (`BK9115`, `RigolDP800`, `SiglentSPD3303`, `Keithley2400`, `Agilent34401A`, `BK85xxB`, …) sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap [pyvisa](https://pyvisa.readthedocs.io/) themselves.
 
 It is intentionally narrow: it opens, closes, and locks a VISA resource and exposes text and raw byte I/O. The caller chooses the command strings.
 
@@ -20,7 +20,7 @@ It is intentionally narrow: it opens, closes, and locks a VISA resource and expo
 | If you want to... | `VisaDriver` is the right fit because... |
 | --- | --- |
 | Talk to a **VISA-addressable** instrument | It wraps pyvisa and supports GPIB, USB-TMC, TCPIP (SOCKET, VXI-11, HiSLIP), and ASRL (serial) |
-| Build a **vendor- or model-specific driver** that plugs into an `Instro*` instrument type (`InstroPSU`, `InstroDMM`, `InstroELoad`, …) for a device Nominal doesn't ship | It's the same transport every built-in SCPI driver uses, so your driver composes the same way |
+| Build a **vendor- or model-specific driver** that plugs into an `Instro*` instrument type (`InstroPSU`, `InstroDMM`, `InstroELoad`, …) for a device `instro` doesn't ship | It's the same transport every built-in SCPI driver uses, so your driver composes the same way |
 | Use a **standalone client** for a SCPI instrument that doesn't fit any existing instrument type | It's usable on its own, without an `Instro*` wrapper |
 
 If you're working with a non-VISA protocol (Modbus, raw TCP without VISA framing, a vendor REST API), use the appropriate protocol module (e.g. [ModbusDevice](/instrumentation/protocols/modbus)) or a plain client library instead.
@@ -110,7 +110,7 @@ When the VISA resource is an ASRL (RS-232 / RS-485) interface, `VisaDriver` appl
 
 ## Building a Custom Driver
 
-The intended use of `VisaDriver` is as an internal transport inside a vendor-specific instrument driver. Nominal's shipped SCPI drivers all follow the same shape: take a `str | VisaConfig` in the constructor, store a `VisaDriver`, and delegate `open()` / `close()` and all I/O to it.
+The intended use of `VisaDriver` is as an internal transport inside a vendor-specific instrument driver. `instro`'s shipped SCPI drivers all follow the same shape: take a `str | VisaConfig` in the constructor, store a `VisaDriver`, and delegate `open()` / `close()` and all I/O to it.
 
 Here is a minimal `InstroPSU`-compatible driver for a hypothetical SCPI power supply. The same shape applies to any instrument type whose driver base class exposes `open()`, `close()`, and a small set of category methods.
 
@@ -189,7 +189,7 @@ print(psu.get_voltage())
 psu.close()
 ```
 
-Two patterns from this example are worth calling out because they recur in every Nominal SCPI driver:
+Two patterns from this example are worth calling out because they recur in every `instro` SCPI driver:
 
 | Pattern | Why it matters |
 | --- | --- |

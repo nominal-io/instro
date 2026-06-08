@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.0](https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v0.8.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** split digital line and port configuration into separate methods ([#36](https://github.com/nominal-io/instro/issues/36))
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41))
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19))
+
+### Features
+
+* **daq:** implement digital port read/write for NI and Keysight drivers ([#50](https://github.com/nominal-io/instro/issues/50)) ([3150ae0](https://github.com/nominal-io/instro/commit/3150ae09a84f6b75b5800b128309173b65ca667b))
+* **daq:** require fully-qualified NI physical channel names ([#41](https://github.com/nominal-io/instro/issues/41)) ([a9dbdfd](https://github.com/nominal-io/instro/commit/a9dbdfd481dca8424da4e892d28986acce024d87))
+* **psu:** add ovp, ocp, and remote sense method signatures ([#31](https://github.com/nominal-io/instro/issues/31)) ([ecd4071](https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd))
+
+
+### Bug Fixes
+
+* **psu:** expect "+0" from TDK Lambda SYST:ERR? response ([#54](https://github.com/nominal-io/instro/issues/54)) ([5f9e4a9](https://github.com/nominal-io/instro/commit/5f9e4a942c46b63895a218826eb5df46b4b91a59))
+* **tests:** add tests/__init__.py so pyaardvark's bundled tests package stops shadowing ([#44](https://github.com/nominal-io/instro/issues/44)) ([d755f95](https://github.com/nominal-io/instro/commit/d755f95fcdf906fcb89cd41d1888a49ada2d45c1))
+
+
+### Miscellaneous
+
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19)) ([cd43847](https://github.com/nominal-io/instro/commit/cd43847904a492b83cc3c2f8da97e356a06e9435))
+* **daq:** split digital line and port configuration into separate methods ([#36](https://github.com/nominal-io/instro/issues/36)) ([52c8c44](https://github.com/nominal-io/instro/commit/52c8c44e2981aae9610606309c411a9b44c4094c))
+
 ## [0.7.0](https://github.com/nominal-io/instro/compare/instro-v0.6.0...instro-v0.7.0) (2026-05-27)
 
 

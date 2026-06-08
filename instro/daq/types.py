@@ -38,7 +38,7 @@ class TerminalConfig(Enum):
     RSE = "RSE"
 
 
-@dataclass
+@dataclass(frozen=True)
 class HWTimingConfig:
     sample_rate: float
     sample_period: int
@@ -46,14 +46,14 @@ class HWTimingConfig:
     # sample_clock_source: str | None = None
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class DAQChannel:
     physical_channel: str
     alias: str
     direction: Direction
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnalogChannel(DAQChannel):
     range_max: float
     range_min: float
@@ -68,23 +68,23 @@ class DigitalPortWidth(IntEnum):
     WIDTH_64 = 64
 
 
-@dataclass
+@dataclass(frozen=True)
 class DigitalChannel(DAQChannel):
     logic_level: float | None
     logic: Logic
 
 
-@dataclass
+@dataclass(frozen=True)
 class DigitalPortChannel(DigitalChannel):
     width: DigitalPortWidth
 
 
-@dataclass
+@dataclass(frozen=True)
 class DigitalLineChannel(DigitalChannel):
     bit_position: int | None = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class RelayChannel(DAQChannel):
     """A relay channel routed via open/close. ``direction`` is always ``OUTPUT`` (relay control is a command)."""
 

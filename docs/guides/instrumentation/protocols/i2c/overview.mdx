@@ -44,7 +44,7 @@ mode = i2c.read("gpio_expander", "CONFIG", field="mode")
 See the [System Definition](/instrumentation/protocols/i2c/system-definition) page for detailed information on creating and configuring your `SystemDefinition`.
 
 <Tip>
-Nominal recommends creating your SystemDefinition in a separate file and importing it into your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
+Create your SystemDefinition in a separate file and import it into your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
 </Tip>
 
 
@@ -474,10 +474,10 @@ def write_read(self, address: int, data: bytes, read_len: int) -> bytes:
     """
 
 def set_bitrate(self, bitrate: int) -> None:
-    """Set the I2C bus bitrate.
+    """Set the I2C master clock rate in kHz.
 
     Args:
-        bitrate: Desired bitrate in Hz (e.g., 100000 for 100 kHz)
+        bitrate: Desired bus clock rate in kHz (e.g., 100 for 100 kHz)
     """
 
 def set_pullups(self, enable: bool) -> None:

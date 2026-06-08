@@ -20,7 +20,7 @@ from instro.daq.types import (
 from instro.lib import Measurement
 from labjack import ljm
 
-# TODO: Remove this for [INSTRO-89: Add Context Managers](https://linear.app/nominal-io/issue/INSTRO-89/add-context-managers)
+# TODO(INSTRO-89): Remove this once context managers are added.
 # We use a callback functionality of the LJM driver. This is for performance reasons vs. python threading.
 # Registering this python callback to the c library
 # can create python segmentation faults when the python interpreter is shutting down.
@@ -133,12 +133,12 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if aNames:
             ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
 
-        self.ai_channels[channel.alias] = channel
+        self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
         # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
-        self.ao_channels[channel.alias] = channel
+        self._ao_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -149,7 +149,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # We'll use the first channel's hw timing to set the global scan rate and samples per channel
         # and check that all channels and any subsequent calls to configure_hw_timing have the same values.
 
-        ai_channels = list(self.ai_channels.values())
+        ai_channels = list(self._ai_channels.values())
         self._validate_scan_rate(hw_timing_config, ai_channels)
 
         # Here, we'll configure some of the settling and resolution settings specific to streams
@@ -163,7 +163,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._global_scan_rate = hw_timing_config.sample_rate
         self._global_scans_per_read = hw_timing_config.samples_per_channel
 
-        self.ai_hw_timing_config = hw_timing_config
+        self._ai_hw_timing_config = hw_timing_config
 
     def _validate_scan_rate(self, hw_timing_config: HWTimingConfig, channels: list[AnalogChannel]):
         """Pre-check the requested scan rate so we raise a clear error instead of LJM's cryptic one."""
@@ -194,7 +194,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
             return
 
         # For LabJack, we need to know the channels to start streaming
-        channels = self.ai_channels.values()
+        channels = self._ai_channels.values()
         if not channels:
             raise ValueError("No channels specified to start streaming on LabJack device.")
 
@@ -227,7 +227,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self,
     ) -> LabJackData:
         """Read from analog input channels."""
-        channels = self.ai_channels
+        channels = self._ai_channels
         physical_channels = [ch.physical_channel for ch in channels.values()]
 
         # Append _CAPTURE to channel names (except first) to ensure simultaneous sampling from T8
@@ -277,7 +277,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
             logic_level=logic_level,  # type: ignore
             logic=logic,
         )
-        self.di_channels[channel.alias] = channel
+        self._di_channels[channel.alias] = channel
 
     def configure_do_line_channel(
         self,
@@ -301,7 +301,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
             logic_level=logic_level,  # type: ignore
             logic=logic,
         )
-        self.do_channels[channel.alias] = channel
+        self._do_channels[channel.alias] = channel
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
         if channel.logic is Logic.LOW:
