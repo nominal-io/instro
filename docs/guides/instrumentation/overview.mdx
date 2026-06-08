@@ -3,7 +3,7 @@ title: Overview
 description: A Python library/framework for interfacing with hardware
 ---
 
-Nominal Instrumentation is a Python library with the following objectives:
+`instro` is a Python library with the following objectives:
 
 1. Accelerate the authoring of tests which rely on hardware instruments.
 2. Provide low-code integration with Nominal tools like Connect and Core.
@@ -115,7 +115,7 @@ Here's what is required to read data from various DAQ devices and stream data to
 
 ## After: InstroDAQ
 
-Here's the same workflow using the Nominal Instrumentation library's `InstroDAQ`.
+Here's the same workflow using `instro`'s `InstroDAQ`.
 
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
@@ -152,7 +152,7 @@ daq.stop()
 daq.close()
 ```
 
-# Key Concepts of Nominal Instrumentation
+# Key Concepts of instro
 
 - **Code to an interface**, not the specific instrument in use.
 - **Automatic data publishing** to Nominal Core and Nominal Connect out of the box by way of a customizable `Publisher` interface.
@@ -170,7 +170,7 @@ You can get measurements into your script in two ways. **Both options publish da
 <Note>
 **Recommendation**
 
-Nominal recommends the **background daemon pattern** for most workflows. Data is always available and publishing, and it often simplifies application code, especially for buffered acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
+Use the **background daemon pattern** for most workflows. Data is always available and publishing, and it often simplifies application code, especially for buffered acquisitions from a DAQ where you'd need to manage servicing a buffer yourself.
 
 Depending on your application, you may never need to call `get_channel()`, but the background daemon will always publish measurements for later analysis in tools like Nominal Core.
 
@@ -199,7 +199,7 @@ This makes it easy to ensure measurements and state changes are consistently rec
 
 ### Instrument Types
 
-These are the current instrument types that have been developed by Nominal and available out of the box.
+These are the instrument types available out of the box.
 
 - `InstroPSU`: programmable Power Supplies
 - `InstroDAQ`: data Acquisition devices
@@ -215,7 +215,7 @@ Additional instrument types are in development in the separate `instro-unstable`
 
 ### Drivers
 
-These are the current vendor/model specific drivers that have been developed by Nominal and are available out of the box.
+These are the vendor/model-specific drivers available out of the box.
 
 - `InstroPSU`
   - B&K Precision
@@ -237,7 +237,7 @@ These are the current vendor/model specific drivers that have been developed by 
 
 ### Publishers
 
-These are the current Publishers that have been developed by Nominal and available out of the box.
+These are the publishers available out of the box.
 
 - `NominalCorePublisher`: sends data to a Nominal Core dataset
 - `NominalConnectPublisher`: sends data to Nominal Connect client

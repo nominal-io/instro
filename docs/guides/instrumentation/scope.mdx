@@ -1,13 +1,13 @@
 ---
 title: Scope and Applicability
-description: Understanding what Nominal Instrumentation is for, where it's applicable, and where it's not
+description: Understanding what instro is for, where it's applicable, and where it's not
 ---
 
-Nominal Instrumentation is designed to accelerate test equipment automation and simplify integration with Nominal's platform. This page helps you understand when this library is the right tool for your needs and what responsibilities remain with you as the engineer.
+`instro` is designed to accelerate test equipment automation and simplify integration with Nominal's platform. This page helps you understand when this library is the right tool for your needs and what responsibilities remain with you as the engineer.
 
 ## What This Library Is For
 
-Nominal Instrumentation is primarily used for **scripting and automating test equipment**. It provides:
+`instro` is primarily used for **scripting and automating test equipment**. It provides:
 
 - **Unified interfaces and code reusability** across different vendors and models of the same equipment type
 - **Built-in publishers** that stream measurements to Nominal Core and Nominal Connect
@@ -22,7 +22,7 @@ This library is designed for scripting and automation workflows, not for tight c
 
 ### What It Does
 
-Nominal Instrumentation strives to provide the same behavior and user experience across devices within the same type that share the same features. For example, if you have a data acquisition system from National Instruments or LabJack, the library provides a consistent API so your code can work with either vendor by changing a configuration parameter.
+`instro` strives to provide the same behavior and user experience across devices within the same type that share the same features. For example, if you have a data acquisition system from National Instruments or LabJack, the library provides a consistent API so your code can work with either vendor by changing a configuration parameter.
 
 ### What It Doesn't Do
 
@@ -42,7 +42,7 @@ The library has intentional boundaries that preserve your engineering judgment a
 
 ### This Library Is Optional
 
-Nominal Instrumentation is **not a requirement** for using hardware with Nominal Core or Nominal Connect. You can always interface with your instruments using manufacturer-provided SDKs and send data to Nominal products through their APIs.
+`instro` is **not a requirement** for using hardware with Nominal Core or Nominal Connect. You can always interface with your instruments using manufacturer-provided SDKs and send data to Nominal products through their APIs.
 
 ### Why You Might Choose to Use It
 
@@ -56,9 +56,9 @@ The library offers significant convenience by:
 
 ### When to Use Native Interfaces
 
-Nominal wants you to use all the features of your instruments. If this library doesn't expose a feature you need:
+You should be able to use all the features of your instruments. If this library doesn't expose a feature you need:
 
-- **Don't hesitate to reach out**: Contact Nominal to request the feature be added.
+- **Don't hesitate to reach out**: Open an issue to request the feature be added.
 - **Don't hesitate to go direct**: You are not beholden to this library. Use the instrument's native interfaces directly if that better serves your needs.
 
 A missing feature in this library should never block your work. Your success with your test equipment is more important than using any particular abstraction layer.
@@ -89,7 +89,7 @@ As with any test system, you should validate that your configuration produces th
 
 ## Implementation Approach
 
-Nominal Instrumentation prioritizes performance and reliability by leveraging compiled binaries where possible:
+`instro` prioritizes performance and reliability by leveraging compiled binaries where possible:
 
 - **Compiled drivers**: Where available, instrument drivers use compiled binaries provided by instrument manufacturers rather than pure Python implementations. This approach provides better performance and reliability for instrument communication.
 
@@ -101,4 +101,4 @@ This hybrid approach balances performance with developer accessibility. You prog
 
 ## Summary
 
-Nominal Instrumentation is a tool designed to make your work with test equipment easier and more integrated with Nominal's platform. It's built on the principle that you, the engineer, know your requirements best. The library provides convenience and consistency while leaving you free to work directly with hardware when needed. Use it where it helps, skip it where it doesn't, and tell Nominal how to make it better.
+`instro` is a tool designed to make your work with test equipment easier and more integrated with Nominal's platform. It's built on the principle that you, the engineer, know your requirements best. The library provides convenience and consistency while leaving you free to work directly with hardware when needed. Use it where it helps, skip it where it doesn't, and file an issue to help make it better.

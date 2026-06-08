@@ -1,6 +1,6 @@
 # Instruments
 
-The Nominal Instrumentation SDK provides high-level, vendor-agnostic interfaces for common lab
+The `instro` SDK provides high-level, vendor-agnostic interfaces for common lab
 instruments. Each instrument type defines a standard API that works across multiple hardware vendors.
 
 | Class | Description |

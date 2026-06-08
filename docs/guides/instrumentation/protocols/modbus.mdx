@@ -5,7 +5,7 @@ description: Using ModbusDevice for Modbus TCP and RTU device communication
 
 # ModbusDevice
 
-ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the Nominal publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
+ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the `instro` publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
 
 <Note>
 [Modbus Application Protocol Specification](https://www.modbus.org/modbus-specifications)
@@ -13,7 +13,7 @@ ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-base
 
 ## Quickstart
 
-Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
+Publishing Modbus data to Nominal Core with instro
 
 <Tabs>
 
@@ -50,7 +50,7 @@ modbus_device.close()
   "protocol": "modbus",
   "device": {
     "name": "example_device",
-    "description": "Example device for Nominal docs",
+    "description": "Example device for instro docs",
     "manufacturer": "Nominal",
     "model": "Sim Device 3000"
   },

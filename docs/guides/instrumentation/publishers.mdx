@@ -1,9 +1,9 @@
 ---
 title: Publishers
-description: How Nominal Instrumentation gets data to places
+description: How instro gets data to places
 ---
 
-Publishers are the mechanism by which Nominal Instrumentation handles data from instruments. They define what happens to measurements and commands - whether that's sending data to Nominal Core, streaming to Nominal Connect, writing to files, or implementing custom behavior.
+Publishers are the mechanism by which `instro` handles data from instruments. They define what happens to measurements and commands - whether that's sending data to Nominal Core, streaming to Nominal Connect, writing to files, or implementing custom behavior.
 
 Every instrument can have multiple publishers attached, and data flows automatically: **Instrument → Publishers → Destinations**.
 
@@ -73,7 +73,7 @@ class Publisher(Protocol):
 
 ## Built-in Publishers
 
-Nominal Instrumentation provides built-in publishers for sending data to Nominal's platform and for writing to local files.
+`instro` provides built-in publishers for sending data to Nominal's platform and for writing to local files.
 
 ### NominalCorePublisher
 
