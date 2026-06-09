@@ -55,7 +55,7 @@ def test_set_voltage(driver: KeysightE36100) -> None:
     driver.set_voltage(PROGRAMMED_VOLTAGE, channel=CHANNEL)
     try:
         driver.output_enable(True, channel=CHANNEL)
-        time.sleep(0.5)
+        time.sleep(1)
 
         assert driver.get_voltage(channel=CHANNEL) == pytest.approx(
             PROGRAMMED_VOLTAGE,
@@ -70,7 +70,7 @@ def test_get_voltage(driver: KeysightE36100) -> None:
     driver.set_voltage(PROGRAMMED_VOLTAGE, channel=CHANNEL)
     try:
         driver.output_enable(True, channel=CHANNEL)
-        time.sleep(0.5)
+        time.sleep(1)
 
         voltage = driver.get_voltage(channel=CHANNEL)
 
@@ -87,7 +87,7 @@ def test_set_current_limit(driver: KeysightE36100) -> None:
     driver.set_voltage(PROGRAMMED_VOLTAGE, channel=CHANNEL)
     try:
         driver.output_enable(True, channel=CHANNEL)
-        time.sleep(0.5)
+        time.sleep(1)
 
         assert driver.get_current(channel=CHANNEL) == pytest.approx(
             0.0,
@@ -102,7 +102,7 @@ def test_get_current(driver: KeysightE36100) -> None:
     driver.set_voltage(PROGRAMMED_VOLTAGE, channel=CHANNEL)
     try:
         driver.output_enable(True, channel=CHANNEL)
-        time.sleep(0.5)
+        time.sleep(1)
 
         current = driver.get_current(channel=CHANNEL)
 
@@ -164,11 +164,12 @@ def test_set_overvoltage_protection_enabled(driver: KeysightE36100) -> None:
 
 
 def test_get_overvoltage_protection_enabled(driver: KeysightE36100) -> None:
+    # *RST leaves OVP enabled on the E36100 series, so set a known baseline first.
     driver.set_overvoltage_protection_level(OVP_LEVEL, channel=CHANNEL)
+    driver.set_overvoltage_protection_enabled(False, channel=CHANNEL)
     assert driver.get_overvoltage_protection_enabled(channel=CHANNEL) is False
 
     driver.set_overvoltage_protection_enabled(True, channel=CHANNEL)
-
     assert driver.get_overvoltage_protection_enabled(channel=CHANNEL) is True
 
 
