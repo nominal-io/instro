@@ -47,6 +47,7 @@ packages = ["instro"]
 dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
+    "cpppo>=4.0.0",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
