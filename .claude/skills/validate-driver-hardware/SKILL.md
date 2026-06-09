@@ -192,9 +192,21 @@ signal):
 
 - **Driver bug** — wrong wire command, bad value formatting (e.g. sending
   `10.0` where the device wants `10`), mis-parsed response, buffer desync on a
-  binary read. **Fix the driver.** Then update the mocked unit tests in
-  `tests/<category>/...` if the wire command changed, and re-run `just check`
-  and `just test` to confirm no regression.
+  binary read. **Fix the driver, and only the driver.** Confine every edit to the
+  concrete driver module and its accompanying tests (`tests/<category>/...`).
+  **Never edit shared/core library code** — `instro/lib/` (transports like
+  `VisaDriver`, `instro/lib/types.py`), the category base class
+  (`<Category>DriverBase`), or the HAL. Those are out of scope for a single-driver
+  validation. If a fix looks like it needs a transport capability the public API
+  doesn't expose (e.g. a length-aware binary read, or disabling the read
+  terminator for a raw block), **use the VISA escape hatch** — reach the
+  underlying pyvisa resource from inside the driver via `self._visa._inst` while
+  holding `self._visa.lock()`, restoring any attribute you change (e.g.
+  `read_termination`) in a `finally`. If the cause genuinely cannot be fixed
+  without changing core lib, **stop and flag it for the user**; do not edit lib
+  yourself. After fixing the driver, update the mocked unit tests if the wire
+  command changed, and re-run `just check` and `just test` to confirm no
+  regression.
 - **Script/config** — wrong channel, timebase showing too few cycles, a trigger
   level the signal never crosses, tolerance too tight. **Fix the script**, not
   the driver.
@@ -225,6 +237,12 @@ the bug.
   a separate example, not this script.
 - **Don't fix the driver to match a broken test.** If the test config or wiring
   is wrong, fix that instead — the driver's wire behavior must stay correct.
+- **Don't edit shared/core library code.** A driver fix must land only in the
+  driver module and its tests — never in `instro/lib/` (incl. `VisaDriver` and
+  other transports), `<Category>DriverBase`, or the HAL. Need a capability the
+  transport API lacks? Use the VISA escape hatch (`self._visa._inst` under
+  `self._visa.lock()`) from within the driver, or flag the gap to the user — do
+  not modify lib.
 - **Don't silently skip methods.** If a method can't be validated with the
   available stimulus, print it as `SKIPPED` with the reason, not omit it.
 - **Don't leave the instrument in an unsafe state.** Restore outputs/levels in

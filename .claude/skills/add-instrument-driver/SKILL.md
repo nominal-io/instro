@@ -226,3 +226,9 @@ mocked gates pass, **ask the user whether they have the physical device on hand*
   transport needs it, like Aardvark).
 - No guessing commands the manual doesn't show. If a required method's command is
   unknown, flag it for the user rather than inventing one.
+- No edits to shared/core library code. Scope is the driver module, its
+  registration, its tests, and docs — never `instro/lib/` (transports like
+  `VisaDriver`, `instro/lib/types.py`), the category base class, or the HAL. If
+  the driver seems to need a transport capability the public API doesn't expose,
+  use the VISA escape hatch (`self._visa._inst` under `self._visa.lock()`) from
+  within the driver, or flag the gap to the user — don't modify lib.
