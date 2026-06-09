@@ -17,9 +17,9 @@ This page covers building an entirely new instrument type using `Instrument`. If
 
 # Custom Instrumentation
 
-Nominal Instrumentation provides a framework for developing instruments that do not ship with the library. This lets an engineer with domain knowledge of an instrument type develop new functionality within a paradigm that grants the features of other instruments within Nominal Instrumentation.
+`instro` provides a framework for developing instruments that do not ship with the library. This lets an engineer with domain knowledge of an instrument type develop new functionality within a paradigm that grants the features of other instruments within `instro`.
 
-This is different than custom driver development within an existing instrument type. For example, if Nominal does not provide an RF Power Meter instrument type but you want the `instro` experience, creating a custom instrument type using `Instrument` is the path forward.
+This is different than custom driver development within an existing instrument type. For example, if there is no built-in RF Power Meter instrument type but you want the `instro` experience, creating a custom instrument type using `Instrument` is the path forward.
 
 ## Walkthrough: building a `SimpleTempController` instrument
 
@@ -67,7 +67,7 @@ class SimpleTempController(Instrument):
         super().close()
 ```
 
-The base constructor takes a `name` (used as the channel-name prefix), and any extra `**kwargs` become default tags. `self.background_interval` sets the daemon's polling cadence in seconds, and `add_background_daemon_function` registers a method to be called every tick.
+The base constructor takes a `name` (used as the channel-name prefix), and any extra `**kwargs` become default tags. `self.background_interval` sets the daemon's polling cadence in seconds. Two methods register what the daemon runs each tick: `add_background_daemon_function(method, *args, **kwargs)` appends one call to the daemon's list (call it once per method you want polled), and `define_background_daemon(method, *args, **kwargs)` is the replace-all variant that clears the list and registers a single method.
 
 Override `open()` and `close()` to manage the connection to your device. The simulated controller has nothing to open, so both overrides just call `super()`. This is the seam where a real instrument would call `socket.create_connection`, open a VISA session, claim a USB interface, etc. The base `close()` already stops the background daemon and closes attached publishers, so user-side overrides only need to add their own teardown.
 

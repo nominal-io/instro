@@ -238,15 +238,6 @@ class Instrument:
     def background_interval(self, seconds: float):
         self._background_config.interval = seconds
 
-    @property
-    def background_enable(self):
-        """Whether the background daemon is enabled (must still be ``start()``-ed)."""
-        return self._background_config.enabled
-
-    @background_enable.setter
-    def background_enable(self, enable: bool):
-        self._background_config.enabled = enable
-
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
         """Append ``method`` to the daemon's call list. Use ``define_background_daemon`` to replace instead."""
         self._background_methods.append((method, args, kwargs))
@@ -274,10 +265,9 @@ class Instrument:
         )
         self._background_thread.start()
         logger.info(
-            "Started background daemon for instrument '%s' (thread=%s, enabled=%s, interval_s=%s)",
+            "Started background daemon for instrument '%s' (thread=%s, interval_s=%s)",
             self.name,
             self._background_thread.name,
-            self._background_config.enabled,
             self._background_config.interval,
         )
 
@@ -321,18 +311,15 @@ class Instrument:
         """Daemon loop: run registered functions every ``background_interval``, publish loop timing."""
         while not self._background_stop_event.is_set():
             daemon_loop_start = time.time_ns()
-            if self._background_config.enabled:
-                self._background_daemon()
+            self._background_daemon()
             daemon_work_stop = time.time_ns()
 
             daemon_work_time_s = (daemon_work_stop - daemon_loop_start) * 1e-9
             self._background_stop_event.wait(max(0, self._background_config.interval - daemon_work_time_s))
 
             daemon_loop_stop = time.time_ns()
-            # Only publish if the background loop is running
-            if self._background_config.enabled:
-                daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
-                self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
+            daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
+            self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
 
     def _background_daemon(self):
         """Invoke each registered daemon function once.

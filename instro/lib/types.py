@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field
 @dataclass
 class BackgroundDaemonConfig:
     interval: float = 1.0
-    enabled: bool = True
 
 
 @dataclass

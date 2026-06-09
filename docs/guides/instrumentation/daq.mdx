@@ -18,7 +18,7 @@ InstroDAQ is a hardware abstraction layer (HAL) that provides a unified interfac
 
 ### Lifecycle Pattern
 
-The typical InstroDAQ workflow follow this pattern:
+The typical InstroDAQ workflow follows this pattern:
 
 1. **`InstroDAQ(name, driver, ...)`** - Instantiate the DAQ with a vendor driver
 2. **`open()`** - Establish connection to the hardware
@@ -56,7 +56,7 @@ InstroDAQ supports two acquisition modes:
 - Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
 
-## Creating a InstroDAQ Instance
+## Creating an InstroDAQ Instance
 
 Construct a vendor driver and pass it to `InstroDAQ`:
 
@@ -383,12 +383,9 @@ Therefore the background daemon, which is calling instrument methods, is publish
 
 ### Hardware-Timed Acquisition with Manual Fetching
 
-For hardware-timed acquisition where you control when to fetch buffered data. Disable the Background Daemon and manually call `read_analog()`.
+For hardware-timed acquisition where you control when to fetch buffered data, start without the background daemon and manually call `read_analog()`.
 
 ```python
-
-# Disable automatic background publishing
-daq.background_enable = False
 
 daq.open()
 
@@ -396,8 +393,8 @@ daq.open()
 daq.configure_analog_channel(...)
 daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
 
-# Start hardware acquisition (fills buffer)
-daq.start()
+# Start hardware acquisition (fills buffer) without spinning the background daemon
+daq.start(background=False)
 
 # Manually fetch from buffer when ready
 for i in range(10):
@@ -411,7 +408,7 @@ daq.close()
 <Warning>
 Failing to fetch samples from the hardware buffer at a reasonable rate will cause the DAQ data buffer to fill up and data will be either lost or an exception will be raised.
 </Warning>
-When `background_enable = False`, calling `read_analog()` during hardware-timed acquisition fetches from the hardware buffer rather than triggering a new conversion.
+With `start(background=False)`, calling `read_analog()` during hardware-timed acquisition fetches from the hardware buffer rather than triggering a new conversion.
 
 ## Analog Output
 

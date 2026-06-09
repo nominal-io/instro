@@ -444,7 +444,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.7.0"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -494,9 +494,11 @@ dev = [
     { name = "mkdocstrings" },
     { name = "mkdocstrings-python" },
     { name = "mypy" },
-    { name = "pytest" },
     { name = "ruff" },
     { name = "types-requests" },
+]
+test = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -533,10 +535,10 @@ dev = [
     { name = "mkdocstrings", specifier = ">=0.30.1" },
     { name = "mkdocstrings-python", specifier = ">=1.19.0" },
     { name = "mypy", specifier = ">=1.15.0,<2" },
-    { name = "pytest", specifier = ">=8.4.0,<9" },
     { name = "ruff", specifier = ">=0.12.2,<0.13" },
     { name = "types-requests", specifier = ">=2.32.4.20250913" },
 ]
+test = [{ name = "pytest", specifier = ">=8.4.0,<9" }]
 
 [[package]]
 name = "instro-contrib"
@@ -551,7 +553,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -566,7 +568,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -581,7 +583,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
