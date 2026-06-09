@@ -5,7 +5,7 @@ description: VISA transport driver for building custom SCPI instrument drivers
 
 # VisaDriver
 
-`VisaDriver` is the VISA transport that `instro`'s built-in SCPI instrument drivers (`BK9115`, `RigolDP800`, `SiglentSPD3303`, `Keithley2400`, `Agilent34401A`, `BK85xxB`, …) sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap [pyvisa](https://pyvisa.readthedocs.io/) themselves.
+`VisaDriver` is the VISA transport that Nominal's built-in SCPI instrument drivers sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap [pyvisa](https://pyvisa.readthedocs.io/) themselves.
 
 It is intentionally narrow: it opens, closes, and locks a VISA resource and exposes text and raw byte I/O. The caller chooses the command strings.
 

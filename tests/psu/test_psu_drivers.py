@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import SerialConfig, VisaConfig
 from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.drivers import (
