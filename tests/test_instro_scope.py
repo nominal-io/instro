@@ -492,6 +492,25 @@ def test_siglent_set_acquisition_mode_writes_scpi(siglent: SiglentSDS1000XE, sig
     siglent_visa.write.assert_called_once_with("ACQW HIGH_RES")
 
 
+def test_siglent_set_acquisition_mode_average_includes_count(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    # AVERAGE is silently ignored by the scope without an inline count.
+    siglent.set_acquisition_mode(AcquisitionMode.AVERAGE)
+    siglent_visa.write.assert_called_once_with("ACQW AVERAGE,16")
+
+
+def test_siglent_set_average_count_writes_and_feeds_average_mode(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    siglent.set_average_count(64)
+    siglent_visa.write.assert_called_once_with("AVGA 64")
+    siglent_visa.reset_mock()
+    # The cached count is reused as the inline AVERAGE count.
+    siglent.set_acquisition_mode(AcquisitionMode.AVERAGE)
+    siglent_visa.write.assert_called_once_with("ACQW AVERAGE,64")
+
+
 def test_siglent_acquisition_mode_envelope_rejected(siglent: SiglentSDS1000XE) -> None:
     with pytest.raises(NotImplementedError, match="ENVELOPE"):
         siglent.set_acquisition_mode(AcquisitionMode.ENVELOPE)
@@ -504,10 +523,11 @@ def test_siglent_get_acquisition_mode_parses_average_with_count(
     assert siglent.get_acquisition_mode() == AcquisitionMode.AVERAGE
 
 
-def test_siglent_run_sets_auto_and_arms(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+def test_siglent_run_sets_auto_without_arm(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    # ARM would force single-shot mode, so run() must NOT send it.
     siglent.run()
     writes = [c.args[0] for c in siglent_visa.write.call_args_list]
-    assert writes == ["TRMD AUTO", "ARM"]
+    assert writes == ["TRMD AUTO"]
 
 
 def test_siglent_single_arms_single_shot(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
@@ -633,6 +653,54 @@ def test_siglent_save_settings_to_instrument_writes_stpn(siglent: SiglentSDS1000
 def test_siglent_load_settings_from_instrument_writes_rcpn(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
     siglent.load_settings("setup.set", from_instrument=True)
     siglent_visa.write.assert_called_once_with("RCPN DISK,UDSK,FILE,'setup.set'")
+
+
+def _setup_escape_hatch(visa_mock: MagicMock, raw_reply: bytes) -> MagicMock:
+    """Wire the pyvisa-resource escape hatch on the mocked transport for binary-read tests."""
+    inst = MagicMock()
+    inst.read_termination = "\n"
+    inst.read_raw.return_value = raw_reply
+    visa_mock._inst = inst
+    visa_mock.lock.return_value = _make_temp_timeout_cm()
+    return inst
+
+
+def test_siglent_save_screenshot_host_reads_full_bmp(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    # 'BM' + 4-byte little-endian size (10) + 4 payload bytes, with a stray trailing LF to drop.
+    bmp = b"BM" + (10).to_bytes(4, "little") + b"WXYZ"
+    inst = _setup_escape_hatch(siglent_visa, bmp + b"\n")
+    path = tmp_path / "shot.bmp"
+    data = siglent.save_screenshot(str(path))
+    assert "SCDP" in [c.args[0] for c in siglent_visa.write.call_args_list]
+    inst.read_raw.assert_called_once()
+    assert data == bmp  # sliced to the declared BMP size, trailing LF dropped
+    assert path.read_bytes() == bmp
+
+
+def test_siglent_save_settings_host_reads_pnsu_block(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    # Host path reads the full message via the escape hatch and parses the IEEE #9<len> block.
+    payload = b"hi"
+    block = b"#9" + b"%09d" % len(payload) + payload + b"\n"
+    inst = _setup_escape_hatch(siglent_visa, block)
+    path = tmp_path / "setup.bin"
+    result = siglent.save_settings(str(path), to_instrument=False)
+    assert "PNSU?" in [c.args[0] for c in siglent_visa.write.call_args_list]
+    inst.read_raw.assert_called_once()
+    assert result == payload
+    assert path.read_bytes() == payload
+
+
+def test_siglent_load_settings_host_reconstructs_block_header(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    path = tmp_path / "setup.bin"
+    path.write_bytes(b"hello")
+    siglent.load_settings(str(path), from_instrument=False)
+    siglent_visa.write_raw.assert_called_once_with(b"PNSU #9000000005hello\n")
 
 
 # --- InstroScope composition tests ---

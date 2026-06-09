@@ -124,6 +124,17 @@ def _parse_trailing_float(resp: str) -> float:
     return float(token)
 
 
+def _parse_ieee_block(raw: bytes) -> bytes:
+    """Extract the payload from an IEEE-488.2 definite-length block (``#<ndigits><length><payload>``)."""
+    hash_idx = raw.find(b"#")
+    if hash_idx < 0:
+        raise ValueError("no IEEE-488.2 block header in reply")
+    ndigits = int(chr(raw[hash_idx + 1]))
+    length = int(raw[hash_idx + 2 : hash_idx + 2 + ndigits])
+    start = hash_idx + 2 + ndigits
+    return raw[start : start + length]
+
+
 def _parse_sample_rate(resp: str) -> float:
     """Parse a SARA? reply (e.g. ``1.00GSa/s``, ``500.0kSa``, or bare ``1.00E+09``) to samples/sec."""
     token = resp.strip().upper()
@@ -142,6 +153,7 @@ class SiglentSDS1000XE(ScopeDriverBase):
         self._visa = VisaDriver(visa_resource)
         self._trigger_source: int | None = None
         self._trigger_type: TriggerType = TriggerType.EDGE
+        self._average_count: int = 16
 
     def open(self) -> None:
         """Open the transport and disable comm headers so query replies are bare values."""
@@ -151,6 +163,32 @@ class SiglentSDS1000XE(ScopeDriverBase):
 
     def close(self) -> None:
         self._visa.close()
+
+    def _consume_trailing_terminator(self) -> None:
+        """Drain the lone LF the SDS appends after a binary block; it would otherwise desync the next query."""
+        try:
+            with self._visa.temporary_timeout(400):
+                self._visa.read_raw()
+        except Exception:  # noqa: BLE001 - nothing buffered is the normal case
+            pass
+
+    def _read_binary_message(self, command: str) -> bytes:
+        """Read a full binary reply with the read terminator disabled.
+
+        SDS binary blocks (``SCDP`` BMP, ``PNSU?`` setup) embed LF bytes, so the transport's
+        terminator-aware reads truncate them. Reach the pyvisa resource directly to read to EOM.
+        """
+        with self._visa.lock():
+            inst = self._visa._inst  # noqa: SLF001 - escape hatch for terminator-free binary reads
+            if inst is None:
+                raise RuntimeError("SiglentSDS1000XE transport is not open")
+            saved_termination = inst.read_termination
+            inst.read_termination = None
+            try:
+                self._visa.write(command)
+                return inst.read_raw()
+            finally:
+                inst.read_termination = saved_termination
 
     def check_errors(self) -> None:
         """Poll ``CMR?`` then ``EXR?`` and raise on the first non-zero code (no error queue on Siglent)."""
@@ -206,23 +244,29 @@ class SiglentSDS1000XE(ScopeDriverBase):
     # --- Acquisition ---
 
     def set_acquisition_mode(self, mode: AcquisitionMode) -> None:
+        # The scope only applies ACQW while acquiring; call run() first if it's stopped.
         if mode == AcquisitionMode.ENVELOPE:
             raise NotImplementedError("ENVELOPE acquisition mode is not supported on Siglent SDS1000X-E series")
-        self._visa.write(f"ACQW {_ACQ_MODE_TO_SCPI[mode]}")
+        if mode == AcquisitionMode.AVERAGE:
+            # AVERAGE is ignored without an inline count.
+            self._visa.write(f"ACQW AVERAGE,{self._average_count}")
+        else:
+            self._visa.write(f"ACQW {_ACQ_MODE_TO_SCPI[mode]}")
 
     def get_acquisition_mode(self) -> AcquisitionMode:
         resp = self._visa.query("ACQW?").strip().upper().split(",")[0]
         return _SCPI_TO_ACQ_MODE.get(resp, AcquisitionMode.NORMAL)
 
     def set_average_count(self, count: int) -> None:
+        self._average_count = count
         self._visa.write(f"AVGA {count}")
 
     def get_average_count(self) -> int:
         return int(float(self._visa.query("AVGA?")))
 
     def run(self) -> None:
+        # ARM would force single-shot mode; TRMD AUTO alone free-runs continuously.
         self._visa.write("TRMD AUTO")
-        self._visa.write("ARM")
 
     def stop(self) -> None:
         self._visa.write("STOP")
@@ -266,6 +310,7 @@ class SiglentSDS1000XE(ScopeDriverBase):
         sample_rate = _parse_sample_rate(self._visa.query("SARA?"))
 
         codes = self._visa.query_binary_values(f"C{channel}:WF? DAT2", datatype="b", container=list)
+        self._consume_trailing_terminator()
 
         x_origin_ns = int((trigger_delay - timebase * _HORIZONTAL_DIVISIONS / 2) * 1e9)
         x_incr_ns = int((1.0 / sample_rate) * 1e9)
@@ -323,11 +368,12 @@ class SiglentSDS1000XE(ScopeDriverBase):
     # --- File operations ---
 
     def save_screenshot(self, filepath: str, to_instrument: bool = False) -> bytes:
-        """Transfer a screen dump (``SCDP``) to the host and write it to ``filepath``."""
+        """Transfer a screen dump (``SCDP``, a raw BMP) to the host and write it to ``filepath``."""
         if to_instrument:
             raise NotImplementedError("SDS1000X-E SCDP is host-transfer only; saving to the instrument is unsupported")
-        self._visa.write("SCDP")
-        data = self._visa.read_raw()
+        raw = self._read_binary_message("SCDP")
+        size = int.from_bytes(raw[2:6], "little")  # BMP header: 'BM' then a little-endian file size
+        data = raw[:size]
         with open(filepath, "wb") as f:
             f.write(data)
         return data
@@ -337,17 +383,21 @@ class SiglentSDS1000XE(ScopeDriverBase):
         if to_instrument:
             self._visa.write(f"STPN DISK,UDSK,FILE,'{name}'")
             return b""
-        self._visa.write("PNSU?")
-        data = self._visa.read_raw()
+        data = _parse_ieee_block(self._read_binary_message("PNSU?"))
         with open(name, "wb") as f:
             f.write(data)
         return data
 
     def load_settings(self, name: str, from_instrument: bool = False) -> None:
-        """Recall a panel setup from a USB file (``RCPN``) or push host bytes back (``PNSU``)."""
+        """Recall a panel setup from a USB file (``RCPN``) or push host bytes back (``PNSU``).
+
+        The host-side ``PNSU`` write-back is known to wedge the USBTMC interface on some
+        SDS1000X-E firmware; prefer ``from_instrument=True`` (USB stick) over USB connections.
+        """
         if from_instrument:
             self._visa.write(f"RCPN DISK,UDSK,FILE,'{name}'")
             return
         with open(name, "rb") as f:
             data = f.read()
-        self._visa.write_raw(b"PNSU " + data)
+        header = f"#9{len(data):09d}".encode()
+        self._visa.write_raw(b"PNSU " + header + data + b"\n")
