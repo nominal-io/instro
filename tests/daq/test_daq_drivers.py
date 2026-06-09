@@ -695,6 +695,20 @@ def test_start_background_false_read_analog_fetches_from_buffer():
     mock_driver.fetch_analog.assert_called_once()
 
 
+def test_restart_registers_background_fetch_exactly_once():
+    """start() after stop() must not register a second _fetch_analog daemon function."""
+    daq, _ = _hw_timed_daq()
+    try:
+        daq.start()
+        daq.stop()
+        daq.start()
+
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog]
+        assert len(fetchers) == 1
+    finally:
+        daq.stop()
+
+
 def test_start_default_spins_daemon_and_read_analog_raises():
     """Default start() spins the daemon, which owns the buffer; a manual read_analog() then raises."""
     daq, _ = _hw_timed_daq()
