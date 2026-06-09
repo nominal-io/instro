@@ -78,7 +78,7 @@ Don't see your vendor? Drivers the maintainers can't verify directly against the
 
 In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
 
-- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x and Tektronix 2-series. Import via `instro.unstable.scope`.
+- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x, Tektronix 2-series, and Siglent SDS1000X-E. Import via `instro.unstable.scope`.
 - **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
 
 Opt in by depending on `instro-unstable` explicitly.
@@ -90,7 +90,7 @@ Full guides, API reference, and per-category walkthroughs live at **[instro.nomi
 ## Contributing
 
 - **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows.
+- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](./AGENTS.md#repo-skills-and-subagents).
 
 ## License
 
