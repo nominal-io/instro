@@ -116,10 +116,106 @@ SUPPORTED_CPPPO_SCALAR_CASES: list[dict[str, Any]] = [
     },
 ]
 
+SUPPORTED_LIVE_PLC_SCALAR_CASES: list[dict[str, Any]] = [
+    {
+        "name": "test_bool",
+        "type_name": "BOOL",
+        "initial": False,
+        "expected_kind": PlcKind.BOOL,
+        "write": True,
+        "expected_after": True,
+    },
+    {
+        "name": "test_sint",
+        "type_name": "SINT",
+        "initial": -3,
+        "expected_kind": PlcKind.SINT,
+        "write": PlcValue.sint(-8),
+        "expected_after": -8,
+    },
+    {
+        "name": "test_int",
+        "type_name": "INT",
+        "initial": -12,
+        "expected_kind": PlcKind.INT,
+        "write": PlcValue.int(123),
+        "expected_after": 123,
+    },
+    {
+        "name": "test_dint",
+        "type_name": "DINT",
+        "initial": 10,
+        "expected_kind": PlcKind.DINT,
+        "write": PlcValue.dint(42),
+        "expected_after": 42,
+    },
+    {
+        "name": "test_lint",
+        "type_name": "LINT",
+        "initial": -5678,
+        "expected_kind": PlcKind.LINT,
+        "write": PlcValue.lint(987_654_321),
+        "expected_after": 987_654_321,
+    },
+    {
+        "name": "test_usint",
+        "type_name": "USINT",
+        "initial": 7,
+        "expected_kind": PlcKind.USINT,
+        "write": PlcValue.usint(9),
+        "expected_after": 9,
+    },
+    {
+        "name": "test_uint",
+        "type_name": "UINT",
+        "initial": 42,
+        "expected_kind": PlcKind.UINT,
+        "write": PlcValue.uint(128),
+        "expected_after": 128,
+    },
+    {
+        "name": "test_udint",
+        "type_name": "UDINT",
+        "initial": 99,
+        "expected_kind": PlcKind.UDINT,
+        "write": PlcValue.udint(456),
+        "expected_after": 456,
+    },
+    {
+        "name": "test_ulint",
+        "type_name": "ULINT",
+        "initial": 123_456,
+        "expected_kind": PlcKind.ULINT,
+        "write": PlcValue.ulint(987_654),
+        "expected_after": 987_654,
+    },
+    {
+        "name": "test_real",
+        "type_name": "REAL",
+        "initial": 1.25,
+        "expected_kind": PlcKind.REAL,
+        "write": PlcValue.real(3.5),
+        "expected_after": pytest.approx(3.5),
+    },
+    {
+        "name": "test_lreal",
+        "type_name": "LREAL",
+        "initial": -9.5,
+        "expected_kind": PlcKind.LREAL,
+        "write": PlcValue.lreal(6.25),
+        "expected_after": pytest.approx(6.25),
+    },
+]
+
 
 def cpppo_scalar_cases() -> list[dict[str, Any]]:
     """Scalar cases expected on the target endpoint for read/write integration tests."""
-    cases = SUPPORTED_CPPPO_SCALAR_CASES
+    return SUPPORTED_CPPPO_SCALAR_CASES
+
+
+def live_plc_scalar_cases() -> list[dict[str, Any]]:
+    """Scalar cases expected on the configured live PLC endpoint."""
+    cases = SUPPORTED_LIVE_PLC_SCALAR_CASES
     if exclude_unsigned_types():
         cases = [case for case in cases if case["type_name"] not in UNSIGNED_TYPE_NAMES]
 
@@ -170,8 +266,9 @@ def route_path_slots() -> list[int] | None:
     return slots or None
 
 
-def ethernetip_session(endpoint: str) -> EtherNetIpSession:
-    return EtherNetIpSession(endpoint, route_path_slots=route_path_slots())
+def ethernetip_session(endpoint: str, *, use_configured_route_path: bool = False) -> EtherNetIpSession:
+    slots = route_path_slots() if use_configured_route_path else None
+    return EtherNetIpSession(endpoint, route_path_slots=slots)
 
 
 def test_ethernetip_native_types_use_private_local_import_path() -> None:
@@ -219,20 +316,24 @@ def test_plc_value_wraps_structured_payload_explicitly() -> None:
 @contextmanager
 def cpppo_endpoint_for(tags: dict[str, tuple[str, Any]]) -> Iterator[str]:
     """Start a cpppo PLC on an ephemeral port and yield its endpoint."""
-    configured_endpoint = os.getenv(PLC_ENDPOINT_ENV_VAR)
-    if configured_endpoint is not None:
-        endpoint = configured_endpoint.strip()
-        if not endpoint:
-            raise ValueError(f"{PLC_ENDPOINT_ENV_VAR} must not be empty when set")
-        yield endpoint
-        return
-
     pytest.importorskip("cpppo", reason="cpppo is required for the EtherNet/IP simulator test")
     server, port = start_server_with_retries(tags)
     try:
         yield f"127.0.0.1:{port}"
     finally:
         server.stop()
+
+
+def live_plc_endpoint() -> str:
+    """Resolve the explicitly configured live PLC endpoint for opt-in tests."""
+    endpoint = os.getenv(PLC_ENDPOINT_ENV_VAR)
+    if endpoint is None:
+        pytest.skip(f"{PLC_ENDPOINT_ENV_VAR} is required for live PLC tests")
+
+    endpoint = endpoint.strip()
+    if not endpoint:
+        raise ValueError(f"{PLC_ENDPOINT_ENV_VAR} must not be empty when set")
+    return endpoint
 
 
 @pytest.fixture
@@ -248,26 +349,45 @@ def test_cpppo_round_trips_all_supported_scalar_types() -> None:
     tags = {case["name"]: (case["type_name"], case["initial"]) for case in cases}
 
     with cpppo_endpoint_for(tags) as endpoint:
-        with ethernetip_session(endpoint) as session:
-            try:
-                for case in cases:
-                    session.write_tag(case["name"], plc_value_for_case(case, "initial"))
+        assert_scalar_round_trip(endpoint, cases)
 
-                results = session.read_tags([case["name"] for case in cases])
-                assert [name for name, _value in results] == [case["name"] for case in cases]
 
-                for case, (_name, value) in zip(cases, results, strict=True):
-                    assert value.kind == case["expected_kind"]
-                    assert value.value == case["initial"]
+def test_live_plc_round_trips_configured_scalar_tags() -> None:
+    """Live PLC round-trips the configured scalar test tags via the Python bindings."""
+    assert_scalar_round_trip(
+        live_plc_endpoint(),
+        live_plc_scalar_cases(),
+        use_configured_route_path=True,
+    )
 
-                for case in cases:
-                    session.write_tag(case["name"], case["write"])
-                    value = session.read_tag(case["name"])
-                    assert value.kind == case["expected_kind"]
-                    assert value.value == case["expected_after"]
-            finally:
-                for case in cases:
-                    session.write_tag(case["name"], plc_value_for_case(case, "initial"))
+
+def assert_scalar_round_trip(
+    endpoint: str,
+    cases: list[dict[str, Any]],
+    *,
+    use_configured_route_path: bool = False,
+) -> None:
+    """Assert the same scalar write/read behavior for simulator and live PLC targets."""
+    with ethernetip_session(endpoint, use_configured_route_path=use_configured_route_path) as session:
+        try:
+            for case in cases:
+                session.write_tag(case["name"], plc_value_for_case(case, "initial"))
+
+            results = session.read_tags([case["name"] for case in cases])
+            assert [name for name, _value in results] == [case["name"] for case in cases]
+
+            for case, (_name, value) in zip(cases, results, strict=True):
+                assert value.kind == case["expected_kind"]
+                assert value.value == case["initial"]
+
+            for case in cases:
+                session.write_tag(case["name"], case["write"])
+                value = session.read_tag(case["name"])
+                assert value.kind == case["expected_kind"]
+                assert value.value == case["expected_after"]
+        finally:
+            for case in cases:
+                session.write_tag(case["name"], plc_value_for_case(case, "initial"))
 
 
 def plc_value_for_case(case: dict[str, Any], value_key: str) -> PlcValue:
