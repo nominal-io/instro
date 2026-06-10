@@ -29,7 +29,7 @@ Do not share one `NIDAQDriver` between two `InstroDAQ` instances. The driver is 
 
 ## Allocating channels across instances
 
-A physical channel belongs to exactly one instance: DAQmx reserves a physical channel for the task that configures it, so never configure the same physical channel on two instances. Split the channels along hardware boundaries. On a CompactDAQ chassis, allocate per module: one instance owns `cDAQ1Mod1`'s channels, the other owns `cDAQ1Mod2`'s.
+A physical channel belongs to exactly one instance: DAQmx reserves a physical channel for the task that configures it, so never configure the same physical channel on two instances. How to partition the remaining channels across instances is up to you and your hardware; a single instance's task can span channels from multiple modules on a chassis.
 
 ```python
 from instro.daq.types import Direction

@@ -7,13 +7,13 @@ title: "NI multi-rate acquisition with two InstroDAQ instances"
 
 Runs two analog input tasks at different hardware sample rates on one NI
 CompactDAQ chassis by giving each task its own InstroDAQ instance. Both
-instances target the same device (cDAQ1); the channels are allocated per
-module so the two tasks never share a physical channel. Each instance
-carries its own sample rate, hardware buffer, and background daemon,
-started and stopped independently.
+instances target the same device (cDAQ1) with non-overlapping channels.
+Each instance carries its own sample rate, hardware buffer, and background
+daemon, started and stopped independently.
 
-How many tasks a device can run concurrently is device specific; see the
-"Multiple InstroDAQ instances on NI" guide.
+How to partition channels across tasks, and how many tasks a device can run
+concurrently, is device specific; see the "Multiple InstroDAQ instances on
+NI" guide.
 """
 
 import time
@@ -22,8 +22,8 @@ from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
 from instro.daq.types import Direction
 
-# NI device name, as defined in NI MAX. Both instances share the device;
-# each instance owns the channels of one module.
+# NI device name, as defined in NI MAX. Both instances share the device
+# with non-overlapping channels.
 DEVICE = "cDAQ1"
 FAST_CHANNEL = f"{DEVICE}Mod1/ai0"
 SLOW_CHANNEL = f"{DEVICE}Mod2/ai0"
