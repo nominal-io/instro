@@ -1,10 +1,10 @@
 """Example: NI multi-rate acquisition with two InstroDAQ instances.
 
 Runs two analog input tasks at different hardware sample rates on one NI
-CompactDAQ chassis by giving each task its own InstroDAQ instance. Both
-instances target the same device (cDAQ1) with non-overlapping channels.
-Each instance carries its own sample rate, hardware buffer, and background
-daemon, started and stopped independently.
+CompactDAQ chassis by giving each task its own InstroDAQ instance. Each
+task streams five channels; both instances target the same device (cDAQ1)
+with non-overlapping channels. Each instance carries its own sample rate,
+hardware buffer, and background daemon, started and stopped independently.
 
 How to partition channels across tasks, and how many tasks a device can run
 concurrently, is device specific; see the "Multiple InstroDAQ instances on
@@ -19,12 +19,13 @@ from instro.daq.types import Direction
 
 # NI device name, as defined in NI MAX. Both instances share the device
 # with non-overlapping channels.
-DEVICE = "cDAQ1"
-FAST_CHANNEL = f"{DEVICE}Mod1/ai0"
-SLOW_CHANNEL = f"{DEVICE}Mod2/ai0"
+DEVICE = "cDAQ"
+CHANNELS_PER_TASK = 3
+FAST_MODULE = f"{DEVICE}Mod1"
+SLOW_MODULE = f"{DEVICE}Mod2"
 
-FAST_SAMPLE_RATE = 1000  # Hz
-SLOW_SAMPLE_RATE = 10  # Hz
+FAST_SAMPLE_RATE = 50000  # Hz
+SLOW_SAMPLE_RATE = 1000  # Hz
 
 ### Main code
 
@@ -36,12 +37,22 @@ daq_slow.open()
 
 try:
     # A physical channel belongs to exactly one instance; allocate without overlap.
-    daq_fast.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=FAST_CHANNEL, alias="vibration", range_min=-5, range_max=5
-    )
-    daq_slow.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=SLOW_CHANNEL, alias="temperature", range_min=0, range_max=5
-    )
+    # Each instance streams CHANNELS_PER_TASK channels from its own module.
+    for i in range(CHANNELS_PER_TASK):
+        daq_fast.configure_analog_channel(
+            direction=Direction.INPUT,
+            physical_channel=f"{FAST_MODULE}/ai{i}",
+            alias=f"fast_channel{i}",
+            range_min=-5,
+            range_max=5,
+        )
+        daq_slow.configure_analog_channel(
+            direction=Direction.INPUT,
+            physical_channel=f"{SLOW_MODULE}/ai{i}",
+            alias=f"slow_channel{i}",
+            range_min=0,
+            range_max=5,
+        )
 
     # Each instance gets its own hardware sample rate.
     daq_fast.configure_ai_sample_rate(sample_rate=FAST_SAMPLE_RATE)
@@ -53,11 +64,7 @@ try:
 
     while True:
         try:
-            vibration = daq_fast.get_channel("daqFast.vibration", 100, True)  # Block for the latest sample
-            temperature = daq_slow.get_channel("daqSlow.temperature", 1, False)  # Return immediately
-            print(f"vibration latest: {vibration.latest} ({len(vibration.values)} samples)")
-            print(f"temperature latest: {temperature.latest}")
-            time.sleep(0.5)
+            time.sleep(1)
         except KeyboardInterrupt:
             print("Exiting main loop")
             break
