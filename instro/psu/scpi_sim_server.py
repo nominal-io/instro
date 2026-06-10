@@ -767,6 +767,10 @@ class SimulatedPSUServer:
 
 # ---- Interactive TUI ----
 
+NOMINAL_MARK = "⟢"
+NOMINAL_PRIMARY = "#419B55"
+NOMINAL_WHITE = "#ffffff"
+
 
 def _fmt_limit(value: float) -> str:
     if not math.isfinite(value):
@@ -778,7 +782,7 @@ def _field(label: str, value: str, width: int = 7) -> str:
     return f"[dim]{label + ':':<{width}}[/] [bold]{value}[/]"
 
 
-def _title(text: str, color: str = "#60a5fa") -> str:
+def _title(text: str, color: str = NOMINAL_PRIMARY) -> str:
     return f"[bold {color}]{text}[/]"
 
 
@@ -790,8 +794,9 @@ class _PromptScreen(ModalScreen[str | None]):
         align: center middle;
     }
     _PromptScreen > Vertical {
-        background: $surface;
-        border: round $primary;
+        background: #000000;
+        border: solid #419B55;
+        color: #ffffff;
         padding: 1 2;
         width: 60;
         height: auto;
@@ -846,19 +851,20 @@ class _ActionCell(Static):
         padding: 0 1;
         margin: 0 1 0 0;
         content-align: center middle;
-        color: #fbbf24;
+        background: #419B55;
+        color: #000000;
         text-style: bold;
     }
 
     _ActionCell:focus {
-        background: #fbbf24;
-        color: #111827;
+        background: #6FCF7F;
+        color: #000000;
         text-style: bold;
     }
 
     _ActionCell:hover {
-        background: $boost;
-        color: #fde68a;
+        background: #6FCF7F;
+        color: #000000;
     }
     """
 
@@ -885,7 +891,7 @@ class _ChannelPanel(Container):
 
     DEFAULT_CSS = """
     _ChannelPanel {
-        border: round $primary;
+        border: solid #D1D0C5;
         padding: 0 1;
         margin: 0 1 0 0;
         width: 1fr;
@@ -930,7 +936,7 @@ class _ChannelPanel(Container):
     }
 
     _ChannelPanel _ActionCell.remove-action {
-        color: #f87171;
+        color: #000000;
         width: 8;
     }
     """
@@ -1015,7 +1021,7 @@ class _LoadPanel(Container):
 
     DEFAULT_CSS = """
     _LoadPanel {
-        border: round #dc2626;
+        border: solid #666666;
         padding: 0 1;
         width: 28;
         height: auto;
@@ -1057,7 +1063,7 @@ class _LoadPanel(Container):
                 self.query_one("#load-info", Static).update("(removed)")
                 return
             load_text = (
-                f"{_title('Load', '#dc2626')}\n"
+                f"{_title('Load')}\n"
                 f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n"
                 f"{_field('EMF', f'{ch.load.emf} V', width=5)}"
             )
@@ -1069,7 +1075,7 @@ class _ProbePanel(Container):
 
     DEFAULT_CSS = """
     _ProbePanel {
-        border: round #7c3aed;
+        border: solid #666666;
         padding: 0 1;
         margin: 0 1 0 0;
         width: 24;
@@ -1110,7 +1116,7 @@ class _ProbePanel(Container):
             if ch is None:
                 self.query_one("#probe-info", Static).update("(removed)")
                 return
-            probe_text = f"{_title('Sense Lead', '#7c3aed')}\n{_field('R', f'{ch.load.probe_resistance} OHM', width=5)}"
+            probe_text = f"{_title('Sense Lead')}\n{_field('R', f'{ch.load.probe_resistance} OHM', width=5)}"
         self.query_one("#probe-info", Static).update(probe_text)
 
 
@@ -1179,7 +1185,7 @@ class _PsuPanel(Static):
 
     DEFAULT_CSS = """
     _PsuPanel {
-        border: round $accent;
+        border: solid #419B55;
         padding: 0 1;
         margin: 0;
         height: auto;
@@ -1189,13 +1195,13 @@ class _PsuPanel(Static):
     def __init__(self, server: SimulatedPSUServer) -> None:
         super().__init__()
         self._server = server
-        self.border_title = "PSU"
+        self.border_title = f"{NOMINAL_MARK} Nominal PSU"
 
     def refresh_state(self) -> None:
         with self._server.lock:
             psu_id = self._server.psu.id
         resource = f"TCPIP0::{self._server._host}::{self._server._port}::SOCKET"
-        self.update(f"ID:            {psu_id}\nVISA Resource: {resource}")
+        self.update(f"{_field('ID', psu_id, width=14)}\n{_field('VISA', resource, width=14)}")
 
 
 class _LogPanel(Log):
@@ -1203,7 +1209,7 @@ class _LogPanel(Log):
 
     DEFAULT_CSS = """
     _LogPanel {
-        border: round $accent;
+        border: solid #666666;
         height: 12;
         background: transparent;
     }
@@ -1233,7 +1239,7 @@ class _AddChannelPanel(Container):
 
     DEFAULT_CSS = """
     _AddChannelPanel {
-        border: round $primary;
+        border: solid #D1D0C5;
         padding: 0 1;
         margin: 0;
         height: auto;
@@ -1252,15 +1258,29 @@ class SimulatedPSUApp(App[None]):
     """Textual app: PSU panel on top, channels stacked vertically with per-channel actions, '+ Add channel' at the bottom."""
 
     _COMPACT_WIDTH = 128
+    ENABLE_COMMAND_PALETTE = False
 
     CSS = """
     Screen {
         layout: vertical;
+        background: #000000;
+        color: #ffffff;
+    }
+
+    Header {
+        background: #419B55;
+        color: #000000;
+    }
+
+    Footer {
+        background: #000000;
+        color: #D1D0C5;
     }
 
     #body {
         padding: 0 1;
         height: 1fr;
+        background: #000000;
     }
 
     #channels {
@@ -1286,8 +1306,8 @@ class SimulatedPSUApp(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.title = "Simulated PSU"
-        self.sub_title = f"{self._server._host}:{self._server._port}"
+        self.title = f"{NOMINAL_MARK} Nominal instro"
+        self.sub_title = f"Simulated PSU | {self._server._host}:{self._server._port}"
         container = self.query_one("#channels", Vertical)
         with self._server.lock:
             channel_ids = [c.channel_id for c in self._server.psu.channels]
