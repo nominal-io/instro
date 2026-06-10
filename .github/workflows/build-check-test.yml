@@ -30,6 +30,8 @@ jobs:
         uses: extractions/setup-just@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@v2
       - name: Install dependencies
