@@ -81,7 +81,7 @@ In-development categories whose APIs may break between releases live in the sepa
 - **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x and Tektronix 2-series. Import via `instro.unstable.scope`.
 - **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
 
-Opt in by depending on `instro-unstable` explicitly.
+Opt in by depending on `instro-unstable` explicitly. EtherNet/IP uses an optional native backend; install it with `instro-unstable[ethernetip]`.
 
 ## Documentation
 
