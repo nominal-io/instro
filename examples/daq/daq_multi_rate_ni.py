@@ -1,15 +1,14 @@
 """Example: NI multi-rate acquisition with two InstroDAQ instances.
 
 Runs two analog input tasks at different hardware sample rates on one NI
-CompactDAQ chassis by giving each module its own InstroDAQ instance. One
-InstroDAQ + NIDAQDriver pair owns one DAQmx analog input task, so each
-instance carries its own sample rate, hardware buffer, and background
-daemon, started and stopped independently.
+CompactDAQ chassis by giving each task its own InstroDAQ instance. Both
+instances target the same device (cDAQ1); the channels are allocated per
+module so the two tasks never share a physical channel. Each instance
+carries its own sample rate, hardware buffer, and background daemon,
+started and stopped independently.
 
-Each cDAQ module is its own DAQmx device (cDAQ1Mod1, cDAQ1Mod2, ...), and
-the chassis runs multiple hardware-timed analog input tasks concurrently as
-long as each task stays on its own module. See the "Multiple InstroDAQ
-instances on NI" guide for the full set of constraints.
+How many tasks a device can run concurrently is device specific; see the
+"Multiple InstroDAQ instances on NI" guide.
 """
 
 import time
@@ -18,17 +17,19 @@ from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
 from instro.daq.types import Direction
 
-# cDAQ module names, as defined in NI MAX. One module per InstroDAQ instance.
-FAST_DEVICE = "cDAQ1Mod1"
-SLOW_DEVICE = "cDAQ1Mod2"
+# NI device name, as defined in NI MAX. Both instances share the device;
+# each instance owns the channels of one module.
+DEVICE = "cDAQ1"
+FAST_CHANNEL = f"{DEVICE}Mod1/ai0"
+SLOW_CHANNEL = f"{DEVICE}Mod2/ai0"
 
 FAST_SAMPLE_RATE = 1000  # Hz
 SLOW_SAMPLE_RATE = 10  # Hz
 
 ### Main code
 
-daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id=FAST_DEVICE))
-daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id=SLOW_DEVICE))
+daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id=DEVICE))
+daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id=DEVICE))
 
 daq_fast.open()
 daq_slow.open()
@@ -36,10 +37,10 @@ daq_slow.open()
 try:
     # A physical channel belongs to exactly one instance; allocate without overlap.
     daq_fast.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=f"{FAST_DEVICE}/ai0", alias="vibration", range_min=-5, range_max=5
+        direction=Direction.INPUT, physical_channel=FAST_CHANNEL, alias="vibration", range_min=-5, range_max=5
     )
     daq_slow.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=f"{SLOW_DEVICE}/ai0", alias="temperature", range_min=0, range_max=5
+        direction=Direction.INPUT, physical_channel=SLOW_CHANNEL, alias="temperature", range_min=0, range_max=5
     )
 
     # Each instance gets its own hardware sample rate.

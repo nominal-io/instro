@@ -15,23 +15,21 @@ This is the supported pattern. `instro` has no task framework or task-level API;
 
 ## Constructing the instances
 
-Give each instance its own `NIDAQDriver` and a unique `name`. Each driver targets one DAQmx device by `device_id`; on a CompactDAQ chassis, each module is its own DAQmx device (`cDAQ1Mod1`, `cDAQ1Mod2`, ...), so two instances run two tasks on the same chassis:
+Give each instance its own `NIDAQDriver` and a unique `name`. Both drivers can target the same device:
 
 ```python
 from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
 
-daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id="cDAQ1Mod1"))
-daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id="cDAQ1Mod2"))
+daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id="cDAQ1"))
+daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id="cDAQ1"))
 ```
 
 Do not share one `NIDAQDriver` between two `InstroDAQ` instances. The driver is the single source of truth for its channels and timing, and two HALs mutating one task set will conflict.
 
 ## Allocating channels across instances
 
-- **A physical channel belongs to exactly one instance.** DAQmx reserves a physical channel for the task that configures it; configuring `cDAQ1Mod1/ai0` on two instances fails when the second task starts.
-- **Each hardware-timed analog input task needs its own DAQmx device.** Give each instance a `device_id` that no other instance uses for the same subsystem. On a cDAQ chassis that means one instance per module: the chassis timing engines run the modules' analog input tasks concurrently, each at its own rate. On a multifunction device (USB or PCIe X Series, for example), the whole device is one DAQmx device with one analog input timing engine, so a second hardware-timed analog input task on the same `device_id` fails with a DAQmx reserved-resource error (for example error -50103).
-- **One device can also be split across instances by subsystem.** Analog input, analog output, digital input, and digital output have independent timing engines, so one instance can own a device's analog input while another owns its digital lines. The driver names its DAQmx tasks `{device_id}_{subsystem}`, so two instances on the same `device_id` must not configure the same subsystem; the second task creation fails because DAQmx task names are unique per process.
+A physical channel belongs to exactly one instance: DAQmx reserves a physical channel for the task that configures it, so never configure the same physical channel on two instances. Split the channels along hardware boundaries. On a CompactDAQ chassis, allocate per module: one instance owns `cDAQ1Mod1`'s channels, the other owns `cDAQ1Mod2`'s.
 
 ```python
 from instro.daq.types import Direction
@@ -75,13 +73,9 @@ finally:
 ```
 
 <Warning>
-**NI constraints to respect across instances**
+**Check your device's capabilities**
 
-- One hardware-timed analog input task per DAQmx device: on cDAQ, one instance per module; on multifunction devices, one analog input instance per device.
-- cDAQ chassis have a fixed number of analog input timing engines (three on cDAQ-917x), which caps the number of concurrent hardware-timed analog input tasks per chassis.
-- A physical channel can be reserved by only one task at a time: never configure the same physical channel on two instances.
-- On one `device_id`, give each instance a different subsystem (analog input vs digital, for example). Two instances configuring the same subsystem on one `device_id` collide on the DAQmx task.
-- Per-device aggregate sample rate limits still apply: splitting channels across instances does not raise a multiplexed module's total throughput.
+How many DAQmx tasks a device can run concurrently, and at which combinations of subsystems and sample rates, varies per device. Consult your device's documentation. When the hardware cannot run an additional task, DAQmx raises a reserved-resource error when that task starts. Per-device aggregate sample rate limits also still apply: splitting channels across instances does not raise a device's total throughput.
 </Warning>
 
 See the full runnable example: [NI multi-rate acquisition with two InstroDAQ instances](/instrumentation/examples/daq/daq_multi_rate_ni).
