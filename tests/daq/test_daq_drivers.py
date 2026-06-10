@@ -662,6 +662,26 @@ def test_channels_property_returns_immutable_tuple():
     assert {ch.alias for ch in daq.channels} == {"do0"}
 
 
+def test_stop_with_channel_type_forwards_kwarg_once():
+    """stop(channel_type=...) must not pass channel_type both explicitly and via **kwargs."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+
+    daq.stop(channel_type="analog_input")
+
+    mock_driver.stop.assert_called_once_with(channel_type="analog_input")
+
+
+def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
+    """The samples_per_channel default must never be 0; sub-10 Hz rates floor at 1."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+
+    daq.configure_ai_sample_rate(sample_rate=1.0)
+
+    assert daq.ai_hw_timing_config is not None
+    assert daq.ai_hw_timing_config.samples_per_channel == 1
+
+
 # --- start(background=...) and read_analog dispatch ---
 
 
@@ -693,6 +713,20 @@ def test_start_background_false_read_analog_fetches_from_buffer():
     daq.read_analog()
 
     mock_driver.fetch_analog.assert_called_once()
+
+
+def test_restart_registers_background_fetch_exactly_once():
+    """start() after stop() must not register a second _fetch_analog daemon function."""
+    daq, _ = _hw_timed_daq()
+    try:
+        daq.start()
+        daq.stop()
+        daq.start()
+
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog]
+        assert len(fetchers) == 1
+    finally:
+        daq.stop()
 
 
 def test_start_default_spins_daemon_and_read_analog_raises():
