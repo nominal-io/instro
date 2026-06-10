@@ -90,20 +90,23 @@ For local verification on your current machine:
 
 ## Distribution and platform coverage
 
-These wheels are not part of the normal stable `instro` or `instro-unstable` publishing flow yet.
-EtherNet/IP support is currently dev-only and is installed through the repo workspace.
+EtherNet/IP support is exposed as the optional `ethernetip` extra on `instro-unstable`.
+Bare `instro-unstable` installs remain pure Python, so other unstable modules can import
+without resolving a native wheel.
 
-- `instro-unstable` does not depend on `instro-ethernetip-python`, so published unstable releases do not reference unpublished native wheels
+- `instro-unstable[ethernetip]` depends on `instro-ethernetip-python`
 - the root dev dependency group includes `instro-ethernetip-python`, so `uv sync` builds and installs the local PyO3 package for development
 - `just eip-wheel-smoke-test` can still build a local wheel and verify the private native module against that wheel
 
-Local wheel builds are platform-specific. If you run `just eip-build`, it builds a wheel for the current host platform only. We do not currently publish a matrix of EtherNet/IP wheels for:
+The release workflow builds platform-specific wheels for:
 
-- Linux `x86_64` & `aarch64`
-- macOS `arm64`
+- Linux `x86_64` and `aarch64`
+- macOS `x86_64` and `aarch64`
 - Windows `x86_64`
 
-Because those wheels are not published yet, there is intentionally no `instro-unstable[ethernetip]` install extra. Published users can still install `instro-unstable` for the pure-Python unstable modules without resolving this native package.
+The release workflow also publishes a source distribution. The sdist includes the Rust
+source for both `instro-ethernetip-python` and `instro-ethernetip-rs`, plus the Cargo
+manifests and lockfile, so source builds do not depend on unpublished repository files.
 
 Development setup:
 

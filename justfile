@@ -110,9 +110,15 @@ eip-wheel-smoke-test:
         echo "No instro-ethernetip-python wheel found in $wheel_dir" >&2
         exit 1
     fi
-    # --isolated ignores the workspace venv, --no-dev avoids default dev dependencies
-    # that can shadow the wheel, and --no-cache avoids stale same-version wheel contents.
-    uv run --isolated --no-dev --no-cache --with-editable . --with "$wheel" python tests/ethernetip_wheel_smoke.py
+    uv_run_args=(
+        --isolated # Ignore the workspace virtual environment.
+        --no-dev # Avoid default dev dependencies that can shadow the wheel.
+        --no-cache # Avoid stale same-version wheel contents.
+        --with-editable . # Use this checkout's up-to-date instro dependency.
+        --with "$wheel" # Install the freshly built native extension wheel.
+        --with mypy # Provide the type checker used by the smoke script.
+    )
+    INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip_wheel_smoke.py
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings
 eip-test: eip-wheel-smoke-test rust
