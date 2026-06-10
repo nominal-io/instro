@@ -152,6 +152,7 @@ class Keithley2400(DMMDriverBase):
         err = self._visa.query(":SYST:ERR?")
         parts = err.strip().split(",", 1)
         code_str = parts[0] if parts else ""
-        code_val = int(code_str) if code_str.lstrip("-").isdigit() else -1
+        # The 2400 signs the no-error code: +0,"No error" (User's Manual Appendix B, Table B-1).
+        code_val = int(code_str) if code_str.lstrip("-+").isdigit() else -1
         if code_val != 0:
             raise RuntimeError(f"Keithley 2400 reported error: {err.strip()}")
