@@ -1,4 +1,4 @@
-"""Required end-to-end tests for the simulated PSU driver."""
+"""Full-transport tests for the simulated PSU driver."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from instro.psu.drivers.simulated import SimulatedPSU
 from instro.psu.scpi_sim_server import SimulatedPSU as SimulatedPSUSimulator
 from instro.psu.scpi_sim_server import SimulatedPSUServer
 
-# HARDWARE TEST TEMPLATE:
+# SIMULATED HARDWARE TEST TEMPLATE:
 #
 # Copy this file into tests/psu/<vendor>/test_<driver>_hardware.py, uncomment
 # pytestmark, set VISA_ADDRESS to the bench instrument address, and instantiate
