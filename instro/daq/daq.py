@@ -510,7 +510,7 @@ class InstroDAQ(Instrument):
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
         if not samples_per_channel:
-            samples_per_channel = int(sample_rate // 10)
+            samples_per_channel = max(1, int(sample_rate // 10))
 
         hw_timing_config = HWTimingConfig(
             sample_rate=sample_rate,
@@ -552,7 +552,7 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop the DAQ device."""
         super().stop()
-        channel_type = kwargs.get("channel_type", None)
+        channel_type = kwargs.pop("channel_type", None)
         self._driver.stop(channel_type=channel_type, **kwargs)
 
     def read_analog(
@@ -853,7 +853,8 @@ class InstroDAQ(Instrument):
 
     def _define_background_daemon(self):
         """Register ``_fetch_analog`` as the daemon function when AI channels exist."""
-        if self.ai_channels:
+        already_registered = any(method == self._fetch_analog for method, _, _ in self._background_methods)
+        if self.ai_channels and not already_registered:
             self.add_background_daemon_function(self._fetch_analog)
 
     def get_actual_sample_rate(self) -> float | None:

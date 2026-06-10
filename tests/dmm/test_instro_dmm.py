@@ -201,6 +201,11 @@ def test_keithley_measure_dc_voltage_parses_first_field(keithley: Keithley2400, 
     assert keithley.measure_dc_voltage() == pytest.approx(1.234)
 
 
+def test_keithley_check_errors_passes_on_signed_zero(keithley: Keithley2400, keithley_visa: MagicMock) -> None:
+    keithley_visa.query.return_value = '+0,"No error"'
+    keithley._check_errors()
+
+
 def test_keithley_check_errors_raises_on_nonzero(keithley: Keithley2400, keithley_visa: MagicMock) -> None:
     keithley_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="Keithley 2400 reported error"):
