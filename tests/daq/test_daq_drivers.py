@@ -662,6 +662,26 @@ def test_channels_property_returns_immutable_tuple():
     assert {ch.alias for ch in daq.channels} == {"do0"}
 
 
+def test_stop_with_channel_type_forwards_kwarg_once():
+    """stop(channel_type=...) must not pass channel_type both explicitly and via **kwargs."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+
+    daq.stop(channel_type="analog_input")
+
+    mock_driver.stop.assert_called_once_with(channel_type="analog_input")
+
+
+def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
+    """The samples_per_channel default must never be 0; sub-10 Hz rates floor at 1."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+
+    daq.configure_ai_sample_rate(sample_rate=1.0)
+
+    assert daq.ai_hw_timing_config is not None
+    assert daq.ai_hw_timing_config.samples_per_channel == 1
+
+
 # --- start(background=...) and read_analog dispatch ---
 
 
