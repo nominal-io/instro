@@ -50,6 +50,10 @@
     "packages/instro-i2c-aardvark": {
       "release-type": "python",
       "component": "instro-i2c-aardvark"
+    },
+    "packages/instro-unstable": {
+      "release-type": "python",
+      "component": "instro-unstable"
     }
   },
   "groups": [
@@ -60,7 +64,8 @@
         "packages/instro-daq-labjack",
         "packages/instro-daq-mcc",
         "packages/instro-daq-ni",
-        "packages/instro-i2c-aardvark"
+        "packages/instro-i2c-aardvark",
+        "packages/instro-unstable"
       ]
     }
   ]
