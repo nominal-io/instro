@@ -1,0 +1,87 @@
+---
+title: Multiple InstroDAQ instances on NI
+description: Run multi-task, multi-rate NI DAQmx acquisitions with one InstroDAQ instance per task
+---
+
+One `InstroDAQ` instance drives one `NIDAQDriver`, and that driver owns one NI DAQmx task per subsystem (analog input, digital input, digital output). The analog input task carries a single hardware sample rate. To run more than one acquisition at a time (more than one task, or more than one hardware sample rate), create multiple `InstroDAQ` instances: one per task, each with its own `NIDAQDriver`.
+
+This is the supported pattern. `instro` has no task framework or task-level API; multiple tasks means multiple `InstroDAQ` instances.
+
+## When to use this pattern
+
+- **Multiple hardware sample rates.** A single analog input task samples every channel at one rate. To sample a vibration sensor at 10 kHz and a temperature sensor at 10 Hz, give each its own instance.
+- **Independent lifecycles.** Each instance starts, stops, and closes on its own. Stop a short acquisition while a long one keeps running.
+- **Separate publishing.** Each instance has its own `name` (the channel prefix) and its own publishers, so each acquisition can target a different dataset.
+
+## Constructing the instances
+
+Give each instance its own `NIDAQDriver` and a unique `name`. Each driver targets one DAQmx device by `device_id`; on a CompactDAQ chassis, each module is its own DAQmx device (`cDAQ1Mod1`, `cDAQ1Mod2`, ...), so two instances run two tasks on the same chassis:
+
+```python
+from instro.daq import InstroDAQ
+from instro.daq.drivers.ni import NIDAQDriver
+
+daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id="cDAQ1Mod1"))
+daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id="cDAQ1Mod2"))
+```
+
+Do not share one `NIDAQDriver` between two `InstroDAQ` instances. The driver is the single source of truth for its channels and timing, and two HALs mutating one task set will conflict.
+
+## Allocating channels across instances
+
+- **A physical channel belongs to exactly one instance.** DAQmx reserves a physical channel for the task that configures it; configuring `cDAQ1Mod1/ai0` on two instances fails when the second task starts.
+- **Each hardware-timed analog input task needs its own DAQmx device.** Give each instance a `device_id` that no other instance uses for the same subsystem. On a cDAQ chassis that means one instance per module: the chassis timing engines run the modules' analog input tasks concurrently, each at its own rate. On a multifunction device (USB or PCIe X Series, for example), the whole device is one DAQmx device with one analog input timing engine, so a second hardware-timed analog input task on the same `device_id` fails with a DAQmx reserved-resource error (for example error -50103).
+- **One device can also be split across instances by subsystem.** Analog input, analog output, digital input, and digital output have independent timing engines, so one instance can own a device's analog input while another owns its digital lines. The driver names its DAQmx tasks `{device_id}_{subsystem}`, so two instances on the same `device_id` must not configure the same subsystem; the second task creation fails because DAQmx task names are unique per process.
+
+```python
+from instro.daq.types import Direction
+
+# Channels are allocated per instance, with no overlap.
+daq_fast.configure_analog_channel(
+    direction=Direction.INPUT, physical_channel="cDAQ1Mod1/ai0", alias="vibration", range_min=-5, range_max=5
+)
+daq_slow.configure_analog_channel(
+    direction=Direction.INPUT, physical_channel="cDAQ1Mod2/ai0", alias="temperature", range_min=0, range_max=5
+)
+
+# Each instance carries its own hardware sample rate.
+daq_fast.configure_ai_sample_rate(sample_rate=10000)
+daq_slow.configure_ai_sample_rate(sample_rate=10)
+```
+
+## Lifecycle per instance
+
+Each instance follows the normal [InstroDAQ lifecycle](/instrumentation/daq#lifecycle-pattern) on its own: `open()`, configure, `start()`, read, `stop()`, `close()`. `start()` launches that instance's own background daemon, so the two acquisitions fetch and publish concurrently without coordinating.
+
+```python
+daq_fast.open()
+daq_slow.open()
+
+try:
+    # ... configure channels and sample rates per instance ...
+
+    daq_fast.start()
+    daq_slow.start()
+
+    fast_data = daq_fast.get_channel("daqFast.vibration", 100, True)
+    slow_data = daq_slow.get_channel("daqSlow.temperature", 1, False)
+
+    # Stopping one acquisition does not affect the other.
+    daq_fast.stop()
+    daq_slow.stop()
+finally:
+    daq_fast.close()
+    daq_slow.close()
+```
+
+<Warning>
+**NI constraints to respect across instances**
+
+- One hardware-timed analog input task per DAQmx device: on cDAQ, one instance per module; on multifunction devices, one analog input instance per device.
+- cDAQ chassis have a fixed number of analog input timing engines (three on cDAQ-917x), which caps the number of concurrent hardware-timed analog input tasks per chassis.
+- A physical channel can be reserved by only one task at a time: never configure the same physical channel on two instances.
+- On one `device_id`, give each instance a different subsystem (analog input vs digital, for example). Two instances configuring the same subsystem on one `device_id` collide on the DAQmx task.
+- Per-device aggregate sample rate limits still apply: splitting channels across instances does not raise a multiplexed module's total throughput.
+</Warning>
+
+See the full runnable example: [NI multi-rate acquisition with two InstroDAQ instances](/instrumentation/examples/daq/daq_multi_rate_ni).
