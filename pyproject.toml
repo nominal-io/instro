@@ -13,7 +13,9 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
+    "pyvisa-py>=0.8.1",
     "thermocouples>=2.1.2",
+    "typer>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +37,9 @@ all = [
 Homepage = "https://github.com/nominal-io/instro"
 Repository = "https://github.com/nominal-io/instro"
 Issues = "https://github.com/nominal-io/instro/issues"
+
+[project.scripts]
+nominal-instro = "instro.cli.main:app"
 
 [build-system]
 requires = ["hatchling"]
