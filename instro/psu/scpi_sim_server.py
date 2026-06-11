@@ -1105,7 +1105,9 @@ class _LoadPanel(Container):
             if ch is None:
                 self.query_one("#load-info", Static).update("(removed)")
                 return
-            load_text = f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n{_field('EMF', f'{ch.load.emf} V', width=5)}"
+            load_text = (
+                f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n{_field('EMF', f'{ch.load.emf} V', width=5)}"
+            )
         self.query_one("#load-info", Static).update(load_text)
 
 
