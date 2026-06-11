@@ -57,39 +57,39 @@ The simulator runs a terminal UI while the TCP server listens in the background.
 
 <img alt="PSU simulator terminal UI showing the PSU panel, channel panels, and SCPI log" src="/images/psu-simulator-overview.svg" />
 
-Any green label is selectable. Use the arrow keys to move between controls. Press Enter to select an action, Escape to close an edit prompt, and `q` to quit.
+Filled labels are selectable actions. Use the arrow keys to move between controls. Focused actions use a light highlight. Press Enter to select an action, Escape to close an edit prompt, and `q` to quit.
 
 ### PSU
 
-The **⟢ Nominal PSU** panel shows the simulator identity and VISA resource string. Use the resource string when driver code connects to the simulator.
+The **⟢ NOMINAL PSU** panel shows the simulator identity and VISA resource string. Use the resource string when driver code connects to the simulator.
 
 ### Channel
 
-Each **Channel** panel shows the live state for one output. The panel is split into status, voltage, and current sections.
+Each **CHANNEL** panel shows the live state for one output. The panel is split into status, voltage, and current sections.
 
 | Header | Functionality |
 | --- | --- |
-| **Status** | Shows output mode, output state, sense mode, and protection trips. Select **Remove** to delete the channel from the simulator. |
-| **Voltage** | Shows terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level. Select **V limit** to edit the channel voltage ceiling. |
-| **Current** | Shows output current, programmed current limit, current limit, OCP state, and OCP level. Select **I limit** to edit the channel current ceiling. |
+| **STATUS** | Shows output mode, output state, sense mode, and protection trips. Select **REMOVE** to delete the channel from the simulator. |
+| **VOLTAGE** | Shows terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level. Select **V LIMIT** to edit the channel voltage ceiling. |
+| **CURRENT** | Shows output current, programmed current limit, current limit, OCP state, and OCP level. Select **I LIMIT** to edit the channel current ceiling. |
 
-Changing **V limit** or **I limit** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
+Changing **V LIMIT** or **I LIMIT** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
 
 ### Probe
 
-The **Probe** panel shows sense lead resistance. Select **Probe R** to edit the probe resistance in ohms.
+The **PROBE** panel shows sense lead resistance. Select **PROBE R** to edit the probe resistance in ohms.
 
 ### Load
 
-The **Load** panel shows the external load model. Select **R** to edit load resistance in ohms. Select **EMF** to edit the series electromotive force in volts.
+The **LOAD** panel shows the external load model. Select **R** to edit load resistance in ohms. Select **EMF** to edit the series electromotive force in volts.
 
 ### + channel
 
-The **+ channel** panel adds a new output channel with the next available channel ID.
+The **+ CHANNEL** panel adds a new output channel with the next available channel ID.
 
 ### SCPI log
 
-The **SCPI log** panel records incoming commands, responses, and queued errors. It is read-only.
+The **SCPI LOG** panel records incoming commands, responses, and queued errors. It is read-only.
 
 ## Programming guide
 
@@ -102,7 +102,7 @@ Angle brackets mark command arguments. They are notation only; do not include th
 
 The pipe character (`|`) means OR. For example, <code>&lt;LOC|REM&gt;</code> accepts `LOC` or `REM`, and <code>&lt;NRf+|MIN|MAX&gt;</code> accepts one numeric value, `MIN`, or `MAX`. Do not send the pipe character in the command.
 
-`MIN` maps to `0`. `MAX` maps to **V limit** for voltage and OVP commands, and **I limit** for current and OCP commands. Do not send `MIN` or `MAX` to queries.
+`MIN` maps to `0`. `MAX` maps to **V LIMIT** for voltage and OVP commands, and **I LIMIT** for current and OCP commands. Do not send `MIN` or `MAX` to queries.
 
 ### Defaults and reset
 

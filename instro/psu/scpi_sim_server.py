@@ -769,8 +769,36 @@ class SimulatedPSUServer:
 # ---- Interactive TUI ----
 
 NOMINAL_MARK = "⟢"
-NOMINAL_PRIMARY = "#419B55"
-NOMINAL_WHITE = "#ffffff"
+NOMINAL_BACKGROUND = "#121212"
+NOMINAL_SURFACE = "#0C0C0C"
+NOMINAL_SURFACE_MUTED = "#1A1A1A"
+NOMINAL_SURFACE_HOVER = "#333333"
+NOMINAL_FOREGROUND = "#FFFFFF"
+NOMINAL_FOREGROUND_ACTIVE = "#0C0C0C"
+NOMINAL_FOREGROUND_MUTED = "#A3A3A3"
+NOMINAL_FOREGROUND_ERROR = "#B91C1C"
+NOMINAL_BORDER = "#333333"
+NOMINAL_BORDER_MUTED = "#242424"
+
+
+_CSS_TOKENS = {
+    "@background@": NOMINAL_BACKGROUND,
+    "@border@": NOMINAL_BORDER,
+    "@border-muted@": NOMINAL_BORDER_MUTED,
+    "@foreground@": NOMINAL_FOREGROUND,
+    "@foreground-active@": NOMINAL_FOREGROUND_ACTIVE,
+    "@foreground-error@": NOMINAL_FOREGROUND_ERROR,
+    "@foreground-muted@": NOMINAL_FOREGROUND_MUTED,
+    "@surface@": NOMINAL_SURFACE,
+    "@surface-hover@": NOMINAL_SURFACE_HOVER,
+    "@surface-muted@": NOMINAL_SURFACE_MUTED,
+}
+
+
+def _css(source: str) -> str:
+    for token, value in _CSS_TOKENS.items():
+        source = source.replace(token, value)
+    return source
 
 
 def _fmt_limit(value: float) -> str:
@@ -780,24 +808,25 @@ def _fmt_limit(value: float) -> str:
 
 
 def _field(label: str, value: str, width: int = 7) -> str:
-    return f"[dim]{label + ':':<{width}}[/] [bold]{value}[/]"
+    return f"[{NOMINAL_FOREGROUND_MUTED}]{label.upper() + ':':<{width}}[/] [bold {NOMINAL_FOREGROUND}]{value}[/]"
 
 
-def _title(text: str, color: str = NOMINAL_PRIMARY) -> str:
+def _title(text: str, color: str = NOMINAL_FOREGROUND_MUTED) -> str:
+    text = text.upper()
     return f"[bold {color}]{text}[/]"
 
 
 class _PromptScreen(ModalScreen[str | None]):
     """Modal screen that prompts for a single text value."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _PromptScreen {
         align: center middle;
     }
     _PromptScreen > Vertical {
-        background: #000000;
-        border: solid #419B55;
-        color: #ffffff;
+        background: @surface@;
+        border: solid @foreground-muted@;
+        color: @foreground@;
         padding: 1 2;
         width: 60;
         height: auto;
@@ -805,7 +834,15 @@ class _PromptScreen(ModalScreen[str | None]):
     _PromptScreen Label {
         margin-bottom: 1;
     }
-    """
+    _PromptScreen Input {
+        background: @background@;
+        border: solid @border@;
+        color: @foreground@;
+    }
+    _PromptScreen Input:focus {
+        border: solid @foreground-muted@;
+    }
+    """)
 
     BINDINGS = [Binding("escape", "cancel", "Cancel")]
 
@@ -846,28 +883,30 @@ class _ActionCell(Static):
 
     can_focus = True
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _ActionCell {
         height: 1;
         padding: 0 1;
         margin: 0 1 0 0;
         content-align: center middle;
-        background: #419B55;
-        color: #000000;
+        background: @surface-hover@;
+        color: @foreground@;
         text-style: bold;
+        outline: none;
     }
 
     _ActionCell:focus {
-        background: #6FCF7F;
-        color: #000000;
+        background: @foreground@;
+        color: @foreground-active@;
+        outline: none;
         text-style: bold;
     }
 
     _ActionCell:hover {
-        background: #6FCF7F;
-        color: #000000;
+        background: @surface-muted@;
+        color: @foreground@;
     }
-    """
+    """)
 
     def _select(self) -> None:
         self.post_message(ActionSelected(self))
@@ -884,19 +923,20 @@ class _ActionCell(Static):
 
 
 def _control_cell(label: str, cell_id: str, classes: str = "") -> _ActionCell:
-    return _ActionCell(label, id=cell_id, classes=classes)
+    return _ActionCell(label.upper(), id=cell_id, classes=classes)
 
 
 class _ChannelPanel(Container):
     """Per-channel panel with live status and channel controls."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _ChannelPanel {
-        border: solid #D1D0C5;
+        border: solid @foreground-muted@;
         padding: 0 1;
         margin: 0 1 0 0;
         width: 1fr;
         height: auto;
+        background: @background@;
     }
 
     _ChannelPanel .metric-row {
@@ -937,16 +977,16 @@ class _ChannelPanel(Container):
     }
 
     _ChannelPanel _ActionCell.remove-action {
-        color: #000000;
+        color: @foreground-error@;
         width: 8;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
         super().__init__(id=f"ch-{channel_id}-channel")
         self._server = server
         self._channel_id = channel_id
-        self.border_title = f"Channel {channel_id}"
+        self.border_title = f"CHANNEL {channel_id}"
 
     @property
     def channel_id(self) -> int:
@@ -1021,12 +1061,13 @@ class _ChannelPanel(Container):
 class _LoadPanel(Container):
     """Per-channel load panel with load state and controls."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _LoadPanel {
-        border: solid #666666;
+        border: solid @foreground-muted@;
         padding: 0 1;
         width: 28;
         height: auto;
+        background: @background@;
     }
 
     _LoadPanel .load-info {
@@ -1040,13 +1081,13 @@ class _LoadPanel(Container):
     _LoadPanel _ActionCell {
         width: 7;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
         super().__init__(id=f"ch-{channel_id}-load")
         self._server = server
         self._channel_id = channel_id
-        self.border_title = "Load"
+        self.border_title = "LOAD"
 
     @property
     def channel_id(self) -> int:
@@ -1064,24 +1105,21 @@ class _LoadPanel(Container):
             if ch is None:
                 self.query_one("#load-info", Static).update("(removed)")
                 return
-            load_text = (
-                f"{_title('Load')}\n"
-                f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n"
-                f"{_field('EMF', f'{ch.load.emf} V', width=5)}"
-            )
+            load_text = f"{_field('R', f'{ch.load.resistance} OHM', width=5)}\n{_field('EMF', f'{ch.load.emf} V', width=5)}"
         self.query_one("#load-info", Static).update(load_text)
 
 
 class _ProbePanel(Container):
     """Per-channel probe panel with probe state and controls."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _ProbePanel {
-        border: solid #666666;
+        border: solid @foreground-muted@;
         padding: 0 1;
         margin: 0 1 0 0;
         width: 24;
         height: auto;
+        background: @background@;
     }
 
     _ProbePanel .probe-info {
@@ -1095,13 +1133,13 @@ class _ProbePanel(Container):
     _ProbePanel _ActionCell {
         width: 9;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
         super().__init__(id=f"ch-{channel_id}-probe")
         self._server = server
         self._channel_id = channel_id
-        self.border_title = "Probe"
+        self.border_title = "PROBE"
 
     @property
     def channel_id(self) -> int:
@@ -1118,17 +1156,18 @@ class _ProbePanel(Container):
             if ch is None:
                 self.query_one("#probe-info", Static).update("(removed)")
                 return
-            probe_text = f"{_title('Sense Lead')}\n{_field('R', f'{ch.load.probe_resistance} OHM', width=5)}"
+            probe_text = _field("R", f"{ch.load.probe_resistance} OHM", width=5)
         self.query_one("#probe-info", Static).update(probe_text)
 
 
 class _ChannelRow(Container):
     """Layout row containing one channel box and adjacent probe/load boxes."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _ChannelRow {
         height: auto;
         margin: 0;
+        background: @background@;
     }
 
     _ChannelRow > Horizontal {
@@ -1163,7 +1202,7 @@ class _ChannelRow(Container):
         width: 1fr;
         min-width: 28;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer, channel_id: int) -> None:
         super().__init__(id=f"ch-{channel_id}-row")
@@ -1185,19 +1224,20 @@ class _ChannelRow(Container):
 class _PsuPanel(Static):
     """Top-level PSU info panel: identifier + error queue."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _PsuPanel {
-        border: solid #419B55;
+        border: solid @foreground-muted@;
         padding: 0 1;
         margin: 0;
         height: auto;
+        background: @background@;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer) -> None:
         super().__init__()
         self._server = server
-        self.border_title = f"{NOMINAL_MARK} Nominal PSU"
+        self.border_title = f"{NOMINAL_MARK} NOMINAL PSU"
 
     def refresh_state(self) -> None:
         with self._server.lock:
@@ -1209,19 +1249,27 @@ class _PsuPanel(Static):
 class _LogPanel(Log):
     """Scrolling log of SCPI commands, responses, and errors as they arrive."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _LogPanel {
-        border: solid #666666;
+        border: solid @foreground-muted@;
         height: 12;
-        background: transparent;
+        background: @surface@;
+        color: @foreground-muted@;
+        scrollbar-background: @surface@;
+        scrollbar-background-active: @surface-hover@;
+        scrollbar-background-hover: @surface-hover@;
+        scrollbar-color: @border@;
+        scrollbar-color-active: @foreground-muted@;
+        scrollbar-color-hover: @foreground-muted@;
+        scrollbar-corner-color: @surface@;
     }
-    """
+    """)
 
     def __init__(self, server: SimulatedPSUServer) -> None:
         super().__init__(highlight=False, max_lines=500, auto_scroll=True)
         self._server = server
         self._last_seq = 0
-        self.border_title = "SCPI log"
+        self.border_title = "SCPI LOG"
 
     def refresh_state(self) -> None:
         with self._server.lock:
@@ -1239,18 +1287,23 @@ class _LogPanel(Log):
 class _AddChannelPanel(Container):
     """Action panel for adding channels."""
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = _css("""
     _AddChannelPanel {
-        border: solid #D1D0C5;
+        border: solid @foreground-muted@;
         padding: 0 1;
         margin: 0;
         height: auto;
+        background: @background@;
     }
     _AddChannelPanel _ActionCell {
         width: 16;
         height: auto;
     }
-    """
+    """)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.border_title = "ADD CHANNEL"
 
     def compose(self) -> ComposeResult:
         yield _control_cell("+ channel", "add-channel")
@@ -1262,33 +1315,40 @@ class SimulatedPSUApp(App[None]):
     _COMPACT_WIDTH = 128
     ENABLE_COMMAND_PALETTE = False
 
-    CSS = """
+    CSS = _css("""
     Screen {
         layout: vertical;
-        background: #000000;
-        color: #ffffff;
+        background: @background@;
+        color: @foreground@;
     }
 
     Header {
-        background: #419B55;
-        color: #000000;
+        background: @surface@;
+        color: @foreground@;
     }
 
     Footer {
-        background: #000000;
-        color: #D1D0C5;
+        background: @surface@;
+        color: @foreground-muted@;
     }
 
     #body {
         padding: 0 1;
         height: 1fr;
-        background: #000000;
+        background: @background@;
+        scrollbar-background: @background@;
+        scrollbar-background-active: @surface-hover@;
+        scrollbar-background-hover: @surface-hover@;
+        scrollbar-color: @border@;
+        scrollbar-color-active: @foreground-muted@;
+        scrollbar-color-hover: @foreground-muted@;
+        scrollbar-corner-color: @background@;
     }
 
     #channels {
         height: auto;
     }
-    """
+    """)
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
