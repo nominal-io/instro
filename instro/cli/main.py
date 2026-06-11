@@ -6,7 +6,7 @@ app = typer.Typer()
 
 
 @app.command("discover")
-def discover_cmd(backend: str = typer.Option("@py", help="pyvisa backend, e.g. '@py' or '@ivi'")) -> None:
+def discover_cmd(backend: str = typer.Option(None, help="pyvisa backend, e.g. '@py' or '@ivi'")) -> None:
     discover(backend=backend)
 
 
