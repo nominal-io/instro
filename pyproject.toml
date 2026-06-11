@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.8.0"
+version = "0.9.0"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -13,6 +13,8 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
+    "pyvisa-py>=0.8.1,<0.9",
+    "textual>=0.80",
     "thermocouples>=2.1.2",
 ]
 

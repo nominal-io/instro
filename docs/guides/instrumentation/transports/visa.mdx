@@ -10,7 +10,7 @@ description: VISA transport driver for building custom SCPI instrument drivers
 It is intentionally narrow: it opens, closes, and locks a VISA resource and exposes text and raw byte I/O. The caller chooses the command strings.
 
 <Note>
-[VISA (Virtual Instrument Software Architecture)](https://www.ivifoundation.org/specifications/) is the IVI Foundation standard for talking to instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. `VisaDriver` uses pyvisa under the hood, so any backend pyvisa supports (NI-VISA, Keysight IO Libraries, pyvisa-py) is reachable.
+[VISA (Virtual Instrument Software Architecture)](https://www.ivifoundation.org/specifications/) is the IVI Foundation standard for talking to instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. `VisaDriver` uses pyvisa under the hood.
 </Note>
 
 ## When to Reach For It
@@ -106,7 +106,7 @@ When the VISA resource is an ASRL (RS-232 / RS-485) interface, `VisaDriver` appl
 
 ### Backends
 
-`VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Defaults to `"@ivi"`, which uses a vendor VISA implementation (NI-VISA or Keysight IO Libraries) when one is installed on the host. Set it to `"@py"` to use [pyvisa-py](https://pyvisa.readthedocs.io/projects/pyvisa-py/), the pure-Python backend, which avoids the vendor install at the cost of fewer interface types and slower performance.
+`VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Most callers should let the default backend drive.
 
 ## Building a Custom Driver
 
@@ -202,7 +202,7 @@ Two patterns from this example are worth calling out because they recur in every
 
 ## Configuration
 
-For non-default backends, terminators, timeouts, or serial settings, pass a `VisaConfig` instead of a plain resource string:
+For terminators, timeouts, or serial settings, pass a `VisaConfig` instead of a plain resource string:
 
 ```python
 from instro.lib.transports import (
@@ -218,7 +218,6 @@ from instro.lib.transports import (
 
 config = VisaConfig(
     visa_resource="ASRL/dev/ttyUSB0::INSTR",
-    visa_backend="@py",
     serial_config=SerialConfig(
         baud_rate=19200,
         data_bits=8,
@@ -240,7 +239,7 @@ Top-level connection parameters.
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `visa_resource` | Yes | | VISA resource string, e.g. `TCPIP0::host::5025::SOCKET` or `USB0::0x2A8D::0x0101::MY12345::INSTR` |
-| `visa_backend` | No | `"@ivi"` | pyvisa backend specifier: `"@ivi"` for vendor VISA, `"@py"` for pyvisa-py |
+| `visa_backend` | No | `"@py"` | pyvisa backend specifier |
 | `serial_config` | No | `SerialConfig()` | Serial settings, applied only when the resource is an ASRL interface |
 | `terminator` | No | `TerminatorConfig()` | Read and write terminators |
 | `timeout` | No | `TimeoutConfig()` | Operation timeouts |
@@ -293,7 +292,7 @@ To discover what's attached, you can use pyvisa's resource manager directly:
 
 ```python
 import pyvisa
-rm = pyvisa.ResourceManager("@ivi")  # or "@py"
+rm = pyvisa.ResourceManager()
 print(rm.list_resources())
 ```
 </Tip>
@@ -320,7 +319,7 @@ print(rm.list_resources())
 |-------|-------|
 | `RuntimeError: VisaDriver is not open. Call open() first.` | A `write`/`read`/`query`/`*_raw` call was made before `open()`, or after `close()`. |
 | `pyvisa.errors.VisaIOError` | The underlying VISA call failed: timeout, resource not found, bus error, instrument disconnected, etc. The `error_code` attribute identifies the cause (e.g. `VI_ERROR_TMO` for timeout). |
-| `pyvisa.errors.LibraryError` | The selected VISA backend could not be loaded: typically a missing NI-VISA / Keysight VISA install when using `"@ivi"`. Switch to `"@py"` or install a vendor VISA runtime. |
+| `pyvisa.errors.LibraryError` | The selected VISA backend could not be loaded. Because `instro` installs the default backend, this most often means an explicitly selected alternate backend is unavailable. Use the default backend or install the required vendor runtime. |
 
 <Tip>
 `VisaDriver` deliberately does not retry, reconnect, or wrap pyvisa errors. Higher-level recovery (retry policies, reconnection on transient failures, escalation to operators) belongs in the instrument driver or application code on top.

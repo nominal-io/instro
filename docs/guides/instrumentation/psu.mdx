@@ -266,62 +266,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 # Simulated Power Supply
 
-For development and testing without physical hardware, `instro` includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
-
-## Starting the Simulation Server
-
-Run the simulation server from the command line:
-
-```bash
-python -m instro.psu.scpi_sim_server
-```
-
-The server will start listening on `127.0.0.1:5025` and simulate a basic SCPI-compatible power supply.
-
-<Note>
-The simulation server runs indefinitely until you stop it with `Ctrl+C`. Leave it running in a terminal while you develop and test your code.
-</Note>
-
-## Using the Simulated PSU
-
-Connect to the simulated power supply with `SimulatedPSU` and a socket-based VISA resource string:
-
-```python
-from instro.psu.drivers import SimulatedPSU
-from instro.psu import InstroPSU
-
-# Connect to the simulated PSU
-psu = InstroPSU(
-    name="simPSU",
-    driver=SimulatedPSU(visa_resource="TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-)
-
-psu.open()
-
-# Use normally - the simulated PSU responds to all standard commands
-psu.set_voltage(12.0, channel=1)
-psu.set_current_limit(1.5, channel=1)
-psu.output_enable(True, channel=1)
-
-voltage = psu.get_voltage(channel=1)
-print(f"Voltage: {voltage.latest}V")
-
-psu.close()
-```
-
-## Use Cases
-
-The simulated PSU is useful for:
-
-- **Development**: Test your code without requiring physical hardware
-- **CI/CD**: Run automated tests in continuous integration environments
-- **Training**: Learn the InstroPSU API without risk to equipment
-- **Prototyping**: Design test sequences before hardware arrives
-
-<Note>
-The simulated PSU provides realistic responses but does not model physical behavior like voltage ripple, load regulation, or thermal effects. Always validate your code with real hardware before production use.
-</Note>
+For development and testing without physical hardware, Nominal Instrumentation includes a local SCPI power-supply simulator. See [PSU simulator](/instrumentation/psu-simulator) for the quickstart, usage notes, and supported command set.
 
 ---
 
