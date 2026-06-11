@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 import pytest
@@ -664,6 +665,39 @@ def test_emf_load_draws_charging_current(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":OUTP ON")
 
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(2.0, rel=0.1)
+
+
+def test_zero_resistance_load_enters_cc_mode(psu: SimulatedPSU) -> None:
+    psu.channels[0].load = SimulatedLoad(resistance=0.0, emf=0.0, probe_resistance=0.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.channels[0].mode == OperatingMode.CC
+    assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(1.0, rel=0.05)
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(0.0, abs=0.01)
+
+
+def test_zero_resistance_load_at_matching_emf_stays_in_cv_mode(psu: SimulatedPSU) -> None:
+    psu.channels[0].load = SimulatedLoad(resistance=0.0, emf=5.0, probe_resistance=0.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
+
+
+def test_infinite_resistance_load_stays_in_cv_mode(psu: SimulatedPSU) -> None:
+    psu.channels[0].load = SimulatedLoad(resistance=math.inf, emf=0.0, probe_resistance=0.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
 
 
 @pytest.mark.parametrize(
