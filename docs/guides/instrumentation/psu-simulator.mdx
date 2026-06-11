@@ -53,87 +53,41 @@ python -m instro.psu.scpi_sim_server --host 127.0.0.1 --port 5025 --channels 2
 
 ## Usage
 
-The simulator runs a terminal UI while the TCP server listens in the background.
-
-The top **PSU** panel shows the simulator identity and VISA resource string. Use the resource string when you connect driver code to the simulator.
+The simulator runs a terminal UI while the TCP server listens in the background. The UI is organized by panel header.
 
 <img alt="PSU simulator terminal UI showing the PSU panel, channel panels, and SCPI log" src="/images/psu-simulator-overview.svg" />
 
-Each **Channel** row shows the live state for one output.
+Any green label is selectable. Use the arrow keys to move between controls. Press Enter to select an action, Escape to close an edit prompt, and `q` to quit.
 
-| Section | Shows |
+### PSU
+
+The **⟢ Nominal PSU** panel shows the simulator identity and VISA resource string. Use the resource string when driver code connects to the simulator.
+
+### Channel
+
+Each **Channel** panel shows the live state for one output. The panel is split into status, voltage, and current sections.
+
+| Header | Functionality |
 | --- | --- |
-| Status | Output mode, output state, sense mode, protection trips, and the remove action |
-| Voltage | Terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level |
-| Current | Output current, programmed current limit, I limit, OCP state, and OCP level |
-| Probe | Sense lead resistance and the probe-resistance action |
-| Load | Load resistance, series electromotive force (EMF), and load actions |
-
-Use the highlighted action labels to edit the load model and channel settings. Use the arrow keys to move through actions. Press Enter to select an action, Escape to close an edit prompt, and `q` to quit.
-
-### Change load resistance
-
-Highlight **R** in the load panel and press Enter.
-
-<img alt="PSU simulator terminal UI with load resistance highlighted" src="/images/psu-simulator-set-load.svg" />
-
-Enter the new resistance in ohms and press Enter.
-
-<img alt="PSU simulator terminal UI showing the load resistance prompt" src="/images/psu-simulator-set-load-prompt.svg" />
-
-### Change series EMF
-
-Highlight **EMF** in the load panel and press Enter.
-
-<img alt="PSU simulator terminal UI with series EMF highlighted" src="/images/psu-simulator-set-emf.svg" />
-
-Enter the new series voltage in volts and press Enter.
-
-<img alt="PSU simulator terminal UI showing the series EMF prompt" src="/images/psu-simulator-set-emf-prompt.svg" />
-
-### Change probe resistance
-
-Highlight **Probe R** in the probe panel and press Enter.
-
-<img alt="PSU simulator terminal UI with probe resistance highlighted" src="/images/psu-simulator-set-probe.svg" />
-
-Enter the new probe resistance in ohms and press Enter.
-
-<img alt="PSU simulator terminal UI showing the probe resistance prompt" src="/images/psu-simulator-set-probe-prompt.svg" />
-
-### Change voltage limit
-
-Highlight **V limit** and press Enter.
-
-<img alt="PSU simulator terminal UI with voltage limit highlighted" src="/images/psu-simulator-set-voltage-limit.svg" />
-
-Enter the new voltage limit in volts and press Enter.
-
-<img alt="PSU simulator terminal UI showing the voltage limit prompt" src="/images/psu-simulator-set-voltage-limit-prompt.svg" />
-
-### Change current limit
-
-Highlight **I limit** and press Enter.
-
-<img alt="PSU simulator terminal UI with current limit highlighted" src="/images/psu-simulator-set-current-limit.svg" />
-
-Enter the new current limit in amps and press Enter.
-
-<img alt="PSU simulator terminal UI showing the current limit prompt" src="/images/psu-simulator-set-current-limit-prompt.svg" />
+| **Status** | Shows output mode, output state, sense mode, and protection trips. Select **Remove** to delete the channel from the simulator. |
+| **Voltage** | Shows terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level. Select **V limit** to edit the channel voltage ceiling. |
+| **Current** | Shows output current, programmed current limit, current limit, OCP state, and OCP level. Select **I limit** to edit the channel current ceiling. |
 
 Changing **V limit** or **I limit** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
 
-### Remove a channel
+### Probe
 
-Highlight **Remove** in the channel status section and press Enter.
+The **Probe** panel shows sense lead resistance. Select **Probe R** to edit the probe resistance in ohms.
 
-<img alt="PSU simulator terminal UI with Remove highlighted" src="/images/psu-simulator-remove-channel.svg" />
+### Load
 
-### Add a channel
+The **Load** panel shows the external load model. Select **R** to edit load resistance in ohms. Select **EMF** to edit the series electromotive force in volts.
 
-Highlight **+ channel** and press Enter.
+### + channel
 
-<img alt="PSU simulator terminal UI with + channel highlighted" src="/images/psu-simulator-add-channel.svg" />
+The **+ channel** panel adds a new output channel with the next available channel ID.
+
+### SCPI log
 
 The **SCPI log** panel records incoming commands, responses, and queued errors. It is read-only.
 
