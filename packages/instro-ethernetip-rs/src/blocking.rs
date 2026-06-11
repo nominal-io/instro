@@ -90,8 +90,12 @@ impl ExplicitSession {
             .block_on(self.session.read_tag_struct(tag_name))
     }
 
-    /// Read several tags sequentially, preserving input order in the returned list.
-    pub fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Value)>>
+    /// Read several tags in a single batch request, preserving input order in the returned list.
+    ///
+    /// See [`crate::ExplicitSession::read_tags`] for the per-tag error semantics. The outer
+    /// [`Result`] reports transport-level failures; per-tag failures appear inside the returned
+    /// list as [`Err`] entries so partial successes are preserved.
+    pub fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Result<Value>)>>
     where
         S: AsRef<str>,
     {
