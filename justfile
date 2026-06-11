@@ -102,10 +102,6 @@ eip-live-test:
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest tests/test_ethernetip_bindings.py -q
 
-# DNM: run live Rust EIP integration tests through an Apple Python TCP proxy
-dnm-eip-live-test:
-    /usr/bin/python3 tests/dnm_eip_live_proxy.py
-
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
