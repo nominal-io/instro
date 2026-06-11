@@ -274,6 +274,10 @@ Different DAQ devices have different timing capabilities:
 - **Sample rate limits**: Check your device specifications
 </Warning>
 
+<Note>
+A single `InstroDAQ` instance carries one analog input sample rate. To run multiple NI DAQmx tasks at different hardware sample rates, create one `InstroDAQ` instance per task: see [Multiple InstroDAQ instances on NI](/instrumentation/daq-ni-multi-task).
+</Note>
+
 
 ## Analog Input
 
