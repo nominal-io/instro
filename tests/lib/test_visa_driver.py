@@ -64,7 +64,7 @@ def test_construction_accepts_raw_resource_string(mock_pyvisa):
 
     driver.open()
 
-    rm_class.assert_called_once_with("@ivi")
+    rm_class.assert_called_once_with("@py")
     rm_instance.open_resource.assert_called_once_with("USB0::0x1234::0x5678::SERIAL::INSTR")
 
 
