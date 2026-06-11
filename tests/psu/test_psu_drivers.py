@@ -646,7 +646,6 @@ def test_publish_measurement_passes_through_none() -> None:
 def test_bk_single_init_passes_prebuilt_config_to_visa_driver(bk_single_visa_cls: MagicMock) -> None:
     config = VisaConfig(
         visa_resource="ASRL19::INSTR",
-        visa_backend="@py",
         serial_config=SerialConfig(baud_rate=19_200),
     )
     BK9115(config)
