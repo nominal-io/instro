@@ -19,6 +19,7 @@ from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, Input, Label, Log, Static
@@ -993,23 +994,24 @@ class _ChannelPanel(Container):
             ovp_state = "ON" if ch.overvoltage_protection_enabled else "OFF"
             ocp_state = "ON" if ch.overcurrent_protection_enabled else "OFF"
             trip_label = ", ".join(tripped) or "-"
+            field_width = 8
             status_text = (
-                f"{_field('Mode', ch.mode.value)}\n"
-                f"{_field('Output', 'ON' if ch.output_enabled else 'OFF')}\n"
-                f"{_field('Sense', sense_label)}\n"
-                f"{_field('Trip', trip_label)}"
+                f"{_field('Mode', ch.mode.value, width=field_width)}\n"
+                f"{_field('Output', 'ON' if ch.output_enabled else 'OFF', width=field_width)}\n"
+                f"{_field('Sense', sense_label, width=field_width)}\n"
+                f"{_field('Trip', trip_label, width=field_width)}"
             )
             voltage_text = (
-                f"{_field('Actual', f'{_fmt_limit(ch.terminal_voltage)} V')}\n"
-                f"{_field('Set', f'{_fmt_limit(ch.voltage_setpoint)} V')}\n"
-                f"{_field('V limit', f'{_fmt_limit(ch.voltage_max)} V')}\n"
-                f"{_field('OVP', f'{ovp_state} @ {_fmt_limit(ch.overvoltage_protection_level)} V')}"
+                f"{_field('Actual', f'{_fmt_limit(ch.terminal_voltage)} V', width=field_width)}\n"
+                f"{_field('Set', f'{_fmt_limit(ch.voltage_setpoint)} V', width=field_width)}\n"
+                f"{_field('V limit', f'{_fmt_limit(ch.voltage_max)} V', width=field_width)}\n"
+                f"{_field('OVP', f'{ovp_state} @ {_fmt_limit(ch.overvoltage_protection_level)} V', width=field_width)}"
             )
             current_text = (
-                f"{_field('Actual', f'{_fmt_limit(ch.current)} A')}\n"
-                f"{_field('Set', f'{_fmt_limit(ch.current_limit)} A')}\n"
-                f"{_field('I limit', f'{_fmt_limit(ch.current_max)} A')}\n"
-                f"{_field('OCP', f'{ocp_state} @ {_fmt_limit(ch.overcurrent_protection_level)} A')}"
+                f"{_field('Actual', f'{_fmt_limit(ch.current)} A', width=field_width)}\n"
+                f"{_field('Set', f'{_fmt_limit(ch.current_limit)} A', width=field_width)}\n"
+                f"{_field('I limit', f'{_fmt_limit(ch.current_max)} A', width=field_width)}\n"
+                f"{_field('OCP', f'{ocp_state} @ {_fmt_limit(ch.overcurrent_protection_level)} A', width=field_width)}"
             )
         self.query_one("#status-info", Static).update(status_text)
         self.query_one("#voltage-info", Static).update(voltage_text)
@@ -1374,11 +1376,20 @@ class SimulatedPSUApp(App[None]):
         for psu_panel in self.query(_PsuPanel).results():
             psu_panel.refresh_state()
         for channel_panel in self.query(_ChannelPanel).results():
-            channel_panel.refresh_state()
+            try:
+                channel_panel.refresh_state()
+            except NoMatches:
+                continue
         for probe_panel in self.query(_ProbePanel).results():
-            probe_panel.refresh_state()
+            try:
+                probe_panel.refresh_state()
+            except NoMatches:
+                continue
         for load_panel in self.query(_LoadPanel).results():
-            load_panel.refresh_state()
+            try:
+                load_panel.refresh_state()
+            except NoMatches:
+                continue
         for log_panel in self.query(_LogPanel).results():
             log_panel.refresh_state()
 
