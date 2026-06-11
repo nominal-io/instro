@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 import time
 
 import pytest
+from textual.widgets import Input
 
 from instro.psu.scpi_sim_server import (
     OperatingMode,
     SCPIError,
     SimulatedLoad,
     SimulatedPSU,
+    SimulatedPSUApp,
+    SimulatedPSUServer,
 )
 
 
@@ -155,6 +159,47 @@ def test_command_log_annotates_errors(psu: SimulatedPSU) -> None:
     assert "BOGUS" in log[-1]
     assert "-113" in log[-1]
     assert "Undefined header" in log[-1]
+
+
+@pytest.mark.parametrize(
+    ("param", "value", "max_attr"),
+    [
+        ("voltage", "70.0", "voltage_max"),
+        ("current", "12.0", "current_max"),
+    ],
+)
+def test_tui_limit_edit_resets_without_recording_rst(
+    param: str,
+    value: str,
+    max_attr: str,
+) -> None:
+    async def run() -> None:
+        psu = SimulatedPSU()
+        psu.process_scpi_command(":SOUR:VOLT 5.0")
+        psu.process_scpi_command(":CURR 2.0")
+        psu.process_scpi_command(":OUTP ON")
+        log_before = list(psu._command_log)
+        seq_before = psu._command_log_seq
+
+        app = SimulatedPSUApp(SimulatedPSUServer(psu))
+        async with app.run_test(size=(120, 30)) as pilot:
+            await pilot.pause(0.2)
+            app._prompt_set_limit(1, param, f"{param.upper()} LIMIT:")
+            await pilot.pause(0.2)
+            input_widget = app.screen.query_one(Input)
+            input_widget.value = value
+            await input_widget.action_submit()
+            await pilot.pause(0.2)
+
+        assert getattr(psu.channels[0], max_attr) == pytest.approx(float(value))
+        assert psu.channels[0].voltage_setpoint == pytest.approx(0.0)
+        assert psu.channels[0].current_limit == pytest.approx(0.0)
+        assert psu.channels[0].output_enabled is False
+        assert list(psu._command_log) == log_before
+        assert psu._command_log_seq == seq_before
+        assert not any("*RST" in entry for entry in psu._command_log)
+
+    asyncio.run(run())
 
 
 def test_invalid_channel_records_suffix_out_of_range(psu: SimulatedPSU) -> None:

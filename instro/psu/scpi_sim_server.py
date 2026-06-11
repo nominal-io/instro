@@ -1554,10 +1554,10 @@ class SimulatedPSUApp(App[None]):
                     return
                 if param == "voltage":
                     ch.voltage_max = value
-                    self._server.psu.process_scpi_command("*RST")
+                    self._server.psu._reset(1, [])
                 elif param == "current":
                     ch.current_max = value
-                    self._server.psu.process_scpi_command("*RST")
+                    self._server.psu._reset(1, [])
 
         self.push_screen(_PromptScreen(prompt, initial=current), _on_value)
 
