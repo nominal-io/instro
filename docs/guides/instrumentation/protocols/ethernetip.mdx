@@ -10,8 +10,22 @@ description: Using EtherNet/IP for Allen-Bradley PLC tag communication
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route, and the scalar tags Nominal reads or writes. `EtherNetIPDevice` exposes those tags by local alias from Python and can publish boolean and numeric tag values to Nominal Core or Nominal Connect.
 
 <Warning>
-The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the local native package `instro-ethernetip-python`. It is not part of the stable `instro[all]` install path.
+The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the optional native package `instro-ethernetip-python`. Install it with `instro-unstable[ethernetip]`; it is not part of the stable `instro[all]` install path.
 </Warning>
+
+## Install
+
+Install the unstable package with the EtherNet/IP extra:
+
+```bash
+uv add "instro-unstable[ethernetip]"
+```
+
+or with pip:
+
+```bash
+pip install "instro-unstable[ethernetip]"
+```
 
 ## Quickstart
 
@@ -105,9 +119,9 @@ EtherNet/IP support is intentionally narrow. It targets PLC tags whose names and
 | PLC family | Tested on Allen-Bradley CompactLogix 5332E 1769-L32E |
 | Transport | EtherNet/IP explicit messaging over TCP |
 | Route paths | Direct connection, or local backplane slot hops only |
-| Background polling | Automatic reads for all `poll: true` tags |
+| Background polling | Automatic batched reads for all `poll: true` tags |
 | Streaming to Nominal Core or Nominal Connect | Boolean and numeric scalar tag values |
-| Manual tag operations | Scalar values and strings through the native session API |
+| Manual tag operations | Single-tag and batched scalar reads, plus writes, through the native session API |
 | Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
 | Tag discovery | Not supported |
 | UDTs | Not supported in the config-driven API |
@@ -128,6 +142,7 @@ A connection, scalar tag definitions, and `autostart=True` cover the common path
 | Reject out-of-range setpoints before PLC writes | `write_min` / `write_max` on numeric tags |
 | Reach a PLC CPU behind a local chassis/backplane | `connection.route_path.hops` with `type: "backplane"` |
 | Read or write a string tag manually | `EtherNetIpSession.read_tag()` / `EtherNetIpSession.write_tag()` |
+| Read several PLC tags in one native request | `EtherNetIpSession.read_tags([...])` |
 
 ## Key concepts
 
@@ -146,7 +161,7 @@ The EtherNet/IP workflow has six moves:
 Pass `autostart=True` to combine steps 3 and 4. When a `timing` section is configured, autostart also starts the background polling daemon.
 </Tip>
 
-Opening the session and validating the config do not probe the PLC tag map. Tag existence and actual PLC type are only validated when PLC I/O touches the tag: either when the background polling task reads a `poll: true` tag, or when the user explicitly calls `read_tag()` or `write_tag()`.
+Opening the session and validating the config do not probe the PLC tag map. Tag existence and actual PLC type are only validated when PLC I/O touches the tag: either when the background polling task reads `poll: true` tags, or when the user explicitly calls `read_tag()`, `read_tags()`, or `write_tag()`.
 
 Example `timing` section:
 
@@ -213,9 +228,29 @@ The public config-driven `EtherNetIPDevice.write_tag()` method can write string 
 plc.write_tag("recipe_name", "startup")
 ```
 
+### Batched reads
+
+Use the private native session to read several PLC tags in one request:
+
+```python
+from instro.unstable._ethernetip import EtherNetIpBatchError, EtherNetIpSession
+
+with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
+    for name, result in session.read_tags(["MotorRunning", "LineSpeed"]):
+        if isinstance(result, EtherNetIpBatchError):
+            print(f"{name} failed: {result}")
+            continue
+
+        print(name, result.kind, result.value)
+```
+
+`read_tags()` preserves input order. The call raises `EtherNetIpError` only when the whole batch cannot be dispatched or parsed. Individual tag failures are returned in the result list as typed `EtherNetIpBatchError` instances such as `TagNotFoundError`, `DataTypeMismatchError`, or `CipError`, so successful tags in the same batch remain available.
+
 ### Background polling
 
-With `timing` configured and polling started, `EtherNetIPDevice` reads each tag with `poll: true` at the configured interval.
+With `timing` configured and polling started, `EtherNetIPDevice` reads every tag with `poll: true` in one batched native request at the configured interval.
+
+If one tag in the batch fails, that tag is skipped for the current measurement and the other successful tag values are still published.
 
 Poll only streamable scalar tags:
 
@@ -403,7 +438,7 @@ Each tag entry defines one aliasable PLC tag:
 | --- | --- | --- | --- |
 | `poll_interval` | Yes | - | Polling interval in seconds (0.01-10.0) |
 
-When the `timing` section is present, `EtherNetIPDevice` reads tags with `poll: true` at the specified interval in a background thread. Successful values are published and buffered for retrieval.
+When the `timing` section is present, `EtherNetIPDevice` reads tags with `poll: true` in a batched background request at the specified interval. Successful values are published and buffered for retrieval.
 
 ### Validation rules
 
@@ -419,7 +454,7 @@ When the `timing` section is present, `EtherNetIPDevice` reads tags with `poll: 
 - String tags must set `poll: false`.
 - Route path hops must be local backplane hops with slots from 0 to 255.
 
-Load-time validation is local to the config. It does not verify that PLC tags exist or that their actual PLC types match `data_type`; those checks happen only when the background polling task runs or when the user explicitly initiates a `read_tag()` or `write_tag()` operation.
+Load-time validation is local to the config. It does not verify that PLC tags exist or that their actual PLC types match `data_type`; those checks happen only when the background polling task runs or when the user explicitly initiates a `read_tag()`, `read_tags()`, or `write_tag()` operation.
 
 ## Create an EtherNetIPDevice instance
 
@@ -541,16 +576,17 @@ EtherNet/IP raises these errors for common failures:
 
 | Error | Meaning |
 | --- | --- |
-| `RuntimeError: EtherNet/IP support requires the local native package 'instro-ethernetip-python'` | The native PyO3 package is not installed in the environment. |
+| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip-python'` | The native PyO3 package is not installed. Install `instro-unstable[ethernetip]`. |
 | `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
 | `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different kind than the configured scalar `data_type`, including a structured value for a scalar tag. |
 | `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |
 | `ValueError: Tag '{alias}' raw value ... is out of range for ...` | A raw integer write does not fit in the configured PLC integer type. |
 | Native `EtherNetIpError` | The underlying EtherNet/IP request failed because of a connection, CIP, or tag error. |
+| Native `EtherNetIpBatchError` | One tag in a `read_tags()` batch failed. Check subclasses such as `TagNotFoundError`, `DataTypeMismatchError`, and `CipError`. |
 
 ## Known limitations
 
-- EtherNet/IP support is unstable and local development only.
+- EtherNet/IP support is unstable and installed through `instro-unstable[ethernetip]`.
 - Hardware testing covers Allen-Bradley CompactLogix 5332E 1769-L32E.
 - Route paths support local backplane hops only. Network hops are unsupported.
 - Current testing covers one local backplane hop.

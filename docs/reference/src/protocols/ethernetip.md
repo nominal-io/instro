@@ -2,7 +2,8 @@
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
 and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
-and depends on the local native `instro-ethernetip-python` package.
+and depends on the optional native `instro-ethernetip-python` package from
+`instro-unstable[ethernetip]`.
 
 ```python
 from instro.unstable.ethernetip import EtherNetIPDevice
@@ -26,9 +27,9 @@ plc.close()
 | Tested PLC | Allen-Bradley CompactLogix 5332E 1769-L32E |
 | Transport | EtherNet/IP explicit messaging over TCP |
 | Route paths | Direct connection or local backplane slot hops only |
-| Polling | Automatic reads for `poll: true` scalar tags |
+| Polling | Automatic batched reads for `poll: true` scalar tags |
 | Streaming values | Boolean and numeric scalar tags |
-| Manual string operations | Native session API |
+| Manual native operations | Single-tag reads, batched reads, and writes |
 | Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
 | Tag discovery | Not supported |
 | UDTs | Not supported in the config-driven API |
@@ -103,7 +104,9 @@ The `timing` section controls background polling:
 |-------|------|---------|-------------|
 | `poll_interval` | float | *required* | Seconds between polling cycles (0.01-10.0) |
 
-When polling is running, `EtherNetIPDevice` reads each `poll: true` tag at the configured interval.
+When polling is running, `EtherNetIPDevice` reads every `poll: true` tag in one batched native
+request at the configured interval. A per-tag failure skips that tag for the current measurement;
+successful values from the same batch are still published.
 
 ### Tags
 
@@ -138,6 +141,27 @@ Supported `data_type` values:
 
 String tags cannot be streamed to Nominal Core or Nominal Connect. Manual reads and writes use
 `instro.unstable._ethernetip.EtherNetIpSession`.
+
+### Native batched reads
+
+`instro.unstable._ethernetip.EtherNetIpSession.read_tags()` reads several PLC tags in one native
+request and preserves input order:
+
+```python
+from instro.unstable._ethernetip import EtherNetIpBatchError, EtherNetIpSession
+
+with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
+    for name, result in session.read_tags(["MotorRunning", "LineSpeed"]):
+        if isinstance(result, EtherNetIpBatchError):
+            print(name, result)
+            continue
+        print(name, result.kind, result.value)
+```
+
+The call raises `EtherNetIpError` when the whole batch cannot be dispatched or parsed. Individual
+tag failures are returned as typed `EtherNetIpBatchError` instances, including `TagNotFoundError`,
+`DataTypeMismatchError`, `NetworkBatchError`, `CipError`, `TagPathError`, `SerializationError`,
+`BatchTimeoutError`, and `OtherBatchError`.
 
 ### Write limits
 
