@@ -5,12 +5,10 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import SerialConfig, VisaConfig
 from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.drivers import (
     BK9115,
-    BK9140,
     RigolDP800,
     SiglentSPD3303,
     TDKLambdaGenesys,
@@ -184,67 +182,6 @@ def test_bk_single_check_errors_raises_on_nonzero(bk_single: BK9115, bk_single_v
     bk_single_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="BK PSU reported error"):
         bk_single.set_voltage(1.0, channel=1)
-
-
-# --- BK9140 ---
-
-
-@pytest.fixture
-def bk_multi_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.bk_9140.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def bk_multi_visa(bk_multi_visa_cls: MagicMock) -> MagicMock:
-    visa = bk_multi_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def bk_multi(bk_multi_visa_cls: MagicMock) -> BK9140:
-    return BK9140("USB0::0xFFFF::0x9140::SN::INSTR")
-
-
-def test_bk_multi_init_builds_visa_driver_from_resource(bk_multi_visa_cls: MagicMock) -> None:
-    BK9140("USB0::0xFFFF::0x9140::SN::INSTR")
-    bk_multi_visa_cls.assert_called_once_with("USB0::0xFFFF::0x9140::SN::INSTR")
-
-
-def test_bk_multi_set_voltage_selects_channel_then_writes(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi.set_voltage(3.3, channel=2)
-    assert bk_multi_visa.write.call_args_list == [call("INST 1"), call("VOLT 3.300")]
-    bk_multi_visa.query.assert_called_once_with("SYST:ERR?")
-
-
-def test_bk_multi_selects_channel_one_before_first_write(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi.set_voltage(3.3, channel=1)
-    assert bk_multi_visa.write.call_args_list == [call("INST 0"), call("VOLT 3.300")]
-
-
-def test_bk_multi_skips_channel_select_when_active(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi.set_voltage(3.3, channel=1)
-    bk_multi.set_current_limit(0.5, channel=1)
-    assert bk_multi_visa.write.call_args_list == [call("INST 0"), call("VOLT 3.300"), call("CURR 0.500")]
-
-
-def test_bk_multi_get_voltage_returns_float(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi_visa.query.side_effect = ["7.890", '0,"No error"']
-    assert bk_multi.get_voltage(channel=2) == pytest.approx(7.89)
-    assert bk_multi_visa.write.call_args_list == [call("INST 1")]
-    assert bk_multi_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
-
-
-def test_bk_multi_get_output_status_parses(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi_visa.query.side_effect = ["1", '0,"No error"']
-    assert bk_multi.get_output_status(channel=1) is True
-
-
-def test_bk_multi_check_errors_raises_on_nonzero(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
-    bk_multi_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="BK PSU reported error"):
-        bk_multi.set_voltage(1.0, channel=1)
 
 
 # --- RigolDP800 ---

@@ -16,9 +16,9 @@
     options:
       heading_level: 4
 
-### BK Precision 9140 (Multi Channel)
+### BK Precision 914X (Multi Channel)
 
-::: instro.psu.drivers.bk_9140
+::: instro.psu.drivers.bk_914x
     options:
       heading_level: 4
 
