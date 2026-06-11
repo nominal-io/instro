@@ -22,6 +22,12 @@
     options:
       heading_level: 4
 
+### Keysight E36100
+
+::: instro.psu.drivers.keysight_e36100
+    options:
+      heading_level: 4
+
 ### Rigol DP800
 
 ::: instro.psu.drivers.rigol_dp800

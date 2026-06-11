@@ -5,12 +5,13 @@ description: Using InstroPSU for SCPI-based programmable power supplies
 
 # InstroPSU
 
-`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
+`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
 - **B&K Precision**: 9115-series single-channel via SCPI/VISA (`BK9115`)
 - **B&K Precision**: 9140-series multi-channel via SCPI/VISA (`BK9140`)
+- **Keysight**: E36100-series single-channel via SCPI/VISA (`KeysightE36100`)
 - **Rigol**: DP-series via SCPI/VISA (`RigolDP800`)
 - **Siglent**: SPD-series via SCPI/VISA (`SiglentSPD3303`)
 - **TDK Lambda**: Genesys family via SCPI/VISA (`TDKLambdaGenesys`)
@@ -65,7 +66,7 @@ psu = InstroPSU(
 
 ### Choosing a Driver
 
-Choose the concrete driver that matches the power supply model, then pass the instrument connection settings to that driver. For example, use `BK9140` for the B&K 9140-series, or `RigolDP800` for Rigol DP-series.
+Choose the concrete driver that matches the power supply model, then pass the instrument connection settings to that driver. For example, use `BK9140` for the B&K 9140-series, `KeysightE36100` for Keysight E36100-series supplies, or `RigolDP800` for Rigol DP-series.
 
 To inspect a VISA instrument's identity before choosing a driver:
 
@@ -265,62 +266,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 # Simulated Power Supply
 
-For development and testing without physical hardware, `instro` includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
-
-## Starting the Simulation Server
-
-Run the simulation server from the command line:
-
-```bash
-python -m instro.psu.scpi_sim_server
-```
-
-The server will start listening on `127.0.0.1:5025` and simulate a basic SCPI-compatible power supply.
-
-<Note>
-The simulation server runs indefinitely until you stop it with `Ctrl+C`. Leave it running in a terminal while you develop and test your code.
-</Note>
-
-## Using the Simulated PSU
-
-Connect to the simulated power supply with `SimulatedPSU` and a socket-based VISA resource string:
-
-```python
-from instro.psu.drivers import SimulatedPSU
-from instro.psu import InstroPSU
-
-# Connect to the simulated PSU
-psu = InstroPSU(
-    name="simPSU",
-    driver=SimulatedPSU(visa_resource="TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-)
-
-psu.open()
-
-# Use normally - the simulated PSU responds to all standard commands
-psu.set_voltage(12.0, channel=1)
-psu.set_current_limit(1.5, channel=1)
-psu.output_enable(True, channel=1)
-
-voltage = psu.get_voltage(channel=1)
-print(f"Voltage: {voltage.latest}V")
-
-psu.close()
-```
-
-## Use Cases
-
-The simulated PSU is useful for:
-
-- **Development**: Test your code without requiring physical hardware
-- **CI/CD**: Run automated tests in continuous integration environments
-- **Training**: Learn the InstroPSU API without risk to equipment
-- **Prototyping**: Design test sequences before hardware arrives
-
-<Note>
-The simulated PSU provides realistic responses but does not model physical behavior like voltage ripple, load regulation, or thermal effects. Always validate your code with real hardware before production use.
-</Note>
+For development and testing without physical hardware, Nominal Instrumentation includes a local SCPI power-supply simulator. See [PSU simulator](/instrumentation/psu-simulator) for the quickstart, usage notes, and supported command set.
 
 ---
 
@@ -497,6 +443,7 @@ class BK9115(PSUDriverBase):
 
 Different PSU vendors use different SCPI command sets:
 - **Siglent**: `CH<n>:VOLT`, `MEAS:VOLT? CH<n>`, `SYST:ERR?` (positive-zero prefix)
+- **Keysight**: `VOLT`, `MEAS:VOLT?`, `SYST:ERR?` (single channel)
 - **Rigol**: `:SOUR<n>:VOLT`, `:MEAS:VOLT? CH<n>`, `:SYST:ERR?`
 - **TDK Lambda**: `VOLT`, `MEAS:VOLT?`, `SYSTEM:ERROR?` (single channel)
 

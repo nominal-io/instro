@@ -243,12 +243,12 @@ class Instrument:
         self._background_methods.append((method, args, kwargs))
 
     def _setup_channel_buffer(self, buffer_length: int):
-        # Create a channel buffer if one doesn't alredy exist. Add it to list of publishers.
-        self._channel_buffer = (
-            DequeInMemoryPublisher(self._channel_buffer_length) if not self._channel_buffer else self._channel_buffer
-        )
-        logger.info("Setting up channel buffer for instrument '%s' (length=%d)", self.name, buffer_length)
-        self.add_publisher(self._channel_buffer)
+        # Create a channel buffer if one doesn't already exist. Add it to list of publishers.
+        if self._channel_buffer is None:
+            self._channel_buffer = DequeInMemoryPublisher(buffer_length)
+        if self._channel_buffer not in self.publishers:
+            logger.info("Setting up channel buffer for instrument '%s' (length=%d)", self.name, buffer_length)
+            self.add_publisher(self._channel_buffer)
 
     def start(self):
         """Start the background daemon thread. No-op if already running."""
@@ -278,9 +278,13 @@ class Instrument:
             self._background_stop_event.set()
             self._background_thread.join()
 
-            # Clear out the channel_buffer
+            # close() wakes blocked get_channel() waiters but is one-way, so drop the
+            # buffer entirely; the next start() builds and registers a fresh one.
             assert self._channel_buffer
             self._channel_buffer.close()
+            if self._channel_buffer in self.publishers:
+                self.publishers.remove(self._channel_buffer)
+            self._channel_buffer = None
             logger.info("Stopped background daemon for instrument '%s'", self.name)
         else:
             logger.info("Background daemon not running for instrument '%s'; stop() is a no-op", self.name)

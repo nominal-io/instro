@@ -1,5 +1,6 @@
 import time
 from dataclasses import dataclass
+from itertools import count
 from typing import Mapping
 
 import nidaqmx
@@ -31,12 +32,18 @@ class DAQmxData:
     dt: int | None
 
 
+_instance_ids = count()
+
+
 class NIDAQDriver(DAQDriverBase):
     """NI-DAQmx DAQ driver."""
 
     def __init__(self, device_id: str):
         super().__init__()
         self._device_id = device_id
+        # DAQmx task names must be unique per process, and multiple driver instances
+        # may target the same device_id (one InstroDAQ per task), so suffix the names.
+        self._task_prefix = f"{device_id}_{next(_instance_ids)}"
         self._tasks: dict[ChannelType, nidaqmx.Task] = {}
         self._ao_sw_tasks: dict[str, nidaqmx.Task] = {}
 
@@ -97,7 +104,7 @@ class NIDAQDriver(DAQDriverBase):
         task = self._tasks.get(channel_type, None)
         if not task:
             # Task does not yet exist for that channel_type
-            task_name = f"{self._device_id}_{channel_type.value}"
+            task_name = f"{self._task_prefix}_{channel_type.value}"
             task = nidaqmx.Task(task_name)
             self._tasks[channel_type] = task
         return task
@@ -157,7 +164,7 @@ class NIDAQDriver(DAQDriverBase):
         if task:
             raise ValueError("Channel already exists and is configured")
 
-        task_name = f"{self._device_id}_{channel.alias}"
+        task_name = f"{self._task_prefix}_{channel.alias}"
         task = nidaqmx.Task(task_name)
         self._ao_sw_tasks[channel.alias] = task
 
@@ -231,7 +238,7 @@ class NIDAQDriver(DAQDriverBase):
     ):
         """Parse ``DevN/portM``, add as CHAN_FOR_ALL_LINES to a dedicated DI task, and register the port."""
         channel = self._build_port_channel(physical_channel, Direction.INPUT, logic, port_width, logic_level, alias)
-        task = nidaqmx.Task(f"{self._device_id}_di_port_{channel.alias}")
+        task = nidaqmx.Task(f"{self._task_prefix}_di_port_{channel.alias}")
         task.di_channels.add_di_chan(
             lines=channel.physical_channel,
             name_to_assign_to_lines=channel.alias,
@@ -250,7 +257,7 @@ class NIDAQDriver(DAQDriverBase):
     ):
         """Parse ``DevN/portM``, add as CHAN_FOR_ALL_LINES to a dedicated DO task, and register the port."""
         channel = self._build_port_channel(physical_channel, Direction.OUTPUT, logic, port_width, logic_level, alias)
-        task = nidaqmx.Task(f"{self._device_id}_do_port_{channel.alias}")
+        task = nidaqmx.Task(f"{self._task_prefix}_do_port_{channel.alias}")
         task.do_channels.add_do_chan(
             lines=channel.physical_channel,
             name_to_assign_to_lines=channel.alias,

@@ -111,7 +111,6 @@ class VisaDriver:
         """Construct from a VISA resource string (uses defaults) or a full ``VisaConfig``."""
         self._connection_config = _coerce_connection_config(visa_resource)
         self._inst: pyvisa.resources.MessageBasedResource | None = None
-        self._rm: pyvisa.ResourceManager | None = None
         self._lock = threading.RLock()
 
     def __del__(self) -> None:
@@ -138,6 +137,9 @@ class VisaDriver:
                 cfg.visa_resource,
                 cfg.visa_backend,
             )
+            # pyvisa caches one ResourceManager per backend and shares it across every
+            # driver in the process; closing it would kill all other drivers' sessions.
+            # pyvisa closes it via its own atexit handler.
             rm = pyvisa.ResourceManager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
@@ -150,11 +152,8 @@ class VisaDriver:
                 if inst is not None:
                     with contextlib.suppress(Exception):
                         inst.close()
-                with contextlib.suppress(Exception):
-                    rm.close()
                 raise
 
-            self._rm = rm
             self._inst = inst
 
     def close(self) -> None:
@@ -163,15 +162,10 @@ class VisaDriver:
             if self._inst is None:
                 return
             inst = self._inst
-            rm = self._rm
             try:
                 inst.close()
             finally:
-                if rm is not None:
-                    with contextlib.suppress(Exception):
-                        rm.close()
                 self._inst = None
-                self._rm = None
 
     def write(self, command: str) -> None:
         """Write ``command`` to the instrument; the configured write terminator is appended."""
