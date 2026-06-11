@@ -1,0 +1,355 @@
+---
+title: PSU simulator
+description: Run and program the bundled SCPI power-supply simulator
+---
+
+# PSU simulator
+
+The PSU simulator is a local SCPI server for development, tests, and demos. It listens on a TCP socket, exposes a programmable power-supply command set, and includes a terminal UI for editing channel loads, probe resistance, and channel limits while your code is running.
+
+## Quickstart
+
+Start the simulator in one terminal:
+
+```bash
+python -m instro.psu.scpi_sim_server
+```
+
+It binds to `127.0.0.1:5025` by default. If you are working from a source checkout, run the same command through `uv`:
+
+```bash
+uv run python -m instro.psu.scpi_sim_server
+```
+
+Connect from another terminal or script with the `SimulatedPSU` driver. This small Python client opens an `InstroPSU`, configures channel 1, and reads voltage and current measurements:
+
+```python
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+
+with InstroPSU(
+    name="bench_psu",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+) as psu:
+    psu.set_voltage(5.0, channel=1)
+    psu.set_current_limit(1.0, channel=1)
+    psu.output_enable(True, channel=1)
+
+    voltage = psu.get_voltage(channel=1)
+    current = psu.get_current(channel=1)
+    print(f"V: {voltage.latest:.3f} V")
+    print(f"I: {current.latest:.3f} A")
+
+    psu.output_enable(False, channel=1)
+```
+
+Use CLI flags to change the bind address, port, or initial channel count:
+
+```bash
+python -m instro.psu.scpi_sim_server --host 127.0.0.1 --port 5025 --channels 2
+```
+
+## Usage
+
+The simulator runs a terminal UI while the TCP server listens in the background. The UI is organized by panel header.
+
+<img alt="PSU simulator terminal UI showing the PSU panel, channel panels, and SCPI log" src="/images/psu-simulator-overview.svg" />
+
+Filled labels are selectable actions. Use the arrow keys to move between controls. Focused actions use a light highlight. Press Enter to select an action, Escape to close an edit prompt, and `q` to quit.
+
+### PSU
+
+The **⟢ NOMINAL PSU** panel shows the simulator identity and VISA resource string. Use the resource string when driver code connects to the simulator.
+
+### Channel
+
+Each **CHANNEL** panel shows the live state for one output. The panel is split into status, voltage, and current sections.
+
+| Header | Functionality |
+| --- | --- |
+| **STATUS** | Shows output mode, output state, sense mode, and protection trips. Select **REMOVE** to delete the channel from the simulator. |
+| **VOLTAGE** | Shows terminal voltage, programmed voltage, voltage limit, OVP state, and OVP level. Select **V LIMIT** to edit the channel voltage ceiling. |
+| **CURRENT** | Shows output current, programmed current limit, current limit, OCP state, and OCP level. Select **I LIMIT** to edit the channel current ceiling. |
+
+Changing **V LIMIT** or **I LIMIT** runs `*RST`. The output turns off, programmed voltage and current return to zero, protection state turns off, and OVP/OCP levels return to the configured V/I limits.
+
+### Probe
+
+The **PROBE** panel shows sense lead resistance. Select **PROBE R** to edit the probe resistance in ohms.
+
+### Load
+
+The **LOAD** panel shows the external load model. Select **R** to edit load resistance in ohms. Select **EMF** to edit the series electromotive force in volts.
+
+### + channel
+
+The **+ CHANNEL** panel adds a new output channel with the next available channel ID.
+
+### SCPI log
+
+The **SCPI LOG** panel records incoming commands, responses, and queued errors. It is read-only.
+
+## Programming guide
+
+Brackets mark optional SCPI path components. For example, `[SOURce:]VOLTage[:LEVel]` accepts `VOLT`, `VOLT:LEV`, `SOUR:VOLT`, and `SOUR:VOLT:LEV`.
+
+Angle brackets mark command arguments. They are notation only; do not include the angle brackets in the command.
+
+- <code>&lt;NRf+&gt;</code> is a positive flexible numeric value, such as `0`, `1.25`, or `1e-3`.
+- <code>&lt;literal|literal&gt;</code> is one literal value from the listed options.
+
+The pipe character (`|`) means OR. For example, <code>&lt;LOC|REM&gt;</code> accepts `LOC` or `REM`, and <code>&lt;NRf+|MIN|MAX&gt;</code> accepts one numeric value, `MIN`, or `MAX`. Do not send the pipe character in the command.
+
+`MIN` maps to `0`. `MAX` maps to **V LIMIT** for voltage and OVP commands, and **I LIMIT** for current and OCP commands. Do not send `MIN` or `MAX` to queries.
+
+### Defaults and reset
+
+On startup and after `*RST`, each channel uses the reset operating state:
+
+| Setting | Reset value |
+| --- | --- |
+| Programmed voltage | `0` |
+| Current limit | `0` |
+| Output state | `OFF` |
+| OVP state | `OFF` |
+| OCP state | `OFF` |
+| OVP level | `MAX` |
+| OCP level | `MAX` |
+
+`*RST` preserves simulator configuration, including channel count, channel IDs, load resistance, series EMF, probe resistance, sense mode, and configured channel limits.
+
+### Error queue
+
+Errors are queued and returned one at a time by `SYSTem:ERRor?`. The simulator can emit these error codes:
+
+| Code | Message | Cause |
+| --- | --- | --- |
+| `0` | `No error` | The queue is empty |
+| `-108` | `Parameter not allowed` | A query received an argument |
+| `-109` | `Missing parameter` | A command was sent without a required argument |
+| `-113` | `Undefined header` | The command header is not supported |
+| `-114` | `Header suffix out of range` | The command targets a channel that does not exist |
+| `-141` | `Invalid character data` | A numeric argument could not be parsed |
+| `-222` | `Data out of range` | A numeric input is outside its accepted range |
+| `-224` | `Illegal parameter value` | A literal argument is not accepted for that command |
+| `301` | `PV Above OVP` | Programmed voltage is above the OVP level |
+| `303` | `PC Above OCP` | Current limit is above the OCP level |
+| `304` | `OVP Below PV` | OVP level is below programmed voltage |
+| `305` | `OCP Below PC` | OCP level is below current limit |
+| `323` | `Overcurrent protection tripped` | OCP tripped while enabled |
+| `324` | `Overvoltage protection tripped` | OVP tripped while enabled |
+
+### Common commands
+
+<div style={{ overflowX: "auto" }}>
+<table>
+  <tbody>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>*IDN?</code></td>
+    </tr>
+    <tr>
+      <td>Query simulator identity</td>
+      <td>Response: String</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>*RST</code></td>
+    </tr>
+    <tr>
+      <td>Reset channel operating state and clear errors</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>*CLS</code></td>
+    </tr>
+    <tr>
+      <td>Clear the error queue</td>
+      <td>Response: None</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+### MEASure subsystem
+
+<div style={{ overflowX: "auto" }}>
+<table>
+  <tbody>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>MEASure:CURRent?</code></td>
+    </tr>
+    <tr>
+      <td>Measure output current</td>
+      <td>Response: Number</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>MEASure:VOLTage?</code></td>
+    </tr>
+    <tr>
+      <td>Measure output voltage</td>
+      <td>Response: Number</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+### OUTPut subsystem
+
+<div style={{ overflowX: "auto" }}>
+<table>
+  <tbody>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>OUTPut[:STATe] &lt;0|1|OFF|ON&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Enable or disable output</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>OUTPut[:STATe]?</code></td>
+    </tr>
+    <tr>
+      <td>Query output state</td>
+      <td>Response: <code>0</code> or <code>1</code></td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>OUTPut:PROTection:CLEar</code></td>
+    </tr>
+    <tr>
+      <td>Clear latched OVP and OCP faults</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>OUTPut:PROTection:TRIPped?</code></td>
+    </tr>
+    <tr>
+      <td>Query latched OVP or OCP fault state</td>
+      <td>Response: <code>0</code> or <code>1</code></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+### SOURce subsystem
+
+<div style={{ overflowX: "auto" }}>
+<table>
+  <tbody>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude] &lt;NRf+|MIN|MAX&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Set current limit</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude]?</code></td>
+    </tr>
+    <tr>
+      <td>Query current limit</td>
+      <td>Response: Number</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent:PROTection[:LEVel] &lt;NRf+|MIN|MAX&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Set OCP level</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent:PROTection[:LEVel]?</code></td>
+    </tr>
+    <tr>
+      <td>Query OCP level</td>
+      <td>Response: Number</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent:PROTection:STATe &lt;0|1|OFF|ON&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Enable or disable OCP</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]CURRent:PROTection:STATe?</code></td>
+    </tr>
+    <tr>
+      <td>Query OCP state</td>
+      <td>Response: <code>0</code> or <code>1</code></td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage[:LEVel][:IMMediate][:AMPLitude] &lt;NRf+|MIN|MAX&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Set programmed voltage</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage[:LEVel][:IMMediate][:AMPLitude]?</code></td>
+    </tr>
+    <tr>
+      <td>Query programmed voltage</td>
+      <td>Response: Number</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage:PROTection[:LEVel] &lt;NRf+|MIN|MAX&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Set OVP level</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage:PROTection[:LEVel]?</code></td>
+    </tr>
+    <tr>
+      <td>Query OVP level</td>
+      <td>Response: Number</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage:PROTection:STATe &lt;0|1|OFF|ON&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Enable or disable OVP</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>[SOURce:]VOLTage:PROTection:STATe?</code></td>
+    </tr>
+    <tr>
+      <td>Query OVP state</td>
+      <td>Response: <code>0</code> or <code>1</code></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+### SYSTem subsystem
+
+<div style={{ overflowX: "auto" }}>
+<table>
+  <tbody>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>SYSTem:ERRor?</code></td>
+    </tr>
+    <tr>
+      <td>Pop one error from the error queue</td>
+      <td>Response: <code>code,"message"</code></td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>SYSTem:SENSe[:STATe] &lt;LOC|REM&gt;</code></td>
+    </tr>
+    <tr>
+      <td>Select local or remote sense</td>
+      <td>Response: None</td>
+    </tr>
+    <tr>
+      <td colSpan={2} style={{ whiteSpace: "nowrap" }}><code>SYSTem:SENSe[:STATe]?</code></td>
+    </tr>
+    <tr>
+      <td>Query sense mode</td>
+      <td>Response: <code>LOC</code> or <code>REM</code></td>
+    </tr>
+  </tbody>
+</table>
+</div>
