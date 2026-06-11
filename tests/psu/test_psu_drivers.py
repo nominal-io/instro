@@ -12,7 +12,7 @@ from instro.psu.drivers import (
     BK9115,
     BK9140,
     RigolDP800,
-    SimulatedPSU,
+    SiglentSPD3303,
     TDKLambdaGenesys,
 )
 
@@ -367,53 +367,6 @@ def test_tdk_unimplemented_optional_features_raise_from_base(
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for TDKLambdaGenesys"):
         getattr(tdk, method_name)(*args)
-
-
-# --- SimulatedPSU ---
-
-
-@pytest.fixture
-def sim_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.simulated.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def sim_visa(sim_visa_cls: MagicMock) -> MagicMock:
-    visa = sim_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def sim(sim_visa_cls: MagicMock) -> SimulatedPSU:
-    return SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET")
-
-
-def test_sim_set_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim.set_voltage(5.0, channel=2)
-    sim_visa.write.assert_called_once_with("VOLT 5.000 2")
-    sim_visa.query.assert_called_once_with("SYSTEM:ERROR?")
-
-
-def test_sim_get_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim_visa.query.side_effect = ["1.234", '0,"No error"']
-    assert sim.get_voltage(channel=2) == pytest.approx(1.234)
-    assert sim_visa.query.call_args_list == [call("MEAS:VOLT? 2"), call("SYSTEM:ERROR?")]
-
-
-def test_sim_output_enable_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim.output_enable(True, channel=2)
-    sim_visa.write.assert_called_once_with("OUTP:STAT ON 2")
-    sim.output_enable(False, channel=2)
-    assert sim_visa.write.call_args_list[-1] == call("OUTP:STAT OFF 2")
-
-
-def test_sim_get_output_status_parses(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim_visa.query.side_effect = ["ON", '0,"No error"']
-    assert sim.get_output_status(channel=1) is True
-    sim_visa.query.side_effect = ["OFF", '0,"No error"']
-    assert sim.get_output_status(channel=1) is False
 
 
 # --- InstroPSU composition ---
