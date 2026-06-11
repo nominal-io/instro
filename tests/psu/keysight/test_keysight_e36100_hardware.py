@@ -13,11 +13,9 @@ from instro.psu.drivers.keysight_e36100 import KeysightE36100
 pytestmark = pytest.mark.hardware
 
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
-# Set VISA_ADDRESS to the bench unit's VISA resource string. Set VISA_BACKEND
-# to "@ivi" for NI-VISA or Keysight IO Libraries, or "@py" for pyvisa-py.
+# Set VISA_ADDRESS to the bench unit's VISA resource string.
 # Keep the programmed values comfortably inside the specific unit's ratings.
 VISA_ADDRESS = "USB0::0x0957::0x1502::MY_SERIAL_NUMBER::INSTR"
-VISA_BACKEND = "@ivi"
 CHANNEL = 1
 PROGRAMMED_VOLTAGE = 1.0
 PROGRAMMED_CURRENT_LIMIT = 0.1
@@ -31,7 +29,6 @@ def driver(request: pytest.FixtureRequest) -> KeysightE36100:
     psu_driver = KeysightE36100(
         VisaConfig(
             visa_resource=VISA_ADDRESS,
-            visa_backend=VISA_BACKEND,
         )
     )
     try:

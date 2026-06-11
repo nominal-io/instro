@@ -13,6 +13,7 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
+    "pyvisa-py>=0.8.1,<0.9",
     "textual>=0.80",
     "thermocouples>=2.1.2",
 ]
