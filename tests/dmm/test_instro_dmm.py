@@ -45,7 +45,6 @@ def test_agilent_init_builds_visa_from_resource(agilent_visa_cls: MagicMock) -> 
 def test_agilent_init_accepts_prebuilt_connection_config(agilent_visa_cls: MagicMock) -> None:
     config = VisaConfig(
         visa_resource="ASRL3::INSTR",
-        visa_backend="@py",
         serial_config=SerialConfig(baud_rate=19_200),
     )
 

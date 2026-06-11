@@ -60,7 +60,6 @@ def driver() -> Iterator[SiglentSPD3303]:
     psu_driver = SiglentSPD3303(
         VisaConfig(
             visa_resource=VISA_RESOURCE,
-            visa_backend="@ivi",
         )
     )
     try:

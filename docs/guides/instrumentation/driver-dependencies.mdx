@@ -26,21 +26,19 @@ Before using `instro` with specific instrument types, you must install the corre
 
 ## VISA
 
-VISA (Virtual Instrument Software Architecture) is required by `instro` for all SCPI/VISA based instrument connections.
+VISA (Virtual Instrument Software Architecture) is used by `instro` for all SCPI/VISA based instrument connections. `instro` installs `pyvisa` and the default Python backend, so many TCP/IP, USB-TMC, and serial resources work without a vendor VISA runtime.
 
-- **NI VISA** (IVI-compatible VISA driver) like NI-VISA
 - **pyvisa** (Python VISA library)
-
-VISA must be installed and configured before using instruments that communicate via SCPI over VISA connections.
+- **pyvisa-py** (default Python backend)
+- **Vendor VISA runtimes** (optional, instrument/interface dependent)
 
 ### Installation
 
-**NI VISA:**
-- Download and install from [National Instruments](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html)
+**Default Python backend:**
+- Installed with `instro`: `pyvisa` and `pyvisa-py`
 
-**pyvisa:**
-- Install via pip: `pip install pyvisa`
-- You may also need backend drivers depending on your connection type (USB, TCP/IP, Serial)
+**Vendor VISA backend:**
+- Download and install the runtime required by your instrument vendor.
 
 ## NI-DAQmx
 

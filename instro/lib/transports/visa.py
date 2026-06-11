@@ -85,8 +85,7 @@ class VisaConfig:
     Attributes:
         visa_resource: VISA resource string, e.g. ``TCPIP0::host::5025::SOCKET``
             or ``USB0::0x2A8D::0x0101::MY12345::INSTR``.
-        visa_backend: pyvisa backend specifier. Defaults to ``@ivi`` (NI-VISA);
-            use ``@py`` for pyvisa-py.
+        visa_backend: pyvisa backend specifier. Defaults to ``@py``.
         serial_config: Serial settings applied when the VISA resource is an
             ASRL (RS-232/RS-485) interface.
         terminator: Read and write terminators.
@@ -94,7 +93,7 @@ class VisaConfig:
     """
 
     visa_resource: str
-    visa_backend: str = "@ivi"
+    visa_backend: str = "@py"
     serial_config: SerialConfig = dataclasses.field(default_factory=SerialConfig)
     terminator: TerminatorConfig = dataclasses.field(default_factory=TerminatorConfig)
     timeout: TimeoutConfig = dataclasses.field(default_factory=TimeoutConfig)
