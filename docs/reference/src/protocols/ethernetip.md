@@ -137,7 +137,7 @@ Supported `data_type` values:
 | `ulint` | Yes | 64-bit unsigned integer. Implemented, but not validated |
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
-| `string` | No | Must set `poll: false`; use manual reads and writes |
+| `string` | No | Allen-Bradley Logix `STRING` (`LEN` as `DINT`, `DATA` as `SINT[]`). Must set `poll: false`; use manual reads and writes |
 
 String tags cannot be streamed to Nominal Core or Nominal Connect. Manual reads and writes use
 `instro.unstable._ethernetip.EtherNetIpSession`.

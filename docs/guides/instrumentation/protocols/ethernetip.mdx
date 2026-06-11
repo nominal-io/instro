@@ -190,7 +190,7 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 | `ulint` | `int` | Yes | 64-bit unsigned integer. Implemented, but not validated. |
 | `real` | `float` | Yes | 32-bit floating point. |
 | `lreal` | `float` | Yes | 64-bit floating point. |
-| `string` | `str` | No | Manual reads and writes only. |
+| `string` | `str` | No | Allen-Bradley Logix `STRING` (`LEN` as `DINT`, `DATA` as `SINT[]`). Manual reads and writes only. |
 
 <Warning>
 The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. `EtherNetIPDevice.read_tag()` raises `TypeError`.
@@ -198,7 +198,7 @@ The config-driven EtherNet/IP API supports scalar tags only. Structured values c
 
 ### Strings
 
-String measurements are not supported by Nominal Core or Nominal Connect. Manual string tag reads and writes are still supported, but not through the background polling thread.
+String support is for Allen-Bradley Logix `STRING` tags encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`). String measurements are not supported by Nominal Core or Nominal Connect. Manual string tag reads and writes are still supported, but not through the background polling thread.
 
 In config files, string tags must set `poll: false`:
 
