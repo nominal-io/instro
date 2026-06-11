@@ -35,14 +35,9 @@
     },
     {
       "alias": "pressure_psi",
-      "tag_name": "PressureRaw",
-      "description": "Pressure value scaled from centi-psi",
-      "data_type": "dint",
-      "scale": {
-        "type": "linear",
-        "gain": 0.01,
-        "offset": 0.0
-      }
+      "tag_name": "PressurePsi",
+      "description": "Process pressure in psi",
+      "data_type": "real"
     },
     {
       "alias": "batch_count",

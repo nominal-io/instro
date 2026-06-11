@@ -213,10 +213,8 @@ class EtherNetIPDevice(Instrument):
         """Write one configured tag by alias and publish the command."""
         tag = self._config.get_tag(alias)
 
-        value = tag.resolve_write_value(value)
         tag.validate_write_value(value)
-        raw_value = tag.apply_write_scaling(value)
-        plc_value = self._build_plc_value(raw_value, tag)
+        plc_value = self._build_plc_value(value, tag)
 
         self._write_tag_raw(tag.tag_name, plc_value)
         timestamp = time.time_ns()
@@ -253,11 +251,6 @@ class EtherNetIPDevice(Instrument):
             if not isinstance(value, bool):
                 raise TypeError(f"Tag '{tag.alias}' expected PLC BOOL value but read {type(value).__name__}.")
             return int(value)
-
-        if tag.scale is not None:
-            if isinstance(value, bool) or not isinstance(value, int | float):
-                raise TypeError(f"Tag '{tag.alias}' has scale configured but returned non-numeric value {value!r}")
-            return tag.scale.to_physical(value)
 
         return value
 

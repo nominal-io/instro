@@ -6,7 +6,6 @@ Demonstrates config-driven EtherNet/IP features against a PLC:
 - Timing config for background polling
 - Typed scalar tags (bool, integers, floats)
 - Write limits (write_min / write_max)
-- Scaled numeric tags (linear gain + offset)
 - Background daemon polling via get_channel()
 
 Configure the PLC endpoint with environment variables:
@@ -54,10 +53,6 @@ def main() -> None:
         print("=== Typed Reads ===")
         for alias in ("line_speed", "speed_setpoint", "running", "faulted", "batch_count"):
             print(f"  {alias}: {device.read_tag(alias).latest}")
-
-        # --- Scaled numeric tag ---
-        print("\n=== Scaled Tag ===")
-        print(f"  pressure_psi: {device.read_tag('pressure_psi').latest}")
 
         # --- Background daemon: data is polled automatically at poll_interval ---
         print("\n=== Background Daemon ===")

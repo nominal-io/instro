@@ -18,7 +18,7 @@ Then run:
 import os
 import time
 
-from instro.lib.types import DeviceInfo, LinearScale
+from instro.lib.types import DeviceInfo
 from instro.unstable.ethernetip import (
     EtherNetIPBackplaneHop,
     EtherNetIPConfig,
@@ -69,9 +69,8 @@ config = EtherNetIPConfig(
         ),
         TagDef(
             alias="pressure_psi",
-            tag_name="PressureRaw",
-            data_type="dint",
-            scale=LinearScale(gain=0.01, offset=0.0),
+            tag_name="PressurePsi",
+            data_type="real",
         ),
         TagDef(
             alias="running",
