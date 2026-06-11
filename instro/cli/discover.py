@@ -4,6 +4,11 @@ import typer
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 
 # create an instrument mapping
+
+# should make the mapping into having company name and also having part #
+# and then checking both of them! I really need more hardware tests for reliable
+# usage from company names... can a dict key be a tuple?
+# currently this mapping is not robust
 _IDN_MAP = {
     "34401A": ("dmm", "AgilentA34401A"),
     "2400": ("dmm", "Keithley2400"),  # maybe make this MODEL 2400
@@ -15,7 +20,8 @@ _IDN_MAP = {
     "DP832": ("psu", "RIGOLDP800"),
     "SPD3303": ("psu", "SiglentSPD3303"),
     "GEN": ("psu", "TDKLambdaGenesys"),  # this feels too vague
-    # "8500": ("eload", "BK85xxB"),  # not sure if this works for all 85XX series...
+    "BK85": ("eload", "BK85xxB"),  # not sure if this works for all 85XX series...
+    # ^^ added this one back in, need to tune all the names though!
 }
 
 # I am a little worried about false positives, what exactly should these have? should I make the checks more complex
@@ -50,6 +56,12 @@ def discover(backend: str | None = None) -> None:
     for resource in resources:
         if resource.startswith("ASRL"):
             # serial device, set for manual config
+            # skip ttyS ports, linux lists these even if
+            # only show USB serial devices (ttyUSB, ttyACM) which require physical hardware
+
+            # are PCI/PCIe serial cards something to worry about?
+            if "ttyS" in resource and "ttyUSB" not in resource:
+                continue
             serial_devices.append((resource, "serial - configure manually"))
             continue
         driver = VisaDriver(
@@ -68,7 +80,7 @@ def discover(backend: str | None = None) -> None:
 
         except pyvisa.errors.VisaIOError as e:
             msg = "permission denied - check udev rules" if "SYSTEM_ERROR" in str(e) else str(e)
-            typer.echo(typer.style(f"   {resource}: no response ({msg})", fg=typer.colors.YELLOW))
+            typer.echo(typer.style(f"   {resource}: no response: ({msg})\n", fg=typer.colors.YELLOW))
         except Exception as e:
             typer.echo(typer.style(f"   {resource} unexpected error ({e})", fg=typer.colors.YELLOW))
             idn = None
