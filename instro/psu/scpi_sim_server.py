@@ -701,10 +701,16 @@ class SimulatedPSUServer:
         self._thread: threading.Thread | None = None
         self._socket: socket.socket | None = None
 
+    @property
+    def port(self) -> int:
+        """The bound TCP port (resolved from the OS when started with port 0)."""
+        return self._port
+
     def start(self) -> None:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._socket.bind((self._host, self._port))
+        self._port = self._socket.getsockname()[1]
         self._socket.listen(1)
         self._socket.settimeout(0.5)
         self._thread = threading.Thread(target=self._run, daemon=True, name="psu-sim-server")
