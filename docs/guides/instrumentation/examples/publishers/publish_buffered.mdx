@@ -28,10 +28,8 @@ buffered_publisher = BasicBufferedPublisher(core_publisher, buffer_size=20)  # e
 
 psu.add_publisher(buffered_publisher)
 
-try:
+with psu:
     # Set up initial state of test
-    psu.open()
-
     psu.output_enable(False, channel=2)
     psu.set_current_limit(0.2, channel=2)
     psu.set_voltage(0, channel=2)
@@ -49,8 +47,4 @@ try:
         psu.get_voltage(channel=2)  # This value will not be printed
 
     psu.output_enable(False, channel=2)
-
-finally:
-    # Shut it down
-    psu.close()
 ```
