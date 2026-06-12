@@ -33,6 +33,30 @@ except FeatureNotSupportedError:
 
 Because it inherits from `InstroError`, `except InstroError` catches it.
 
+## InstrumentNotOpenError
+
+`InstrumentNotOpenError` (a subclass of `InstroError`) is raised when a device-touching method is called before `open()`. It points at the missing lifecycle call instead of surfacing a low-level transport or vendor-SDK error. The message names the instrument instance so you can tell which one you forgot to open.
+
+```python
+from instro.lib.exceptions import InstrumentNotOpenError
+
+daq = InstroDAQ(name="myDAQ", driver=...)
+try:
+    daq.read_analog()  # forgot to call daq.open() first
+except InstrumentNotOpenError:
+    ...
+```
+
+Open the instrument first — directly or via the context manager, which opens on entry and closes on exit:
+
+```python
+with daq:
+    daq.configure_analog_channel(...)
+    daq.read_analog()
+```
+
+Because it inherits from `InstroError`, `except InstroError` catches it.
+
 ## NotImplementedError
 
 `NotImplementedError` is the Python builtin, not an `InstroError`. Each `<Category>DriverBase` declares its optional methods to raise `NotImplementedError` by default, and a driver overrides only the ones its instrument supports. Calling an optional method on a driver that has not overridden it therefore raises `NotImplementedError`: the capability is part of the category contract, but this driver does not implement it.
