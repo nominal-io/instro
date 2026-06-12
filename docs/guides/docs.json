@@ -154,6 +154,14 @@
             ]
           },
           {
+            "group": "EtherNet/IP",
+            "pages": [
+              "instrumentation/examples/ethernetip/ethernetip_example",
+              "instrumentation/examples/ethernetip/minimal_example",
+              "instrumentation/examples/ethernetip/programmatic_config_example"
+            ]
+          },
+          {
             "group": "Test Rack",
             "pages": [
               "instrumentation/examples/test_rack_example/test_rack"
