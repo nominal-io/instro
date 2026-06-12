@@ -553,4 +553,3 @@ def test_publish_measurement_passes_through_none() -> None:
 
     inst = _Quiet(name="ut", driver=_stub_driver(), num_channels=1)
     assert inst.quiet() is None
-
