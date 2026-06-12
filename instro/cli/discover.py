@@ -35,10 +35,13 @@ _IDN_MAP = {
 def discover(backend: str | None = None) -> None:
     """Function for discovering known and unknown SCPI devices with VISA."""
     # create list of real devices:
-    real_serial_ports = {p.device for p in list_ports.comports() if p.description != "n/a"}
+    serial_devices = [
+        ((p.device, p.manufacturer), "serial - configure manually")
+        for p in list_ports.comports()
+        if p.description != "n/a"
+    ]
 
     # this section of code is quite inefficient
-    rm_py = pyvisa.ResourceManager("@py")
     if backend:
         rm = pyvisa.ResourceManager(backend)
 
@@ -52,38 +55,16 @@ def discover(backend: str | None = None) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         resources = rm.list_resources()
-        py_resources = rm_py.list_resources()
 
     supported_devices: list[tuple[str, str, tuple[str, str]]] = []  # put all found VISA devices here
     unsupported_devices: list[str] = []  # put all found non-supported devices here
-    serial_devices: list[tuple[str, str]] = []
+    # serial_devices: list[tuple[str, str]] = []
     typer.echo(f"\nScanning VISA resources...\n")
 
     # for each resource, open a visadriver, query *IDN?, then close it!, wrapped in try/except
     if not resources:
         typer.echo(typer.style("NO DEVICES FOUND", fg=typer.colors.RED))
         return
-
-    # print(len(py_resources))
-    # print(len(resources))
-    # for p in list_ports.comports():
-    #     print(f"{p.device}, description: {p.description}")
-
-    # let's just use a separate loop for all the serial devices
-
-    for pr in py_resources or ():
-        if pr.startswith("ASRL"):
-            try:
-                res_info = rm_py.resource_info(pr)
-                # print("PRINTING NAME")
-                # print(res_info.resource_name, real_serial_ports)
-                # print("NOT A REAL PORT")
-                for rp in real_serial_ports:
-                    if res_info.resource_name and rp in res_info.resource_name:  # probably because this can be a None
-                        serial_devices.append((pr, "serial - configure manually"))
-                        break
-            except Exception:
-                pass
 
     for resource in resources:
         if resource.startswith("ASRL"):
