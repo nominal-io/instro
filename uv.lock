@@ -465,6 +465,7 @@ dependencies = [
     { name = "pyvisa-py" },
     { name = "thermocouples" },
     { name = "typer" },
+    { name = "types-pyserial" },
 ]
 
 [package.optional-dependencies]
@@ -535,6 +536,7 @@ requires-dist = [
     { name = "pyvisa-py", specifier = ">=0.8.1" },
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
+    { name = "types-pyserial", specifier = ">=3.0" },
 ]
 provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "all"]
 
@@ -1806,6 +1808,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/31/f2/e14f51330093fd640fd11663863dc7dd80e5894ef9d2eb39325cc61ba3cf/types_cachetools-6.2.0.20250827.tar.gz", hash = "sha256:f27febfd1b5e517e3cb1ca6daf38ad6ddb4eeb1e29bdbd81a082971ba30c0d8e", size = 9128, upload-time = "2025-08-27T02:56:50.593Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/80/9c/be9d24c246ff825385b4a139409ae7e2d36ea2294f12681951a6b9f905f7/types_cachetools-6.2.0.20250827-py3-none-any.whl", hash = "sha256:96ae5abcb5ea1e1f1faf811a2ff8b2ce7e6d820fc42c4fcb4b332b2da485de16", size = 8940, upload-time = "2025-08-27T02:56:49.645Z" },
+]
+
+[[package]]
+name = "types-pyserial"
+version = "3.5.0.20260519"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/b2/0d74759b5b40827b38f144be6e188fe117d592c218c98347d7aa4966193c/types_pyserial-3.5.0.20260519.tar.gz", hash = "sha256:0d6452781871f9af7b8598e24faa5f75d4ad50848a6fb301b4ae30b0e6ec3765", size = 20507, upload-time = "2026-05-19T05:56:16.839Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/02/53eb53c5ec22c6b81591f1a19c60cd24ac06dafae14c1580231b208749ae/types_pyserial-3.5.0.20260519-py3-none-any.whl", hash = "sha256:cfec8dbc3a60f81afad9223dff7772391ddc5067aca469a1c9d3e72f2caccfa2", size = 25321, upload-time = "2026-05-19T05:56:15.871Z" },
 ]
 
 [[package]]

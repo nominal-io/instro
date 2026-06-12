@@ -16,6 +16,7 @@ dependencies = [
     "pyvisa-py>=0.8.1",
     "thermocouples>=2.1.2",
     "typer>=0.12",
+    "types-pyserial>=3.0",
 ]
 
 [project.optional-dependencies]
