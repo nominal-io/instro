@@ -1,12 +1,6 @@
 ---
 name: add-instrument-driver
-description: >-
-  Scaffold a new instrument driver for a vendor/model from its programming
-  reference (SCPI/programming manual/API SDK as a PDF, doc, HTML file, or website URL)
-  and wire it into the repo per AGENTS.md conventions. Use when asked to "add a
-  driver for <vendor> <model>", "write a driver from this manual/datasheet", or
-  similar. Produces the driver module, registration, mocked-transport tests, and
-  doc updates on a tracking branch.
+description: Scaffold a new instrument driver for a vendor/model from its programming reference (SCPI/programming manual/API SDK as a PDF, doc, HTML file, or website URL) and wire it into the repo per AGENTS.md conventions. Use when asked to "add a driver for <vendor> <model>", "write a driver from this manual/datasheet", or similar. Produces the driver module, registration, mocked-transport tests, and doc updates on a tracking branch.
 ---
 
 # Add an instrument driver from a manual/API
@@ -21,27 +15,26 @@ over shared mixins/factories.
 ## Prerequisites — gather before writing code
 
 1. **The programming reference.** A path to a PDF/doc/HTML file, or a URL. If the
-   user hasn't provided one, ask for it — do not guess SCPI commands or API code
+   user hasn't provided one, ask for it — do not guess SCPI commands or API code 
    from model knowledge.
 2. **Vendor and model** (e.g. "Siglent SPD3303"). Confirm the exact model family
    the driver should cover; SCPI surfaces and APIs are often shared across a series.
-3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`.
+3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`. 
    Infer from the instrument type; confirm with the user if ambiguous.
 4. **Tracking issue + branch.** Per `AGENTS.md`, no untracked work. Confirm an
    issue exists (or create one) and branch off `main` named after it
    (e.g. `issue-142-siglent-spd-driver`).
 5. **Core vs. contrib.** Default to **core** (`instro/<category>/drivers/`) if
    the user is a maintainer, otherwise use **contrib**
-   (`packages/instro-contrib/instro/contrib/<category>/drivers/`). Some instruments
-   only exist in **unstable** (`packages/instro-unstable/`). See `CONTRIBUTING.md` for the bar.
+   (`packages/instro-contrib/instro/contrib/<category>/drivers/`). Some instruments 
+   only exist in **unstable** (`packages/instro-unstable/`). See `CONTRIBUTING.md` for the bar. 
    Ask if unclear.
 
 ## Step 1 — Extract a structured command spec from the manual
 
 Manuals are large and noisy. **Delegate parsing to the `manual-spec-extractor`
-subagent** (`.codex/agents/manual-spec-extractor.toml`) so the heavy document
-tokens stay out of this conversation — ask Codex to spawn it for the manual.
-Give it:
+subagent** (`.claude/agents/manual-spec-extractor.md`) so the heavy document
+tokens stay out of this conversation. Give it:
 
 - the manual location (path or URL),
 - the target category and its required methods (read them from the category base
@@ -209,10 +202,10 @@ mocked gates pass, **ask the user whether they have the physical device on hand*
 > and self-correct the driver from what it finds.
 
 - **If yes:** gather the device identifier/connection string, exact model, vendor,
-  channel count, and what's wired to each channel (stimulus/loopback), then run the
-  **`validate-driver-hardware` skill** (`.agents/skills/validate-driver-hardware/SKILL.md`)
-  with those details. It writes a hardware validation script, runs it
-  against the device, and iterates on the driver until every supported method passes.
+  channel count, and what's wired to each channel (stimulus/loopback), then invoke
+  the **`validate-driver-hardware` skill** with those details. It writes a
+  hardware validation script, runs it against the device, and iterates on
+  the driver until every supported method passes.
 - **If no:** stop here. Remind the user the wire-level behavior should still be
   confirmed against real hardware before merge, and that they can run the
   `validate-driver-hardware` skill later when the device is available.
