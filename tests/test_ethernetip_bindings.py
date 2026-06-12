@@ -207,7 +207,7 @@ SUPPORTED_LIVE_PLC_SCALAR_CASES: list[dict[str, Any]] = [
     },
 ]
 
-SUPPORTED_LIVE_L32E_SCALAR_CASES: list[dict[str, Any]] = [
+SUPPORTED_LIVE_ONLY_SCALAR_CASES: list[dict[str, Any]] = [
     {
         "name": "test_string",
         "type_name": "STRING",
@@ -226,9 +226,7 @@ def cpppo_scalar_cases() -> list[dict[str, Any]]:
 
 def live_plc_scalar_cases() -> list[dict[str, Any]]:
     """Scalar cases expected on the configured live PLC endpoint."""
-    cases = SUPPORTED_LIVE_PLC_SCALAR_CASES
-    if target_l32e():
-        cases = cases + SUPPORTED_LIVE_L32E_SCALAR_CASES
+    cases = SUPPORTED_LIVE_PLC_SCALAR_CASES + SUPPORTED_LIVE_ONLY_SCALAR_CASES
 
     if exclude_unsigned_types():
         cases = [case for case in cases if case["type_name"] not in UNSIGNED_TYPE_NAMES]

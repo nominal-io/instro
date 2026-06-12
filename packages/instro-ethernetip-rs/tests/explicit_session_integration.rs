@@ -225,8 +225,8 @@ mod support {
         truthy_env(TARGET_L32E_ENV_VAR)
     }
 
-    fn live_l32e_target() -> bool {
-        configured_plc_endpoint().is_some() && target_l32e()
+    fn live_target() -> bool {
+        configured_plc_endpoint().is_some()
     }
 
     fn truthy_env(name: &str) -> bool {
@@ -387,7 +387,7 @@ mod support {
                 },
             ];
 
-            if live_l32e_target() {
+            if live_target() {
                 fixtures.push(TagFixture {
                     name: "test_string",
                     type_name: "STRING",
