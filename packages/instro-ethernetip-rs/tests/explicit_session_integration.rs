@@ -225,6 +225,10 @@ mod support {
         truthy_env(TARGET_L32E_ENV_VAR)
     }
 
+    fn live_l32e_target() -> bool {
+        configured_plc_endpoint().is_some() && target_l32e()
+    }
+
     fn truthy_env(name: &str) -> bool {
         let Ok(value) = env::var(name) else {
             return false;
@@ -382,6 +386,18 @@ mod support {
                     write_values: vec![Value::Lreal(-9.5), Value::Lreal(6.25), Value::Lreal(-9.5)],
                 },
             ];
+
+            if live_l32e_target() {
+                fixtures.push(TagFixture {
+                    name: "test_string",
+                    type_name: "STRING",
+                    write_values: vec![
+                        Value::String("hello".to_owned()),
+                        Value::String("world".to_owned()),
+                        Value::String("hello".to_owned()),
+                    ],
+                });
+            }
 
             if exclude_unsigned_types() {
                 fixtures.retain(|fixture| !is_unsigned_type(fixture.type_name));
