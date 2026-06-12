@@ -486,7 +486,9 @@ mod tests {
 
     use rust_ethernet_ip::PlcValue;
 
-    use crate::mock_client::{MockClient, MockConnector, MockConnectorState, MockState};
+    use crate::mock_client::{
+        BatchReadResult, MockClient, MockConnector, MockConnectorState, MockState,
+    };
 
     #[derive(Debug, PartialEq, Eq)]
     struct ExampleStruct {
@@ -968,6 +970,67 @@ mod tests {
                 .expect("mock connector state poisoned")
                 .connect_calls,
             vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
+    }
+
+    /// Verifies that repeated retryable batch failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_batch_read_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = |result: BatchReadResult| {
+            MockClient::new(
+                Arc::new(Mutex::new(MockState::default())),
+                vec![],
+                vec![],
+                Ok(()),
+            )
+            .with_batch_read_results(vec![result])
+        };
+        let failure = || {
+            Err(EtherNetIpError::Connection(
+                "batch socket closed".to_owned(),
+            ))
+        };
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(failure()),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(failure())),
+                    Ok(client(failure())),
+                    Ok(client(failure())),
+                    Ok(client(failure())),
+                    Ok(client(Ok(vec![Ok(PlcValue::Bool(true))]))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .read_tags(&["Running"])
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        let values = session
+            .read_tags(&["Running"])
+            .await
+            .expect("sixth batch should reconnect and succeed");
+
+        assert_eq!(
+            values[0].1.as_ref().expect("tag should succeed"),
+            &Value::Bool(true)
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
         );
     }
 
