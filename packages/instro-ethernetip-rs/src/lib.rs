@@ -527,6 +527,24 @@ mod tests {
         }
     }
 
+    fn retryable_connection_error() -> EtherNetIpError {
+        EtherNetIpError::Connection("socket closed".to_owned())
+    }
+
+    fn mock_client_with_results(
+        read_results: Vec<std::result::Result<PlcValue, EtherNetIpError>>,
+        batch_read_results: Vec<BatchReadResult>,
+        write_results: Vec<std::result::Result<(), EtherNetIpError>>,
+    ) -> MockClient {
+        MockClient::new(
+            Arc::new(Mutex::new(MockState::default())),
+            read_results,
+            write_results,
+            Ok(()),
+        )
+        .with_batch_read_results(batch_read_results)
+    }
+
     /// Verifies that a successful connector result becomes an active session with the requested address.
     #[tokio::test]
     async fn connect_wraps_client_and_preserves_address() {
@@ -713,6 +731,52 @@ mod tests {
                 .expect("mock connector state poisoned")
                 .connect_calls,
             vec![("plc.local".to_owned(), vec![2, 0])]
+        );
+    }
+
+    /// Verifies that repeated retryable read failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_read_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = |result| mock_client_with_results(vec![result], vec![], vec![]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(Err(retryable_connection_error())),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Ok(PlcValue::Dint(7)))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .read_tag("Speed")
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        assert_eq!(
+            session
+                .read_tag("Speed")
+                .await
+                .expect("sixth read should reconnect and succeed"),
+            Value::Dint(7)
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
         );
     }
 
@@ -977,31 +1041,19 @@ mod tests {
     #[tokio::test]
     async fn retryable_batch_read_errors_can_repeat_before_success() {
         let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
-        let client = |result: BatchReadResult| {
-            MockClient::new(
-                Arc::new(Mutex::new(MockState::default())),
-                vec![],
-                vec![],
-                Ok(()),
-            )
-            .with_batch_read_results(vec![result])
-        };
-        let failure = || {
-            Err(EtherNetIpError::Connection(
-                "batch socket closed".to_owned(),
-            ))
-        };
+        let client =
+            |result: BatchReadResult| mock_client_with_results(vec![], vec![result], vec![]);
         let mut session = ExplicitSession::new_for_test_with_connector(
             "plc.local",
             Vec::new(),
-            client(failure()),
+            client(Err(retryable_connection_error())),
             Box::new(MockConnector::new(
                 connector_state.clone(),
                 [
-                    Ok(client(failure())),
-                    Ok(client(failure())),
-                    Ok(client(failure())),
-                    Ok(client(failure())),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
                     Ok(client(Ok(vec![Ok(PlcValue::Bool(true))]))),
                 ]
                 .into(),
@@ -1124,6 +1176,49 @@ mod tests {
                 .expect("mock connector state poisoned")
                 .connect_calls,
             vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
+    }
+
+    /// Verifies that repeated retryable write failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_write_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = |result| mock_client_with_results(vec![], vec![], vec![result]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(Err(retryable_connection_error())),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Ok(()))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .write_tag("Setpoint", Value::Dint(12))
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        session
+            .write_tag("Setpoint", Value::Dint(12))
+            .await
+            .expect("sixth write should reconnect and succeed");
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
         );
     }
 
