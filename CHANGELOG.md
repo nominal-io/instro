@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0](https://github.com/nominal-io/instro/compare/instro-v0.9.0...instro-v0.10.0) (2026-06-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **psu:** support simulated protection and sense ([#47](https://github.com/nominal-io/instro/issues/47))
+* **psu:** add tui for sim and refactor command set for ovp ocp and remote sense ([#30](https://github.com/nominal-io/instro/issues/30))
+
+### Features
+
+* **ethernetip:** batch reads ([#68](https://github.com/nominal-io/instro/issues/68)) ([0afb900](https://github.com/nominal-io/instro/commit/0afb900ad01c752397ecbf23ea1012370658fc77))
+* **psu:** add tui for sim and refactor command set for ovp ocp and remote sense ([#30](https://github.com/nominal-io/instro/issues/30)) ([16f89b2](https://github.com/nominal-io/instro/commit/16f89b25b0f6086fb3c988a13a9081bade5dae45))
+* **psu:** support simulated protection and sense ([#47](https://github.com/nominal-io/instro/issues/47)) ([0ad4cf0](https://github.com/nominal-io/instro/commit/0ad4cf0baef6d9d994e9303668e0f5bc97d3941f))
+
+
+### Bug Fixes
+
+* **test:** bind ephemeral port in simulated PSU socket test ([#98](https://github.com/nominal-io/instro/issues/98)) ([0658721](https://github.com/nominal-io/instro/commit/06587213f5d2cd1ae7f5505d54a9d8e01b3168ff))
+
 ## [0.9.0](https://github.com/nominal-io/instro/compare/instro-v0.8.0...instro-v0.9.0) (2026-06-10)
 
 
