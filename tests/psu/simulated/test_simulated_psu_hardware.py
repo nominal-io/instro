@@ -584,9 +584,11 @@ class _SimulatedTarget:
     @classmethod
     def start(cls) -> "_SimulatedTarget":
         simulator = SimulatedPSUSimulator(num_channels=2)
-        server = SimulatedPSUServer(simulator, host="127.0.0.1", port=5025)
+        # Bind an ephemeral port to avoid EADDRINUSE collisions on shared CI runners.
+        server = SimulatedPSUServer(simulator, host="127.0.0.1", port=0)
         server.start()
-        return cls(simulator, server, VISA_ADDRESS)
+        visa_address = f"TCPIP0::127.0.0.1::{server.port}::SOCKET"
+        return cls(simulator, server, visa_address)
 
     def shutdown(self) -> None:
         self.server.shutdown()
