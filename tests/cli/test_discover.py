@@ -7,45 +7,69 @@ from instro.cli.main import app
 runner = CliRunner()
 
 
-# Test 1 — empty bench:
+def _rm_mock(resources=()):
+    mock = MagicMock()
+    mock.list_resources.return_value = resources
+    mock.resource_info.return_value = MagicMock(resource_name="")
+    return mock
+
+
 def test_discover_empty_bench():
-    with patch("instro.cli.discover.pyvisa.ResourceManager") as mock_rm:
-        mock_rm.return_value.list_resources.return_value = ()
-        result = runner.invoke(app, ["discover"])
-    print(result.output)
+    mock_rm = _rm_mock(())
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            mock_lp.comports.return_value = []
+            result = runner.invoke(app, ["discover"])
     assert result.exit_code == 0
 
 
-# Test 2 — mixed bench (one known, one unknown):
 def test_discover_mixed_bench():
-    mock_resource = MagicMock()
-    mock_resource.query.return_value = "KEITHLEY INSTRUMENTS,MODEL 2400,12345,C30"
-
-    with patch("instro.cli.discover.pyvisa.ResourceManager") as mock_rm:
-        with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
-            mock_rm.return_value.list_resources.return_value = (
-                "USB0::0x05E6::0x2400::INSTR",
-                "USB0::0xABCD::0x9999::INSTR",
-            )
-            # first resource returns a known IDN, second raises
-            mock_driver_cls.return_value.query.side_effect = [
-                "KEITHLEY INSTRUMENTS,MODEL 2400,12345,C30",
-                "UNKNOWN VENDOR,XYZ,000,1.0",
-            ]
-            result = runner.invoke(app, ["discover"])
-    print(result.output)
-
+    resources = "USB0::0x05E6::0:0x9999::INSTR"
+    mock_rm = _rm_mock(resources)
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
+                mock_lp.comports.return_value = []
+                mock_driver_cls.return_value.query.side_effect = [
+                    "KEITHLEY INSTRUMENTS,2400,12345,C30",
+                    "UNKNOWN VENDOR,XYZ,000,1.0",
+                ]
+                result = runner.invoke(app, ["discover"])
     assert "SUPPORTED" in result.output
     assert "UNSUPPORTED" in result.output
 
 
-# Test 3 — failed probe:
 def test_discover_failed_probe():
-    with patch("instro.cli.discover.pyvisa.ResourceManager") as mock_rm:
-        with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
-            mock_rm.return_value.list_resources.return_value = ("USB0::0x1234::INSTR",)
-            mock_driver_cls.return_value.open.side_effect = Exception("timeout")
-            result = runner.invoke(app, ["discover"])
-    print(result.output)
+    mock_rm = _rm_mock(("USB0::0x1234::INSTR",))
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
+                mock_lp.comports.return_value = []
+                mock_driver_cls.return_value.open.side_effect = Exception("timeout")
+                result = runner.invoke(app, ["discover"])
+    assert result.exit_code == 0
 
-    assert result.exit_code == 0  # should not crash
+
+def test_discover_two_supported_one_unsupported_one_serial():
+    resources = (
+        "USB0::0x05E6::0x2400::INSTR",
+        "USB0::0x0957::0x0607::INSTR",
+        "USB0::0xABCD::0x9999::INSTR",
+        "ASRL/dev/ttyUSB0::INSTR",
+    )
+    mock_rm = _rm_mock(resources)
+    mock_rm.resource_info.return_value = MagicMock(resource_name="/dev/ttyUSB0")
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
+                mock_lp.comports.return_value = [MagicMock(device="/dev/ttyUSB0", description="USB Serial Device")]
+                mock_driver_cls.return_value.query.side_effect = [
+                    "KEITHLEY INSTRUMENTS,2400,12345,C30",
+                    "AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
+                    "UNKNOWN VENDOR,XYZ,000,1.0",
+                ]
+                result = runner.invoke(app, ["discover"])
+    assert result.exit_code == 0
+    assert result.output.count("✓ SUPPORTED") == 2
+    assert result.output.count("~ UNSUPPORTED") == 1
+    assert "ASRL/dev/ttyUSB0::INSTR" in result.output

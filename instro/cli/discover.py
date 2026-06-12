@@ -12,20 +12,24 @@ from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 # and then checking both of them! I really need more hardware tests for reliable
 # usage from company names... can a dict key be a tuple?
 # currently this mapping is not robust
+
 _IDN_MAP = {
-    "34401A": ("dmm", "AgilentA34401A"),
-    "2400": ("dmm", "Keithley2400"),  # maybe make this MODEL 2400
-    "9115": ("psu", "BK9115"),
-    "9140": ("psu", "BK9140"),
-    "DP811": ("psu", "RIGOLDP800"),
-    "DP821": ("psu", "RIGOLDP800"),
-    "DP831": ("psu", "RIGOLDP800"),
-    "DP832": ("psu", "RIGOLDP800"),
-    "SPD3303": ("psu", "SiglentSPD3303"),
-    "GEN": ("psu", "TDKLambdaGenesys"),  # this feels too vague
-    "BK85": ("eload", "BK85xxB"),  # not sure if this works for all 85XX series...
+    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "AgilentA34401A"),
+    ("HEWLETT-PACKARD", "34401A"): ("dmm", "AgilentA34401A"),
+    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400"),  # maybe make this MODEL 2400 # OLD ONES US "HP"
+    ("B&K PRECISION", "9115"): ("psu", "BK9115"),
+    ("B&K PRECISION", "9140"): ("psu", "BK9140"),
+    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RIGOLDP800"),
+    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RIGOLDP800"),
+    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RIGOLDP800"),
+    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RIGOLDP800"),
+    ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303"),
+    ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys"),  # this feels too vague
+    ("B&K PRECISION", "BK85"): ("eload", "BK85xxB"),  # not sure if this works for all 85XX series...
     # ^^ added this one back in, need to tune all the names though!
 }
+
+# let's get the keys for this _IDN_MAP to be a tuple, then we can check if the vendor & device num are in the name
 
 
 def discover(backend: str | None = None) -> None:
@@ -60,25 +64,29 @@ def discover(backend: str | None = None) -> None:
         typer.echo(typer.style("NO DEVICES FOUND", fg=typer.colors.RED))
         return
 
-    print(len(py_resources))
-    print(len(resources))
-    for p in list_ports.comports():
-        print(f"{p.device}, description: {p.description}")
+    # print(len(py_resources))
+    # print(len(resources))
+    # for p in list_ports.comports():
+    #     print(f"{p.device}, description: {p.description}")
 
-    for idx, resource in enumerate(resources):
+    for resource in resources:
         if resource.startswith("ASRL"):
             # serial device, set for manual config
             # are PCI/PCIe serial cards something to worry about?
 
-            res_info = rm_py.resource_info(
-                py_resources[idx]
-            )  # this only works correctly if the pyresource always sees the same amount, or fewer of the resources available
-            # dev_path = res_info
-            print(res_info.resource_name)
+            try:
+                res_info = rm_py.resource_info(
+                    resource
+                )  # this only works correctly if the pyresource always sees the same amount, or fewer of the resources available
+                # print(res_info.resource_name)
 
-            if res_info.resource_name not in real_serial_ports:
-                print("NOT A REAL PORT")
+                if res_info.resource_name not in real_serial_ports:
+                    # print("NOT A REAL PORT")
+                    continue
+                serial_devices.append((resource, "serial - configure manually"))
                 continue
+            except Exception:
+                pass  # @py doesn't know this resource - trust @ivi and include it
             serial_devices.append((resource, "serial - configure manually"))
             continue
 
@@ -88,7 +96,19 @@ def discover(backend: str | None = None) -> None:
         try:
             driver.open()
             idn = driver.query("*IDN?").strip()
-            match = next((v for k, v in _IDN_MAP.items() if k in idn), None)
+            parts = [p.strip().lower() for p in idn.split(",")]
+            vendor = parts[0] if len(parts) > 0 else ""
+            model = parts[1] if len(parts) > 1 else ""
+
+            match = next(
+                (
+                    v
+                    for (k_vendor, k_model), v in _IDN_MAP.items()
+                    if k_vendor.lower() in vendor and k_model.lower() in model
+                ),
+                None,
+            )
+            # match = next((v for k, v in _IDN_MAP.items() if k in idn), None)
             if match is not None:
                 # we have valid device
                 supported_devices.append((idn, resource, match))  # match is the dict value
@@ -103,28 +123,32 @@ def discover(backend: str | None = None) -> None:
             idn = None
         finally:
             driver.close()
-
     # could do v2 functionality for probing serial.
 
     ######################################################################### we want to test this functionality ^^
 
     # found devices should be filled now, show user what can be used, and what can't
-    for supported in supported_devices:
-        print(f"{supported[1]}")
-        print(f"{supported[0]}")
-        print(f"{supported[2][1]}")
-        typer.echo(typer.style("✓ SUPPORTED", fg=typer.colors.GREEN))
-        print(f"\n")
 
-    for serial_device in serial_devices:
-        print(f"{serial_device[0]}")
-        typer.echo(typer.style(f"{serial_device[1]}", fg=typer.colors.YELLOW))
-        print(f"\n")
+    if not supported_devices and not unsupported_devices and not serial_devices:
+        # not a single device found
+        typer.echo(typer.style(f"NO DEVICES FOUND", fg=typer.colors.RED, bold=True))
+    else:
+        for supported in supported_devices:
+            print(f"{supported[1]}")
+            print(f"{supported[0]}")
+            print(f"{supported[2][1]}")
+            typer.echo(typer.style("✓ SUPPORTED", fg=typer.colors.GREEN))
+            print(f"\n")
 
-    for unsupported in unsupported_devices:
-        print(f"{unsupported}")
-        typer.echo(typer.style("~ UNSUPPORTED FOR AUTODETECT", fg=typer.colors.RED))
-        print(f"\n")
+        for serial_device in serial_devices:
+            print(f"{serial_device[0]}")
+            typer.echo(typer.style(f"{serial_device[1]}", fg=typer.colors.YELLOW))
+            print(f"\n")
+
+        for unsupported in unsupported_devices:
+            print(f"{unsupported}")
+            typer.echo(typer.style("~ UNSUPPORTED", fg=typer.colors.RED))  # is unsupported the right word?
+            print(f"\n")
 
     # now let them make a selection
 
