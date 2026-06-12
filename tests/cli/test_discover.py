@@ -55,21 +55,27 @@ def test_discover_two_supported_one_unsupported_one_serial():
         "USB0::0x05E6::0x2400::INSTR",
         "USB0::0x0957::0x0607::INSTR",
         "USB0::0xABCD::0x9999::INSTR",
-        "ASRL/dev/ttyUSB0::INSTR",
+        "ASRL1::INSTR",  # skipped in main loop
     )
     mock_rm = _rm_mock(resources)
-    mock_rm.resource_info.return_value = MagicMock(resource_name="/dev/ttyUSB0")
+    mock_port = MagicMock()
+    mock_port.device = "/dev/ttyUSB0"
+    mock_port.manufacturer = "Arduino LLC"
+    mock_port.product = "Arduino Uno"
+    mock_port.description = "Arduino Uno"
+
     with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
         with patch("instro.cli.discover.list_ports") as mock_lp:
             with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
-                mock_lp.comports.return_value = [MagicMock(device="/dev/ttyUSB0", description="USB Serial Device")]
+                mock_lp.comports.return_value = [mock_port]
                 mock_driver_cls.return_value.query.side_effect = [
                     "KEITHLEY INSTRUMENTS,2400,12345,C30",
                     "AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
                     "UNKNOWN VENDOR,XYZ,000,1.0",
                 ]
                 result = runner.invoke(app, ["discover"])
+
     assert result.exit_code == 0
     assert result.output.count("✓ SUPPORTED") == 2
     assert result.output.count("~ UNSUPPORTED") == 1
-    assert "ASRL/dev/ttyUSB0::INSTR" in result.output
+    assert "Arduino" in result.output
