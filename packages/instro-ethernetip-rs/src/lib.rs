@@ -13,6 +13,15 @@
 //! The public API intentionally hides backend transport types so callers can work with a
 //! stable interface centered on [`ExplicitSession`], [`Value`], and [`StructuredValue`].
 //!
+//! # Recovery behavior
+//!
+//! The backend client automatically retries or falls back for some protocol-level transient
+//! failures before an operation returns. If a read, batch read, or write still returns an
+//! error that `rust_ethernet_ip::EtherNetIpError::is_retriable` marks retriable,
+//! [`ExplicitSession`] drops the dead client. The failed operation is returned to the caller, and
+//! the next read or write automatically reconnects with the same address and route path before
+//! issuing the request.
+//!
 //! # Features
 //!
 //! By default, this crate exposes the async [`ExplicitSession`] API. Async callers provide their
@@ -95,6 +104,18 @@ pub type Result<T> = std::result::Result<T, Error>;
 type ClientFuture<'a, T> =
     Pin<Box<dyn Future<Output = std::result::Result<T, EtherNetIpError>> + Send + 'a>>;
 
+/// Boxed future returned by [`ExplicitConnector::connect`].
+///
+/// The future represents the in-flight connect operation and resolves to a newly connected
+/// explicit client; it is not the long-lived connection itself.
+type ConnectFuture<'a> = Pin<
+    Box<
+        dyn Future<Output = std::result::Result<Box<dyn ExplicitClient>, EtherNetIpError>>
+            + Send
+            + 'a,
+    >,
+>;
+
 /// Private seam over [`EipClient`] for explicit tag operations and session teardown.
 ///
 /// This stays 1:1 with [`EipClient`] so [`ExplicitSession`] can be unit-tested with a mock
@@ -107,6 +128,10 @@ trait ExplicitClient: Send + Sync {
     ) -> ClientFuture<'a, Vec<(String, std::result::Result<PlcValue, BatchError>)>>;
     fn write_tag<'a>(&'a mut self, tag_name: &'a str, value: PlcValue) -> ClientFuture<'a, ()>;
     fn unregister_session<'a>(&'a mut self) -> ClientFuture<'a, ()>;
+}
+
+trait ExplicitConnector: Send + Sync {
+    fn connect<'a>(&'a self, addr: &'a str, route_path_slots: &'a [u8]) -> ConnectFuture<'a>;
 }
 
 impl ExplicitClient for EipClient {
@@ -132,15 +157,41 @@ impl ExplicitClient for EipClient {
     }
 }
 
+struct EipConnector;
+
+impl ExplicitConnector for EipConnector {
+    fn connect<'a>(&'a self, addr: &'a str, route_path_slots: &'a [u8]) -> ConnectFuture<'a> {
+        Box::pin(async move {
+            let client = if route_path_slots.is_empty() {
+                EipClient::connect(addr).await?
+            } else {
+                let route_path = route_path_from_slots(route_path_slots);
+                EipClient::with_route_path(addr, route_path).await?
+            };
+
+            Ok(Box::new(client) as Box<dyn ExplicitClient>)
+        })
+    }
+}
+
 /// An active explicit-messaging EtherNet/IP session for a single target address.
 ///
 /// Construct with [`ExplicitSession::connect`], use it for tag reads and writes, and call
 /// [`ExplicitSession::close`] to unregister the session when finished. Dropping
 /// [`ExplicitSession`] only drops the underlying transport; it does not perform the async
-/// unregister handshake.
+/// unregister handshake. Some transient protocol failures are retried by the backend before an
+/// operation returns; retryable errors that still escape mark the client disconnected so the next
+/// operation reconnects automatically.
+///
+/// The session keeps the original target address and route path separate from the active backend
+/// client. Retryable transport failures drop only the client; the next operation recreates it from
+/// the saved connection identity.
 pub struct ExplicitSession {
     addr: String,
-    client: Box<dyn ExplicitClient>,
+    route_path_slots: Vec<u8>,
+    /// Active backend client. `None` means reconnect before the next operation.
+    client: Option<Box<dyn ExplicitClient>>,
+    connector: Box<dyn ExplicitConnector>,
 }
 
 impl ExplicitSession {
@@ -150,7 +201,7 @@ impl ExplicitSession {
     /// `"[::1]:44818"`). Hostnames such as `"plc.local:44818"` are not resolved here.
     /// Note that this implicitly registers a session with the target device on success.
     pub async fn connect(addr: &str) -> Result<Self> {
-        Self::connect_with(addr, |addr| async move { EipClient::connect(&addr).await }).await
+        Self::connect_with_connector(addr, Vec::new(), Box::new(EipConnector)).await
     }
 
     /// Connect to an EtherNet/IP endpoint through a backplane route path.
@@ -159,25 +210,16 @@ impl ExplicitSession {
     /// `RoutePath::add_slot`. This follows the upstream route-path surface exactly: all slot hops
     /// are encoded before any future network hops.
     pub async fn connect_with_route_path_slots(addr: &str, slots: &[u8]) -> Result<Self> {
-        if slots.is_empty() {
-            return Self::connect(addr).await;
-        }
-
-        let route_path = route_path_from_slots(slots);
-        Self::connect_with(addr, |addr| async move {
-            EipClient::with_route_path(&addr, route_path).await
-        })
-        .await
+        Self::connect_with_connector(addr, slots.to_vec(), Box::new(EipConnector)).await
     }
 
-    // Abstracts the [`EipClient`] to allow for testing.
-    async fn connect_with<C, F, Fut>(addr: &str, connect: F) -> Result<Self>
-    where
-        C: ExplicitClient + 'static,
-        F: FnOnce(String) -> Fut,
-        Fut: Future<Output = std::result::Result<C, EtherNetIpError>>,
-    {
-        let client = connect(addr.to_owned())
+    async fn connect_with_connector(
+        addr: &str,
+        route_path_slots: Vec<u8>,
+        connector: Box<dyn ExplicitConnector>,
+    ) -> Result<Self> {
+        let client = connector
+            .connect(addr, &route_path_slots)
             .await
             .map_err(|source| Error::Connect {
                 addr: addr.to_owned(),
@@ -186,22 +228,88 @@ impl ExplicitSession {
 
         Ok(Self {
             addr: addr.to_owned(),
-            client: Box::new(client),
+            route_path_slots,
+            client: Some(client),
+            connector,
         })
     }
 
-    // Read the raw [`PlcValue`] for a tag.
-    async fn read_tag_raw(&mut self, tag_name: &str) -> Result<PlcValue> {
-        self.client
-            .read_tag(tag_name)
+    async fn reconnect_if_needed(&mut self) -> Result<()> {
+        if self.client.is_some() {
+            return Ok(());
+        }
+
+        let addr = self.addr.clone();
+        let route_path_slots = self.route_path_slots.clone();
+        let client = self
+            .connector
+            .connect(&addr, &route_path_slots)
             .await
-            .map_err(|source| Error::ReadTag {
+            .map_err(|source| Error::Connect {
+                addr: self.addr.clone(),
+                source: Box::new(source),
+            })?;
+        self.client = Some(client);
+        Ok(())
+    }
+
+    /// Mark the current client disconnected after retryable failures that survive backend retry.
+    ///
+    /// The failed operation is still reported to the caller, and the next operation will attempt
+    /// to reconnect.
+    fn drop_client_if_retriable(&mut self, source: &EtherNetIpError) {
+        if source.is_retriable() {
+            self.client = None;
+        }
+    }
+
+    #[cfg(test)]
+    fn new_for_test<C>(addr: &str, client: C) -> Self
+    where
+        C: ExplicitClient + 'static,
+    {
+        Self::new_for_test_with_connector(addr, Vec::new(), client, Box::new(EipConnector))
+    }
+
+    #[cfg(test)]
+    fn new_for_test_with_connector<C>(
+        addr: &str,
+        route_path_slots: Vec<u8>,
+        client: C,
+        connector: Box<dyn ExplicitConnector>,
+    ) -> Self
+    where
+        C: ExplicitClient + 'static,
+    {
+        Self {
+            addr: addr.to_owned(),
+            route_path_slots,
+            client: Some(Box::new(client)),
+            connector,
+        }
+    }
+
+    /// Read the raw [`PlcValue`] for a tag.
+    async fn read_tag_raw(&mut self, tag_name: &str) -> Result<PlcValue> {
+        self.reconnect_if_needed().await?;
+        let result = self
+            .client
+            .as_mut()
+            .expect("client should be connected")
+            .read_tag(tag_name)
+            .await;
+
+        result.map_err(|source| {
+            self.drop_client_if_retriable(&source);
+            Error::ReadTag {
                 addr: self.addr.clone(),
                 tag_name: tag_name.to_owned(),
                 source: Box::new(source),
-            })
+            }
+        })
     }
 
+    /// Read a [`Value`] for a tag.
     pub async fn read_tag(&mut self, tag_name: &str) -> Result<Value> {
         let value = self.read_tag_raw(tag_name).await?;
         Ok(value.into())
@@ -256,16 +364,22 @@ impl ExplicitSession {
     where
         S: AsRef<str>,
     {
+        self.reconnect_if_needed().await?;
         let refs: Vec<&str> = tag_names.iter().map(AsRef::as_ref).collect();
 
-        let batch =
-            self.client
-                .read_tags_batch(&refs)
-                .await
-                .map_err(|source| Error::BatchRead {
+        let batch = self
+            .client
+            .as_mut()
+            .expect("client should be connected")
+            .read_tags_batch(&refs)
+            .await
+            .map_err(|source| {
+                self.drop_client_if_retriable(&source);
+                Error::BatchRead {
                     addr: self.addr.clone(),
                     source: Box::new(source),
-                })?;
+                }
+            })?;
 
         Ok(batch
             .into_iter()
@@ -284,15 +398,21 @@ impl ExplicitSession {
 
     /// Write a user-facing [`Value`] to a PLC tag.
     pub async fn write_tag(&mut self, tag_name: &str, value: Value) -> Result<()> {
+        self.reconnect_if_needed().await?;
         let value: PlcValue = value.into();
 
         self.client
+            .as_mut()
+            .expect("client should be connected")
             .write_tag(tag_name, value)
             .await
-            .map_err(|source| Error::WriteTag {
-                addr: self.addr.clone(),
-                tag_name: tag_name.to_owned(),
-                source: Box::new(source),
+            .map_err(|source| {
+                self.drop_client_if_retriable(&source);
+                Error::WriteTag {
+                    addr: self.addr.clone(),
+                    tag_name: tag_name.to_owned(),
+                    source: Box::new(source),
+                }
             })
     }
 
@@ -314,7 +434,11 @@ impl ExplicitSession {
     /// If unregister fails, `self` is still consumed and the caller cannot retry; that is
     /// acceptable here because the underlying connection is likely already broken anyway.
     pub async fn close(mut self) -> Result<()> {
-        self.client
+        let Some(mut client) = self.client.take() else {
+            return Ok(());
+        };
+
+        client
             .unregister_session()
             .await
             .map_err(|source| Error::Unregister {
@@ -324,6 +448,7 @@ impl ExplicitSession {
     }
 }
 
+// Intentionally not a From impl for clarity
 fn route_path_from_slots(slots: &[u8]) -> RoutePath {
     slots.iter().fold(RoutePath::new(), |route_path, slot| {
         route_path.add_slot(*slot)
@@ -361,7 +486,9 @@ mod tests {
 
     use rust_ethernet_ip::PlcValue;
 
-    use crate::mock_client::{MockClient, MockState};
+    use crate::mock_client::{
+        BatchReadResult, MockClient, MockConnector, MockConnectorState, MockState,
+    };
 
     #[derive(Debug, PartialEq, Eq)]
     struct ExampleStruct {
@@ -400,24 +527,62 @@ mod tests {
         }
     }
 
+    fn retryable_connection_error() -> EtherNetIpError {
+        EtherNetIpError::Connection("socket closed".to_owned())
+    }
+
+    fn mock_client_with_results(
+        read_results: Vec<std::result::Result<PlcValue, EtherNetIpError>>,
+        batch_read_results: Vec<BatchReadResult>,
+        write_results: Vec<std::result::Result<(), EtherNetIpError>>,
+    ) -> MockClient {
+        MockClient::new(
+            Arc::new(Mutex::new(MockState::default())),
+            read_results,
+            write_results,
+            Ok(()),
+        )
+        .with_batch_read_results(batch_read_results)
+    }
+
+    /// Verifies that a successful connector result becomes an active session with the requested address.
     #[tokio::test]
     async fn connect_wraps_client_and_preserves_address() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let client = ExplicitSession::connect_with("10.0.0.5", |_| async {
-            Ok(MockClient::new(state.clone(), vec![], vec![], Ok(())))
-        })
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = ExplicitSession::connect_with_connector(
+            "10.0.0.5",
+            Vec::new(),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                vec![Ok(MockClient::new(state.clone(), vec![], vec![], Ok(())))],
+            )),
+        )
         .await
         .expect("connect should succeed");
 
         assert_eq!(client.addr, "10.0.0.5");
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("10.0.0.5".to_owned(), Vec::<u8>::new())]
+        );
     }
 
+    /// Verifies that connection failures are returned with the target address in the public error.
     #[tokio::test]
     async fn connect_wraps_connection_errors() {
-        let result = ExplicitSession::connect_with("10.0.0.5", |_| async {
-            let error = EtherNetIpError::Connection("refused".to_owned());
-            Err::<MockClient, _>(error)
-        })
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let result = ExplicitSession::connect_with_connector(
+            "10.0.0.5",
+            Vec::new(),
+            Box::new(MockConnector::new(
+                connector_state,
+                vec![Err(EtherNetIpError::Connection("refused".to_owned()))],
+            )),
+        )
         .await;
         let error = match result {
             Ok(_) => panic!("connect should fail"),
@@ -433,6 +598,7 @@ mod tests {
         }
     }
 
+    /// Verifies that slot numbers are encoded into the upstream backplane route path in order.
     #[test]
     fn route_path_from_slots_adds_each_backplane_slot() {
         let route_path = route_path_from_slots(&[2, 0]);
@@ -443,18 +609,14 @@ mod tests {
         assert_eq!(route_path.to_cip_bytes(), vec![0x01, 0x02, 0x01, 0x00]);
     }
 
+    /// Verifies that a raw PLC value is converted to the public value type and the tag is sent unchanged.
     #[tokio::test]
     async fn read_tag_converts_plc_value_and_records_tag_name() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                state.clone(),
-                vec![Ok(PlcValue::Dint(42))],
-                vec![],
-                Ok(()),
-            )),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![Ok(PlcValue::Dint(42))], vec![], Ok(())),
+        );
 
         let value = session
             .read_tag("MotorSpeed")
@@ -468,17 +630,18 @@ mod tests {
         );
     }
 
+    /// Verifies that read errors keep the address, tag name, and backend error in the public error.
     #[tokio::test]
     async fn read_tag_wraps_read_errors_with_context() {
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(
                 Arc::new(Mutex::new(MockState::default())),
                 vec![Err(EtherNetIpError::TagNotFound("MissingTag".to_owned()))],
                 vec![],
                 Ok(()),
-            )),
-        };
+            ),
+        );
 
         let error = session
             .read_tag("MissingTag")
@@ -499,20 +662,181 @@ mod tests {
         }
     }
 
+    /// Verifies that a retryable read error is surfaced once and the next read reconnects automatically.
+    #[tokio::test]
+    async fn retryable_read_error_disconnects_and_next_read_reconnects() {
+        let first_state = Arc::new(Mutex::new(MockState::default()));
+        let reconnected_state = Arc::new(Mutex::new(MockState::default()));
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let connector = MockConnector::new(
+            connector_state.clone(),
+            vec![Ok(MockClient::new(
+                reconnected_state.clone(),
+                vec![Ok(PlcValue::Dint(7))],
+                vec![],
+                Ok(()),
+            ))],
+        );
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            vec![2, 0],
+            MockClient::new(
+                first_state.clone(),
+                vec![Err(EtherNetIpError::ConnectionLost(
+                    "socket closed".to_owned(),
+                ))],
+                vec![],
+                Ok(()),
+            ),
+            Box::new(connector),
+        );
+
+        let error = session
+            .read_tag("Speed")
+            .await
+            .expect_err("first read should report the dropped connection");
+        match error {
+            Error::ReadTag {
+                addr,
+                tag_name,
+                source,
+            } => {
+                assert_eq!(addr, "plc.local");
+                assert_eq!(tag_name, "Speed");
+                assert_eq!(source.to_string(), "Connection lost: socket closed");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        let value = session
+            .read_tag("Speed")
+            .await
+            .expect("second read should reconnect and succeed");
+
+        assert_eq!(value, Value::Dint(7));
+        assert_eq!(
+            first_state.lock().expect("mock state poisoned").read_calls,
+            vec!["Speed".to_owned()]
+        );
+        assert_eq!(
+            reconnected_state
+                .lock()
+                .expect("mock state poisoned")
+                .read_calls,
+            vec!["Speed".to_owned()]
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("plc.local".to_owned(), vec![2, 0])]
+        );
+    }
+
+    /// Verifies that repeated retryable read failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_read_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = |result| mock_client_with_results(vec![result], vec![], vec![]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(Err(retryable_connection_error())),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Ok(PlcValue::Dint(7)))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .read_tag("Speed")
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        assert_eq!(
+            session
+                .read_tag("Speed")
+                .await
+                .expect("sixth read should reconnect and succeed"),
+            Value::Dint(7)
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
+        );
+    }
+
+    /// Verifies that non-retryable read errors leave the current client connected for later calls.
+    #[tokio::test]
+    async fn non_retryable_read_error_keeps_existing_client() {
+        let state = Arc::new(Mutex::new(MockState::default()));
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            MockClient::new(
+                state.clone(),
+                vec![
+                    Err(EtherNetIpError::TagNotFound("MissingTag".to_owned())),
+                    Ok(PlcValue::Dint(11)),
+                ],
+                vec![],
+                Ok(()),
+            ),
+            Box::new(MockConnector::new(connector_state.clone(), vec![])),
+        );
+
+        session
+            .read_tag("MissingTag")
+            .await
+            .expect_err("first read should fail without disconnecting");
+
+        let value = session
+            .read_tag("NextTag")
+            .await
+            .expect("same client should handle the next read");
+
+        assert_eq!(value, Value::Dint(11));
+        assert_eq!(
+            state.lock().expect("mock state poisoned").read_calls,
+            vec!["MissingTag".to_owned(), "NextTag".to_owned()]
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            Vec::<(String, Vec<u8>)>::new()
+        );
+    }
+
+    /// Verifies that batch reads make one backend batch call and preserve the caller's tag order.
     #[tokio::test]
     async fn read_tags_issues_single_batch_call_and_returns_values_in_input_order() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(
-                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
-                    vec![Ok(vec![
-                        Ok(PlcValue::Bool(true)),
-                        Ok(PlcValue::String("ok".to_owned())),
-                    ])],
-                ),
-            ),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(vec![
+                Ok(vec![
+                    Ok(PlcValue::Bool(true)),
+                    Ok(PlcValue::String("ok".to_owned())),
+                ]),
+            ]),
+        );
 
         let values = session
             .read_tags(&["Running", "Status"])
@@ -539,23 +863,22 @@ mod tests {
         );
     }
 
+    /// Verifies that per-tag batch failures are returned beside successful values instead of failing the whole call.
     #[tokio::test]
     async fn read_tags_surfaces_per_tag_errors_alongside_successes() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(
-                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
-                    vec![Ok(vec![
-                        Ok(PlcValue::Bool(true)),
-                        Err(rust_ethernet_ip::BatchError::TagNotFound(
-                            "Status".to_owned(),
-                        )),
-                        Ok(PlcValue::Dint(7)),
-                    ])],
-                ),
-            ),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(vec![
+                Ok(vec![
+                    Ok(PlcValue::Bool(true)),
+                    Err(rust_ethernet_ip::BatchError::TagNotFound(
+                        "Status".to_owned(),
+                    )),
+                    Ok(PlcValue::Dint(7)),
+                ]),
+            ]),
+        );
 
         let values = session
             .read_tags(&["Running", "Status", "Counter"])
@@ -586,22 +909,19 @@ mod tests {
         );
     }
 
+    /// Verifies that a batch data-type mismatch is preserved as the typed public batch error variant.
     #[tokio::test]
     async fn read_tags_preserves_data_type_mismatch_variant() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(
-                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
-                    vec![Ok(vec![Err(
-                        rust_ethernet_ip::BatchError::DataTypeMismatch {
-                            expected: "DINT".to_owned(),
-                            actual: "REAL".to_owned(),
-                        },
-                    )])],
-                ),
-            ),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(vec![
+                Ok(vec![Err(rust_ethernet_ip::BatchError::DataTypeMismatch {
+                    expected: "DINT".to_owned(),
+                    actual: "REAL".to_owned(),
+                })]),
+            ]),
+        );
 
         let values = session
             .read_tags(&["Counter"])
@@ -620,20 +940,19 @@ mod tests {
         }
     }
 
+    /// Verifies that a batch CIP error is preserved as the typed public batch error variant.
     #[tokio::test]
     async fn read_tags_preserves_cip_error_variant() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(
-                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
-                    vec![Ok(vec![Err(rust_ethernet_ip::BatchError::CipError {
-                        status: 0x04,
-                        message: "path segment error".to_owned(),
-                    })])],
-                ),
-            ),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(vec![
+                Ok(vec![Err(rust_ethernet_ip::BatchError::CipError {
+                    status: 0x04,
+                    message: "path segment error".to_owned(),
+                })]),
+            ]),
+        );
 
         let values = session
             .read_tags(&["Counter"])
@@ -652,13 +971,129 @@ mod tests {
         }
     }
 
+    /// Verifies that a retryable batch-read failure is surfaced once and the next batch reconnects automatically.
+    #[tokio::test]
+    async fn retryable_batch_read_error_disconnects_and_next_batch_reconnects() {
+        let first_state = Arc::new(Mutex::new(MockState::default()));
+        let reconnected_state = Arc::new(Mutex::new(MockState::default()));
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let reconnected_client = MockClient::new(reconnected_state.clone(), vec![], vec![], Ok(()))
+            .with_batch_read_results(vec![Ok(vec![Ok(PlcValue::Bool(true))])]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            MockClient::new(first_state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                vec![Err(EtherNetIpError::Connection(
+                    "batch socket closed".to_owned(),
+                ))],
+            ),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                vec![Ok(reconnected_client)],
+            )),
+        );
+
+        let error = session
+            .read_tags(&["Running"])
+            .await
+            .expect_err("first batch should report the dropped connection");
+        match error {
+            Error::BatchRead { addr, source } => {
+                assert_eq!(addr, "plc.local");
+                assert_eq!(source.to_string(), "Connection error: batch socket closed");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        let values = session
+            .read_tags(&["Running"])
+            .await
+            .expect("second batch should reconnect and succeed");
+
+        assert_eq!(
+            values[0].1.as_ref().expect("tag should succeed"),
+            &Value::Bool(true)
+        );
+        assert_eq!(
+            first_state
+                .lock()
+                .expect("mock state poisoned")
+                .batch_read_calls,
+            vec![vec!["Running".to_owned()]]
+        );
+        assert_eq!(
+            reconnected_state
+                .lock()
+                .expect("mock state poisoned")
+                .batch_read_calls,
+            vec![vec!["Running".to_owned()]]
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
+    }
+
+    /// Verifies that repeated retryable batch failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_batch_read_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client =
+            |result: BatchReadResult| mock_client_with_results(vec![], vec![result], vec![]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(Err(retryable_connection_error())),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Ok(vec![Ok(PlcValue::Bool(true))]))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .read_tags(&["Running"])
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        let values = session
+            .read_tags(&["Running"])
+            .await
+            .expect("sixth batch should reconnect and succeed");
+
+        assert_eq!(
+            values[0].1.as_ref().expect("tag should succeed"),
+            &Value::Bool(true)
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
+        );
+    }
+
+    /// Verifies that writes pass the caller's tag name and converted value to the backend unchanged.
     #[tokio::test]
     async fn write_tag_passes_through_value_and_tag_name() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(state.clone(), vec![], vec![Ok(())], Ok(()))),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![Ok(())], Ok(())),
+        );
 
         session
             .write_tag("Setpoint", Value::Real(12.5))
@@ -671,13 +1106,175 @@ mod tests {
         assert!(matches!(locked.write_calls[0].1, PlcValue::Real(value) if value == 12.5));
     }
 
+    /// Regression guard for retryable write failures: the failed write is reported, the same call is not issued again by this wrapper, and the next operation reconnects automatically.
+    #[tokio::test]
+    async fn retryable_write_error_disconnects_and_next_operation_reconnects() {
+        let first_state = Arc::new(Mutex::new(MockState::default()));
+        let reconnected_state = Arc::new(Mutex::new(MockState::default()));
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            MockClient::new(
+                first_state.clone(),
+                vec![],
+                vec![Err(EtherNetIpError::Connection("write failed".to_owned()))],
+                Ok(()),
+            ),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                vec![Ok(MockClient::new(
+                    reconnected_state.clone(),
+                    vec![Ok(PlcValue::Dint(12))],
+                    vec![],
+                    Ok(()),
+                ))],
+            )),
+        );
+
+        let error = session
+            .write_tag("Setpoint", Value::Dint(12))
+            .await
+            .expect_err("write should report the dropped connection");
+        match error {
+            Error::WriteTag {
+                addr,
+                tag_name,
+                source,
+            } => {
+                assert_eq!(addr, "plc.local");
+                assert_eq!(tag_name, "Setpoint");
+                assert_eq!(source.to_string(), "Connection error: write failed");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        let value = session
+            .read_tag("Setpoint")
+            .await
+            .expect("next operation should reconnect");
+
+        assert_eq!(value, Value::Dint(12));
+        assert_eq!(
+            first_state
+                .lock()
+                .expect("mock state poisoned")
+                .write_calls
+                .len(),
+            1
+        );
+        assert_eq!(
+            reconnected_state
+                .lock()
+                .expect("mock state poisoned")
+                .read_calls,
+            vec!["Setpoint".to_owned()]
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
+    }
+
+    /// Verifies that repeated retryable write failures can reconnect until a later success.
+    #[tokio::test]
+    async fn retryable_write_errors_can_repeat_before_success() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let client = |result| mock_client_with_results(vec![], vec![], vec![result]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            client(Err(retryable_connection_error())),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                [
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Err(retryable_connection_error()))),
+                    Ok(client(Ok(()))),
+                ]
+                .into(),
+            )),
+        );
+
+        for _ in 0..5 {
+            session
+                .write_tag("Setpoint", Value::Dint(12))
+                .await
+                .expect_err("retryable failure should be returned");
+        }
+
+        session
+            .write_tag("Setpoint", Value::Dint(12))
+            .await
+            .expect("sixth write should reconnect and succeed");
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls
+                .len(),
+            5
+        );
+    }
+
+    /// Verifies that a failed automatic reconnect is reported as a connection error for the same address.
+    #[tokio::test]
+    async fn reconnect_failure_is_returned_as_connect_error() {
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            MockClient::new(
+                Arc::new(Mutex::new(MockState::default())),
+                vec![Err(EtherNetIpError::Connection("dropped".to_owned()))],
+                vec![],
+                Ok(()),
+            ),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                vec![Err(EtherNetIpError::Connection("still down".to_owned()))],
+            )),
+        );
+
+        session
+            .read_tag("Speed")
+            .await
+            .expect_err("first read should mark the client disconnected");
+
+        let error = session
+            .read_tag("Speed")
+            .await
+            .expect_err("reconnect should fail clearly");
+
+        match error {
+            Error::Connect { addr, source } => {
+                assert_eq!(addr, "plc.local");
+                assert_eq!(source.to_string(), "Connection error: still down");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
+    }
+
+    /// Verifies that structured writes encode the caller-owned type before sending it to the backend.
     #[tokio::test]
     async fn write_tag_struct_converts_typed_value() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(state.clone(), vec![], vec![Ok(())], Ok(()))),
-        };
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![Ok(())], Ok(())),
+        );
 
         session
             .write_tag_struct(
@@ -701,11 +1298,12 @@ mod tests {
         );
     }
 
+    /// Verifies that structured reads decode backend UDT bytes into the caller-owned target type.
     #[tokio::test]
     async fn read_tag_struct_decodes_typed_value() {
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(
                 Arc::new(Mutex::new(MockState::default())),
                 vec![Ok(PlcValue::Udt(rust_ethernet_ip::UdtData {
                     symbol_id: 11,
@@ -713,8 +1311,8 @@ mod tests {
                 }))],
                 vec![],
                 Ok(()),
-            )),
-        };
+            ),
+        );
 
         let value: ExampleStruct = session
             .read_tag_struct("Recipe")
@@ -729,17 +1327,18 @@ mod tests {
         );
     }
 
+    /// Verifies that structured reads reject scalar PLC values before attempting user decoding.
     #[tokio::test]
     async fn read_tag_struct_rejects_non_struct_value() {
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(
                 Arc::new(Mutex::new(MockState::default())),
                 vec![Ok(PlcValue::Bool(true))],
                 vec![],
                 Ok(()),
-            )),
-        };
+            ),
+        );
 
         let error = session
             .read_tag_struct::<ExampleStruct>("Recipe")
@@ -760,11 +1359,12 @@ mod tests {
         }
     }
 
+    /// Verifies that structured decode failures include the address, tag name, and target type.
     #[tokio::test]
     async fn read_tag_struct_wraps_decode_errors_with_context() {
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
+        let mut session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(
                 Arc::new(Mutex::new(MockState::default())),
                 vec![Ok(PlcValue::Udt(rust_ethernet_ip::UdtData {
                     symbol_id: 11,
@@ -772,8 +1372,8 @@ mod tests {
                 }))],
                 vec![],
                 Ok(()),
-            )),
-        };
+            ),
+        );
 
         let error = session
             .read_tag_struct::<ExampleStruct>("Recipe")
@@ -796,13 +1396,14 @@ mod tests {
         }
     }
 
+    /// Verifies that closing a session unregisters it through the backend client.
     #[tokio::test]
     async fn close_unregisters_session() {
         let state = Arc::new(Mutex::new(MockState::default()));
-        let session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(state.clone(), vec![], vec![], Ok(()))),
-        };
+        let session = ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state.clone(), vec![], vec![], Ok(())),
+        );
 
         session.close().await.expect("close should succeed");
 
