@@ -483,6 +483,7 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
+        self._require_open()
         channel = AnalogChannel(
             physical_channel=physical_channel,
             alias=alias if alias else physical_channel,
@@ -517,6 +518,7 @@ class InstroDAQ(Instrument):
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
+        self._require_open()
         if not samples_per_channel:
             samples_per_channel = max(1, int(sample_rate // 10))
 
@@ -667,6 +669,7 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
+        self._require_open()
         match direction:
             case Direction.INPUT:
                 self._driver.configure_di_line_channel(
@@ -703,6 +706,7 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
+        self._require_open()
         match direction:
             case Direction.INPUT:
                 self._driver.configure_di_port_channel(
@@ -831,6 +835,7 @@ class InstroDAQ(Instrument):
         alias: str | None = None,
     ):
         """Configure a relay channel (``physical_channel`` e.g. ``"3101"`` = slot 3 / channel 101)."""
+        self._require_open()
         self._driver.define_relay_channel(
             physical_channel=physical_channel,
             alias=alias,

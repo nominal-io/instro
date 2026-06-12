@@ -351,6 +351,24 @@ _GUARDED_METHODS = [
     ("close_relay", lambda daq: daq.close_relay("ch")),
     ("open_relay", lambda daq: daq.open_relay("ch")),
     ("get_points_in_buffer", lambda daq: daq.get_points_in_buffer()),
+    (
+        "configure_analog_channel",
+        lambda daq: daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0"),
+    ),
+    ("configure_ai_sample_rate", lambda daq: daq.configure_ai_sample_rate(sample_rate=100)),
+    (
+        "configure_digital_line",
+        lambda daq: daq.configure_digital_line(
+            direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH
+        ),
+    ),
+    (
+        "configure_digital_port",
+        lambda daq: daq.configure_digital_port(
+            direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8
+        ),
+    ),
+    ("configure_relay_channel", lambda daq: daq.configure_relay_channel(physical_channel="3101")),
 ]
 
 
@@ -688,6 +706,7 @@ def test_default_naming_write_digital_port_preserves_int_value_type():
 def test_channel_mapping_is_read_only():
     """The channel-dict properties return read-only mappings; mutating them raises."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -701,6 +720,7 @@ def test_channel_mapping_is_read_only():
 def test_channel_objects_are_frozen():
     """Channels handed back through a snapshot are frozen; attribute writes raise."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -713,6 +733,7 @@ def test_channel_objects_are_frozen():
 def test_channel_snapshot_is_not_a_live_view():
     """A captured snapshot does not reflect channels configured afterwards."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="a", logic=Logic.HIGH)
 
     snapshot = daq.do_channels
@@ -726,6 +747,7 @@ def test_channel_snapshot_is_not_a_live_view():
 def test_channels_property_returns_immutable_tuple():
     """The aggregate ``channels`` property returns a tuple snapshot."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -748,6 +770,7 @@ def test_stop_with_channel_type_forwards_kwarg_once():
 def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
     """The samples_per_channel default must never be 0; sub-10 Hz rates floor at 1."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
 
     daq.configure_ai_sample_rate(sample_rate=1.0)
 
