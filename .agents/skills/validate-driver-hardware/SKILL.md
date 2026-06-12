@@ -1,13 +1,6 @@
 ---
 name: validate-driver-hardware
-description: >-
-  Write and run a standalone hardware-validation script for an instro driver
-  against the real device, then iterate on the driver until every supported
-  method passes. Use after authoring a driver (the add-instrument-driver skill
-  hands off here) or when asked to "validate <driver> on hardware", "smoke-test
-  this driver against the real instrument", or similar. Produces a
-  self-contained, runnable test script under tests/<category>/<vendor>/ and a
-  triaged pass/fail report; self-corrects driver bugs found along the way.
+description: Write and run a standalone hardware-validation script for an instro driver against the real device, then iterate on the driver until every supported method passes. Use after authoring a driver (the add-instrument-driver skill hands off here) or when asked to "validate <driver> on hardware", "smoke-test this driver against the real instrument", or similar. Produces a self-contained, runnable test script under tests/<category>/<vendor>/ and a triaged pass/fail report; self-corrects driver bugs found along the way.
 ---
 
 # Validate a driver against real hardware
@@ -171,8 +164,7 @@ if __name__ == "__main__":
 ## Step 4 — Run it against the hardware
 
 Delegate execution to the **`hardware-test-runner` subagent**
-(`.codex/agents/hardware-test-runner.toml`) — ask Codex to spawn it for the run.
-The run is noisy — verbose VISA/
+(`.claude/agents/hardware-test-runner.md`). The run is noisy — verbose VISA/
 transport I/O and long tracebacks — and the subagent keeps that out of this
 conversation, returning a structured triage: overall pass/fail, per-step status,
 trimmed error excerpts, and a hypothesis classifying each failure as
