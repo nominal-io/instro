@@ -7,3 +7,7 @@ class InstroError(Exception):
 
 class FeatureNotSupportedError(InstroError):
     """Unsupported feature error."""
+
+
+class InstrumentNotOpenError(InstroError):
+    """Raised when an instrument method is called before open()."""
