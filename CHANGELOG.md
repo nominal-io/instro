@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/nominal-io/instro/compare/instro-v0.10.0...instro-v0.10.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **daq:** raise clear error when DAQ methods are called before open() ([#97](https://github.com/nominal-io/instro/issues/97)) ([9f9ed5d](https://github.com/nominal-io/instro/commit/9f9ed5dd496f632440d3d71e225350bd544b571a))
+
 ## [0.10.0](https://github.com/nominal-io/instro/compare/instro-v0.9.0...instro-v0.10.0) (2026-06-12)
 
 
