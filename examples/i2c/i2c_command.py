@@ -78,10 +78,6 @@ i2c = I2CInterface(
 )
 i2c.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-i2c.open()
-try:
+with i2c:
     value = i2c.query("VOLTAGE_ADC", "ch0")
     print(value)
-
-finally:
-    i2c.close()

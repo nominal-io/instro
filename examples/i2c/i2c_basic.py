@@ -98,8 +98,7 @@ i2c = I2CInterface(
 )
 i2c.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-i2c.open()
-try:
+with i2c:
     i2c.write("power_gpio", "LED_DIRECTION", 0x00)
     i2c.write("power_gpio", "LED_OUTPUT_STATE", 0xFF)
 
@@ -109,6 +108,3 @@ try:
         for i in range(1, 6):
             i2c.write("power_gpio", "LED_OUTPUT_STATE", int(state), f"led_{i}")
             time.sleep(0.25)
-
-finally:
-    i2c.close()

@@ -49,9 +49,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_analog_channel(
         direction=Direction.INPUT, physical_channel=CHANNEL_0, alias=f"ch_0", range_min=0, range_max=5
     )
@@ -75,6 +73,3 @@ try:
             break
 
     daq.stop()
-finally:
-    print("Closing DAQ")
-    daq.close()
