@@ -22,6 +22,7 @@ dependencies = [
     "textual>=0.80",
     "thermocouples>=2.1.2",
     "typer>=0.12",
+    "types-pyserial>=3.0",
 ]
 
 [project.optional-dependencies]

@@ -1,9 +1,12 @@
+import warnings
+
 import pyvisa
 import typer
+from serial.tools import list_ports
 
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 
-# create an instrument mapping
+# create an instrument mapping - false positives currently likely
 
 # should make the mapping into having company name and also having part #
 # and then checking both of them! I really need more hardware tests for reliable
@@ -24,25 +27,29 @@ _IDN_MAP = {
     # ^^ added this one back in, need to tune all the names though!
 }
 
-# I am a little worried about false positives, what exactly should these have? should I make the checks more complex
-
 
 def discover(backend: str | None = None) -> None:
     """Function for discovering known and unknown SCPI devices with VISA."""
-    # must create resource manager
+    # create list of real devices:
+    real_serial_ports = {p.device for p in list_ports.comports() if p.description != "n/a"}
+
+    # this section of code is quite inefficient
+    rm_py = pyvisa.ResourceManager("@py")
     if backend:
-        typer.echo("CHOOSING DEFAULT")
         rm = pyvisa.ResourceManager(backend)
+
     else:
         try:
             # automatically chooses a backend
-            # typer.echo("CHOOSING NOT DEFAULT")
-
             rm = pyvisa.ResourceManager("@ivi")
         except Exception:
             rm = pyvisa.ResourceManager("@py")
 
-    resources = rm.list_resources()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        resources = rm.list_resources()
+        py_resources = rm_py.list_resources()
+
     supported_devices: list[tuple[str, str, tuple[str, str]]] = []  # put all found VISA devices here
     unsupported_devices: list[str] = []  # put all found non-supported devices here
     serial_devices: list[tuple[str, str]] = []
@@ -53,17 +60,28 @@ def discover(backend: str | None = None) -> None:
         typer.echo(typer.style("NO DEVICES FOUND", fg=typer.colors.RED))
         return
 
-    for resource in resources:
+    print(len(py_resources))
+    print(len(resources))
+    for p in list_ports.comports():
+        print(f"{p.device}, description: {p.description}")
+
+    for idx, resource in enumerate(resources):
         if resource.startswith("ASRL"):
             # serial device, set for manual config
-            # skip ttyS ports, linux lists these even if
-            # only show USB serial devices (ttyUSB, ttyACM) which require physical hardware
-
             # are PCI/PCIe serial cards something to worry about?
-            if "ttyS" in resource and "ttyUSB" not in resource:
+
+            res_info = rm_py.resource_info(
+                py_resources[idx]
+            )  # this only works correctly if the pyresource always sees the same amount, or fewer of the resources available
+            # dev_path = res_info
+            print(res_info.resource_name)
+
+            if res_info.resource_name not in real_serial_ports:
+                print("NOT A REAL PORT")
                 continue
             serial_devices.append((resource, "serial - configure manually"))
             continue
+
         driver = VisaDriver(
             VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=2))
         )  # setting a 2 second timer
@@ -75,8 +93,7 @@ def discover(backend: str | None = None) -> None:
                 # we have valid device
                 supported_devices.append((idn, resource, match))  # match is the dict value
             else:
-                # implement
-                unsupported_devices.append(idn)  # should separate these by color
+                unsupported_devices.append(idn)
 
         except pyvisa.errors.VisaIOError as e:
             msg = "permission denied - check udev rules" if "SYSTEM_ERROR" in str(e) else str(e)
@@ -92,7 +109,6 @@ def discover(backend: str | None = None) -> None:
     ######################################################################### we want to test this functionality ^^
 
     # found devices should be filled now, show user what can be used, and what can't
-    # print supported
     for supported in supported_devices:
         print(f"{supported[1]}")
         print(f"{supported[0]}")
@@ -107,7 +123,7 @@ def discover(backend: str | None = None) -> None:
 
     for unsupported in unsupported_devices:
         print(f"{unsupported}")
-        typer.echo(typer.style("~ UNSUPPORTED", fg=typer.colors.RED))
+        typer.echo(typer.style("~ UNSUPPORTED FOR AUTODETECT", fg=typer.colors.RED))
         print(f"\n")
 
     # now let them make a selection
