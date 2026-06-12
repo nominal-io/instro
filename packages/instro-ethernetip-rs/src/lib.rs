@@ -182,9 +182,14 @@ impl ExplicitConnector for EipConnector {
 /// unregister handshake. Some transient protocol failures are retried by the backend before an
 /// operation returns; retryable errors that still escape mark the client disconnected so the next
 /// operation reconnects automatically.
+///
+/// The session keeps the original target address and route path separate from the active backend
+/// client. Retryable transport failures drop only the client; the next operation recreates it from
+/// the saved connection identity.
 pub struct ExplicitSession {
     addr: String,
     route_path_slots: Vec<u8>,
+    /// Active backend client. `None` means reconnect before the next operation.
     client: Option<Box<dyn ExplicitClient>>,
     connector: Box<dyn ExplicitConnector>,
 }
