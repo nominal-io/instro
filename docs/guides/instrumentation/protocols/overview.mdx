@@ -3,34 +3,19 @@ title: Protocols
 description: Protocol-based instrument communication for industrial protocols
 ---
 
-# Summary
+<Info>The Nominal Instrumentation Library is in alpha testing. To request access, open the [Support Portal](https://portal.usepylon.com/nominal).</Info>
 
-The Protocols module extends `instro` to support commonly used industrial communication protocols. Protocol-based instruments use **configuration files** that define how to interface with a device.
+# Protocols
 
-## Why Protocols?
+Protocol clients use JSON config files to describe device interfaces for standard industrial protocols. They complement instrument drivers: drivers expose purpose-built APIs for specific instrument categories, while protocol clients expose registers or tags on devices that speak Modbus or EtherNet/IP.
 
-The Instrumentation Library's [instrument drivers](/instrumentation/overview) (PSU, DMM, ELoad, etc.) provide rich, purpose-built interfaces for specific instrument categories. The Protocols module takes a complementary approach. Instead of building a dedicated driver for every device, it lets you describe any device's communication interface in a configuration file and start collecting data immediately.
+## When to use protocol clients
 
-This is valuable for several reasons:
+Use a protocol client when the device interface is already defined by a protocol and a config file can name the addresses, tags, and polling interval. The config becomes the portable definition of how Nominal reads the device; teams can version it with the test setup and change polling without editing Python.
 
-- **Broader hardware coverage, faster.** Industrial environments are full of devices that communicate over standard protocols: PLCs, sensors, motor controllers, environmental monitors, and more. Rather than waiting for a dedicated driver for each one, you can write a config file and be up and running in minutes.
+Use protocol clients for industrial devices that do not use SCPI or VISA transports, such as PLCs, sensors, motor controllers, and environmental monitors. Data from those devices flows through the same [publisher system](/instrumentation/publishers) and background worker infrastructure as instrument driver data.
 
-- **Config-driven workflows.** The configuration file becomes a portable, shareable description of how to talk to a device. Teams can version control their device configs, reuse them across test setups, and onboard new hardware without writing any Python. Changing which registers to poll or adjusting scaling factors is a config edit, not a code change.
+## Supported protocols
 
-- **Access to non-SCPI/VISA devices.** Many industrial devices don't speak SCPI or use VISA transports. Protocols like Modbus, OPC-UA, and EtherNet/IP are ubiquitous in manufacturing, process control, and test infrastructure. The Protocols module brings these devices into the same publisher and data pipeline as your bench instruments. Modbus ships today in the core package; see [Supported protocols](#supported-protocols) for what is available now and what is in development.
-
-- **Consistent data pipeline.** Protocol instruments integrate with the same [publisher system](/instrumentation/publishers) and background daemon infrastructure as the rest of the library. Regardless of which protocol your device speaks, data flows through the same path to Nominal.
-
-## Supported Protocols
-
-Stable, in the core `instro` package:
-
-- **[Modbus](/instrumentation/protocols/modbus)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and full publisher support.
-
-In development in the separate `instro-unstable` package, where APIs may change between releases:
-
-- **EtherNet/IP**: EtherNet/IP and CIP support for CompactLogix-class PLCs, via `instro.unstable.ethernetip` (`EtherNetIPDevice`).
-
-Planned, not yet available:
-
-- **OPC-UA**
+- **[Modbus](/instrumentation/protocols/modbus)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and publisher support.
+- **[EtherNet/IP](/instrumentation/protocols/ethernetip)**: Unstable Allen-Bradley PLC tag access with config-driven scalar reads, writes, and batched background collection.
