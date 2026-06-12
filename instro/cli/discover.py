@@ -69,25 +69,24 @@ def discover(backend: str | None = None) -> None:
     # for p in list_ports.comports():
     #     print(f"{p.device}, description: {p.description}")
 
+    # let's just use a separate loop for all the serial devices
+
+    for pr in py_resources or ():
+        if pr.startswith("ASRL"):
+            try:
+                res_info = rm_py.resource_info(pr)
+                # print("PRINTING NAME")
+                # print(res_info.resource_name, real_serial_ports)
+                # print("NOT A REAL PORT")
+                for rp in real_serial_ports:
+                    if res_info.resource_name and rp in res_info.resource_name:  # probably because this can be a None
+                        serial_devices.append((pr, "serial - configure manually"))
+                        break
+            except Exception:
+                pass
+
     for resource in resources:
         if resource.startswith("ASRL"):
-            # serial device, set for manual config
-            # are PCI/PCIe serial cards something to worry about?
-
-            try:
-                res_info = rm_py.resource_info(
-                    resource
-                )  # this only works correctly if the pyresource always sees the same amount, or fewer of the resources available
-                # print(res_info.resource_name)
-
-                if res_info.resource_name not in real_serial_ports:
-                    # print("NOT A REAL PORT")
-                    continue
-                serial_devices.append((resource, "serial - configure manually"))
-                continue
-            except Exception:
-                pass  # @py doesn't know this resource - trust @ivi and include it
-            serial_devices.append((resource, "serial - configure manually"))
             continue
 
         driver = VisaDriver(
