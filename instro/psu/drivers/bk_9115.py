@@ -18,43 +18,100 @@ class BK9115(PSUDriverBase):
         self._visa.close()
 
     def set_voltage(self, voltage: float, channel: int = 1) -> None:
+        _require_channel(channel)
         self._write_checked(f"VOLT {voltage:.3f}")
 
     def get_voltage(self, channel: int = 1) -> float:
+        _require_channel(channel)
         return self._query_checked_float("MEAS:VOLT?")
 
     def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+        _require_channel(channel)
         self._write_checked(f"CURR {current_limit:.3f}")
 
     def get_current(self, channel: int = 1) -> float:
+        _require_channel(channel)
         return self._query_checked_float("MEAS:CURR?")
 
     def output_enable(self, enable: bool, channel: int = 1) -> None:
+        _require_channel(channel)
         self._write_checked("OUTP:STAT ON" if enable else "OUTP:STAT OFF")
 
     def get_output_status(self, channel: int = 1) -> bool:
+        _require_channel(channel)
         with self._visa.lock():
             resp = self._visa.query("OUTP:STAT?")
             self._check_errors()
         return resp == "1"
 
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+        _require_channel(channel)
+        self._write_checked(f"VOLT:PROT {voltage:.3f}")
+
+    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+        _require_channel(channel)
+        return self._query_checked_float("VOLT:PROT?")
+
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+        _require_channel(channel)
+        self._write_checked("VOLT:PROT:STAT ON" if enabled else "VOLT:PROT:STAT OFF")
+
+    def get_overvoltage_protection_enabled(self, channel: int = 1) -> bool:
+        _require_channel(channel)
+        with self._visa.lock():
+            resp = self._visa.query("VOLT:PROT:STAT?")
+            self._check_errors()
+        return resp == "1"
+
+    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
+        _require_channel(channel)
+        self._write_checked(f"VOLT:PROT:DEL {delay:.3f}")
+
+    def get_overvoltage_protection_delay(self, channel: int = 1) -> float:
+        _require_channel(channel)
+        return self._query_checked_float("VOLT:PROT:DEL?")
+
     def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overcurrent_protection_level is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "set_overcurrent_protection_level is not supported by BK9115; the 9115 Series programming manual "
+            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+        )
 
     def get_overcurrent_protection_level(self, channel: int = 1) -> float:
-        raise FeatureNotSupportedError("get_overcurrent_protection_level is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "get_overcurrent_protection_level is not supported by BK9115; the 9115 Series programming manual "
+            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+        )
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_overcurrent_protection_enabled is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "set_overcurrent_protection_enabled is not supported by BK9115; the 9115 Series programming manual "
+            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+        )
 
     def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
-        raise FeatureNotSupportedError("get_overcurrent_protection_enabled is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "get_overcurrent_protection_enabled is not supported by BK9115; the 9115 Series programming manual "
+            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+        )
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
-        raise FeatureNotSupportedError("set_remote_sense_enabled is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "set_remote_sense_enabled is not supported by BK9115; the 9115 Series programming manual does not define "
+            "remote-sense commands."
+        )
 
     def get_remote_sense_enabled(self, channel: int = 1) -> bool:
-        raise FeatureNotSupportedError("get_remote_sense_enabled is not supported by BK9115")
+        _require_channel(channel)
+        raise FeatureNotSupportedError(
+            "get_remote_sense_enabled is not supported by BK9115; the 9115 Series programming manual does not define "
+            "remote-sense commands."
+        )
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
@@ -71,3 +128,8 @@ class BK9115(PSUDriverBase):
         err = self._visa.query("SYST:ERR?")
         if not err.startswith("0"):
             raise RuntimeError(f"BK PSU reported error: {err}")
+
+
+def _require_channel(channel: int) -> None:
+    if channel != 1:
+        raise ValueError("BK9115 channel must be 1")
