@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.0",
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
+    "pyusb>=1.3.1",
     "pyvisa>=1.15",
     # Enable every pyvisa-py backend for NI-VISA-level interface coverage: USB-TMC
     # (usb-full bundles libusb so no system libusb is needed), GPIB (gpib-ctypes; a
@@ -46,7 +47,7 @@ Repository = "https://github.com/nominal-io/instro"
 Issues = "https://github.com/nominal-io/instro/issues"
 
 [project.scripts]
-nominal-instro = "instro.cli.main:app"
+instro = "instro.cli.main:app"
 
 [build-system]
 requires = ["hatchling"]

@@ -76,6 +76,8 @@ def test_discover_two_supported_one_unsupported_one_serial():
                 result = runner.invoke(app, ["discover"])
 
     assert result.exit_code == 0
-    assert result.output.count("✓ SUPPORTED") == 2
-    assert result.output.count("~ UNSUPPORTED") == 1
-    assert "Arduino" in result.output
+    assert result.output.count("SUPPORTED DEVICES") == 2
+    assert result.output.count("UNSUPPORTED DEVICES") == 1
+    assert result.output.count("Keithley2400") == 1
+    assert result.output.count("AgilentA34401A")
+    assert "Arduino Uno" in result.output

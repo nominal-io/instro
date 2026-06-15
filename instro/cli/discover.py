@@ -2,6 +2,9 @@ import warnings
 
 import pyvisa
 import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 from serial.tools import list_ports
 
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
@@ -12,6 +15,17 @@ from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 # and then checking both of them! I really need more hardware tests for reliable
 # usage from company names... can a dict key be a tuple?
 # currently this mapping is not robust
+
+MARK = "⟢"
+# BACKGROUND = "#000000"
+GREEN = "#4ADE80"
+YELLOW = "#FDE68A"
+SURFACE = "#0C0C0C"
+FOREGROUND = "#FFFFFF"
+FOREGROUND_MUTED = "#A3A3A3"
+FOREGROUND_ERROR = "#B91C1C"
+BORDER = "#333333"
+
 
 _IDN_MAP = {
     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "AgilentA34401A"),
@@ -34,9 +48,12 @@ _IDN_MAP = {
 
 def discover(backend: str | None = None) -> None:
     """Function for discovering known and unknown SCPI devices with VISA."""
+    console = Console()
+    console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
+    console.print("\nScanning VISA resources ... \n", style="dim")
     # create list of real devices:
     serial_devices = [
-        ((p.device, p.manufacturer), "serial - configure manually")
+        ((p.device, p.manufacturer, p.product), "serial - configure manually")
         for p in list_ports.comports()
         if p.description != "n/a"
     ]
@@ -58,12 +75,10 @@ def discover(backend: str | None = None) -> None:
 
     supported_devices: list[tuple[str, str, tuple[str, str]]] = []  # put all found VISA devices here
     unsupported_devices: list[str] = []  # put all found non-supported devices here
-    # serial_devices: list[tuple[str, str]] = []
-    typer.echo(f"\nScanning VISA resources...\n")
 
     # for each resource, open a visadriver, query *IDN?, then close it!, wrapped in try/except
     if not resources:
-        typer.echo(typer.style("NO DEVICES FOUND", fg=typer.colors.RED))
+        console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
         return
 
     for resource in resources:
@@ -72,7 +87,7 @@ def discover(backend: str | None = None) -> None:
 
         driver = VisaDriver(
             VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=2))
-        )  # setting a 2 second timer
+        )  # setting a 2-second timer
         try:
             driver.open()
             idn = driver.query("*IDN?").strip()
@@ -88,7 +103,6 @@ def discover(backend: str | None = None) -> None:
                 ),
                 None,
             )
-            # match = next((v for k, v in _IDN_MAP.items() if k in idn), None)
             if match is not None:
                 # we have valid device
                 supported_devices.append((idn, resource, match))  # match is the dict value
@@ -97,42 +111,56 @@ def discover(backend: str | None = None) -> None:
 
         except pyvisa.errors.VisaIOError as e:
             msg = "permission denied - check udev rules" if "SYSTEM_ERROR" in str(e) else str(e)
-            typer.echo(typer.style(f"   {resource}: no response: ({msg})\n", fg=typer.colors.YELLOW))
+            console.print(f"   [{FOREGROUND_ERROR}]{resource}: no response: ({msg})[/]")
         except Exception as e:
-            typer.echo(typer.style(f"   {resource} unexpected error ({e})", fg=typer.colors.YELLOW))
+            err_str = str(e)
+            if "No backend available" in err_str or "PyUSB" in err_str:
+                msg = "USB backend missing - install libusb: brew install libusb (Mac) or apt install libusb-1.0.0 (Linux)"
+            else:
+                msg = err_str
+            console.print(f"   [{FOREGROUND_ERROR}]{resource}: unexpected error: ({msg})[/]")
             idn = None
         finally:
             driver.close()
-    # could do v2 functionality for probing serial.
-
-    ######################################################################### we want to test this functionality ^^
 
     # found devices should be filled now, show user what can be used, and what can't
 
     if not supported_devices and not unsupported_devices and not serial_devices:
         # not a single device found
-        typer.echo(typer.style(f"NO DEVICES FOUND", fg=typer.colors.RED, bold=True))
+        console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
+
+        # typer.echo(typer.style(f"NO DEVICES FOUND", fg=typer.colors.RED, bold=True))
     else:
-        for supported in supported_devices:
-            print(f"{supported[1]}")
-            print(f"{supported[0]}")
-            print(f"{supported[2][1]}")
-            typer.echo(typer.style("✓ SUPPORTED", fg=typer.colors.GREEN))
-            print(f"\n")
+        # now adding table support
+        if supported_devices:
+            table = Table(
+                title=f"[bold {GREEN}]SUPPORTED DEVICES", header_style=f"bold {FOREGROUND_MUTED}", border_style=BORDER
+            )
+            table.add_column("Resource", style=FOREGROUND, no_wrap=False)
+            table.add_column("Category", style=FOREGROUND_MUTED, no_wrap=False)
+            table.add_column("Driver", style=f"bold {FOREGROUND}", no_wrap=False)
+            for supported in supported_devices:
+                table.add_row(supported[1], supported[2][0], supported[2][1])
+            console.print(table)
 
-        for serial_device in serial_devices:
-            print(f"{serial_device[0]}")
-            typer.echo(typer.style(f"{serial_device[1]}", fg=typer.colors.YELLOW))
-            print(f"\n")
+        if serial_devices:
+            table_serial = Table(
+                title=f"[bold {YELLOW}]SERIAL DEVICES[/]", border_style=BORDER, header_style=f"bold {FOREGROUND_MUTED}"
+            )
+            table_serial.add_column("Address", style=FOREGROUND, no_wrap=False)
+            table_serial.add_column("Product", style=FOREGROUND_MUTED, no_wrap=False)
+            table_serial.add_column("Message", style=FOREGROUND_MUTED, no_wrap=False)
+            for serial_device in serial_devices:
+                table_serial.add_row(serial_device[0][0], serial_device[0][2], serial_device[1])
+            console.print(table_serial)
 
-        for unsupported in unsupported_devices:
-            print(f"{unsupported}")
-            typer.echo(typer.style("~ UNSUPPORTED", fg=typer.colors.RED))  # is unsupported the right word?
-            print(f"\n")
-
-    # now let them make a selection
-
-    # establish connection to selected device
-
-    # probably want to show all the different instruments available
-    # this is not simply a first-come first serve basis
+        if unsupported_devices:
+            table_unsp = Table(
+                title=f"[bold {FOREGROUND_ERROR}] UNSUPPORTED DEVICES[/]",
+                header_style=f"bold {FOREGROUND_MUTED}",
+                border_style=BORDER,
+            )
+            table_unsp.add_column("IDN Response", style=FOREGROUND, no_wrap=False)
+            for unsupported in unsupported_devices:
+                table_unsp.add_row(unsupported)
+            console.print(table_unsp)
