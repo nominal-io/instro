@@ -8,6 +8,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
+    "libusb>=1.0",
     "nominal>=1.99.0,<2.0.0",
     "pydantic>=2.0",
     "pymodbus>=3.10,<3.13",
