@@ -23,40 +23,40 @@ class BK9140(PSUDriverBase):
             self._visa.write(f"INST {channel - 1}")
             self._active_channel = channel
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         with self._visa.lock():
             self._channel_select_locked(channel)
             self._visa.write(f"VOLT {voltage:.3f}")
             self._check_errors()
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         with self._visa.lock():
             self._channel_select_locked(channel)
             value = self._visa.query("MEAS:VOLT?")
             self._check_errors()
             return float(value)
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         with self._visa.lock():
             self._channel_select_locked(channel)
             self._visa.write(f"CURR {current_limit:.3f}")
             self._check_errors()
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         with self._visa.lock():
             self._channel_select_locked(channel)
             value = self._visa.query("MEAS:CURR?")
             self._check_errors()
             return float(value)
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         cmd = "OUTP:STAT ON" if enable else "OUTP:STAT OFF"
         with self._visa.lock():
             self._channel_select_locked(channel)
             self._visa.write(cmd)
             self._check_errors()
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
             self._channel_select_locked(channel)
             resp = self._visa.query("OUTP:STAT?")

@@ -120,7 +120,7 @@ from instro.lib.transports import VisaConfig, VisaDriver
 
 
 class MyVendorPSU(PSUDriverBase):
-    """SCPI mapping for the MyVendor MV-1000 single-channel power supply."""
+    """SCPI mapping for the MyVendor MV-1000 multi-channel power supply."""
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
@@ -131,24 +131,24 @@ class MyVendorPSU(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
-        self._write_checked(f"VOLT {voltage:.3f}")
+    def set_voltage(self, voltage: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
-        return self._query_checked_float("MEAS:VOLT?")
+    def get_voltage(self, channel: int) -> float:
+        return self._query_checked_float(f":MEAS{channel}:VOLT?")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
-        self._write_checked(f"CURR {current_limit:.3f}")
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
-        return self._query_checked_float("MEAS:CURR?")
+    def get_current(self, channel: int) -> float:
+        return self._query_checked_float(f":MEAS{channel}:CURR?")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
-        self._write_checked("OUTP ON" if enable else "OUTP OFF")
+    def output_enable(self, enable: bool, channel: int) -> None:
+        self._write_checked(f":OUTP{channel}:STAT {'ON' if enable else 'OFF'}")
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
-            resp = self._visa.query("OUTP?")
+            resp = self._visa.query(f":OUTP{channel}:STAT?")
             self._check_errors()
         return resp == "1"
 
@@ -183,9 +183,9 @@ psu = InstroPSU(
 psu.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 
 psu.open()
-psu.set_voltage(12.0)
-psu.output_enable(True)
-print(psu.get_voltage())
+psu.set_voltage(12.0, channel=1)
+psu.output_enable(True, channel=1)
+print(psu.get_voltage(channel=1))
 psu.close()
 ```
 

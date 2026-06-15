@@ -89,7 +89,7 @@ def main():
             # Ramp up the PSU voltage
             eload.output_enable(True)
             for voltage in range(10):
-                psu.set_voltage(voltage)
+                psu.set_voltage(voltage, channel=1)
                 time.sleep(1)
 
             # Now keep the psu the same level and ramp up the eload resistance
@@ -101,7 +101,7 @@ def main():
         finally:
             # Put the test stand into a safe state before the instruments close.
             eload.output_enable(False)
-            psu.output_enable(False)
+            psu.output_enable(False, channel=1)
 
             time.sleep(3)  # give space so that shutdown is observed
 

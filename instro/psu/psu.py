@@ -58,51 +58,51 @@ class PSUDriverBase(abc.ABC):
         """Query whether the output on `channel` is enabled."""
         raise NotImplementedError(f"get_output_status is not implemented for {type(self).__name__}")
 
-    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+    def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         """Set the overvoltage protection threshold (volts) on `channel`."""
         raise NotImplementedError(f"set_overvoltage_protection_level is not implemented for {type(self).__name__}")
 
-    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+    def get_overvoltage_protection_level(self, channel: int) -> float:
         """Query the overvoltage protection threshold (volts) on `channel`."""
         raise NotImplementedError(f"get_overvoltage_protection_level is not implemented for {type(self).__name__}")
 
-    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
         """Enable or disable overvoltage protection on `channel`."""
         raise NotImplementedError(f"set_overvoltage_protection_enabled is not implemented for {type(self).__name__}")
 
-    def get_overvoltage_protection_enabled(self, channel: int = 1) -> bool:
+    def get_overvoltage_protection_enabled(self, channel: int) -> bool:
         """Query whether overvoltage protection is enabled on `channel`."""
         raise NotImplementedError(f"get_overvoltage_protection_enabled is not implemented for {type(self).__name__}")
 
-    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
+    def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
         """Set the overvoltage protection trip delay (seconds) on `channel`."""
         raise NotImplementedError(f"set_overvoltage_protection_delay is not implemented for {type(self).__name__}")
 
-    def get_overvoltage_protection_delay(self, channel: int = 1) -> float:
+    def get_overvoltage_protection_delay(self, channel: int) -> float:
         """Query the overvoltage protection trip delay (seconds) on `channel`."""
         raise NotImplementedError(f"get_overvoltage_protection_delay is not implemented for {type(self).__name__}")
 
-    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+    def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         """Set the overcurrent protection threshold (amperes) on `channel`."""
         raise NotImplementedError(f"set_overcurrent_protection_level is not implemented for {type(self).__name__}")
 
-    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+    def get_overcurrent_protection_level(self, channel: int) -> float:
         """Query the overcurrent protection threshold (amperes) on `channel`."""
         raise NotImplementedError(f"get_overcurrent_protection_level is not implemented for {type(self).__name__}")
 
-    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         """Enable or disable overcurrent protection on `channel`."""
         raise NotImplementedError(f"set_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
 
-    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+    def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         """Query whether overcurrent protection is enabled on `channel`."""
         raise NotImplementedError(f"get_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
 
-    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         """Enable or disable remote sense on `channel`."""
         raise NotImplementedError(f"set_remote_sense_enabled is not implemented for {type(self).__name__}")
 
-    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+    def get_remote_sense_enabled(self, channel: int) -> bool:
         """Query whether remote sense is enabled on `channel`."""
         raise NotImplementedError(f"get_remote_sense_enabled is not implemented for {type(self).__name__}")
 
@@ -198,7 +198,7 @@ class InstroPSU(Instrument):
         self._driver.close()
         logger.info("Closed PSU '%s'", self.name)
 
-    def set_voltage(self, voltage: float, channel: int = 1, **kwargs) -> Command:
+    def set_voltage(self, voltage: float, channel: int, **kwargs) -> Command:
         """Set the output voltage (volts) on ``channel``."""
         return self._execute_command(
             driver_method=self._driver.set_voltage,
@@ -209,13 +209,13 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_voltage(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_voltage(self, channel: int, **kwargs) -> Measurement | None:
         """Measure the voltage (volts) sensed at ``channel`` terminals. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage, channel=channel, channel_suffix="voltage", legacy_suffix="v", **kwargs
         )
 
-    def set_current_limit(self, current_limit: float, channel: int = 1, **kwargs) -> Command:
+    def set_current_limit(self, current_limit: float, channel: int, **kwargs) -> Command:
         """Set the current limit (amperes) on ``channel``."""
         return self._execute_command(
             self._driver.set_current_limit,
@@ -226,13 +226,13 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_current(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_current(self, channel: int, **kwargs) -> Measurement | None:
         """Measure the current (amperes) flowing through ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current, channel=channel, channel_suffix="current", legacy_suffix="i", **kwargs
         )
 
-    def output_enable(self, enable: bool, channel: int = 1, **kwargs) -> Command:
+    def output_enable(self, enable: bool, channel: int, **kwargs) -> Command:
         """Enable or disable the output on ``channel``."""
         return self._execute_command(
             self._driver.output_enable,
@@ -243,7 +243,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_output_status(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_output_status(self, channel: int, **kwargs) -> Measurement | None:
         """Query whether the output on ``channel`` is enabled. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_output_status,
@@ -253,7 +253,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1, **kwargs) -> Command:
+    def set_overvoltage_protection_level(self, voltage: float, channel: int, **kwargs) -> Command:
         """Set the overvoltage protection threshold (volts) on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_level,
@@ -264,7 +264,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_level(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_level(self, channel: int, **kwargs) -> Measurement | None:
         """Query the overvoltage protection threshold (volts) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_level,
@@ -274,7 +274,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
         """Enable or disable overvoltage protection on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_enabled,
@@ -285,7 +285,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_enabled(self, channel: int, **kwargs) -> Measurement | None:
         """Query whether overvoltage protection is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_enabled,
@@ -295,7 +295,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1, **kwargs) -> Command:
+    def set_overvoltage_protection_delay(self, delay: float, channel: int, **kwargs) -> Command:
         """Set the overvoltage protection trip delay (seconds) on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_delay,
@@ -306,7 +306,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_delay(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_delay(self, channel: int, **kwargs) -> Measurement | None:
         """Query the overvoltage protection trip delay (seconds) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_delay,
@@ -316,7 +316,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overcurrent_protection_level(self, current: float, channel: int = 1, **kwargs) -> Command:
+    def set_overcurrent_protection_level(self, current: float, channel: int, **kwargs) -> Command:
         """Set the overcurrent protection threshold (amperes) on ``channel``."""
         return self._execute_command(
             self._driver.set_overcurrent_protection_level,
@@ -327,7 +327,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overcurrent_protection_level(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overcurrent_protection_level(self, channel: int, **kwargs) -> Measurement | None:
         """Query the overcurrent protection threshold (amperes) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overcurrent_protection_level,
@@ -337,7 +337,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
         """Enable or disable overcurrent protection on ``channel``."""
         return self._execute_command(
             self._driver.set_overcurrent_protection_enabled,
@@ -348,7 +348,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overcurrent_protection_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_overcurrent_protection_enabled(self, channel: int, **kwargs) -> Measurement | None:
         """Query whether overcurrent protection is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overcurrent_protection_enabled,
@@ -358,7 +358,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
         """Enable or disable remote sense on ``channel``."""
         return self._execute_command(
             self._driver.set_remote_sense_enabled,
@@ -369,7 +369,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_remote_sense_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
+    def get_remote_sense_enabled(self, channel: int, **kwargs) -> Measurement | None:
         """Query whether remote sense is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_remote_sense_enabled,
