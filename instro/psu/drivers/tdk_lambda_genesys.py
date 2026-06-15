@@ -16,22 +16,22 @@ class TDKLambdaGenesys(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         self._write_checked(f"VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         return self._query_checked_float("MEAS:VOLT?")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         self._write_checked(f"CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         return self._query_checked_float("MEAS:CURR?")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         self._write_checked("OUTP:STAT ON" if enable else "OUTP:STAT OFF")
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
             resp = self._visa.query("OUTP:STAT?")
             self._check_errors()
