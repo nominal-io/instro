@@ -43,7 +43,7 @@ def driver(request: pytest.FixtureRequest) -> BK9115:
 
     def cleanup() -> None:
         try:
-            psu_driver.output_enable(False)
+            psu_driver.output_enable(False, channel=CHANNEL)
         finally:
             psu_driver.close()
 
@@ -57,7 +57,7 @@ def reset_before_each_test(driver: BK9115) -> None:
     # Real hardware may accept commands before reset processing has fully settled.
     driver._visa.query("*OPC?")
     driver._check_errors()
-    driver.output_enable(False)
+    driver.output_enable(False, channel=CHANNEL)
 
 
 def _queue_instrument_error(driver: BK9115) -> None:
@@ -87,7 +87,7 @@ def test_set_voltage_raises_after_instrument_error(driver: BK9115) -> None:
 
 
 def test_set_voltage_invalid_channel_raises_without_instrument_error(driver: BK9115) -> None:
-    with pytest.raises(ValueError, match="BK9115 channel must be 1"):
+    with pytest.raises(ValueError, match="BK 9115 channel must be 1"):
         driver.set_voltage(PROGRAMMED_VOLTAGE, channel=2)
 
     driver._check_errors()
@@ -118,7 +118,7 @@ def test_get_voltage_raises_after_instrument_error(driver: BK9115) -> None:
 
 
 def test_get_voltage_invalid_channel_raises_without_instrument_error(driver: BK9115) -> None:
-    with pytest.raises(ValueError, match="BK9115 channel must be 1"):
+    with pytest.raises(ValueError, match="BK 9115 channel must be 1"):
         driver.get_voltage(channel=2)
 
     driver._check_errors()

@@ -56,47 +56,47 @@ def test_bk_single_open_close_delegate_to_visa(bk_single: BK9115, bk_single_visa
 
 
 def test_bk_single_set_voltage_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_voltage(5.0)
+    bk_single.set_voltage(5.0, channel=1)
     bk_single_visa.write.assert_called_once_with("VOLT 5.000")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
 
 def test_bk_single_get_voltage_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["12.345", '0,"No error"']
-    assert bk_single.get_voltage() == pytest.approx(12.345)
+    assert bk_single.get_voltage(channel=1) == pytest.approx(12.345)
     assert bk_single_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
 
 
 def test_bk_single_set_current_limit_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_current_limit(1.25)
+    bk_single.set_current_limit(1.25, channel=1)
     bk_single_visa.write.assert_called_once_with("CURR 1.250")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
 
 def test_bk_single_get_current_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["0.500", '0,"No error"']
-    assert bk_single.get_current() == pytest.approx(0.5)
+    assert bk_single.get_current(channel=1) == pytest.approx(0.5)
 
 
 def test_bk_single_output_enable_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.output_enable(True)
+    bk_single.output_enable(True, channel=1)
     bk_single_visa.write.assert_called_once_with("OUTP:STAT ON")
-    bk_single.output_enable(False)
+    bk_single.output_enable(False, channel=1)
     assert bk_single_visa.write.call_args_list[-1] == call("OUTP:STAT OFF")
 
 
 def test_bk_single_get_output_status_parses(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["1", '0,"No error"']
-    assert bk_single.get_output_status() is True
+    assert bk_single.get_output_status(channel=1) is True
     bk_single_visa.query.side_effect = ["0", '0,"No error"']
-    assert bk_single.get_output_status() is False
+    assert bk_single.get_output_status(channel=1) is False
 
 
 def test_bk_single_set_overvoltage_protection_level_writes_checked(
     bk_single: BK9115,
     bk_single_visa: MagicMock,
 ) -> None:
-    bk_single.set_overvoltage_protection_level(12.5)
+    bk_single.set_overvoltage_protection_level(12.5, channel=1)
     bk_single_visa.write.assert_called_once_with("VOLT:PROT 12.500")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
@@ -106,7 +106,7 @@ def test_bk_single_get_overvoltage_protection_level_parses_response(
     bk_single_visa: MagicMock,
 ) -> None:
     bk_single_visa.query.side_effect = ["12.500", '0,"No error"']
-    assert bk_single.get_overvoltage_protection_level() == pytest.approx(12.5)
+    assert bk_single.get_overvoltage_protection_level(channel=1) == pytest.approx(12.5)
     assert bk_single_visa.query.call_args_list == [call("VOLT:PROT?"), call("SYST:ERR?")]
 
 
@@ -114,8 +114,8 @@ def test_bk_single_set_overvoltage_protection_enabled_writes_state(
     bk_single: BK9115,
     bk_single_visa: MagicMock,
 ) -> None:
-    bk_single.set_overvoltage_protection_enabled(True)
-    bk_single.set_overvoltage_protection_enabled(False)
+    bk_single.set_overvoltage_protection_enabled(True, channel=1)
+    bk_single.set_overvoltage_protection_enabled(False, channel=1)
     assert bk_single_visa.write.call_args_list == [call("VOLT:PROT:STAT ON"), call("VOLT:PROT:STAT OFF")]
 
 
@@ -124,16 +124,16 @@ def test_bk_single_get_overvoltage_protection_enabled_parses_state(
     bk_single_visa: MagicMock,
 ) -> None:
     bk_single_visa.query.side_effect = ["1", '0,"No error"']
-    assert bk_single.get_overvoltage_protection_enabled() is True
+    assert bk_single.get_overvoltage_protection_enabled(channel=1) is True
     bk_single_visa.query.side_effect = ["0", '0,"No error"']
-    assert bk_single.get_overvoltage_protection_enabled() is False
+    assert bk_single.get_overvoltage_protection_enabled(channel=1) is False
 
 
 def test_bk_single_set_overvoltage_protection_delay_writes_checked(
     bk_single: BK9115,
     bk_single_visa: MagicMock,
 ) -> None:
-    bk_single.set_overvoltage_protection_delay(0.25)
+    bk_single.set_overvoltage_protection_delay(0.25, channel=1)
     bk_single_visa.write.assert_called_once_with("VOLT:PROT:DEL 0.250")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
@@ -143,7 +143,7 @@ def test_bk_single_get_overvoltage_protection_delay_parses_response(
     bk_single_visa: MagicMock,
 ) -> None:
     bk_single_visa.query.side_effect = ["0.250", '0,"No error"']
-    assert bk_single.get_overvoltage_protection_delay() == pytest.approx(0.25)
+    assert bk_single.get_overvoltage_protection_delay(channel=1) == pytest.approx(0.25)
     assert bk_single_visa.query.call_args_list == [call("VOLT:PROT:DEL?"), call("SYST:ERR?")]
 
 
@@ -176,7 +176,7 @@ def test_bk_single_invalid_channel_raises_without_scpi(
     method_name: str,
     args: tuple[object, ...],
 ) -> None:
-    with pytest.raises(ValueError, match="BK9115 channel must be 1"):
+    with pytest.raises(ValueError, match="BK 9115 channel must be 1"):
         getattr(bk_single, method_name)(*args, channel=2)
 
     bk_single_visa.write.assert_not_called()
@@ -199,7 +199,7 @@ def test_bk_single_overcurrent_protection_methods_raise_unsupported(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="over-current as a status register bit"):
-        getattr(bk_single, method_name)(*args)
+        getattr(bk_single, method_name)(*args, channel=1)
 
     bk_single_visa.write.assert_not_called()
     bk_single_visa.query.assert_not_called()
@@ -219,7 +219,7 @@ def test_bk_single_remote_sense_methods_raise_unsupported(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="does not define remote-sense commands"):
-        getattr(bk_single, method_name)(*args)
+        getattr(bk_single, method_name)(*args, channel=1)
 
     bk_single_visa.write.assert_not_called()
     bk_single_visa.query.assert_not_called()
@@ -228,4 +228,4 @@ def test_bk_single_remote_sense_methods_raise_unsupported(
 def test_bk_single_check_errors_raises_on_nonzero(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="BK PSU reported error"):
-        bk_single.set_voltage(1.0)
+        bk_single.set_voltage(1.0, channel=1)
