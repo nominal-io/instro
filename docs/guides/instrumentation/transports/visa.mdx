@@ -320,6 +320,7 @@ print(rm.list_resources())
 | `RuntimeError: VisaDriver is not open. Call open() first.` | A `write`/`read`/`query`/`*_raw` call was made before `open()`, or after `close()`. |
 | `pyvisa.errors.VisaIOError` | The underlying VISA call failed: timeout, resource not found, bus error, instrument disconnected, etc. The `error_code` attribute identifies the cause (e.g. `VI_ERROR_TMO` for timeout). |
 | `pyvisa.errors.LibraryError` | The selected VISA backend could not be loaded. Because `instro` installs the default backend, this most often means an explicitly selected alternate backend is unavailable. Use the default backend or install the required vendor runtime. |
+| Opening a `GPIB...::INSTR` resource fails | The native GPIB driver is missing. `instro` ships the `gpib-ctypes` binding, but GPIB hardware also needs NI-488.2 (NI interfaces) or linux-gpib (Linux). Install the driver your interface requires. |
 
 <Tip>
 `VisaDriver` deliberately does not retry, reconnect, or wrap pyvisa errors. Higher-level recovery (retry policies, reconnection on transient failures, escalation to operators) belongs in the instrument driver or application code on top.
