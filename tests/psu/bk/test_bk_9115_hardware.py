@@ -13,11 +13,9 @@ from instro.psu.drivers.bk_9115 import BK9115
 pytestmark = pytest.mark.hardware
 
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
-# Set VISA_ADDRESS to the bench unit's VISA resource string. Set VISA_BACKEND
-# to "@ivi" for NI-VISA or Keysight IO Libraries, or "@py" for pyvisa-py.
+# Set VISA_ADDRESS to the bench unit's VISA resource string.
 # Keep the programmed values comfortably inside the specific unit's ratings.
 VISA_ADDRESS = "USB0::0xFFFF::0x9115::800422020766920015::INSTR"
-VISA_BACKEND = "@ivi"
 CHANNEL = 1
 PROGRAMMED_VOLTAGE = 1.0
 PROGRAMMED_CURRENT_LIMIT = 0.1
@@ -35,7 +33,6 @@ def driver(request: pytest.FixtureRequest) -> BK9115:
     psu_driver = BK9115(
         VisaConfig(
             visa_resource=VISA_ADDRESS,
-            visa_backend=VISA_BACKEND,
         )
     )
     try:
