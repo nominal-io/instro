@@ -5,7 +5,7 @@ description = "Typed Python API for test-and-measurement instruments: power supp
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
     "nominal>=1.99.0,<2.0.0",
@@ -13,7 +13,12 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
-    "pyvisa-py>=0.8.1,<0.9",
+    # Enable every pyvisa-py backend for NI-VISA-level interface coverage: USB-TMC
+    # (usb-full bundles libusb so no system libusb is needed), GPIB (gpib-ctypes; a
+    # native GPIB driver is still required), TCPIP discovery (psutil), HiSLIP discovery
+    # (hislip-discovery), and VICP (vicp). The ASRL/serial backend is covered by the
+    # pyserial dependency above.
+    "pyvisa-py[usb-full,gpib-ctypes,psutil,hislip-discovery,vicp]>=0.8.1,<0.9",
     "textual>=0.80",
     "thermocouples>=2.1.2",
 ]
