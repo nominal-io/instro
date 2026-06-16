@@ -15,7 +15,7 @@ pytestmark = pytest.mark.hardware
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
 # Set VISA_ADDRESS to the bench unit's VISA resource string.
 # Keep the programmed values comfortably inside the specific unit's ratings.
-VISA_ADDRESS = "USB0::0xFFFF::0x9115::800422020766920015::INSTR"
+VISA_ADDRESS = "EDIT_ME::INSTR"
 CHANNEL = 1
 PROGRAMMED_VOLTAGE = 1.0
 PROGRAMMED_CURRENT_LIMIT = 0.1
