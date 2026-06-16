@@ -1,7 +1,6 @@
 import warnings
 
 import pyvisa
-import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -51,6 +50,7 @@ def discover(backend: str | None = None) -> None:
     console = Console()
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
     console.print("\nScanning VISA resources ... \n", style="dim")
+    active_backend: str  # give a backend for everything
     # create list of real devices:
     serial_devices = [
         ((p.device, p.manufacturer, p.product), "serial - configure manually")
@@ -59,15 +59,18 @@ def discover(backend: str | None = None) -> None:
     ]
 
     # this section of code is quite inefficient
-    if backend:
+    if backend is not None:
         rm = pyvisa.ResourceManager(backend)
+        active_backend = backend
 
     else:
         try:
             # automatically chooses a backend
             rm = pyvisa.ResourceManager("@ivi")
+            active_backend = "@ivi"
         except Exception:
             rm = pyvisa.ResourceManager("@py")
+            active_backend = "@py"
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -86,7 +89,8 @@ def discover(backend: str | None = None) -> None:
             continue
 
         driver = VisaDriver(
-            VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=2))
+            VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=2), visa_backend=active_backend),
+            # we could just pass the active backend here.
         )  # setting a 2-second timer
         try:
             driver.open()
