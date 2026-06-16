@@ -27,21 +27,23 @@ daq = InstroDAQ(
     publishers=[FilePublisher(directory="./captures", format="avro", custom_file_name="test_file")],
 )
 
-daq.open()
+with daq:
+    daq.configure_analog_channel(
+        direction=Direction.INPUT, physical_channel=AI_CH0, alias="ai_0", range_min=0, range_max=5
+    )
+    daq.configure_analog_channel(
+        direction=Direction.INPUT, physical_channel=AI_CH1, alias="ai_1", range_min=0, range_max=5
+    )
+    daq.configure_analog_channel(
+        direction=Direction.OUTPUT, physical_channel=AO_CH0, alias="ao_0", range_min=0, range_max=5
+    )
+    daq.configure_analog_channel(
+        direction=Direction.OUTPUT, physical_channel=AO_CH1, alias="ao_1", range_min=0, range_max=5
+    )
+    daq.configure_ai_sample_rate(sample_rate=100)
 
-daq.configure_analog_channel(direction=Direction.INPUT, physical_channel=AI_CH0, alias="ai_0", range_min=0, range_max=5)
-daq.configure_analog_channel(direction=Direction.INPUT, physical_channel=AI_CH1, alias="ai_1", range_min=0, range_max=5)
-daq.configure_analog_channel(
-    direction=Direction.OUTPUT, physical_channel=AO_CH0, alias="ao_0", range_min=0, range_max=5
-)
-daq.configure_analog_channel(
-    direction=Direction.OUTPUT, physical_channel=AO_CH1, alias="ao_1", range_min=0, range_max=5
-)
-daq.configure_ai_sample_rate(sample_rate=100)
+    daq.start()
 
-daq.start()
-
-try:
     while True:
         try:
             ai_0 = daq.get_channel("myDAQ.ai_0", 1, True).latest
@@ -51,6 +53,4 @@ try:
         except KeyboardInterrupt:
             break
     daq.stop()
-finally:
-    daq.close()
 ```

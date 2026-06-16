@@ -37,10 +37,7 @@ SLOW_SAMPLE_RATE = 1000  # Hz
 daq_fast = InstroDAQ(name="daqFast", driver=NIDAQDriver(device_id=DEVICE))
 daq_slow = InstroDAQ(name="daqSlow", driver=NIDAQDriver(device_id=DEVICE))
 
-daq_fast.open()
-daq_slow.open()
-
-try:
+with daq_fast, daq_slow:
     # A physical channel belongs to exactly one instance; allocate without overlap.
     # Each instance streams CHANNELS_PER_TASK channels from its own module.
     for i in range(CHANNELS_PER_TASK):
@@ -77,8 +74,4 @@ try:
     # The acquisitions are independent: stopping one does not affect the other.
     daq_fast.stop()
     daq_slow.stop()
-finally:
-    print("Closing DAQs")
-    daq_fast.close()
-    daq_slow.close()
 ```

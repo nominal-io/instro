@@ -17,8 +17,7 @@ CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020}
 
 def main() -> None:
     device = ModbusDevice(config=CONFIG_PATH, connection=CONNECTION)
-    device.open()
-    try:
+    with device:
         # Read a holding register (float32 temperature, seeded to 72.5 in the sim).
         m = device.read("temperature")
         print(f"temperature: {m.latest}")
@@ -30,8 +29,6 @@ def main() -> None:
         # Read back to confirm the write landed.
         m = device.read("setpoint")
         print(f"setpoint (after write): {m.latest}")
-    finally:
-        device.close()
 
 
 if __name__ == "__main__":

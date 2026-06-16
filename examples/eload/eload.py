@@ -28,9 +28,8 @@ eload = InstroELoad(
 eload.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 eload.background_interval = 0.5  # query eload for new values every half second.
-eload.open()
 
-try:
+with eload:
     # This launches a background daemon that queries the measured voltage, current, and output state.
     eload.start()
 
@@ -57,6 +56,3 @@ try:
     time.sleep(0.5)
 
     eload.output_enable(enable=False)
-
-finally:
-    eload.close()

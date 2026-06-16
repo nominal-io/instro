@@ -126,7 +126,7 @@ def test_siglent_check_errors_raises_on_nonzero(siglent: SiglentSPD3303, siglent
     siglent_visa.query.return_value = '-100,"Command error"'
 
     with pytest.raises(RuntimeError, match="Siglent PSU reported error"):
-        siglent.set_voltage(1.0)
+        siglent.set_voltage(1.0, channel=1)
 
 
 def test_siglent_set_voltage_channel_three_unsupported_does_not_send_scpi(
@@ -200,7 +200,7 @@ def test_siglent_set_overvoltage_protection_level_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overvoltage_protection_level is not supported"):
-        siglent.set_overvoltage_protection_level(12.0)
+        siglent.set_overvoltage_protection_level(12.0, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -211,7 +211,7 @@ def test_siglent_get_overvoltage_protection_level_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overvoltage_protection_level is not supported"):
-        siglent.get_overvoltage_protection_level()
+        siglent.get_overvoltage_protection_level(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -222,7 +222,7 @@ def test_siglent_set_overvoltage_protection_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overvoltage_protection_enabled is not supported"):
-        siglent.set_overvoltage_protection_enabled(True)
+        siglent.set_overvoltage_protection_enabled(True, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -233,7 +233,7 @@ def test_siglent_get_overvoltage_protection_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overvoltage_protection_enabled is not supported"):
-        siglent.get_overvoltage_protection_enabled()
+        siglent.get_overvoltage_protection_enabled(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -244,7 +244,7 @@ def test_siglent_set_overvoltage_protection_delay_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overvoltage_protection_delay is not supported"):
-        siglent.set_overvoltage_protection_delay(0.25)
+        siglent.set_overvoltage_protection_delay(0.25, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -255,7 +255,7 @@ def test_siglent_get_overvoltage_protection_delay_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overvoltage_protection_delay is not supported"):
-        siglent.get_overvoltage_protection_delay()
+        siglent.get_overvoltage_protection_delay(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -266,7 +266,7 @@ def test_siglent_set_overcurrent_protection_level_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overcurrent_protection_level is not supported"):
-        siglent.set_overcurrent_protection_level(1.0)
+        siglent.set_overcurrent_protection_level(1.0, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -277,7 +277,7 @@ def test_siglent_get_overcurrent_protection_level_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overcurrent_protection_level is not supported"):
-        siglent.get_overcurrent_protection_level()
+        siglent.get_overcurrent_protection_level(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -288,7 +288,7 @@ def test_siglent_set_overcurrent_protection_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_overcurrent_protection_enabled is not supported"):
-        siglent.set_overcurrent_protection_enabled(True)
+        siglent.set_overcurrent_protection_enabled(True, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -299,7 +299,7 @@ def test_siglent_get_overcurrent_protection_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_overcurrent_protection_enabled is not supported"):
-        siglent.get_overcurrent_protection_enabled()
+        siglent.get_overcurrent_protection_enabled(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -310,7 +310,7 @@ def test_siglent_set_remote_sense_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="set_remote_sense_enabled is not supported"):
-        siglent.set_remote_sense_enabled(True)
+        siglent.set_remote_sense_enabled(True, channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
@@ -321,7 +321,7 @@ def test_siglent_get_remote_sense_enabled_unsupported(
     siglent_visa: MagicMock,
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_remote_sense_enabled is not supported"):
-        siglent.get_remote_sense_enabled()
+        siglent.get_remote_sense_enabled(channel=1)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()
