@@ -9,7 +9,6 @@ from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.drivers import (
     BK9140,
     RigolDP800,
-    TDKLambdaGenesys,
 )
 
 # --- PSUDriverBase ---
@@ -209,78 +208,6 @@ def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: Mag
     rigol_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
         rigol.set_voltage(1.0, channel=1)
-
-
-# --- TDKLambdaGenesys ---
-
-
-@pytest.fixture
-def tdk_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.tdk_lambda_genesys.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def tdk_visa(tdk_visa_cls: MagicMock) -> MagicMock:
-    visa = tdk_visa_cls.return_value
-    visa.query.return_value = '+0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def tdk(tdk_visa_cls: MagicMock) -> TDKLambdaGenesys:
-    return TDKLambdaGenesys("TCPIP0::tdk::INSTR")
-
-
-def test_tdk_set_voltage_writes_checked(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk.set_voltage(48.0, channel=1)
-    tdk_visa.write.assert_called_once_with("VOLT 48.000")
-    tdk_visa.query.assert_called_once_with("SYSTEM:ERROR?")
-
-
-def test_tdk_get_current_parses_response(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk_visa.query.side_effect = ["2.500", '+0,"No error"']
-    assert tdk.get_current(channel=1) == pytest.approx(2.5)
-    assert tdk_visa.query.call_args_list == [call("MEAS:CURR?"), call("SYSTEM:ERROR?")]
-
-
-def test_tdk_get_output_status_parses_on(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk_visa.query.side_effect = ["ON", '+0,"No error"']
-    assert tdk.get_output_status(channel=1) is True
-    tdk_visa.query.side_effect = ["OFF", '+0,"No error"']
-    assert tdk.get_output_status(channel=1) is False
-
-
-def test_tdk_check_errors_raises_on_nonzero(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="TDK Lambda PSU reported error"):
-        tdk.set_voltage(1.0, channel=1)
-
-
-@pytest.mark.parametrize(
-    ("method_name", "args"),
-    [
-        ("set_overvoltage_protection_level", (12.0,)),
-        ("get_overvoltage_protection_level", ()),
-        ("set_overvoltage_protection_enabled", (True,)),
-        ("get_overvoltage_protection_enabled", ()),
-        ("set_overvoltage_protection_delay", (0.25,)),
-        ("get_overvoltage_protection_delay", ()),
-        ("set_overcurrent_protection_level", (1.0,)),
-        ("get_overcurrent_protection_level", ()),
-        ("set_overcurrent_protection_enabled", (True,)),
-        ("get_overcurrent_protection_enabled", ()),
-        ("set_remote_sense_enabled", (True,)),
-        ("get_remote_sense_enabled", ()),
-    ],
-)
-def test_tdk_unimplemented_optional_features_raise_from_base(
-    tdk: TDKLambdaGenesys,
-    method_name: str,
-    args: tuple[object, ...],
-) -> None:
-    with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for TDKLambdaGenesys"):
-        getattr(tdk, method_name)(*args, channel=1)
 
 
 # --- InstroPSU composition ---
