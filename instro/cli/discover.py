@@ -138,7 +138,7 @@ def discover(backend: str | None = None) -> None:
         # now adding table support
         if supported_devices:
             table = Table(
-                title=f"[bold {GREEN}]SUPPORTED DEVICES", header_style=f"bold {FOREGROUND_MUTED}", border_style=BORDER
+                title=f"[bold {GREEN}]RECOGNIZED DEVICES", header_style=f"bold {FOREGROUND_MUTED}", border_style=BORDER
             )
             table.add_column("Resource", style=FOREGROUND, no_wrap=False)
             table.add_column("Category", style=FOREGROUND_MUTED, no_wrap=False)
@@ -149,7 +149,7 @@ def discover(backend: str | None = None) -> None:
 
         if serial_devices:
             table_serial = Table(
-                title=f"[bold {YELLOW}]SERIAL DEVICES[/]", border_style=BORDER, header_style=f"bold {FOREGROUND_MUTED}"
+                title=f"[bold {FOREGROUND_MUTED}]SERIAL DEVICES[/]", border_style=BORDER, header_style=f"bold {FOREGROUND_MUTED}"
             )
             table_serial.add_column("Address", style=FOREGROUND, no_wrap=False)
             table_serial.add_column("Product", style=FOREGROUND_MUTED, no_wrap=False)
@@ -160,7 +160,7 @@ def discover(backend: str | None = None) -> None:
 
         if unsupported_devices:
             table_unsp = Table(
-                title=f"[bold {FOREGROUND_ERROR}] UNSUPPORTED DEVICES[/]",
+                title=f"[bold {YELLOW}]UNRECOGNIZED DEVICES[/]",
                 header_style=f"bold {FOREGROUND_MUTED}",
                 border_style=BORDER,
             )
