@@ -453,7 +453,7 @@ class InstroDAQ(Instrument):
         logger.info("Opened DAQ '%s'", self.name)
 
     def close(self):
-        """Close the underlying driver and stop the daemon."""
+        """Run full teardown unconditionally: daemon, then publishers, then the driver, which owns its idempotency."""
         logger.info("Closing DAQ '%s'", self.name)
         super().close()
         self._driver.close()
@@ -561,9 +561,13 @@ class InstroDAQ(Instrument):
             super().start()
 
     def stop(self, **kwargs):
-        """Stop the DAQ device."""
-        self._require_open()
+        """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        # Skip the device stop when not open: some drivers' stop() issues a transport
+        # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
+        # routes through here, so this gate keeps close-before-open from raising.
+        if not self._is_open:
+            return
         channel_type = kwargs.pop("channel_type", None)
         self._driver.stop(channel_type=channel_type, **kwargs)
 
