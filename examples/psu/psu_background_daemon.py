@@ -21,9 +21,8 @@ psu = InstroPSU(
 psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 psu.background_interval = 0.5  # query psu for new values every half second.
-psu.open()
 
-try:
+with psu:
     # This launches a background daemon that queries the measured voltage, current, and output state.
     psu.start()
 
@@ -47,6 +46,3 @@ try:
 
     print("Done")
     psu.output_enable(False, 1)
-
-finally:
-    psu.close()

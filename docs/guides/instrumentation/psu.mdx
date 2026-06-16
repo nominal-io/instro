@@ -188,7 +188,7 @@ In this mode:
 **Default PSU Background Daemon**
 
 For each <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip>:
-- Output voltage (via `get_voltage()`)
+- Output voltage (via `get_voltage(channel=...)`)
 - Output current (via `get_current()`)
 - Output enable status (via `get_output_status()`)
 
@@ -206,7 +206,7 @@ See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for m
 
 Data is published as a direct result of an instrument method being called.
 
-For example, when you call `get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+For example, when you call `get_voltage(channel=1)`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
 
 Therefore the background daemon, when calling these instrument methods, is publishing data in the background as well!
 </Note>
@@ -243,85 +243,30 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
-| `set_voltage(voltage, channel=1)` | Set voltage setpoint in volts |
-| `get_voltage(channel=1)` | Read measured output voltage in volts |
-| `set_current_limit(current_limit, channel=1)` | Set current limit in amperes |
-| `get_current(channel=1)` | Read measured output current in amperes |
-| `output_enable(enable, channel=1)` | Enable (True) or disable (False) the output |
-| `get_output_status(channel=1)` | Query output enable state (returns Measurement with bool value) |
-| `set_overvoltage_protection_level(voltage, channel=1)` | Set the overvoltage protection threshold in volts |
-| `get_overvoltage_protection_level(channel=1)` | Read the overvoltage protection threshold in volts |
-| `set_overvoltage_protection_enabled(enabled, channel=1)` | Enable or disable overvoltage protection |
-| `get_overvoltage_protection_enabled(channel=1)` | Query whether overvoltage protection is enabled |
-| `set_overvoltage_protection_delay(delay, channel=1)` | Set the overvoltage protection trip delay in seconds |
-| `get_overvoltage_protection_delay(channel=1)` | Read the overvoltage protection trip delay in seconds |
-| `set_overcurrent_protection_level(current, channel=1)` | Set the overcurrent protection threshold in amperes |
-| `get_overcurrent_protection_level(channel=1)` | Read the overcurrent protection threshold in amperes |
-| `set_overcurrent_protection_enabled(enabled, channel=1)` | Enable or disable overcurrent protection |
-| `get_overcurrent_protection_enabled(channel=1)` | Query whether overcurrent protection is enabled |
-| `set_remote_sense_enabled(enabled, channel=1)` | Enable or disable remote sense |
-| `get_remote_sense_enabled(channel=1)` | Query whether remote sense is enabled |
+| `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
+| `get_voltage(channel=N)` | Read measured output voltage in volts |
+| `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |
+| `get_current(channel=N)` | Read measured output current in amperes |
+| `output_enable(enable, channel=N)` | Enable (True) or disable (False) the output |
+| `get_output_status(channel=N)` | Query output enable state (returns Measurement with bool value) |
+| `set_overvoltage_protection_level(voltage, channel=N)` | Set the overvoltage protection threshold in volts |
+| `get_overvoltage_protection_level(channel=N)` | Read the overvoltage protection threshold in volts |
+| `set_overvoltage_protection_enabled(enabled, channel=N)` | Enable or disable overvoltage protection |
+| `get_overvoltage_protection_enabled(channel=N)` | Query whether overvoltage protection is enabled |
+| `set_overvoltage_protection_delay(delay, channel=N)` | Set the overvoltage protection trip delay in seconds |
+| `get_overvoltage_protection_delay(channel=N)` | Read the overvoltage protection trip delay in seconds |
+| `set_overcurrent_protection_level(current, channel=N)` | Set the overcurrent protection threshold in amperes |
+| `get_overcurrent_protection_level(channel=N)` | Read the overcurrent protection threshold in amperes |
+| `set_overcurrent_protection_enabled(enabled, channel=N)` | Enable or disable overcurrent protection |
+| `get_overcurrent_protection_enabled(channel=N)` | Query whether overcurrent protection is enabled |
+| `set_remote_sense_enabled(enabled, channel=N)` | Enable or disable remote sense |
+| `get_remote_sense_enabled(channel=N)` | Query whether remote sense is enabled |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
 
 # Simulated Power Supply
 
-For development and testing without physical hardware, `instro` includes a simulated SCPI power supply server and a matching `SimulatedPSU`. This allows you to test your code and workflows before connecting to real instruments.
-
-## Starting the Simulation Server
-
-Run the simulation server from the command line:
-
-```bash
-python -m instro.psu.scpi_sim_server
-```
-
-The server will start listening on `127.0.0.1:5025` and simulate a basic SCPI-compatible power supply.
-
-<Note>
-The simulation server runs indefinitely until you stop it with `Ctrl+C`. Leave it running in a terminal while you develop and test your code.
-</Note>
-
-## Using the Simulated PSU
-
-Connect to the simulated power supply with `SimulatedPSU` and a socket-based VISA resource string:
-
-```python
-from instro.psu.drivers import SimulatedPSU
-from instro.psu import InstroPSU
-
-# Connect to the simulated PSU
-psu = InstroPSU(
-    name="simPSU",
-    driver=SimulatedPSU(visa_resource="TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-)
-
-psu.open()
-
-# Use normally - the simulated PSU responds to all standard commands
-psu.set_voltage(12.0, channel=1)
-psu.set_current_limit(1.5, channel=1)
-psu.output_enable(True, channel=1)
-
-voltage = psu.get_voltage(channel=1)
-print(f"Voltage: {voltage.latest}V")
-
-psu.close()
-```
-
-## Use Cases
-
-The simulated PSU is useful for:
-
-- **Development**: Test your code without requiring physical hardware
-- **CI/CD**: Run automated tests in continuous integration environments
-- **Training**: Learn the InstroPSU API without risk to equipment
-- **Prototyping**: Design test sequences before hardware arrives
-
-<Note>
-The simulated PSU provides realistic responses but does not model physical behavior like voltage ripple, load regulation, or thermal effects. Always validate your code with real hardware before production use.
-</Note>
+For development and testing without physical hardware, Nominal Instrumentation includes a local SCPI power-supply simulator. See [PSU simulator](/instrumentation/psu-simulator) for the quickstart, usage notes, and supported command set.
 
 ---
 
@@ -455,22 +400,22 @@ class BK9115(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         self._write_checked(f"VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         return self._query_checked_float("MEAS:VOLT?")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         self._write_checked(f"CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         return self._query_checked_float("MEAS:CURR?")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         self._write_checked("OUTP:STAT ON" if enable else "OUTP:STAT OFF")
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
             resp = self._visa.query("OUTP:STAT?")
             self._check_errors()
@@ -527,12 +472,12 @@ class MyCustomPSUDriver(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         self._visa.write(f"VOLTAGE {voltage}")
 
     # ... implement other required methods ...
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         return self._visa.query("OUTP?") == "ON"
 
 

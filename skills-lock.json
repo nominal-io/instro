@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "add-instrument-driver": {
+      "canonicalPath": ".agents/skills/add-instrument-driver/SKILL.md",
+      "derivedPaths": [
+        ".claude/skills/add-instrument-driver/SKILL.md"
+      ],
+      "hash": "59a916e18aeb6a913b77c2c1de0ef2776d91c98a2df6240f80266205ce7f324d",
+      "lastSynced": "2026-06-12T04:47:22.109Z"
+    },
+    "validate-driver-hardware": {
+      "canonicalPath": ".agents/skills/validate-driver-hardware/SKILL.md",
+      "derivedPaths": [
+        ".claude/skills/validate-driver-hardware/SKILL.md"
+      ],
+      "hash": "bf2567faf7ee026527b41b5aa73439deaa2e49057dbef0d73748fbb100c26e5f",
+      "lastSynced": "2026-06-12T04:47:22.110Z"
+    }
+  }
+}

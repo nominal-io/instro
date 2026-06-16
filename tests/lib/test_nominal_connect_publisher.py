@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from instro.lib.publishers.nominal_connect import NominalConnectPublisher
+from instro.lib.publishers import NominalConnectPublisher
 from instro.lib.types import Measurement
 
 

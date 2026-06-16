@@ -313,6 +313,29 @@ def test_plc_value_preserves_explicit_scalar_kinds() -> None:
         assert value.value == expected_payload
 
 
+def test_batch_error_subclasses_form_expected_hierarchy() -> None:
+    """Per-variant batch errors are exposed as subclasses of EtherNetIpBatchError."""
+    EtherNetIpError = ethernetip.EtherNetIpError
+    EtherNetIpBatchError = ethernetip.EtherNetIpBatchError
+
+    assert issubclass(EtherNetIpBatchError, EtherNetIpError)
+
+    variant_classes = [
+        ethernetip.TagNotFoundError,
+        ethernetip.DataTypeMismatchError,
+        ethernetip.NetworkBatchError,
+        ethernetip.CipError,
+        ethernetip.TagPathError,
+        ethernetip.SerializationError,
+        ethernetip.BatchTimeoutError,
+        ethernetip.OtherBatchError,
+    ]
+    for cls in variant_classes:
+        assert issubclass(cls, EtherNetIpBatchError)
+        assert issubclass(cls, EtherNetIpError)
+        assert cls.__module__ == "instro.unstable._ethernetip"
+
+
 def test_plc_value_wraps_structured_payload_explicitly() -> None:
     """Structured payloads live inside a structured `PlcValue`, not alongside it."""
     payload = StructuredValue(symbol_id=7, data=b"\x01\x02\x03")

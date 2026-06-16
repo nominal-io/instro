@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
@@ -64,7 +65,7 @@ def test_construction_accepts_raw_resource_string(mock_pyvisa):
 
     driver.open()
 
-    rm_class.assert_called_once_with("@ivi")
+    rm_class.assert_called_once_with("@py")
     rm_instance.open_resource.assert_called_once_with("USB0::0x1234::0x5678::SERIAL::INSTR")
 
 
@@ -413,3 +414,20 @@ def test_transactional_lock_blocks_other_threads_until_released(mock_pyvisa):
 
     assert write_finished.is_set()
     resource.write.assert_called_once_with("BLOCKED")
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "usb",  # pyusb: USB-TMC backend
+        "libusb_package",  # bundled libusb so USB needs no system library
+        "gpib_ctypes",  # GPIB binding
+        "serial",  # pyserial: ASRL/serial backend
+        "psutil",  # TCPIP resource discovery
+        "zeroconf",  # HiSLIP discovery
+        "pyvicp",  # VICP backend
+    ],
+)
+def test_visa_backend_package_is_installed(module: str) -> None:
+    """Every pyvisa-py backend the default @py setup relies on must ship with instro (issue #102)."""
+    assert importlib.util.find_spec(module) is not None

@@ -49,9 +49,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_0,
@@ -68,7 +66,3 @@ try:
     read0 = daq.read_digital_line(channel="di_0")
     read1 = daq.read_digital_line(channel="di_1")
     print(f"Values: ", read0.latest, read1.latest)
-
-finally:
-    print("Closing DAQ")
-    daq.close()

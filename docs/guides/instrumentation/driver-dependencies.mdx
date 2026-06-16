@@ -26,21 +26,26 @@ Before using `instro` with specific instrument types, you must install the corre
 
 ## VISA
 
-VISA (Virtual Instrument Software Architecture) is required by `instro` for all SCPI/VISA based instrument connections.
+VISA (Virtual Instrument Software Architecture) is used by `instro` for all SCPI/VISA based instrument connections. `instro` installs `pyvisa`, the `pyvisa-py` Python backend, and every backend library `pyvisa-py` can use, so TCP/IP (SOCKET, VXI-11, HiSLIP), USB-TMC, serial, and VICP resources work without a vendor VISA runtime. GPIB also uses `pyvisa-py`, but the hardware additionally needs a native GPIB driver (see below). PXI and VXI are the only interfaces a pure-Python backend cannot drive; those still require a vendor runtime.
 
-- **NI VISA** (IVI-compatible VISA driver) like NI-VISA
 - **pyvisa** (Python VISA library)
-
-VISA must be installed and configured before using instruments that communicate via SCPI over VISA connections.
+- **pyvisa-py** (default Python backend)
+- **pyusb + libusb** (USB-TMC backend; libusb ships bundled via `libusb-package`)
+- **pyserial** (ASRL/serial backend)
+- **psutil, zeroconf, pyvicp** (TCPIP discovery, HiSLIP discovery, and VICP support)
+- **gpib-ctypes + a native GPIB driver** (GPIB backend; the driver is vendor/OS specific)
+- **Vendor VISA runtimes** (optional; required for PXI/VXI or vendor-specific transports)
 
 ### Installation
 
-**NI VISA:**
-- Download and install from [National Instruments](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html)
+**Default Python backend:**
+- Installed with `instro`: `pyvisa`, `pyvisa-py`, and the full set of `pyvisa-py` backend libraries (`pyusb`, bundled libusb via `libusb-package`, `pyserial`, `psutil`, `zeroconf`, `pyvicp`, and `gpib-ctypes`). TCP/IP, USB-TMC, serial, HiSLIP, and VICP resources work with no extra setup.
 
-**pyvisa:**
-- Install via pip: `pip install pyvisa`
-- You may also need backend drivers depending on your connection type (USB, TCP/IP, Serial)
+**GPIB:**
+- `instro` installs the `gpib-ctypes` binding, but GPIB hardware also needs a native driver: NI-488.2 for NI GPIB interfaces, or linux-gpib on Linux. Install the driver your interface requires.
+
+**Vendor VISA backend:**
+- Download and install the runtime required by your instrument vendor (for PXI/VXI, or vendor-specific transports).
 
 ## NI-DAQmx
 

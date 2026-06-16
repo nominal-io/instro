@@ -19,65 +19,65 @@ class KeysightE36100(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         self._write_checked(f"VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         return self._query_checked_float("MEAS:VOLT?")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         self._write_checked(f"CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         return self._query_checked_float("MEAS:CURR?")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         self._write_checked(f"OUTP:STAT {'ON' if enable else 'OFF'}")
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         return self._query_checked_bool("OUTP:STAT?")
 
-    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
+    def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         self._write_checked(f"VOLT:PROT {voltage:.3f}")
 
-    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
+    def get_overvoltage_protection_level(self, channel: int) -> float:
         return self._query_checked_float("VOLT:PROT:LEV?")
 
-    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
         self._write_checked(f"VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
 
-    def get_overvoltage_protection_enabled(self, channel: int = 1) -> bool:
+    def get_overvoltage_protection_enabled(self, channel: int) -> bool:
         return self._query_checked_bool("VOLT:PROT:STAT?")
 
-    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
+    def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
         raise FeatureNotSupportedError(f"set_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
-    def get_overvoltage_protection_delay(self, channel: int = 1) -> float:
+    def get_overvoltage_protection_delay(self, channel: int) -> float:
         raise FeatureNotSupportedError(f"get_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
-    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
+    def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         raise FeatureNotSupportedError(
             f"The {self.FRIENDLY_NAME} has no separate OCP level command. Set the current limit with CURR; "
             f"CURR:PROT:STAT enables OCP, which puts the instrument in a protected state when the power supply "
             f"status is in constant current mode."
         )
 
-    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
+    def get_overcurrent_protection_level(self, channel: int) -> float:
         raise FeatureNotSupportedError(
             f"The {self.FRIENDLY_NAME} has no separate OCP level query. CURR? queries the programmed current limit; "
             f"CURR:PROT:STAT? returns whether OCP is enabled."
         )
 
-    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         self._write_checked(f"CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
 
-    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
+    def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         return self._query_checked_bool("CURR:PROT:STAT?")
 
-    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1) -> None:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         self._write_checked(f"VOLT:SENS {'EXT' if enabled else 'INT'}")
 
-    def get_remote_sense_enabled(self, channel: int = 1) -> bool:
+    def get_remote_sense_enabled(self, channel: int) -> bool:
         return self._query_checked_bool("VOLT:SENS?")
 
     def _write_checked(self, command: str) -> None:

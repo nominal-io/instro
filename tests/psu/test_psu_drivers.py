@@ -12,7 +12,7 @@ from instro.psu.drivers import (
     BK9115,
     BK9140,
     RigolDP800,
-    SimulatedPSU,
+    SiglentSPD3303,
     TDKLambdaGenesys,
 )
 
@@ -26,22 +26,22 @@ class _BaseOnlyPSUDriver(PSUDriverBase):
     def close(self) -> None:
         pass
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         pass
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         return 0.0
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         pass
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         return 0.0
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         pass
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         return False
 
 
@@ -67,7 +67,7 @@ def test_psu_driver_base_ovp_methods_raise_not_implemented(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
-        getattr(base_only_psu_driver, method_name)(*args)
+        getattr(base_only_psu_driver, method_name)(*args, channel=1)
 
 
 @pytest.mark.parametrize(
@@ -85,7 +85,7 @@ def test_psu_driver_base_ocp_methods_raise_not_implemented(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
-        getattr(base_only_psu_driver, method_name)(*args)
+        getattr(base_only_psu_driver, method_name)(*args, channel=1)
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
-        getattr(base_only_psu_driver, method_name)(*args)
+        getattr(base_only_psu_driver, method_name)(*args, channel=1)
 
 
 # --- BK9115 ---
@@ -144,46 +144,46 @@ def test_bk_single_open_close_delegate_to_visa(bk_single: BK9115, bk_single_visa
 
 
 def test_bk_single_set_voltage_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_voltage(5.0)
+    bk_single.set_voltage(5.0, channel=1)
     bk_single_visa.write.assert_called_once_with("VOLT 5.000")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
 
 def test_bk_single_get_voltage_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["12.345", '0,"No error"']
-    assert bk_single.get_voltage() == pytest.approx(12.345)
+    assert bk_single.get_voltage(channel=1) == pytest.approx(12.345)
     assert bk_single_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
 
 
 def test_bk_single_set_current_limit_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_current_limit(1.25)
+    bk_single.set_current_limit(1.25, channel=1)
     bk_single_visa.write.assert_called_once_with("CURR 1.250")
     bk_single_visa.query.assert_called_once_with("SYST:ERR?")
 
 
 def test_bk_single_get_current_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["0.500", '0,"No error"']
-    assert bk_single.get_current() == pytest.approx(0.5)
+    assert bk_single.get_current(channel=1) == pytest.approx(0.5)
 
 
 def test_bk_single_output_enable_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.output_enable(True)
+    bk_single.output_enable(True, channel=1)
     bk_single_visa.write.assert_called_once_with("OUTP:STAT ON")
-    bk_single.output_enable(False)
+    bk_single.output_enable(False, channel=1)
     assert bk_single_visa.write.call_args_list[-1] == call("OUTP:STAT OFF")
 
 
 def test_bk_single_get_output_status_parses(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.side_effect = ["1", '0,"No error"']
-    assert bk_single.get_output_status() is True
+    assert bk_single.get_output_status(channel=1) is True
     bk_single_visa.query.side_effect = ["0", '0,"No error"']
-    assert bk_single.get_output_status() is False
+    assert bk_single.get_output_status(channel=1) is False
 
 
 def test_bk_single_check_errors_raises_on_nonzero(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
     bk_single_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="BK PSU reported error"):
-        bk_single.set_voltage(1.0)
+        bk_single.set_voltage(1.0, channel=1)
 
 
 # --- BK9140 ---
@@ -244,7 +244,7 @@ def test_bk_multi_get_output_status_parses(bk_multi: BK9140, bk_multi_visa: Magi
 def test_bk_multi_check_errors_raises_on_nonzero(bk_multi: BK9140, bk_multi_visa: MagicMock) -> None:
     bk_multi_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="BK PSU reported error"):
-        bk_multi.set_voltage(1.0)
+        bk_multi.set_voltage(1.0, channel=1)
 
 
 # --- RigolDP800 ---
@@ -294,7 +294,7 @@ def test_rigol_get_output_status_parses_on(rigol: RigolDP800, rigol_visa: MagicM
 def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
     rigol_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
-        rigol.set_voltage(1.0)
+        rigol.set_voltage(1.0, channel=1)
 
 
 # --- TDKLambdaGenesys ---
@@ -319,28 +319,28 @@ def tdk(tdk_visa_cls: MagicMock) -> TDKLambdaGenesys:
 
 
 def test_tdk_set_voltage_writes_checked(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
-    tdk.set_voltage(48.0)
+    tdk.set_voltage(48.0, channel=1)
     tdk_visa.write.assert_called_once_with("VOLT 48.000")
     tdk_visa.query.assert_called_once_with("SYSTEM:ERROR?")
 
 
 def test_tdk_get_current_parses_response(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
     tdk_visa.query.side_effect = ["2.500", '+0,"No error"']
-    assert tdk.get_current() == pytest.approx(2.5)
+    assert tdk.get_current(channel=1) == pytest.approx(2.5)
     assert tdk_visa.query.call_args_list == [call("MEAS:CURR?"), call("SYSTEM:ERROR?")]
 
 
 def test_tdk_get_output_status_parses_on(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
     tdk_visa.query.side_effect = ["ON", '+0,"No error"']
-    assert tdk.get_output_status() is True
+    assert tdk.get_output_status(channel=1) is True
     tdk_visa.query.side_effect = ["OFF", '+0,"No error"']
-    assert tdk.get_output_status() is False
+    assert tdk.get_output_status(channel=1) is False
 
 
 def test_tdk_check_errors_raises_on_nonzero(tdk: TDKLambdaGenesys, tdk_visa: MagicMock) -> None:
     tdk_visa.query.return_value = '-100,"Command error"'
     with pytest.raises(RuntimeError, match="TDK Lambda PSU reported error"):
-        tdk.set_voltage(1.0)
+        tdk.set_voltage(1.0, channel=1)
 
 
 @pytest.mark.parametrize(
@@ -366,54 +366,7 @@ def test_tdk_unimplemented_optional_features_raise_from_base(
     args: tuple[object, ...],
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for TDKLambdaGenesys"):
-        getattr(tdk, method_name)(*args)
-
-
-# --- SimulatedPSU ---
-
-
-@pytest.fixture
-def sim_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.simulated.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def sim_visa(sim_visa_cls: MagicMock) -> MagicMock:
-    visa = sim_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def sim(sim_visa_cls: MagicMock) -> SimulatedPSU:
-    return SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET")
-
-
-def test_sim_set_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim.set_voltage(5.0, channel=2)
-    sim_visa.write.assert_called_once_with("VOLT 5.000 2")
-    sim_visa.query.assert_called_once_with("SYSTEM:ERROR?")
-
-
-def test_sim_get_voltage_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim_visa.query.side_effect = ["1.234", '0,"No error"']
-    assert sim.get_voltage(channel=2) == pytest.approx(1.234)
-    assert sim_visa.query.call_args_list == [call("MEAS:VOLT? 2"), call("SYSTEM:ERROR?")]
-
-
-def test_sim_output_enable_includes_channel_suffix(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim.output_enable(True, channel=2)
-    sim_visa.write.assert_called_once_with("OUTP:STAT ON 2")
-    sim.output_enable(False, channel=2)
-    assert sim_visa.write.call_args_list[-1] == call("OUTP:STAT OFF 2")
-
-
-def test_sim_get_output_status_parses(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
-    sim_visa.query.side_effect = ["ON", '0,"No error"']
-    assert sim.get_output_status(channel=1) is True
-    sim_visa.query.side_effect = ["OFF", '0,"No error"']
-    assert sim.get_output_status(channel=1) is False
+        getattr(tdk, method_name)(*args, channel=1)
 
 
 # --- InstroPSU composition ---
@@ -556,6 +509,37 @@ def test_nominal_psu_remote_sense_methods_delegate_and_package() -> None:
     assert "ut.ch1.remote_sense" in enabled.channel_data  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("set_voltage", (5.0,)),
+        ("get_voltage", ()),
+        ("set_current_limit", (1.0,)),
+        ("get_current", ()),
+        ("output_enable", (True,)),
+        ("get_output_status", ()),
+        ("set_overvoltage_protection_level", (12.0,)),
+        ("get_overvoltage_protection_level", ()),
+        ("set_overvoltage_protection_enabled", (True,)),
+        ("get_overvoltage_protection_enabled", ()),
+        ("set_overvoltage_protection_delay", (0.25,)),
+        ("get_overvoltage_protection_delay", ()),
+        ("set_overcurrent_protection_level", (1.0,)),
+        ("get_overcurrent_protection_level", ()),
+        ("set_overcurrent_protection_enabled", (True,)),
+        ("get_overcurrent_protection_enabled", ()),
+        ("set_remote_sense_enabled", (True,)),
+        ("get_remote_sense_enabled", ()),
+    ],
+)
+def test_nominal_psu_methods_require_explicit_channel(method_name: str, args: tuple[object, ...]) -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+
+    with pytest.raises(TypeError, match="channel"):
+        getattr(psu, method_name)(*args)
+
+
 # --- legacy_naming ---
 
 
@@ -646,7 +630,6 @@ def test_publish_measurement_passes_through_none() -> None:
 def test_bk_single_init_passes_prebuilt_config_to_visa_driver(bk_single_visa_cls: MagicMock) -> None:
     config = VisaConfig(
         visa_resource="ASRL19::INSTR",
-        visa_backend="@py",
         serial_config=SerialConfig(baud_rate=19_200),
     )
     BK9115(config)

@@ -23,10 +23,7 @@ dmm = InstroDMM(
     ),
     publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
 )
-dmm.open()
-
-dmm.set_measurement_function(function=MeasurementFunction.DC_VOLTAGE)
-response = dmm.read()
-print(response)
-
-dmm.close()
+with dmm:
+    dmm.set_measurement_function(function=MeasurementFunction.DC_VOLTAGE)
+    response = dmm.read()
+    print(response)
