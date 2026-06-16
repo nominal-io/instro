@@ -5,7 +5,7 @@ description: Using InstroPSU for SCPI-based programmable power supplies
 
 # InstroPSU
 
-`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
+`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `TDKLambdaGenesys`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
@@ -14,7 +14,7 @@ description: Using InstroPSU for SCPI-based programmable power supplies
 - **Keysight**: E36100-series single-channel via SCPI/VISA (`KeysightE36100`)
 - **Rigol**: DP-series via SCPI/VISA (`RigolDP800`)
 - **Siglent**: SPD-series via SCPI/VISA (`SiglentSPD3303`)
-- **TDK Lambda**: Genesys family via SCPI/VISA (`TDKLambdaGenesys`)
+- **TDK Lambda**: Genesys family via SCPI/VISA (`TDKLambdaGenesys`), including white-label Agilent/Keysight N5700-series supplies
 - **Simulated**: `SimulatedPSU` for use with the bundled SCPI simulator
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
@@ -66,7 +66,7 @@ psu = InstroPSU(
 
 ### Choosing a Driver
 
-Choose the concrete driver that matches the power supply model, then pass the instrument connection settings to that driver. For example, use `BK9140` for the B&K 9140-series, `KeysightE36100` for Keysight E36100-series supplies, or `RigolDP800` for Rigol DP-series.
+Choose the concrete driver that matches the power supply model, then pass the instrument connection settings to that driver. For example, use `BK9140` for B&K 9140-series supplies or `KeysightE36100` for Keysight E36100-series supplies.
 
 To inspect a VISA instrument's identity before choosing a driver:
 
@@ -443,9 +443,9 @@ class BK9115(PSUDriverBase):
 
 Different PSU vendors use different SCPI command sets:
 - **Siglent**: `CH<n>:VOLT`, `MEAS:VOLT? CH<n>`, `SYST:ERR?` (positive-zero prefix)
-- **Keysight**: `VOLT`, `MEAS:VOLT?`, `SYST:ERR?` (single channel)
+- **Keysight E36100**: `VOLT`, `MEAS:VOLT?`, `SYST:ERR?` (single channel)
 - **Rigol**: `:SOUR<n>:VOLT`, `:MEAS:VOLT? CH<n>`, `:SYST:ERR?`
-- **TDK Lambda**: `VOLT`, `MEAS:VOLT?`, `SYSTEM:ERROR?` (single channel)
+- **TDK Lambda Genesys / white-label Agilent/Keysight N5700**: `VOLT`, `MEAS:VOLT?`, `SYSTEM:ERROR?` (single channel)
 
 Always consult your PSU's programming manual for the correct SCPI syntax.
 </Tip>
