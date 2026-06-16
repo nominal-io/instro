@@ -310,32 +310,50 @@ def test_get_overvoltage_protection_delay_raises_after_instrument_error(driver: 
 
 
 def test_set_overcurrent_protection_level_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define CURRent:PROTection or OCP commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="set_overcurrent_protection_level is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.set_overcurrent_protection_level(PROGRAMMED_CURRENT_LIMIT, channel=CHANNEL)
 
 
 def test_get_overcurrent_protection_level_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define CURRent:PROTection or OCP commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="get_overcurrent_protection_level is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.get_overcurrent_protection_level(channel=CHANNEL)
 
 
 def test_set_overcurrent_protection_enabled_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define CURRent:PROTection or OCP commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="set_overcurrent_protection_enabled is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.set_overcurrent_protection_enabled(True, channel=CHANNEL)
 
 
 def test_get_overcurrent_protection_enabled_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define CURRent:PROTection or OCP commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="get_overcurrent_protection_enabled is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.get_overcurrent_protection_enabled(channel=CHANNEL)
 
 
 def test_set_remote_sense_enabled_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define remote-sense commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="set_remote_sense_enabled is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.set_remote_sense_enabled(True, channel=CHANNEL)
 
 
 def test_get_remote_sense_enabled_unsupported(driver: BK9115) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define remote-sense commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match="get_remote_sense_enabled is not supported by the B&K Precision 9115-series PSU",
+    ):
         driver.get_remote_sense_enabled(channel=CHANNEL)
 
 

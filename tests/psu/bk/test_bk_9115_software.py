@@ -198,7 +198,10 @@ def test_bk_single_overcurrent_protection_methods_raise_unsupported(
     method_name: str,
     args: tuple[object, ...],
 ) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="over-current as a status register bit"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match=f"{method_name} is not supported by the B&K Precision 9115-series PSU",
+    ):
         getattr(bk_single, method_name)(*args, channel=1)
 
     bk_single_visa.write.assert_not_called()
@@ -218,7 +221,10 @@ def test_bk_single_remote_sense_methods_raise_unsupported(
     method_name: str,
     args: tuple[object, ...],
 ) -> None:
-    with pytest.raises(FeatureNotSupportedError, match="does not define remote-sense commands"):
+    with pytest.raises(
+        FeatureNotSupportedError,
+        match=f"{method_name} is not supported by the B&K Precision 9115-series PSU",
+    ):
         getattr(bk_single, method_name)(*args, channel=1)
 
     bk_single_visa.write.assert_not_called()

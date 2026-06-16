@@ -4,6 +4,8 @@ from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
 
+FRIENDLY_NAME = "B&K Precision 9115-series PSU"
+
 
 class BK9115(PSUDriverBase):
     """B&K Precision 9115-series single-channel PSU."""
@@ -74,44 +76,34 @@ class BK9115(PSUDriverBase):
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         _check_channel(channel)
         raise FeatureNotSupportedError(
-            "set_overcurrent_protection_level is not supported by BK9115; the 9115 Series programming manual "
-            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+            f"set_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}"
         )
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         _check_channel(channel)
         raise FeatureNotSupportedError(
-            "get_overcurrent_protection_level is not supported by BK9115; the 9115 Series programming manual "
-            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+            f"get_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}"
         )
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         _check_channel(channel)
         raise FeatureNotSupportedError(
-            "set_overcurrent_protection_enabled is not supported by BK9115; the 9115 Series programming manual "
-            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+            f"set_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}"
         )
 
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         _check_channel(channel)
         raise FeatureNotSupportedError(
-            "get_overcurrent_protection_enabled is not supported by BK9115; the 9115 Series programming manual "
-            "defines over-current as a status register bit, but does not define CURRent:PROTection or OCP commands."
+            f"get_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}"
         )
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            "set_remote_sense_enabled is not supported by BK9115; the 9115 Series programming manual does not define "
-            "remote-sense commands."
-        )
+        raise FeatureNotSupportedError(f"set_remote_sense_enabled is not supported by the {FRIENDLY_NAME}")
 
     def get_remote_sense_enabled(self, channel: int) -> bool:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            "get_remote_sense_enabled is not supported by BK9115; the 9115 Series programming manual does not define "
-            "remote-sense commands."
-        )
+        raise FeatureNotSupportedError(f"get_remote_sense_enabled is not supported by the {FRIENDLY_NAME}")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
