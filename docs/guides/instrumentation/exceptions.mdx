@@ -55,6 +55,8 @@ with daq:
     daq.read_analog()
 ```
 
+`close()` and `stop()` are tolerant teardown and never raise `InstrumentNotOpenError`. Closing an instrument that never opened, closing twice, or calling `close()` from a `finally` after a failed `open()` is safe and leaves the original error free to surface.
+
 Because it inherits from `InstroError`, `except InstroError` catches it.
 
 ## NotImplementedError
