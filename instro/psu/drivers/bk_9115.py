@@ -75,27 +75,19 @@ class BK9115(PSUDriverBase):
 
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            f"set_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"set_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}")
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            f"get_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"get_overcurrent_protection_level is not supported by the {FRIENDLY_NAME}")
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            f"set_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"set_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}")
 
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         _check_channel(channel)
-        raise FeatureNotSupportedError(
-            f"get_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"get_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}")
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         _check_channel(channel)
