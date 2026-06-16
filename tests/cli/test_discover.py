@@ -35,8 +35,8 @@ def test_discover_mixed_bench():
                     "UNKNOWN VENDOR,XYZ,000,1.0",
                 ]
                 result = runner.invoke(app, ["discover"])
-    assert "SUPPORTED" in result.output
-    assert "UNSUPPORTED" in result.output
+    assert "RECOGNIZED" in result.output
+    assert "UNRECOGNIZED" in result.output
 
 
 def test_discover_failed_probe():
@@ -76,8 +76,8 @@ def test_discover_two_supported_one_unsupported_one_serial():
                 result = runner.invoke(app, ["discover"])
 
     assert result.exit_code == 0
-    assert result.output.count("SUPPORTED DEVICES") == 2
-    assert result.output.count("UNSUPPORTED DEVICES") == 1
+    assert result.output.count("RECOGNIZED DEVICES") == 2
+    assert result.output.count("UNRECOGNIZED DEVICES") == 1
     assert result.output.count("Keithley2400") == 1
     assert result.output.count("AgilentA34401A")
     assert "Arduino Uno" in result.output

@@ -48,6 +48,7 @@ _IDN_MAP = {
 def discover(backend: str | None = None) -> None:
     """Function for discovering known and unknown SCPI devices with VISA."""
     console = Console()
+    width = console.width
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
     console.print("\nScanning VISA resources ... \n", style="dim")
     active_backend: str  # give a backend for everything
@@ -77,7 +78,7 @@ def discover(backend: str | None = None) -> None:
         resources = rm.list_resources()
 
     supported_devices: list[tuple[str, str, tuple[str, str]]] = []  # put all found VISA devices here
-    unsupported_devices: list[str] = []  # put all found non-supported devices here
+    unsupported_devices: list[tuple[str, str]] = []  # put all found non-supported devices here
 
     # for each resource, open a visadriver, query *IDN?, then close it!, wrapped in try/except
     if not resources:
@@ -111,7 +112,7 @@ def discover(backend: str | None = None) -> None:
                 # we have valid device
                 supported_devices.append((idn, resource, match))  # match is the dict value
             else:
-                unsupported_devices.append(idn)
+                unsupported_devices.append((idn, resource))
 
         except pyvisa.errors.VisaIOError as e:
             msg = "permission denied - check udev rules" if "SYSTEM_ERROR" in str(e) else str(e)
@@ -138,7 +139,10 @@ def discover(backend: str | None = None) -> None:
         # now adding table support
         if supported_devices:
             table = Table(
-                title=f"[bold {GREEN}]RECOGNIZED DEVICES", header_style=f"bold {FOREGROUND_MUTED}", border_style=BORDER
+                title=f"[bold {GREEN}]RECOGNIZED DEVICES",
+                header_style=f"bold {FOREGROUND_MUTED}",
+                border_style=BORDER,
+                width=width,
             )
             table.add_column("Resource", style=FOREGROUND, no_wrap=False)
             table.add_column("Category", style=FOREGROUND_MUTED, no_wrap=False)
@@ -149,7 +153,10 @@ def discover(backend: str | None = None) -> None:
 
         if serial_devices:
             table_serial = Table(
-                title=f"[bold {FOREGROUND_MUTED}]SERIAL DEVICES[/]", border_style=BORDER, header_style=f"bold {FOREGROUND_MUTED}"
+                title=f"[bold {FOREGROUND_MUTED}]SERIAL DEVICES[/]",
+                border_style=BORDER,
+                header_style=f"bold {FOREGROUND_MUTED}",
+                width=width,
             )
             table_serial.add_column("Address", style=FOREGROUND, no_wrap=False)
             table_serial.add_column("Product", style=FOREGROUND_MUTED, no_wrap=False)
@@ -163,8 +170,10 @@ def discover(backend: str | None = None) -> None:
                 title=f"[bold {YELLOW}]UNRECOGNIZED DEVICES[/]",
                 header_style=f"bold {FOREGROUND_MUTED}",
                 border_style=BORDER,
+                width=width,
             )
+            table_unsp.add_column("Resource", style=FOREGROUND, no_wrap=False)
             table_unsp.add_column("IDN Response", style=FOREGROUND, no_wrap=False)
             for unsupported in unsupported_devices:
-                table_unsp.add_row(unsupported)
+                table_unsp.add_row(unsupported[1], unsupported[0])
             console.print(table_unsp)
