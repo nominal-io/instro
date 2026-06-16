@@ -381,19 +381,28 @@ impl ExplicitSession {
                 }
             })?;
 
-        Ok(batch
+        let mut has_retriable_item_error = false;
+        let values = batch
             .into_iter()
             .map(|(tag_name, result)| {
-                let value = result
-                    .map(Value::from)
-                    .map_err(|source| Error::BatchReadItem {
+                let value = result.map(Value::from).map_err(|source| {
+                    let source: BatchReadError = source.into();
+                    has_retriable_item_error |= source.is_retriable();
+                    Error::BatchReadItem {
                         addr: self.addr.clone(),
                         tag_name: tag_name.clone(),
-                        source: source.into(),
-                    });
+                        source,
+                    }
+                });
                 (tag_name, value)
             })
-            .collect())
+            .collect();
+
+        if has_retriable_item_error {
+            self.client = None;
+        }
+
+        Ok(values)
     }
 
     /// Write a user-facing [`Value`] to a PLC tag.
@@ -969,6 +978,73 @@ mod tests {
             },
             other => panic!("expected per-tag BatchReadItem error, got {other:?}"),
         }
+    }
+
+    /// Verifies that per-tag batch network failures mark the current client disconnected.
+    #[tokio::test]
+    async fn retryable_batch_item_error_disconnects_and_next_batch_reconnects() {
+        let first_state = Arc::new(Mutex::new(MockState::default()));
+        let reconnected_state = Arc::new(Mutex::new(MockState::default()));
+        let connector_state = Arc::new(Mutex::new(MockConnectorState::default()));
+        let reconnected_client = MockClient::new(reconnected_state.clone(), vec![], vec![], Ok(()))
+            .with_batch_read_results(vec![Ok(vec![Ok(PlcValue::Dint(25))])]);
+        let mut session = ExplicitSession::new_for_test_with_connector(
+            "plc.local",
+            Vec::new(),
+            MockClient::new(first_state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                vec![Ok(vec![Err(rust_ethernet_ip::BatchError::NetworkError(
+                    "IO error: Broken pipe (os error 32)".to_owned(),
+                ))])],
+            ),
+            Box::new(MockConnector::new(
+                connector_state.clone(),
+                vec![Ok(reconnected_client)],
+            )),
+        );
+
+        let values = session
+            .read_tags(&["test_dint"])
+            .await
+            .expect("per-tag batch failure should not fail the outer batch call");
+        match &values[0].1 {
+            Err(Error::BatchReadItem { source, .. }) => {
+                assert!(
+                    matches!(source, BatchReadError::Network(message) if message.contains("Broken pipe"))
+                );
+            }
+            other => panic!("expected per-tag network error, got {other:?}"),
+        }
+
+        let values = session
+            .read_tags(&["test_dint"])
+            .await
+            .expect("next batch should reconnect and succeed");
+
+        assert_eq!(
+            values[0].1.as_ref().expect("tag should succeed"),
+            &Value::Dint(25)
+        );
+        assert_eq!(
+            first_state
+                .lock()
+                .expect("mock state poisoned")
+                .batch_read_calls,
+            vec![vec!["test_dint".to_owned()]]
+        );
+        assert_eq!(
+            reconnected_state
+                .lock()
+                .expect("mock state poisoned")
+                .batch_read_calls,
+            vec![vec!["test_dint".to_owned()]]
+        );
+        assert_eq!(
+            connector_state
+                .lock()
+                .expect("mock connector state poisoned")
+                .connect_calls,
+            vec![("plc.local".to_owned(), Vec::<u8>::new())]
+        );
     }
 
     /// Verifies that a retryable batch-read failure is surfaced once and the next batch reconnects automatically.
