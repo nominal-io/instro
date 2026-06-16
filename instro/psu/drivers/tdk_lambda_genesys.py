@@ -65,27 +65,19 @@ class TDKLambdaGenesys(PSUDriverBase):
 
     def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"set_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"set_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
     def get_overvoltage_protection_delay(self, channel: int) -> float:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"get_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"get_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"set_overcurrent_protection_level is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"set_overcurrent_protection_level is not supported by the {self.FRIENDLY_NAME}")
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"get_overcurrent_protection_level is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"get_overcurrent_protection_level is not supported by the {self.FRIENDLY_NAME}")
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         self._require_channel(channel)
@@ -97,15 +89,11 @@ class TDKLambdaGenesys(PSUDriverBase):
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"set_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"set_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}")
 
     def get_remote_sense_enabled(self, channel: int) -> bool:
         self._require_channel(channel)
-        raise FeatureNotSupportedError(
-            f"get_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}"
-        )
+        raise FeatureNotSupportedError(f"get_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}")
 
     def _require_channel(self, channel: int) -> None:
         if channel != 1:

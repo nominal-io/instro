@@ -294,6 +294,7 @@ def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: Mag
     with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
         rigol.set_voltage(1.0, channel=1)
 
+
 # --- InstroPSU composition ---
 
 
