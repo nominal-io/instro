@@ -70,7 +70,6 @@ REPLACEMENTS: list[tuple[str, str]] = [
     ("nominal_instro.drivers.eload.bk", "instro.eload.drivers"),
     ("nominal_instro.drivers.eload", "instro.eload.drivers"),
     ("nominal_instro.drivers.psu.bk.bk_9115", "instro.psu.drivers.bk_9115"),
-    ("nominal_instro.drivers.psu.bk.bk_9140", "instro.psu.drivers.bk_9140"),
     ("nominal_instro.drivers.psu.bk", "instro.psu.drivers"),
     ("nominal_instro.drivers.psu.rigol.rigol_dp800", "instro.psu.drivers.rigol_dp800"),
     ("nominal_instro.drivers.psu.rigol", "instro.psu.drivers"),
