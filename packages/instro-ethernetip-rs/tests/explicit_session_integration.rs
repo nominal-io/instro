@@ -71,13 +71,17 @@ async fn read_tags_preserves_input_order() {
         .await
         .expect("batch read should succeed");
 
-    assert_eq!(
-        values,
-        fixtures
-            .iter()
-            .map(|fixture| (fixture.name.to_owned(), fixture.initial.clone()))
-            .collect::<Vec<_>>()
-    );
+    assert_eq!(values.len(), fixtures.len());
+    for ((name, value), fixture) in values.into_iter().zip(fixtures.iter()) {
+        assert_eq!(name, fixture.name);
+        assert_eq!(
+            value.unwrap_or_else(|error| panic!(
+                "batch read should succeed for {}: {error}",
+                fixture.name
+            )),
+            fixture.initial
+        );
+    }
 
     session.close().await.expect("close should succeed");
 }

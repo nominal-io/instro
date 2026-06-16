@@ -94,7 +94,14 @@ impl EtherNetIpSession {
         rust_value_to_py(py, value)
     }
 
-    /// Read several PLC tags, preserving input order in the returned list.
+    /// Read several PLC tags in a single batched request, preserving input order.
+    ///
+    /// The returned list has one entry per requested tag. The second item of each tuple is
+    /// either a `PlcValue` for successful reads or an `EtherNetIpError` instance for tags that
+    /// failed individually (for example a missing tag or a type mismatch). Per-tag failures are
+    /// returned as exception instances rather than raised, so a single bad tag does not throw
+    /// away the values of the other tags in the batch. The call raises only when the entire
+    /// batch could not be dispatched (for example a transport-level failure).
     fn read_tags(
         &mut self,
         py: Python<'_>,
@@ -108,7 +115,13 @@ impl EtherNetIpSession {
 
         values
             .into_iter()
-            .map(|(name, value)| rust_value_to_py(py, value).map(|value| (name, value)))
+            .map(|(name, result)| {
+                let item: Py<PyAny> = match result {
+                    Ok(value) => rust_value_to_py(py, value)?,
+                    Err(error) => map_error_with_py(py, error).into_value(py).into_any(),
+                };
+                Ok((name, item))
+            })
             .collect()
     }
 

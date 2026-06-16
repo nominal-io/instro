@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import threading
 import time
 from unittest.mock import MagicMock, call, patch
@@ -64,7 +65,7 @@ def test_construction_accepts_raw_resource_string(mock_pyvisa):
 
     driver.open()
 
-    rm_class.assert_called_once_with("@ivi")
+    rm_class.assert_called_once_with("@py")
     rm_instance.open_resource.assert_called_once_with("USB0::0x1234::0x5678::SERIAL::INSTR")
 
 
@@ -120,7 +121,7 @@ def test_open_is_idempotent(mock_pyvisa):
     rm_instance.open_resource.assert_called_once()
 
 
-def test_open_closes_resource_manager_when_open_resource_fails(mock_pyvisa):
+def test_open_leaves_shared_resource_manager_open_when_open_resource_fails(mock_pyvisa):
     _, rm_instance, _ = mock_pyvisa
     rm_instance.open_resource.side_effect = RuntimeError("open failed")
     driver = _make_driver()
@@ -128,11 +129,11 @@ def test_open_closes_resource_manager_when_open_resource_fails(mock_pyvisa):
     with pytest.raises(RuntimeError, match="open failed"):
         driver.open()
 
-    rm_instance.close.assert_called_once()
+    rm_instance.close.assert_not_called()
     assert driver.is_open is False
 
 
-def test_open_closes_resource_and_resource_manager_when_setup_fails(mock_pyvisa):
+def test_open_closes_resource_but_not_shared_resource_manager_when_setup_fails(mock_pyvisa):
     _, rm_instance, _ = mock_pyvisa
 
     class FailingResource:
@@ -157,7 +158,7 @@ def test_open_closes_resource_and_resource_manager_when_setup_fails(mock_pyvisa)
         driver.open()
 
     resource.close.assert_called_once()
-    rm_instance.close.assert_called_once()
+    rm_instance.close.assert_not_called()
     assert driver.is_open is False
 
 
@@ -175,7 +176,7 @@ def test_close_after_open_releases_resource(mock_pyvisa):
     driver.close()
 
     resource.close.assert_called_once()
-    rm_instance.close.assert_called_once()
+    rm_instance.close.assert_not_called()
     assert driver.is_open is False
 
 
@@ -188,7 +189,27 @@ def test_close_is_idempotent(mock_pyvisa):
     driver.close()
 
     resource.close.assert_called_once()
-    rm_instance.close.assert_called_once()
+    rm_instance.close.assert_not_called()
+
+
+def test_close_does_not_break_other_driver_on_shared_resource_manager(mock_pyvisa):
+    # pyvisa returns one cached ResourceManager per backend, so two drivers share it.
+    _, rm_instance, _ = mock_pyvisa
+    resource_a, resource_b = MagicMock(), MagicMock()
+    resource_a.interface_type = resource_b.interface_type = InterfaceType.tcpip
+    resource_b.read.return_value = "ok"
+    rm_instance.open_resource.side_effect = [resource_a, resource_b]
+
+    driver_a = _make_driver(_make_config(visa_resource="TCPIP0::10.0.0.1::5025::SOCKET"))
+    driver_b = _make_driver(_make_config(visa_resource="TCPIP0::10.0.0.2::5025::SOCKET"))
+    driver_a.open()
+    driver_b.open()
+
+    driver_a.close()
+
+    rm_instance.close.assert_not_called()
+    assert driver_b.is_open is True
+    assert driver_b.read() == "ok"
 
 
 def test_open_applies_serial_config_for_asrl(mock_pyvisa):
@@ -393,3 +414,20 @@ def test_transactional_lock_blocks_other_threads_until_released(mock_pyvisa):
 
     assert write_finished.is_set()
     resource.write.assert_called_once_with("BLOCKED")
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "usb",  # pyusb: USB-TMC backend
+        "libusb_package",  # bundled libusb so USB needs no system library
+        "gpib_ctypes",  # GPIB binding
+        "serial",  # pyserial: ASRL/serial backend
+        "psutil",  # TCPIP resource discovery
+        "zeroconf",  # HiSLIP discovery
+        "pyvicp",  # VICP backend
+    ],
+)
+def test_visa_backend_package_is_installed(module: str) -> None:
+    """Every pyvisa-py backend the default @py setup relies on must ship with instro (issue #102)."""
+    assert importlib.util.find_spec(module) is not None

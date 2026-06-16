@@ -1,10 +1,11 @@
 [project]
 name = "instro-daq-labjack"
-version = "0.6.0"
-description = "LabJack DAQ drivers for instro"
+version = "0.7.0"
+description = "LabJack T-series DAQ drivers for instro"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.10,<3.14"
 dependencies = ["instro", "labjack-ljm>=1.23.0"]
 
 [project.urls]

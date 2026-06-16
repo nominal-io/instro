@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.4.0...instro-daq-mcc-v0.5.0) (2026-06-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56))
+
+### Features
+
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56)) ([c34cf0d](https://github.com/nominal-io/instro/commit/c34cf0d9508db3d73db1c8f537fb41f6763a0616))
+
 ## [0.4.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.3.0...instro-daq-mcc-v0.4.0) (2026-06-02)
 
 

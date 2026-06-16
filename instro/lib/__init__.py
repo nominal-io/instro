@@ -1,6 +1,6 @@
 """Cross-category building blocks: base instrument, transports, publishers, shared scaling types."""
 
-from instro.lib.exceptions import FeatureNotSupportedError, InstroError
+from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
 from instro.lib.instrument import Instrument
 from instro.lib.nominal import install_nominal_core_log_handler
 from instro.lib.transports.visa import VisaConfig, VisaDriver
@@ -12,6 +12,7 @@ __all__ = [
     "FeatureNotSupportedError",
     "InstroError",
     "Instrument",
+    "InstrumentNotOpenError",
     "LinearScale",
     "Measurement",
     "ScaleType",

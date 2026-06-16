@@ -18,7 +18,7 @@ from instro.daq.types import (
     RelayChannel,
     TerminalConfig,
 )
-from instro.lib import Instrument, Measurement
+from instro.lib import Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command
@@ -372,6 +372,7 @@ class InstroDAQ(Instrument):
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
+        self._is_open = False
 
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
@@ -439,17 +440,24 @@ class InstroDAQ(Instrument):
         """No-op for DAQ — the interval is fixed at 0 so the blocking fetch implicitly times the loop."""
         return
 
+    def _require_open(self) -> None:
+        """Guard device I/O: raise if a method is called before ``open()``."""
+        if not self._is_open:
+            raise InstrumentNotOpenError(f"InstroDAQ '{self.name}' is not open. Call open() first.")
+
     def open(self):
         """Open the underlying driver."""
         logger.info("Opening DAQ '%s'", self.name)
         self._driver.open()
+        self._is_open = True
         logger.info("Opened DAQ '%s'", self.name)
 
     def close(self):
-        """Close the underlying driver and stop the daemon."""
+        """Run full teardown unconditionally: daemon, then publishers, then the driver, which owns its idempotency."""
         logger.info("Closing DAQ '%s'", self.name)
         super().close()
         self._driver.close()
+        self._is_open = False
         logger.info("Closed DAQ '%s'", self.name)
 
     # ========  Analog Input  ===========
@@ -475,6 +483,7 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
+        self._require_open()
         channel = AnalogChannel(
             physical_channel=physical_channel,
             alias=alias if alias else physical_channel,
@@ -509,8 +518,9 @@ class InstroDAQ(Instrument):
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
+        self._require_open()
         if not samples_per_channel:
-            samples_per_channel = int(sample_rate // 10)
+            samples_per_channel = max(1, int(sample_rate // 10))
 
         hw_timing_config = HWTimingConfig(
             sample_rate=sample_rate,
@@ -533,6 +543,7 @@ class InstroDAQ(Instrument):
                 fetch the buffer yourself by calling ``read_analog()``.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
+        self._require_open()
         # DAQmx allows starting different channel_types independently.
         channel_type = kwargs.get("channel_type", None)
 
@@ -550,9 +561,14 @@ class InstroDAQ(Instrument):
             super().start()
 
     def stop(self, **kwargs):
-        """Stop the DAQ device."""
+        """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
-        channel_type = kwargs.get("channel_type", None)
+        # Skip the device stop when not open: some drivers' stop() issues a transport
+        # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
+        # routes through here, so this gate keeps close-before-open from raising.
+        if not self._is_open:
+            return
+        channel_type = kwargs.pop("channel_type", None)
         self._driver.stop(channel_type=channel_type, **kwargs)
 
     def read_analog(
@@ -565,6 +581,7 @@ class InstroDAQ(Instrument):
         Hardware-timed with the background daemon running raises — the daemon owns the buffer.
         Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
         """
+        self._require_open()
         if self.ai_hw_timing_config:
             if not (self._background_thread and self._background_thread.is_alive()):
                 return self._fetch_analog(**kwargs)
@@ -626,6 +643,7 @@ class InstroDAQ(Instrument):
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
         """Write ``value`` (volts) to AO ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
         if (analog_channel := self.ao_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Analog output channel '{channel}' is not configured. "
@@ -655,6 +673,7 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
+        self._require_open()
         match direction:
             case Direction.INPUT:
                 self._driver.configure_di_line_channel(
@@ -691,6 +710,7 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
+        self._require_open()
         match direction:
             case Direction.INPUT:
                 self._driver.configure_di_port_channel(
@@ -713,6 +733,7 @@ class InstroDAQ(Instrument):
     @publish_command
     def write_digital_line(self, channel: str, data: int, **kwargs) -> Command:
         """Write 0/1 to DO line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
         if (digital_channel := self.do_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
@@ -741,6 +762,7 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def read_digital_line(self, channel: str, **kwargs) -> Measurement:
         """Read DI line ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
         if (digital_channel := self.di_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
@@ -762,6 +784,7 @@ class InstroDAQ(Instrument):
     @publish_command
     def write_digital_port(self, channel: str, data: int, **kwargs) -> Command:
         """Write ``data`` to DO port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
         if (digital_channel := self.do_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
@@ -792,6 +815,7 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def read_digital_port(self, channel: str, **kwargs) -> Measurement:
         """Read DI port ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
         if (digital_channel := self.di_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
@@ -815,6 +839,7 @@ class InstroDAQ(Instrument):
         alias: str | None = None,
     ):
         """Configure a relay channel (``physical_channel`` e.g. ``"3101"`` = slot 3 / channel 101)."""
+        self._require_open()
         self._driver.define_relay_channel(
             physical_channel=physical_channel,
             alias=alias,
@@ -824,6 +849,7 @@ class InstroDAQ(Instrument):
     @publish_command
     def close_relay(self, channel: str, **kwargs) -> Command:
         """Close relay ``channel`` (alias) — connects the circuit."""
+        self._require_open()
         if (relay_channel := self.relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
@@ -839,6 +865,7 @@ class InstroDAQ(Instrument):
     @publish_command
     def open_relay(self, channel: str, **kwargs) -> Command:
         """Open relay ``channel`` (alias) — disconnects the circuit."""
+        self._require_open()
         if (relay_channel := self.relay_channels.get(channel, None)) is None:
             raise KeyError(
                 f"Relay channel '{channel}' is not configured. "
@@ -853,7 +880,8 @@ class InstroDAQ(Instrument):
 
     def _define_background_daemon(self):
         """Register ``_fetch_analog`` as the daemon function when AI channels exist."""
-        if self.ai_channels:
+        already_registered = any(method == self._fetch_analog for method, _, _ in self._background_methods)
+        if self.ai_channels and not already_registered:
             self.add_background_daemon_function(self._fetch_analog)
 
     def get_actual_sample_rate(self) -> float | None:
@@ -863,6 +891,7 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def get_points_in_buffer(self, **kwargs) -> Measurement:
         """Publish the current DAQ buffer depth on channel ``{name}.buffer``."""
+        self._require_open()
         return self._package_measurement("buffer", self._driver.points_in_buffer, time.time_ns(), **kwargs)
 
 

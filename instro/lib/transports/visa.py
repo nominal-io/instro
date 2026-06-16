@@ -85,8 +85,7 @@ class VisaConfig:
     Attributes:
         visa_resource: VISA resource string, e.g. ``TCPIP0::host::5025::SOCKET``
             or ``USB0::0x2A8D::0x0101::MY12345::INSTR``.
-        visa_backend: pyvisa backend specifier. Defaults to ``@ivi`` (NI-VISA);
-            use ``@py`` for pyvisa-py.
+        visa_backend: pyvisa backend specifier. Defaults to ``@py``.
         serial_config: Serial settings applied when the VISA resource is an
             ASRL (RS-232/RS-485) interface.
         terminator: Read and write terminators.
@@ -94,7 +93,7 @@ class VisaConfig:
     """
 
     visa_resource: str
-    visa_backend: str = "@ivi"
+    visa_backend: str = "@py"
     serial_config: SerialConfig = dataclasses.field(default_factory=SerialConfig)
     terminator: TerminatorConfig = dataclasses.field(default_factory=TerminatorConfig)
     timeout: TimeoutConfig = dataclasses.field(default_factory=TimeoutConfig)
@@ -111,7 +110,6 @@ class VisaDriver:
         """Construct from a VISA resource string (uses defaults) or a full ``VisaConfig``."""
         self._connection_config = _coerce_connection_config(visa_resource)
         self._inst: pyvisa.resources.MessageBasedResource | None = None
-        self._rm: pyvisa.ResourceManager | None = None
         self._lock = threading.RLock()
 
     def __del__(self) -> None:
@@ -138,6 +136,9 @@ class VisaDriver:
                 cfg.visa_resource,
                 cfg.visa_backend,
             )
+            # pyvisa caches one ResourceManager per backend and shares it across every
+            # driver in the process; closing it would kill all other drivers' sessions.
+            # pyvisa closes it via its own atexit handler.
             rm = pyvisa.ResourceManager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
@@ -150,11 +151,8 @@ class VisaDriver:
                 if inst is not None:
                     with contextlib.suppress(Exception):
                         inst.close()
-                with contextlib.suppress(Exception):
-                    rm.close()
                 raise
 
-            self._rm = rm
             self._inst = inst
 
     def close(self) -> None:
@@ -163,15 +161,10 @@ class VisaDriver:
             if self._inst is None:
                 return
             inst = self._inst
-            rm = self._rm
             try:
                 inst.close()
             finally:
-                if rm is not None:
-                    with contextlib.suppress(Exception):
-                        rm.close()
                 self._inst = None
-                self._rm = None
 
     def write(self, command: str) -> None:
         """Write ``command`` to the instrument; the configured write terminator is appended."""

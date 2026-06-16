@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.10.0](https://github.com/nominal-io/instro/compare/instro-v0.9.0...instro-v0.10.0) (2026-06-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **psu:** support simulated protection and sense ([#47](https://github.com/nominal-io/instro/issues/47))
+* **psu:** add tui for sim and refactor command set for ovp ocp and remote sense ([#30](https://github.com/nominal-io/instro/issues/30))
+
+### Features
+
+* **ethernetip:** batch reads ([#68](https://github.com/nominal-io/instro/issues/68)) ([0afb900](https://github.com/nominal-io/instro/commit/0afb900ad01c752397ecbf23ea1012370658fc77))
+* **psu:** add tui for sim and refactor command set for ovp ocp and remote sense ([#30](https://github.com/nominal-io/instro/issues/30)) ([16f89b2](https://github.com/nominal-io/instro/commit/16f89b25b0f6086fb3c988a13a9081bade5dae45))
+* **psu:** support simulated protection and sense ([#47](https://github.com/nominal-io/instro/issues/47)) ([0ad4cf0](https://github.com/nominal-io/instro/commit/0ad4cf0baef6d9d994e9303668e0f5bc97d3941f))
+
+
+### Bug Fixes
+
+* **test:** bind ephemeral port in simulated PSU socket test ([#98](https://github.com/nominal-io/instro/issues/98)) ([0658721](https://github.com/nominal-io/instro/commit/06587213f5d2cd1ae7f5505d54a9d8e01b3168ff))
+
+## [0.9.0](https://github.com/nominal-io/instro/compare/instro-v0.8.0...instro-v0.9.0) (2026-06-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** decouple acquisition start from the daemon thread ([#62](https://github.com/nominal-io/instro/issues/62))
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56))
+
+### Features
+
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56)) ([c34cf0d](https://github.com/nominal-io/instro/commit/c34cf0d9508db3d73db1c8f537fb41f6763a0616))
+* **psu:** add Keysight E36100 support ([#48](https://github.com/nominal-io/instro/issues/48)) ([417035e](https://github.com/nominal-io/instro/commit/417035eb3b688b4058d42ea3a46f86c90acbbf66))
+* **psu:** update Siglent SPD3303X driver and tests ([#55](https://github.com/nominal-io/instro/issues/55)) ([a07f0f3](https://github.com/nominal-io/instro/commit/a07f0f3515c863101db6059eb82a65d9c6bccfba))
+* **scope:** add hardware-validated Siglent SDS1104X-E driver ([#74](https://github.com/nominal-io/instro/issues/74)) ([b572a87](https://github.com/nominal-io/instro/commit/b572a876efc7b3d80e0b4eac18d4f8721fbd2171))
+
+
+### Bug Fixes
+
+* **daq:** stop kwarg crash and samples_per_channel=0 below 10 Hz ([#83](https://github.com/nominal-io/instro/issues/83)) ([6539284](https://github.com/nominal-io/instro/commit/65392845794060a0edd0aafaac59035f6ea6b513))
+* **dmm:** accept the Keithley 2400 signed +0 no-error reply ([#85](https://github.com/nominal-io/instro/issues/85)) ([2af65da](https://github.com/nominal-io/instro/commit/2af65dace4e7441d5dcc76421e768007b7e8be4c))
+* **lib,daq:** make Instrument start/stop/start restartable ([#81](https://github.com/nominal-io/instro/issues/81)) ([eb60201](https://github.com/nominal-io/instro/commit/eb60201b7738e3158386bca13f6bd4f5e7f1afb8))
+* **lib:** stop closing the shared pyvisa ResourceManager in VisaDriver ([#79](https://github.com/nominal-io/instro/issues/79)) ([1865d61](https://github.com/nominal-io/instro/commit/1865d6172ef8c5fc951bddb1dd13ca9e60ebc929))
+
+
+### Miscellaneous
+
+* **daq:** decouple acquisition start from the daemon thread ([#62](https://github.com/nominal-io/instro/issues/62)) ([52c9f8b](https://github.com/nominal-io/instro/commit/52c9f8b19d6b2220f1bf78201a026256cdd7956d))
+
 ## [0.8.0](https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v0.8.0) (2026-06-02)
 
 

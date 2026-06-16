@@ -36,9 +36,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_digital_port(
         direction=Direction.OUTPUT,
         physical_channel=PORT,
@@ -50,7 +48,3 @@ try:
 
     # Drive lines 0-3 high, 4-7 low.
     daq.write_digital_port(channel="do_port", data=0x0F)
-
-finally:
-    print("Closing DAQ")
-    daq.close()

@@ -45,7 +45,6 @@ def test_agilent_init_builds_visa_from_resource(agilent_visa_cls: MagicMock) -> 
 def test_agilent_init_accepts_prebuilt_connection_config(agilent_visa_cls: MagicMock) -> None:
     config = VisaConfig(
         visa_resource="ASRL3::INSTR",
-        visa_backend="@py",
         serial_config=SerialConfig(baud_rate=19_200),
     )
 
@@ -199,6 +198,11 @@ def test_keithley_measure_ac_voltage_unsupported(keithley: Keithley2400) -> None
 def test_keithley_measure_dc_voltage_parses_first_field(keithley: Keithley2400, keithley_visa: MagicMock) -> None:
     keithley_visa.query.side_effect = ["1.234,5.678", '0,"No error"']
     assert keithley.measure_dc_voltage() == pytest.approx(1.234)
+
+
+def test_keithley_check_errors_passes_on_signed_zero(keithley: Keithley2400, keithley_visa: MagicMock) -> None:
+    keithley_visa.query.return_value = '+0,"No error"'
+    keithley._check_errors()
 
 
 def test_keithley_check_errors_raises_on_nonzero(keithley: Keithley2400, keithley_visa: MagicMock) -> None:

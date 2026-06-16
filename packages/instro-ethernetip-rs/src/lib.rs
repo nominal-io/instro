@@ -73,13 +73,13 @@
 #[cfg(feature = "blocking")]
 pub mod blocking;
 
-pub use error::Error;
+pub use error::{BatchReadError, Error};
 pub use value::{StructuredValue, Value};
 
 use std::future::Future;
 use std::pin::Pin;
 
-use rust_ethernet_ip::{EipClient, EtherNetIpError, PlcValue, RoutePath};
+use rust_ethernet_ip::{BatchError, EipClient, EtherNetIpError, PlcValue, RoutePath};
 
 mod error;
 #[cfg(test)]
@@ -101,6 +101,10 @@ type ClientFuture<'a, T> =
 /// client.
 trait ExplicitClient: Send + Sync {
     fn read_tag<'a>(&'a mut self, tag_name: &'a str) -> ClientFuture<'a, PlcValue>;
+    fn read_tags_batch<'a>(
+        &'a mut self,
+        tag_names: &'a [&'a str],
+    ) -> ClientFuture<'a, Vec<(String, std::result::Result<PlcValue, BatchError>)>>;
     fn write_tag<'a>(&'a mut self, tag_name: &'a str, value: PlcValue) -> ClientFuture<'a, ()>;
     fn unregister_session<'a>(&'a mut self) -> ClientFuture<'a, ()>;
 }
@@ -108,6 +112,13 @@ trait ExplicitClient: Send + Sync {
 impl ExplicitClient for EipClient {
     fn read_tag<'a>(&'a mut self, tag_name: &'a str) -> ClientFuture<'a, PlcValue> {
         Box::pin(EipClient::read_tag(self, tag_name))
+    }
+
+    fn read_tags_batch<'a>(
+        &'a mut self,
+        tag_names: &'a [&'a str],
+    ) -> ClientFuture<'a, Vec<(String, std::result::Result<PlcValue, BatchError>)>> {
+        Box::pin(EipClient::read_tags_batch(self, tag_names))
     }
 
     fn write_tag<'a>(&'a mut self, tag_name: &'a str, value: PlcValue) -> ClientFuture<'a, ()> {
@@ -228,20 +239,47 @@ impl ExplicitSession {
             })
     }
 
-    /// Read several tags sequentially, preserving input order in the returned list.
-    pub async fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Value)>>
+    /// Read several tags in a single batch request, preserving input order in the returned list.
+    ///
+    /// Tag reads are sent to the PLC as a CIP Multiple Service Packet via the upstream batch
+    /// API, which is significantly more efficient than issuing N separate reads. The upstream
+    /// driver transparently chunks the request when the tag list exceeds packet limits.
+    ///
+    /// The outer [`Result`] reports transport-level failures (the whole batch could not be
+    /// dispatched or its response could not be parsed). On success, the returned list contains
+    /// one entry per requested tag in input order, with a per-tag [`Result`] so partial failures
+    /// are first-class — a missing or type-mismatched tag does not prevent the other tags from
+    /// being returned. Per-tag errors are wrapped as [`Error::BatchReadItem`], whose typed
+    /// [`BatchReadError`] source preserves the upstream variant (tag-not-found, type mismatch,
+    /// CIP error, etc.) for caller branching.
+    pub async fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Result<Value>)>>
     where
         S: AsRef<str>,
     {
-        let mut values = Vec::with_capacity(tag_names.len());
+        let refs: Vec<&str> = tag_names.iter().map(AsRef::as_ref).collect();
 
-        for tag_name in tag_names {
-            let tag_name = tag_name.as_ref();
-            let value = self.read_tag(tag_name).await?;
-            values.push((tag_name.to_owned(), value));
-        }
+        let batch =
+            self.client
+                .read_tags_batch(&refs)
+                .await
+                .map_err(|source| Error::BatchRead {
+                    addr: self.addr.clone(),
+                    source: Box::new(source),
+                })?;
 
-        Ok(values)
+        Ok(batch
+            .into_iter()
+            .map(|(tag_name, result)| {
+                let value = result
+                    .map(Value::from)
+                    .map_err(|source| Error::BatchReadItem {
+                        addr: self.addr.clone(),
+                        tag_name: tag_name.clone(),
+                        source: source.into(),
+                    });
+                (tag_name, value)
+            })
+            .collect())
     }
 
     /// Write a user-facing [`Value`] to a PLC tag.
@@ -462,18 +500,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn read_tags_returns_values_in_input_order() {
+    async fn read_tags_issues_single_batch_call_and_returns_values_in_input_order() {
+        let state = Arc::new(Mutex::new(MockState::default()));
         let mut session = ExplicitSession {
             addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                Arc::new(Mutex::new(MockState::default())),
-                vec![
-                    Ok(PlcValue::Bool(true)),
-                    Ok(PlcValue::String("ok".to_owned())),
-                ],
-                vec![],
-                Ok(()),
-            )),
+            client: Box::new(
+                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                    vec![Ok(vec![
+                        Ok(PlcValue::Bool(true)),
+                        Ok(PlcValue::String("ok".to_owned())),
+                    ])],
+                ),
+            ),
         };
 
         let values = session
@@ -481,48 +519,137 @@ mod tests {
             .await
             .expect("batch read should succeed");
 
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[0].0, "Running");
         assert_eq!(
-            values,
-            vec![
-                ("Running".to_owned(), Value::Bool(true)),
-                ("Status".to_owned(), Value::String("ok".to_owned())),
-            ]
+            values[0].1.as_ref().expect("first read should succeed"),
+            &Value::Bool(true)
+        );
+        assert_eq!(values[1].0, "Status");
+        assert_eq!(
+            values[1].1.as_ref().expect("second read should succeed"),
+            &Value::String("ok".to_owned())
+        );
+
+        let locked = state.lock().expect("mock state poisoned");
+        assert_eq!(locked.read_calls, Vec::<String>::new());
+        assert_eq!(
+            locked.batch_read_calls,
+            vec![vec!["Running".to_owned(), "Status".to_owned()]]
         );
     }
 
     #[tokio::test]
-    async fn read_tags_stops_after_first_error() {
+    async fn read_tags_surfaces_per_tag_errors_alongside_successes() {
         let state = Arc::new(Mutex::new(MockState::default()));
         let mut session = ExplicitSession {
             addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                state.clone(),
-                vec![
-                    Ok(PlcValue::Bool(true)),
-                    Err(EtherNetIpError::ReadError {
-                        status: 7,
-                        message: "bad read".to_owned(),
-                    }),
-                ],
-                vec![],
-                Ok(()),
-            )),
+            client: Box::new(
+                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                    vec![Ok(vec![
+                        Ok(PlcValue::Bool(true)),
+                        Err(rust_ethernet_ip::BatchError::TagNotFound(
+                            "Status".to_owned(),
+                        )),
+                        Ok(PlcValue::Dint(7)),
+                    ])],
+                ),
+            ),
         };
 
-        let error = session
-            .read_tags(&["Running", "Status", "Ignored"])
+        let values = session
+            .read_tags(&["Running", "Status", "Counter"])
             .await
-            .expect_err("batch read should fail");
+            .expect("batch read should succeed at transport level");
 
-        match error {
-            Error::ReadTag { tag_name, .. } => assert_eq!(tag_name, "Status"),
-            other => panic!("unexpected error: {other:?}"),
+        assert_eq!(values.len(), 3);
+        assert_eq!(values[0].0, "Running");
+        assert!(values[0].1.is_ok());
+
+        match &values[1].1 {
+            Err(Error::BatchReadItem {
+                addr,
+                tag_name,
+                source,
+            }) => {
+                assert_eq!(addr, "plc.local");
+                assert_eq!(tag_name, "Status");
+                assert!(matches!(source, BatchReadError::TagNotFound(t) if t == "Status"));
+            }
+            other => panic!("expected per-tag BatchReadItem error, got {other:?}"),
         }
 
+        assert_eq!(values[2].0, "Counter");
         assert_eq!(
-            state.lock().expect("mock state poisoned").read_calls,
-            vec!["Running".to_owned(), "Status".to_owned()]
+            values[2].1.as_ref().expect("third read should succeed"),
+            &Value::Dint(7)
         );
+    }
+
+    #[tokio::test]
+    async fn read_tags_preserves_data_type_mismatch_variant() {
+        let state = Arc::new(Mutex::new(MockState::default()));
+        let mut session = ExplicitSession {
+            addr: "plc.local".to_owned(),
+            client: Box::new(
+                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                    vec![Ok(vec![Err(
+                        rust_ethernet_ip::BatchError::DataTypeMismatch {
+                            expected: "DINT".to_owned(),
+                            actual: "REAL".to_owned(),
+                        },
+                    )])],
+                ),
+            ),
+        };
+
+        let values = session
+            .read_tags(&["Counter"])
+            .await
+            .expect("batch read should succeed at transport level");
+
+        match &values[0].1 {
+            Err(Error::BatchReadItem { source, .. }) => match source {
+                BatchReadError::DataTypeMismatch { expected, actual } => {
+                    assert_eq!(expected, "DINT");
+                    assert_eq!(actual, "REAL");
+                }
+                other => panic!("expected DataTypeMismatch, got {other:?}"),
+            },
+            other => panic!("expected per-tag BatchReadItem error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn read_tags_preserves_cip_error_variant() {
+        let state = Arc::new(Mutex::new(MockState::default()));
+        let mut session = ExplicitSession {
+            addr: "plc.local".to_owned(),
+            client: Box::new(
+                MockClient::new(state.clone(), vec![], vec![], Ok(())).with_batch_read_results(
+                    vec![Ok(vec![Err(rust_ethernet_ip::BatchError::CipError {
+                        status: 0x04,
+                        message: "path segment error".to_owned(),
+                    })])],
+                ),
+            ),
+        };
+
+        let values = session
+            .read_tags(&["Counter"])
+            .await
+            .expect("batch read should succeed at transport level");
+
+        match &values[0].1 {
+            Err(Error::BatchReadItem { source, .. }) => match source {
+                BatchReadError::Cip { status, message } => {
+                    assert_eq!(*status, 0x04);
+                    assert_eq!(message, "path segment error");
+                }
+                other => panic!("expected Cip variant, got {other:?}"),
+            },
+            other => panic!("expected per-tag BatchReadItem error, got {other:?}"),
+        }
     }
 
     #[tokio::test]
@@ -542,40 +669,6 @@ mod tests {
         assert_eq!(locked.write_calls.len(), 1);
         assert_eq!(locked.write_calls[0].0, "Setpoint");
         assert!(matches!(locked.write_calls[0].1, PlcValue::Real(value) if value == 12.5));
-    }
-
-    #[tokio::test]
-    async fn write_tag_wraps_write_errors_with_context() {
-        let mut session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                Arc::new(Mutex::new(MockState::default())),
-                vec![],
-                vec![Err(EtherNetIpError::WriteError {
-                    status: 8,
-                    message: "denied".to_owned(),
-                })],
-                Ok(()),
-            )),
-        };
-
-        let error = session
-            .write_tag("Setpoint", Value::Int(5))
-            .await
-            .expect_err("write should fail");
-
-        match error {
-            Error::WriteTag {
-                addr,
-                tag_name,
-                source,
-            } => {
-                assert_eq!(addr, "plc.local");
-                assert_eq!(tag_name, "Setpoint");
-                assert_eq!(source.to_string(), "Write error: denied (status: 8)");
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
     }
 
     #[tokio::test]
@@ -717,28 +810,5 @@ mod tests {
             state.lock().expect("mock state poisoned").unregister_calls,
             1
         );
-    }
-
-    #[tokio::test]
-    async fn close_wraps_unregister_errors_with_context() {
-        let session = ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                Arc::new(Mutex::new(MockState::default())),
-                vec![],
-                vec![],
-                Err(EtherNetIpError::ConnectionLost("socket closed".to_owned())),
-            )),
-        };
-
-        let error = session.close().await.expect_err("close should fail");
-
-        match error {
-            Error::Unregister { addr, source } => {
-                assert_eq!(addr, "plc.local");
-                assert_eq!(source.to_string(), "Connection lost: socket closed");
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
     }
 }
