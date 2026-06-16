@@ -17,23 +17,23 @@ class RigolDP800(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
+    def set_voltage(self, voltage: float, channel: int) -> None:
         self._write_checked(f":SOUR{channel}:VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
+    def get_voltage(self, channel: int) -> float:
         return self._query_checked_float(f":MEAS:VOLT? CH{channel}")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
         self._write_checked(f":SOUR{channel}:CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
+    def get_current(self, channel: int) -> float:
         return self._query_checked_float(f":MEAS:CURR? CH{channel}")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
+    def output_enable(self, enable: bool, channel: int) -> None:
         cmd = f":OUTP CH{channel},ON" if enable else f":OUTP CH{channel},OFF"
         self._write_checked(cmd)
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
             resp = self._visa.query(f":OUTP? CH{channel}")
             self._check_errors()

@@ -221,7 +221,7 @@ def test_simulated_get_remote_sense_enabled_parses_state(sim: SimulatedPSU, sim_
 def test_simulated_check_errors_accepts_unsigned_zero(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
     sim_visa.query.return_value = '0,"No error"'
 
-    sim.set_voltage(1.0)
+    sim.set_voltage(1.0, channel=1)
 
     sim_visa.query.assert_called_once_with(":SYST:ERR?")
 
@@ -230,4 +230,4 @@ def test_simulated_check_errors_raises_on_nonzero(sim: SimulatedPSU, sim_visa: M
     sim_visa.query.return_value = '-100,"Command error"'
 
     with pytest.raises(RuntimeError, match="Simulated PSU reported error"):
-        sim.set_voltage(1.0)
+        sim.set_voltage(1.0, channel=1)
