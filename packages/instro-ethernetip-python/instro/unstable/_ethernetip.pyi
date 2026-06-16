@@ -9,6 +9,38 @@ class EtherNetIpError(Exception):
     operation: str | None
 
 
+class EtherNetIpBatchError(EtherNetIpError):
+    """Base class for per-tag failures returned by :meth:`EtherNetIpSession.read_tags`."""
+
+
+class TagNotFoundError(EtherNetIpBatchError): ...
+
+
+class DataTypeMismatchError(EtherNetIpBatchError):
+    expected: str
+    actual: str
+
+
+class NetworkBatchError(EtherNetIpBatchError): ...
+
+
+class CipError(EtherNetIpBatchError):
+    status: _int
+    message: str
+
+
+class TagPathError(EtherNetIpBatchError): ...
+
+
+class SerializationError(EtherNetIpBatchError): ...
+
+
+class BatchTimeoutError(EtherNetIpBatchError): ...
+
+
+class OtherBatchError(EtherNetIpBatchError): ...
+
+
 class StructuredValue:
     def __init__(self, symbol_id: _int | None = None, data: bytes | bytearray | None = None) -> None: ...
 
@@ -107,7 +139,23 @@ class EtherNetIpSession:
 
     def read_tag(self, name: str) -> PlcValue: ...
 
-    def read_tags(self, names: list[str] | tuple[str, ...]) -> list[tuple[str, PlcValue]]: ...
+    def read_tags(
+        self,
+        names: list[str] | tuple[str, ...],
+    ) -> list[tuple[str, PlcValue | EtherNetIpBatchError]]:
+        """Read several PLC tags in a single batched request.
+
+        Returns one entry per requested tag in input order. The second item of each tuple is
+        either a ``PlcValue`` for successful reads or an ``EtherNetIpBatchError`` subclass
+        instance for tags that failed individually. The concrete subclass preserves the
+        upstream variant (e.g. ``TagNotFoundError``, ``DataTypeMismatchError``, ``CipError``)
+        so callers can branch with ``isinstance`` rather than parsing strings.
+
+        Per-tag failures are returned as exception instances rather than raised, so a single bad
+        tag does not throw away the values of the other tags in the batch. This call raises only
+        when the entire batch could not be dispatched.
+        """
+        ...
 
     def write_tag(self, name: str, value: PlcValue | StructuredValue | bool | str) -> None: ...
 

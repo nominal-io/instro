@@ -40,10 +40,17 @@
             "group": "Instruments",
             "icon": "microchip",
             "pages": [
-              "instrumentation/psu",
+              {
+                "group": "PSU",
+                "pages": [
+                  "instrumentation/psu",
+                  "instrumentation/psu-simulator"
+                ]
+              },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq"
+              "instrumentation/daq",
+              "instrumentation/daq-ni-multi-task"
             ]
           },
           {
@@ -98,7 +105,8 @@
               "instrumentation/examples/daq/daq_write_analog_sw_timed",
               "instrumentation/examples/daq/daq_write_digital_line",
               "instrumentation/examples/daq/daq_read_digital_port",
-              "instrumentation/examples/daq/daq_write_digital_port"
+              "instrumentation/examples/daq/daq_write_digital_port",
+              "instrumentation/examples/daq/daq_multi_rate_ni"
             ]
           },
           {
