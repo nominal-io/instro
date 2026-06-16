@@ -14,6 +14,7 @@ from instro.daq.types import (
     Direction,
     Logic,
 )
+from instro.lib import InstrumentNotOpenError
 
 
 class _RecordingDriver(DAQDriverBase):
@@ -125,6 +126,7 @@ def test_write_digital_line_configured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH, alias="test_channel"
     )
@@ -143,6 +145,7 @@ def test_write_digital_line_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Digital output channel 'unconfigured_channel' is not configured") as exc_info:
         daq.write_digital_line("unconfigured_channel", 1)
 
@@ -161,6 +164,7 @@ def test_read_digital_line_configured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.INPUT, physical_channel="port0/line0", alias="test_channel", logic=Logic.HIGH
     )
@@ -179,6 +183,7 @@ def test_read_digital_line_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Digital input channel 'unconfigured_channel' is not configured") as exc_info:
         daq.read_digital_line("unconfigured_channel")
 
@@ -196,6 +201,7 @@ def test_write_analog_value_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Analog output channel 'unconfigured_channel' is not configured"):
         daq.write_analog_value("unconfigured_channel", 5.0)
 
@@ -211,6 +217,7 @@ def test_close_relay_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Relay channel 'unconfigured_relay' is not configured"):
         daq.close_relay("unconfigured_relay")
 
@@ -226,6 +233,7 @@ def test_open_relay_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Relay channel 'unconfigured_relay' is not configured"):
         daq.open_relay("unconfigured_relay")
 
@@ -241,6 +249,7 @@ def test_write_digital_port_configured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     daq.configure_digital_port(
         direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
     )
@@ -259,6 +268,7 @@ def test_write_digital_port_value_exceeds_width():
         driver=mock_driver,
     )
 
+    daq.open()
     daq.configure_digital_port(
         direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
     )
@@ -281,6 +291,7 @@ def test_write_digital_port_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Digital output channel 'unconfigured_port' is not configured"):
         daq.write_digital_port("unconfigured_port", 0xFF)
 
@@ -297,6 +308,7 @@ def test_read_digital_port_configured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     daq.configure_digital_port(
         direction=Direction.INPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8, alias="test_port"
     )
@@ -315,10 +327,84 @@ def test_read_digital_port_unconfigured_channel():
         driver=mock_driver,
     )
 
+    daq.open()
     with pytest.raises(KeyError, match="Digital input channel 'unconfigured_port' is not configured"):
         daq.read_digital_port("unconfigured_port")
 
     mock_driver.read_digital_port.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# open() guard
+# ---------------------------------------------------------------------------
+
+
+_GUARDED_METHODS = [
+    ("start", lambda daq: daq.start()),
+    ("stop", lambda daq: daq.stop()),
+    ("read_analog", lambda daq: daq.read_analog()),
+    ("write_analog_value", lambda daq: daq.write_analog_value("ch", 1.0)),
+    ("write_digital_line", lambda daq: daq.write_digital_line("ch", 1)),
+    ("read_digital_line", lambda daq: daq.read_digital_line("ch")),
+    ("write_digital_port", lambda daq: daq.write_digital_port("ch", 1)),
+    ("read_digital_port", lambda daq: daq.read_digital_port("ch")),
+    ("close_relay", lambda daq: daq.close_relay("ch")),
+    ("open_relay", lambda daq: daq.open_relay("ch")),
+    ("get_points_in_buffer", lambda daq: daq.get_points_in_buffer()),
+    (
+        "configure_analog_channel",
+        lambda daq: daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0"),
+    ),
+    ("configure_ai_sample_rate", lambda daq: daq.configure_ai_sample_rate(sample_rate=100)),
+    (
+        "configure_digital_line",
+        lambda daq: daq.configure_digital_line(
+            direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH
+        ),
+    ),
+    (
+        "configure_digital_port",
+        lambda daq: daq.configure_digital_port(
+            direction=Direction.OUTPUT, physical_channel="port0", logic=Logic.HIGH, port_width=8
+        ),
+    ),
+    ("configure_relay_channel", lambda daq: daq.configure_relay_channel(physical_channel="3101")),
+]
+
+
+@pytest.mark.parametrize("method_name,call", _GUARDED_METHODS, ids=[name for name, _ in _GUARDED_METHODS])
+def test_method_before_open_raises_not_open(method_name, call):
+    """Every device-touching method raises InstrumentNotOpenError when called before open()."""
+    daq = InstroDAQ(name="Bench DAQ", driver=_make_mock_driver())
+
+    with pytest.raises(InstrumentNotOpenError, match="Bench DAQ"):
+        call(daq)
+
+
+def test_not_open_error_message_names_the_instrument():
+    """The not-open error names the instance so users know which DAQ they forgot to open."""
+    daq = InstroDAQ(name="myDAQ", driver=_make_mock_driver())
+
+    with pytest.raises(InstrumentNotOpenError, match="InstroDAQ 'myDAQ' is not open. Call open\\(\\) first."):
+        daq.read_analog()
+
+
+def test_method_after_open_does_not_raise_not_open():
+    """Opening clears the guard; the same call no longer raises InstrumentNotOpenError."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    daq.stop()  # would raise InstrumentNotOpenError before open()
+
+
+def test_method_after_close_raises_not_open_again():
+    """close() re-arms the guard; calling a device method afterwards raises again."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.close()
+
+    with pytest.raises(InstrumentNotOpenError, match="ut"):
+        daq.read_analog()
 
 
 # ---------------------------------------------------------------------------
@@ -548,6 +634,7 @@ def _legacy_daq_with_digital_channel(direction: Direction):
     mock_driver.read_digital_port.return_value = 5
 
     daq = InstroDAQ(name="ut", driver=mock_driver, legacy_naming=True)
+    daq.open()
     daq.configure_digital_line(direction=direction, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
     return daq
 
@@ -574,6 +661,7 @@ def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
     mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -586,6 +674,7 @@ def test_default_naming_write_digital_line_preserves_int_value_type():
     mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -601,6 +690,7 @@ def test_default_naming_write_digital_port_preserves_int_value_type():
     mock_driver = _make_mock_driver()
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
     daq.configure_digital_port(
         direction=Direction.OUTPUT, physical_channel="port0", alias="port0", logic=Logic.HIGH, port_width=8
     )
@@ -616,6 +706,7 @@ def test_default_naming_write_digital_port_preserves_int_value_type():
 def test_channel_mapping_is_read_only():
     """The channel-dict properties return read-only mappings; mutating them raises."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -629,6 +720,7 @@ def test_channel_mapping_is_read_only():
 def test_channel_objects_are_frozen():
     """Channels handed back through a snapshot are frozen; attribute writes raise."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -641,6 +733,7 @@ def test_channel_objects_are_frozen():
 def test_channel_snapshot_is_not_a_live_view():
     """A captured snapshot does not reflect channels configured afterwards."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="a", logic=Logic.HIGH)
 
     snapshot = daq.do_channels
@@ -654,6 +747,7 @@ def test_channel_snapshot_is_not_a_live_view():
 def test_channels_property_returns_immutable_tuple():
     """The aggregate ``channels`` property returns a tuple snapshot."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
     daq.configure_digital_line(
         direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
     )
@@ -666,6 +760,7 @@ def test_stop_with_channel_type_forwards_kwarg_once():
     """stop(channel_type=...) must not pass channel_type both explicitly and via **kwargs."""
     mock_driver = _make_mock_driver()
     daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
 
     daq.stop(channel_type="analog_input")
 
@@ -675,6 +770,7 @@ def test_stop_with_channel_type_forwards_kwarg_once():
 def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
     """The samples_per_channel default must never be 0; sub-10 Hz rates floor at 1."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
 
     daq.configure_ai_sample_rate(sample_rate=1.0)
 
@@ -690,6 +786,7 @@ def _hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver]:
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = []
     daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
     daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
     daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
     return daq, mock_driver

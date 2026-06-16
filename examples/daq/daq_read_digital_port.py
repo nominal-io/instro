@@ -36,9 +36,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_digital_port(
         direction=Direction.INPUT,
         physical_channel=PORT,
@@ -49,7 +47,3 @@ try:
 
     measurement = daq.read_digital_port(channel="di_port")
     print(f"Port value: {int(measurement.latest)}")
-
-finally:
-    print("Closing DAQ")
-    daq.close()

@@ -27,9 +27,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_relay_channel(physical_channel=CHANNEL_0, alias="relay0")
     daq.configure_relay_channel(physical_channel=CHANNEL_1, alias="relay1")
     daq.close_relay("relay0")
@@ -39,7 +37,3 @@ try:
     daq.open_relay("relay0")
     time.sleep(1)
     daq.open_relay("relay1")
-
-finally:
-    print("Closing DAQ")
-    daq.close()

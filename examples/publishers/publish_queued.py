@@ -21,10 +21,8 @@ queued_publisher = QueuedPublisher(core_publisher, max_queue_size=100, wait_for_
 
 psu.add_publisher(queued_publisher)
 
-try:
+with psu:
     # Set up initial state of test
-    psu.open()
-
     psu.output_enable(False, channel=2)
     psu.set_current_limit(0.2, channel=2)
     psu.set_voltage(0, channel=2)
@@ -48,7 +46,3 @@ try:
     psu.output_enable(False, channel=2)
 
     print("Done, waiting for queue to be empty...")
-
-finally:
-    # Shut it down
-    psu.close()

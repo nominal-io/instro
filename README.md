@@ -10,7 +10,7 @@ Python library for talking to test-and-measurement instruments (power supplies, 
 pip install instro
 ```
 
-Requires [Python 3.10+](https://www.python.org/downloads/).
+Requires [Python 3.10 to 3.13](https://www.python.org/downloads/).
 
 To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/uv/):
 

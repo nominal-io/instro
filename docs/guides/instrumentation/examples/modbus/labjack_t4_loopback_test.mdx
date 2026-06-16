@@ -71,11 +71,10 @@ def _value(measurement, channel: str) -> float:
 
 def main() -> None:
     lj = ModbusDevice(config=CONFIG)
-    lj.open()
 
     failures: list[str] = []
 
-    try:
+    with lj:
         print(f"Connected to LabJack T4 at {HOST}:{PORT}")
 
         # --- Device identity ---
@@ -124,10 +123,6 @@ def main() -> None:
                 print(f"  - {f}")
         else:
             print("LOOPBACK PASSED")
-
-    finally:
-        print("\nClosing connection")
-        lj.close()
 
 
 if __name__ == "__main__":
