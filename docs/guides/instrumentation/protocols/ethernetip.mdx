@@ -44,15 +44,12 @@ from instro.unstable.ethernetip import EtherNetIPDevice
 RID = "<dataset_rid>"  # Nominal Core dataset RID.
 
 # autostart opens the session and starts polling.
-plc = EtherNetIPDevice(config="compactlogix.json", autostart=True)
+with EtherNetIPDevice(config="compactlogix.json", autostart=True) as plc:
+    # Publish boolean and numeric tag samples to Nominal Core.
+    plc.add_publisher(NominalCorePublisher(dataset_rid=RID))
 
-# Publish boolean and numeric tag samples to Nominal Core.
-plc.add_publisher(NominalCorePublisher(dataset_rid=RID))
-
-# Let the background daemon collect one polling window.
-time.sleep(10)
-
-plc.close()
+    # Let the background daemon collect one polling window.
+    time.sleep(10)
 ```
 
 </Tab>
@@ -95,12 +92,6 @@ Create `compactlogix.json` with the PLC connection and tag definitions:
       "tag_name": "LineSpeed",
       "data_type": "real",
       "poll": true
-    },
-    {
-      "alias": "recipe_name",
-      "tag_name": "RecipeName",
-      "data_type": "string",
-      "poll": false
     }
   ]
 }
@@ -119,13 +110,13 @@ EtherNet/IP support is intentionally narrow. It targets PLC tags whose names and
 | PLC family | Tested on Allen-Bradley CompactLogix 5332E 1769-L32E |
 | Transport | EtherNet/IP explicit messaging over TCP |
 | Route paths | Direct connection, or local backplane slot hops only |
-| Background polling | Automatic batched reads for all `poll: true` tags |
+| Background polling | Automatic batched reads for tags marked `poll: true` in the config |
 | Streaming to Nominal Core or Nominal Connect | Boolean and numeric scalar tag values |
 | Manual tag operations | Single-tag and batched scalar reads, plus writes, through the native session API |
 | Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
 | Tag discovery | Not supported |
-| UDTs | Not supported in the config-driven API |
-| Arrays | Not supported in the config-driven API |
+| UDTs | Not supported |
+| Arrays | Not supported |
 
 <Note>
 Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol. Current hardware testing covers only CompactLogix 5332E 1769-L32E.
@@ -148,7 +139,7 @@ A connection, scalar tag definitions, and `autostart=True` cover the common path
 
 ### Lifecycle
 
-The EtherNet/IP workflow has six moves:
+The EtherNet/IP workflow has six steps:
 
 1. Define PLC tags in a JSON config file or an `EtherNetIPConfig`.
 2. Instantiate `EtherNetIPDevice(config)` with an optional connection override.
@@ -157,8 +148,10 @@ The EtherNet/IP workflow has six moves:
 5. Read or write tags by alias with type validation.
 6. Call `close()` to close the session and stop background polling.
 
+Prefer a `with` statement for normal scripts so `close()` runs when the block exits. `close()` stops the background polling daemon, closes publishers, and closes the native EtherNet/IP session.
+
 <Tip>
-Pass `autostart=True` to combine steps 3 and 4. When a `timing` section is configured, autostart also starts the background polling daemon.
+Pass `autostart=True` to combine steps 3 and 4 by starting a background polling thread ([Background polling](#background-polling)). A `timing` section in the config must be provided when using `autostart=True`.
 </Tip>
 
 Opening the session and validating the config do not probe the PLC tag map. Tag existence and actual PLC type are only validated when PLC I/O touches the tag: either when the background polling task reads `poll: true` tags, or when the user explicitly calls `read_tag()`, `read_tags()`, or `write_tag()`.
@@ -198,7 +191,11 @@ The config-driven EtherNet/IP API supports scalar tags only. Structured values c
 
 ### Strings
 
-String support is for Allen-Bradley Logix `STRING` tags encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`). String measurements are not supported by Nominal Core or Nominal Connect. Manual string tag reads and writes are still supported, but not through the background polling thread.
+String support is for Allen-Bradley Logix `STRING` tags encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`). String measurements are not supported by Nominal Core or Nominal Connect. Manual string tag reads and writes are supported by the native API, but not through the background polling thread.
+
+<Note>
+Current CompactLogix 5332E 1769-L32E hardware testing covers boolean and numeric scalar tags. Validate string tags against the target PLC before using them in production configs.
+</Note>
 
 In config files, string tags must set `poll: false`:
 
@@ -365,14 +362,32 @@ Every EtherNet/IP config file must include:
   },
   "tags": [
     {
-      "alias": "ready",
-      "tag_name": "Ready",
-      "data_type": "bool"
+      "alias": "motor_running",
+      "tag_name": "MotorRunning",
+      "data_type": "bool",
+      "description": "Motor run feedback",
+      "poll": true
     },
     {
       "alias": "line_speed",
       "tag_name": "LineSpeed",
       "data_type": "real",
+      "description": "Measured line speed in rpm",
+      "poll": true
+    },
+    {
+      "alias": "part_count",
+      "tag_name": "PartCount",
+      "data_type": "dint",
+      "description": "Completed parts since reset",
+      "poll": true
+    },
+    {
+      "alias": "speed_setpoint",
+      "tag_name": "SpeedSetpoint",
+      "data_type": "real",
+      "description": "Commanded line speed in rpm",
+      "poll": false,
       "write_min": 0.0,
       "write_max": 2500.0
     },
@@ -380,6 +395,7 @@ Every EtherNet/IP config file must include:
       "alias": "recipe_name",
       "tag_name": "RecipeName",
       "data_type": "string",
+      "description": "Active recipe name",
       "poll": false
     }
   ]
@@ -466,13 +482,11 @@ Load-time validation is local to the config. It does not verify that PLC tags ex
 from instro.unstable.ethernetip import EtherNetIPDevice
 
 # Uses the connection section from compactlogix.json.
-plc = EtherNetIPDevice(config="compactlogix.json")
-plc.open()
-
-measurement = plc.read_tag("line_speed")
-plc.write_tag("line_speed", 1200.0)
-
-plc.close()
+with EtherNetIPDevice(config="compactlogix.json") as plc:
+    # Assumes "line_speed" is a specified tag in compactlogix.json
+    # and that 1200.0 is a valid value.
+    measurement = plc.read_tag("line_speed")
+    plc.write_tag("line_speed", 1200.0)
 ```
 
 </Tab>
@@ -482,7 +496,7 @@ plc.close()
 ```python
 from instro.unstable.ethernetip import EtherNetIPDevice
 
-plc = EtherNetIPDevice(
+with EtherNetIPDevice(
     config="compactlogix.json",
     # Overrides any connection in the config; the config can omit connection.
     connection={
@@ -491,8 +505,8 @@ plc = EtherNetIPDevice(
         # Local backplane hop to the PLC CPU slot.
         "route_path": {"hops": [{"type": "backplane", "slot": 0}]},
     },
-)
-plc.open()
+) as plc:
+    measurement = plc.read_tag("line_speed")
 ```
 
 </Tab>
@@ -527,7 +541,8 @@ connection = EtherNetIPConnectionInfo(
 )
 
 # Opens the session and starts polling immediately because timing is configured.
-plc = EtherNetIPDevice(config, connection=connection, autostart=True)
+with EtherNetIPDevice(config, connection=connection, autostart=True) as plc:
+    measurement = plc.read_tag("line_speed")
 ```
 
 </Tab>
