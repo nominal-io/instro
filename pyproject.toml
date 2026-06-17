@@ -142,7 +142,9 @@ packages = ["instro", "instro.unstable.ethernetip"]
 testpaths = ["tests"]
 # --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc"
+# --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
+# (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]
