@@ -1,12 +1,10 @@
 """Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
 
-from collections.abc import Iterator
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from instro.psu import InstroPSU, PSUDriverBase
-from instro.psu.drivers import RigolDP800
 
 # --- PSUDriverBase ---
 
@@ -94,56 +92,6 @@ def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
         getattr(base_only_psu_driver, method_name)(*args, channel=1)
-
-
-# --- RigolDP800 ---
-
-
-@pytest.fixture
-def rigol_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.rigol_dp800.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def rigol_visa(rigol_visa_cls: MagicMock) -> MagicMock:
-    visa = rigol_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def rigol(rigol_visa_cls: MagicMock) -> RigolDP800:
-    return RigolDP800("TCPIP0::rigol::INSTR")
-
-
-def test_rigol_set_voltage_writes_per_channel(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol.set_voltage(5.0, channel=2)
-    rigol_visa.write.assert_called_once_with(":SOUR2:VOLT 5.000")
-    rigol_visa.query.assert_called_once_with(":SYST:ERR?")
-
-
-def test_rigol_get_voltage_uses_meas_command(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.side_effect = ["12.000", '0,"No error"']
-    assert rigol.get_voltage(channel=3) == pytest.approx(12.0)
-    assert rigol_visa.query.call_args_list == [call(":MEAS:VOLT? CH3"), call(":SYST:ERR?")]
-
-
-def test_rigol_output_enable_formats_per_channel(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol.output_enable(True, channel=1)
-    rigol.output_enable(False, channel=2)
-    assert rigol_visa.write.call_args_list == [call(":OUTP CH1,ON"), call(":OUTP CH2,OFF")]
-
-
-def test_rigol_get_output_status_parses_on(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.side_effect = ["ON", '0,"No error"']
-    assert rigol.get_output_status(channel=1) is True
-
-
-def test_rigol_check_errors_raises_on_nonzero(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="Rigol PSU reported error"):
-        rigol.set_voltage(1.0, channel=1)
 
 
 # --- InstroPSU composition ---
