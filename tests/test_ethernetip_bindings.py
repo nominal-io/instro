@@ -207,6 +207,7 @@ SUPPORTED_LIVE_PLC_SCALAR_CASES: list[dict[str, Any]] = [
     },
 ]
 
+
 def cpppo_scalar_cases() -> list[dict[str, Any]]:
     """Scalar cases expected on the target endpoint for read/write integration tests."""
     return SUPPORTED_CPPPO_SCALAR_CASES
