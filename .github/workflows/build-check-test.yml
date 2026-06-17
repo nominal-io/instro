@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     # Run every step under bash so the bash-syntax steps below (e.g. the
     # `uv lock --check` guard) work on Windows runners, which default to pwsh.
