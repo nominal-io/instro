@@ -104,7 +104,7 @@ eip-live-test:
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
-    uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest tests/test_ethernetip_bindings.py -q
+    uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
 
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's

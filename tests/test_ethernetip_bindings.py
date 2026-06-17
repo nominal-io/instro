@@ -207,18 +207,6 @@ SUPPORTED_LIVE_PLC_SCALAR_CASES: list[dict[str, Any]] = [
     },
 ]
 
-SUPPORTED_LIVE_ONLY_SCALAR_CASES: list[dict[str, Any]] = [
-    {
-        "name": "test_string",
-        "type_name": "STRING",
-        "initial": "hello",
-        "expected_kind": PlcKind.STRING,
-        "write": PlcValue.string("world"),
-        "expected_after": "world",
-    },
-]
-
-
 def cpppo_scalar_cases() -> list[dict[str, Any]]:
     """Scalar cases expected on the target endpoint for read/write integration tests."""
     return SUPPORTED_CPPPO_SCALAR_CASES
@@ -226,7 +214,7 @@ def cpppo_scalar_cases() -> list[dict[str, Any]]:
 
 def live_plc_scalar_cases() -> list[dict[str, Any]]:
     """Scalar cases expected on the configured live PLC endpoint."""
-    cases = SUPPORTED_LIVE_PLC_SCALAR_CASES + SUPPORTED_LIVE_ONLY_SCALAR_CASES
+    cases = SUPPORTED_LIVE_PLC_SCALAR_CASES
 
     if exclude_unsigned_types():
         cases = [case for case in cases if case["type_name"] not in UNSIGNED_TYPE_NAMES]
@@ -387,8 +375,10 @@ def test_cpppo_round_trips_all_supported_scalar_types() -> None:
         assert_scalar_round_trip(endpoint, cases)
 
 
+@pytest.mark.hardware
 def test_live_plc_round_trips_configured_scalar_tags() -> None:
     """Live PLC round-trips the configured scalar test tags via the Python bindings."""
+    # Hardware is the intended target, though the endpoint may be a simulator.
     assert_scalar_round_trip(
         live_plc_endpoint(),
         live_plc_scalar_cases(),

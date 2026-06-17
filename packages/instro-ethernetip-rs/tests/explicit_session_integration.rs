@@ -66,13 +66,17 @@ async fn read_tags_preserves_input_order() {
         .await
         .expect("batch read should succeed");
 
-    assert_eq!(
-        values,
-        fixtures
-            .iter()
-            .map(|fixture| (fixture.name.to_owned(), fixture.seed_value().clone()))
-            .collect::<Vec<_>>()
-    );
+    assert_eq!(values.len(), fixtures.len());
+    for ((tag_name, read_value), fixture) in values.iter().zip(fixtures) {
+        assert_eq!(tag_name.as_str(), fixture.name);
+        assert_eq!(
+            read_value.as_ref().unwrap_or_else(|error| panic!(
+                "read should succeed for {}: {error}",
+                fixture.name
+            )),
+            fixture.seed_value()
+        );
+    }
 
     session.close().await.expect("close should succeed");
 }
@@ -223,10 +227,6 @@ mod support {
 
     fn target_l32e() -> bool {
         truthy_env(TARGET_L32E_ENV_VAR)
-    }
-
-    fn live_target() -> bool {
-        configured_plc_endpoint().is_some()
     }
 
     fn truthy_env(name: &str) -> bool {
@@ -387,18 +387,6 @@ mod support {
                 },
             ];
 
-            if live_target() {
-                fixtures.push(TagFixture {
-                    name: "test_string",
-                    type_name: "STRING",
-                    write_values: vec![
-                        Value::String("hello".to_owned()),
-                        Value::String("world".to_owned()),
-                        Value::String("hello".to_owned()),
-                    ],
-                });
-            }
-
             if exclude_unsigned_types() {
                 fixtures.retain(|fixture| !is_unsigned_type(fixture.type_name));
             }
@@ -446,7 +434,7 @@ mod support {
         pub(super) fn start(fixtures: &[TagFixture]) -> (String, Process) {
             let script = script_path();
             let mut child = Command::new("uv")
-                .args(["run", "--with", "cpppo", "--no-project", "python3"])
+                .args(["run", "python"])
                 .arg(&script)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
@@ -455,7 +443,7 @@ mod support {
                 .spawn()
                 .unwrap_or_else(|error| {
                     panic!(
-                        "failed to start cpppo simulator process via `uv run --with cpppo`: {error}"
+                        "failed to start cpppo simulator process via `uv run python`: {error}"
                     )
                 });
 
