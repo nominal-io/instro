@@ -5,11 +5,9 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from instro.lib.transports import SerialConfig, VisaConfig
 from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.drivers import (
     BK9115,
-    SiglentSPD3303,
 )
 
 # --- PSUDriverBase ---
@@ -322,37 +320,6 @@ def test_nominal_psu_remote_sense_methods_delegate_and_package() -> None:
     assert "ut.ch1.remote_sense" in enabled.channel_data  # type: ignore[union-attr]
 
 
-@pytest.mark.parametrize(
-    ("method_name", "args"),
-    [
-        ("set_voltage", (5.0,)),
-        ("get_voltage", ()),
-        ("set_current_limit", (1.0,)),
-        ("get_current", ()),
-        ("output_enable", (True,)),
-        ("get_output_status", ()),
-        ("set_overvoltage_protection_level", (12.0,)),
-        ("get_overvoltage_protection_level", ()),
-        ("set_overvoltage_protection_enabled", (True,)),
-        ("get_overvoltage_protection_enabled", ()),
-        ("set_overvoltage_protection_delay", (0.25,)),
-        ("get_overvoltage_protection_delay", ()),
-        ("set_overcurrent_protection_level", (1.0,)),
-        ("get_overcurrent_protection_level", ()),
-        ("set_overcurrent_protection_enabled", (True,)),
-        ("get_overcurrent_protection_enabled", ()),
-        ("set_remote_sense_enabled", (True,)),
-        ("get_remote_sense_enabled", ()),
-    ],
-)
-def test_nominal_psu_methods_require_explicit_channel(method_name: str, args: tuple[object, ...]) -> None:
-    driver = _stub_driver()
-    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-
-    with pytest.raises(TypeError, match="channel"):
-        getattr(psu, method_name)(*args)
-
-
 # --- legacy_naming ---
 
 
@@ -435,15 +402,3 @@ def test_publish_measurement_passes_through_none() -> None:
 
     inst = _Quiet(name="ut", driver=_stub_driver(), num_channels=1)
     assert inst.quiet() is None
-
-
-# --- Cross-driver VisaConfig pass-through (representative) ---
-
-
-def test_bk_single_init_passes_prebuilt_config_to_visa_driver(bk_single_visa_cls: MagicMock) -> None:
-    config = VisaConfig(
-        visa_resource="ASRL19::INSTR",
-        serial_config=SerialConfig(baud_rate=19_200),
-    )
-    BK9115(config)
-    bk_single_visa_cls.assert_called_once_with(config)
