@@ -29,9 +29,9 @@ def _load_native_ethernetip() -> SimpleNamespace:
         from instro.unstable._ethernetip import EtherNetIpSession, PlcKind, PlcValue
     except ImportError as exc:
         raise RuntimeError(
-            "EtherNet/IP support requires the local native package "
-            "'instro-ethernetip-python'. It is intentionally not a hard dependency "
-            "of instro-unstable yet."
+            "EtherNet/IP support requires the native package 'instro-ethernetip-python'. "
+            'Install it with `pip install "instro-unstable[ethernetip]"` or '
+            '`uv add "instro-unstable[ethernetip]"`.'
         ) from exc
 
     return SimpleNamespace(
