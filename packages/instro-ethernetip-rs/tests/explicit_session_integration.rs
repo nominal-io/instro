@@ -171,7 +171,7 @@ mod support {
     pub(super) fn start_simulator() -> Simulator {
         let script = simulator_script_path();
         let mut child = Command::new("uv")
-            .args(["run", "--with", "cpppo", "--no-project", "python3"])
+            .args(["run", "python"])
             .arg(&script)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -179,7 +179,7 @@ mod support {
             .args(simulator_tag_args(simulator_fixtures()))
             .spawn()
             .unwrap_or_else(|error| {
-                panic!("failed to start cpppo simulator process via `uv run --with cpppo`: {error}")
+                panic!("failed to start cpppo simulator process via `uv run python`: {error}")
             });
 
         let stdout = child
