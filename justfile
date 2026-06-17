@@ -2,6 +2,10 @@ set positional-arguments := true
 
 export CARGO_TERM_COLOR := "always"
 
+# On Windows, ensure shebang recipes use Git Bash, not the WSL `bash` in System32 (see #109).
+# Git Bash's dir is derived from wherever `git` resolves on PATH, not a hardcoded install path.
+export PATH := if os() == "windows" { (parent_directory(parent_directory(require("git.exe"))) / "bin") + ";" + env_var("PATH") } else { env_var("PATH") }
+
 # Default command is no subcommand given to list available commands
 default:
     @just --list
