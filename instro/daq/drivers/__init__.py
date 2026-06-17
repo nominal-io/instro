@@ -7,6 +7,7 @@ from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
 from instro.daq import DAQDriverBase, HWTimestamper
+from instro.daq.drivers.arduino_firmata import ArduinoFirmata
 from instro.daq.drivers.keysight_34980a import Keysight34980A
 
-__all__ = ["DAQDriverBase", "HWTimestamper", "Keysight34980A"]
+__all__ = ["DAQDriverBase", "HWTimestamper", "Keysight34980A", "ArduinoFirmata"]

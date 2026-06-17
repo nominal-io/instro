@@ -442,6 +442,10 @@ all = [
     { name = "instro-daq-mcc" },
     { name = "instro-daq-ni" },
     { name = "instro-i2c-aardvark" },
+    { name = "pyfirmata2" },
+]
+arduino = [
+    { name = "pyfirmata2" },
 ]
 daq = [
     { name = "instro-daq-labjack" },
@@ -495,6 +499,8 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
     { name = "nominal", specifier = ">=1.99.0,<2.0.0" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyfirmata2", marker = "extra == 'all'" },
+    { name = "pyfirmata2", marker = "extra == 'arduino'" },
     { name = "pymodbus", specifier = ">=3.10,<3.13" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "pyvisa", specifier = ">=1.15" },
@@ -502,7 +508,7 @@ requires-dist = [
     { name = "textual", specifier = ">=0.80" },
     { name = "thermocouples", specifier = ">=2.1.2" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "arduino", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1465,6 +1471,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/92/61/edbf7aea71052d410347846a2ea43394f74651bf6822b8fad8703ca00575/pydantic_core-2.46.0-pp311-pypy311_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:909a7327b83ca93b372f7d48df0ebc7a975a5191eb0b6e024f503f4902c24124", size = 2327716, upload-time = "2026-04-13T09:06:31.681Z" },
     { url = "https://files.pythonhosted.org/packages/a4/11/aa5089b941e85294b1d5d526840b18f0d4464f842d43d8999ce50ef881c1/pydantic_core-2.46.0-pp311-pypy311_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:2f7e6a3752378a69fadf3f5ee8bc5fa082f623703eec0f4e854b12c548322de0", size = 2365925, upload-time = "2026-04-13T09:05:38.338Z" },
     { url = "https://files.pythonhosted.org/packages/0c/75/e187b0ea247f71f2009d156df88b7d8449c52a38810c9a1bd55dd4871206/pydantic_core-2.46.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:ef47ee0a3ac4c2bb25a083b3acafb171f65be4a0ac1e84edef79dd0016e25eaa", size = 2193856, upload-time = "2026-04-13T09:05:03.114Z" },
+]
+
+[[package]]
+name = "pyfirmata2"
+version = "2.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyserial" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/16/60f33d9b37dccffeeabdc46c4ea751ddeb585fc72ac47243eecfdf718079/pyFirmata2-2.5.1.tar.gz", hash = "sha256:5ef8fc5caec084e72c6b7f199362a743854c9bd63a93cacbaa0c7bbb99efef75", size = 15523, upload-time = "2024-11-27T08:15:25.179Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/3b/fca22decea624feffb82f5feb3e898a167b0b0e9f93614faec86a2a13e66/pyFirmata2-2.5.1-py3-none-any.whl", hash = "sha256:0b5479b152afb6902b5c7c458d4fd496957776db98287e4b317c21269ebe908e", size = 14640, upload-time = "2024-11-27T08:15:09.752Z" },
 ]
 
 [[package]]

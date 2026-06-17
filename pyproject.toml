@@ -31,11 +31,13 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+arduino = ["pyfirmata2"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "pyfirmata2",
 ]
 
 [project.urls]
@@ -136,6 +138,10 @@ mypy_path = [
     "packages/instro-contrib",
 ]
 packages = ["instro", "instro.unstable.ethernetip"]
+
+[[tool.mypy.overrides]]
+module = "pyfirmata2.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
