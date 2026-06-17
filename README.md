@@ -65,7 +65,7 @@ For the full walkthrough (including publishing to Nominal Core and the backgroun
 
 | Category | Class | Vendors |
 |---|---|---|
-| Power supply | `InstroPSU` | B&K Precision (9115, 9140), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
 | Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series, ArduinoFirmata |
