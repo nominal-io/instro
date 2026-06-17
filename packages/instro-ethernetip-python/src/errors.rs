@@ -123,10 +123,7 @@ fn map_session_error(
 }
 
 fn map_batch_item(py: Python<'_>, addr: String, tag_name: String, source: BatchReadError) -> PyErr {
-    let message = format!(
-        "failed to read tag '{tag_name}' from {addr}: {source}",
-        source = source
-    );
+    let message = format!("failed to read tag '{tag_name}' from {addr}: {source}");
 
     let py_error = match &source {
         BatchReadError::TagNotFound(_) => TagNotFoundError::new_err(message),
