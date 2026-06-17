@@ -74,11 +74,11 @@ async fn read_tags_preserves_input_order() {
     assert_eq!(values.len(), fixtures.len());
     for ((name, value), fixture) in values.into_iter().zip(fixtures.iter()) {
         assert_eq!(name, fixture.name);
+        let fixture_name = fixture.name;
         assert_eq!(
-            value.unwrap_or_else(|error| panic!(
-                "batch read should succeed for {}: {error}",
-                fixture.name
-            )),
+            value.unwrap_or_else(|error| {
+                panic!("batch read should succeed for {fixture_name}: {error}")
+            }),
             fixture.initial
         );
     }
@@ -94,10 +94,11 @@ async fn writes_and_reads_back_configured_scalar_tags() {
     let fixtures = support::simulator_fixtures();
 
     for fixture in fixtures {
+        let name = fixture.name;
         session
-            .write_tag(fixture.name, fixture.write.clone())
+            .write_tag(name, fixture.write.clone())
             .await
-            .unwrap_or_else(|error| panic!("write should succeed for {}: {error}", fixture.name));
+            .unwrap_or_else(|error| panic!("write should succeed for {name}: {error}"));
     }
     support::assert_fixture_reads(&mut session, fixtures, |fixture| &fixture.write).await;
 
@@ -206,8 +207,7 @@ mod support {
                     panic!("failed to wait for simulator process after timeout: {error}")
                 });
                 panic!(
-                    "failed waiting for the simulator to indicate it started by sending its ip/port to stdout within {:?}; process exited with {status}",
-                    SIMULATOR_STARTUP_TIMEOUT
+                    "failed waiting for the simulator to indicate it started by sending its ip/port to stdout within {SIMULATOR_STARTUP_TIMEOUT:?}; process exited with {status}"
                 );
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -240,17 +240,15 @@ mod support {
         expected_value: impl Fn(&TagFixture) -> &Value,
     ) {
         for fixture in fixtures {
+            let name = fixture.name;
             let value = session
-                .read_tag(fixture.name)
+                .read_tag(name)
                 .await
-                .unwrap_or_else(|error| {
-                    panic!("read should succeed for {}: {error}", fixture.name)
-                });
+                .unwrap_or_else(|error| panic!("read should succeed for {name}: {error}"));
             assert_eq!(
                 value,
                 expected_value(fixture).clone(),
-                "unexpected value for {}",
-                fixture.name
+                "unexpected value for {name}"
             );
         }
     }
@@ -260,12 +258,11 @@ mod support {
         fixtures: &[TagFixture],
     ) {
         for fixture in fixtures {
+            let name = fixture.name;
             session
-                .write_tag(fixture.name, fixture.initial.clone())
+                .write_tag(name, fixture.initial.clone())
                 .await
-                .unwrap_or_else(|error| {
-                    panic!("restore should succeed for {}: {error}", fixture.name)
-                });
+                .unwrap_or_else(|error| panic!("restore should succeed for {name}: {error}"));
         }
 
         assert_fixture_reads(session, fixtures, |fixture| &fixture.initial).await;
@@ -274,7 +271,10 @@ mod support {
     pub(super) async fn connect_explicit_session(simulator: &Simulator) -> ExplicitSession {
         ExplicitSession::connect(&simulator.endpoint)
             .await
-            .unwrap_or_else(|error| panic!("failed to connect to {}: {error}", simulator.endpoint))
+            .unwrap_or_else(|error| {
+                let endpoint = &simulator.endpoint;
+                panic!("failed to connect to {endpoint}: {error}")
+            })
     }
 
     pub(super) fn simulator_fixtures() -> &'static [TagFixture] {
