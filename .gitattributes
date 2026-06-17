@@ -1,0 +1,8 @@
+# Normalize line endings to LF on checkout across all platforms so that
+# `ruff format --check` and `cargo fmt --check` don't flag CRLF on Windows
+# CI runners (see #111).
+* text=auto eol=lf
+
+# Binary types: never apply EOL normalization.
+*.png binary
+*.ico binary
