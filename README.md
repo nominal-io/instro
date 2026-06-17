@@ -22,9 +22,9 @@ uv sync --extra all
 
 This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
-### Optional vendor extras
+### Optional extras
 
-Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional. Install only what you need:
+Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
 | Extra | Pulls in |
 |---|---|
@@ -33,6 +33,7 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[mccdaq]` | MCC UL (Windows-only) |
 | `instro[daq]` | All three DAQ vendor SDKs |
 | `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
+| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
 | `instro[all]` | Everything above |
 
 ## Quickstart
@@ -72,7 +73,7 @@ For the full walkthrough (including publishing to Nominal Core and the backgroun
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 
-Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
+Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
 
 ## Experimental modules
 
