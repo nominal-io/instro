@@ -27,7 +27,7 @@ BORDER = "#333333"
 
 
 _IDN_MAP = {
-    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "AgilentA34401A"),
+    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A"),
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "AgilentA34401A"),
     ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400"),  # maybe make this MODEL 2400 # OLD ONES US "HP"
     ("B&K PRECISION", "9115"): ("psu", "BK9115"),
