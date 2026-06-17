@@ -341,7 +341,6 @@ def test_read_digital_port_unconfigured_channel():
 
 _GUARDED_METHODS = [
     ("start", lambda daq: daq.start()),
-    ("stop", lambda daq: daq.stop()),
     ("read_analog", lambda daq: daq.read_analog()),
     ("write_analog_value", lambda daq: daq.write_analog_value("ch", 1.0)),
     ("write_digital_line", lambda daq: daq.write_digital_line("ch", 1)),
@@ -394,7 +393,7 @@ def test_method_after_open_does_not_raise_not_open():
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
 
-    daq.stop()  # would raise InstrumentNotOpenError before open()
+    daq.get_points_in_buffer()  # would raise InstrumentNotOpenError before open()
 
 
 def test_method_after_close_raises_not_open_again():
@@ -405,6 +404,42 @@ def test_method_after_close_raises_not_open_again():
 
     with pytest.raises(InstrumentNotOpenError, match="ut"):
         daq.read_analog()
+
+
+def test_close_without_open_runs_full_teardown():
+    """close() before open() does not raise and still runs every teardown step: driver close and publisher close."""
+    pub = Mock(name="publisher")
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver(), publishers=[pub])
+
+    daq.close()  # must not raise InstrumentNotOpenError
+
+    daq._driver.close.assert_called_once()
+    pub.close.assert_called_once()
+
+
+def test_double_close_does_not_raise_and_always_closes_driver():
+    """close() never gates the driver close on state: a second close() re-runs it (the driver owns idempotency)."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    daq.close()
+    daq.close()  # must not raise InstrumentNotOpenError
+
+    assert daq._driver.close.call_count == 2
+
+
+def test_close_after_failed_open_propagates_original_error():
+    """A failed open() must not poison the finally: close() runs teardown without masking the real error."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq._driver.open.side_effect = RuntimeError("device unreachable")
+
+    with pytest.raises(RuntimeError, match="device unreachable"):
+        try:
+            daq.open()
+        finally:
+            daq.close()  # must not raise InstrumentNotOpenError and mask the open failure
+
+    daq._driver.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
