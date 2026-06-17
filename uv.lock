@@ -615,8 +615,21 @@ dependencies = [
     { name = "instro" },
 ]
 
+[package.optional-dependencies]
+all = [
+    { name = "instro-ethernetip-python" },
+]
+ethernetip = [
+    { name = "instro-ethernetip-python" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "instro", editable = "." }]
+requires-dist = [
+    { name = "instro", editable = "." },
+    { name = "instro-ethernetip-python", marker = "extra == 'all'", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip-python", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip-python" },
+]
+provides-extras = ["ethernetip", "all"]
 
 [[package]]
 name = "jinja2"

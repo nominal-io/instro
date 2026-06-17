@@ -23,7 +23,7 @@ jobs:
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
 
-  publish:
+  publish-python:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
@@ -32,6 +32,7 @@ jobs:
       matrix:
         path: ${{ fromJSON(needs.release-please.outputs.paths_released) }}
     permissions:
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -43,14 +44,121 @@ jobs:
       - name: Resolve package name
         id: pkg
         run: |
-          if [ "${{ matrix.path }}" = "." ]; then
+          if [ "${{ matrix.path }}" = "packages/instro-ethernetip-python" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.path }}" = "." ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "name=instro" >> "$GITHUB_OUTPUT"
           else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "name=$(basename "${{ matrix.path }}")" >> "$GITHUB_OUTPUT"
           fi
       - name: Build wheel and sdist
+        if: ${{ steps.pkg.outputs.skip != 'true' }}
         run: uv build --package "${{ steps.pkg.outputs.name }}" --out-dir dist
       - name: Publish to PyPI
+        if: ${{ steps.pkg.outputs.skip != 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  build-eip-wheels:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    name: build-eip-wheel-${{ matrix.os }}-${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64
+          - os: ubuntu-latest
+            target: aarch64
+          - os: macos-latest
+            target: x86_64
+          - os: macos-latest
+            target: aarch64
+          - os: windows-latest
+            target: x64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build EtherNet/IP wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          manylinux: auto
+          args: --release --locked --compatibility pypi --out dist --manifest-path packages/instro-ethernetip-python/Cargo.toml
+      - name: Upload EtherNet/IP wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: eip-wheel-${{ matrix.os }}-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  build-eip-sdist:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build EtherNet/IP sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist --manifest-path packages/instro-ethernetip-python/Cargo.toml
+      - name: Verify EtherNet/IP sdist includes Rust source
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import tarfile
+
+          sdists = list(Path("dist").glob("instro_ethernetip_python-*.tar.gz"))
+          if not sdists:
+              raise SystemExit("No instro-ethernetip-python sdist found")
+
+          required = [
+              "packages/instro-ethernetip-python/src/lib.rs",
+              "packages/instro-ethernetip-python/src/sync_session.rs",
+              "packages/instro-ethernetip-rs/src/lib.rs",
+              "packages/instro-ethernetip-rs/src/blocking.rs",
+              "packages/instro-ethernetip-rs/Cargo.toml",
+              "Cargo.lock",
+          ]
+          with tarfile.open(sdists[0]) as archive:
+              names = archive.getnames()
+
+          missing = [path for path in required if not any(name.endswith(path) for name in names)]
+          if missing:
+              raise SystemExit(f"EtherNet/IP sdist is missing: {', '.join(missing)}")
+          PY
+      - name: Upload EtherNet/IP sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: eip-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish-eip:
+    needs:
+      - release-please
+      - build-eip-wheels
+      - build-eip-sdist
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+    steps:
+      - name: Download EtherNet/IP artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: eip-*
+          path: dist
+          merge-multiple: true
+      - name: Publish EtherNet/IP artifacts to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
