@@ -35,6 +35,7 @@ aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
+arduino = ["pyfirmata2"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
@@ -43,6 +44,7 @@ all = [
     "instro-ethernetip",
     "instro-contrib",
     "instro-unstable",
+    "pyfirmata2",
 ]
 
 [project.urls]
@@ -150,6 +152,10 @@ mypy_path = [
     "packages/instro-contrib",
 ]
 packages = ["instro", "instro.ethernetip"]
+
+[[tool.mypy.overrides]]
+module = "pyfirmata2.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
