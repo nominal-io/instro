@@ -31,11 +31,13 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+contrib = ["instro-contrib"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "instro-contrib",
 ]
 
 [project.urls]
