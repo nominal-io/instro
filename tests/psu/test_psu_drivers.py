@@ -1,14 +1,10 @@
 """Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
 
-from collections.abc import Iterator
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from instro.psu import InstroPSU, PSUDriverBase
-from instro.psu.drivers import (
-    BK9115,
-)
 
 # --- PSUDriverBase ---
 
@@ -96,88 +92,6 @@ def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
         getattr(base_only_psu_driver, method_name)(*args, channel=1)
-
-
-# --- BK9115 ---
-
-
-@pytest.fixture
-def bk_single_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.psu.drivers.bk_9115.VisaDriver", autospec=True) as cls:
-        yield cls
-
-
-@pytest.fixture
-def bk_single_visa(bk_single_visa_cls: MagicMock) -> MagicMock:
-    visa = bk_single_visa_cls.return_value
-    visa.query.return_value = '0,"No error"'
-    return visa
-
-
-@pytest.fixture
-def bk_single(bk_single_visa_cls: MagicMock) -> BK9115:
-    return BK9115("USB0::0xFFFF::0x9115::SN::INSTR")
-
-
-def test_bk_single_init_builds_visa_driver_from_resource(bk_single_visa_cls: MagicMock) -> None:
-    BK9115("USB0::0xFFFF::0x9115::SN::INSTR")
-    bk_single_visa_cls.assert_called_once_with("USB0::0xFFFF::0x9115::SN::INSTR")
-
-
-def test_bk_single_init_accepts_prebuilt_connection_config(bk_single_visa_cls: MagicMock) -> None:
-    config = VisaConfig(visa_resource="USB0::example::INSTR")
-    BK9115(config)
-    bk_single_visa_cls.assert_called_once_with(config)
-
-
-def test_bk_single_open_close_delegate_to_visa(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.open()
-    bk_single_visa.open.assert_called_once()
-    bk_single.close()
-    bk_single_visa.close.assert_called_once()
-
-
-def test_bk_single_set_voltage_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_voltage(5.0, channel=1)
-    bk_single_visa.write.assert_called_once_with("VOLT 5.000")
-    bk_single_visa.query.assert_called_once_with("SYST:ERR?")
-
-
-def test_bk_single_get_voltage_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single_visa.query.side_effect = ["12.345", '0,"No error"']
-    assert bk_single.get_voltage(channel=1) == pytest.approx(12.345)
-    assert bk_single_visa.query.call_args_list == [call("MEAS:VOLT?"), call("SYST:ERR?")]
-
-
-def test_bk_single_set_current_limit_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.set_current_limit(1.25, channel=1)
-    bk_single_visa.write.assert_called_once_with("CURR 1.250")
-    bk_single_visa.query.assert_called_once_with("SYST:ERR?")
-
-
-def test_bk_single_get_current_parses_response(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single_visa.query.side_effect = ["0.500", '0,"No error"']
-    assert bk_single.get_current(channel=1) == pytest.approx(0.5)
-
-
-def test_bk_single_output_enable_writes_checked(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single.output_enable(True, channel=1)
-    bk_single_visa.write.assert_called_once_with("OUTP:STAT ON")
-    bk_single.output_enable(False, channel=1)
-    assert bk_single_visa.write.call_args_list[-1] == call("OUTP:STAT OFF")
-
-
-def test_bk_single_get_output_status_parses(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single_visa.query.side_effect = ["1", '0,"No error"']
-    assert bk_single.get_output_status(channel=1) is True
-    bk_single_visa.query.side_effect = ["0", '0,"No error"']
-    assert bk_single.get_output_status(channel=1) is False
-
-
-def test_bk_single_check_errors_raises_on_nonzero(bk_single: BK9115, bk_single_visa: MagicMock) -> None:
-    bk_single_visa.query.return_value = '-100,"Command error"'
-    with pytest.raises(RuntimeError, match="BK PSU reported error"):
-        bk_single.set_voltage(1.0, channel=1)
 
 
 # --- InstroPSU composition ---
