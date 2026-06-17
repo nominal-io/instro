@@ -1,6 +1,6 @@
 [project]
 name = "instro-i2c-aardvark"
-version = "0.2.0"
+version = "0.2.1"
 description = "Total Phase Aardvark I2C driver for instro"
 readme = "README.md"
 license = "Apache-2.0"

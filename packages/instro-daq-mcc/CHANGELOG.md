@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.5.0...instro-daq-mcc-v0.5.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **daq:** mcc fetch path integrity fix ([#113](https://github.com/nominal-io/instro/issues/113)) ([aa68289](https://github.com/nominal-io/instro/commit/aa682895959804b506efa99a3b1571d757f050e3))
+* **lib:** bundle every pyvisa-py backend for clean-install VISA support ([#103](https://github.com/nominal-io/instro/issues/103)) ([60604dc](https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0))
+
 ## [0.5.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.4.0...instro-daq-mcc-v0.5.0) (2026-06-10)
 
 
