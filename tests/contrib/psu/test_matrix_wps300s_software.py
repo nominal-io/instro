@@ -81,7 +81,7 @@ def test_wps_set_overvoltage_protection_level_writes_command(wps: MatrixWPS300S,
 def test_wps_get_overvoltage_protection_level_queries_level(wps: MatrixWPS300S, wps_visa: MagicMock) -> None:
     wps_visa.query.side_effect = ["55.000", "No error"]
     assert wps.get_overvoltage_protection_level(channel=CHANNEL) == pytest.approx(55.0)
-    assert wps_visa.query.call_args_list == [call("VOLT:PROT:LEV?"), call("SYST:ERR?")]
+    assert wps_visa.query.call_args_list == [call("VOLT:PROT?"), call("SYST:ERR?")]
 
 
 def test_wps_set_overcurrent_protection_level_writes_command(wps: MatrixWPS300S, wps_visa: MagicMock) -> None:

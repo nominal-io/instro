@@ -66,7 +66,7 @@ class MatrixWPS300S(PSUDriverBase):
 
     def get_overvoltage_protection_level(self, channel: int) -> float:
         self._require_channel(channel)
-        return self._query_checked_float("VOLT:PROT:LEV?")
+        return self._query_checked_float("VOLT:PROT?")
 
     def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
         self._require_channel(channel)
