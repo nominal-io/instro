@@ -26,15 +26,18 @@ from instro.lib.transports import (
 def _make_config(
     *,
     visa_resource: str = "TCPIP0::127.0.0.1::5025::SOCKET",
+    visa_backend: str | None = None,
     serial_config: SerialConfig | None = None,
     terminator: TerminatorConfig | None = None,
     timeout: TimeoutConfig | None = None,
 ) -> VisaConfig:
+    kwargs = {} if visa_backend is None else {"visa_backend": visa_backend}
     return VisaConfig(
         visa_resource=visa_resource,
         serial_config=serial_config or SerialConfig(),
         terminator=terminator or TerminatorConfig(read="\n", write="\r\n"),
         timeout=timeout or TimeoutConfig(connect=30, recv=15, send=15),
+        **kwargs,
     )
 
 
@@ -65,7 +68,7 @@ def test_construction_accepts_raw_resource_string(mock_pyvisa):
 
     driver.open()
 
-    rm_class.assert_called_once_with("@py")
+    rm_class.assert_called_once_with("@ivi")
     rm_instance.open_resource.assert_called_once_with("USB0::0x1234::0x5678::SERIAL::INSTR")
 
 
@@ -119,6 +122,38 @@ def test_open_is_idempotent(mock_pyvisa):
 
     rm_class.assert_called_once()
     rm_instance.open_resource.assert_called_once()
+
+
+def test_open_uses_ivi_backend_by_default(mock_pyvisa):
+    rm_class, _, _ = mock_pyvisa
+    driver = _make_driver()
+
+    driver.open()
+
+    rm_class.assert_called_once_with("@ivi")
+
+
+def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa):
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [OSError("Could not locate a VISA implementation"), rm_instance]
+    driver = _make_driver()
+
+    driver.open()
+
+    assert rm_class.call_args_list == [call("@ivi"), call("@py")]
+    assert driver.is_open is True
+
+
+def test_open_does_not_fall_back_for_explicit_non_default_backend(mock_pyvisa):
+    rm_class, _, _ = mock_pyvisa
+    rm_class.side_effect = OSError("simulation backend not available")
+    driver = _make_driver(_make_config(visa_backend="@sim"))
+
+    with pytest.raises(OSError, match="simulation backend not available"):
+        driver.open()
+
+    rm_class.assert_called_once_with("@sim")
+    assert driver.is_open is False
 
 
 def test_open_leaves_shared_resource_manager_open_when_open_resource_fails(mock_pyvisa):
@@ -429,5 +464,5 @@ def test_transactional_lock_blocks_other_threads_until_released(mock_pyvisa):
     ],
 )
 def test_visa_backend_package_is_installed(module: str) -> None:
-    """Every pyvisa-py backend the default @py setup relies on must ship with instro (issue #102)."""
+    """Every pyvisa-py backend the @py fallback relies on must ship with instro (issue #102)."""
     assert importlib.util.find_spec(module) is not None
