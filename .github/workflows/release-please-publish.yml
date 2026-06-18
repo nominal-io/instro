@@ -115,9 +115,9 @@ jobs:
           from pathlib import Path
           import tarfile
 
-          sdists = list(Path("dist").glob("instro_ethernetip_python-*.tar.gz"))
+          sdists = list(Path("dist").glob("instro_ethernetip-*.tar.gz"))
           if not sdists:
-              raise SystemExit("No instro-ethernetip-python sdist found")
+              raise SystemExit("No instro-ethernetip sdist found")
 
           required = [
               "packages/instro-ethernetip-python/src/lib.rs",

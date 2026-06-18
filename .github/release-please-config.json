@@ -57,7 +57,7 @@
     },
     "packages/instro-ethernetip-python": {
       "release-type": "python",
-      "component": "instro-ethernetip-python"
+      "component": "instro-ethernetip"
     },
     "packages/instro-contrib": {
       "release-type": "python",

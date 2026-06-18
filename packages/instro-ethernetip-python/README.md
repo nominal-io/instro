@@ -1,4 +1,4 @@
-# instro-ethernetip-python
+# instro-ethernetip
 
 Python binding layer for the Rust EtherNet/IP client.
 
@@ -7,7 +7,7 @@ This is surfaced through the workspace dev environment as the private native mod
 It exists separately from `instro-ethernetip-rs` on purpose:
 
 - `instro-ethernetip-rs` is the core Rust library and should stay usable from pure Rust code without pulling in PyO3 or Python packaging concerns.
-- `instro-ethernetip-python` is the optional Python-facing wrapper built with PyO3 and `maturin`.
+- `instro-ethernetip` is the optional Python-facing wrapper built with PyO3 and `maturin`.
 
 That split keeps the Rust crate focused on its transport and value API while allowing Python packaging, type stubs, and extension-module details to evolve independently.
 
@@ -64,7 +64,7 @@ When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
 
 ## Build, CI, and packaging
 
-`instro-ethernetip-python` is a PyO3 extension crate packaged by `maturin`.
+`instro-ethernetip` is a PyO3 extension crate packaged by `maturin`.
 
 - `pyo3` exposes Rust types and functions as Python classes in the private `instro.unstable._ethernetip` module
 - `maturin` drives the Python packaging step and turns the Rust crate into a Python wheel
@@ -94,8 +94,8 @@ EtherNet/IP support is exposed as the optional `ethernetip` extra on `instro-uns
 Bare `instro-unstable` installs remain pure Python, so other unstable modules can import
 without resolving a native wheel.
 
-- `instro-unstable[ethernetip]` depends on `instro-ethernetip-python`
-- the root dev dependency group includes `instro-ethernetip-python`, so `uv sync` builds and installs the local PyO3 package for development
+- `instro-unstable[ethernetip]` depends on `instro-ethernetip`
+- the root dev dependency group includes `instro-ethernetip`, so `uv sync` builds and installs the local PyO3 package for development
 - `just eip-wheel-smoke-test` can still build a local wheel and verify the private native module against that wheel
 
 The release workflow builds platform-specific wheels for:
@@ -105,7 +105,7 @@ The release workflow builds platform-specific wheels for:
 - Windows `x86_64`
 
 The release workflow also publishes a source distribution. The sdist includes the Rust
-source for both `instro-ethernetip-python` and `instro-ethernetip-rs`, plus the Cargo
+source for both `instro-ethernetip` and `instro-ethernetip-rs`, plus the Cargo
 manifests and lockfile, so source builds do not depend on unpublished repository files.
 
 Development setup:

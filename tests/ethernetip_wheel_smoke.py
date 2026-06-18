@@ -36,7 +36,7 @@ def _assert_wheel_contains_expected_files(wheel_path: Path) -> None:
 
     for filename in ("METADATA", "WHEEL", "RECORD"):
         if not any(
-            name.startswith("instro_ethernetip_python-") and name.endswith(f".dist-info/{filename}") for name in names
+            name.startswith("instro_ethernetip-") and name.endswith(f".dist-info/{filename}") for name in names
         ):
             raise AssertionError(f"{wheel_path.name} is missing dist-info/{filename}")
 
@@ -72,7 +72,7 @@ def _assert_installed_wheel_types() -> None:
 def main() -> None:
     wheel = os.environ.get("INSTRO_EIP_WHEEL")
     if not wheel:
-        raise AssertionError("INSTRO_EIP_WHEEL must point to the built instro-ethernetip-python wheel")
+        raise AssertionError("INSTRO_EIP_WHEEL must point to the built instro-ethernetip wheel")
 
     _assert_wheel_contains_expected_files(Path(wheel))
 

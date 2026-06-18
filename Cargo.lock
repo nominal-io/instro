@@ -229,7 +229,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "instro-ethernetip-python"
+name = "instro-ethernetip"
 version = "0.1.0"
 dependencies = [
  "instro-ethernetip-rs",
