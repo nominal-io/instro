@@ -167,7 +167,10 @@ class EtherNetIPDevice(Instrument):
         super().close()
         with self._lock:
             if self._client is not None:
-                self._client.close()
+                try:
+                    self._client.close()
+                except Exception as exc:
+                    logger.warning("Failed to close EtherNet/IP session cleanly: %s", exc)
                 self._client = None
 
     def read_tag(self, alias: str, **kwargs) -> Measurement:
