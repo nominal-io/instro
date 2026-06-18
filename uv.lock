@@ -465,7 +465,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.10.0"
+version = "0.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -484,10 +484,14 @@ aardvark = [
     { name = "instro-i2c-aardvark" },
 ]
 all = [
+    { name = "instro-contrib" },
     { name = "instro-daq-labjack" },
     { name = "instro-daq-mcc" },
     { name = "instro-daq-ni" },
     { name = "instro-i2c-aardvark" },
+]
+contrib = [
+    { name = "instro-contrib" },
 ]
 daq = [
     { name = "instro-daq-labjack" },
@@ -522,12 +526,15 @@ dev = [
     { name = "types-requests" },
 ]
 test = [
+    { name = "cpppo" },
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastavro", extras = ["snappy"], specifier = ">=1.12.1" },
+    { name = "instro-contrib", marker = "extra == 'all'", editable = "packages/instro-contrib" },
+    { name = "instro-contrib", marker = "extra == 'contrib'", editable = "packages/instro-contrib" },
     { name = "instro-daq-labjack", marker = "extra == 'all'", editable = "packages/instro-daq-labjack" },
     { name = "instro-daq-labjack", marker = "extra == 'daq'", editable = "packages/instro-daq-labjack" },
     { name = "instro-daq-labjack", marker = "extra == 'labjack'", editable = "packages/instro-daq-labjack" },
@@ -549,7 +556,7 @@ requires-dist = [
     { name = "textual", specifier = ">=0.80" },
     { name = "thermocouples", specifier = ">=2.1.2" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "contrib", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -565,11 +572,14 @@ dev = [
     { name = "ruff", specifier = ">=0.12.2,<0.13" },
     { name = "types-requests", specifier = ">=2.32.4.20250913" },
 ]
-test = [{ name = "pytest", specifier = ">=8.4.0,<9" }]
+test = [
+    { name = "cpppo", specifier = ">=4.0.0" },
+    { name = "pytest", specifier = ">=8.4.0,<9" },
+]
 
 [[package]]
 name = "instro-contrib"
-version = "0.0.1"
+version = "0.1.1"
 source = { editable = "packages/instro-contrib" }
 dependencies = [
     { name = "instro" },
@@ -580,7 +590,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -595,7 +605,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -610,7 +620,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
@@ -625,7 +635,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-ethernetip-python"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/instro-ethernetip-python" }
 dependencies = [
     { name = "instro" },
@@ -636,7 +646,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-i2c-aardvark"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "packages/instro-i2c-aardvark" }
 dependencies = [
     { name = "instro" },
@@ -651,14 +661,27 @@ requires-dist = [
 
 [[package]]
 name = "instro-unstable"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },
 ]
 
+[package.optional-dependencies]
+all = [
+    { name = "instro-ethernetip-python" },
+]
+ethernetip = [
+    { name = "instro-ethernetip-python" },
+]
+
 [package.metadata]
-requires-dist = [{ name = "instro", editable = "." }]
+requires-dist = [
+    { name = "instro", editable = "." },
+    { name = "instro-ethernetip-python", marker = "extra == 'all'", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip-python", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip-python" },
+]
+provides-extras = ["ethernetip", "all"]
 
 [[package]]
 name = "jinja2"

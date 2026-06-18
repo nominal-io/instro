@@ -121,6 +121,17 @@ async fn writes_and_reads_back_configured_scalar_tags() {
     session.close().await.expect("close should succeed");
 }
 
+#[tokio::test]
+async fn restores_test_tags_to_default_state() {
+    let _guard = support::lock_tests().await;
+    let target = support::start_test_target();
+    let mut session = support::connect_explicit_session(&target).await;
+
+    support::restore_default_fixture_state(&mut session, support::tag_fixtures()).await;
+
+    session.close().await.expect("close should succeed");
+}
+
 mod support {
     use std::env;
     use std::sync::OnceLock;
@@ -294,6 +305,14 @@ mod support {
         }
     }
 
+    pub(super) async fn restore_default_fixture_state(
+        session: &mut ExplicitSession,
+        fixtures: &[TagFixture],
+    ) {
+        write_fixture_values(session, fixtures, |fixture| fixture.seed_value()).await;
+        assert_fixture_reads(session, fixtures, |fixture| fixture.seed_value()).await;
+    }
+
     pub(super) async fn connect_explicit_session(target: &TestTarget) -> ExplicitSession {
         let route_path_slots = route_path_slots();
         let session = if route_path_slots.is_empty() {
@@ -442,9 +461,7 @@ mod support {
                 .args(tag_args(fixtures))
                 .spawn()
                 .unwrap_or_else(|error| {
-                    panic!(
-                        "failed to start cpppo simulator process via `uv run python`: {error}"
-                    )
+                    panic!("failed to start cpppo simulator process via `uv run python`: {error}")
                 });
 
             let endpoint = read_endpoint_from_stdout(&mut child);
