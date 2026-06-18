@@ -29,9 +29,9 @@ def _load_native_ethernetip() -> SimpleNamespace:
         from instro.unstable._ethernetip import EtherNetIpSession, PlcKind, PlcValue
     except ImportError as exc:
         raise RuntimeError(
-            "EtherNet/IP support requires the local native package "
-            "'instro-ethernetip-python'. It is intentionally not a hard dependency "
-            "of instro-unstable yet."
+            "EtherNet/IP support requires the native package 'instro-ethernetip-python'. "
+            'Install it with `pip install "instro-unstable[ethernetip]"` or '
+            '`uv add "instro-unstable[ethernetip]"`.'
         ) from exc
 
     return SimpleNamespace(
@@ -167,7 +167,10 @@ class EtherNetIPDevice(Instrument):
         super().close()
         with self._lock:
             if self._client is not None:
-                self._client.close()
+                try:
+                    self._client.close()
+                except Exception as exc:
+                    logger.warning("Failed to close EtherNet/IP session cleanly: %s", exc)
                 self._client = None
 
     def read_tag(self, alias: str, **kwargs) -> Measurement:

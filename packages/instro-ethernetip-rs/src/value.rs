@@ -156,6 +156,7 @@ impl From<Value> for PlcValue {
 mod tests {
     use super::*;
 
+    /// Verifies that scalar backend PLC values map to the crate's public value variants.
     #[test]
     fn converts_scalar_plc_values() {
         let cases = vec![
@@ -181,6 +182,7 @@ mod tests {
         }
     }
 
+    /// Verifies that backend UDT bytes are exposed as a structured value instead of being decoded implicitly.
     #[test]
     fn preserves_non_string_udt_as_structured_value() {
         let udt = UdtData {
@@ -197,6 +199,7 @@ mod tests {
         );
     }
 
+    /// Verifies that structured values are converted back into backend UDT payloads for writes.
     #[test]
     fn converts_structured_value_back_to_plc_udt() {
         let plc_value = PlcValue::from(StructuredValue {
@@ -213,6 +216,7 @@ mod tests {
         );
     }
 
+    /// Verifies that public scalar values convert back to the expected backend PLC value variants.
     #[test]
     fn converts_scalar_value_back_to_plc_value() {
         assert_eq!(PlcValue::from(Value::Bool(true)), PlcValue::Bool(true));
@@ -223,6 +227,7 @@ mod tests {
         );
     }
 
+    /// Verifies that common Rust scalar types choose the intended public value variants.
     #[test]
     fn converts_rust_scalars_into_value_variants() {
         assert_eq!(Value::from(true), Value::Bool(true));
@@ -231,6 +236,7 @@ mod tests {
         assert_eq!(Value::from("abc"), Value::String("abc".to_owned()));
     }
 
+    /// Verifies that backend UDT symbol id zero is treated as the absence of a symbol id.
     #[test]
     fn preserves_zero_symbol_id_as_none_for_structured_value() {
         let udt = UdtData {

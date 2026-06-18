@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.7.0...instro-daq-labjack-v0.7.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **lib:** bundle every pyvisa-py backend for clean-install VISA support ([#103](https://github.com/nominal-io/instro/issues/103)) ([60604dc](https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0))
+
 ## [0.7.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.6.0...instro-daq-labjack-v0.7.0) (2026-06-10)
 
 

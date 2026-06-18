@@ -72,6 +72,8 @@ class MCCDriver(DAQDriverBase):
         self._buffer_size: int = 0  # Actual buffer size (fetch_size * multiplier)
 
         self._samples_consumed: int = 0  # Track consumed samples for streaming reads
+        self._raw_count_prev: int = 0  # Last raw (unsigned-32) cur_count, for rollover reconstruction
+        self._count_offset: int = 0  # Accumulated 2**32 rollovers of cur_count
         self._actual_sample_period: int = 0
         self._timestamper: HWTimestamper | None = None
 
@@ -302,6 +304,8 @@ class MCCDriver(DAQDriverBase):
         """Start the MCC DAQ device for hw timed data acquisition."""
         # Reset consumed counter and timestamper for new acquisition
         self._samples_consumed = 0
+        self._raw_count_prev = 0
+        self._count_offset = 0
         self._timestamper = None
 
         # Validate DAQ input scan capability before allocating resources
@@ -423,6 +427,14 @@ class MCCDriver(DAQDriverBase):
 
         return MCCDAQData(data=data, timestamp=timestamp, dt=None)
 
+    def _accumulate_count(self, raw_count: int) -> int:
+        """Reconstruct a monotonic 64-bit sample count from mcculw's signed-32-bit cur_count."""
+        raw = raw_count & 0xFFFFFFFF
+        if raw < self._raw_count_prev:
+            self._count_offset += 1 << 32
+        self._raw_count_prev = raw
+        return raw + self._count_offset
+
     def fetch_analog(self) -> MCCDAQData:
         """Block until ``samples_per_channel`` new samples are available, then drain the circular buffer."""
         if not self._memhandle:
@@ -438,56 +450,7 @@ class MCCDriver(DAQDriverBase):
         num_chans = len(channel_list)
         fetch_size = num_chans * samples_per_channel
 
-        # Block until the requested number of new samples is available
-        # _samples_consumed tracks how many samples we've already "consumed" from the stream
-        samples_needed = self._samples_consumed + fetch_size
-        loop_start = time.monotonic()
-
-        while True:
-            status, curr_count, curr_index = ul.get_status(self._board_number, FunctionType.DAQIFUNCTION)
-
-            # Wait for DAQ to be running
-            if status == Status.IDLE or curr_index == -1:
-                if time.monotonic() - loop_start > 5:
-                    raise TimeoutError("fetch_analog timed out after 5s waiting for DAQ to start producing data.")
-                time.sleep(0.01)
-                continue
-
-            # curr_count is the cumulative total samples acquired since scan started.
-            # Wait until enough NEW samples beyond what we've already consumed.
-            self.points_in_buffer = curr_count - self._samples_consumed
-            if curr_count < samples_needed:
-                if time.monotonic() - loop_start > 5:
-                    raise TimeoutError(
-                        f"fetch_analog timed out after 5s waiting for {fetch_size} samples "
-                        f"(got {curr_count - (samples_needed - fetch_size)})."
-                    )
-                time.sleep(0.01)
-                continue
-
-            # We have enough new data
-            timestamp = time.time_ns()
-            break
-
-        # Check for buffer overrun - the circular buffer contains samples [curr_count - _buffer_size, curr_count - 1]
-        # If we wanted samples starting at _samples_consumed but they've been overwritten, we have data loss
-        oldest_sample_in_buffer = curr_count - self._buffer_size
-        if oldest_sample_in_buffer > self._samples_consumed:
-            samples_lost = oldest_sample_in_buffer - self._samples_consumed
-            print(
-                f"Warning: Buffer overrun detected. {samples_lost} samples were overwritten before they could be read. "
-                f"Consider increasing buffer_multiplier or reducing the background loop interval."
-            )
-            # Skip ahead to read the current buffer contents (most recent data available)
-            self._samples_consumed = oldest_sample_in_buffer
-
-        # Calculate read position in circular buffer
-        read_start = self._samples_consumed % self._buffer_size
-
-        # Mark these samples as consumed (before reading, in case of error)
-        self._samples_consumed += fetch_size
-
-        # Determine the ctypes type based on buffer format
+        # Determine the ctypes type based on buffer format (independent of the read loop)
         if ScanOptions.SCALEDATA in ai_supported_scan_options:
             ctype = c_double
             copy_func = ul.scaled_win_buf_to_array
@@ -501,33 +464,106 @@ class MCCDriver(DAQDriverBase):
             ctype = c_ulonglong
             copy_func = ul.win_buf_to_array_64
 
-        # Allocate snapshot buffer
-        buffer_snapshot = (ctype * fetch_size)()
+        loop_start = time.monotonic()
 
-        # Handle wrap-around: if read spans the end of the circular buffer, do two copies
-        if read_start + fetch_size <= self._buffer_size:
-            # No wrap-around - single contiguous copy
-            copy_func(self._memhandle, buffer_snapshot, read_start, fetch_size)
-        else:
-            # Wrap-around - copy in two parts
-            first_part_size = self._buffer_size - read_start
-            second_part_size = fetch_size - first_part_size
+        # Outer loop retries if a near-overrun corrupts the copy (see torn-copy guard below).
+        while True:
+            if time.monotonic() - loop_start > 5:
+                raise TimeoutError("fetch_analog timed out after 5s waiting for an uncorrupted sample window.")
 
-            # Copy from read_start to end of buffer
-            first_part = (ctype * first_part_size)()
-            copy_func(self._memhandle, first_part, read_start, first_part_size)
+            # Block until enough new samples are available. _samples_consumed tracks how many
+            # samples we've already consumed from the stream.
+            samples_needed = self._samples_consumed + fetch_size
+            while True:
+                status, raw_count, curr_index = ul.get_status(self._board_number, FunctionType.DAQIFUNCTION)
 
-            # Copy from beginning of buffer
-            second_part = (ctype * second_part_size)()
-            copy_func(self._memhandle, second_part, 0, second_part_size)
+                # Wait for DAQ to be running
+                if status == Status.IDLE or curr_index == -1:
+                    if time.monotonic() - loop_start > 5:
+                        raise TimeoutError("fetch_analog timed out after 5s waiting for DAQ to start producing data.")
+                    time.sleep(0.01)
+                    continue
 
-            # Combine into buffer_snapshot using memmove for performance
-            memmove(buffer_snapshot, first_part, first_part_size * sizeof(ctype))
-            memmove(
-                addressof(buffer_snapshot) + first_part_size * sizeof(ctype),
-                second_part,
-                second_part_size * sizeof(ctype),
-            )
+                # mcculw cur_count is a signed-32-bit cumulative counter that rolls negative at
+                # 2**31; reconstruct a monotonic 64-bit count before any comparison.
+                curr_count = self._accumulate_count(raw_count)
+
+                # Wait until enough NEW samples beyond what we've already consumed.
+                self.points_in_buffer = curr_count - self._samples_consumed
+                if curr_count < samples_needed:
+                    if time.monotonic() - loop_start > 5:
+                        raise TimeoutError(
+                            f"fetch_analog timed out after 5s waiting for {fetch_size} samples "
+                            f"(got {curr_count - (samples_needed - fetch_size)})."
+                        )
+                    time.sleep(0.01)
+                    continue
+
+                # We have enough new data
+                timestamp = time.time_ns()
+                break
+
+            # Check for buffer overrun - the circular buffer contains samples [curr_count - _buffer_size, curr_count - 1]
+            # If we wanted samples starting at _samples_consumed but they've been overwritten, we have data loss
+            oldest_sample_in_buffer = curr_count - self._buffer_size
+            if oldest_sample_in_buffer > self._samples_consumed:
+                # cur_count advances in DMA packet increments, not multiples of num_chans, so the
+                # oldest sample can land mid-scan. Round UP to the next full scan boundary so the
+                # de-interleave / gain mapping stays channel-aligned and we never read overwritten data.
+                remainder = oldest_sample_in_buffer % num_chans
+                if remainder:
+                    oldest_sample_in_buffer += num_chans - remainder
+                samples_lost = oldest_sample_in_buffer - self._samples_consumed
+                print(
+                    f"Warning: Buffer overrun detected. {samples_lost} samples were overwritten before they could be read. "
+                    f"Consider increasing buffer_multiplier or reducing the background loop interval."
+                )
+                # Skip ahead to the current buffer contents and re-establish the window.
+                self._samples_consumed = oldest_sample_in_buffer
+                continue
+
+            # Calculate read position in circular buffer
+            read_origin = self._samples_consumed
+            read_start = read_origin % self._buffer_size
+
+            # Allocate snapshot buffer
+            buffer_snapshot = (ctype * fetch_size)()
+
+            # Handle wrap-around: if read spans the end of the circular buffer, do two copies
+            if read_start + fetch_size <= self._buffer_size:
+                # No wrap-around - single contiguous copy
+                copy_func(self._memhandle, buffer_snapshot, read_start, fetch_size)
+            else:
+                # Wrap-around - copy in two parts
+                first_part_size = self._buffer_size - read_start
+                second_part_size = fetch_size - first_part_size
+
+                # Copy from read_start to end of buffer
+                first_part = (ctype * first_part_size)()
+                copy_func(self._memhandle, first_part, read_start, first_part_size)
+
+                # Copy from beginning of buffer
+                second_part = (ctype * second_part_size)()
+                copy_func(self._memhandle, second_part, 0, second_part_size)
+
+                # Combine into buffer_snapshot using memmove for performance
+                memmove(buffer_snapshot, first_part, first_part_size * sizeof(ctype))
+                memmove(
+                    addressof(buffer_snapshot) + first_part_size * sizeof(ctype),
+                    second_part,
+                    second_part_size * sizeof(ctype),
+                )
+
+            # Torn-copy guard: DMA keeps writing during the copy above. If the oldest valid sample
+            # has advanced past our read origin, part of this window was overwritten mid-copy.
+            _, raw_after, _ = ul.get_status(self._board_number, FunctionType.DAQIFUNCTION)
+            count_after = self._accumulate_count(raw_after)
+            if count_after - self._buffer_size > read_origin:
+                continue
+
+            # Commit consumption only once we have an uncorrupted copy.
+            self._samples_consumed = read_origin + fetch_size
+            break
 
         # Process the snapshot to extract channel data
         if ScanOptions.SCALEDATA in ai_supported_scan_options:

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use rust_ethernet_ip::{BatchError, EtherNetIpError, PlcValue};
 
-use crate::{ClientFuture, ExplicitClient};
+use crate::{ClientFuture, ConnectFuture, ExplicitClient, ExplicitConnector};
 
 pub(crate) type BatchReadResult =
     std::result::Result<Vec<std::result::Result<PlcValue, BatchError>>, EtherNetIpError>;
@@ -22,6 +22,17 @@ pub(crate) struct MockClient {
     batch_read_results: VecDeque<BatchReadResult>,
     write_results: VecDeque<std::result::Result<(), EtherNetIpError>>,
     unregister_result: Option<std::result::Result<(), EtherNetIpError>>,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct MockConnectorState {
+    pub(crate) connect_calls: Vec<(String, Vec<u8>)>,
+}
+
+pub(crate) struct MockConnector {
+    state: Arc<Mutex<MockConnectorState>>,
+    // FIFO of connection outcomes, allowing tests to control the initial client and reconnects.
+    connect_results: Mutex<VecDeque<std::result::Result<MockClient, EtherNetIpError>>>,
 }
 
 impl MockClient {
@@ -43,6 +54,36 @@ impl MockClient {
     pub(crate) fn with_batch_read_results(mut self, results: Vec<BatchReadResult>) -> Self {
         self.batch_read_results = results.into();
         self
+    }
+}
+
+impl MockConnector {
+    pub(crate) fn new(
+        state: Arc<Mutex<MockConnectorState>>,
+        connect_results: Vec<std::result::Result<MockClient, EtherNetIpError>>,
+    ) -> Self {
+        Self {
+            state,
+            connect_results: Mutex::new(connect_results.into()),
+        }
+    }
+}
+
+impl ExplicitConnector for MockConnector {
+    fn connect<'a>(&'a self, addr: &'a str, route_path_slots: &'a [u8]) -> ConnectFuture<'a> {
+        self.state
+            .lock()
+            .expect("mock connector state poisoned")
+            .connect_calls
+            .push((addr.to_owned(), route_path_slots.to_vec()));
+        let result = self
+            .connect_results
+            .lock()
+            .expect("mock connect results poisoned")
+            .pop_front()
+            .expect("mock connect result missing");
+
+        Box::pin(async move { result.map(|client| Box::new(client) as Box<dyn ExplicitClient>) })
     }
 }
 
