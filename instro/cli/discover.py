@@ -22,7 +22,7 @@ _IDN_MAP = {
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A"),
     ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400"),
     ("B&K PRECISION", "9115"): ("psu", "BK9115"),
-    ("B&K PRECISION", "9140"): ("psu", "BK9140"),
+    ("B&K PRECISION", "9140"): ("psu", "BK914X"),
     ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800"),
     ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800"),
     ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800"),
