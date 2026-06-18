@@ -65,7 +65,8 @@
                   "instrumentation/protocols/i2c/system-definition"
                 ]
               },
-              "instrumentation/protocols/modbus"
+              "instrumentation/protocols/modbus",
+              "instrumentation/protocols/ethernetip"
             ]
           },
           {

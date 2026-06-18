@@ -1,29 +1,54 @@
 """Rigol DP800-series PSU driver. Covers DP811, DP821, DP831, DP832."""
 
+from dataclasses import dataclass
+
+from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
+
+
+@dataclass(frozen=True)
+class _Range:
+    minimum: float
+    maximum: float
+
+
+@dataclass(frozen=True)
+class _ChannelLimits:
+    voltage: _Range
+    current: _Range
+    ovp: _Range
+    ocp: _Range
 
 
 class RigolDP800(PSUDriverBase):
     """Rigol DP800-series multi-channel PSU (DP811/DP821/DP831/DP832)."""
 
+    FRIENDLY_NAME = "Rigol DP800-series PSU"
+
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self.idn = ""
+        self._limits: dict[int, _ChannelLimits] = {}
 
     def open(self) -> None:
         self._visa.open()
+        self._load_limits()
 
     def close(self) -> None:
         self._visa.close()
 
     def set_voltage(self, voltage: float, channel: int) -> None:
+        if (limits := self._limits.get(channel)) is not None:
+            self._validate_in_range(voltage, limits.voltage, channel, "voltage")
         self._write_checked(f":SOUR{channel}:VOLT {voltage:.3f}")
 
     def get_voltage(self, channel: int) -> float:
         return self._query_checked_float(f":MEAS:VOLT? CH{channel}")
 
     def set_current_limit(self, current_limit: float, channel: int) -> None:
+        if (limits := self._limits.get(channel)) is not None:
+            self._validate_in_range(current_limit, limits.current, channel, "current limit")
         self._write_checked(f":SOUR{channel}:CURR {current_limit:.3f}")
 
     def get_current(self, channel: int) -> float:
@@ -34,28 +59,72 @@ class RigolDP800(PSUDriverBase):
         self._write_checked(cmd)
 
     def get_output_status(self, channel: int) -> bool:
-        with self._visa.lock():
-            resp = self._visa.query(f":OUTP? CH{channel}")
-            self._check_errors()
-        return resp == "ON"
+        return self._query_checked_bool(f":OUTP? CH{channel}")
+
+    def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
+        if (limits := self._limits.get(channel)) is not None:
+            self._validate_in_range(voltage, limits.ovp, channel, "overvoltage protection level")
+        self._write_checked(f":SOUR{channel}:VOLT:PROT {voltage:.3f}")
+
+    def get_overvoltage_protection_level(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:VOLT:PROT:LEV?")
+
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
+
+    def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+        return self._query_checked_bool(f":SOUR{channel}:VOLT:PROT:STAT?")
+
+    def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+        raise FeatureNotSupportedError(
+            f"set_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}; "
+            "the DP800 programming guide does not define an OVP delay command"
+        )
+
+    def get_overvoltage_protection_delay(self, channel: int) -> float:
+        raise FeatureNotSupportedError(
+            f"get_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}; "
+            "the DP800 programming guide does not define an OVP delay query"
+        )
+
+    def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
+        if (limits := self._limits.get(channel)) is not None:
+            self._validate_in_range(current, limits.ocp, channel, "overcurrent protection level")
+        self._write_checked(f":SOUR{channel}:CURR:PROT {current:.3f}")
+
+    def get_overcurrent_protection_level(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:CURR:PROT:LEV?")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
+
+    def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+        return self._query_checked_bool(f":SOUR{channel}:CURR:PROT:STAT?")
+
+    def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":OUTP:SENS CH{channel},{'ON' if enabled else 'OFF'}")
+
+    def get_remote_sense_enabled(self, channel: int) -> bool:
+        state = self._query_checked(f":OUTP:SENS? CH{channel}").strip().upper()
+
+        match state:
+            case "ON" | "1":
+                return True
+            case "OFF" | "0":
+                return False
+            case "NONE":
+                raise FeatureNotSupportedError(
+                    f"remote sense is not supported by {self.FRIENDLY_NAME} channel {channel}"
+                )
+            case _:
+                raise RuntimeError(f"Unexpected Rigol remote-sense state for channel {channel}: {state}")
 
     def query_status(self) -> dict:
         """Query the status of the PSU (output enable, regulation mode, OVP/OCP flags)."""
         status: dict = {}
 
         with self._visa.lock():
-            if not self.idn:
-                self.idn = self._visa.query("*IDN?")
-                self._check_errors()
-
-            if "DP832" in self.idn or "DP831" in self.idn:
-                num_channels = 3
-            elif "DP821" in self.idn:
-                num_channels = 2
-            elif "DP811" in self.idn:
-                num_channels = 1
-            else:
-                raise RuntimeError(f"Unrecognized Rigol PSU model: {self.idn}")
+            num_channels = self._channel_count()
 
             for channel in range(1, num_channels + 1):
                 channel_dict: dict = {}
@@ -89,18 +158,63 @@ class RigolDP800(PSUDriverBase):
             "OCP": bool(cond_code & 8),
         }
 
+    def _channel_count(self) -> int:
+        if not self.idn:
+            self.idn = self._query_checked("*IDN?")
+
+        if "DP832" in self.idn or "DP831" in self.idn:
+            return 3
+        if "DP821" in self.idn:
+            return 2
+        if "DP811" in self.idn or "DP813" in self.idn:
+            return 1
+        raise RuntimeError(f"Unrecognized Rigol PSU model: {self.idn}")
+
+    def _load_limits(self) -> None:
+        self._limits = {
+            channel: _ChannelLimits(
+                voltage=self._query_range(f":SOUR{channel}:VOLT?"),
+                current=self._query_range(f":SOUR{channel}:CURR?"),
+                ovp=self._query_range(f":SOUR{channel}:VOLT:PROT:LEV?"),
+                ocp=self._query_range(f":SOUR{channel}:CURR:PROT:LEV?"),
+            )
+            for channel in range(1, self._channel_count() + 1)
+        }
+
+    def _query_range(self, command: str) -> _Range:
+        return _Range(
+            minimum=self._query_checked_float(f"{command} MIN"),
+            maximum=self._query_checked_float(f"{command} MAX"),
+        )
+
+    def _validate_in_range(self, value: float, limit: _Range, channel: int, label: str) -> None:
+        if limit.minimum <= value <= limit.maximum:
+            return
+
+        raise ValueError(
+            f"{label} {value} is out of range for {self.FRIENDLY_NAME} channel {channel}: "
+            f"{limit.minimum} to {limit.maximum}"
+        )
+
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
             self._visa.write(command)
             self._check_errors()
 
-    def _query_checked_float(self, command: str) -> float:
+    def _query_checked(self, command: str) -> str:
         with self._visa.lock():
             value = self._visa.query(command)
             self._check_errors()
-            return float(value)
+            return value
+
+    def _query_checked_float(self, command: str) -> float:
+        return float(self._query_checked(command))
+
+    def _query_checked_bool(self, command: str) -> bool:
+        return self._query_checked(command).strip().upper() in {"1", "ON"}
 
     def _check_errors(self) -> None:
         err = self._visa.query(":SYST:ERR?")
-        if not err.startswith("0"):
-            raise RuntimeError(f"Rigol PSU reported error: {err}")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"The {self.FRIENDLY_NAME} reported error: {err.strip()}")

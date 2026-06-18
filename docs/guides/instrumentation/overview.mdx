@@ -6,18 +6,18 @@ description: A Python library/framework for interfacing with hardware
 `instro` is a Python library with the following objectives:
 
 1. Accelerate the authoring of tests which rely on hardware instruments.
-2. Provide low-code integration with Nominal tools like Connect and Core.
+2. Provide abstractions that allow code reuse across various instrument models, so you can swap vendors without rewriting your test.
 3. Define entry points for creating instrument interfaces and drivers that integrate with the library.
-4. Provide abstractions that allow code reuse across various instrument models.
+4. When you want to capture the data, offer low-code publishing to a file, a custom destination, or Nominal tools like Connect and Core.
 
 It is a Python forward framework that should be accessible to engineers new to Python but
 also extensible and useable by engineers who are Python savvy.
 
 # Problem Space: Before and After
 
-## Before: DAQ to Nominal Core
+## Before: a different SDK for every vendor
 
-Here's what is required to read data from various DAQ devices and stream data to Nominal Core.
+Here's what's required to read analog data from two different DAQ vendors using their native SDKs. Each device has its own API, configuration sequence, and data-handling quirks, and the acquisition logic is tangled together with the code that ships the samples somewhere.
 
 <AccordionGroup>
     <Accordion title="LabJack T-Series Devices">
@@ -113,9 +113,9 @@ Here's what is required to read data from various DAQ devices and stream data to
 
 </AccordionGroup>
 
-## After: InstroDAQ
+## After: one API across vendors
 
-Here's the same workflow using `instro`'s `InstroDAQ`.
+Here's the same workflow using `instro`'s `InstroDAQ`. The acquisition code is identical across vendors: change the driver and the rest stays the same. Capturing the data is one optional line (`add_publisher(...)`); drop it and the same script just reads into your process.
 
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
@@ -155,16 +155,16 @@ daq.close()
 # Key Concepts of instro
 
 - **Code to an interface**, not the specific instrument in use.
-- **Automatic data publishing** to Nominal Core and Nominal Connect out of the box by way of a customizable `Publisher` interface.
-- **Configurable background daemons** read and expose measurements to your script and your publishers.
+- **Configurable background daemons** read and expose measurements to your script.
+- **Optional data publishing** to a file, a custom destination, or Nominal Core and Nominal Connect, by way of a customizable `Publisher` interface. Attach one when you want to capture data; skip it and `instro` is just an instrument-control library.
 
 ## Two ways to get data
 
-You can get measurements into your script in two ways. **Both options publish data** whenever a measurement is produced. The difference is who triggers the reads and how often.
+You can get measurements into your script in two ways. If a publisher is attached, **both options publish data** whenever a measurement is produced. The difference is who triggers the reads and how often.
 
 |              | Background acquisition | On-demand acquisition |
 | ------------ | ---------------------- | --------------------- |
-| **How**      | Call `start()`. A background daemon reads from the instrument at a fixed, configurable rate. Pull the latest N values with `get_channel()` when you need them. | Skip `start()`. Call read methods (`read_analog()`, `get_voltage()`, …) only when you want a measurement. Each call reads the device and publishes the result. |
+| **How**      | Call `start()`. A background daemon reads from the instrument at a fixed, configurable rate. Pull the latest N values with `get_channel()` when you need them. | Skip `start()`. Call read methods (`read_analog()`, `get_voltage()`, …) only when you want a measurement. Each call reads the device, and publishes the result if a publisher is attached. |
 | **Best for** | Apps where data should always be available and publishing. | Apps that need measurements only at specific times; lower system and bus load. DMMs are a good example. |
 
 <Note>

@@ -92,6 +92,20 @@ rust:
     cargo test --workspace --all-features --lib
     cargo test --workspace --all-features --doc
 
+# run the Rust explicit EtherNet/IP integration test against the bundled simulator
+eip-rs-test:
+    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+
+# run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
+eip-live-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
+    export INSTRO_EIP_ROUTE_PATH_SLOTS=0
+    export INSTRO_EIP_TARGET_L32E=1
+    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
+
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
@@ -114,10 +128,16 @@ eip-wheel-smoke-test:
         echo "No instro-ethernetip-python wheel found in $wheel_dir" >&2
         exit 1
     fi
-    # --isolated ignores the workspace venv, --no-dev avoids default dev dependencies
-    # that can shadow the wheel, and --no-cache avoids stale same-version wheel contents.
-    uv run --isolated --no-dev --no-cache --with-editable . --with "$wheel" python tests/ethernetip_wheel_smoke.py
+    uv_run_args=(
+        --isolated # Ignore the workspace virtual environment.
+        --no-dev # Avoid default dev dependencies that can shadow the wheel.
+        --no-cache # Avoid stale same-version wheel contents.
+        --with-editable . # Use this checkout's up-to-date instro dependency.
+        --with "$wheel" # Install the freshly built native extension wheel.
+        --with mypy # Provide the type checker used by the smoke script.
+    )
+    INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip_wheel_smoke.py
 
-# Full EIP test suite: wheel smoke test, Rust/Python bindings
-eip-test: eip-wheel-smoke-test rust
+# Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
+eip-test: eip-wheel-smoke-test rust eip-rs-test
     uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest tests/test_ethernetip_bindings.py -q

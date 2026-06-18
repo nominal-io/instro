@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.11.0](https://github.com/nominal-io/instro/compare/instro-v0.10.0...instro-v0.11.0) (2026-06-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **psu:** update bk 914X with OVP, OCP, and remote sense ([#93](https://github.com/nominal-io/instro/issues/93))
+* **psu:** remove default channel selection from psu drivers ([#106](https://github.com/nominal-io/instro/issues/106))
+
+### Features
+
+* **psu:** add OVP, OCP, remote sense to bk 9115 ([#94](https://github.com/nominal-io/instro/issues/94)) ([783f753](https://github.com/nominal-io/instro/commit/783f753501c541a9b6caa4952371d6d194ae573f))
+* **psu:** add Rigol DP800 ovp, ocp, and remote sense ([#114](https://github.com/nominal-io/instro/issues/114)) ([d1f1587](https://github.com/nominal-io/instro/commit/d1f15875f91f896e1cecf86a520ba68073b5ba50))
+* **psu:** update bk 914X with OVP, OCP, and remote sense ([#93](https://github.com/nominal-io/instro/issues/93)) ([df0e28f](https://github.com/nominal-io/instro/commit/df0e28f84aa8ad88f58b0a9e02c8e3f7efe4bcaf))
+* **psu:** update tdk genesys with ovp, ocp, remote sense ([#104](https://github.com/nominal-io/instro/issues/104)) ([1bd22a0](https://github.com/nominal-io/instro/commit/1bd22a0d7e8eb9083971c13bb8d1d05b723839da))
+
+
+### Bug Fixes
+
+* **build:** resolve Git Bash for just recipes on Windows ([#110](https://github.com/nominal-io/instro/issues/110)) ([8c8ae6b](https://github.com/nominal-io/instro/commit/8c8ae6b91659555d8b07447cff486b3f9f7d04c9))
+* **daq:** guard NI fetch_analog against fetch before start() ([#116](https://github.com/nominal-io/instro/issues/116)) ([2e2f4bc](https://github.com/nominal-io/instro/commit/2e2f4bce22928e7ce1be04741e5995c79b6bf50f))
+* **daq:** make close() tolerant of double-close and failed open ([#108](https://github.com/nominal-io/instro/issues/108)) ([5474c98](https://github.com/nominal-io/instro/commit/5474c982044106fd91f9b000fb9bdcef6812c4a7))
+* **daq:** mcc fetch path integrity fix ([#113](https://github.com/nominal-io/instro/issues/113)) ([aa68289](https://github.com/nominal-io/instro/commit/aa682895959804b506efa99a3b1571d757f050e3))
+* **daq:** raise clear error when DAQ methods are called before open() ([#97](https://github.com/nominal-io/instro/issues/97)) ([9f9ed5d](https://github.com/nominal-io/instro/commit/9f9ed5dd496f632440d3d71e225350bd544b571a))
+* **lib:** bundle every pyvisa-py backend for clean-install VISA support ([#103](https://github.com/nominal-io/instro/issues/103)) ([60604dc](https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0))
+* **psu:** remove default channel selection from psu drivers ([#106](https://github.com/nominal-io/instro/issues/106)) ([45c6423](https://github.com/nominal-io/instro/commit/45c6423f8b86cdb7f2c5dad165a6d18b8d6c1a00))
+
 ## [0.10.0](https://github.com/nominal-io/instro/compare/instro-v0.9.0...instro-v0.10.0) (2026-06-12)
 
 

@@ -45,6 +45,12 @@ impl From<BatchError> for BatchReadError {
     }
 }
 
+impl BatchReadError {
+    pub(crate) fn is_retriable(&self) -> bool {
+        matches!(self, Self::Network(_) | Self::Timeout)
+    }
+}
+
 /// Errors returned by the explicit EtherNet/IP tag API.
 #[derive(Debug, Error)]
 pub enum Error {
