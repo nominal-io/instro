@@ -34,47 +34,6 @@ nav:
   - Protocols:
       - protocols/index.md
       - Modbus: protocols/modbus.md
-  - Examples:
-      - examples/index.md
-      - DAQ:
-          - examples/daq/daq_read_analog_sw_timed.md
-          - examples/daq/daq_read_analog_hw_timed.md
-          - examples/daq/daq_read_analog_hw_timed_no_background.md
-          - examples/daq/daq_write_analog_sw_timed.md
-          - examples/daq/daq_read_digital_line.md
-          - examples/daq/daq_write_digital_line.md
-          - examples/daq/daq_read_digital_port.md
-          - examples/daq/daq_write_digital_port.md
-          - examples/daq/daq_relays.md
-          - examples/daq/daq_analog_loopback.md
-      - DMM:
-          - examples/dmm/dmm_basic.md
-      - PSU:
-          - examples/psu/psu.md
-          - examples/psu/psu_background_daemon.md
-      - Electronic Load:
-          - examples/eload/eload.md
-      - I2C:
-          - examples/i2c/i2c_basic.md
-          - examples/i2c/i2c_command.md
-      - Publishers:
-          - examples/publishers/publish_buffered.md
-          - examples/publishers/publish_custom.md
-          - examples/publishers/publish_file.md
-          - examples/publishers/publish_queued.md
-      - Modbus:
-          - examples/modbus/minimal_example.md
-          - examples/modbus/modbus_example.md
-          - examples/modbus/programmatic_config_example.md
-          - examples/modbus/labjack_t4_loopback_test.md
-      - EtherNet/IP:
-          - examples/ethernetip/minimal_example.md
-          - examples/ethernetip/ethernetip_example.md
-          - examples/ethernetip/programmatic_config_example.md
-      - Test Rack:
-          - examples/test_rack_example/test_rack.md
-      - Custom:
-          - examples/custom/simple_temp_controller.md
   - Changelog:
       - changelog.md
 
@@ -142,9 +101,6 @@ markdown_extensions:
 
 plugins:
   - search
-  - gen-files:
-      scripts:
-        - generate_examples.py
   - mkdocstrings:
       handlers:
         python:
