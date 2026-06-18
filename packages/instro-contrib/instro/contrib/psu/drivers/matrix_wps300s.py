@@ -24,7 +24,7 @@ class MatrixWPS300S(PSUDriverBase):
             visaConf = VisaConfig(
                 visa_resource=visa_resource,
                 serial_config=SerialConfig(baud_rate=9600),
-                terminator=TerminatorConfig(read="\r\n", write="\r\n"), 
+                terminator=TerminatorConfig(read="\r\n", write="\r\n"),
             )
         self._visa = VisaDriver(visaConf)
         self._op_interval = op_interval
