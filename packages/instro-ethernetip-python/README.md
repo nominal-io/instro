@@ -46,9 +46,9 @@ discard successful reads from the same batch.
 
 - `PlcValue` for explicit scalar and structured writes
 - `StructuredValue`, which is promoted to a structured PLC value
-- `bool` and `str`, which map unambiguously to PLC `BOOL` and string values
+- `bool`, which maps unambiguously to PLC `BOOL`
 
-It intentionally rejects bare Python `int`, `float`, `bytes`, and `bytearray` values. Use the
+It intentionally rejects bare Python `int`, `float`, `str`, `bytes`, and `bytearray` values. Use the
 appropriate `PlcValue.*(...)` constructor for numeric writes and `StructuredValue(data=...)` for
 raw structured bytes.
 

@@ -25,12 +25,14 @@ def test_tag_poll_defaults_true_and_accepts_false() -> None:
 
 
 def test_timing_config_is_optional_and_accepts_poll_interval() -> None:
-    no_timing = EtherNetIPConfig(device={"name": "test_plc"})
+    no_timing = EtherNetIPConfig.model_validate({"device": {"name": "test_plc"}})
     assert no_timing.timing is None
 
-    polling = EtherNetIPConfig(
-        device={"name": "test_plc"},
-        timing={"poll_interval": 1.0},
+    polling = EtherNetIPConfig.model_validate(
+        {
+            "device": {"name": "test_plc"},
+            "timing": {"poll_interval": 1.0},
+        }
     )
     assert polling.timing is not None
     assert polling.timing.poll_interval == 1.0
@@ -159,8 +161,8 @@ def test_manual_start_rejects_all_poll_disabled_tags() -> None:
     assert instrument._background_thread is None
 
 
-def test_string_tags_must_opt_out_of_polling() -> None:
-    with pytest.raises(ValidationError, match="data_type='string' but poll=true"):
+def test_string_data_type_is_not_part_of_python_config_surface() -> None:
+    with pytest.raises(ValidationError) as exc_info:
         EtherNetIPConfig.model_validate(
             {
                 "device": {"name": "test_plc"},
@@ -168,35 +170,25 @@ def test_string_tags_must_opt_out_of_polling() -> None:
             }
         )
 
-    config = EtherNetIPConfig.model_validate(
+    assert "data_type" in str(exc_info.value)
+    assert "string" in str(exc_info.value)
+
+
+def test_write_tag_rejects_string_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = install_fake_native_ethernetip(monkeypatch)
+    instrument = EtherNetIPDevice(
         {
             "device": {"name": "test_plc"},
-            "tags": [{"alias": "recipe_name", "tag_name": "RecipeName", "data_type": "string", "poll": False}],
+            "connection": {"host": "192.0.2.10"},
+            "tags": [{"alias": "speed", "tag_name": "Speed", "data_type": "dint"}],
         }
     )
-
-    assert config.get_tag("recipe_name").poll is False
-
-
-def test_poll_false_string_tag_can_be_used_as_command_tag(monkeypatch: pytest.MonkeyPatch) -> None:
-    state = install_fake_native_ethernetip(monkeypatch)
-    with pytest.warns(RuntimeWarning, match="all 1 configured tags have poll=false"):
-        instrument = EtherNetIPDevice(
-            {
-                "device": {"name": "test_plc"},
-                "connection": {"host": "192.0.2.10"},
-                "timing": {"poll_interval": 1.0},
-                "tags": [{"alias": "recipe_name", "tag_name": "RecipeName", "data_type": "string", "poll": False}],
-            }
-        )
     instrument.open()
 
-    command = instrument.write_tag("recipe_name", "startup")
-    instrument._background_daemon()
+    with pytest.raises(TypeError, match="got str"):
+        instrument.write_tag("speed", "startup")  # type: ignore[arg-type]
 
-    assert state.writes == [("RecipeName", FakePlcValue(FakePlcKind.STRING, "startup"))]
-    assert state.reads == []
-    assert command.channel_data == {"test_plc.recipe_name.cmd": "startup"}
+    assert state.writes == []
 
 
 def test_close_tolerates_broken_native_session(

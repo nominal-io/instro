@@ -112,7 +112,7 @@ EtherNet/IP support is intentionally narrow. It targets PLC tags whose names and
 | Route paths | Direct connection, or local backplane slot hops only |
 | Background polling | Automatic batched reads for tags marked `poll: true` in the config |
 | Streaming to Nominal Core or Nominal Connect | Boolean and numeric scalar tag values |
-| Manual tag operations | Single-tag and batched scalar reads, plus writes, through the native session API |
+| Manual tag operations | Single-tag and batched non-string scalar reads, plus writes, through the native session API |
 | Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
 | Tag discovery | Not supported |
 | UDTs | Not supported |
@@ -132,7 +132,6 @@ A connection, scalar tag definitions, and `autostart=True` cover the common path
 | Poll configured tags automatically | `timing.poll_interval` + tags with `poll: true` |
 | Reject out-of-range setpoints before PLC writes | `write_min` / `write_max` on numeric tags |
 | Reach a PLC CPU behind a local chassis/backplane | `connection.route_path.hops` with `type: "backplane"` |
-| Read or write a string tag manually | `EtherNetIpSession.read_tag()` / `EtherNetIpSession.write_tag()` |
 | Read several PLC tags in one native request | `EtherNetIpSession.read_tags([...])` |
 
 ## Key concepts
@@ -183,7 +182,6 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 | `ulint` | `int` | Yes | 64-bit unsigned integer. Implemented, but not validated. |
 | `real` | `float` | Yes | 32-bit floating point. |
 | `lreal` | `float` | Yes | 64-bit floating point. |
-| `string` | `str` | No | Allen-Bradley Logix `STRING` (`LEN` as `DINT`, `DATA` as `SINT[]`). Manual reads and writes only. |
 
 <Warning>
 The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. `EtherNetIPDevice.read_tag()` raises `TypeError`.
@@ -191,39 +189,7 @@ The config-driven EtherNet/IP API supports scalar tags only. Structured values c
 
 ### Strings
 
-String support is for Allen-Bradley Logix `STRING` tags encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`). String measurements are not supported by Nominal Core or Nominal Connect. Manual string tag reads and writes are supported by the native API, but not through the background polling thread.
-
-<Note>
-Current CompactLogix 5332E 1769-L32E hardware testing covers boolean and numeric scalar tags. Validate string tags against the target PLC before using them in production configs.
-</Note>
-
-In config files, string tags must set `poll: false`:
-
-```json
-{
-  "alias": "recipe_name",
-  "tag_name": "RecipeName",
-  "data_type": "string",
-  "poll": false
-}
-```
-
-Use the private native session for Python-side string reads or writes:
-
-```python
-from instro.unstable._ethernetip import EtherNetIpSession, PlcValue
-
-with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
-    current = session.read_tag("RecipeName")
-    print(current.value)
-    session.write_tag("RecipeName", PlcValue.string("startup"))
-```
-
-The public config-driven `EtherNetIPDevice.write_tag()` method can write string command tags when `poll` is disabled:
-
-```python
-plc.write_tag("recipe_name", "startup")
-```
+PLC string tags are not part of the Python EtherNet/IP API. Do not declare `data_type: "string"` in `EtherNetIPDevice` configs, and do not pass Python `str` values to the native `EtherNetIpSession.write_tag()` API.
 
 ### Batched reads
 
@@ -256,7 +222,7 @@ Poll only streamable scalar tags:
 - `real`
 - `lreal`
 
-String tags are not polled because string measurements cannot be published to Nominal Core or Nominal Connect. UDTs and arrays are not polled because they are currently unsupported by the underlying EtherNet/IP library.
+String tags, UDTs, and arrays are not part of the Python EtherNet/IP polling surface.
 
 ### Route paths
 
@@ -390,13 +356,6 @@ Every EtherNet/IP config file must include:
       "poll": false,
       "write_min": 0.0,
       "write_max": 2500.0
-    },
-    {
-      "alias": "recipe_name",
-      "tag_name": "RecipeName",
-      "data_type": "string",
-      "description": "Active recipe name",
-      "poll": false
     }
   ]
 }
@@ -467,7 +426,6 @@ When the `timing` section is present, `EtherNetIPDevice` reads tags with `poll: 
 - Only numeric tags can use `write_min` and `write_max`.
 - `write_min` must be less than or equal to `write_max`.
 - Integer write limits must fit in the configured PLC integer type.
-- String tags must set `poll: false`.
 - Route path hops must be local backplane hops with slots from 0 to 255.
 
 Load-time validation is local to the config. It does not verify that PLC tags exist or that their actual PLC types match `data_type`; those checks happen only when the background polling task runs or when the user explicitly initiates a `read_tag()`, `read_tags()`, or `write_tag()` operation.
@@ -607,4 +565,4 @@ EtherNet/IP raises these errors for common failures:
 - Current testing covers one local backplane hop.
 - Tag discovery is unsupported.
 - Arrays and UDTs are unsupported.
-- String tags cannot be streamed to Nominal Core or Nominal Connect; read or write them manually.
+- PLC string tags are not exposed through the Python EtherNet/IP API.

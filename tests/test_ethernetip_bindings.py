@@ -119,6 +119,9 @@ def test_ethernetip_native_types_use_private_local_import_path() -> None:
 
 def test_plc_value_preserves_explicit_scalar_kinds() -> None:
     """`PlcValue` constructors preserve every supported scalar PLC kind."""
+    assert not hasattr(PlcKind, "STRING")
+    assert not hasattr(PlcValue, "string")
+
     cases = [
         (PlcValue.bool(False), PlcKind.BOOL, False),
         (PlcValue.sint(-3), PlcKind.SINT, -3),
@@ -131,7 +134,6 @@ def test_plc_value_preserves_explicit_scalar_kinds() -> None:
         (PlcValue.ulint(123_456), PlcKind.ULINT, 123_456),
         (PlcValue.real(1.25), PlcKind.REAL, pytest.approx(1.25)),
         (PlcValue.lreal(-9.5), PlcKind.LREAL, pytest.approx(-9.5)),
-        (PlcValue.string("hello"), PlcKind.STRING, "hello"),
     ]
 
     for value, expected_kind, expected_payload in cases:
@@ -212,23 +214,6 @@ def test_cpppo_round_trips_all_supported_scalar_types() -> None:
                 assert value.value == case["expected_after"]
 
 
-@pytest.mark.xfail(
-    reason="cpppo currently exposes STRING tags as unsupported type 0x00D0 to this EtherNet/IP client",
-    strict=True,
-)
-def test_cpppo_string_tag_round_trip_is_not_currently_possible() -> None:
-    """Flag the current cpppo STRING limitation so it stays visible in test output."""
-    with cpppo_endpoint_for({"string_tag": ("STRING", "hello")}) as endpoint:
-        with EtherNetIpSession(endpoint) as session:
-            value = session.read_tag("string_tag")
-            assert value.kind == PlcKind.STRING
-            assert value.value == "hello"
-            session.write_tag("string_tag", PlcValue.string("world"))
-            after = session.read_tag("string_tag")
-            assert after.kind == PlcKind.STRING
-            assert after.value == "world"
-
-
 def test_python_bindings_validate_numeric_and_bytes_boundaries(
     cpppo_endpoint: str,
 ) -> None:
@@ -248,6 +233,9 @@ def test_python_bindings_validate_numeric_and_bytes_boundaries(
 
         with pytest.raises(TypeError, match="bytes and bytearray"):
             session.write_tag("speed_setpoint", b"\x01\x02")  # type: ignore[arg-type]
+
+        with pytest.raises(TypeError, match="PlcValue, StructuredValue, or bool"):
+            session.write_tag("speed_setpoint", "startup")  # type: ignore[arg-type]
 
         session.write_tag("motor_enabled", True)
         session.write_tag("speed_setpoint", PlcValue.dint(42))

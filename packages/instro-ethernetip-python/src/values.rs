@@ -2,7 +2,7 @@ use instro_ethernetip_rs::{StructuredValue as RustStructuredValue, Value};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBool, PyByteArray, PyBytes, PyFloat, PyInt, PyString};
+use pyo3::types::{PyAny, PyBool, PyByteArray, PyBytes, PyFloat, PyInt};
 
 #[pyclass(module = "instro.unstable._ethernetip", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -43,7 +43,6 @@ pub(crate) enum PlcKind {
     Ulint,
     Real,
     Lreal,
-    String,
     Structured,
 }
 
@@ -186,14 +185,6 @@ impl PlcValue {
     }
 
     #[staticmethod]
-    /// Create a PLC string value.
-    fn string(value: String) -> Self {
-        Self {
-            value: Value::from(value),
-        }
-    }
-
-    #[staticmethod]
     /// Create a structured PLC value from a `StructuredValue` payload.
     fn structured(value: PyRef<'_, StructuredValue>) -> Self {
         Self {
@@ -205,15 +196,15 @@ impl PlcValue {
     /// PLC kind discriminant for this value, such as `PlcKind.DINT` or `PlcKind.REAL`.
     ///
     /// This mirrors the discriminant of the Rust `Value` enum wrapped by `PlcValue`.
-    fn kind(&self) -> PlcKind {
+    fn kind(&self) -> PyResult<PlcKind> {
         py_kind(&self.value)
     }
 
     #[getter]
     /// Python payload for this PLC value.
     ///
-    /// Numeric PLC types become Python `int`/`float`, strings become `str`, and structured values
-    /// become `StructuredValue`. The `PlcValue.kind` property preserves the original PLC kind.
+    /// Numeric PLC types become Python `int`/`float`, and structured values become
+    /// `StructuredValue`. The `PlcValue.kind` property preserves the original PLC kind.
     fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         value_payload_to_py(py, &self.value)
     }
@@ -223,7 +214,7 @@ impl PlcValue {
         let value_repr = value.bind(py).repr()?.extract::<String>()?;
         Ok(format!(
             "PlcValue(kind=PlcKind.{}, value={})",
-            self.kind().name(),
+            self.kind()?.name(),
             value_repr
         ))
     }
@@ -243,7 +234,6 @@ impl PlcKind {
             Self::Ulint => "ULINT",
             Self::Real => "REAL",
             Self::Lreal => "LREAL",
-            Self::String => "STRING",
             Self::Structured => "STRUCTURED",
         }
     }
@@ -297,14 +287,20 @@ impl StructuredValue {
 /// Values stay wrapped in `PlcValue` so Python callers can preserve the PLC scalar kind and write
 /// tags back losslessly.
 pub(crate) fn rust_value_to_py(py: Python<'_>, value: Value) -> PyResult<Py<PyAny>> {
+    if matches!(value, Value::String(_)) {
+        return Err(PyTypeError::new_err(
+            "PLC string values are not exposed through the Python EtherNet/IP API",
+        ));
+    }
+
     Py::new(py, PlcValue::from(value))?.into_py_any(py)
 }
 
 /// Convert an accepted Python write payload into the Rust crate's public `Value` enum.
 ///
 /// The binding intentionally accepts only explicit PLC values plus a narrow set of unambiguous
-/// Python types. Bare Python numerics are rejected because they erase the PLC scalar kind, and
-/// structured payloads are promoted to structured PLC values automatically.
+/// Python types. Bare Python numerics and strings are rejected, and structured payloads are
+/// promoted to structured PLC values automatically.
 pub(crate) fn py_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     // `PyBool` is a subclass of `PyInt` so it MUST be checked before `PyInt`
     if value.is_instance_of::<PyBool>() {
@@ -319,10 +315,6 @@ pub(crate) fn py_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     if value.is_instance_of::<StructuredValue>() {
         let structured_value = value.extract::<PyRef<'_, StructuredValue>>()?;
         return Ok(Value::Struct(RustStructuredValue::from(&*structured_value)));
-    }
-
-    if value.is_instance_of::<PyString>() {
-        return Ok(Value::from(value.extract::<String>()?));
     }
 
     if value.is_instance_of::<PyBytes>() || value.is_instance_of::<PyByteArray>() {
@@ -344,12 +336,12 @@ pub(crate) fn py_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     }
 
     Err(PyTypeError::new_err(
-        "write_tag accepts PlcValue, StructuredValue, bool, or str",
+        "write_tag accepts PlcValue, StructuredValue, or bool",
     ))
 }
 
-fn py_kind(value: &Value) -> PlcKind {
-    match value {
+fn py_kind(value: &Value) -> PyResult<PlcKind> {
+    Ok(match value {
         Value::Bool(_) => PlcKind::Bool,
         Value::Sint(_) => PlcKind::Sint,
         Value::Int(_) => PlcKind::Int,
@@ -361,9 +353,13 @@ fn py_kind(value: &Value) -> PlcKind {
         Value::Ulint(_) => PlcKind::Ulint,
         Value::Real(_) => PlcKind::Real,
         Value::Lreal(_) => PlcKind::Lreal,
-        Value::String(_) => PlcKind::String,
+        Value::String(_) => {
+            return Err(PyTypeError::new_err(
+                "PLC string values are not exposed through the Python EtherNet/IP API",
+            ));
+        }
         Value::Struct(_) => PlcKind::Structured,
-    }
+    })
 }
 
 fn value_payload_to_py(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
@@ -379,7 +375,11 @@ fn value_payload_to_py(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
         Value::Ulint(value) => (*value).into_py_any(py)?,
         Value::Real(value) => (*value).into_py_any(py)?,
         Value::Lreal(value) => (*value).into_py_any(py)?,
-        Value::String(value) => value.clone().into_py_any(py)?,
+        Value::String(_) => {
+            return Err(PyTypeError::new_err(
+                "PLC string values are not exposed through the Python EtherNet/IP API",
+            ));
+        }
         Value::Struct(value) => {
             Py::new(py, StructuredValue::from(value.clone()))?.into_py_any(py)?
         }
