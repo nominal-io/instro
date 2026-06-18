@@ -8,18 +8,9 @@ from serial.tools import list_ports
 
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 
-# create an instrument mapping - false positives currently likely
-
-# should make the mapping into having company name and also having part #
-# and then checking both of them! I really need more hardware tests for reliable
-# usage from company names... can a dict key be a tuple?
-# currently this mapping is not robust
-
 MARK = "⟢"
-# BACKGROUND = "#000000"
 GREEN = "#4ADE80"
 YELLOW = "#FDE68A"
-SURFACE = "#0C0C0C"
 FOREGROUND = "#FFFFFF"
 FOREGROUND_MUTED = "#A3A3A3"
 FOREGROUND_ERROR = "#B91C1C"
@@ -29,44 +20,38 @@ BORDER = "#333333"
 _IDN_MAP = {
     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A"),
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A"),
-    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400"),  # maybe make this MODEL 2400 # OLD ONES US "HP"
+    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400"),
     ("B&K PRECISION", "9115"): ("psu", "BK9115"),
     ("B&K PRECISION", "9140"): ("psu", "BK9140"),
-    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RIGOLDP800"),
-    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RIGOLDP800"),
-    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RIGOLDP800"),
-    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RIGOLDP800"),
+    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800"),
+    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800"),
+    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800"),
+    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800"),
     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303"),
-    ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys"),  # this feels too vague
-    ("B&K PRECISION", "BK85"): ("eload", "BK85xxB"),  # not sure if this works for all 85XX series...
-    # ^^ added this one back in, need to tune all the names though!
+    ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys"),
+    ("B&K PRECISION", "BK85"): ("eload", "BK85XXB"),
 }
-
-# let's get the keys for this _IDN_MAP to be a tuple, then we can check if the vendor & device num are in the name
 
 
 def discover(backend: str | None = None) -> None:
-    """Function for discovering known and unknown SCPI devices with VISA."""
+    """Scan for SCPI devices and print a discovery table."""
     console = Console()
     width = console.width
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
     console.print("\nScanning VISA resources ... \n", style="dim")
-    active_backend: str  # give a backend for everything
-    # create list of real devices:
+    active_backend: str
+
     serial_devices = [
         ((p.device, p.manufacturer, p.product), "serial - configure manually")
         for p in list_ports.comports()
         if p.description != "n/a"
     ]
 
-    # this section of code is quite inefficient
     if backend is not None:
         rm = pyvisa.ResourceManager(backend)
         active_backend = backend
-
     else:
         try:
-            # automatically chooses a backend
             rm = pyvisa.ResourceManager("@ivi")
             active_backend = "@ivi"
         except Exception:
@@ -77,11 +62,10 @@ def discover(backend: str | None = None) -> None:
         warnings.simplefilter("ignore")
         resources = rm.list_resources()
 
-    supported_devices: list[tuple[str, str, tuple[str, str]]] = []  # put all found VISA devices here
-    unsupported_devices: list[tuple[str, str]] = []  # put all found non-supported devices here
+    supported_devices: list[tuple[str, str, tuple[str, str]]] = []
+    unsupported_devices: list[tuple[str, str]] = []
 
-    # for each resource, open a visadriver, query *IDN?, then close it!, wrapped in try/except
-    if not resources:
+    if not resources and not serial_devices:
         console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
         return
 
@@ -91,8 +75,7 @@ def discover(backend: str | None = None) -> None:
 
         driver = VisaDriver(
             VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=2), visa_backend=active_backend),
-            # we could just pass the active backend here.
-        )  # setting a 2-second timer
+        )
         try:
             driver.open()
             idn = driver.query("*IDN?").strip()
@@ -109,8 +92,7 @@ def discover(backend: str | None = None) -> None:
                 None,
             )
             if match is not None:
-                # we have valid device
-                supported_devices.append((idn, resource, match))  # match is the dict value
+                supported_devices.append((idn, resource, match))
             else:
                 unsupported_devices.append((idn, resource))
 
@@ -120,23 +102,16 @@ def discover(backend: str | None = None) -> None:
         except Exception as e:
             err_str = str(e)
             if "No backend available" in err_str or "PyUSB" in err_str:
-                msg = "USB backend missing - install libusb: brew install libusb (Mac) or apt install libusb-1.0.0 (Linux)"
+                msg = "USB backend missing - install libusb"
             else:
                 msg = err_str
             console.print(f"   [{FOREGROUND_ERROR}]{resource}: unexpected error: ({msg})[/]")
-            idn = None
         finally:
             driver.close()
 
-    # found devices should be filled now, show user what can be used, and what can't
-
     if not supported_devices and not unsupported_devices and not serial_devices:
-        # not a single device found
         console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
-
-        # typer.echo(typer.style(f"NO DEVICES FOUND", fg=typer.colors.RED, bold=True))
     else:
-        # now adding table support
         if supported_devices:
             table = Table(
                 title=f"[bold {GREEN}]RECOGNIZED DEVICES",

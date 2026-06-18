@@ -1,10 +1,19 @@
+import importlib
 from unittest.mock import MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
+from instro.cli.discover import _IDN_MAP
 from instro.cli.main import app
 
 runner = CliRunner()
+
+
+@pytest.mark.parametrize("category,class_name", set(_IDN_MAP.values()))
+def test_idn_map_drivers_importable(category: str, class_name: str) -> None:
+    module = importlib.import_module(f"instro.{category}.drivers")
+    assert hasattr(module, class_name), f"{class_name} not found in instro.{category}.drivers"
 
 
 def _rm_mock(resources=()):
@@ -24,7 +33,7 @@ def test_discover_empty_bench():
 
 
 def test_discover_mixed_bench():
-    resources = "USB0::0x05E6::0:0x9999::INSTR"
+    resources = ("USB0::0x05E6::0x9999::INSTR", "USB0::0x1234::0x5678::INSTR")
     mock_rm = _rm_mock(resources)
     with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
         with patch("instro.cli.discover.list_ports") as mock_lp:
@@ -79,5 +88,5 @@ def test_discover_two_supported_one_unsupported_one_serial():
     assert result.output.count("RECOGNIZED DEVICES") == 2
     assert result.output.count("UNRECOGNIZED DEVICES") == 1
     assert result.output.count("Keithley2400") == 1
-    assert result.output.count("AgilentA34401A")
+    assert result.output.count("Agilent34401A") == 1
     assert "Arduino Uno" in result.output
