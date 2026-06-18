@@ -494,8 +494,7 @@ mod support {
                         panic!("failed to wait for simulator process after timeout: {error}")
                     });
                     panic!(
-                        "failed waiting for the simulator to indicate it started by sending its ip/port to stdout within {:?}; process exited with {status}",
-                        STARTUP_TIMEOUT
+                        "failed waiting for the simulator to indicate it started by sending its ip/port to stdout within {STARTUP_TIMEOUT:?}; process exited with {status}",
                     );
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
