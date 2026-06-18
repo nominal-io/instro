@@ -2,7 +2,7 @@
 
 Python binding layer for the Rust EtherNet/IP client.
 
-This is surfaced through the workspace dev environment as the private native module `instro.unstable._ethernetip`, while remaining intentionally excluded from the stable `instro[all]` extra and normal package publishing flow. It remains in the workspace for local development, manual builds, and test runs.
+This is surfaced to Python as the private native module `instro.unstable._ethernetip`, while remaining intentionally excluded from the stable `instro[all]` extra. Published users install it through the optional `instro-unstable[ethernetip]` extra.
 
 It exists separately from `instro-ethernetip-rs` on purpose:
 
@@ -36,6 +36,11 @@ the GIL around blocking calls and translating values and exceptions into Python 
 preserve the PLC scalar kind, such as `DINT` versus `UDINT` or `REAL` versus `LREAL`. The
 `PlcValue.value` property exposes the Python payload, and `PlcValue.kind` exposes the corresponding
 `PlcKind`.
+
+`EtherNetIpSession.read_tags()` reads several tags in one batched request and returns one
+`(name, result)` tuple per requested tag. Successful results are `PlcValue` instances. Per-tag
+failures are typed `EtherNetIpBatchError` instances, so one missing or mismatched tag does not
+discard successful reads from the same batch.
 
 `EtherNetIpSession.write_tag()` accepts:
 
