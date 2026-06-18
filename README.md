@@ -60,7 +60,7 @@ with InstroPSU(
     print(psu.get_voltage(channel=1))  # Measurement(channel_data={'my-psu.ch1.voltage': [3.31...]}, ...)
 ```
 
-For the full walkthrough (including publishing to Nominal Core and the background polling daemon), see the [official documentation](https://instro.nominal.io).
+That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Supported devices
 
