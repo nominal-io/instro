@@ -92,6 +92,10 @@ rust:
     cargo test --workspace --all-features --lib
     cargo test --workspace --all-features --doc
 
+# run the Rust explicit EtherNet/IP integration test against the bundled simulator
+eip-rs-test:
+    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
@@ -124,6 +128,6 @@ eip-wheel-smoke-test:
     )
     INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip_wheel_smoke.py
 
-# Full EIP test suite: wheel smoke test, Rust/Python bindings
-eip-test: eip-wheel-smoke-test rust
+# Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
+eip-test: eip-wheel-smoke-test rust eip-rs-test
     uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest tests/test_ethernetip_bindings.py -q

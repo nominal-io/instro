@@ -381,6 +381,8 @@ class NIDAQDriver(DAQDriverBase):
         return DAQmxData(data=data, timestamp=timestamp, dt=None)
 
     def fetch_analog(self) -> DAQmxData:
+        if ChannelType.ANALOG_INPUT not in self._running_channel_types:
+            raise RuntimeError("No active scan. Call start() before fetch_analog().")
         if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
