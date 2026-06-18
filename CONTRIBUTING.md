@@ -117,7 +117,7 @@ If you're contributing a driver for a device the maintainers don't own, **start 
 
 The `instro-contrib` package (`packages/instro-contrib/`) hosts drivers the maintainers cannot verify directly against the device. Hardware verification is done by the contributor, not by the maintainers.
 
-The package is not yet published as its own distribution. A release flow will be wired up alongside `instro`'s PyPI publication. For now, consumers depend on the workspace member directly.
+The package is published to PyPI as `instro-contrib`, released alongside `instro` through the shared release-please flow.
 
 The bar is deliberately lower than core's because the maintainers can't independently test these drivers, but every contribution still passes review.
 

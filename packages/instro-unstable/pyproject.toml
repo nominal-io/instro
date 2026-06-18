@@ -1,6 +1,6 @@
 [project]
 name = "instro-unstable"
-version = "0.0.1"
+version = "0.1.0"
 description = "Unstable modules for instro (in-development features)"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -9,12 +9,17 @@ dependencies = [
     "instro",
 ]
 
+[project.optional-dependencies]
+ethernetip = ["instro-ethernetip-python>=0.1.0,<0.2.0"]
+all = ["instro-ethernetip-python>=0.1.0,<0.2.0"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
 instro = { workspace = true }
+instro-ethernetip-python = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["instro"]

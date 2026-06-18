@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.10.0"
+version = "0.11.0"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -33,11 +33,13 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+contrib = ["instro-contrib"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "instro-contrib",
 ]
 
 [project.urls]
@@ -69,6 +71,7 @@ dev = [
     "instro-contrib",
 ]
 test = [
+    "cpppo>=4.0.0",
     "pytest>=8.4.0,<9",
 ]
 
@@ -146,7 +149,9 @@ packages = ["instro", "instro.unstable.ethernetip"]
 testpaths = ["tests"]
 # --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc"
+# --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
+# (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]
