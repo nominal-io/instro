@@ -22,18 +22,20 @@ if TYPE_CHECKING:
 class ArduinoFirmata(DAQDriverBase):
     """Arduino DAQ driver via Firmata protocol.
 
-    Arduino UNO:
-        Physical channel format - analog input: ''"A0"''-''"A5"'';
-        digital line: ''"D2"'' - ''"D13"''
+    Analog and digital I/O over StandardFirmata. The sampling rate controls how
+    often the Arduino sends analog readings back over serial. The Firmata default
+    is ~53 Hz (19ms interval). Rates above ~100 Hz may cause dropped messages at
+    the default 57600 baud; the actual ceiling depends on baud rate and the number
+    of configured channels.
 
+    Physical channel format: analog input "A0-A5"; digital line "D2"-"D13".
     Pin ranges depend on specific Arduino board.
-
     """
 
-    def __init__(self, port: str, sampling_interval_ms: int = 19) -> None:
+    def __init__(self, port: str, sampling_rate_hz: float = 1000 / 19) -> None:
         super().__init__()
         self._port = port
-        self._sampling_interval_ms = sampling_interval_ms
+        self._sampling_interval_ms = int(1000 / sampling_rate_hz)
         self._board: pyfirmata2.Arduino | None = None
         self._pins: dict[str, Any] = {}
         self._latest_values: dict[str, float] = {}
@@ -43,7 +45,7 @@ class ArduinoFirmata(DAQDriverBase):
             import pyfirmata2
         except ImportError as e:
             raise ImportError(
-                "pyfirmata2 is required for ArduinoFirmata.install it with: uv sync --extra arduino"
+                "pyfirmata2 is required for ArduinoFirmata. Install it with: uv sync --extra arduino"
             ) from e
         self._board = pyfirmata2.Arduino(self._port)
         it = pyfirmata2.util.Iterator(self._board)
@@ -56,16 +58,22 @@ class ArduinoFirmata(DAQDriverBase):
             self._board = None
         self._pins.clear()
 
+    def set_sampling_rate(self, rate_hz: float) -> None:
+        """Set the analog sampling rate. Rates above ~100Hz may cause dropped messages at the default 57600 baud."""
+        self._sampling_interval_ms = int(1000 / rate_hz)
+        if self._board is not None:
+            self._board.setSamplingInterval(self._sampling_interval_ms)
+
     def configure_ai_channel(self, channel: AnalogChannel) -> None:
         assert self._board is not None, "Call open() before configuring channels"
         alias_copy = channel.alias
-        pin_num = _parse_analog_pin(channel.physical_channel)  # turns A0 into 0, A3 into 3, etc
+        pin_num = _parse_analog_pin(channel.physical_channel)
         pin = self._board.get_pin(f"a:{pin_num}:i")
         pin.register_callback(
             lambda value, a=alias_copy: self._latest_values.__setitem__(a, value if value is not None else 0.0)
         )
-        pin.enable_reporting()  # tells arduino to continuously send readings of this pin
-        self._pins[channel.alias] = pin  # store pin object so read_analog can find by alias
+        pin.enable_reporting()
+        self._pins[channel.alias] = pin
         self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
@@ -104,9 +112,7 @@ class ArduinoFirmata(DAQDriverBase):
             ch = channel_list.get(alias)
             if not isinstance(ch, AnalogChannel):
                 continue
-            voltage = ch.range_min + (
-                raw * (ch.range_max - ch.range_min)
-            )  # if raw is in range 0-1, else we must change
+            voltage = ch.range_min + (raw * (ch.range_max - ch.range_min))
 
             channel_data[f"{daq_name}.{alias}"] = [voltage]
         return [Measurement(channel_data=channel_data, timestamps=[timestamp], tags={**default_tags, **kwargs})]

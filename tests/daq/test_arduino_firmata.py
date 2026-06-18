@@ -117,3 +117,16 @@ def test_close(arduino_driver, mock_board):
 def test_configure_ai_hw_timing_raises(arduino_driver):
     with pytest.raises(NotImplementedError):
         arduino_driver.configure_ai_hw_timing(hw_timing_config=HWTimingConfig(30.0, 1, 40))
+
+
+def test_set_sampling_rate_before_open():
+    driver = ArduinoFirmata("/dev/ttyACM0")
+    driver.set_sampling_rate(100)
+    assert driver._sampling_interval_ms == 10
+    assert driver._board is None
+
+
+def test_set_sampling_rate_after_open_calls_board(arduino_driver, mock_board):
+    arduino_driver.set_sampling_rate(50)
+    assert arduino_driver._sampling_interval_ms == 20
+    mock_board.setSamplingInterval.assert_called_with(20)
