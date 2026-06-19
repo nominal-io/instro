@@ -88,9 +88,10 @@ class VisaConfig:
     Attributes:
         visa_resource: VISA resource string, e.g. ``TCPIP0::host::5025::SOCKET``
             or ``USB0::0x2A8D::0x0101::MY12345::INSTR``.
-        visa_backend: pyvisa backend specifier. Defaults to ``@ivi`` (the system
-            IVI VISA implementation), falling back to ``@py`` when no IVI backend
-            is installed. An explicitly set non-default backend is used as-is.
+        visa_backend: pyvisa backend specifier. When unset (``None``), uses the
+            system IVI VISA implementation (``@ivi``) and falls back to ``@py``
+            when no IVI backend is installed. An explicitly set backend is used
+            as-is, with no fallback.
         serial_config: Serial settings applied when the VISA resource is an
             ASRL (RS-232/RS-485) interface.
         terminator: Read and write terminators.
@@ -98,7 +99,7 @@ class VisaConfig:
     """
 
     visa_resource: str
-    visa_backend: str = DEFAULT_VISA_BACKEND
+    visa_backend: str | None = None
     serial_config: SerialConfig = dataclasses.field(default_factory=SerialConfig)
     terminator: TerminatorConfig = dataclasses.field(default_factory=TerminatorConfig)
     timeout: TimeoutConfig = dataclasses.field(default_factory=TimeoutConfig)
@@ -139,7 +140,7 @@ class VisaDriver:
             logger.info(
                 "Opening VISA resource %s on backend %s",
                 cfg.visa_resource,
-                cfg.visa_backend,
+                cfg.visa_backend or DEFAULT_VISA_BACKEND,
             )
             # pyvisa caches one ResourceManager per backend and shares it across every
             # driver in the process; closing it would kill all other drivers' sessions.
@@ -274,13 +275,13 @@ class VisaDriver:
         return self._inst
 
 
-def _open_resource_manager(backend: str) -> pyvisa.ResourceManager:
-    """Open a ResourceManager for ``backend``; the default ``@ivi`` falls back to ``@py`` if no IVI library is found."""
-    try:
+def _open_resource_manager(backend: str | None) -> pyvisa.ResourceManager:
+    """Open a ResourceManager. An unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
+    if backend is not None:
         return pyvisa.ResourceManager(backend)
+    try:
+        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND)
     except OSError as exc:
-        if backend != DEFAULT_VISA_BACKEND:
-            raise
         logger.warning(
             "VISA backend %s unavailable (%s); falling back to %s",
             DEFAULT_VISA_BACKEND,

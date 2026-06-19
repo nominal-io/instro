@@ -106,7 +106,7 @@ def test_open_creates_resource_and_applies_config(mock_pyvisa):
     driver.open()
 
     assert driver.is_open is True
-    rm_class.assert_called_once_with(cfg.visa_backend)
+    rm_class.assert_called_once_with("@ivi")
     rm_instance.open_resource.assert_called_once_with(cfg.visa_resource)
     assert resource.read_termination == "\r"
     assert resource.write_termination == "\n"
@@ -144,15 +144,16 @@ def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa):
     assert driver.is_open is True
 
 
-def test_open_does_not_fall_back_for_explicit_non_default_backend(mock_pyvisa):
+@pytest.mark.parametrize("backend", ["@ivi", "@py", "@sim"])
+def test_open_does_not_fall_back_for_explicit_backend(mock_pyvisa, backend: str):
     rm_class, _, _ = mock_pyvisa
-    rm_class.side_effect = OSError("simulation backend not available")
-    driver = _make_driver(_make_config(visa_backend="@sim"))
+    rm_class.side_effect = OSError("backend not available")
+    driver = _make_driver(_make_config(visa_backend=backend))
 
-    with pytest.raises(OSError, match="simulation backend not available"):
+    with pytest.raises(OSError, match="backend not available"):
         driver.open()
 
-    rm_class.assert_called_once_with("@sim")
+    rm_class.assert_called_once_with(backend)
     assert driver.is_open is False
 
 
