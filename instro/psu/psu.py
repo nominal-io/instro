@@ -6,11 +6,13 @@ import abc
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.psu.config import PSUConfig, build_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +145,32 @@ class InstroPSU(Instrument):
         self._resource_lock = threading.Lock()
 
         self._define_background_daemon()
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        publishers: list[Publisher] | None = None,
+        **kwargs: Any,
+    ) -> "InstroPSU":
+        """Construct an InstroPSU from a config dict."""
+        config = PSUConfig.model_validate(data)
+        return build_psu_from_config(config, publishers=publishers, **kwargs)
+
+    @classmethod
+    def from_json(
+        cls,
+        path: Path | str,
+        publishers: list[Publisher] | None = None,
+        **kwargs: Any,
+    ) -> "InstroPSU":
+        """Construct an InstroPSU from a JSON config file."""
+        import json
+
+        path = Path(path)
+        with open(path) as f:
+            raw = json.load(f)
+        return cls.from_dict(raw, publishers=publishers, **kwargs)
 
     @publish_command
     def _execute_command(
