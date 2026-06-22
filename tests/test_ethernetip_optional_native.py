@@ -40,5 +40,5 @@ def test_open_reports_extra_when_native_ethernetip_is_missing(monkeypatch: pytes
     # The failure should tell users which package is missing and the preferred
     # `instro-unstable` extra that installs it.
     message = str(exc_info.value)
-    assert "instro-ethernetip-python" in message
+    assert "instro-ethernetip" in message
     assert "instro-unstable[ethernetip]" in message

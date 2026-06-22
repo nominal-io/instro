@@ -10,8 +10,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ethernetip = ["instro-ethernetip-python>=0.1.0,<0.2.0"]
-all = ["instro-ethernetip-python>=0.1.0,<0.2.0"]
+ethernetip = ["instro-ethernetip>=0.2.0,<0.3.0"]
+all = ["instro-ethernetip>=0.2.0,<0.3.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 instro = { workspace = true }
-instro-ethernetip-python = { workspace = true }
+instro-ethernetip = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["instro"]
