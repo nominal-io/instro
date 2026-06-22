@@ -96,6 +96,16 @@ rust:
 eip-rs-test:
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
 
+# run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
+eip-live-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
+    export INSTRO_EIP_ROUTE_PATH_SLOTS=0
+    export INSTRO_EIP_TARGET_L32E=1
+    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    uv run --no-cache --reinstall-package instro-ethernetip-python --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
+
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 

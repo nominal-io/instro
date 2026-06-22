@@ -513,6 +513,7 @@ nidaq = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cpppo" },
     { name = "instro-contrib" },
     { name = "instro-ethernetip-python" },
     { name = "instro-unstable" },
@@ -559,6 +560,7 @@ provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "cont
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cpppo", specifier = ">=4.0.0" },
     { name = "instro-contrib", editable = "packages/instro-contrib" },
     { name = "instro-ethernetip-python", editable = "packages/instro-ethernetip-python" },
     { name = "instro-unstable", editable = "packages/instro-unstable" },
