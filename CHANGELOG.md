@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/nominal-io/instro/compare/instro-v0.11.0...instro-v0.12.0) (2026-06-22)
+
+
+### Features
+
+* **ethernetip:** reconnect after transient failures ([#100](https://github.com/nominal-io/instro/issues/100)) ([e9a35da](https://github.com/nominal-io/instro/commit/e9a35da96e619719cad008ee591d6be250343cbd))
+* **visa:** default to [@ivi](https://github.com/ivi) backend, fall back to [@py](https://github.com/py) ([#130](https://github.com/nominal-io/instro/issues/130)) ([61a2166](https://github.com/nominal-io/instro/commit/61a21664053cb5d81e1fee0df03817bfe83f056a))
+
 ## [0.11.0](https://github.com/nominal-io/instro/compare/instro-v0.10.0...instro-v0.11.0) (2026-06-17)
 
 
