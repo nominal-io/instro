@@ -19,12 +19,11 @@ device = AlicatMC(
         terminator=TerminatorConfig(read="\r", write="\r"),
     ),
     device_id="M",
-) 
+)
 fc = InstroFlowController(
     name="myFlowController",
     driver=device,
 )
-
 
 
 channel_buffer = DequeInMemoryPublisher(1000)

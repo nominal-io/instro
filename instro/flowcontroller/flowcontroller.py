@@ -8,9 +8,9 @@ import threading
 import time
 
 from instro.flowcontroller.types import FlowData
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers import Publisher
 
 logger = logging.getLogger(__name__)
 

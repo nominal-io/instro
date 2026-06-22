@@ -57,7 +57,7 @@ from pyvisa import VisaIOError
 
 from instro.flowcontroller import FlowControllerDriverBase
 from instro.flowcontroller.types import FlowData
-from instro.utils.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 
 logger = logging.getLogger(__name__)
 
