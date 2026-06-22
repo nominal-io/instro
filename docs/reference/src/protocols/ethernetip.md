@@ -1,4 +1,4 @@
-# EtherNet/IP
+# EtherNet/IP (unstable)
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
 and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
@@ -137,6 +137,8 @@ Supported `data_type` values:
 | `ulint` | Yes | 64-bit unsigned integer. Implemented, but not validated |
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
+
+PLC string tags are not part of the Python EtherNet/IP API.
 
 ### Native batched reads
 
