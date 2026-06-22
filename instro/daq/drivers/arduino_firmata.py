@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import queue
 import time
+import warnings
 from typing import TYPE_CHECKING, Any, Mapping
 
 from instro.daq import DAQDriverBase
@@ -35,10 +37,22 @@ class ArduinoFirmata(DAQDriverBase):
     def __init__(self, port: str, sampling_rate_hz: float = 1000 / 19) -> None:
         super().__init__()
         self._port = port
-        self._sampling_interval_ms = int(1000 / sampling_rate_hz)
+        if sampling_rate_hz > 1000:
+            warnings.warn(
+                f"{sampling_rate_hz} Hz exceeds the Firmata protocol maximum of 1000Hz; clamping to 1000 Hz",
+                UserWarning,
+                stacklevel=2,
+            )
+            self._sampling_interval_ms = 1
+
+        else:
+            self._sampling_interval_ms = int(1000 / sampling_rate_hz)
         self._board: pyfirmata2.Arduino | None = None
         self._pins: dict[str, Any] = {}
         self._latest_values: dict[str, float] = {}
+        self._sample_queue: queue.Queue[dict[str, float]] = queue.Queue()
+        self._pending_updates: set[str] = set()
+        self._expected_ai_channels: frozenset[str] = frozenset()
 
     def open(self) -> None:
         try:
@@ -60,32 +74,75 @@ class ArduinoFirmata(DAQDriverBase):
 
     def set_sampling_rate(self, rate_hz: float) -> None:
         """Set the analog sampling rate. Rates above ~100Hz may cause dropped messages at the default 57600 baud."""
+        if rate_hz > 1000:
+            warnings.warn(
+                f"{rate_hz} Hz exceeds the Firmata protocol maximum of 1000 Hz; clamping to 1000 Hz",
+                UserWarning,
+                stacklevel=2,
+            )
+            rate_hz = 1000
         self._sampling_interval_ms = int(1000 / rate_hz)
         if self._board is not None:
             self._board.setSamplingInterval(self._sampling_interval_ms)
+
+    def configure_ao_channel(self, channel: AnalogChannel) -> None:
+        assert self._board is not None, "Call open() before configuring channels"
+        pin_num = _parse_digital_pin(channel.physical_channel)
+        pin = self._board.get_pin(f"d:{pin_num}:p")
+        self._pins[channel.alias] = pin
+        self._ao_channels[channel.alias] = channel
+
+    def write_analog_value(self, channel: AnalogChannel, value: float) -> None:
+        normalized = (value - channel.range_min) / (channel.range_max - channel.range_min)
+        self._pins[channel.alias].write(max(0.0, min(1.0, normalized)))
 
     def configure_ai_channel(self, channel: AnalogChannel) -> None:
         assert self._board is not None, "Call open() before configuring channels"
         alias_copy = channel.alias
         pin_num = _parse_analog_pin(channel.physical_channel)
         pin = self._board.get_pin(f"a:{pin_num}:i")
-        pin.register_callback(
-            lambda value, a=alias_copy: self._latest_values.__setitem__(a, value if value is not None else 0.0)
-        )
+        pin.register_callback(lambda value, a=alias_copy: self._on_analog_callback(a, value))
         pin.enable_reporting()
         self._pins[channel.alias] = pin
         self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
+        # Firmata timing is managed internally in start()/stop(); do not call configure_ai_sampling_rate() on this driver.
         raise NotImplementedError("ArduinoFirmata does not support hardware-timed buffered acquisition")
 
     def start(self, **kwargs: Any) -> None:
         if self._board is not None:
+            # Set a synthetic timing config so InstroDAQ routes daemon calls through fetch_analog()
+            # rather than raising. samples_per_channel=1 because each fetch returns one snapshot.
+            # This bypasses the normal configure_ai_hw_timing() path intentionally - Firmata has no
+            # hardware timing; start()/stop() own the config lifecycle instead
+            sample_rate = 1000 / self._sampling_interval_ms
+            self._ai_hw_timing_config = HWTimingConfig(
+                sample_rate=sample_rate,
+                sample_period=round(1e9 / sample_rate),
+                samples_per_channel=1,
+            )
+            self._expected_ai_channels = frozenset(self._ai_channels.keys())
             self._board.samplingOn(self._sampling_interval_ms)
 
     def stop(self, **kwargs: Any) -> None:
         if self._board is not None:
             self._board.samplingOff()
+        self._ai_hw_timing_config = None
+        self._pending_updates.clear()
+        self._expected_ai_channels = frozenset()
+        while not self._sample_queue.empty():
+            try:
+                self._sample_queue.get_nowait()
+            except queue.Empty:
+                break
+
+    def _on_analog_callback(self, alias: str, value: float | None) -> None:
+        self._latest_values[alias] = value if value is not None else 0.0
+        self._pending_updates.add(alias)
+        if self._expected_ai_channels and self._pending_updates >= self._expected_ai_channels:
+            self._sample_queue.put(dict(self._latest_values))
+            self._pending_updates.clear()
 
     def read_analog(self) -> dict[str, float]:
         result: dict[str, float] = {}
@@ -93,10 +150,8 @@ class ArduinoFirmata(DAQDriverBase):
             result[alias] = self._latest_values.get(alias, 0.0)
         return result
 
-    def fetch_analog(self) -> Any:
-        raise NotImplementedError(
-            "ArduinoFirmata does not support hardware-timed buffered fetch; use software-timed read_analog()"
-        )
+    def fetch_analog(self) -> dict[str, float]:
+        return self._sample_queue.get()
 
     def _read_to_measurements(
         self,
