@@ -8,20 +8,28 @@ description: Command-line tools for working with instro
 ## instro discover
 
 Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
+Run the discover CLI using 'uv'. Use the discovery command once, creating a throwaway isolated environment:
 
 ```bash
+uv run instro discover
+```
+
+Or install `instro` so it lives on your PATH and you can call it from anywhere:
+
+```bash
+uv tool install instro
 instro discover
 ```
 
 To force a specific VISA backend, pass `--backend`:
 
 ```bash
-instro discover --backend @py
-instro discover --backend @ivi
+uv run instro discover --backend @py
+uv run instro discover --backend @ivi
 ```
 
 <Note>
-The `@ivi` backend (NI-VISA) is more reliable for USB and GPIB instruments. The `@py` backend (`pyvisa-py`) is a pure-Python fallback that works without NI-VISA installed but may not detect all instruments.
+The `@ivi` backend finds an available IVI-compliant backned on your system e.g. NI-VISA or Keysight IO. `@ivi` more reliable for USB and GPIB instruments. The `@py` backend (`pyvisa-py`) is a pure-Python fallback that works without NI-VISA installed but may not detect all instruments.
 </Note>
 
 ### Output
