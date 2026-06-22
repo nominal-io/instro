@@ -1,0 +1,81 @@
+"""Example: FlowController: alicat_mc.
+
+Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
+
+"""
+
+import time
+
+from instro.flowcontroller import InstroFlowController
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC
+from instro.utils.publishers.channel_buffer import DequeInMemoryPublisher
+from instro.utils.transports import SerialConfig, TerminatorConfig, VisaConfig
+
+VISA_RESOURCE = "ASRL7::INSTR"
+device = AlicatMC(
+    VisaConfig(
+        visa_resource=VISA_RESOURCE,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    ),
+    device_id="M",
+)
+fc = InstroFlowController(
+    name="myFlowController",
+    driver=device,
+)
+
+# device.open()
+# # print(device.tare_barometer())
+# print(device.tare_flow())
+# try:
+#     print(device.tare_barometer())
+# except Exception as e:
+#     print(f"Barometer tare skipped")
+# gastypes = device.list_gas_types()
+# print(gastypes[:3])
+# meas_heads = device.get_flow_sample_metadata()
+# print(meas_heads)
+# print(device.set_setpoint(10.12))
+# print(device.get_flow_data())
+# print(device.set_setpoint_int(5.12, 100, 0))
+# print(device.get_flow_data())
+# print(device.hold_valve_closed())
+# print(device.get_flow_data())
+# print(device.cancel_valve_hold())
+# print(device.get_flow_data())
+
+# device.close()
+
+channel_buffer = DequeInMemoryPublisher(1000)
+fc.add_publisher(channel_buffer)
+
+fc.background_interval = 0.5  # poll the controller for new values every half second.
+fc.open()
+fc.tare_flow()
+fc.get_flow_data()
+
+try:
+    # Launches a background daemon that polls mass flow, volumetric flow,
+    # pressure, temperature, and setpoint.
+    fc.start()
+
+    # Allow the daemon to publish baseline measurements before changing setpoint.
+    time.sleep(1)
+
+    fc.select_gas("N2")  # Nitrogen
+    fc.set_setpoint(value=50.0)  # 50 SCCM
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=25.0)
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=0.0)
+
+    time.sleep(1)
+
+
+finally:
+    fc.close()
