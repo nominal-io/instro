@@ -20,7 +20,7 @@ ETHERNETIP_EXAMPLES = sorted((EXAMPLES_DIR / "ethernetip").glob("*.py"))
 ETHERNETIP_MYPY_PATHS = [
     REPO_ROOT,
     REPO_ROOT / "packages/instro-unstable",
-    REPO_ROOT / "packages/instro-ethernetip-python",
+    REPO_ROOT / "packages/instro-ethernetip",
 ]
 
 CONFIG_LOADERS = {

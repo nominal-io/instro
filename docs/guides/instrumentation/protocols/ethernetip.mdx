@@ -10,7 +10,7 @@ description: Using EtherNet/IP for Allen-Bradley PLC tag communication
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route, and the scalar tags Nominal reads or writes. `EtherNetIPDevice` exposes those tags by local alias from Python and can publish boolean and numeric tag values to Nominal Core or Nominal Connect.
 
 <Warning>
-The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the optional native package `instro-ethernetip-python`. Install it with `instro-unstable[ethernetip]`; it is not part of the stable `instro[all]` install path.
+The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the optional native package `instro-ethernetip`. Install it with `instro-unstable[ethernetip]`; it is not part of the stable `instro[all]` install path.
 </Warning>
 
 ## Install
@@ -591,7 +591,7 @@ EtherNet/IP raises these errors for common failures:
 
 | Error | Meaning |
 | --- | --- |
-| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip-python'` | The native PyO3 package is not installed. Install `instro-unstable[ethernetip]`. |
+| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip'` | The native PyO3 package is not installed. Install `instro-unstable[ethernetip]`. |
 | `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
 | `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different kind than the configured scalar `data_type`, including a structured value for a scalar tag. |
 | `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |

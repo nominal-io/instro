@@ -1,8 +1,8 @@
 # EtherNet/IP (unstable)
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
-and the scalar tags Nominal reads or writes. The unstable client lives under
-`instro.unstable.ethernetip` and depends on the optional native `instro-ethernetip-python` package from
+and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
+and depends on the optional native `instro-ethernetip` package from
 `instro-unstable[ethernetip]`.
 
 ```python

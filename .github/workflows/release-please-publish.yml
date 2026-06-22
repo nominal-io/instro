@@ -44,7 +44,7 @@ jobs:
       - name: Resolve package name
         id: pkg
         run: |
-          if [ "${{ matrix.path }}" = "packages/instro-ethernetip-python" ]; then
+          if [ "${{ matrix.path }}" = "packages/instro-ethernetip" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.path }}" = "." ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -64,7 +64,7 @@ jobs:
 
   build-eip-wheels:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
     name: build-eip-wheel-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -89,7 +89,7 @@ jobs:
           command: build
           target: ${{ matrix.target }}
           manylinux: auto
-          args: --release --locked --compatibility pypi --out dist --manifest-path packages/instro-ethernetip-python/Cargo.toml
+          args: --release --locked --compatibility pypi --out dist --manifest-path packages/instro-ethernetip/Cargo.toml
       - name: Upload EtherNet/IP wheel
         uses: actions/upload-artifact@v4
         with:
@@ -99,7 +99,7 @@ jobs:
 
   build-eip-sdist:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +107,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out dist --manifest-path packages/instro-ethernetip-python/Cargo.toml
+          args: --out dist --manifest-path packages/instro-ethernetip/Cargo.toml
       - name: Verify EtherNet/IP sdist includes Rust source
         run: |
           set -euo pipefail
@@ -115,13 +115,13 @@ jobs:
           from pathlib import Path
           import tarfile
 
-          sdists = list(Path("dist").glob("instro_ethernetip_python-*.tar.gz"))
+          sdists = list(Path("dist").glob("instro_ethernetip-*.tar.gz"))
           if not sdists:
-              raise SystemExit("No instro-ethernetip-python sdist found")
+              raise SystemExit("No instro-ethernetip sdist found")
 
           required = [
-              "packages/instro-ethernetip-python/src/lib.rs",
-              "packages/instro-ethernetip-python/src/sync_session.rs",
+              "packages/instro-ethernetip/src/lib.rs",
+              "packages/instro-ethernetip/src/sync_session.rs",
               "packages/instro-ethernetip-rs/src/lib.rs",
               "packages/instro-ethernetip-rs/src/blocking.rs",
               "packages/instro-ethernetip-rs/Cargo.toml",
@@ -146,7 +146,7 @@ jobs:
       - release-please
       - build-eip-wheels
       - build-eip-sdist
-    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip-python') }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
