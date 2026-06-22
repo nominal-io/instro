@@ -20,10 +20,10 @@ from pymodbus.datastore import (
     ModbusSequentialDataBlock,
     ModbusServerContext,
 )
-from pymodbus.server import StartAsyncTcpServer
+from pymodbus.server import ModbusTcpServer
 
+from instro.lib.types import DeviceInfo, LinearScale
 from instro.modbus import ModbusConfig, ModbusDevice, RegisterDef
-from instro.utils.types import DeviceInfo, LinearScale
 
 TEST_PORT = 5023
 
@@ -56,13 +56,12 @@ def modbus_server():
     async def _run():
         nonlocal shutdown
         shutdown = asyncio.Event()
-        server_task = asyncio.create_task(StartAsyncTcpServer(context=context, address=("127.0.0.1", TEST_PORT)))
-        await shutdown.wait()
-        server_task.cancel()
+        server = ModbusTcpServer(context=context, address=("127.0.0.1", TEST_PORT))
+        await server.serve_forever(background=True)
         try:
-            await server_task
-        except asyncio.CancelledError:
-            pass
+            await shutdown.wait()
+        finally:
+            await server.shutdown()
 
     def _thread_target():
         asyncio.set_event_loop(loop)

@@ -1,3 +1,3 @@
-# Nominal Instrument
+# Instrument
 
-::: instro.utils.instrument
+::: instro.lib.instrument

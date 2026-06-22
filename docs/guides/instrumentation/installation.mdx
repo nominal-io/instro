@@ -1,9 +1,11 @@
 ---
 title: Installation
-description: Installing the Nominal Instrumentation library
+description: Installing instro
 ---
 
 `instro` is published on [PyPI](https://pypi.org/project/instro/). Install it into your project using either `uv` (recommended) or `pip`.
+
+`instro` supports Python 3.10 to 3.13.
 
 ## With uv
 
@@ -25,7 +27,7 @@ Or, if you're working in an activated virtual environment:
 
 ## Additional Packages
 
-Nominal Instrumentation has additional packages for utilizing vendor instruments that require their own dependencies. This allows you to install only the vendor Python dependencies you need.
+`instro` has additional packages for utilizing vendor instruments that require their own dependencies. This allows you to install only the vendor Python dependencies you need.
 <Info>This is in reference to Python dependencies. See [Driver Dependencies](/instrumentation/driver-dependencies) as external installers are required for some instruments.</Info>
 
 To install additional packages, add the names of the groups (extras) to your install command. For example:
@@ -50,6 +52,13 @@ or with pip:
  - To install the TotalPhase Aardvark package, use `aardvark`.
  - To install all the aforementioned i2c packages, use `i2c`.
 
+### Community-contributed drivers
+ - To install community-contributed drivers for devices the maintainers can't verify directly, use `contrib`.
+
+### Unstable modules
+ - To install experimental modules, add `instro-unstable` as a separate package.
+ - To install EtherNet/IP support, use `instro-unstable[ethernetip]`.
+
 ### All
  - To install all of the aforementioned packages, use `all`.
 
@@ -61,7 +70,7 @@ $ uv add "instro[all]"
 
 # Using Nominal Connect
 
-If you're a Nominal Connect user, you don't need to install `instro` yourself — just add it to your packages list in your `app.connect` file and Nominal Connect will install it into your Python environment automatically. Use any of the [additional packages](#additional-packages) above to pull in more support.
+If you're a Nominal Connect user, you don't need to install `instro` yourself. Just add it to your packages list in your `app.connect` file, and Nominal Connect will install it into your Python environment automatically. Use any of the [additional packages](#additional-packages) above to pull in more support.
 
 ```yaml
 python:

@@ -8,7 +8,7 @@ import pytest
 from instro.eload import ELoadDriverBase, InstroELoad
 from instro.eload.drivers.bk_85xxb import BK85XXB, loadmode_to_unit
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils.transports import SerialConfig, VisaConfig
+from instro.lib.transports import SerialConfig, VisaConfig
 
 # --- BK85XXB unit tests (driver-owned transport over a mocked VisaDriver) ---
 
@@ -40,7 +40,6 @@ def test_init_builds_visa_driver_from_resource(visa_driver_cls: MagicMock) -> No
 def test_init_accepts_prebuilt_connection_config(visa_driver_cls: MagicMock) -> None:
     config = VisaConfig(
         visa_resource="ASRL19::INSTR",
-        visa_backend="@py",
         serial_config=SerialConfig(baud_rate=19_200),
     )
 

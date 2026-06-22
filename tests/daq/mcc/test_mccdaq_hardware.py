@@ -71,7 +71,7 @@ from nominal.core import EventType, NominalClient
 from instro.daq import InstroDAQ
 from instro.daq.drivers.mcc import MCCDriver
 from instro.daq.types import DigitalPortWidth, Direction, Logic, TerminalConfig
-from instro.utils.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # ---------------------------------------------------------------------------
 # Configuration from environment
@@ -233,14 +233,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_digital_ports(self, daq: InstroDAQ):
         """Configure FIRSTPORTA as output and FIRSTPORTB as input (8-bit ports)."""
-        daq.configure_digital_channel(
+        daq.configure_digital_port(
             direction=Direction.OUTPUT,
             physical_channel=DO_PORT,
             logic=Logic.HIGH,
             alias="do_port_a",
             port_width=DigitalPortWidth.WIDTH_8,
         )
-        daq.configure_digital_channel(
+        daq.configure_digital_port(
             direction=Direction.INPUT,
             physical_channel=DI_PORT,
             logic=Logic.HIGH,
@@ -423,7 +423,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -466,12 +465,11 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.background_enable = False
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.start()
+                daq.start(background=False)
 
                 try:
                     daq.write_analog_value("ao_0", 4.0)
@@ -508,7 +506,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -557,7 +554,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:
@@ -596,7 +592,6 @@ class TestMCCDAQHardware(unittest.TestCase):
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
-                daq.background_enable = True
                 daq.start()
 
                 try:

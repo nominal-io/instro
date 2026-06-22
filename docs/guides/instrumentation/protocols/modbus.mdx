@@ -5,7 +5,7 @@ description: Using ModbusDevice for Modbus TCP and RTU device communication
 
 # ModbusDevice
 
-ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the Nominal publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
+ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the `instro` publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
 
 <Note>
 [Modbus Application Protocol Specification](https://www.modbus.org/modbus-specifications)
@@ -13,7 +13,7 @@ ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-base
 
 ## Quickstart
 
-Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
+Publishing Modbus data to Nominal Core with instro
 
 <Tabs>
 
@@ -22,12 +22,13 @@ Publishing Modbus data to Nominal Core with the Nominal Instrumentation Library
 ```python
 import time
 
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 from instro.modbus import ModbusDevice
 
 RID = "<dataset_rid>" # Replace with your dataset RID.
 
-# Instantiate device with JSON config — autostart opens and begins polling
+# Instantiate from a JSON config. autostart opens the connection and begins polling.
+# It requires a `timing` section in the config (present in my_device.json below).
 modbus_device = ModbusDevice(config="my_device.json", autostart=True)
 
 # Add publisher to flow data to Nominal Core
@@ -49,7 +50,7 @@ modbus_device.close()
   "protocol": "modbus",
   "device": {
     "name": "example_device",
-    "description": "Example device for Nominal docs",
+    "description": "Example device for instro docs",
     "manufacturer": "Nominal",
     "model": "Sim Device 3000"
   },
@@ -81,27 +82,27 @@ modbus_device.close()
 
 ## Key Benefits
 
-- **Config-driven** — Define registers, connection, and timing in a single JSON file or build the config programmatically in Python
-- **Alias-based access** — Read and write registers by name (e.g., `"temperature"`) instead of raw addresses
-- **Automatic scaling** — Apply linear transformations between raw register values and physical units
-- **Read groups** — Batch multiple registers into a single Modbus transaction for efficiency
-- **Write safety** — Enforce min/max limits and use human-readable string-to-value mappings
-- **Byte ordering control** — Handle vendor-specific byte/word/long swap requirements
-- **Transparent reconnect** — Dropped TCP connections are re-established on the next operation without any extra code
+- **Config-driven**: Define registers, connection, and timing in a single JSON file or build the config programmatically in Python
+- **Alias-based access**: Read and write registers by name (e.g., `"temperature"`) instead of raw addresses
+- **Automatic scaling**: Apply linear transformations between raw register values and physical units
+- **Read groups**: Batch multiple registers into a single Modbus transaction for efficiency
+- **Write safety**: Enforce min/max limits and use human-readable string-to-value mappings
+- **Byte ordering control**: Handle vendor-specific byte/word/long swap requirements
+- **Transparent reconnect**: Dropped TCP connections are re-established on the next operation without any extra code
 
 ## When to Use Each Feature
 
-Most devices can be brought online with just a connection, a few registers, and `autostart=True`. The features below each solve a specific problem you'll run into as soon as you're working with real hardware — use this table to jump to the right section.
+Most devices can be brought online with just a connection, a few registers, and `autostart=True`. The features below each solve a specific problem you'll run into as soon as you're working with real hardware. Use this table to jump to the right section.
 
 | If you're trying to... | Reach for... |
 | --- | --- |
-| Stream live data to Nominal Core with the shortest possible setup | [`autostart=True`](#lifecycle-pattern) + [`add_publisher()`](#creating-a-nominalmodbus-instance) |
+| Stream live data to Nominal Core with the shortest possible setup | [`autostart=True`](#lifecycle-pattern) + [`add_publisher()`](#creating-a-modbusdevice-instance) |
 | Read raw ADC counts or tick values as physical/engineering units | [`scale`](#linear-scaling) |
 | Protect equipment from out-of-range or wrong-type writes | [`write_min` / `write_max`](#write-limits) |
 | Replace magic numbers with human-readable labels for mode/state writes | [`write_value_map`](#write-value-maps) |
 | Unpack a packed status word into individual boolean channels | [`bitmap`](#bitmap-extraction) |
 | Minimize round-trips when polling many adjacent registers | [`read_group`](#read-groups) |
-| Share one device config across test benches with different networking | Pass [`connection` separately](#creating-a-nominalmodbus-instance) to the constructor |
+| Share one device config across test benches with different networking | Pass [`connection` separately](#creating-a-modbusdevice-instance) to the constructor |
 | Work with a device that uses little-endian or "Modbus-style" word ordering | [`byte_swap` / `word_swap` / `long_swap`](#byte-ordering) |
 | Throttle commands to a device that processes writes sequentially | [`write_delay_ms`](#timing-section) |
 | Prototype a config without real hardware | The built-in [simulator](#prototyping-without-a-device) |
@@ -112,15 +113,15 @@ Most devices can be brought online with just a connection, a few registers, and 
 
 The typical ModbusDevice workflow follows this pattern:
 
-1. **Define your device** — Create a JSON config file or build a `ModbusConfig` in Python
-2. **`ModbusDevice(config)`** — Instantiate the client with your config (and optionally a separate `connection`)
-3. **`open()`** — Establish connection to the Modbus device
-4. **`start()`** — Begin background polling (if timing is configured)
-5. **Read or Write** — Access registers by alias with automatic type handling and scaling
-6. **`close()`** — Disconnect and stop any background polling
+1. **Define your device**: Create a JSON config file or build a `ModbusConfig` in Python
+2. **`ModbusDevice(config)`**: Instantiate the client with your config (and optionally a separate `connection`)
+3. **`open()`**: Establish connection to the Modbus device
+4. **`start()`**: Begin background polling (if timing is configured)
+5. **Read or Write**: Access registers by alias with automatic type handling and scaling
+6. **`close()`**: Disconnect and stop any background polling
 
 <Tip>
-Pass `autostart=True` to combine steps 3 and 4 — the connection opens and polling begins immediately on instantiation. This requires a `timing` section in the config.
+Pass `autostart=True` to combine steps 3 and 4. The connection opens and polling begins immediately on instantiation. This requires a `timing` section in the config.
 </Tip>
 
 ### Register Types
@@ -151,7 +152,7 @@ Multi-register data types span consecutive 16-bit registers:
 | `bool` | 1 | Any non-zero register value is read as `true`, zero as `false` |
 
 <Note>
-Coil and discrete input registers are always read and written as booleans regardless of `data_type` — their `data_type` field is ignored. Use the `bool` data type for a **holding or input** register that stores a 0/1 flag in a regular 16-bit register rather than a coil.
+Coil and discrete input registers are always read and written as booleans regardless of `data_type`, their `data_type` field is ignored. Use the `bool` data type for a **holding or input** register that stores a 0/1 flag in a regular 16-bit register rather than a coil.
 </Note>
 
 ### Byte Ordering
@@ -164,7 +165,7 @@ Modbus devices can vary in how they order bytes within multi-register values. Mo
 
 Swaps are applied in order during reads: byte swap, then word swap, then long swap. The reverse order is applied during writes.
 
-#### `byte_swap` — Swap bytes within each 16-bit word
+#### `byte_swap`: Swap bytes within each 16-bit word
 
 Applies to all data types. Example with a `float32` value (`0x40490FDB` = 3.14159):
 
@@ -179,7 +180,7 @@ Register 0    Register 1
 └───────────┘ └───────────┘
 ```
 
-#### `word_swap` — Swap 16-bit words
+#### `word_swap`: Swap 16-bit words
 
 Applies to 32-bit and 64-bit types. Example with the same `float32`:
 
@@ -194,7 +195,7 @@ Register 0    Register 1
 └───────────┘ └───────────┘
 ```
 
-#### `long_swap` — Swap 32-bit halves
+#### `long_swap`: Swap 32-bit halves
 
 Only applies to 64-bit types. Example with a `float64` value spanning 4 registers:
 
@@ -236,7 +237,7 @@ If you are seeing unexpected values when reading registers, try enabling `byte_s
 
 ### Linear Scaling
 
-Many devices store physical values as scaled integers to save bandwidth — a pressure sensor that returns `2500` to mean `25.00 PSI`, or a temperature sensor that returns `731` to mean `73.1 °F`. Linear scaling lets your application code work in physical units while the driver handles the conversion.
+Many devices store physical values as scaled integers to save bandwidth, like a pressure sensor that returns `2500` to mean `25.00 PSI`, or a temperature sensor that returns `731` to mean `73.1 °F`. Linear scaling lets your application code work in physical units while the driver handles the conversion.
 
 ```
 physical = offset + (gain * raw)
@@ -252,7 +253,7 @@ physical = offset + (gain * raw)
 }
 ```
 
-With the config above, `device.read("pressure")` returns `25.0` when the register holds `2500`. Writes are reversed automatically — `device.write("pressure", 25.0)` sends `2500` to the device.
+With the config above, `device.read("pressure")` returns `25.0` when the register holds `2500`. Writes are reversed automatically. `device.write("pressure", 25.0)` sends `2500` to the device.
 
 Scaling is applied automatically on reads (raw to physical) and reversed on writes (physical to raw).
 
@@ -262,7 +263,7 @@ Scaling is only supported on **holding** and **input** registers. Coils and disc
 
 ### Bitmap Extraction
 
-Many devices pack several status or alarm flags into a single 16-bit status register to save address space — bit 0 might be `motor_running`, bit 1 `fault_active`, bit 7 `at_setpoint`, etc. Rather than unpacking those bits by hand in application code, you can declare a `bitmap` and have each bit published as its own named channel alongside the raw register value.
+Many devices pack several status or alarm flags into a single 16-bit status register to save address space. Bit 0 might be `motor_running`, bit 1 `fault_active`, bit 7 `at_setpoint`, etc. Rather than unpacking those bits by hand in application code, you can declare a `bitmap` and have each bit published as its own named channel alongside the raw register value.
 
 Registers with `uint16` data type on `holding` or `input` register types can include an optional `bitmap` to extract individual bits as separate channels. Each bit is published as its own channel with a value of `0` or `1`.
 
@@ -285,7 +286,7 @@ Each entry in `bitmap` defines:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Channel name for this bit |
-| `bit_index` | Yes | 0-based bit position from LSB (0–15) |
+| `bit_index` | Yes | 0-based bit position from LSB (0 to 15) |
 
 When this register is read, the full `uint16` value is published on the `status_word` channel, and each bit is published as a separate channel (e.g., `device_name.motor_running`). Bitmap names must be unique across the entire configuration and must not collide with register names.
 
@@ -293,7 +294,7 @@ When this register is read, the full `uint16` value is published on the `status_
 
 Registers that are physically adjacent can be grouped so they are read in a **single Modbus transaction** instead of individual requests. This reduces bus traffic and improves poll cycle time.
 
-Reach for this when you're polling many registers on a single device and want to keep total round-trip time low — the difference is especially pronounced on RTU links or over high-latency networks, where each extra request adds measurable delay.
+Reach for this when you're polling many registers on a single device and want to keep total round-trip time low. The difference is especially pronounced on RTU links or over high-latency networks, where each extra request adds measurable delay.
 
 Assign the same `read_group` string to each register in the group:
 
@@ -322,17 +323,17 @@ Assign the same `read_group` string to each register in the group:
 - All registers in a group must have the **same `register_type`** (e.g., all `"input"` or all `"holding"`).
 - All registers in a group must have `poll: true` (the default).
 - The total span of a group must not exceed the Modbus read limit: **125 registers** for holding/input, **2000 bits** for coils/discrete inputs.
-- Group names must be unique across the entire config — pick a separate name for each group, even when the registers occupy different Modbus address spaces.
+- Group names must be unique across the entire config. Pick a separate name for each group, even when the registers occupy different Modbus address spaces.
 
 During background polling, one bulk read covers the entire address range of each group. Each register is then decoded from the bulk response.
 
 <Tip>
-If you're polling 30 adjacent holding registers at 100 ms intervals, placing them all in a single `read_group` reduces the poll cycle from 30 round-trips per interval to 1 — a large win for devices on slow links or under tight polling requirements.
+If you're polling 30 adjacent holding registers at 100 ms intervals, placing them all in a single `read_group` reduces the poll cycle from 30 round-trips per interval to 1, a large win for devices on slow links or under tight polling requirements.
 </Tip>
 
 ### Write Value Maps
 
-Industrial devices commonly use integer codes to select modes or states — e.g., `0 = off`, `1 = standby`, `2 = run`, `3 = flush`. Hard-coding those integers in application code is error-prone and hides intent; a `write_value_map` lets callers pass the label (`"run"`) while the driver sends the correct integer.
+Industrial devices commonly use integer codes to select modes or states, such as `0 = off`, `1 = standby`, `2 = run`, and `3 = flush`. Hard-coding those integers in application code is error-prone and hides intent. A `write_value_map` lets callers pass the label (`"run"`) while the driver sends the correct integer.
 
 Registers can include a `write_value_map` that maps **human-readable string labels** to raw numeric values. This replaces magic numbers with meaningful names:
 
@@ -358,7 +359,7 @@ device.write("operating_mode", "run")   # writes 2 to the register
 device.write("operating_mode", "off")   # writes 0 to the register
 ```
 
-You can still write raw numeric values directly — the map is only used when a string is passed.
+You can still write raw numeric values directly, the map is only used when a string is passed.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -370,7 +371,7 @@ Write value maps are only allowed on `holding` registers. Map values must be uni
 
 ### Write Limits
 
-When a write can physically affect equipment — moving an actuator, setting a temperature, commanding a flow rate — you usually have a safe operating range that's narrower than the data type's range. Declaring `write_min` and `write_max` catches out-of-range writes on the client before they reach the device, replacing an accidental `999.0` setpoint with a clean `ValueError`.
+When a write can physically affect equipment (moving an actuator, setting a temperature, commanding a flow rate), you usually have a safe operating range that's narrower than the data type's range. Declaring `write_min` and `write_max` catches out-of-range writes on the client before they reach the device, replacing an accidental `999.0` setpoint with a clean `ValueError`.
 
 Registers can include `write_min` and/or `write_max` to enforce bounds on written values. This provides protection against accidental out-of-range writes:
 
@@ -392,8 +393,8 @@ device.write("setpoint", 999.0)  # Raises ValueError
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `write_min` | No | — | Minimum allowed write value (in physical units, before scaling) |
-| `write_max` | No | — | Maximum allowed write value (in physical units, before scaling) |
+| `write_min` | No | | Minimum allowed write value (in physical units, before scaling) |
+| `write_max` | No | | Maximum allowed write value (in physical units, before scaling) |
 
 Write limits are validated **before** scaling is applied, so they represent the physical value you're writing, not the raw register value. Write limits are only allowed on `holding` registers.
 
@@ -401,8 +402,8 @@ Write limits are validated **before** scaling is applied, so they represent the 
 
 ModbusDevice is configured through a JSON file. Every config file must include:
 
-- **`version`** — identifies the config schema version, ensuring forward compatibility as the format evolves.
-- **`protocol`** — must be `"modbus"`. This field identifies which protocol the config is intended for, so that an incorrect config file is caught immediately with a clear error rather than failing with confusing type mismatches.
+- **`version`**: identifies the config schema version, ensuring forward compatibility as the format evolves.
+- **`protocol`**: must be `"modbus"`. This field identifies which protocol the config is intended for, so that an incorrect config file is caught immediately with a clear error rather than failing with confusing type mismatches.
 
 ### Full Configuration Example
 
@@ -516,23 +517,23 @@ Metadata about the physical device. The `name` field is used as a prefix for cha
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `transport` | Yes | — | Must be `"tcp"` |
-| `host` | Yes | — | IP address or hostname |
-| `port` | No | `502` | TCP port (1–65535) |
-| `unit_id` | No | `1` | Modbus slave/unit ID (0–255) |
+| `transport` | Yes | | Must be `"tcp"` |
+| `host` | Yes | | IP address or hostname |
+| `port` | No | `502` | TCP port (1 to 65535) |
+| `unit_id` | No | `1` | Modbus slave/unit ID (0 to 255) |
 | `timeout` | No | `3.0` | Response timeout in seconds |
 
 #### RTU (Serial) Connection
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `transport` | Yes | — | Must be `"rtu"` |
-| `port` | Yes | — | Serial port path (see examples below) |
+| `transport` | Yes | | Must be `"rtu"` |
+| `port` | Yes | | Serial port path (see examples below) |
 | `baudrate` | No | `9600` | Serial baud rate |
 | `parity` | No | `"N"` | Parity: `"N"` (none), `"E"` (even), `"O"` (odd) |
 | `stopbits` | No | `1` | Stop bits: `1` or `2` |
 | `bytesize` | No | `8` | Data bits: `5`, `6`, `7`, or `8` |
-| `unit_id` | No | `1` | Modbus slave/unit ID (0–255) |
+| `unit_id` | No | `1` | Modbus slave/unit ID (0 to 255) |
 | `timeout` | No | `3.0` | Response timeout in seconds |
 
 **Common serial port paths:**
@@ -558,30 +559,30 @@ Each register in the `registers` array defines a named access point for a specif
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | Yes | — | Unique alias for this register |
-| `description` | No | — | Optional human-readable description of the register |
-| `starting_address` | Yes | — | Modbus register address (0–65535) |
+| `name` | Yes | | Unique alias for this register |
+| `description` | No | | Optional human-readable description of the register |
+| `starting_address` | Yes | | Modbus register address (0 to 65535) |
 | `register_type` | No | `"holding"` | `"holding"`, `"input"`, `"coil"`, or `"discrete"` |
 | `data_type` | No | `"uint16"` | See [Supported Data Types](#supported-data-types) |
 | `byte_swap` | No | `false` | Swap bytes within 16-bit words |
 | `word_swap` | No | `false` | Swap 16-bit words (32/64-bit types only) |
 | `long_swap` | No | `false` | Swap 32-bit halves (64-bit types only) |
-| `scale` | No | — | Optional linear scaling (holding/input only) |
-| `bitmap` | No | — | Extract individual bits as separate channels (`uint16` holding/input registers only) |
+| `scale` | No | | Optional linear scaling (holding/input only) |
+| `bitmap` | No | | Extract individual bits as separate channels (`uint16` holding/input registers only) |
 | `poll` | No | `true` | Include in background polling |
-| `write_min` | No | — | Minimum allowed write value (holding only) |
-| `write_max` | No | — | Maximum allowed write value (holding only) |
-| `write_value_map` | No | — | String-to-number mapping for writes (holding only) |
-| `read_group` | No | — | Group ID for batched reads (see [Read Groups](#read-groups)) |
+| `write_min` | No | | Minimum allowed write value (holding only) |
+| `write_max` | No | | Maximum allowed write value (holding only) |
+| `write_value_map` | No | | String-to-number mapping for writes (holding only) |
+| `read_group` | No | | Group ID for batched reads (see [Read Groups](#read-groups)) |
 
 ### Timing Section
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `poll_interval` | Yes | — | Polling interval in seconds (0.01–10.0) |
+| `poll_interval` | Yes | | Polling interval in seconds (0.01 to 10.0) |
 | `write_delay_ms` | No | `0` | Delay in milliseconds applied after every write operation |
 
-When the `timing` section is present, all registers with `poll: true` are read at the specified interval in a background thread. Polled measurements are automatically published and buffered for retrieval.
+When the `timing` section is present, all registers with `poll: true` are read at the specified interval by the background daemon. Polled measurements are automatically published and buffered for retrieval.
 
 The `write_delay_ms` field is useful for devices that need a short delay between consecutive writes (e.g., controllers that process commands sequentially).
 
@@ -600,9 +601,9 @@ The configuration is validated at load time. Invalid configs produce clear error
 
 ## Connection Resilience
 
-Modbus TCP connections drop for all the usual reasons — network blips, device reboots, power cycles on a PLC, etc. ModbusDevice handles this transparently: when a read or write hits a transport error, the driver closes the dead socket and pymodbus opens a fresh one on the next operation. No custom retry loop, no explicit `open()` after a disconnect.
+Modbus TCP connections drop for all the usual reasons, such as network blips, device reboots, and power cycles on a PLC. ModbusDevice handles this transparently. When a read or write hits a transport error, the driver closes the dead socket and pymodbus opens a fresh one on the next operation. No custom retry loop, no explicit `open()` after a disconnect.
 
-Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. If you're running with `autostart=True` and background polling, transient errors from a single poll are logged without tearing down the worker — the next tick will succeed as soon as the device comes back.
+Your code just needs to tolerate the occasional `OSError` or `ConnectionError` being raised from `read()` / `write()`. If you're running with `autostart=True` and background polling, transient errors from a single poll are logged without tearing down the daemon. The next tick will succeed as soon as the device comes back.
 
 ## Prototyping Without a Device
 
@@ -643,7 +644,7 @@ device.open()
 ```python
 from instro.modbus import ModbusDevice
 
-# Connection is separate — useful when config is shared across environments
+# Connection is separate: useful when config is shared across environments
 connection = {"transport": "tcp", "host": "192.168.1.100", "port": 502}
 device = ModbusDevice(config="my_device.json", connection=connection)
 device.open()
@@ -693,8 +694,8 @@ device = ModbusDevice(config, autostart=True)
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `config` | Yes | — | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
-| `connection` | No | — | A `TCPConnection`, `RTUConnection`, or `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
+| `config` | Yes | | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
+| `connection` | No | | A `TCPConnection`, `RTUConnection`, or `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
 | `name` | No | `device.name` | Override the instrument name used for channel naming |
 | `publishers` | No | `None` | List of publishers to attach at construction time |
 | `autostart` | No | `False` | If `True` and the config contains a `timing` section, opens the connection and starts background polling on instantiation |
@@ -706,7 +707,7 @@ The `connection` parameter allows you to separate device-specific register maps 
 Use `add_publisher()` to attach a [publisher](/instrumentation/publishers) for automatic data streaming:
 
 ```python
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 device.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 ```
@@ -740,7 +741,7 @@ device.close()
 | `read(alias)` (per bit in a register's `bitmap`) | `{bit.name}` | telemetry |
 | `write(alias, value)` | `{alias}.cmd` | command |
 
-Modbus had no v1.0 channel-naming change; [`legacy_naming`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) is accepted but is a no-op for this category.
+Modbus had no v1.0 channel-naming change. [`legacy_naming`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) is accepted but is a no-op for this category.
 </Note>
 
 ### Background Polling with Publishers
@@ -753,7 +754,7 @@ When a `timing` section is present in the config, you can use `autostart=True` f
 
 ```python
 from instro.modbus import ModbusDevice
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # autostart opens the connection and begins polling immediately
 device = ModbusDevice(config="heat_exchanger.json", autostart=True)
@@ -775,7 +776,7 @@ device.close()
 
 ```python
 from instro.modbus import ModbusDevice
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 device = ModbusDevice(config="heat_exchanger.json")
 device.add_publisher(NominalCorePublisher(dataset_rid="ri.datasets.main.dataset.abc123"))
@@ -807,7 +808,7 @@ device.write("operating_mode", "run")
 device.write("operating_mode", "standby")
 
 # Write limits protect against out-of-range values
-device.write("setpoint", 150.0)  # OK — within 50.0–250.0
+device.write("setpoint", 150.0)  # OK: within 50.0 to 250.0
 try:
     device.write("setpoint", 999.0)  # Raises ValueError
 except ValueError as e:
@@ -818,7 +819,7 @@ device.close()
 
 ### RTU (Serial) Connection
 
-The only difference for RTU is in the config file — the Python code is identical:
+The only difference for RTU is in the config file. The Python code is identical:
 
 ```json
 {
@@ -860,7 +861,7 @@ import time
 from instro.modbus import ModbusDevice
 
 connection = {"transport": "tcp", "host": "192.168.5.222", "port": 502}
-f4t = ModbusDevice("watlow_f4t.json", connection=connection, autostart=True)
+f4t = ModbusDevice(config="watlow_f4t.json", connection=connection, autostart=True)
 
 try:
     # Set zone 1 to auto mode using write_value_map (no magic numbers)
@@ -873,7 +874,7 @@ try:
     f4t.write("profile_start_profile_num", 1)
     f4t.write("profile_start", "start")
 
-    # Monitor — polled registers stream to publishers automatically
+    # Monitor: polled registers stream to publishers automatically
     while True:
         time.sleep(1)
 
@@ -893,7 +894,7 @@ finally:
 | `close()` | Close connection and stop background polling |
 | `read(alias, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
 | `write(alias, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
-| `unit_id` | Property — returns the Modbus unit/slave ID from config |
+| `unit_id` | Property: returns the Modbus unit/slave ID from config |
 | `get_channel(channel_name, length=1, wait_for_latest=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
 | `start()` | Start background polling daemon |
 | `stop()` | Stop background polling daemon |
@@ -918,5 +919,5 @@ ModbusDevice raises descriptive errors for common issues:
 | `RuntimeError: Modbus error ... IllegalDataAddress (0x02)` | Device rejected the register address |
 
 <Tip>
-When writing to integer registers that have scaling configured, the physical value is converted to a raw integer value. Ensure the scaled result produces a whole number — for example, with `gain: 0.01` and `offset: 0`, writing `50.0` produces raw value `5000`, which is valid.
+When writing to integer registers that have scaling configured, the physical value is converted to a raw integer value. Ensure the scaled result produces a whole number. For example, with `gain: 0.01` and `offset: 0`, writing `50.0` produces raw value `5000`, which is valid.
 </Tip>

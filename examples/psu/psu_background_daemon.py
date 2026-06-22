@@ -1,0 +1,48 @@
+"""Example: PSU with background daemon.
+
+Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
+
+"""
+
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU(VISA_RESOURCE),
+    num_channels=2,
+)
+psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+psu.background_interval = 0.5  # query psu for new values every half second.
+
+with psu:
+    # This launches a background daemon that queries the measured voltage, current, and output state.
+    psu.start()
+
+    # Allow the daemon to publish some current-state measurements before reconfiguring the outputs.
+    time.sleep(1)
+
+    psu.set_current_limit(1.5, 1)
+    psu.set_voltage(28, 1)
+    psu.output_enable(True, 1)
+
+    while True:
+        try:
+            # Main progam loop.
+            # Sit in this while loop until ctrl+c is pressed.
+            # InstroPSU will acquire data from the psu in the background and publish to the configured Publisher.
+            voltage = psu.get_channel("myPSU.ch1.voltage", 1, True)
+            print(voltage.latest)
+
+        except KeyboardInterrupt:
+            break
+
+    print("Done")
+    psu.output_enable(False, 1)

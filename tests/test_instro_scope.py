@@ -1,7 +1,7 @@
 """Tests for the oscilloscope driver shape.
 
-Covers vendor drivers (Keysight1200X, Tektronix2SeriesMSO) owning a VisaDriver,
-and InstroScope delegating to its driver.
+Covers vendor drivers (Keysight1200X, Tektronix2SeriesMSO, SiglentSDS1000XE)
+owning a VisaDriver, and InstroScope delegating to its driver.
 """
 
 import math
@@ -10,18 +10,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from instro.lib.transports.visa import SerialConfig, VisaConfig
 from instro.unstable.scope import (
     AcquisitionMode,
+    AcquisitionState,
     Coupling,
     InstroScope,
     ScopeMeasurementType,
+    TriggerMode,
     TriggerSlope,
+    TriggerStatus,
     TriggerType,
 )
 from instro.unstable.scope.driver import ScopeDriverBase
 from instro.unstable.scope.drivers.keysight import Keysight1200X
+from instro.unstable.scope.drivers.siglent import SiglentSDS1000XE
 from instro.unstable.scope.drivers.tektronix import Tektronix2SeriesMSO
-from instro.utils.transports.visa import SerialConfig, VisaConfig
 
 
 def _make_temp_timeout_cm() -> MagicMock:
@@ -375,6 +379,328 @@ def test_tektronix_digitize_raises_timeout_and_clears(
         tektronix.digitize(timeout=0.1)
 
     tektronix_visa.clear.assert_called_once()
+
+
+# --- SiglentSDS1000XE unit tests ---
+
+
+@pytest.fixture
+def siglent_visa_cls() -> Iterator[MagicMock]:
+    with patch("instro.unstable.scope.drivers.siglent.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
+        yield driver_cls
+
+
+@pytest.fixture
+def siglent_visa(siglent_visa_cls: MagicMock) -> MagicMock:
+    visa = siglent_visa_cls.return_value
+    visa.query.return_value = "0"  # default: CMR?/EXR? report no error
+    visa.temporary_timeout.return_value = _make_temp_timeout_cm()
+    return visa
+
+
+@pytest.fixture
+def siglent(siglent_visa_cls: MagicMock, siglent_visa: MagicMock) -> SiglentSDS1000XE:
+    return SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
+
+
+def test_siglent_init_passes_resource_to_visa(siglent_visa_cls: MagicMock) -> None:
+    SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
+    siglent_visa_cls.assert_called_once_with("TCPIP0::192.168.1.10::INSTR")
+
+
+def test_siglent_init_accepts_prebuilt_visa_config(siglent_visa_cls: MagicMock) -> None:
+    config = VisaConfig(visa_resource="ASRL3::INSTR", serial_config=SerialConfig(baud_rate=115_200))
+    SiglentSDS1000XE(config)
+    siglent_visa_cls.assert_called_once_with(config)
+
+
+def test_siglent_open_disables_headers_and_clears(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.open()
+    siglent_visa.open.assert_called_once()
+    writes = [c.args[0] for c in siglent_visa.write.call_args_list]
+    assert writes == ["CHDR OFF", "*CLS"]
+
+
+def test_siglent_close_delegates(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.close()
+    siglent_visa.close.assert_called_once()
+
+
+def test_siglent_check_errors_passes_on_zero(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "0"
+    siglent.check_errors()
+    queries = [c.args[0] for c in siglent_visa.query.call_args_list]
+    assert queries == ["CMR?", "EXR?"]
+
+
+def test_siglent_check_errors_raises_on_command_error(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "1"
+    with pytest.raises(RuntimeError, match="Siglent command error 1"):
+        siglent.check_errors()
+
+
+def test_siglent_check_errors_raises_on_execution_error(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    # CMR? clean, EXR? reports an execution fault.
+    siglent_visa.query.side_effect = ["0", "26"]
+    with pytest.raises(RuntimeError, match="Siglent execution error 26"):
+        siglent.check_errors()
+
+
+def test_siglent_set_vertical_scale_writes_scpi(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_vertical_scale(0.05, channel=2)
+    siglent_visa.write.assert_called_once_with("C2:VDIV 5.0000E-02")
+
+
+def test_siglent_get_vertical_scale_parses_float(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "2.00E-01"
+    assert siglent.get_vertical_scale(1) == pytest.approx(0.2)
+    siglent_visa.query.assert_called_once_with("C1:VDIV?")
+
+
+def test_siglent_set_coupling_maps_to_impedance_token(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_coupling(Coupling.AC, channel=1)
+    siglent_visa.write.assert_called_once_with("C1:CPL A1M")
+
+
+def test_siglent_get_coupling_parses_token(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "D1M"
+    assert siglent.get_coupling(3) == Coupling.DC
+
+
+def test_siglent_set_probe_attenuation_writes_scpi(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_probe_attenuation(10, channel=4)
+    siglent_visa.write.assert_called_once_with("C4:ATTN 10")
+
+
+def test_siglent_set_horizontal_scale_writes_scpi(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_horizontal_scale(5e-4)
+    siglent_visa.write.assert_called_once_with("TDIV 5.0000E-04")
+
+
+def test_siglent_get_sample_rate_parses_si_suffix(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "1.00GSa/s"
+    assert siglent.get_sample_rate() == pytest.approx(1e9)
+
+
+def test_siglent_get_sample_rate_parses_bare_float(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "5.00E+08"
+    assert siglent.get_sample_rate() == pytest.approx(5e8)
+
+
+def test_siglent_set_acquisition_mode_writes_scpi(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_acquisition_mode(AcquisitionMode.HIGH_RESOLUTION)
+    siglent_visa.write.assert_called_once_with("ACQW HIGH_RES")
+
+
+def test_siglent_set_acquisition_mode_average_includes_count(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    # AVERAGE is silently ignored by the scope without an inline count.
+    siglent.set_acquisition_mode(AcquisitionMode.AVERAGE)
+    siglent_visa.write.assert_called_once_with("ACQW AVERAGE,16")
+
+
+def test_siglent_set_average_count_writes_and_feeds_average_mode(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    siglent.set_average_count(64)
+    siglent_visa.write.assert_called_once_with("AVGA 64")
+    siglent_visa.reset_mock()
+    # The cached count is reused as the inline AVERAGE count.
+    siglent.set_acquisition_mode(AcquisitionMode.AVERAGE)
+    siglent_visa.write.assert_called_once_with("ACQW AVERAGE,64")
+
+
+def test_siglent_acquisition_mode_envelope_rejected(siglent: SiglentSDS1000XE) -> None:
+    with pytest.raises(NotImplementedError, match="ENVELOPE"):
+        siglent.set_acquisition_mode(AcquisitionMode.ENVELOPE)
+
+
+def test_siglent_get_acquisition_mode_parses_average_with_count(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    siglent_visa.query.return_value = "AVERAGE,16"
+    assert siglent.get_acquisition_mode() == AcquisitionMode.AVERAGE
+
+
+def test_siglent_run_sets_auto_without_arm(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    # ARM would force single-shot mode, so run() must NOT send it.
+    siglent.run()
+    writes = [c.args[0] for c in siglent_visa.write.call_args_list]
+    assert writes == ["TRMD AUTO"]
+
+
+def test_siglent_single_arms_single_shot(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.single()
+    writes = [c.args[0] for c in siglent_visa.write.call_args_list]
+    assert writes == ["TRMD SINGLE", "ARM"]
+
+
+def test_siglent_digitize_returns_when_inr_bit_set(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "1"  # INR? bit 0 set immediately
+    siglent.digitize(timeout=1.0)
+    writes = [c.args[0] for c in siglent_visa.write.call_args_list]
+    assert writes == ["TRMD SINGLE", "ARM"]
+    siglent_visa.query.assert_called_with("INR?")
+
+
+def test_siglent_digitize_times_out_and_stops(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    with pytest.raises(TimeoutError, match="did not complete"):
+        siglent.digitize(timeout=0.0)
+    assert siglent_visa.write.call_args_list[-1].args[0] == "STOP"
+
+
+def test_siglent_get_acquisition_state_stopped(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "Stop"
+    assert siglent.get_acquisition_state() == AcquisitionState.STOPPED
+
+
+def test_siglent_get_acquisition_state_running(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "Trig'd"
+    assert siglent.get_acquisition_state() == AcquisitionState.RUNNING
+
+
+def test_siglent_fetch_waveform_converts_codes(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    # CMR?, EXR? (check_errors), then VDIV?, OFST?, TDIV?, TRDL?, SARA?.
+    siglent_visa.query.side_effect = ["0", "0", "0.5", "-0.5", "5.00E-09", "-5.00E-09", "1.00GSa/s"]
+    siglent_visa.query_binary_values.return_value = [2, 4, -3]
+
+    waveform = siglent.fetch_waveform(channel=1)
+
+    siglent_visa.query_binary_values.assert_called_once_with("C1:WF? DAT2", datatype="b", container=list)
+    # voltage = code * vdiv/25 - offset; code=2 -> 2*0.02 + 0.5 = 0.54
+    assert waveform.voltages[0] == pytest.approx(0.54)
+    assert len(waveform.times) == 3
+    # 1 GSa/s -> 1 ns interval
+    assert waveform.times[1] - waveform.times[0] == 1
+
+
+def test_siglent_measure_vpp_queries_pava(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "PKPK,1.23E+00V"
+    result = siglent.measure(ScopeMeasurementType.VPP, channel=1)
+    assert result == pytest.approx(1.23)
+    siglent_visa.query.assert_called_once_with("C1:PAVA? PKPK")
+
+
+def test_siglent_measure_returns_nan_on_non_numeric(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "PKPK,****"
+    assert math.isnan(siglent.measure(ScopeMeasurementType.VPP, channel=1))
+
+
+def test_siglent_measure_returns_nan_on_sentinel(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "FREQ,9.91E+37Hz"
+    assert math.isnan(siglent.measure(ScopeMeasurementType.FREQUENCY, channel=1))
+
+
+def test_siglent_set_trigger_source_emits_trse_and_caches(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_source(3)
+    assert siglent._trigger_source == 3
+    siglent_visa.write.assert_called_once_with("TRSE EDGE,SR,C3,HT,OFF")
+
+
+def test_siglent_set_trigger_type_pulse_maps_to_glit(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_source(2)
+    siglent_visa.reset_mock()
+    siglent.set_trigger_type(TriggerType.PULSE)
+    siglent_visa.write.assert_called_once_with("TRSE GLIT,SR,C2,HT,OFF")
+
+
+def test_siglent_set_trigger_level_uses_cached_source(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_source(2)
+    siglent_visa.reset_mock()
+    siglent.set_trigger_level(0.75)
+    siglent_visa.write.assert_called_once_with("C2:TRLV 7.5000E-01")
+
+
+def test_siglent_set_trigger_level_defaults_to_ch1(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_level(0.0)
+    siglent_visa.write.assert_called_once_with("C1:TRLV 0.0000E+00")
+
+
+def test_siglent_set_trigger_slope_uses_cached_source(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_source(4)
+    siglent_visa.reset_mock()
+    siglent.set_trigger_slope(TriggerSlope.FALLING)
+    siglent_visa.write.assert_called_once_with("C4:TRSL NEG")
+
+
+def test_siglent_set_trigger_mode_writes_scpi(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.set_trigger_mode(TriggerMode.NORMAL)
+    siglent_visa.write.assert_called_once_with("TRMD NORM")
+
+
+def test_siglent_force_trigger_writes_frtr(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.force_trigger()
+    siglent_visa.write.assert_called_once_with("FRTR")
+
+
+def test_siglent_get_trigger_status_maps_token(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.return_value = "Trig'd"
+    assert siglent.get_trigger_status() == TriggerStatus.TRIGGERED
+
+
+def test_siglent_save_screenshot_to_instrument_unsupported(siglent: SiglentSDS1000XE) -> None:
+    with pytest.raises(NotImplementedError, match="host-transfer only"):
+        siglent.save_screenshot("scope.png", to_instrument=True)
+
+
+def test_siglent_save_settings_to_instrument_writes_stpn(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    result = siglent.save_settings("setup.set", to_instrument=True)
+    siglent_visa.write.assert_called_once_with("STPN DISK,UDSK,FILE,'setup.set'")
+    assert result == b""
+
+
+def test_siglent_load_settings_from_instrument_writes_rcpn(siglent: SiglentSDS1000XE, siglent_visa: MagicMock) -> None:
+    siglent.load_settings("setup.set", from_instrument=True)
+    siglent_visa.write.assert_called_once_with("RCPN DISK,UDSK,FILE,'setup.set'")
+
+
+def _setup_escape_hatch(visa_mock: MagicMock, raw_reply: bytes) -> MagicMock:
+    """Wire the pyvisa-resource escape hatch on the mocked transport for binary-read tests."""
+    inst = MagicMock()
+    inst.read_termination = "\n"
+    inst.read_raw.return_value = raw_reply
+    visa_mock._inst = inst
+    visa_mock.lock.return_value = _make_temp_timeout_cm()
+    return inst
+
+
+def test_siglent_save_screenshot_host_reads_full_bmp(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    # 'BM' + 4-byte little-endian size (10) + 4 payload bytes, with a stray trailing LF to drop.
+    bmp = b"BM" + (10).to_bytes(4, "little") + b"WXYZ"
+    inst = _setup_escape_hatch(siglent_visa, bmp + b"\n")
+    path = tmp_path / "shot.bmp"
+    data = siglent.save_screenshot(str(path))
+    assert "SCDP" in [c.args[0] for c in siglent_visa.write.call_args_list]
+    inst.read_raw.assert_called_once()
+    assert data == bmp  # sliced to the declared BMP size, trailing LF dropped
+    assert path.read_bytes() == bmp
+
+
+def test_siglent_save_settings_host_reads_pnsu_block(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    # Host path reads the full message via the escape hatch and parses the IEEE #9<len> block.
+    payload = b"hi"
+    block = b"#9" + b"%09d" % len(payload) + payload + b"\n"
+    inst = _setup_escape_hatch(siglent_visa, block)
+    path = tmp_path / "setup.bin"
+    result = siglent.save_settings(str(path), to_instrument=False)
+    assert "PNSU?" in [c.args[0] for c in siglent_visa.write.call_args_list]
+    inst.read_raw.assert_called_once()
+    assert result == payload
+    assert path.read_bytes() == payload
+
+
+def test_siglent_load_settings_host_reconstructs_block_header(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock, tmp_path
+) -> None:
+    path = tmp_path / "setup.bin"
+    path.write_bytes(b"hello")
+    siglent.load_settings(str(path), from_instrument=False)
+    siglent_visa.write_raw.assert_called_once_with(b"PNSU #9000000005hello\n")
 
 
 # --- InstroScope composition tests ---

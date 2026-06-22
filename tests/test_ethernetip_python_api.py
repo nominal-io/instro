@@ -35,7 +35,7 @@ def test_ethernetip_stub_matches_runtime_boundaries(tmp_path: Path) -> None:
                 + os.pathsep.join(
                     [
                         str(repo_root),
-                        str(repo_root / "packages/instro-ethernetip-python"),
+                        str(repo_root / "packages/instro-ethernetip"),
                     ]
                 ),
                 "",

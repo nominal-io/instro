@@ -31,6 +31,7 @@ CATEGORY_TITLES: "OrderedDict[str, str]" = OrderedDict(
         ("i2c", "I2C"),
         ("publishers", "Publishers"),
         ("modbus", "Modbus"),
+        ("ethernetip", "EtherNet/IP"),
         ("test_rack_example", "Test Rack"),
     ]
 )
@@ -54,14 +55,7 @@ def write_mdx(py_path: Path, out_path: Path) -> None:
     if not body.endswith("\n"):
         body += "\n"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        f"---\n"
-        f'title: "{title}"\n'
-        f"---\n\n"
-        f"```python {py_path.name}\n"
-        f"{body}"
-        f"```\n"
-    )
+    out_path.write_text(f'---\ntitle: "{title}"\n---\n\n```python {py_path.name}\n{body}```\n')
 
 
 def clean_output_dir() -> None:
@@ -110,8 +104,7 @@ def build_groups(
     existing_groups: list[dict],
 ) -> list[dict]:
     prior_pages: dict[str, list[str]] = {
-        g.get("group", ""): [p for p in g.get("pages", []) if isinstance(p, str)]
-        for g in existing_groups
+        g.get("group", ""): [p for p in g.get("pages", []) if isinstance(p, str)] for g in existing_groups
     }
 
     groups: list[dict] = [{"group": "Overview", "pages": [NAV_PREFIX]}]
@@ -119,14 +112,10 @@ def build_groups(
     for folder, title in CATEGORY_TITLES.items():
         pages = remaining.pop(folder, None)
         if pages:
-            groups.append(
-                {"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))}
-            )
+            groups.append({"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))})
     for folder, pages in remaining.items():
         title = folder.replace("_", " ").title()
-        groups.append(
-            {"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))}
-        )
+        groups.append({"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))})
     if root_files:
         groups.append(
             {

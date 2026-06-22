@@ -2,7 +2,7 @@
 
 import pytest
 
-from instro.utils.types import LinearScale
+from instro.lib.types import LinearScale
 
 
 class TestLinearScale:

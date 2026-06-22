@@ -5,7 +5,7 @@ Hardware-validated against the 8514B; other family members are expected to work 
 
 from instro.eload import ELoadDriverBase
 from instro.eload.types import LoadMode, SlewRateDirection
-from instro.utils.transports.visa import VisaConfig, VisaDriver
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 
 def loadmode_to_unit(mode: LoadMode) -> str:

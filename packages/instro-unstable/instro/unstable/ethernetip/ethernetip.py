@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import functools
+import logging
 import threading
 import time
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.publishers import Publisher
 from instro.unstable.ethernetip.ethernetip_types import (
     BOOL_DATA_TYPES,
     INTEGER_DATA_TYPES,
@@ -17,8 +20,8 @@ from instro.unstable.ethernetip.ethernetip_types import (
     EtherNetIPConnectionInfo,
     TagDef,
 )
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.publishers.publisher import Publisher
+
+logger = logging.getLogger(__name__)
 
 
 def _load_native_ethernetip() -> SimpleNamespace:
@@ -26,9 +29,9 @@ def _load_native_ethernetip() -> SimpleNamespace:
         from instro.unstable._ethernetip import EtherNetIpSession, PlcKind, PlcValue
     except ImportError as exc:
         raise RuntimeError(
-            "EtherNet/IP support requires the local native package "
-            "'instro-ethernetip-python'. It is intentionally not a hard dependency "
-            "of instro-unstable yet."
+            "EtherNet/IP support requires the native package 'instro-ethernetip'. "
+            'Install it with `pip install "instro-unstable[ethernetip]"` or '
+            '`uv add "instro-unstable[ethernetip]"`.'
         ) from exc
 
     return SimpleNamespace(
@@ -114,8 +117,9 @@ class EtherNetIPDevice(Instrument):
             self.start()
 
     def _define_background_daemon(self) -> None:
-        for tag in self._config.polled_tags:
-            self.add_background_daemon_function(self.read_tag, tag.alias)
+        self._polled_tags = self._config.polled_tags
+        if self._polled_tags:
+            self.add_background_daemon_function(self._poll_batched_tags)
 
     def _no_pollable_tags_message(self) -> str:
         if not self._config.tags:
@@ -163,7 +167,10 @@ class EtherNetIPDevice(Instrument):
         super().close()
         with self._lock:
             if self._client is not None:
-                self._client.close()
+                try:
+                    self._client.close()
+                except Exception as exc:
+                    logger.warning("Failed to close EtherNet/IP session cleanly: %s", exc)
                 self._client = None
 
     def read_tag(self, alias: str, **kwargs) -> Measurement:
@@ -177,6 +184,37 @@ class EtherNetIPDevice(Instrument):
             timestamp,
             **kwargs,
         )
+
+    def read(self, alias: str, **kwargs) -> Measurement:
+        """Read one configured tag by alias and publish the result."""
+        return self.read_tag(alias, **kwargs)
+
+    def _poll_batched_tags(self, **kwargs) -> Measurement | None:
+        """Read every polled tag in one batched request."""
+        if not self._polled_tags:
+            return None
+
+        tag_by_name = {tag.tag_name: tag for tag in self._polled_tags}
+        results = self._read_tags_raw([tag.tag_name for tag in self._polled_tags])
+        timestamp = time.time_ns()
+
+        channel_data: dict[str, list[Any]] = {}
+        for name, result in results:
+            tag = tag_by_name[name]
+            if isinstance(result, Exception):
+                logger.warning("Failed to read EtherNet/IP tag %r: %s", tag.alias, result)
+                continue
+            try:
+                value = self._decode_plc_value(result, tag)
+            except (TypeError, ValueError) as exc:
+                logger.warning("Failed to decode EtherNet/IP tag %r: %s", tag.alias, exc)
+                continue
+            channel_data[f"{self.name}.{tag.alias}"] = [value]
+
+        if not channel_data:
+            return None
+
+        return self._publish_measurement(channel_data, timestamp, **kwargs)
 
     def write_tag(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
         """Write one configured tag by alias and publish the command."""
@@ -196,10 +234,19 @@ class EtherNetIPDevice(Instrument):
         self.publish(command)
         return command
 
+    def write(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
+        """Write one configured tag by alias and publish the command."""
+        return self.write_tag(alias, value, **kwargs)
+
     @_eip_op
     def _read_tag_raw(self, tag_name: str) -> Any:
         assert self._client is not None
         return self._client.read_tag(tag_name)
+
+    @_eip_op
+    def _read_tags_raw(self, tag_names: list[str]) -> list[tuple[str, Any]]:
+        assert self._client is not None
+        return self._client.read_tags(tag_names)
 
     @_eip_op
     def _write_tag_raw(self, tag_name: str, value: Any) -> None:
@@ -230,30 +277,19 @@ class EtherNetIPDevice(Instrument):
         data_type = tag.data_type
 
         if data_type in BOOL_DATA_TYPES:
-            if isinstance(raw_value, bool):
-                return native.PlcValue.bool(raw_value)
-            if isinstance(raw_value, int) and not isinstance(raw_value, bool) and raw_value in (0, 1):
-                return native.PlcValue.bool(bool(raw_value))
-            raise TypeError(f"Tag '{tag.alias}' is a bool type but got {type(raw_value).__name__} value {raw_value!r}.")
+            return native.PlcValue.bool(bool(raw_value))
 
         if data_type in INTEGER_DATA_TYPES:
-            int_value = tag.validate_integer_raw_value(raw_value, data_type=data_type)
-            return getattr(native.PlcValue, data_type)(int_value)
+            return getattr(native.PlcValue, data_type)(cast(int, raw_value))
 
         if data_type == "real":
-            if isinstance(raw_value, bool) or not isinstance(raw_value, int | float):
-                raise TypeError(f"Tag '{tag.alias}' is a float type ({data_type}) but got {type(raw_value).__name__}.")
-            return native.PlcValue.real(float(raw_value))
+            return native.PlcValue.real(float(cast(int | float, raw_value)))
 
         if data_type == "lreal":
-            if isinstance(raw_value, bool) or not isinstance(raw_value, int | float):
-                raise TypeError(f"Tag '{tag.alias}' is a float type ({data_type}) but got {type(raw_value).__name__}.")
-            return native.PlcValue.lreal(float(raw_value))
+            return native.PlcValue.lreal(float(cast(int | float, raw_value)))
 
         if data_type == "string":
-            if not isinstance(raw_value, str):
-                raise TypeError(f"Tag '{tag.alias}' is a string type but got {type(raw_value).__name__}.")
-            return native.PlcValue.string(str(raw_value))
+            return native.PlcValue.string(cast(str, raw_value))
 
         raise ValueError(f"Unsupported EtherNet/IP data_type '{data_type}' for tag '{tag.alias}'.")
 

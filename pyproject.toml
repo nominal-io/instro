@@ -1,10 +1,11 @@
 [project]
 name = "instro"
-version = "0.7.0"
-description = "Nominal instrumentation framework (core library + SCPI/VISA drivers)"
+version = "0.11.0"
+description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
     "nominal>=1.99.0,<2.0.0",
@@ -12,6 +13,13 @@ dependencies = [
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
     "pyvisa>=1.15",
+    # Enable every pyvisa-py backend for NI-VISA-level interface coverage: USB-TMC
+    # (usb-full bundles libusb so no system libusb is needed), GPIB (gpib-ctypes; a
+    # native GPIB driver is still required), TCPIP discovery (psutil), HiSLIP discovery
+    # (hislip-discovery), and VICP (vicp). The ASRL/serial backend is covered by the
+    # pyserial dependency above.
+    "pyvisa-py[usb-full,gpib-ctypes,psutil,hislip-discovery,vicp]>=0.8.1,<0.9",
+    "textual>=0.80",
     "thermocouples>=2.1.2",
 ]
 
@@ -23,11 +31,13 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+contrib = ["instro-contrib"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "instro-contrib",
 ]
 
 [project.urls]
@@ -46,26 +56,30 @@ packages = ["instro"]
 dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
-    "pytest>=8.4.0,<9",
+    "cpppo>=4.0.0",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
     "mkdocstrings-python>=1.19.0",
     "types-requests>=2.32.4.20250913",
-    "instro-ethernetip-python",
+    "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
 ]
+test = [
+    "cpppo>=4.0.0",
+    "pytest>=8.4.0,<9",
+]
 
 [tool.uv]
-default-groups = ["dev"]
+default-groups = ["dev", "test"]
 
 [tool.uv.sources]
 instro-daq-ni = { workspace = true }
 instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
-instro-ethernetip-python = { workspace = true }
+instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 
@@ -75,7 +89,7 @@ members = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -121,7 +135,7 @@ mypy_path = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -131,7 +145,9 @@ packages = ["instro", "instro.unstable.ethernetip"]
 testpaths = ["tests"]
 # --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc"
+# --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
+# (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]

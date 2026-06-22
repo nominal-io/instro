@@ -3,6 +3,9 @@
 import threading
 import time
 
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers import Publisher
 from instro.unstable.scope.driver import ScopeDriverBase
 from instro.unstable.scope.types import (
     AcquisitionMode,
@@ -17,9 +20,6 @@ from instro.unstable.scope.types import (
     TriggerType,
     WaveformData,
 )
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
-from instro.utils.publishers.publisher import Publisher
 
 
 class InstroScope(Instrument):

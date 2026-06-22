@@ -1,6 +1,6 @@
 """Example: I2C basic example.
 
-Requires the Aardvark vendor package — install with ``uv sync --extra i2c``
+Requires the Aardvark vendor package: install with ``uv sync --extra i2c``
 (or ``pip install 'instro[i2c]'``).
 """
 
@@ -9,7 +9,7 @@ import time
 from instro.i2c import I2CInterface
 from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c.types import SystemDefinition
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 RESOURCE_ID = "2239-764425"
 
@@ -98,8 +98,7 @@ i2c = I2CInterface(
 )
 i2c.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-i2c.open()
-try:
+with i2c:
     i2c.write("power_gpio", "LED_DIRECTION", 0x00)
     i2c.write("power_gpio", "LED_OUTPUT_STATE", 0xFF)
 
@@ -109,6 +108,3 @@ try:
         for i in range(1, 6):
             i2c.write("power_gpio", "LED_OUTPUT_STATE", int(state), f"led_{i}")
             time.sleep(0.25)
-
-finally:
-    i2c.close()

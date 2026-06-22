@@ -1,26 +1,30 @@
 # ⟢ instro
 
-Python library for talking to test-and-measurement instruments — power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs — from a unified, typed API.
+Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
-> **Coming soon to PyPI.** `instro` is being prepared for open-source release. Until then, install from source as shown below; once the package is published, `pip install instro` will be the supported install path.
+[![PyPI](https://img.shields.io/pypi/v/instro.svg)](https://pypi.org/project/instro/)
 
 ## Installation
 
 ```bash
-# After the OSS launch (PyPI):
 pip install instro
+```
 
-# Source install (works today):
+Requires [Python 3.10 to 3.13](https://www.python.org/downloads/).
+
+To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/uv/):
+
+```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
 uv sync --extra all
 ```
 
-The source install requires [Python 3.10+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/). It creates a virtual environment, installs the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
+This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
-### Optional vendor extras
+### Optional extras
 
-Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional. Install only what you need:
+Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
 | Extra | Pulls in |
 |---|---|
@@ -29,19 +33,20 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[mccdaq]` | MCC UL (Windows-only) |
 | `instro[daq]` | All three DAQ vendor SDKs |
 | `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
+| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
 | `instro[all]` | Everything above |
 
 ## Quickstart
 
-Talk to a simulated PSU — no hardware required.
+Talk to a simulated PSU. No hardware required.
 
 ```bash
-# Terminal 1 — start the in-process SCPI sim server:
+# Terminal 1: start the in-process SCPI sim server:
 uv run python -m instro.psu.scpi_sim_server
 ```
 
 ```python
-# Terminal 2 — run this:
+# Terminal 2: run this:
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 
@@ -55,29 +60,29 @@ with InstroPSU(
     print(psu.get_voltage(channel=1))  # Measurement(channel_data={'my-psu.ch1.voltage': [3.31...]}, ...)
 ```
 
-For the full walkthrough — including publishing to Nominal Core and the background polling daemon — see the [official documentation](https://instro.nominal.io).
+That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Supported devices
 
 | Category | Class | Vendors |
 |---|---|---|
-| Power supply | `InstroPSU` | B&K Precision (9115, 9140), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
 | Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 
-Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
+Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
 
 ## Experimental modules
 
 In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
 
-- **`InstroScope`** — oscilloscope category, with drivers for Keysight 1200x and Tektronix 2-series. Import via `instro.unstable.scope`.
-- **`EtherNetIPDevice`** — EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
+- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x, Tektronix 2-series, and Siglent SDS1000X-E. Import via `instro.unstable.scope`.
+- **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
 
-Opt in by depending on `instro-unstable` explicitly.
+Opt in by depending on `instro-unstable` explicitly. EtherNet/IP uses an optional native backend; install it with `instro-unstable[ethernetip]`.
 
 ## Documentation
 
@@ -85,8 +90,8 @@ Full guides, API reference, and per-category walkthroughs live at **[instro.nomi
 
 ## Contributing
 
-- **Humans** — see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …) — see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows.
+- **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
+- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](./AGENTS.md#repo-skills-and-subagents).
 
 ## License
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Nominal Instrumentation",
+  "name": "instro",
   "colors": {
     "primary": "#0B0B0B",
     "light": "#FFFFFF",
@@ -31,6 +31,7 @@
             "pages": [
               "instrumentation/publishers",
               "instrumentation/library",
+              "instrumentation/exceptions",
               "instrumentation/custom-instruments",
               "instrumentation/contrib"
             ]
@@ -39,10 +40,17 @@
             "group": "Instruments",
             "icon": "microchip",
             "pages": [
-              "instrumentation/psu",
+              {
+                "group": "PSU",
+                "pages": [
+                  "instrumentation/psu",
+                  "instrumentation/psu-simulator"
+                ]
+              },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq"
+              "instrumentation/daq",
+              "instrumentation/daq-ni-multi-task"
             ]
           },
           {
@@ -57,7 +65,8 @@
                   "instrumentation/protocols/i2c/system-definition"
                 ]
               },
-              "instrumentation/protocols/modbus"
+              "instrumentation/protocols/modbus",
+              "instrumentation/protocols/ethernetip"
             ]
           },
           {
@@ -95,7 +104,10 @@
               "instrumentation/examples/daq/daq_read_digital_line",
               "instrumentation/examples/daq/daq_relays",
               "instrumentation/examples/daq/daq_write_analog_sw_timed",
-              "instrumentation/examples/daq/daq_write_digital_line"
+              "instrumentation/examples/daq/daq_write_digital_line",
+              "instrumentation/examples/daq/daq_read_digital_port",
+              "instrumentation/examples/daq/daq_write_digital_port",
+              "instrumentation/examples/daq/daq_multi_rate_ni"
             ]
           },
           {
@@ -108,7 +120,7 @@
             "group": "PSU",
             "pages": [
               "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_worker"
+              "instrumentation/examples/psu/psu_background_daemon"
             ]
           },
           {
@@ -143,6 +155,14 @@
             ]
           },
           {
+            "group": "EtherNet/IP",
+            "pages": [
+              "instrumentation/examples/ethernetip/ethernetip_example",
+              "instrumentation/examples/ethernetip/minimal_example",
+              "instrumentation/examples/ethernetip/programmatic_config_example"
+            ]
+          },
+          {
             "group": "Test Rack",
             "pages": [
               "instrumentation/examples/test_rack_example/test_rack"
@@ -167,17 +187,17 @@
       "anchors": [
         {
           "anchor": "SDK Reference",
-          "href": "https://nominal-io.github.io/instrumentation/",
+          "href": "https://nominal-io.github.io/instro/",
           "icon": "book-open-cover"
         },
         {
           "anchor": "GitHub",
-          "href": "https://github.com/nominal-io/instrumentation",
+          "href": "https://github.com/nominal-io/instro",
           "icon": "github"
         },
         {
           "anchor": "Changelog",
-          "href": "https://nominal-io.github.io/instrumentation/changelog/",
+          "href": "https://nominal-io.github.io/instro/changelog/",
           "icon": "book"
         }
       ]
@@ -215,7 +235,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/nominal_io",
-      "github": "https://github.com/nominal-io/instrumentation",
+      "github": "https://github.com/nominal-io/instro",
       "linkedin": "https://linkedin.com/company/nominal-io"
     }
   },

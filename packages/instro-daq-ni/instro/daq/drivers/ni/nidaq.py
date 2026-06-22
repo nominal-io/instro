@@ -1,5 +1,6 @@
 import time
 from dataclasses import dataclass
+from itertools import count
 from typing import Mapping
 
 import nidaqmx
@@ -21,7 +22,7 @@ from instro.daq.types import (
     Logic,
     TerminalConfig,
 )
-from instro.utils import Measurement
+from instro.lib import Measurement
 
 
 @dataclass
@@ -31,29 +32,51 @@ class DAQmxData:
     dt: int | None
 
 
+_instance_ids = count()
+
+
 class NIDAQDriver(DAQDriverBase):
     """NI-DAQmx DAQ driver."""
 
     def __init__(self, device_id: str):
+        super().__init__()
         self._device_id = device_id
+        # DAQmx task names must be unique per process, and multiple driver instances
+        # may target the same device_id (one InstroDAQ per task), so suffix the names.
+        self._task_prefix = f"{device_id}_{next(_instance_ids)}"
         self._tasks: dict[ChannelType, nidaqmx.Task] = {}
         self._ao_sw_tasks: dict[str, nidaqmx.Task] = {}
-        self.points_in_buffer: int = 0
 
         self._actual_sample_period: int | None = None
         self._actual_sample_rate: float | None = None
         self._timestamper: HWTimestamper | None = None  # None until first hw-timed read
 
-        self._do_data_state: dict[str, bool] = {}  # Keep track of all do data in task
-        self._di_data_state: dict[str, bool] = {}  # Keep track of all di data in task
+        # Per-line state for the shared DO/DI line tasks: NI writes/reads the whole task at once,
+        # so we cache every line's value to address a single line.
+        self._do_lines_state: dict[str, bool] = {}
+        self._di_lines_state: dict[str, bool] = {}
         self._running_channel_types: set[ChannelType] = set()
+
+        # Port channels get a dedicated task each: CHAN_FOR_ALL_LINES wants an int payload,
+        # which can't share a task with the bool-list line payload. Keyed by channel alias.
+        self._di_port_tasks: dict[str, nidaqmx.Task] = {}
+        self._do_port_tasks: dict[str, nidaqmx.Task] = {}
 
     def open(self):
         """NI-DAQmx has no explicit connect — verifies the device is present in ``niSystem.local()``."""
         # Verify device exists
         system = niSystem.local()
-        if self._device_id not in [dev.name for dev in system.devices]:
-            raise RuntimeError(f"Device {self._device_id} not found")
+        connected = [dev.name for dev in system.devices]
+        if self._device_id not in connected:
+            tools = "NI MAX or the NI Hardware Configuration Utility"
+            if connected:
+                detail = f"Connected devices: {connected}. Confirm the intended device's name in {tools}."
+            else:
+                detail = (
+                    "No NI devices are connected; check the hardware connection and NI-DAQmx installation, "
+                    f"then confirm the device appears in {tools}."
+                )
+            raise RuntimeError(f"Device {self._device_id} not found. {detail}")
 
     def close(self):
         """Close every DAQmx task this driver owns."""
@@ -61,8 +84,12 @@ class NIDAQDriver(DAQDriverBase):
             self._close_task(task)
         for task in self._ao_sw_tasks.values():
             self._close_task(task)
+        for task in (*self._di_port_tasks.values(), *self._do_port_tasks.values()):
+            self._close_task(task)
         self._tasks.clear()
         self._ao_sw_tasks.clear()
+        self._di_port_tasks.clear()
+        self._do_port_tasks.clear()
         self._running_channel_types.clear()
 
     def _close_task(self, task: nidaqmx.Task):
@@ -74,12 +101,10 @@ class NIDAQDriver(DAQDriverBase):
 
     def _get_task(self, channel_type: ChannelType) -> nidaqmx.Task:
         """Return (creating if missing) the DAQmx task for ``channel_type``."""
-        # TODO CON-953: refactor this to seperate out hw and sw timed. Only reason to group based on ChannelType
-        # is due to sharing a timing engine per ChannelType, which is not relevant and is restricting for sw timed tasks.
         task = self._tasks.get(channel_type, None)
         if not task:
             # Task does not yet exist for that channel_type
-            task_name = f"{self._device_id}_{channel_type.value}"
+            task_name = f"{self._task_prefix}_{channel_type.value}"
             task = nidaqmx.Task(task_name)
             self._tasks[channel_type] = task
         return task
@@ -103,38 +128,53 @@ class NIDAQDriver(DAQDriverBase):
                     f"Invalid terminal configuration: {terminal_config}, must be one of {[cfg.name for cfg in TerminalConfig]}"
                 )
 
+    @staticmethod
+    def _reject_channel_range_or_list(physical_channel: str):
+        """Reject NI-DAQmx range/list syntax; one physical_channel maps to one channel."""
+        if ":" in physical_channel or "," in physical_channel:
+            raise ValueError(
+                "physical_channel must name a single channel. NI-DAQmx range and list syntax "
+                "(e.g. 'Dev1/ai0:3', 'Dev1/ai0,Dev1/ai2') is not supported; configure each channel "
+                f"with its own call. Received {physical_channel}."
+            )
+
     def configure_ai_channel(
         self,
         channel: AnalogChannel,
     ):
         """Configure a channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
         task = self._get_task(ChannelType.ANALOG_INPUT)
         terminal_config = self._get_terminal_config(channel.terminal_config)
 
         task.ai_channels.add_ai_voltage_chan(
-            physical_channel=f"{self._device_id}/{channel.physical_channel}",
+            physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
             terminal_config=terminal_config,
         )
 
+        self._ai_channels[channel.alias] = channel
+
     def configure_ao_channel(self, channel: AnalogChannel):
-        # TODO CON-953
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
 
         task = self._ao_sw_tasks.get(channel.alias, None)
         if task:
             raise ValueError("Channel already exists and is configured")
 
-        task_name = f"{self._device_id}_{channel.alias}"
+        task_name = f"{self._task_prefix}_{channel.alias}"
         task = nidaqmx.Task(task_name)
         self._ao_sw_tasks[channel.alias] = task
 
         task.ao_channels.add_ao_voltage_chan(
-            physical_channel=f"{self._device_id}/{channel.physical_channel}",
+            physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
+
+        self._ao_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -150,97 +190,125 @@ class NIDAQDriver(DAQDriverBase):
             sample_mode=AcquisitionType.CONTINUOUS,
         )
 
-    def define_digital_channel(
+        self._ai_hw_timing_config = hw_timing_config
+
+    def configure_di_line_channel(
         self,
-        direction: Direction,
         physical_channel: str,
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-        port_width: DigitalPortWidth | None = None,
-    ) -> DigitalChannel:
-        # A port should be defined as portN where N is the port. ex 'port2'
-        # A line should be defined as portN/lineB where N is port, and B is the line. ex 'port2/line3'
-        alias = alias or physical_channel
+    ):
+        """Parse ``DevN/portM/lineP``, add as CHAN_PER_LINE to the shared DI line task, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.INPUT, logic, logic_level, alias)
+        task = self._get_task(ChannelType.DIGITAL_INPUT)
+        self._di_lines_state[channel.alias] = False
+        task.di_channels.add_di_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_PER_LINE,
+        )
+        self._di_channels[channel.alias] = channel
 
-        if port_width:
-            if "/" in physical_channel:
-                raise ValueError(
-                    f"port_width is set to {port_width} but physical_channel implies a line. "
-                    "Define the physical channel as portM where M is the port. ex 'port2'."
-                    f"Received {physical_channel}."
-                )
+    def configure_do_line_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DevN/portM/lineP``, add as CHAN_PER_LINE to the shared DO line task, and register the line."""
+        channel = self._build_line_channel(physical_channel, Direction.OUTPUT, logic, logic_level, alias)
+        task = self._get_task(ChannelType.DIGITAL_OUTPUT)
+        self._do_lines_state[channel.alias] = False
+        task.do_channels.add_do_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_PER_LINE,
+        )
+        self._do_channels[channel.alias] = channel
 
-            return DigitalPortChannel(
-                physical_channel=physical_channel,
-                alias=alias,
-                direction=direction,
-                logic_level=logic_level,
-                logic=logic,
-                width=port_width,
-            )
+    def configure_di_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DevN/portM``, add as CHAN_FOR_ALL_LINES to a dedicated DI task, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.INPUT, logic, port_width, logic_level, alias)
+        task = nidaqmx.Task(f"{self._task_prefix}_di_port_{channel.alias}")
+        task.di_channels.add_di_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_FOR_ALL_LINES,
+        )
+        self._di_port_tasks[channel.alias] = task
+        self._di_channels[channel.alias] = channel
 
+    def configure_do_port_channel(
+        self,
+        physical_channel: str,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Parse ``DevN/portM``, add as CHAN_FOR_ALL_LINES to a dedicated DO task, and register the port."""
+        channel = self._build_port_channel(physical_channel, Direction.OUTPUT, logic, port_width, logic_level, alias)
+        task = nidaqmx.Task(f"{self._task_prefix}_do_port_{channel.alias}")
+        task.do_channels.add_do_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_FOR_ALL_LINES,
+        )
+        self._do_port_tasks[channel.alias] = task
+        self._do_channels[channel.alias] = channel
+
+    def _build_line_channel(
+        self,
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalLineChannel:
         if "/line" not in physical_channel:
             raise ValueError(
                 "physical_channel does not define the line within the channel to create a channel from. "
-                "Define the physical channel as portM/lineN where M is port, and N is the line. ex 'port2/line3'."
+                "Define the physical channel as DevN/portM/lineP. ex 'Dev1/port2/line3'."
             )
-
-        channel = DigitalLineChannel(
+        return DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias,
+            alias=alias or physical_channel,
             direction=direction,
             logic_level=logic_level,  # type: ignore
             logic=logic,
         )
-        return channel
 
-    def configure_do_channel(
+    def _build_port_channel(
         self,
-        channel: DigitalChannel,
-    ):
-        """Configure a channel on the device."""
-        # TODO: Until we do HW timed, it may be better to make individual tasks for each channel
-        # since DAQmx requires you to update all the channels per write.
-        task = self._get_task(ChannelType.DIGITAL_OUTPUT)
-
-        self._do_data_state[channel.alias] = False
-
-        if isinstance(channel, DigitalPortChannel):
-            line_grouping = LineGrouping.CHAN_FOR_ALL_LINES
-        elif isinstance(channel, DigitalLineChannel):
-            line_grouping = LineGrouping.CHAN_PER_LINE
-        else:
-            raise TypeError("Unsupported digital channel type")
-
-        task.do_channels.add_do_chan(
-            lines=f"{self._device_id}/{channel.physical_channel}",
-            name_to_assign_to_lines=channel.alias,
-            line_grouping=line_grouping,
-        )
-
-    def configure_di_channel(
-        self,
-        channel: DigitalChannel,
-    ):
-        """Configure a channel on the device."""
-        # TODO: Until we do HW timed, it may be better to make individual tasks for each channel
-        # since DAQmx reads all channels in a task per read.
-        task = self._get_task(ChannelType.DIGITAL_INPUT)
-
-        self._di_data_state[channel.alias] = False
-
-        if isinstance(channel, DigitalPortChannel):
-            line_grouping = LineGrouping.CHAN_FOR_ALL_LINES
-        elif isinstance(channel, DigitalLineChannel):
-            line_grouping = LineGrouping.CHAN_PER_LINE
-        else:
-            raise TypeError("Unsupported digital channel type")
-
-        task.di_channels.add_di_chan(
-            lines=f"{self._device_id}/{channel.physical_channel}",
-            name_to_assign_to_lines=channel.alias,
-            line_grouping=line_grouping,
+        physical_channel: str,
+        direction: Direction,
+        logic: Logic,
+        port_width: DigitalPortWidth,
+        logic_level: float | None,
+        alias: str | None,
+    ) -> DigitalPortChannel:
+        if "/line" in physical_channel:
+            raise ValueError(
+                f"port_width is set to {port_width} but physical_channel implies a line. "
+                "Define the physical channel as DevN/portM. ex 'Dev1/port2'. "
+                f"Received {physical_channel}."
+            )
+        return DigitalPortChannel(
+            physical_channel=physical_channel,
+            alias=alias or physical_channel,
+            direction=direction,
+            logic_level=logic_level,
+            logic=logic,
+            width=port_width,
         )
 
     def start(self, **kwargs):
@@ -272,11 +340,13 @@ class NIDAQDriver(DAQDriverBase):
             self._running_channel_types.add(channel_type)
 
     def _capture_sample_rate(self):
+        if self._ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
         ai_task = self._tasks[ChannelType.ANALOG_INPUT]
         actual_rate = ai_task.timing.samp_clk_rate
         self._actual_sample_rate = actual_rate
         self._actual_sample_period = round(1e9 / actual_rate)
-        requested_rate = self.hal.ai_hw_timing_configs.sample_rate
+        requested_rate = self._ai_hw_timing_config.sample_rate
         if abs(actual_rate - requested_rate) / requested_rate > 0.1:
             print(
                 f"Warning: Requested sample rate ({requested_rate}) "
@@ -311,10 +381,13 @@ class NIDAQDriver(DAQDriverBase):
         return DAQmxData(data=data, timestamp=timestamp, dt=None)
 
     def fetch_analog(self) -> DAQmxData:
+        if ChannelType.ANALOG_INPUT not in self._running_channel_types:
+            raise RuntimeError("No active scan. Call start() before fetch_analog().")
+        if self._ai_hw_timing_config is None:
+            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
-        hw_timing_config = self.hal.ai_hw_timing_configs
 
-        data = task.read(number_of_samples_per_channel=hw_timing_config.samples_per_channel)
+        data = task.read(number_of_samples_per_channel=self._ai_hw_timing_config.samples_per_channel)
         timestamp = time.time_ns()  # DAQmx does not do hardware timed samples, for the most part
 
         if isinstance(data[0], float):
@@ -333,16 +406,26 @@ class NIDAQDriver(DAQDriverBase):
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
         """Write to digital output channels."""
+        if not isinstance(channel, DigitalLineChannel):
+            raise TypeError(
+                f"write_digital_line expects a DigitalLineChannel, got {type(channel).__name__}. "
+                "Use write_digital_port for whole-port writes."
+            )
         task = self._tasks[ChannelType.DIGITAL_OUTPUT]
 
         if channel.logic is Logic.LOW:
             data = 1 - data
 
-        self._do_data_state[channel.alias] = bool(data)  # update state with new value
+        self._do_lines_state[channel.alias] = bool(data)  # update state with new value
 
-        task.write(list(self._do_data_state.values()))  # Send everything
+        task.write(list(self._do_lines_state.values()))  # Send everything
 
     def read_digital_line(self, channel: DigitalChannel) -> int:
+        if not isinstance(channel, DigitalLineChannel):
+            raise TypeError(
+                f"read_digital_line expects a DigitalLineChannel, got {type(channel).__name__}. "
+                "Use read_digital_port for whole-port reads."
+            )
         task = self._tasks[ChannelType.DIGITAL_INPUT]
 
         response: bool | list[bool] = (
@@ -350,21 +433,38 @@ class NIDAQDriver(DAQDriverBase):
         )  # DAQmx returns a scalar for one channel or a list for multiple channels in the task.
         response = response if isinstance(response, list) else [response]
 
-        # Update self._di_data_state with the latest response values
+        # Update self._di_lines_state with the latest response values
         # Do not update with active high/low calculation
-        for i, key in enumerate(self._di_data_state.keys()):
-            self._di_data_state[key] = response[i]
+        for i, key in enumerate(self._di_lines_state.keys()):
+            self._di_lines_state[key] = response[i]
 
-        index = list(self._di_data_state.keys()).index(channel.alias)
+        index = list(self._di_lines_state.keys()).index(channel.alias)
 
         data = not response[index] if channel.logic is Logic.LOW else response[index]
         return int(data)
 
     def write_digital_port(self, channel: DigitalChannel, data: int):
-        raise NotImplementedError("write_digital_port is not yet implemented for NI DAQmx.")
+        """Drive a DO port as one N-bit integer; bit ``i`` controls line ``i``."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"write_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use write_digital_line for single-bit writes."
+            )
+        if channel.logic is Logic.LOW:
+            data ^= (1 << int(channel.width)) - 1
+        self._do_port_tasks[channel.alias].write(int(data))
 
     def read_digital_port(self, channel: DigitalChannel) -> int:
-        raise NotImplementedError("read_digital_port is not yet implemented for NI DAQmx.")
+        """Sample a DI port as one N-bit integer; bit ``i`` reflects line ``i``."""
+        if not isinstance(channel, DigitalPortChannel):
+            raise TypeError(
+                f"read_digital_port expects a DigitalPortChannel, got {type(channel).__name__}. "
+                "Use read_digital_line for single-bit reads."
+            )
+        data = int(self._di_port_tasks[channel.alias].read())
+        if channel.logic is Logic.LOW:
+            data ^= (1 << int(channel.width)) - 1
+        return data
 
     def _read_to_measurements(
         self,

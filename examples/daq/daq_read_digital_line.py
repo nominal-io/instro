@@ -6,7 +6,7 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction, Logic
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -23,8 +23,8 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        CHANNEL_0 = "port0/line0"
-        CHANNEL_1 = "port0/line1"
+        CHANNEL_0 = "Dev1/port0/line0"
+        CHANNEL_1 = "Dev1/port0/line1"
         driver = NIDAQDriver(device_id="Dev1")
     case DAQVendor.KEYSIGHT_34980:
         from instro.daq.drivers import Keysight34980A
@@ -49,16 +49,14 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
-    daq.configure_digital_channel(
+with daq:
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_0,
         alias=f"di_0",
         logic=Logic.HIGH,
     )
-    daq.configure_digital_channel(
+    daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_1,
         alias=f"di_1",
@@ -68,7 +66,3 @@ try:
     read0 = daq.read_digital_line(channel="di_0")
     read1 = daq.read_digital_line(channel="di_1")
     print(f"Values: ", read0.latest, read1.latest)
-
-finally:
-    print("Closing DAQ")
-    daq.close()

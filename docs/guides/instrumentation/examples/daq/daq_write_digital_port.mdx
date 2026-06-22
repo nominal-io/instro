@@ -1,0 +1,56 @@
+---
+title: "Write a digital port (all lines as one N-bit integer)"
+---
+
+```python daq_write_digital_port.py
+"""Example: Write a digital port (all lines as one N-bit integer)."""
+
+from instro.daq import InstroDAQ
+from instro.daq.types import DAQVendor, DigitalPortWidth, Direction, Logic
+from instro.lib.publishers import NominalCorePublisher
+
+# Configuration: Choose your vendor. Port-mode I/O is supported on NI, Keysight, and MCC.
+VENDOR = DAQVendor.NI
+
+# Vendor-specific configuration. Each vendor driver lives in its own package and
+# owns its transport at construction time.
+match VENDOR:
+    case DAQVendor.NI:
+        from instro.daq.drivers.ni import NIDAQDriver
+
+        PORT = "Dev1/port0"
+        driver = NIDAQDriver(device_id="Dev1")
+    case DAQVendor.KEYSIGHT_34980:
+        from instro.daq.drivers import Keysight34980A
+
+        PORT = "5101"
+        driver = Keysight34980A("USB0::0x0957::0x0507::MY44001757::INSTR")
+    case DAQVendor.MCC:
+        from instro.daq.drivers.mcc import MCCDriver
+
+        PORT = "FIRSTPORTA"
+        driver = MCCDriver(
+            device_id="344371:0"
+        )  # MCC DAQ device ID, optionally suffixed with ":<board_number>" (default 0)
+
+# Nominal Core dataset to send data to as the instrument is operated.
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+### Main code
+
+daq = InstroDAQ(name="myDAQ", driver=driver)
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+with daq:
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT,
+        physical_channel=PORT,
+        alias="do_port",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        logic_level=5.0,
+    )
+
+    # Drive lines 0-3 high, 4-7 low.
+    daq.write_digital_port(channel="do_port", data=0x0F)
+```

@@ -1,7 +1,7 @@
 # Modbus
 
-ModbusDevice is a config-driven Modbus client. Describe your device in a JSON file — registers,
-addresses, data types — and interact using human-readable aliases instead of raw addresses.
+ModbusDevice is a config-driven Modbus client. Describe your device in a JSON file (registers,
+addresses, data types) and interact using human-readable aliases instead of raw addresses.
 
 ```python
 from instro.modbus import ModbusDevice
@@ -114,11 +114,11 @@ Controls background polling interval and write delay:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `poll_interval` | float | *required* | Seconds between polling cycles (0.01–10.0) |
+| `poll_interval` | float | *required* | Seconds between polling cycles (0.01 to 10.0) |
 | `write_delay_ms` | int | `0` | Milliseconds to sleep after each write |
 
 Activate polling with `autostart=True` in the constructor, or call `open()` then `start()` manually.
-The write delay is applied automatically after every `write()` call — no manual `time.sleep()` needed.
+The write delay is applied automatically after every `write()` call, with no manual `time.sleep()` needed.
 
 ### Registers
 
@@ -127,13 +127,13 @@ Each register entry defines a named channel:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `name` | string | *required* | Alias used in `read()` and `write()` |
-| `starting_address` | int | *required* | Modbus register address (0–65535) |
+| `starting_address` | int | *required* | Modbus register address (0 to 65535) |
 | `register_type` | string | `"holding"` | `"holding"`, `"input"`, `"coil"`, or `"discrete"` |
 | `data_type` | string | `"uint16"` | `"uint16"`, `"int16"`, `"uint32"`, `"int32"`, `"uint64"`, `"int64"`, `"float32"`, `"float64"`, `"bool"` |
 | `byte_swap` | bool | `false` | Swap bytes within 16-bit words |
 | `word_swap` | bool | `false` | Swap 16-bit words (32-bit and 64-bit types) |
 | `long_swap` | bool | `false` | Swap 32-bit halves (64-bit types only) |
-| `scale` | object | `null` | Linear scaling config, e.g. `{"type": "linear", "gain": <float>, "offset": <float>}` — see [Scaling](#scaling) |
+| `scale` | object | `null` | Linear scaling config, e.g. `{"type": "linear", "gain": <float>, "offset": <float>}`. See [Scaling](#scaling) |
 | `bitmap` | list | `null` | Bit extraction: `[{"name": "alarm", "bit_index": 0}]` |
 | `poll` | bool | `true` | Include in background polling |
 | `write_min` | number | `null` | Minimum allowed write value, in the same units the caller passes to `write()` (scaled if `scale` is set, raw otherwise). Holding registers only. |
@@ -269,7 +269,7 @@ Reading `status_register` returns the raw value plus each bit as a separate chan
 
 ### Shared Types
 
-::: instro.utils.types
+::: instro.lib.types
     options:
       members:
         - DeviceInfo

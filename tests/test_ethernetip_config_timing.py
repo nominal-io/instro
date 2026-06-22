@@ -66,7 +66,37 @@ def test_background_daemon_only_reads_poll_enabled_tags(monkeypatch: pytest.Monk
 
     instrument._background_daemon()
 
-    assert state.reads == ["Speed"]
+    assert state.reads == []
+    assert state.batch_reads == [["Speed"]]
+
+
+def test_background_daemon_batches_all_polled_tags_into_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = install_fake_native_ethernetip(
+        monkeypatch,
+        {
+            "Speed": FakePlcValue(FakePlcKind.DINT, 1),
+            "Pressure": FakePlcValue(FakePlcKind.DINT, 2),
+            "Temperature": FakePlcValue(FakePlcKind.DINT, 3),
+        },
+    )
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "timing": {"poll_interval": 1.0},
+            "tags": [
+                {"alias": "speed", "tag_name": "Speed", "data_type": "dint"},
+                {"alias": "pressure", "tag_name": "Pressure", "data_type": "dint"},
+                {"alias": "temperature", "tag_name": "Temperature", "data_type": "dint"},
+            ],
+        }
+    )
+    instrument.open()
+
+    instrument._background_daemon()
+
+    assert state.reads == []
+    assert state.batch_reads == [["Speed", "Pressure", "Temperature"]]
 
 
 def test_timing_with_empty_tags_warns_but_configures_device() -> None:
@@ -167,3 +197,24 @@ def test_poll_false_string_tag_can_be_used_as_command_tag(monkeypatch: pytest.Mo
     assert state.writes == [("RecipeName", FakePlcValue(FakePlcKind.STRING, "startup"))]
     assert state.reads == []
     assert command.channel_data == {"test_plc.recipe_name.cmd": "startup"}
+
+
+def test_close_tolerates_broken_native_session(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    state = install_fake_native_ethernetip(monkeypatch, close_error=RuntimeError("broken pipe"))
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "tags": [{"alias": "speed", "tag_name": "Speed", "data_type": "dint"}],
+        }
+    )
+    instrument.open()
+
+    with caplog.at_level("WARNING", logger="instro.unstable.ethernetip.ethernetip"):
+        instrument.close()
+
+    assert state.closes == 1
+    assert instrument._client is None
+    assert "Failed to close EtherNet/IP session cleanly" in caplog.text

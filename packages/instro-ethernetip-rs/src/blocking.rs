@@ -90,8 +90,12 @@ impl ExplicitSession {
             .block_on(self.session.read_tag_struct(tag_name))
     }
 
-    /// Read several tags sequentially, preserving input order in the returned list.
-    pub fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Value)>>
+    /// Read several tags in a single batch request, preserving input order in the returned list.
+    ///
+    /// See [`crate::ExplicitSession::read_tags`] for the per-tag error semantics. The outer
+    /// [`Result`] reports transport-level failures; per-tag failures appear inside the returned
+    /// list as [`Err`] entries so partial successes are preserved.
+    pub fn read_tags<S>(&mut self, tag_names: &[S]) -> Result<Vec<(String, Result<Value>)>>
     where
         S: AsRef<str>,
     {
@@ -131,19 +135,15 @@ mod tests {
 
     fn session_with_state(state: Arc<Mutex<MockState>>) -> ExplicitSession {
         let runtime = shared_runtime().expect("runtime should build");
-        let session = crate::ExplicitSession {
-            addr: "plc.local".to_owned(),
-            client: Box::new(MockClient::new(
-                state,
-                vec![Ok(PlcValue::Dint(42))],
-                vec![Ok(())],
-                Ok(()),
-            )),
-        };
+        let session = crate::ExplicitSession::new_for_test(
+            "plc.local",
+            MockClient::new(state, vec![Ok(PlcValue::Dint(42))], vec![Ok(())], Ok(())),
+        );
 
         ExplicitSession { runtime, session }
     }
 
+    /// Verifies that the blocking wrapper drives read and write calls through the inner async session.
     #[test]
     fn blocking_read_and_write_drive_inner_session() {
         let state = Arc::new(Mutex::new(MockState::default()));
@@ -160,6 +160,7 @@ mod tests {
         );
     }
 
+    /// Verifies that closing the blocking wrapper unregisters the inner async session.
     #[test]
     fn blocking_close_unregisters_inner_session() {
         let state = Arc::new(Mutex::new(MockState::default()));

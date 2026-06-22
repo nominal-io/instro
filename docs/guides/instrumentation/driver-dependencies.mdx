@@ -1,46 +1,51 @@
 ---
 title: Driver Dependencies
-description: External vendor drivers and libraries required to use Nominal Instrumentation
+description: External vendor drivers and libraries required to use instro
 ---
 
-`instro` depends on external software to be installed for various hardware interactions to be successful. These must be installed on your system before you can use the corresponding Nominal Instrumentation drivers.
+`instro` depends on external software to be installed for various hardware interactions to be successful. These must be installed on your system before you can use the corresponding `instro` drivers.
 
 <Note>
-**Understanding the distinction**: These vendor-installable drivers are **different from** the driver classes that a `Instrument` is composed with:
+**Understanding the distinction**: These vendor-installable drivers are **different from** the driver classes that an `Instrument` is composed with:
 
-- **Vendor-installable drivers**: External libraries/drivers developed by instrument vendors that must be installed to your system operating system. These are necessary to install, regardless of using `instro`, in order to interact with the vendor hardware on the system in any way/environment.
-- **Nominal driver classes**: The vendor/model-specific Python code that `Instrument` uses to interact with the external software drivers.
+- **Vendor-installable drivers**: External libraries/drivers developed by instrument vendors that must be installed to your system operating system. These are necessary to install, regardless of using `instro`, to interact with the vendor hardware on the system in any way/environment.
+- **`instro` driver classes**: The vendor/model-specific Python code that `Instrument` uses to interact with the external software drivers.
 </Note>
 
 ## Overview
 
-Before using `instro` with specific instrument types, you must install the corresponding vendor driver or library. The table below shows which vendor drivers are required for which Nominal instrument types:
+Before using `instro` with specific instrument types, you must install the corresponding vendor driver or library. The table below shows which vendor drivers are required for which `instro` instrument types:
 
-| Vendor Driver | Required For | Used By Nominal Drivers |
+| Vendor Driver | Required For | Used By instro Drivers |
 |--------------|--------------|------------------------|
 | **VISA** | SCPI/VISA-based instruments (PSUs, ELoads, Keysight DAQ) | All VISA-based driver implementations |
 | **NI-DAQmx** | National Instruments DAQ devices | `NIDAQDriver` |
-| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackDAQDriver` |
+| **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackTSeriesDriver` |
 | **MCC Universal Library (`mcculw`)** | Measurement Computing DAQ devices | `MCCDriver` |
 | **Total Phase USB Drivers** | Total Phase Aardvark I2C/SPI Host Adapter | `Aardvark` |
 
 ## VISA
 
-VISA (Virtual Instrument Software Architecture) is required by `instro` for all SCPI/VISA based instrument connections.
+VISA (Virtual Instrument Software Architecture) is used by `instro` for all SCPI/VISA based instrument connections. `instro` installs `pyvisa`, the `pyvisa-py` Python backend, and every backend library `pyvisa-py` can use, so TCP/IP (SOCKET, VXI-11, HiSLIP), USB-TMC, serial, and VICP resources work without a vendor VISA runtime. GPIB also uses `pyvisa-py`, but the hardware additionally needs a native GPIB driver (see below). PXI and VXI are the only interfaces a pure-Python backend cannot drive; those still require a vendor runtime.
 
-- **NI VISA** (IVI-compatible VISA driver) like NI-VISA
 - **pyvisa** (Python VISA library)
-
-VISA must be installed and configured before using instruments that communicate via SCPI over VISA connections.
+- **pyvisa-py** (default Python backend)
+- **pyusb + libusb** (USB-TMC backend; libusb ships bundled via `libusb-package`)
+- **pyserial** (ASRL/serial backend)
+- **psutil, zeroconf, pyvicp** (TCPIP discovery, HiSLIP discovery, and VICP support)
+- **gpib-ctypes + a native GPIB driver** (GPIB backend; the driver is vendor/OS specific)
+- **Vendor VISA runtimes** (optional; required for PXI/VXI or vendor-specific transports)
 
 ### Installation
 
-**NI VISA:**
-- Download and install from [National Instruments](https://www.ni.com/en/support/downloads/drivers/download.ni-visa.html)
+**Default Python backend:**
+- Installed with `instro`: `pyvisa`, `pyvisa-py`, and the full set of `pyvisa-py` backend libraries (`pyusb`, bundled libusb via `libusb-package`, `pyserial`, `psutil`, `zeroconf`, `pyvicp`, and `gpib-ctypes`). TCP/IP, USB-TMC, serial, HiSLIP, and VICP resources work with no extra setup.
 
-**pyvisa:**
-- Install via pip: `pip install pyvisa`
-- You may also need backend drivers depending on your connection type (USB, TCP/IP, Serial)
+**GPIB:**
+- `instro` installs the `gpib-ctypes` binding, but GPIB hardware also needs a native driver: NI-488.2 for NI GPIB interfaces, or linux-gpib on Linux. Install the driver your interface requires.
+
+**Vendor VISA backend:**
+- Download and install the runtime required by your instrument vendor (for PXI/VXI, or vendor-specific transports).
 
 ## NI-DAQmx
 
@@ -68,7 +73,7 @@ LJM is the LabJack Module library required to communicate with LabJack T-Series 
 
 ### Used By
 
-- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackDAQDriver`)
+- **`InstroDAQ`**: LabJack T-Series devices (via `LabJackTSeriesDriver`)
 
 ### Installation
 
@@ -87,7 +92,7 @@ The MCC Universal Library is the Measurement Computing driver stack for their US
 ### Installation
 
 1. Download and install the MCC DAQ Software (includes InstaCal and the Universal Library) from the [Measurement Computing website](https://digilent.com/reference/software/instacal/start).
-2. Open **InstaCal** and confirm your device appears in the board list. Note the device's unique ID—you pass this as the `device_id` argument to `MCCDriver()` when constructing the driver handed to `InstroDAQ`.
+2. Open **InstaCal** and confirm your device appears in the board list. Note the device's unique ID. You pass this as the `device_id` argument to `MCCDriver()` when constructing the driver handed to `InstroDAQ`.
 3. The Python bindings (`mcculw`) are installed automatically when you install the `instro[mccdaq]` or `instro[daq]` extras.
 
 <Note>

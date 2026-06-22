@@ -6,9 +6,9 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 import time
 
+from instro.lib.publishers import NominalCorePublisher, QueuedPublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils.publishers import NominalCorePublisher, QueuedPublisher
 
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
@@ -21,10 +21,8 @@ queued_publisher = QueuedPublisher(core_publisher, max_queue_size=100, wait_for_
 
 psu.add_publisher(queued_publisher)
 
-try:
+with psu:
     # Set up initial state of test
-    psu.open()
-
     psu.output_enable(False, channel=2)
     psu.set_current_limit(0.2, channel=2)
     psu.set_voltage(0, channel=2)
@@ -48,7 +46,3 @@ try:
     psu.output_enable(False, channel=2)
 
     print("Done, waiting for queue to be empty...")
-
-finally:
-    # Shut it down
-    psu.close()

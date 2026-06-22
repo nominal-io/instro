@@ -1,8 +1,8 @@
-# Nominal Instrumentation — User Documentation
+# instro: User Documentation
 
-Prose / conceptual documentation for [Nominal Instrumentation](https://nominal-io.github.io/instrumentation/), Nominal's Python library for scripting and automating test equipment.
+Prose / conceptual documentation for [`instro`](https://instro.nominal.io), a Python library for scripting and automating test equipment.
 
-This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/reference/` (mkdocs), which auto-generates the API reference from docstrings; this Mintlify site holds the prose, examples, and getting-started content.
+This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/reference/` (mkdocs), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
 
 ## Local development
 
@@ -33,6 +33,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). For questions or feedback about the li
 
 ## Resources
 
-- [Nominal Instrumentation SDK reference](https://nominal-io.github.io/instrumentation/)
-- [Runnable examples](https://nominal-io.github.io/instrumentation-docs/examples/)
+- [instro SDK reference](https://nominal-io.github.io/instro/)
+- [Runnable examples](https://instro.nominal.io/instrumentation/examples)
 - [Nominal](https://nominal.io)

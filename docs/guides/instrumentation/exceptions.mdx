@@ -1,0 +1,86 @@
+---
+title: Exceptions
+description: Handling Instro-specific errors
+---
+
+# Exceptions
+
+Instro-specific errors inherit from `InstroError`.
+
+```python
+from instro.lib.exceptions import InstroError
+
+try:
+    ...
+except InstroError:
+    ...
+```
+
+When a capability is unavailable, the library raises one of two distinct exceptions. They differ in *why* the capability is missing and, just as importantly, in what they inherit from.
+
+## FeatureNotSupportedError
+
+`FeatureNotSupportedError` (a subclass of `InstroError`) is raised by a concrete driver to declare that the connected instrument genuinely lacks a capability. For example, the `BK9115` power supply has no overcurrent protection or remote sense, so its driver raises `FeatureNotSupportedError` for those methods.
+
+```python
+from instro.lib.exceptions import FeatureNotSupportedError
+
+try:
+    psu.set_remote_sense_enabled(True, channel=1)
+except FeatureNotSupportedError:
+    ...
+```
+
+Because it inherits from `InstroError`, `except InstroError` catches it.
+
+## InstrumentNotOpenError
+
+`InstrumentNotOpenError` (a subclass of `InstroError`) is raised when a device-touching method is called before `open()`. It points at the missing lifecycle call instead of surfacing a low-level transport or vendor-SDK error. The message names the instrument instance so you can tell which one you forgot to open.
+
+```python
+from instro.lib.exceptions import InstrumentNotOpenError
+
+daq = InstroDAQ(name="myDAQ", driver=...)
+try:
+    daq.read_analog()  # forgot to call daq.open() first
+except InstrumentNotOpenError:
+    ...
+```
+
+Open the instrument first — directly or via the context manager, which opens on entry and closes on exit:
+
+```python
+with daq:
+    daq.configure_analog_channel(...)
+    daq.read_analog()
+```
+
+`close()` and `stop()` are tolerant teardown and never raise `InstrumentNotOpenError`. Closing an instrument that never opened, closing twice, or calling `close()` from a `finally` after a failed `open()` is safe and leaves the original error free to surface.
+
+Because it inherits from `InstroError`, `except InstroError` catches it.
+
+## NotImplementedError
+
+`NotImplementedError` is the Python builtin, not an `InstroError`. Each `<Category>DriverBase` declares its optional methods to raise `NotImplementedError` by default, and a driver overrides only the ones its instrument supports. Calling an optional method on a driver that has not overridden it therefore raises `NotImplementedError`: the capability is part of the category contract, but this driver does not implement it.
+
+Because `NotImplementedError` is a builtin, `except InstroError` does **not** catch it.
+
+## Which one will I catch?
+
+It depends on the driver behind the HAL:
+
+- A driver that explicitly declares a feature absent raises `FeatureNotSupportedError`.
+- A driver that has simply not overridden an optional base method raises `NotImplementedError`.
+
+To handle both in one place, catch them together:
+
+```python
+from instro.lib.exceptions import FeatureNotSupportedError
+
+try:
+    psu.set_overcurrent_protection_level(5.0, channel=1)
+except (FeatureNotSupportedError, NotImplementedError):
+    ...
+```
+
+When writing a driver, raise `FeatureNotSupportedError` when the hardware lacks the feature, and leave the inherited `NotImplementedError` in place for optional methods that are not implemented yet.

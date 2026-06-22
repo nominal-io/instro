@@ -1,13 +1,19 @@
 [project]
 name = "instro-contrib"
-version = "0.0.1"
-description = "Community-contributed drivers for instro, accepted on contributor testing where Nominal cannot verify against the device"
+version = "0.1.1"
+description = "Community-contributed instro drivers for devices the maintainers can't verify directly"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "instro",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
 
 [build-system]
 requires = ["hatchling"]

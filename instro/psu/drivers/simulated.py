@@ -1,10 +1,8 @@
-"""Simulated PSU driver. Client-side counterpart to :mod:`instro.psu.scpi_sim_server`.
+"""Simulated PSU driver."""
 
-Connect via a TCP socket VISA resource such as ``TCPIP0::127.0.0.1::5025::SOCKET``.
-"""
-
+from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
-from instro.utils.transports.visa import VisaConfig, VisaDriver
 
 
 class SimulatedPSU(PSUDriverBase):
@@ -19,27 +17,71 @@ class SimulatedPSU(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int = 1) -> None:
-        self._write_checked(f"VOLT {voltage:.3f} {channel}")
+    def set_voltage(self, voltage: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int = 1) -> float:
-        return self._query_checked_float(f"MEAS:VOLT? {channel}")
+    def get_voltage(self, channel: int) -> float:
+        return self._query_checked_float(f":MEAS{channel}:VOLT?")
 
-    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
-        self._write_checked(f"CURR {current_limit:.3f} {channel}")
+    def set_current_limit(self, current_limit: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:CURR {current_limit:.3f}")
 
-    def get_current(self, channel: int = 1) -> float:
-        return self._query_checked_float(f"MEAS:CURR? {channel}")
+    def get_current(self, channel: int) -> float:
+        return self._query_checked_float(f":MEAS{channel}:CURR?")
 
-    def output_enable(self, enable: bool, channel: int = 1) -> None:
-        cmd = f"OUTP:STAT ON {channel}" if enable else f"OUTP:STAT OFF {channel}"
-        self._write_checked(cmd)
+    def output_enable(self, enable: bool, channel: int) -> None:
+        self._write_checked(f":OUTP{channel}:STAT {'ON' if enable else 'OFF'}")
 
-    def get_output_status(self, channel: int = 1) -> bool:
+    def get_output_status(self, channel: int) -> bool:
         with self._visa.lock():
-            resp = self._visa.query(f"OUTP:STAT? {channel}")
+            resp = self._visa.query(f":OUTP{channel}:STAT?")
             self._check_errors()
-        return resp == "ON"
+        return resp.strip() == "1"
+
+    def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:VOLT:PROT {voltage:.3f}")
+
+    def get_overvoltage_protection_level(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:VOLT:PROT:LEV?")
+
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
+
+    def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+        with self._visa.lock():
+            resp = self._visa.query(f":SOUR{channel}:VOLT:PROT:STAT?")
+            self._check_errors()
+        return resp.strip() == "1"
+
+    def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+        raise FeatureNotSupportedError("set_overvoltage_protection_delay is not supported by SimulatedPSU")
+
+    def get_overvoltage_protection_delay(self, channel: int) -> float:
+        raise FeatureNotSupportedError("get_overvoltage_protection_delay is not supported by SimulatedPSU")
+
+    def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:CURR:PROT {current:.3f}")
+
+    def get_overcurrent_protection_level(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:CURR:PROT:LEV?")
+
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":SOUR{channel}:CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
+
+    def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+        with self._visa.lock():
+            resp = self._visa.query(f":SOUR{channel}:CURR:PROT:STAT?")
+            self._check_errors()
+        return resp.strip() == "1"
+
+    def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
+        self._write_checked(f":SYST{channel}:SENS {'REM' if enabled else 'LOC'}")
+
+    def get_remote_sense_enabled(self, channel: int) -> bool:
+        with self._visa.lock():
+            resp = self._visa.query(f":SYST{channel}:SENS?")
+            self._check_errors()
+        return resp.strip().upper() == "REM"
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
@@ -53,6 +95,6 @@ class SimulatedPSU(PSUDriverBase):
             return float(value)
 
     def _check_errors(self) -> None:
-        err = self._visa.query("SYSTEM:ERROR?")
-        if not err.startswith("0"):
+        err = self._visa.query(":SYST:ERR?")
+        if err.split(",", 1)[0].strip().lstrip("+") != "0":
             raise RuntimeError(f"Simulated PSU reported error: {err}")

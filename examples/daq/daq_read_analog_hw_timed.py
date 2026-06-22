@@ -8,7 +8,7 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction
-from instro.utils.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -25,8 +25,8 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        CHANNEL_0 = "ai0"
-        CHANNEL_1 = "ai1"
+        CHANNEL_0 = "Dev1/ai0"
+        CHANNEL_1 = "Dev1/ai1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.KEYSIGHT_34980:
         from instro.daq.drivers import Keysight34980A
@@ -51,9 +51,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_analog_channel(
         direction=Direction.INPUT, physical_channel=CHANNEL_0, alias=f"ch_0", range_min=0, range_max=5
     )
@@ -70,7 +68,7 @@ try:
     while True:
         try:
             ch_1 = daq.get_channel("myDAQ.ch_0", 1, True)  # This will block for the latest sample
-            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immedietly return with 10 samples.
+            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immediately return with 10 samples.
             print(f"Channel 1 latest: {ch_1.latest}")
             print(f"Channel 1 samples: {ch_1.values}")
             print(f"Channel 2 latest: {ch_2.latest}")
@@ -80,6 +78,3 @@ try:
             break
 
     daq.stop()
-finally:
-    print("Closing DAQ")
-    daq.close()

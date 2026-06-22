@@ -4,7 +4,7 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction
-from instro.utils.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -23,10 +23,10 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        AO_CH0 = "ao0"
-        AO_CH1 = "ao1"
-        AI_CH0 = "ai0"
-        AI_CH1 = "ai1"
+        AO_CH0 = "Dev1/ao0"
+        AO_CH1 = "Dev1/ao1"
+        AI_CH0 = "Dev1/ai0"
+        AI_CH1 = "Dev1/ai1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.MCC:
         from instro.daq.drivers.mcc import MCCDriver
@@ -46,9 +46,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-daq.open()
-
-try:
+with daq:
     daq.configure_analog_channel(
         direction=Direction.INPUT, physical_channel=AI_CH0, alias="ai_0", range_min=0, range_max=5
     )
@@ -81,7 +79,3 @@ try:
             break
 
     daq.stop()
-
-finally:
-    print("Closing DAQ")
-    daq.close()

@@ -1,4 +1,4 @@
-"""Example: PSU without background worker.
+"""Example: PSU without background daemon.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
@@ -7,10 +7,10 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 import logging
 import time
 
+from instro.lib.nominal import install_nominal_core_log_handler
+from instro.lib.publishers import NominalCorePublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils.nominal import install_nominal_core_log_handler
-from instro.utils.publishers import NominalCorePublisher
 
 # enable logging
 logging.basicConfig(level=logging.DEBUG)
@@ -30,10 +30,8 @@ psu = InstroPSU(
 psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 
-try:
+with psu:
     # Set up initial state of test
-    psu.open()
-
     psu.output_enable(False, channel=2)
     psu.set_current_limit(0.2, channel=2)
     psu.set_voltage(0, channel=2)
@@ -53,6 +51,3 @@ try:
         time.sleep(1)
 
     psu.output_enable(False, channel=2)
-
-finally:
-    psu.close()

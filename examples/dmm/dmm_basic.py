@@ -6,8 +6,8 @@ Demonstrates configuring a DMM for voltage measurement and triggering a measurem
 
 from instro.dmm import InstroDMM, MeasurementFunction
 from instro.dmm.drivers import Agilent34401A
-from instro.utils.publishers import NominalCorePublisher
-from instro.utils.transports import SerialConfig, VisaConfig
+from instro.lib.publishers import NominalCorePublisher
+from instro.lib.transports import SerialConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL3::INSTR"
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
@@ -23,10 +23,7 @@ dmm = InstroDMM(
     ),
     publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
 )
-dmm.open()
-
-dmm.set_measurement_function(function=MeasurementFunction.DC_VOLTAGE)
-response = dmm.read()
-print(response)
-
-dmm.close()
+with dmm:
+    dmm.set_measurement_function(function=MeasurementFunction.DC_VOLTAGE)
+    response = dmm.read()
+    print(response)

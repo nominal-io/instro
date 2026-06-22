@@ -2,9 +2,9 @@
 
 import time
 
+from instro.lib.types import Command, Measurement
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
-from instro.utils.types import Command, Measurement
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 
@@ -30,10 +30,8 @@ class PrintChannelDelegate:
 psu = InstroPSU(name="myPSU", driver=SimulatedPSU(VISA_RESOURCE), num_channels=2)
 psu.add_publisher(PrintChannelDelegate(channel_name="myPSU.ch2.current"))
 
-try:
+with psu:
     # Set up initial state of test
-    psu.open()
-
     psu.output_enable(False, channel=2)
     psu.set_current_limit(0.2, channel=2)
     psu.set_voltage(0, channel=2)
@@ -51,7 +49,3 @@ try:
         psu.get_voltage(channel=2)  # This value will not be printed
 
     psu.output_enable(False, channel=2)
-
-finally:
-    # Shut it down
-    psu.close()

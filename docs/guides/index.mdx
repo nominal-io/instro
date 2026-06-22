@@ -1,9 +1,9 @@
 ---
-title: "Nominal Instrumentation"
+title: "instro"
 description: "A Python library for interfacing with hardware test equipment"
 ---
 
-Nominal Instrumentation is a Python library for scripting and automating test equipment, with first-class integration into [Nominal Core](https://nominal.io) and [Nominal Connect](https://nominal.io). Write your test once, swap vendors with a single configuration change, and stream data to Nominal automatically.
+`instro` is a Python library for scripting and automating test equipment (power supplies, multimeters, electronic loads, DAQs, and more) from one unified, typed API. Code against an instrument category once, then swap vendors with a single configuration change. When you want to capture the data, attach a publisher to stream it to a file, [Nominal](https://nominal.io), or a destination of your own.
 
 ## Start here
 
@@ -13,7 +13,7 @@ Nominal Instrumentation is a Python library for scripting and automating test eq
     icon="rocket"
     href="/instrumentation/quickstart"
   >
-    Drive a simulated power supply end-to-end in about five minutes — no hardware required.
+    Drive a simulated power supply end-to-end in about five minutes. No hardware required.
   </Card>
   <Card
     title="Overview"
@@ -27,14 +27,14 @@ Nominal Instrumentation is a Python library for scripting and automating test eq
     icon="download"
     href="/instrumentation/installation"
   >
-    Install the library via Nominal Connect or directly from the private PyPI.
+    Install from PyPI with `pip` or `uv`, plus the optional vendor extras you need.
   </Card>
   <Card
     title="Examples"
     icon="file-code"
     href="/instrumentation/examples"
   >
-    Browse runnable examples on the Nominal Instrumentation SDK Examples site.
+    Browse runnable examples for every instrument category.
   </Card>
 </Columns>
 
@@ -46,35 +46,35 @@ Nominal Instrumentation is a Python library for scripting and automating test eq
     icon="bolt"
     href="/instrumentation/psu"
   >
-    `InstroPSU` — B&K Precision, Siglent, Rigol, TDK Lambda, and more via SCPI/VISA.
+    `InstroPSU`: B&K Precision, Keysight, Rigol, Siglent, and TDK Lambda.
   </Card>
   <Card
     title="Electronic loads"
     icon="plug"
     href="/instrumentation/eload"
   >
-    `InstroELoad` — B&K Precision 85xx series via SCPI/VISA.
+    `InstroELoad`: B&K Precision 85xx series via SCPI/VISA.
   </Card>
   <Card
     title="Digital multimeters"
     icon="gauge"
     href="/instrumentation/dmm"
   >
-    `InstroDMM` — Agilent/HP/Keysight 34401A, Keithley 2400, and more.
+    `InstroDMM`: Agilent/HP/Keysight 34401A, Keithley 2400, and more.
   </Card>
   <Card
     title="Data acquisition"
     icon="chart-line"
     href="/instrumentation/daq"
   >
-    `InstroDAQ` — National Instruments, LabJack T-Series, Keysight 34980A.
+    `InstroDAQ`: National Instruments, LabJack T-Series, Keysight 34980A.
   </Card>
   <Card
     title="I2C"
     icon="microchip"
     href="/instrumentation/protocols/i2c/overview"
   >
-    `I2CInterface` — Total Phase Aardvark with declarative system definitions.
+    `I2CInterface`: Total Phase Aardvark with declarative system definitions.
   </Card>
   <Card
     title="Custom instruments"

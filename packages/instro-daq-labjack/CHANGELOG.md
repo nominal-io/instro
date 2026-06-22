@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.7.1](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.7.0...instro-daq-labjack-v0.7.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **lib:** bundle every pyvisa-py backend for clean-install VISA support ([#103](https://github.com/nominal-io/instro/issues/103)) ([60604dc](https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0))
+
+## [0.7.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.6.0...instro-daq-labjack-v0.7.0) (2026-06-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56))
+
+### Features
+
+* **daq:** make driver channel/timing state private and read-only ([#56](https://github.com/nominal-io/instro/issues/56)) ([c34cf0d](https://github.com/nominal-io/instro/commit/c34cf0d9508db3d73db1c8f537fb41f6763a0616))
+
+## [0.6.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.5.0...instro-daq-labjack-v0.6.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **daq:** split digital line and port configuration into separate methods ([#36](https://github.com/nominal-io/instro/issues/36))
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19))
+
+### Features
+
+* **psu:** add ovp, ocp, and remote sense method signatures ([#31](https://github.com/nominal-io/instro/issues/31)) ([ecd4071](https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd))
+
+
+### Miscellaneous
+
+* **daq:** remove InstroDAQFacade; driver owns channel/timing state ([#19](https://github.com/nominal-io/instro/issues/19)) ([cd43847](https://github.com/nominal-io/instro/commit/cd43847904a492b83cc3c2f8da97e356a06e9435))
+* **daq:** split digital line and port configuration into separate methods ([#36](https://github.com/nominal-io/instro/issues/36)) ([52c8c44](https://github.com/nominal-io/instro/commit/52c8c44e2981aae9610606309c411a9b44c4094c))
+
 ## [0.5.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.4.0...instro-daq-labjack-v0.5.0) (2026-05-27)
 
 

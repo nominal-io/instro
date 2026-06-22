@@ -17,36 +17,36 @@ This page covers building an entirely new instrument type using `Instrument`. If
 
 # Custom Instrumentation
 
-Nominal Instrumentation provides a framework for developing instruments that do not ship with the library. This lets an engineer with domain knowledge of an instrument type develop new functionality within a paradigm that grants the features of other instruments within Nominal Instrumentation.
+`instro` provides a framework for developing instruments that do not ship with the library. This lets an engineer with domain knowledge of an instrument type develop new functionality within a paradigm that grants the features of other instruments within `instro`.
 
-This is different than custom driver development within an existing instrument type. For example, if Nominal does not provide an RF Power Meter instrument type but you want the `instro` experience, creating a custom instrument type using `Instrument` is the path forward.
+This is different than custom driver development within an existing instrument type. For example, if there is no built-in RF Power Meter instrument type but you want the `instro` experience, creating a custom instrument type using `Instrument` is the path forward.
 
 ## Walkthrough: building a `SimpleTempController` instrument
 
-This section builds a custom instrument end to end. It's a simulated temperature controller — like a benchtop PID controller or thermal chamber — whose reading lags the commanded setpoint as it warms up or cools down. Standard library only, no hardware, no extra dependencies. The full file lives at [`examples/custom/simple_temp_controller.py`](https://github.com/nominal-io/instrumentation/blob/main/examples/custom/simple_temp_controller.py).
+This section builds a custom instrument end to end. It's a simulated temperature controller (like a benchtop PID controller or thermal chamber) whose reading lags the commanded setpoint as it warms up or cools down. Standard library only, no hardware, no extra dependencies. The full file lives at [`examples/custom/simple_temp_controller.py`](https://github.com/nominal-io/instro/blob/main/examples/custom/simple_temp_controller.py).
 
 The example covers everything a custom instrument needs:
 
 - a `@publish_measurement` method that emits data
-- a `@publish_command` method that changes instrument state — and visibly affects the next several reads
+- a `@publish_command` method that changes instrument state and visibly affects the next several reads
 - a background daemon that polls the measurement on an interval
 
 ### About the "device"
 
-A real temperature controller has two pieces of state: the **current temperature** (what its sensor measures right now) and the **setpoint** (the temperature you've told it to hold). When you change the setpoint, the controller's heater or cooler kicks on, and the current temperature lags behind — closing in on the new target over the next several reads rather than snapping to it.
+A real temperature controller has two pieces of state: the **current temperature** (what its sensor measures right now) and the **setpoint** (the temperature you've told it to hold). When you change the setpoint, the controller's heater or cooler kicks on, and the current temperature lags behind, closing in on the new target over the next several reads rather than snapping to it.
 
-We'll fake that lag in one line: each tick, the current temperature moves 20% of the way toward the setpoint, plus a small amount of noise. That's enough for the `set_target_temperature` command to have a dramatic, observable effect — you'll watch the temperature climb from room temperature toward 50°C, then toward 75°C, in real time.
+The simulation fakes that lag in one line. Each tick, the current temperature moves 20% of the way toward the setpoint, plus a small amount of noise. That's enough for the `set_target_temperature` command to have a dramatic, observable effect. You'll watch the temperature climb from room temperature toward 50°C, then toward 75°C, in real time.
 
 ### 1. Subclass `Instrument`
 
-Every custom instrument is a subclass of `Instrument`. The base class owns the publisher list, the background-daemon thread, default tags, and the channel buffer — all things your subclass gets for free.
+Every custom instrument is a subclass of `Instrument`. The base class owns the publisher list, the background-daemon thread, default tags, and the channel buffer. Your subclass gets all of them for free.
 
 ```python
 import random
 import time
 
-from instro.utils import Command, Instrument, Measurement
-from instro.utils.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 
 
 class SimpleTempController(Instrument):
@@ -67,13 +67,13 @@ class SimpleTempController(Instrument):
         super().close()
 ```
 
-The base constructor takes a `name` (used as the channel-name prefix), and any extra `**kwargs` become default tags. `self.background_interval` sets the daemon's polling cadence in seconds, and `add_background_daemon_function` registers a method to be called every tick.
+The base constructor takes a `name` (used as the channel-name prefix), and any extra `**kwargs` become default tags. `self.background_interval` sets the daemon's polling cadence in seconds. Two methods register what the daemon runs each tick: `add_background_daemon_function(method, *args, **kwargs)` appends one call to the daemon's list (call it once per method you want polled), and `define_background_daemon(method, *args, **kwargs)` is the replace-all variant that clears the list and registers a single method.
 
-Override `open()` and `close()` to manage the connection to your device. Our simulated controller has nothing to open, so both overrides just call `super()` — but this is the seam where a real instrument would call `socket.create_connection`, open a VISA session, claim a USB interface, etc. The base `close()` already stops the background daemon and closes attached publishers, so user-side overrides only need to add their own teardown.
+Override `open()` and `close()` to manage the connection to your device. The simulated controller has nothing to open, so both overrides just call `super()`. This is the seam where a real instrument would call `socket.create_connection`, open a VISA session, claim a USB interface, etc. The base `close()` already stops the background daemon and closes attached publishers, so user-side overrides only need to add their own teardown.
 
 ### 2. Publish a `Measurement` with `@publish_measurement`
 
-Any method decorated with `@publish_measurement` must return a `Measurement` (or `list[Measurement]`, or `None`). The decorator publishes the returned object to every attached publisher automatically — your method just has to *build* it.
+Any method decorated with `@publish_measurement` must return a `Measurement` (or `list[Measurement]`, or `None`). The decorator publishes the returned object to every attached publisher automatically. Your method just has to *build* it.
 
 The `_package_measurement(channel, value, timestamp, **tags)` helper on `Instrument` does the build for you: it prefixes the channel with `{self.name}.`, coerces the value to `float`, merges in `self.default_tags`, and returns a single-channel `Measurement`.
 
@@ -89,11 +89,11 @@ class SimpleTempController(Instrument):
         return self._package_measurement("temperature_c", self._temperature_c, time.time_ns(), **kwargs)
 ```
 
-Every call to `read_temperature()` advances the simulated temperature one step and publishes the new value under `{name}.temperature_c`. With the constructor we wrote above, the background daemon calls this on its own every 500 ms — that's where the visible "warming up" comes from. Any publisher you attach (e.g. `NominalCorePublisher`) receives every sample.
+Every call to `read_temperature()` advances the simulated temperature one step and publishes the new value under `{name}.temperature_c`. With the constructor above, the background daemon calls this on its own every 500 ms. That's where the visible "warming up" comes from. Any publisher you attach (e.g. `NominalCorePublisher`) receives every sample.
 
 ### 3. Publish a `Command` with `@publish_command`
 
-Commands are for *changing* instrument state — setpoints, mode switches, configuration changes. A `@publish_command`-decorated method returns a `Command` and the decorator publishes it. We use the parallel helper `_package_command(channel, value, timestamp, **tags)` to build one. Pass the descriptor *with* a trailing `.cmd` so the published channel name has it.
+Commands are for *changing* instrument state, like setpoints, mode switches, and configuration changes. A `@publish_command`-decorated method returns a `Command` and the decorator publishes it. Use the parallel helper `_package_command(channel, value, timestamp, **tags)` to build one. Pass the descriptor *with* a trailing `.cmd` so the published channel name has it.
 
 ```python
 class SimpleTempController(Instrument):
@@ -105,14 +105,14 @@ class SimpleTempController(Instrument):
         return self._package_command("setpoint_c.cmd", value, time.time_ns(), **kwargs)
 ```
 
-`controller.set_target_temperature(50.0)` does two things: it changes the target the simulated controller will close in on, and it publishes a `controller.setpoint_c.cmd` record with the new value. The next several `read_temperature()` calls will show the temperature climbing — the command literally drives the measurement.
+`controller.set_target_temperature(50.0)` does two things. It changes the target the simulated controller will close in on, and it publishes a `controller.setpoint_c.cmd` record with the new value. The next several `read_temperature()` calls will show the temperature climbing. The command literally drives the measurement.
 
-If `set_target_temperature` raised before reaching `_package_command` (say, a bounds check that rejected `value=999`), the decorator wouldn't fire — no record would land on your dashboard and the previous setpoint would still be in effect. The decorator only publishes on a clean return.
+If `set_target_temperature` raised before reaching `_package_command` (say, a bounds check that rejected `value=999`), the decorator wouldn't fire. No record would land on your dashboard, and the previous setpoint would still be in effect. The decorator only publishes on a clean return.
 
 ### 4. Use the instrument
 
 ```python
-# `with` calls open() on entry and close() on exit — close() stops the daemon
+# `with` calls open() on entry and close() on exit: close() stops the daemon
 # and closes publishers even if an exception escapes the block.
 with SimpleTempController(name="controller") as controller:
     controller.start()  # start the background daemon
@@ -122,7 +122,7 @@ with SimpleTempController(name="controller") as controller:
         time.sleep(5)
 ```
 
-For each target, we send the command and let the background daemon collect samples for five seconds — about ten ticks at the 500 ms cadence. The base `Instrument` keeps an in-memory channel buffer of every published sample, so `controller.get_channel("controller.temperature_c").latest` returns the most recent reading if you want to inspect it from your script:
+For each target, the loop sends the command and lets the background daemon collect samples for five seconds (about ten ticks at the 500 ms cadence). The base `Instrument` keeps an in-memory channel buffer of every published sample, so `controller.get_channel("controller.temperature_c").latest` returns the most recent reading if you want to inspect it from your script:
 
 ```python
 latest = controller.get_channel("controller.temperature_c").latest
@@ -132,17 +132,17 @@ print(f"current={latest:.1f}")
 To stream the same data to Nominal Core instead of (or in addition to) the in-memory buffer, attach a publisher before `start()`:
 
 ```python
-from instro.utils.publishers import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 
 controller.add_publisher(NominalCorePublisher("<dataset_rid>"))
 ```
 
-Both `controller.temperature_c` (telemetry) and `controller.setpoint_c.cmd` (command) now stream to Nominal automatically — no changes to the instrument class itself.
+Both `controller.temperature_c` (telemetry) and `controller.setpoint_c.cmd` (command) now stream to Nominal automatically. No changes to the instrument class itself.
 
 ### Patterns to copy
 
-- **Channel naming.** Telemetry channels are bare descriptors (e.g. `"temperature_c"`); command channels include a trailing `.cmd` (e.g. `"setpoint_c.cmd"`). The `_package_*` helpers prepend `{self.name}.` so multiple instances stay namespaced. See [Backwards-compatible channel naming](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) for the full convention.
-- **Lifecycle.** `open()` / `close()` bracket the device connection; `start()` / `stop()` bracket the background daemon. `close()` calls `stop()` internally and also tears down attached publishers, so a single `try / finally` around `close()` is enough to clean up everything. `Instrument` is also a context manager — `with SimpleTempController(name="controller") as controller:` calls `open()` on entry and `close()` on exit, including when an exception escapes the block, which is the pattern the example above uses. Override `open()` / `close()` and you get context-manager support for free; no need to implement `__enter__` / `__exit__` yourself. For instruments that share a transport between threads (the daemon polling while user code sends commands), also serialize I/O behind a lock — `instro`'s built-in categories (PSU, ELoad, DMM, Modbus, …) all do this.
-- **Decorator guarantees.** `@publish_command` raises `TypeError` if the method returns anything other than a `Command`; `@publish_measurement` does the same for `Measurement | list[Measurement] | None`. Wrong return type fails loudly at the call site instead of silently producing the wrong kind of record.
-- **Errors don't get published.** If your `@publish_*` method raises before returning, the decorator never fires — the instrument's prior state is left untouched and no spurious record lands on your dashboard.
+- **Channel naming.** Telemetry channels are bare descriptors (e.g. `"temperature_c"`). Command channels include a trailing `.cmd` (e.g. `"setpoint_c.cmd"`). The `_package_*` helpers prepend `{self.name}.` so multiple instances stay namespaced. See [Backwards-compatible channel naming](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) for the full convention.
+- **Lifecycle.** `open()` / `close()` bracket the device connection. `start()` / `stop()` bracket the background daemon. `close()` calls `stop()` internally and also tears down attached publishers, so a single `try / finally` around `close()` is enough to clean up everything. `Instrument` is also a context manager. `with SimpleTempController(name="controller") as controller:` calls `open()` on entry and `close()` on exit, including when an exception escapes the block, which is the pattern the example above uses. Override `open()` / `close()` and you get context-manager support for free, with no need to implement `__enter__` / `__exit__` yourself. For instruments that share a transport between threads (the daemon polling while user code sends commands), also serialize I/O behind a lock. `instro`'s built-in categories (PSU, ELoad, DMM, Modbus, …) all do this.
+- **Decorator guarantees.** `@publish_command` raises `TypeError` if the method returns anything other than a `Command`. `@publish_measurement` does the same for `Measurement | list[Measurement] | None`. Wrong return type fails loudly at the call site instead of silently producing the wrong kind of record.
+- **Errors don't get published.** If your `@publish_*` method raises before returning, the decorator never fires: the instrument's prior state is left untouched and no spurious record lands on your dashboard.
 - **Coupled commands and measurements.** `set_target_temperature()` mutates state that `read_temperature()` consumes. This is the most common shape for an instrument: a setpoint or mode-change command that drives the next round of measurements.
