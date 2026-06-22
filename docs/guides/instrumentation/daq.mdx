@@ -111,9 +111,10 @@ daq = InstroDAQ(
 )
 
 # Arduino Uno (Serial Port Name)
+# sampling_rate_hz defaults to ~53 Hz (19 ms interval); maximum is 1000 Hz
 from instro.daq.drivers.arduino_firmata import ArduinoFirmata
 
-daq = InstroDAQ(name="arduino", driver=ArduinoFirmata(port="<PORT NAME>"))
+daq = InstroDAQ(name="arduino", driver=ArduinoFirmata(port="<PORT NAME>", sampling_rate_hz=100))
 
 ```
 
@@ -213,7 +214,7 @@ The `physical_channel` naming convention depends on your DAQ vendor:
 - **LabJack**: "DAC0", "DAC1", etc.
 - **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
 - **Keysight**: Depends on module slot and channel configuration
-- **Arduino**: Does not support analog output (use digital PWM pins for approximate output)
+- **Arduino**: PWM-capable digital pins only — "D3", "D5", "D6", "D9", "D10", "D11" on an Uno. This is **not true analog output**: the driver sets a PWM duty cycle via `analogWrite()`, not a DAC voltage. The `range_min`/`range_max` you configure map linearly to 0–100% duty cycle. Non-PWM pins will silently produce no output. PWM frequency is fixed by the Arduino's hardware timers and cannot be changed via StandardFirmata — D5/D6 run at ~980 Hz, all other PWM pins at ~490 Hz.
 
 Refer to your device's documentation for channel naming.
 </Note>
@@ -281,7 +282,7 @@ Different DAQ devices have different timing capabilities:
 - **Multiplexed DAQs** (e.g., LabJack T4/T7, most NI DAQ devices, most MCC devices): Maximum per-channel rate decreases with more channels
 - **Simultaneous DAQs** (e.g., LabJack T8): All channels sampled simultaneously
 - **Sample rate limits**: Check your device specifications
-- **Arduino (Firmata)**: Does not support hardware-timed acquisition; use software-timed `read_analog()` only.
+- **Arduino (Firmata)**: Does not support hardware-timed acquisition — do not call `configure_ai_sample_rate()`. The background daemon (`daq.start()`) is supported: the driver manages its own streaming-based timing config internally and routes daemon calls through a callback-populated queue. Maximum sampling rate is **1000 Hz** — this is a hard limit of the Firmata wire format, which encodes the interval as a whole-millisecond integer. Requests above 1000 Hz are clamped with a warning.
 </Warning>
 
 <Note>
