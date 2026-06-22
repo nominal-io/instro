@@ -138,8 +138,6 @@ Supported `data_type` values:
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
 
-PLC string tags are not part of the Python EtherNet/IP API.
-
 ### Native batched reads
 
 `instro.unstable._ethernetip.EtherNetIpSession.read_tags()` reads several PLC tags in one native
