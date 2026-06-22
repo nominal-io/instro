@@ -17,6 +17,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
 EXAMPLE_JSON_CONFIGS = sorted(EXAMPLES_DIR.rglob("*.json"))
 ETHERNETIP_EXAMPLES = sorted((EXAMPLES_DIR / "ethernetip").glob("*.py"))
+ETHERNETIP_MYPY_PATHS = [
+    REPO_ROOT,
+    REPO_ROOT / "packages/instro-unstable",
+    REPO_ROOT / "packages/instro-ethernetip-python",
+]
 
 CONFIG_LOADERS = {
     "modbus": ModbusConfig,
@@ -47,14 +52,6 @@ def test_ethernetip_examples_type_check(tmp_path: Path) -> None:
                 "[mypy]",
                 "namespace_packages = True",
                 "explicit_package_bases = True",
-                "mypy_path = "
-                + os.pathsep.join(
-                    [
-                        str(REPO_ROOT),
-                        str(REPO_ROOT / "packages/instro-unstable"),
-                        str(REPO_ROOT / "packages/instro-ethernetip-python"),
-                    ]
-                ),
                 "",
             ]
         ),
@@ -73,6 +70,10 @@ def test_ethernetip_examples_type_check(tmp_path: Path) -> None:
         check=False,
         capture_output=True,
         text=True,
+        env={
+            **os.environ,
+            "MYPYPATH": os.pathsep.join(map(str, ETHERNETIP_MYPY_PATHS)),
+        },
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
