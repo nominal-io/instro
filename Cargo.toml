@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-ethernetip-rs",
 ]
 resolver = "2"

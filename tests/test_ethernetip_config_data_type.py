@@ -52,6 +52,26 @@ def test_required_data_type_validates_config_and_read(monkeypatch: pytest.Monkey
     assert measurement.channel_data["test_plc.speed"] == [123]
 
 
+def test_read_tag_and_write_tag_use_configured_aliases(monkeypatch: pytest.MonkeyPatch) -> None:
+    native = install_fake_native_ethernetip(monkeypatch, {"Speed": FakePlcValue(FakePlcKind.DINT, 123)})
+    instrument = EtherNetIPDevice(
+        {
+            "device": {"name": "test_plc"},
+            "connection": {"host": "192.0.2.10"},
+            "tags": [{"alias": "speed", "tag_name": "Speed", "data_type": "dint"}],
+        }
+    )
+    instrument.open()
+
+    measurement = instrument.read_tag("speed")
+    command = instrument.write_tag("speed", 42)
+
+    assert native.reads == ["Speed"]
+    assert native.writes == [("Speed", FakePlcValue(FakePlcKind.DINT, 42))]
+    assert measurement.channel_data["test_plc.speed"] == [123]
+    assert command.channel_data == {"test_plc.speed.cmd": 42}
+
+
 def test_bool_read_publishes_numeric_sample(monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_native_ethernetip(
         monkeypatch,

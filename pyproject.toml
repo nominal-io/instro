@@ -58,12 +58,13 @@ packages = ["instro"]
 dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
+    "cpppo>=4.0.0",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
     "mkdocstrings-python>=1.19.0",
     "types-requests>=2.32.4.20250913",
-    "instro-ethernetip-python",
+    "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
 ]
@@ -80,7 +81,7 @@ instro-daq-ni = { workspace = true }
 instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
-instro-ethernetip-python = { workspace = true }
+instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 
@@ -90,7 +91,7 @@ members = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -136,7 +137,7 @@ mypy_path = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]

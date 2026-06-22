@@ -106,7 +106,7 @@ When the VISA resource is an ASRL (RS-232 / RS-485) interface, `VisaDriver` appl
 
 ### Backends
 
-`VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Most callers should let the default backend drive.
+`VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Most callers should leave it unset. When unset (`None`), `instro` uses the system IVI VISA implementation (`"@ivi"`, e.g. NI-VISA or Keysight IO Libraries) and automatically falls back to the pure-Python `"@py"` backend when no IVI implementation is installed. Setting `visa_backend` to any explicit value (such as `"@ivi"`, `"@py"`, or `"@sim"`) uses that backend as-is, with no fallback.
 
 ## Building a Custom Driver
 
@@ -239,7 +239,7 @@ Top-level connection parameters.
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `visa_resource` | Yes | | VISA resource string, e.g. `TCPIP0::host::5025::SOCKET` or `USB0::0x2A8D::0x0101::MY12345::INSTR` |
-| `visa_backend` | No | `"@py"` | pyvisa backend specifier |
+| `visa_backend` | No | `None` | pyvisa backend specifier; unset uses `"@ivi"` and falls back to `"@py"` when no IVI implementation is installed. An explicit value is used as-is, with no fallback |
 | `serial_config` | No | `SerialConfig()` | Serial settings, applied only when the resource is an ASRL interface |
 | `terminator` | No | `TerminatorConfig()` | Read and write terminators |
 | `timeout` | No | `TimeoutConfig()` | Operation timeouts |
