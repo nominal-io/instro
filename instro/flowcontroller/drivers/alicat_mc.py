@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 
 
 def _default_alicat_config(visa_resource: str) -> VisaConfig:
+    """Build default VisaConfig for Alicat RS-232 at 19200 baud."""
     return VisaConfig(
         visa_resource=visa_resource,
         serial_config=SerialConfig(baud_rate=19200),
@@ -72,15 +73,19 @@ def _default_alicat_config(visa_resource: str) -> VisaConfig:
 
 @dataclass
 class GasMixEntry:
+    """One component of a custom gas mixture."""
+
     gas_percentage: Decimal  # valid to 2 digits of precision
     gas_number: int  # fetch using list_gas_types
 
     @property
     def serialized_gas_percentage(self) -> str:
+        """Gas percentage formatted to two decimal places (how alicat reads)."""
         return f"{self.gas_percentage:.2f}"
 
     @staticmethod
     def sum_mixture_percentages(entries: list[GasMixEntry]) -> Decimal:
+        """Sum percentages across all entries. Alicat expects 100.00."""
         sum = Decimal("0.00")
         for entry in entries:
             if isinstance(entry.gas_percentage, Decimal):
@@ -92,11 +97,14 @@ class GasMixEntry:
 
 @dataclass
 class GasTypeEntry:
+    """Gas type entry from the device's gas list."""
+
     identifier: int
     name: str
 
     @staticmethod
     def parse(line: str) -> GasTypeEntry:
+        """Parse one gas type line from the device gas list response."""
         # Format: '{unit_id} G{number} {name}', e.g. 'M G02      CH4 '
         fields = line.split()
         if len(fields) < 3:
@@ -106,6 +114,8 @@ class GasTypeEntry:
 
 @dataclass
 class MeasurementHeaderEntry:
+    """Parsed descriptor for one field in the device measurement frame."""
+
     index: int
     identifier: int
     name: str
@@ -115,6 +125,7 @@ class MeasurementHeaderEntry:
 
     @staticmethod
     def parse_column_spans(header_line: str) -> tuple[int, int, int, int]:
+        """Return (name, type, width, notes) column start offsets from the D00 header line."""
         # Header: 'M D00 ID_ NAME______ TYPE_______ WIDTH NOTES___'
         # Tokens 0-2 are fixed prefix fields; 3-6 are the variable-width columns.
         tokens = list(re.finditer(r"\S+", header_line))
@@ -124,6 +135,7 @@ class MeasurementHeaderEntry:
 
     @staticmethod
     def parse(line: str, col_spans: tuple[int, int, int, int]) -> MeasurementHeaderEntry:
+        """Parse one measurement descriptor line using previously determined column spans."""
         # Format: 'M D{nn} {id} {name...}{type...}{width...}{notes...}'
         # Example: 'M D02 002 Abs Press        s decimal   7/2 010 02 PSIA'
         slot = line[2:5]  # 'D01', 'D02', ...
@@ -167,12 +179,15 @@ class AlicatMC(FlowControllerDriverBase):
         self.measurement_headings = []
 
     def open(self) -> None:
+        """Open the VISA transport."""
         self._visa.open()
 
     def close(self) -> None:
+        """Close the VISA transport."""
         self._visa.close()
 
     def _query_checked(self, command: str) -> str:
+        """Query the device and raise RuntimeError if the response is '?'."""
         response = self._visa.query(command)
         if response == "?":
             raise RuntimeError(f"Error running command {command}, device returned ?")
@@ -180,6 +195,7 @@ class AlicatMC(FlowControllerDriverBase):
 
     ###TARE
     def tare_flow(self) -> FlowData:
+        """Zero the flow reading; device must have zero flow and must support tare."""
         try:
             response = self._query_checked(f"{self.unit_id}v")
         except RuntimeError as e:
@@ -189,6 +205,7 @@ class AlicatMC(FlowControllerDriverBase):
         return self._parse_flowdata(response)
 
     def tare_barometer(self) -> FlowData:
+        """Zero the barometer reading; device must support barometer tare."""
         try:
             response = self._query_checked(f"{self.unit_id}pc")
         except RuntimeError as e:
@@ -199,10 +216,11 @@ class AlicatMC(FlowControllerDriverBase):
 
     ###GAS TYPES
     def list_gas_types(self, refresh=False) -> list[GasTypeEntry]:
+        """Return all gas types the device supports; cached after first call unless refresh=True."""
         if self.known_gas_types is None or len(self.known_gas_types) == 0 or refresh:
             gas_types_list: list[GasTypeEntry] = []
-            with self._visa.temporary_timeout(250):
-                with self._visa.lock():
+            with self._visa.temporary_timeout(250): #we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock(): #lock across the entire write+manyread op
                     self._visa.write(f"{self.unit_id}??g*")
                     for _ in range(256):
                         gas_type_line = None
@@ -210,9 +228,9 @@ class AlicatMC(FlowControllerDriverBase):
                             gas_type_line = self._visa.read()
                         except VisaIOError as e:  # we expect a timeout when we run out of items to read
                             if e.abbreviation == "VI_ERROR_TMO":
-                                break
+                                break #this means we've hit the last line and can exit
                             else:
-                                raise
+                                raise #unexpected error - reraise
                         if gas_type_line:
                             try:
                                 gas_type = GasTypeEntry.parse(gas_type_line)
@@ -226,6 +244,7 @@ class AlicatMC(FlowControllerDriverBase):
         return gas_types_list
 
     def select_gas(self, gas_name: str) -> str:
+        """Select the active gas by name and return the confirmed gas name."""
         if not self.known_gas_types:
             self.list_gas_types()
         gas_number = None
@@ -271,14 +290,16 @@ class AlicatMC(FlowControllerDriverBase):
 
     ###Normal Operation
     def get_flow_data(self) -> FlowData:
+        """Poll the device for a single measurement frame."""
         response = self._query_checked(self.unit_id)
         return self._parse_flowdata(response)
 
     def get_flow_sample_metadata(self, refresh=False) -> list[MeasurementHeaderEntry]:
+        """Return measurement field descriptors; cached after first call unless refresh=True."""
         if self.measurement_headings is None or len(self.measurement_headings) == 0 or refresh:
             headings_list: list[MeasurementHeaderEntry] = []
-            with self._visa.temporary_timeout(250):
-                with self._visa.lock():
+            with self._visa.temporary_timeout(250):#we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock():#lock across the entire write+manyread op
                     self._visa.write(f"{self.unit_id}??d*")
                     heading_col_widths = None
                     for i in range(50):
@@ -309,11 +330,17 @@ class AlicatMC(FlowControllerDriverBase):
         return headings_list
 
     def set_setpoint(self, setpt: float) -> float:
+        """Command a float setpoint in the device's configured engineering units.
+        
+        You can fetch the current units for each value  using `get_flow_sample_metadata`
+        or on the front panel of the device itself.
+        """
         response = self._query_checked(f"{self.unit_id}s{setpt}")
         flowdata = self._parse_flowdata(response)
         return flowdata.setpoint
 
     def set_setpoint_int(self, setpt: float, full_scale_range: float, range_minimum: float) -> float:
+        """Command a setpoint using integer encoding for the given full-scale range and minimum."""
         setpoint_integer = int(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
         response = self._query_checked(f"{self.unit_id}{setpoint_integer}")
         flowdata = self._parse_flowdata(response)
@@ -321,18 +348,28 @@ class AlicatMC(FlowControllerDriverBase):
 
     ###Hold commands
     def hold_valve_at_position(self) -> FlowData:
+        """Hold the valve at its current position.
+        
+        Use `cancel_valve_hold` to remove the hold.
+        """
         response = self._query_checked(f"{self.unit_id}hp")
         return self._parse_flowdata(response)
 
     def hold_valve_closed(self) -> FlowData:
+        """Hold the valve closed.
+        
+        Use `cancel_valve_hold` to remove the hold.
+        """
         response = self._query_checked(f"{self.unit_id}hc")
         return self._parse_flowdata(response)
 
     def cancel_valve_hold(self) -> FlowData:
+        """Release any active valve hold and return to normal setpoint control."""
         response = self._query_checked(f"{self.unit_id}c")
         return self._parse_flowdata(response)
 
     def _parse_flowdata(self, response: str) -> FlowData:
+        """Parse one device ASCII response into a FlowData snapshot."""
         # order: Unit[0], Abs press[1], flow temp[2], volu flow[3], mass flow[4], mass flow setpt[5], gas[6], status[7+]
         # area for improvement: use get_flow_sample_metadata to dynamically determine order
         fields = response.split()
