@@ -66,7 +66,8 @@
                   "instrumentation/protocols/i2c/system-definition"
                 ]
               },
-              "instrumentation/protocols/modbus"
+              "instrumentation/protocols/modbus",
+              "instrumentation/protocols/ethernetip"
             ]
           },
           {
@@ -152,6 +153,14 @@
               "instrumentation/examples/modbus/minimal_example",
               "instrumentation/examples/modbus/modbus_example",
               "instrumentation/examples/modbus/programmatic_config_example"
+            ]
+          },
+          {
+            "group": "EtherNet/IP",
+            "pages": [
+              "instrumentation/examples/ethernetip/ethernetip_example",
+              "instrumentation/examples/ethernetip/minimal_example",
+              "instrumentation/examples/ethernetip/programmatic_config_example"
             ]
           },
           {

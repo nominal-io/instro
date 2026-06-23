@@ -15,7 +15,7 @@ members = [
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-daq-ni",
-    "instro-ethernetip-python",
+    "instro-ethernetip",
     "instro-i2c-aardvark",
     "instro-unstable",
 ]
@@ -524,8 +524,9 @@ nidaq = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cpppo" },
     { name = "instro-contrib" },
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
     { name = "instro-unstable" },
     { name = "mkdocs" },
     { name = "mkdocs-material" },
@@ -572,8 +573,9 @@ provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "cont
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cpppo", specifier = ">=4.0.0" },
     { name = "instro-contrib", editable = "packages/instro-contrib" },
-    { name = "instro-ethernetip-python", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip", editable = "packages/instro-ethernetip" },
     { name = "instro-unstable", editable = "packages/instro-unstable" },
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "mkdocs-material", specifier = ">=9.7.0" },
@@ -645,9 +647,15 @@ requires-dist = [
 ]
 
 [[package]]
+<<<<<<< dalvarez/instro-125-featcli-add-nominal-instro-discover-command
 name = "instro-ethernetip-python"
 version = "0.2.0"
 source = { editable = "packages/instro-ethernetip-python" }
+=======
+name = "instro-ethernetip"
+version = "0.2.0"
+source = { editable = "packages/instro-ethernetip" }
+>>>>>>> main
 dependencies = [
     { name = "instro" },
 ]
@@ -680,17 +688,17 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
 ]
 ethernetip = [
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "instro", editable = "." },
-    { name = "instro-ethernetip-python", marker = "extra == 'all'", editable = "packages/instro-ethernetip-python" },
-    { name = "instro-ethernetip-python", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip", marker = "extra == 'all'", editable = "packages/instro-ethernetip" },
+    { name = "instro-ethernetip", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip" },
 ]
 provides-extras = ["ethernetip", "all"]
 

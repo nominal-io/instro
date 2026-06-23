@@ -1,10 +1,10 @@
 {
-  ".": "0.11.0",
+  ".": "0.12.0",
   "packages/instro-daq-labjack": "0.7.1",
   "packages/instro-daq-mcc": "0.5.1",
   "packages/instro-daq-ni": "0.7.1",
   "packages/instro-i2c-aardvark": "0.2.1",
-  "packages/instro-unstable": "0.1.0",
-  "packages/instro-ethernetip-python": "0.2.0",
+  "packages/instro-unstable": "0.2.0",
+  "packages/instro-ethernetip": "0.2.0",
   "packages/instro-contrib": "0.1.1"
 }
