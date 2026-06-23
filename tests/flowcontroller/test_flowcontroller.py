@@ -7,13 +7,14 @@ import pytest
 from instro.flowcontroller import FlowControllerDriverBase, FlowData, InstroFlowController
 
 mock_flow_data = FlowData(
-        pressure=13.5424,
-        temperature=24.5782,
-        vol_flow=16.6670,
-        mass_flow=15.4443,
-        setpoint=25.0,
-        gas="N2",
-    )
+    pressure=13.5424,
+    temperature=24.5782,
+    vol_flow=16.6670,
+    mass_flow=15.4443,
+    setpoint=25.0,
+    gas="N2",
+)
+
 
 def _stub_driver() -> MagicMock:
     driver = MagicMock(spec=FlowControllerDriverBase)

@@ -177,7 +177,8 @@
           {
             "group": "Flowcontroller",
             "pages": [
-              "instrumentation/examples/flowcontroller/flowcontroller"
+              "instrumentation/examples/flowcontroller/flowcontroller",
+              "instrumentation/examples/flowcontroller/drivers/alicat_mc"
             ]
           }
         ]

@@ -219,8 +219,10 @@ class AlicatMC(FlowControllerDriverBase):
         """Return all gas types the device supports; cached after first call unless refresh=True."""
         if self.known_gas_types is None or len(self.known_gas_types) == 0 or refresh:
             gas_types_list: list[GasTypeEntry] = []
-            with self._visa.temporary_timeout(250): #we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
-                with self._visa.lock(): #lock across the entire write+manyread op
+            with self._visa.temporary_timeout(
+                250
+            ):  # we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock():  # lock across the entire write+manyread op
                     self._visa.write(f"{self.unit_id}??g*")
                     for _ in range(256):
                         gas_type_line = None
@@ -228,9 +230,9 @@ class AlicatMC(FlowControllerDriverBase):
                             gas_type_line = self._visa.read()
                         except VisaIOError as e:  # we expect a timeout when we run out of items to read
                             if e.abbreviation == "VI_ERROR_TMO":
-                                break #this means we've hit the last line and can exit
+                                break  # this means we've hit the last line and can exit
                             else:
-                                raise #unexpected error - reraise
+                                raise  # unexpected error - reraise
                         if gas_type_line:
                             try:
                                 gas_type = GasTypeEntry.parse(gas_type_line)
@@ -298,8 +300,10 @@ class AlicatMC(FlowControllerDriverBase):
         """Return measurement field descriptors; cached after first call unless refresh=True."""
         if self.measurement_headings is None or len(self.measurement_headings) == 0 or refresh:
             headings_list: list[MeasurementHeaderEntry] = []
-            with self._visa.temporary_timeout(250):#we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
-                with self._visa.lock():#lock across the entire write+manyread op
+            with self._visa.temporary_timeout(
+                250
+            ):  # we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock():  # lock across the entire write+manyread op
                     self._visa.write(f"{self.unit_id}??d*")
                     heading_col_widths = None
                     for i in range(50):
@@ -331,7 +335,7 @@ class AlicatMC(FlowControllerDriverBase):
 
     def set_setpoint(self, setpt: float) -> float:
         """Command a float setpoint in the device's configured engineering units.
-        
+
         You can fetch the current units for each value  using `get_flow_sample_metadata`
         or on the front panel of the device itself.
         """
@@ -349,7 +353,7 @@ class AlicatMC(FlowControllerDriverBase):
     ###Hold commands
     def hold_valve_at_position(self) -> FlowData:
         """Hold the valve at its current position.
-        
+
         Use `cancel_valve_hold` to remove the hold.
         """
         response = self._query_checked(f"{self.unit_id}hp")
@@ -357,7 +361,7 @@ class AlicatMC(FlowControllerDriverBase):
 
     def hold_valve_closed(self) -> FlowData:
         """Hold the valve closed.
-        
+
         Use `cancel_valve_hold` to remove the hold.
         """
         response = self._query_checked(f"{self.unit_id}hc")
