@@ -1,4 +1,4 @@
-"""Tests for the flow-controller driver shape: AlicatMC owning VisaDriver, and InstroFlowController delegating to its driver."""
+"""Tests for the AlicatMC driver: transport ownership, wire commands, and helpers."""
 
 from collections.abc import Iterator
 from decimal import Decimal
@@ -6,11 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.flowcontroller import FlowControllerDriverBase, FlowData, InstroFlowController
-from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry, _parse_response
-from instro.utils.transports import SerialConfig, VisaConfig
-
-# --- AlicatMC unit tests (driver-owned transport over a mocked VisaDriver) ---
+from instro.flowcontroller import FlowData
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
+from instro.lib.transports.visa import SerialConfig, VisaConfig
 
 _SAMPLE_RESPONSE = "A +13.5424 +24.5782 +16.6670 +15.4443 +25.0000 N2"
 
@@ -105,42 +103,7 @@ def test_custom_device_id_is_used(visa_driver_cls: MagicMock) -> None:
     visa.query.assert_called_once_with("B")
 
 
-# --- _parse_response unit tests ---
-
-
-def test_parse_response_extracts_all_fields() -> None:
-    data = _parse_response(_SAMPLE_RESPONSE, "A")
-    assert data == FlowData(
-        pressure=13.5424,
-        temperature=24.5782,
-        vol_flow=16.6670,
-        mass_flow=15.4443,
-        setpoint=25.0,
-        gas="N2",
-    )
-
-
-def test_parse_response_ignores_trailing_status_codes() -> None:
-    response = "A +0.0000 +0.0000 +0.0000 +14.7000 +25.0000 Air HLD"
-    data = _parse_response(response, "A")
-    assert data.gas == "Air"
-
-
-def test_parse_response_raises_on_short_response() -> None:
-    with pytest.raises(RuntimeError, match="short response"):
-        _parse_response("A +1.0 +2.0", "A")
-
-
-def test_parse_response_raises_on_id_mismatch() -> None:
-    with pytest.raises(RuntimeError, match="does not match device ID"):
-        _parse_response(_SAMPLE_RESPONSE, "B")
-
-
-def test_parse_response_id_comparison_is_case_insensitive() -> None:
-    _parse_response(_SAMPLE_RESPONSE, "a")  # device responds "A", we used "a"
-
-
-# --- GasMixEntry.sum_mixture_percentages unit tests ---
+# --- GasMixEntry.sum_mixture_percentages ---
 
 
 def test_sum_mixture_percentages_exact_100() -> None:
@@ -206,100 +169,3 @@ def test_define_gas_mixture_raises_when_sum_above_100(alicat: AlicatMC) -> None:
     mixture = [GasMixEntry(Decimal("50.01"), 1), GasMixEntry(Decimal("50.00"), 8)]
     with pytest.raises(ValueError, match="must sum to 100"):
         alicat.define_gas_mixture("MIX", mixture)
-
-
-# --- InstroFlowController composition tests ---
-
-
-def _stub_driver() -> MagicMock:
-    driver = MagicMock(spec=FlowControllerDriverBase)
-    driver.get_flow_data.return_value = FlowData(
-        pressure=13.5424,
-        temperature=24.5782,
-        vol_flow=16.6670,
-        mass_flow=15.4443,
-        setpoint=25.0,
-        gas="N2",
-    )
-    driver.set_setpoint.return_value = 50.0
-    return driver
-
-
-def test_instro_flow_controller_stores_driver() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    assert fc._driver is driver
-
-
-def test_instro_flow_controller_open_close_delegate_to_driver() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    fc.open()
-    driver.open.assert_called_once()
-    fc.close()
-    driver.close.assert_called_once()
-
-
-def test_instro_flow_controller_close_stops_background_before_driver() -> None:
-    events: list[str] = []
-    driver = _stub_driver()
-    driver.close.side_effect = lambda: events.append("driver.close")
-    fc = InstroFlowController(name="ut", driver=driver)
-    fc.stop = MagicMock(side_effect=lambda: events.append("stop"))  # type: ignore[method-assign]
-
-    fc.close()
-
-    assert events == ["stop", "driver.close"]
-
-
-def test_get_flow_data_returns_measurement() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    measurement = fc.get_flow_data()
-    assert measurement is not None
-    assert "ut.mass_flow" in measurement.channel_data
-    assert measurement.channel_data["ut.mass_flow"] == [pytest.approx(15.4443)]
-
-
-def test_get_flow_data_publishes_all_fields() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    measurement = fc.get_flow_data()
-    assert measurement is not None
-    keys = set(measurement.channel_data.keys())
-    assert keys == {
-        "ut.setpoint",
-        "ut.mass_flow",
-        "ut.vol_flow",
-        "ut.pressure",
-        "ut.temperature",
-    }
-
-
-def test_set_setpoint_delegates() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    fc.set_setpoint(50.0)
-    driver.set_setpoint.assert_called_once_with(50.0)
-
-
-def test_set_setpoint_returns_command() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    cmd = fc.set_setpoint(50.0)
-    assert "ut.setpoint.cmd" in cmd.channel_data
-    assert cmd.channel_data["ut.setpoint.cmd"] == 50.0
-
-
-def test_select_gas_delegates() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    fc.select_gas("N2")
-    driver.select_gas.assert_called_once_with("N2")
-
-
-def test_tare_flow_delegates() -> None:
-    driver = _stub_driver()
-    fc = InstroFlowController(name="ut", driver=driver)
-    fc.tare_flow()
-    driver.tare_flow.assert_called_once_with()
