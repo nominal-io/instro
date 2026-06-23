@@ -172,6 +172,8 @@ class MatrixWPS300S(PSUDriverBase):
             raise ValueError(f"The {self.FRIENDLY_NAME} supports only channel 1")
 
     def _check_errors(self) -> None:
-        err = self._query("SYST:ERR?")
-        if err.lower() != "no error":
-            raise RuntimeError(f"The {self.FRIENDLY_NAME} reported error: {err.strip()}")
+        return
+        # The logic below needs to be hardware-tested -- one user reported success, another reported console errors
+        # err = self._query("SYST:ERR?")
+        # if err.lower() != "no error":
+        #     raise RuntimeError(f"The {self.FRIENDLY_NAME} reported error: {err.strip()}")
