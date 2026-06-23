@@ -116,8 +116,6 @@ class MatrixWPS300S(PSUDriverBase):
         self._require_channel(channel)
         raise FeatureNotSupportedError(f"get_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}")
 
-
-
     def _throttle(self) -> None:
         if not self._command_interval:
             return
@@ -147,7 +145,7 @@ class MatrixWPS300S(PSUDriverBase):
             raise
         finally:
             self._last_io_time = time.monotonic()
-    
+
     def _require_channel(self, channel: int) -> None:
         if channel != 1:
             raise ValueError(f"The {self.FRIENDLY_NAME} supports only channel 1")
