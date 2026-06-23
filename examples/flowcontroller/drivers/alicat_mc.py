@@ -1,4 +1,4 @@
-"""A simple example script for exercising the functions of the underlying alicat driver.
+"""Example: Alicat MC low-level control.
 
 Most users should instead use the very high level tooling provided by InstroFlowController.
 For lower-level control, including the ability to query metadata from the device, the driver
@@ -7,8 +7,8 @@ can be accessed directly.
 
 from decimal import Decimal
 
-from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
-from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry
+from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL7::INSTR"
 device = AlicatMC(

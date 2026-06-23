@@ -1,4 +1,4 @@
-"""Example: FlowController: alicat_mc.
+"""Example: InstroFlowController w/ Alicat MC.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
