@@ -91,7 +91,7 @@ class CpppoTestServer:
 
         try:
             enip_main(
-                argv=tag_args + ["--address", f"{self.address}:{self.port}"],
+                argv=build_cpppo_argv(tag_args, self.address, self.port),
                 idle_service=idle_sync,
             )
         except KeyboardInterrupt:
@@ -109,12 +109,11 @@ def reserve_local_port(address: str) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_sock:
         tcp_sock.bind((address, 0))
         tcp_sock.listen(1)
-        port = tcp_sock.getsockname()[1]
+        return tcp_sock.getsockname()[1]
 
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_sock:
-            udp_sock.bind((address, port))
 
-        return port
+def build_cpppo_argv(tag_args: list[str], address: str, port: int) -> list[str]:
+    return tag_args + ["--address", f"{address}:{port}", "--no-udp"]
 
 
 def is_retryable_bind_error(error: Exception | None) -> bool:
