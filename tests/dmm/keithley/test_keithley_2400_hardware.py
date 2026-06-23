@@ -34,12 +34,9 @@ import pytest
 
 from instro.dmm import InstroDMM, MeasurementFunction
 from instro.dmm.drivers import Keithley2400
-from instro.lib.transports import SerialConfig, VisaConfig
 
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
 VISA_RESOURCE = "ASRL5::INSTR"  # <-- edit to your serial port (COM5)
-BAUD_RATE = 9600  # <-- match the 2400's front-panel RS-232 baud setting
-VISA_BACKEND = "@py"  # <-- pyvisa backend; "@py" for pyvisa-py, None for system IVI/NI-VISA
 
 # Strict value checks. Leave None for open terminals (structural checks only).
 # Set one to the known stimulus value (in the function's base units) to enable a
@@ -61,13 +58,7 @@ _FUNCTION_SWEEP = [
 def _make_hal() -> InstroDMM:
     hal = InstroDMM(
         name="hw_validate",
-        driver=Keithley2400(
-            VisaConfig(
-                visa_resource=VISA_RESOURCE,
-                visa_backend=VISA_BACKEND,
-                serial_config=SerialConfig(baud_rate=BAUD_RATE),
-            )
-        ),
+        driver=Keithley2400(VISA_RESOURCE),
         publishers=None,
     )
     hal.open()
