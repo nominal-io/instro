@@ -153,7 +153,9 @@ testpaths = ["tests"]
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
 # --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
 # (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
+# --ignore=tests/daq/arduino: arduino tests depend on the optional `arduino` extra
+# (pyfirmata2; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/arduino`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/daq/arduino"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]
