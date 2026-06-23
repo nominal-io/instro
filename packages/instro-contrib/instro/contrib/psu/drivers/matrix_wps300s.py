@@ -47,42 +47,57 @@ class MatrixWPS300S(PSUDriverBase):
     def set_voltage(self, voltage: float, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write(f"VOLT {voltage:.3f}")
+        self._check_errors()
 
     def get_voltage(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return float(self._query("MEAS:VOLT?"))
+        voltage = float(self._query("MEAS:VOLT?"))
+        self._check_errors()
+        return voltage
 
     def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write(f"CURR {current_limit:.4f}")
+        self._check_errors()
 
     def get_current(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return float(self._query("MEAS:CURR?"))
+        current = float(self._query("MEAS:CURR?"))
+        self._check_errors()
+        return current
 
     def output_enable(self, enable: bool, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write("OUTP ON" if enable else "OUTP OFF")
+        self._check_errors()
 
     def get_output_status(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query("OUTP?").strip().upper() in {"1", "ON"}
+        status = self._query("OUTP?").strip().upper() in {"1", "ON"}
+        self._check_errors()
+        return status
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
         self._require_channel(channel)
+        self._check_errors()
         self._write(f"VOLT:PROT {voltage:.3f}")
 
     def get_overvoltage_protection_level(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return float(self._query("VOLT:PROT:LEV?"))
+        level = float(self._query("VOLT:PROT?"))
+        self._check_errors()
+        return level
 
     def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write(f"VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
+        self._check_errors()
 
     def get_overvoltage_protection_enabled(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query("VOLT:PROT:STAT?").strip().upper() in {"1", "ON"}
+        enabled = self._query("VOLT:PROT:STAT?").strip().upper() in {"1", "ON"}
+        self._check_errors()
+        return enabled
 
     def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
         self._require_channel(channel)
@@ -95,18 +110,24 @@ class MatrixWPS300S(PSUDriverBase):
     def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write(f"CURR:PROT {current:.4f}")
+        self._check_errors()
 
     def get_overcurrent_protection_level(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return float(self._query("CURR:PROT?"))
+        level = float(self._query("CURR:PROT?"))
+        self._check_errors()
+        return level
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
         self._require_channel(channel)
         self._write(f"CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
+        self._check_errors()
 
     def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query("CURR:PROT:STAT?").strip().upper() in {"1", "ON"}
+        enabled = self._query("CURR:PROT:STAT?").strip().upper() in {"1", "ON"}
+        self._check_errors()
+        return enabled
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         self._require_channel(channel)
@@ -149,3 +170,8 @@ class MatrixWPS300S(PSUDriverBase):
     def _require_channel(self, channel: int) -> None:
         if channel != 1:
             raise ValueError(f"The {self.FRIENDLY_NAME} supports only channel 1")
+
+    def _check_errors(self) -> None:
+        err = self._query("SYST:ERR?")
+        if err.lower() != "no error":
+            raise RuntimeError(f"The {self.FRIENDLY_NAME} reported error: {err.strip()}")

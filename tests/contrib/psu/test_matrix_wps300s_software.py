@@ -26,7 +26,7 @@ def wps_visa(wps_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def wps(wps_visa_cls: MagicMock) -> MatrixWPS300S:
-    return MatrixWPS300S("ASRL1::INSTR", op_interval=0)
+    return MatrixWPS300S("ASRL1::INSTR", command_interval=0)
 
 
 def test_wps_set_voltage_writes_command(wps: MatrixWPS300S, wps_visa: MagicMock) -> None:
