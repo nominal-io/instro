@@ -182,6 +182,7 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 | `ulint` | `int` | Yes | 64-bit unsigned integer. Implemented, but not validated. |
 | `real` | `float` | Yes | 32-bit floating point. |
 | `lreal` | `float` | Yes | 64-bit floating point. |
+| `string` | N/A | No | Allen-Bradley Logix `STRING` tags (`LEN` as `DINT`, `DATA` as `SINT[]`) are not supported |
 
 <Warning>
 The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. `EtherNetIPDevice.read_tag()` raises `TypeError`.
