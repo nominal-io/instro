@@ -309,13 +309,11 @@ class AlicatMC(FlowControllerDriverBase):
         return headings_list
 
     def set_setpoint(self, setpt: float) -> float:
-        # Device echoes an updated data frame; consume it to keep the buffer clean.
         response = self._query_checked(f"{self.unit_id}s{setpt}")
         flowdata = self._parse_flowdata(response)
         return flowdata.setpoint
 
     def set_setpoint_int(self, setpt: float, full_scale_range: float, range_minimum: float) -> float:
-        # Device echoes an updated data frame; consume it to keep the buffer clean.
         setpoint_integer = int(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
         response = self._query_checked(f"{self.unit_id}{setpoint_integer}")
         flowdata = self._parse_flowdata(response)

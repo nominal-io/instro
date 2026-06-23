@@ -6,10 +6,7 @@ import pytest
 
 from instro.flowcontroller import FlowControllerDriverBase, FlowData, InstroFlowController
 
-
-def _stub_driver() -> MagicMock:
-    driver = MagicMock(spec=FlowControllerDriverBase)
-    driver.get_flow_data.return_value = FlowData(
+mock_flow_data = FlowData(
         pressure=13.5424,
         temperature=24.5782,
         vol_flow=16.6670,
@@ -17,6 +14,10 @@ def _stub_driver() -> MagicMock:
         setpoint=25.0,
         gas="N2",
     )
+
+def _stub_driver() -> MagicMock:
+    driver = MagicMock(spec=FlowControllerDriverBase)
+    driver.get_flow_data.return_value = mock_flow_data
     driver.set_setpoint.return_value = 50.0
     return driver
 
@@ -54,7 +55,7 @@ def test_get_flow_data_returns_measurement() -> None:
     measurement = fc.get_flow_data()
     assert measurement is not None
     assert "ut.mass_flow" in measurement.channel_data
-    assert measurement.channel_data["ut.mass_flow"] == [pytest.approx(15.4443)]
+    assert measurement.channel_data["ut.mass_flow"] == [pytest.approx(mock_flow_data.mass_flow)]
 
 
 def test_get_flow_data_publishes_all_fields() -> None:
