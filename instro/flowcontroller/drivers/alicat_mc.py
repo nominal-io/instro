@@ -6,7 +6,7 @@ https://documents.alicat.com/manuals/Gas_Flow_Controller_Manual.pdf
 """
 
 
-# Features expected:
+# Driver features expected:
 # Tare
 # [unitid]v\r
 # Barometer tare
@@ -330,27 +330,24 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(f"{self.unit_id}hc")
         return self._parse_flowdata(response)
 
-    def cancel_valve_hold(self) -> str:
+    def cancel_valve_hold(self) -> FlowData:
         response = self._query_checked(f"{self.unit_id}c")
-        return response
+        return self._parse_flowdata(response)
 
     def _parse_flowdata(self, response: str) -> FlowData:
-        return _parse_response(response, self.unit_id)
-
-
-def _parse_response(response: str, unit_id: str) -> FlowData:
-    # order: Unit[0], Abs press[1], flow temp[2], volu flow[3], mass flow[4], mass flow setpt[5], gas[6], status[7+]
-    fields = response.split()
-    if len(fields) < 7:
-        raise RuntimeError(f"AlicatMC: short response from {unit_id!r}: {response!r}")
-    if fields[0].upper() != unit_id.upper():
-        raise RuntimeError(f"AlicatMC: response ID {fields[0]!r} does not match device ID {unit_id!r}")
-    return FlowData(
-        pressure=float(fields[1]),
-        temperature=float(fields[2]),
-        vol_flow=float(fields[3]),
-        mass_flow=float(fields[4]),
-        setpoint=float(fields[5]),
-        gas=fields[6],
-        status_flags=set(fields[7:]),
-    )
+        # order: Unit[0], Abs press[1], flow temp[2], volu flow[3], mass flow[4], mass flow setpt[5], gas[6], status[7+]
+        # area for improvement: use get_flow_sample_metadata to dynamically determine order
+        fields = response.split()
+        if len(fields) < 7:
+            raise RuntimeError(f"AlicatMC: short response from {self.unit_id!r}: {response!r}")
+        if fields[0].upper() != self.unit_id.upper():
+            raise RuntimeError(f"AlicatMC: response ID {fields[0]!r} does not match device ID {self.unit_id!r}")
+        return FlowData(
+            pressure=float(fields[1]),
+            temperature=float(fields[2]),
+            vol_flow=float(fields[3]),
+            mass_flow=float(fields[4]),
+            setpoint=float(fields[5]),
+            gas=fields[6],
+            status_flags=set(fields[7:]),
+        )
