@@ -1,3 +1,8 @@
+---
+title: "A simple example script for exercising the functions of the underlying alicat driver"
+---
+
+```python alicat_mc.py
 """A simple example script for exercising the functions of the underlying alicat driver.
 
 Most users should instead use the very high level tooling provided by InstroFlowController.
@@ -77,3 +82,4 @@ print(f"Current flow reading = {device.get_flow_data()}")
 print(f"Un-forcing valve closed on alicat")
 print(device.cancel_valve_hold())
 print(f"Current flow reading = {device.get_flow_data()}")
+```
