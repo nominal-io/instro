@@ -474,7 +474,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.11.0"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -647,15 +647,9 @@ requires-dist = [
 ]
 
 [[package]]
-<<<<<<< dalvarez/instro-125-featcli-add-nominal-instro-discover-command
-name = "instro-ethernetip-python"
-version = "0.2.0"
-source = { editable = "packages/instro-ethernetip-python" }
-=======
 name = "instro-ethernetip"
 version = "0.2.0"
 source = { editable = "packages/instro-ethernetip" }
->>>>>>> main
 dependencies = [
     { name = "instro" },
 ]
@@ -680,7 +674,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-unstable"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },
