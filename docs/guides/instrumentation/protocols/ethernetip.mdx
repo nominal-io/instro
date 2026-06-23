@@ -188,6 +188,10 @@ The config-driven API supports scalar PLC tag types. The `data_type` field is re
 The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. `EtherNetIPDevice.read_tag()` raises `TypeError`.
 </Warning>
 
+### Strings
+
+Allen-Bradley Logix `STRING` tags are encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`), which is unsupported at this time. Furthermore, string measurements are not supported by Nominal Core or Nominal Connect.
+
 ### Batched reads
 
 Use the private native session to read several PLC tags in one request:
