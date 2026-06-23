@@ -70,9 +70,9 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "480010575"
+DEVICE_ID = "LABJACK T8 SERIAL NUMBER"
 NAME = "t8_validate"
-DATASET_RID = "ri.catalog.cerulean-staging.dataset.d812e9c2-8368-40e1-8a28-d2801cd71b16"
+DATASET_RID = None 
 
 # Analog channels
 AI_CHANNEL_0, AI_ALIAS_0 = "AIN0", "ain0"   # DAC0 loopback
