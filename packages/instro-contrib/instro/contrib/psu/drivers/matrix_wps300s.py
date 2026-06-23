@@ -2,6 +2,8 @@
 
 import time
 
+from pyvisa.errors import VisaIOError
+
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
@@ -11,13 +13,19 @@ class MatrixWPS300S(PSUDriverBase):
     """Matrix WPS300S-series single-channel programmable DC PSU.
 
     Tested against the WPS300S-150-5 (0–150 V, 0–5 A, 300 W).
-    Protocol: SCPI over RS-232, 9600 baud 8-N-1, CRLF termination
+    Protocol: SCPI over RS-232, 9600 baud 8-N-1.
+
+    The PSU's UART silently drops characters if commands arrive back-to-back, so
+    every read and write is paced through ``command_interval``.
 
     """
 
     FRIENDLY_NAME = "Matrix WPS300S-series PSU"
+    _command_interval: float | None
+    _last_io_time: float
+    _visa: VisaDriver
 
-    def __init__(self, visa_resource: str | VisaConfig, op_interval: float | None = 0.2) -> None:
+    def __init__(self, visa_resource: str | VisaConfig, command_interval: float | None = 0.2) -> None:
         if isinstance(visa_resource, VisaConfig):
             visaConf = visa_resource
         else:
@@ -27,8 +35,8 @@ class MatrixWPS300S(PSUDriverBase):
                 terminator=TerminatorConfig(read="\r\n", write="\r\n"),
             )
         self._visa = VisaDriver(visaConf)
-        self._op_interval = op_interval
-        self._last_op_time: float = 0.0
+        self._command_interval = command_interval
+        self._last_io_time: float = 0.0
 
     def open(self) -> None:
         self._visa.open()
@@ -36,69 +44,69 @@ class MatrixWPS300S(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int) -> None:
+    def set_voltage(self, voltage: float, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"VOLT {voltage:.3f}")
+        self._write(f"VOLT {voltage:.3f}")
 
-    def get_voltage(self, channel: int) -> float:
+    def get_voltage(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return self._query_checked_float("MEAS:VOLT?")
+        return float(self._query("MEAS:VOLT?"))
 
-    def set_current_limit(self, current_limit: float, channel: int) -> None:
+    def set_current_limit(self, current_limit: float, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"CURR {current_limit:.4f}")
+        self._write(f"CURR {current_limit:.4f}")
 
-    def get_current(self, channel: int) -> float:
+    def get_current(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return self._query_checked_float("MEAS:CURR?")
+        return float(self._query("MEAS:CURR?"))
 
-    def output_enable(self, enable: bool, channel: int) -> None:
+    def output_enable(self, enable: bool, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked("OUTP ON" if enable else "OUTP OFF")
+        self._write("OUTP ON" if enable else "OUTP OFF")
 
-    def get_output_status(self, channel: int) -> bool:
+    def get_output_status(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query_checked_bool("OUTP?")
+        return self._query("OUTP?").strip().upper() in {"1", "ON"}
 
-    def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"VOLT:PROT {voltage:.3f}")
+        self._write(f"VOLT:PROT {voltage:.3f}")
 
-    def get_overvoltage_protection_level(self, channel: int) -> float:
+    def get_overvoltage_protection_level(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return self._query_checked_float("VOLT:PROT?")
+        return float(self._query("VOLT:PROT:LEV?"))
 
-    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
+        self._write(f"VOLT:PROT:STAT {'ON' if enabled else 'OFF'}")
 
-    def get_overvoltage_protection_enabled(self, channel: int) -> bool:
+    def get_overvoltage_protection_enabled(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query_checked_bool("VOLT:PROT:STAT?")
+        return self._query("VOLT:PROT:STAT?").strip().upper() in {"1", "ON"}
 
-    def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
+    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1) -> None:
         self._require_channel(channel)
         raise FeatureNotSupportedError(f"set_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
-    def get_overvoltage_protection_delay(self, channel: int) -> float:
+    def get_overvoltage_protection_delay(self, channel: int = 1) -> float:
         self._require_channel(channel)
         raise FeatureNotSupportedError(f"get_overvoltage_protection_delay is not supported by the {self.FRIENDLY_NAME}")
 
-    def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"CURR:PROT {current:.4f}")
+        self._write(f"CURR:PROT {current:.4f}")
 
-    def get_overcurrent_protection_level(self, channel: int) -> float:
+    def get_overcurrent_protection_level(self, channel: int = 1) -> float:
         self._require_channel(channel)
-        return self._query_checked_float("CURR:PROT?")
+        return float(self._query("CURR:PROT?"))
 
-    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1) -> None:
         self._require_channel(channel)
-        self._write_checked(f"CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
+        self._write(f"CURR:PROT:STAT {'ON' if enabled else 'OFF'}")
 
-    def get_overcurrent_protection_enabled(self, channel: int) -> bool:
+    def get_overcurrent_protection_enabled(self, channel: int = 1) -> bool:
         self._require_channel(channel)
-        return self._query_checked_bool("CURR:PROT:STAT?")
+        return self._query("CURR:PROT:STAT?").strip().upper() in {"1", "ON"}
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         self._require_channel(channel)
@@ -108,41 +116,38 @@ class MatrixWPS300S(PSUDriverBase):
         self._require_channel(channel)
         raise FeatureNotSupportedError(f"get_remote_sense_enabled is not supported by the {self.FRIENDLY_NAME}")
 
+
+
+    def _throttle(self) -> None:
+        if not self._command_interval:
+            return
+        call_time = time.monotonic()
+        elapsed = call_time - self._last_io_time
+        if elapsed < self._command_interval:
+            time.sleep(self._command_interval - elapsed)
+
+    def _write(self, command: str) -> None:
+        self._throttle()
+        try:
+            self._visa.write(command)
+        finally:
+            self._last_io_time = time.monotonic()
+
+    def _query(self, command: str) -> str:
+        self._throttle()
+        try:
+            return self._visa.query(command)
+        except VisaIOError:
+            # A timed-out reply may still arrive in the OS buffer; drop it so the
+            # next query doesn't read stale bytes and desync request/response.
+            try:
+                self._visa.clear()
+            except Exception:
+                pass
+            raise
+        finally:
+            self._last_io_time = time.monotonic()
+    
     def _require_channel(self, channel: int) -> None:
         if channel != 1:
             raise ValueError(f"The {self.FRIENDLY_NAME} supports only channel 1")
-
-    def _throttle(self) -> None:
-        # device needs a gap between every bus operation at 9600 baud
-        if not self._op_interval:
-            return
-        elapsed = time.monotonic() - self._last_op_time
-        if elapsed < self._op_interval:
-            time.sleep(self._op_interval - elapsed)
-        self._last_op_time = time.monotonic()
-
-    def _write_checked(self, command: str) -> None:
-        with self._visa.lock():
-            self._throttle()
-            self._visa.write(command)
-            self._check_errors()
-
-    def _query_checked_float(self, command: str) -> float:
-        with self._visa.lock():
-            self._throttle()
-            value = self._visa.query(command)
-            self._check_errors()
-            return float(value)
-
-    def _query_checked_bool(self, command: str) -> bool:
-        with self._visa.lock():
-            self._throttle()
-            value = self._visa.query(command)
-            self._check_errors()
-        return value.strip().upper() in {"1", "ON"}
-
-    def _check_errors(self) -> None:
-        self._throttle()
-        err = self._visa.query("SYST:ERR?")
-        if err.lower() != "no error":
-            raise RuntimeError(f"The {self.FRIENDLY_NAME} reported error: {err.strip()}")
