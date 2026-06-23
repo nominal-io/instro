@@ -61,7 +61,7 @@ class InstroFlowController(Instrument):
 
                 fc = InstroFlowController(
                     "main",
-                    driver=AlicatMC("ASRL7::INSTR"),
+                    driver=AlicatMC("ASRL7::INSTR", "M"),
                 )
 
             publishers: Publishers that receive emitted Measurement/Command data.
