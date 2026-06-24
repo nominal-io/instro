@@ -487,7 +487,6 @@ dependencies = [
     { name = "textual" },
     { name = "thermocouples" },
     { name = "typer" },
-    { name = "types-pyserial" },
 ]
 
 [package.optional-dependencies]
@@ -534,6 +533,7 @@ dev = [
     { name = "mkdocstrings-python" },
     { name = "mypy" },
     { name = "ruff" },
+    { name = "types-pyserial" },
     { name = "types-requests" },
 ]
 test = [
@@ -567,7 +567,6 @@ requires-dist = [
     { name = "textual", specifier = ">=0.80" },
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
-    { name = "types-pyserial", specifier = ">=3.0" },
 ]
 provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "contrib", "all"]
 
@@ -583,6 +582,7 @@ dev = [
     { name = "mkdocstrings-python", specifier = ">=1.19.0" },
     { name = "mypy", specifier = ">=1.15.0,<2" },
     { name = "ruff", specifier = ">=0.12.2,<0.13" },
+    { name = "types-pyserial", specifier = ">=3.0" },
     { name = "types-requests", specifier = ">=2.32.4.20250913" },
 ]
 test = [

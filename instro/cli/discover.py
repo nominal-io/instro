@@ -28,7 +28,6 @@ _IDN_MAP = {
     ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800"),
     ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800"),
     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303"),
-    ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys"),
     ("B&K PRECISION", "BK85"): ("eload", "BK85XXB"),
 }
 
