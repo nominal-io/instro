@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.12.0"
+version = "0.12.1"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -156,6 +156,10 @@ testpaths = ["tests"]
 # --ignore=tests/daq/arduino: arduino tests depend on the optional `arduino` extra
 # (pyfirmata2; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/arduino`).
 addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/daq/arduino"
+# --ignore=tests/i2c/totalphase: Aardvark tests depend on the optional `i2c` extra
+# (pyaardvark; hardware-only) and must be invoked explicitly (e.g.
+# `uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/i2c/totalphase"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]
