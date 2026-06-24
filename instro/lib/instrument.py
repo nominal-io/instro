@@ -315,6 +315,28 @@ class Instrument:
 
         raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
 
+    def get_single_channel_value(self, channel_name: str) -> float | None:
+        """Return the most recent sample for ``channel_name`` from the in-memory buffer.
+
+        This will not wait, if data is not available then ``None`` is returned.
+
+        Args:
+            channel_name: Name of the channel to retrieve.
+
+        Raises:
+            RuntimeError: No background buffer; ``start()`` was not called.
+        """
+        try:
+            cached_measurement = self.get_channel(channel_name, length=1, wait_for_latest=False, timeout=0)
+            return cached_measurement.channel_data[channel_name][0]
+        except RuntimeError:  # expect: this means instrument not started, good to report
+            raise
+        except:  # other exceptions just mean data isn't available
+            pass
+
+        return None
+
+
     def _background_daemon_loop(self):
         """Daemon loop: run registered functions every ``background_interval``, publish loop timing."""
         while not self._background_stop_event.is_set():
