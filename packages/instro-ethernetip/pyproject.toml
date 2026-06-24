@@ -1,6 +1,6 @@
 [project]
 name = "instro-ethernetip"
-version = "0.2.0"
+version = "0.2.1"
 description = "PyO3 bindings for the instro EtherNet/IP session API"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

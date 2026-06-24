@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.12.1](https://github.com/nominal-io/instro/compare/instro-v0.12.0...instro-v0.12.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **dmm:** apply Agilent34401A manual range without requiring set_digits ([#148](https://github.com/nominal-io/instro/issues/148)) ([563aabb](https://github.com/nominal-io/instro/commit/563aabbd366e60ceafc63e44a35c3aab588d3170))
+* **dmm:** record measurement function only after driver accepts it ([#146](https://github.com/nominal-io/instro/issues/146)) ([d720cf1](https://github.com/nominal-io/instro/commit/d720cf146aa2f7edb52c58a64a6ac7d67247c67b))
+* **ethernetip:** disable cpppo UDP in simulator tests ([#137](https://github.com/nominal-io/instro/issues/137)) ([4048fbf](https://github.com/nominal-io/instro/commit/4048fbf42889332b0fe8ebe4d75a6ca7445887c9))
+* **ethernetip:** remove strings from Python EIP surface ([#128](https://github.com/nominal-io/instro/issues/128)) ([c133d81](https://github.com/nominal-io/instro/commit/c133d814a66b68775fb5a05114cf1ccac22aa466))
+* **visa:** catch pyvisa errors so [@ivi](https://github.com/ivi) to [@py](https://github.com/py) fallback fires correctly ([#136](https://github.com/nominal-io/instro/issues/136)) ([9329df6](https://github.com/nominal-io/instro/commit/9329df6f48d92f196ce205a0e07f9bf0f3df21d0))
+
 ## [0.12.0](https://github.com/nominal-io/instro/compare/instro-v0.11.0...instro-v0.12.0) (2026-06-22)
 
 
