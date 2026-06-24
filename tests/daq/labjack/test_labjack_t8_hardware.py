@@ -72,15 +72,21 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 DEVICE_ID = "LABJACK T8 SERIAL NUMBER"  # e.g. "123456789" or "ANY"
 NAME = "t8_validate"
-DATASET_RID = None 
+DATASET_RID = None
 
 # Analog channels
-AI_CHANNEL_0, AI_ALIAS_0 = "AIN0", "ain0"   # DAC0 loopback
-AI_CHANNEL_1, AI_ALIAS_1 = "AIN1", "ain1"   # DAC0 loopback
-AI_CHANNEL_2, AI_ALIAS_2 = "AIN2", "ain2"   # DAC1 loopback
+AI_CHANNEL_0, AI_ALIAS_0 = "AIN0", "ain0"  # DAC0 loopback
+AI_CHANNEL_1, AI_ALIAS_1 = "AIN1", "ain1"  # DAC0 loopback
+AI_CHANNEL_2, AI_ALIAS_2 = "AIN2", "ain2"  # DAC1 loopback
 ALL_AI_CHANNELS = [
-    ("AIN0", "ain0"), ("AIN1", "ain1"), ("AIN2", "ain2"), ("AIN3", "ain3"),
-    ("AIN4", "ain4"), ("AIN5", "ain5"), ("AIN6", "ain6"), ("AIN7", "ain7"),
+    ("AIN0", "ain0"),
+    ("AIN1", "ain1"),
+    ("AIN2", "ain2"),
+    ("AIN3", "ain3"),
+    ("AIN4", "ain4"),
+    ("AIN5", "ain5"),
+    ("AIN6", "ain6"),
+    ("AIN7", "ain7"),
 ]
 
 AO_CHANNEL_0, AO_ALIAS_0 = "DAC0", "dac0"
@@ -93,22 +99,23 @@ DI_LINE, DI_ALIAS = "FIO5", "fio5"
 # Tolerances
 LOOPBACK_WIRED = True
 
-ANALOG_TEST_VOLTAGES  = [0.0, 0.5, 1.25, 2.5, 3.3, 5.0, 7.5, 9.5]
-ANALOG_TOLERANCE_V    = 0.015   # 15 mV: 24-bit ADC, no multiplexer skew
+ANALOG_TEST_VOLTAGES = [0.0, 0.5, 1.25, 2.5, 3.3, 5.0, 7.5, 9.5]
+ANALOG_TOLERANCE_V = 0.015  # 15 mV: 24-bit ADC, no multiplexer skew
 
-SAMPLE_RATE_HZ        = 1_000.0
-SAMPLES_PER_CHANNEL   = 100
-HW_TIMED_DC_V         = 5.0
-HW_TIMED_TOLERANCE_V  = 0.05
+SAMPLE_RATE_HZ = 1_000.0
+SAMPLES_PER_CHANNEL = 100
+HW_TIMED_DC_V = 5.0
+HW_TIMED_TOLERANCE_V = 0.05
 
-HIGH_RATE_HZ          = 40_000.0
-HIGH_RATE_SAMPLES     = 4_000
+HIGH_RATE_HZ = 40_000.0
+HIGH_RATE_SAMPLES = 4_000
 HIGH_RATE_TOLERANCE_V = 0.10
 
 
 # ---------------------------------------------------------------------------
 # Nominal Core event helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_client() -> NominalClient:
     return NominalClient.from_profile("default")
@@ -122,12 +129,16 @@ class _EventRecorder:
     def begin(self):
         self._client = _get_client()
 
-    def record_event(self, name: str, start_ns: int, end_ns: int,
-                     passed: bool, description: str = ""):
-        self._events.append({
-            "name": name, "start_ns": start_ns, "end_ns": end_ns,
-            "passed": passed, "description": description,
-        })
+    def record_event(self, name: str, start_ns: int, end_ns: int, passed: bool, description: str = ""):
+        self._events.append(
+            {
+                "name": name,
+                "start_ns": start_ns,
+                "end_ns": end_ns,
+                "passed": passed,
+                "description": description,
+            }
+        )
 
     def finish(self):
         asset = self._client.get_or_create_asset_by_properties(
@@ -156,6 +167,7 @@ _recorder = _EventRecorder()
 # ---------------------------------------------------------------------------
 # Test suite
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.hardware
 class TestLabJackT8Hardware(unittest.TestCase):
@@ -199,34 +211,41 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
     def _configure_ai(self, daq, physical, alias, range_min=-11.0, range_max=11.0):
         daq.configure_analog_channel(
-            direction=Direction.INPUT, physical_channel=physical, alias=alias,
-            range_min=range_min, range_max=range_max,
+            direction=Direction.INPUT,
+            physical_channel=physical,
+            alias=alias,
+            range_min=range_min,
+            range_max=range_max,
         )
 
     def _configure_ao(self, daq, physical, alias):
         daq.configure_analog_channel(
-            direction=Direction.OUTPUT, physical_channel=physical, alias=alias,
-            range_min=0, range_max=10,
+            direction=Direction.OUTPUT,
+            physical_channel=physical,
+            alias=alias,
+            range_min=0,
+            range_max=10,
         )
 
     def _configure_digital_lines(self, daq):
-        daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel=DO_LINE,
-                                   logic=Logic.HIGH, alias=DO_ALIAS)
-        daq.configure_digital_line(direction=Direction.INPUT, physical_channel=DI_LINE,
-                                   logic=Logic.HIGH, alias=DI_ALIAS)
+        daq.configure_digital_line(
+            direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
+        )
+        daq.configure_digital_line(
+            direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
+        )
 
     def _assert_t8(self, daq):
         device_type, conn_type, serial, _ip, _port, _ = daq.driver.get_info()
-        print(f"         device_type={device_type} (T8={ljm.constants.dtT8}), "
-              f"conn={conn_type}, serial={serial}")
-        self.assertEqual(device_type, ljm.constants.dtT8,
-                         f"Connected device is not a T8 (device_type={device_type})")
+        print(f"         device_type={device_type} (T8={ljm.constants.dtT8}), conn={conn_type}, serial={serial}")
+        self.assertEqual(device_type, ljm.constants.dtT8, f"Connected device is not a T8 (device_type={device_type})")
 
     @staticmethod
     def _ts(ns: int) -> str:
         """Format a time.time_ns() value as HH:MM:SS.mmm (local time)."""
         t = ns / 1e9
         import datetime
+
         dt = datetime.datetime.fromtimestamp(t)
         return dt.strftime("%H:%M:%S.") + f"{dt.microsecond // 1000:03d}"
 
@@ -236,17 +255,13 @@ class TestLabJackT8Hardware(unittest.TestCase):
             fn(start_ns)
             end_ns = time.time_ns()
             elapsed_ms = (end_ns - start_ns) / 1e6
-            print(f"         [{self._ts(start_ns)} → {self._ts(end_ns)}  "
-                  f"elapsed {elapsed_ms:.1f} ms]")
-            _recorder.record_event(name, start_ns, end_ns,
-                                    passed=True, description=description)
+            print(f"         [{self._ts(start_ns)} → {self._ts(end_ns)}  elapsed {elapsed_ms:.1f} ms]")
+            _recorder.record_event(name, start_ns, end_ns, passed=True, description=description)
         except Exception as exc:
             end_ns = time.time_ns()
             elapsed_ms = (end_ns - start_ns) / 1e6
-            print(f"         [{self._ts(start_ns)} → {self._ts(end_ns)}  "
-                  f"elapsed {elapsed_ms:.1f} ms]  FAILED: {exc}")
-            _recorder.record_event(name, start_ns, end_ns, passed=False,
-                                    description=f"{description}\n\nError: {exc}")
+            print(f"         [{self._ts(start_ns)} → {self._ts(end_ns)}  elapsed {elapsed_ms:.1f} ms]  FAILED: {exc}")
+            _recorder.record_event(name, start_ns, end_ns, passed=False, description=f"{description}\n\nError: {exc}")
             raise
 
     # ==================================================================
@@ -302,8 +317,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         self._run_step(
             "SW-timed read — all 8 AIN channels",
-            "Configure each of AIN0–AIN7 and call read_analog(). "
-            "Asserts every channel returns a finite value.",
+            "Configure each of AIN0–AIN7 and call read_analog(). Asserts every channel returns a finite value.",
             step,
         )
 
@@ -315,8 +329,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
-            for ao_physical, ao_alias in [(AO_CHANNEL_0, AO_ALIAS_0),
-                                          (AO_CHANNEL_1, AO_ALIAS_1)]:
+            for ao_physical, ao_alias in [(AO_CHANNEL_0, AO_ALIAS_0), (AO_CHANNEL_1, AO_ALIAS_1)]:
                 daq = self._create_daq()
                 try:
                     self._configure_ao(daq, ao_physical, ao_alias)
@@ -352,15 +365,12 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     time.sleep(0.05)
                     measured = daq.read_analog().latest
                     err = measured - v
-                    flag = ("" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V)
-                            else "  <-- OUT OF TOLERANCE")
-                    print(f"         DAC0={v:.3f} V | AIN0={measured:.6f} V | "
-                          f"err={err:+.6f} V{flag}")
+                    flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
+                    print(f"         DAC0={v:.3f} V | AIN0={measured:.6f} V | err={err:+.6f} V{flag}")
                     if not math.isfinite(measured):
                         errs.append(f"non-finite at {v} V")
                     elif LOOPBACK_WIRED and abs(err) > ANALOG_TOLERANCE_V:
-                        errs.append(f"DAC0={v} V → AIN0={measured:.6f} V "
-                                    f"(err {err:+.6f} V > {ANALOG_TOLERANCE_V} V)")
+                        errs.append(f"DAC0={v} V → AIN0={measured:.6f} V (err {err:+.6f} V > {ANALOG_TOLERANCE_V} V)")
                 daq.write_analog_value(AO_ALIAS_0, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -406,23 +416,21 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     # Single read_analog() captures both channels simultaneously.
                     # .latest raises with multiple channels so use channel_data.
                     measurement = daq.read_analog()
-                    ain0 = measurement.channel_data.get(
-                        f"{NAME}.{AI_ALIAS_0}", [None])[-1]
-                    ain2 = measurement.channel_data.get(
-                        f"{NAME}.{AI_ALIAS_2}", [None])[-1]
+                    ain0 = measurement.channel_data.get(f"{NAME}.{AI_ALIAS_0}", [None])[-1]
+                    ain2 = measurement.channel_data.get(f"{NAME}.{AI_ALIAS_2}", [None])[-1]
 
-                    for label, measured, target in [("AIN0", ain0, v0),
-                                                    ("AIN2", ain2, v1)]:
+                    for label, measured, target in [("AIN0", ain0, v0), ("AIN2", ain2, v1)]:
                         if measured is None or not math.isfinite(measured):
                             errs.append(f"{label}: non-finite at target={target} V")
                             continue
                         err = measured - target
                         flag = "" if abs(err) <= ANALOG_TOLERANCE_V else "  <-- FAIL"
-                        print(f"         DAC0={v0:.2f} V | DAC1={v1:.2f} V | "
-                              f"{label}={measured:.4f} V (err={err:+.4f} V){flag}")
+                        print(
+                            f"         DAC0={v0:.2f} V | DAC1={v1:.2f} V | "
+                            f"{label}={measured:.4f} V (err={err:+.4f} V){flag}"
+                        )
                         if abs(err) > ANALOG_TOLERANCE_V:
-                            errs.append(f"{label}: target={target} V, "
-                                        f"measured={measured:.4f} V")
+                            errs.append(f"{label}: target={target} V, measured={measured:.4f} V")
 
                 daq.write_analog_value(AO_ALIAS_0, 0.0)
                 daq.write_analog_value(AO_ALIAS_1, 0.0)
@@ -438,7 +446,6 @@ class TestLabJackT8Hardware(unittest.TestCase):
             "their respective sources without cross-talk.",
             step,
         )
-
 
     # ==================================================================
     # 06. DAC1 loopback — verify DAC1 output reads back on AIN2
@@ -466,15 +473,12 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     time.sleep(0.05)
                     measured = daq.read_analog().latest
                     err = measured - v
-                    flag = ("" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V)
-                            else "  <-- OUT OF TOLERANCE")
-                    print(f"         DAC1={v:.3f} V | AIN2={measured:.6f} V | "
-                          f"err={err:+.6f} V{flag}")
+                    flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
+                    print(f"         DAC1={v:.3f} V | AIN2={measured:.6f} V | err={err:+.6f} V{flag}")
                     if not math.isfinite(measured):
                         errs.append(f"non-finite at {v} V")
                     elif LOOPBACK_WIRED and abs(err) > ANALOG_TOLERANCE_V:
-                        errs.append(f"DAC1={v} V -> AIN2={measured:.6f} V "
-                                    f"(err {err:+.6f} V > {ANALOG_TOLERANCE_V} V)")
+                        errs.append(f"DAC1={v} V -> AIN2={measured:.6f} V (err {err:+.6f} V > {ANALOG_TOLERANCE_V} V)")
                 daq.write_analog_value(AO_ALIAS_1, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -483,8 +487,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         self._run_step(
             "DAC1 loopback (SW-timed, 15 mV tol.)",
-            "Sweep DAC1 0-9.5 V and read back on AIN2 via read_analog(). "
-            "Verifies DAC1 accuracy independently of DAC0.",
+            "Sweep DAC1 0-9.5 V and read back on AIN2 via read_analog(). Verifies DAC1 accuracy independently of DAC0.",
             step,
         )
 
@@ -507,19 +510,21 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 for v in [0.0, 2.5, 5.0, 9.5]:
                     cmd = daq.write_analog_value(AO_ALIAS_0, v)
-                    self.assertIsNotNone(cmd,
-                        f"write_analog_value returned None at {v} V")
+                    self.assertIsNotNone(cmd, f"write_analog_value returned None at {v} V")
                     expected_key = f"{NAME}.{AO_ALIAS_0}.cmd"
-                    self.assertIn(expected_key, cmd.channel_data,
-                        f"Command missing key '{expected_key}' at {v} V. "
-                        f"Keys present: {list(cmd.channel_data.keys())}")
+                    self.assertIn(
+                        expected_key,
+                        cmd.channel_data,
+                        f"Command missing key '{expected_key}' at {v} V. Keys present: {list(cmd.channel_data.keys())}",
+                    )
                     returned_v = cmd.channel_data[expected_key]
                     self.assertAlmostEqual(
-                        returned_v, v, places=6,
+                        returned_v,
+                        v,
+                        places=6,
                         msg=f"Command value {returned_v} != written value {v}",
                     )
-                    print(f"         write {v:.2f} V -> Command key='{expected_key}' "
-                          f"value={returned_v}")
+                    print(f"         write {v:.2f} V -> Command key='{expected_key}' value={returned_v}")
                 daq.write_analog_value(AO_ALIAS_0, 0.0)
             finally:
                 daq.close()
@@ -547,9 +552,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
             print(f"         [start {self._ts(start_ns)}]")
             daq = self._create_daq()
             try:
-                with self.assertRaises(KeyError,
-                        msg="write_analog_value on unconfigured channel "
-                            "should raise KeyError"):
+                with self.assertRaises(
+                    KeyError, msg="write_analog_value on unconfigured channel should raise KeyError"
+                ):
                     daq.write_analog_value("dac0", 1.0)
             finally:
                 daq.close()
@@ -574,7 +579,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         fail by hundreds of millivolts.
         """
         HOLD_TOLERANCE_V = 0.025
-        HOLD_DURATION_S  = 0.5
+        HOLD_DURATION_S = 0.5
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
@@ -595,14 +600,16 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     after = daq.read_analog().latest
                     drift = abs(after - before)
                     flag = "" if drift <= HOLD_TOLERANCE_V else "  <-- DRIFT FAIL"
-                    print(f"         DAC0={v:.1f} V | before={before:.6f} V | "
-                          f"after={after:.6f} V | drift={drift:.6f} V{flag}")
+                    print(
+                        f"         DAC0={v:.1f} V | before={before:.6f} V | "
+                        f"after={after:.6f} V | drift={drift:.6f} V{flag}"
+                    )
                     if not (math.isfinite(before) and math.isfinite(after)):
                         errs.append(f"non-finite reading at {v} V")
                     elif drift > HOLD_TOLERANCE_V:
                         errs.append(
-                            f"DAC0={v} V drifted {drift:.4f} V over "
-                            f"{HOLD_DURATION_S} s (limit {HOLD_TOLERANCE_V} V)")
+                            f"DAC0={v} V drifted {drift:.4f} V over {HOLD_DURATION_S} s (limit {HOLD_TOLERANCE_V} V)"
+                        )
                 daq.write_analog_value(AO_ALIAS_0, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -628,7 +635,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         in the command path, the final read will not match the last write.
         """
         N_WRITES = 20
-        FINAL_V  = 7.0
+        FINAL_V = 7.0
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
@@ -646,17 +653,20 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 time.sleep(0.1)
                 measured = daq.read_analog().latest
                 err = measured - FINAL_V
-                print(f"         {N_WRITES} rapid writes | final={FINAL_V} V | "
-                      f"measured={measured:.6f} V | err={err:+.6f} V")
+                print(
+                    f"         {N_WRITES} rapid writes | final={FINAL_V} V | "
+                    f"measured={measured:.6f} V | err={err:+.6f} V"
+                )
 
                 if LOOPBACK_WIRED:
-                    self.assertTrue(math.isfinite(measured),
-                        "non-finite after rapid writes")
+                    self.assertTrue(math.isfinite(measured), "non-finite after rapid writes")
                     self.assertAlmostEqual(
-                        measured, FINAL_V, delta=ANALOG_TOLERANCE_V,
+                        measured,
+                        FINAL_V,
+                        delta=ANALOG_TOLERANCE_V,
                         msg=f"After {N_WRITES} rapid writes, DAC0 reads "
-                            f"{measured:.4f} V instead of {FINAL_V} V -- "
-                            "possible write drop or race condition",
+                        f"{measured:.4f} V instead of {FINAL_V} V -- "
+                        "possible write drop or race condition",
                     )
                 daq.write_analog_value(AO_ALIAS_0, 0.0)
             finally:
@@ -683,22 +693,18 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
-                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start()
                 try:
                     time.sleep(1.0)
                     ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 50, True)
                     self.assertIsNotNone(ch)
                     self.assertGreaterEqual(len(ch.values), 1)
-                    self.assertTrue(all(math.isfinite(v) for v in ch.values),
-                                    "non-finite samples in background buffer")
+                    self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
                     mean = sum(ch.values) / len(ch.values)
-                    print(f"         background: {len(ch.values)} samples, "
-                          f"mean AIN0={mean:.6f} V")
+                    print(f"         background: {len(ch.values)} samples, mean AIN0={mean:.6f} V")
                     if LOOPBACK_WIRED:
-                        self.assertAlmostEqual(mean, HW_TIMED_DC_V,
-                                               delta=HW_TIMED_TOLERANCE_V)
+                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
                     daq.write_analog_value(AO_ALIAS_0, 0.0)
@@ -711,7 +717,6 @@ class TestLabJackT8Hardware(unittest.TestCase):
             f"Hold DAC0 at {HW_TIMED_DC_V} V; verify mean via get_channel().",
             step,
         )
-
 
     # ==================================================================
     # 12. read_analog() while background daemon is running raises RuntimeError
@@ -732,8 +737,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
-                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=True)
                 try:
                     time.sleep(0.2)  # give the daemon time to start and confirm it is alive
@@ -742,9 +746,10 @@ class TestLabJackT8Hardware(unittest.TestCase):
                         "Background daemon thread is not alive after start() — "
                         "cannot test the RuntimeError guard meaningfully",
                     )
-                    with self.assertRaises(RuntimeError,
-                            msg="read_analog() should raise RuntimeError while "
-                                "the background daemon is running"):
+                    with self.assertRaises(
+                        RuntimeError,
+                        msg="read_analog() should raise RuntimeError while the background daemon is running",
+                    ):
                         daq.read_analog()
                     print("         RuntimeError raised correctly — daemon owns the buffer")
                 finally:
@@ -772,22 +777,18 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
-                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
-                    self.assertTrue(all(math.isfinite(v) for v in vals),
-                                    f"non-finite HW-timed fetch: n={len(vals)}")
+                    self.assertTrue(all(math.isfinite(v) for v in vals), f"non-finite HW-timed fetch: n={len(vals)}")
                     mean = sum(vals) / len(vals)
-                    print(f"         foreground: {len(vals)} samples, "
-                          f"mean AIN0={mean:.6f} V")
+                    print(f"         foreground: {len(vals)} samples, mean AIN0={mean:.6f} V")
                     if LOOPBACK_WIRED:
-                        self.assertAlmostEqual(mean, HW_TIMED_DC_V,
-                                               delta=HW_TIMED_TOLERANCE_V)
+                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
                     daq.write_analog_value(AO_ALIAS_0, 0.0)
@@ -814,23 +815,20 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=HIGH_RATE_HZ,
-                                             samples_per_channel=HIGH_RATE_SAMPLES)
+                daq.configure_ai_sample_rate(sample_rate=HIGH_RATE_HZ, samples_per_channel=HIGH_RATE_SAMPLES)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
-                    self.assertGreaterEqual(len(vals), HIGH_RATE_SAMPLES // 2,
-                                           "Expected at least half the requested samples")
-                    self.assertTrue(all(math.isfinite(v) for v in vals),
-                                    "non-finite samples in high-rate stream")
+                    self.assertGreaterEqual(
+                        len(vals), HIGH_RATE_SAMPLES // 2, "Expected at least half the requested samples"
+                    )
+                    self.assertTrue(all(math.isfinite(v) for v in vals), "non-finite samples in high-rate stream")
                     mean = sum(vals) / len(vals)
-                    print(f"         {HIGH_RATE_HZ/1000:.0f} kS/s: "
-                          f"{len(vals)} samples, mean AIN0={mean:.4f} V")
+                    print(f"         {HIGH_RATE_HZ / 1000:.0f} kS/s: {len(vals)} samples, mean AIN0={mean:.4f} V")
                     if LOOPBACK_WIRED:
-                        self.assertAlmostEqual(mean, HW_TIMED_DC_V,
-                                               delta=HIGH_RATE_TOLERANCE_V)
+                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HIGH_RATE_TOLERANCE_V)
                 finally:
                     daq.stop()
                     daq.write_analog_value(AO_ALIAS_0, 0.0)
@@ -838,7 +836,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.close()
 
         self._run_step(
-            f"HW-timed high-rate stream ({HIGH_RATE_HZ/1000:.0f} kS/s)",
+            f"HW-timed high-rate stream ({HIGH_RATE_HZ / 1000:.0f} kS/s)",
             f"Stream AIN0 at {HIGH_RATE_HZ} Hz via start(background=False). "
             "Verifies T8 maximum per-channel rate without errors.",
             step,
@@ -855,24 +853,22 @@ class TestLabJackT8Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
-                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start()
                 try:
                     time.sleep(0.5)
                     actual_rate = daq.get_actual_sample_rate()
-                    self.assertIsNotNone(actual_rate,
-                                        "get_actual_sample_rate returned None after start()")
-                    print(f"         actual_sample_rate={actual_rate} Hz "
-                          f"(requested {SAMPLE_RATE_HZ} Hz)")
-                    self.assertAlmostEqual(actual_rate, SAMPLE_RATE_HZ,
-                                           delta=SAMPLE_RATE_HZ * 0.1,
-                                           msg=f"Rate {actual_rate} deviates >10% "
-                                               f"from {SAMPLE_RATE_HZ}")
+                    self.assertIsNotNone(actual_rate, "get_actual_sample_rate returned None after start()")
+                    print(f"         actual_sample_rate={actual_rate} Hz (requested {SAMPLE_RATE_HZ} Hz)")
+                    self.assertAlmostEqual(
+                        actual_rate,
+                        SAMPLE_RATE_HZ,
+                        delta=SAMPLE_RATE_HZ * 0.1,
+                        msg=f"Rate {actual_rate} deviates >10% from {SAMPLE_RATE_HZ}",
+                    )
                     depth = daq.get_points_in_buffer().latest
                     print(f"         points_in_buffer={depth}")
-                    self.assertTrue(math.isfinite(depth) and depth >= 0,
-                                    f"invalid buffer depth: {depth}")
+                    self.assertTrue(math.isfinite(depth) and depth >= 0, f"invalid buffer depth: {depth}")
                 finally:
                     daq.stop()
             finally:
@@ -912,9 +908,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
             (AI_CHANNEL_1, AI_ALIAS_1),  # DAC0 loopback — skew reference
             (AI_CHANNEL_2, AI_ALIAS_2),  # DAC1 loopback
         ]
-        DAC0_V           = 3.3
-        DAC1_V           = 7.0
-        SKEW_TOLERANCE_V = 0.005   # 5 mV: simultaneous sampling, same source
+        DAC0_V = 3.3
+        DAC1_V = 7.0
+        SKEW_TOLERANCE_V = 0.005  # 5 mV: simultaneous sampling, same source
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
@@ -931,8 +927,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.write_analog_value(AO_ALIAS_1, DAC1_V)
                 time.sleep(0.05)
 
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
-                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
@@ -945,11 +940,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
                         samples = measurement.channel_data.get(key)
                         self.assertIsNotNone(
                             samples,
-                            f"channel_data missing key '{key}'. "
-                            f"Keys present: {list(measurement.channel_data.keys())}",
+                            f"channel_data missing key '{key}'. Keys present: {list(measurement.channel_data.keys())}",
                         )
                         self.assertGreaterEqual(
-                            len(samples), 1,
+                            len(samples),
+                            1,
                             f"{alias}: expected ≥1 sample, got {len(samples)}",
                         )
                         non_finite = [v for v in samples if not math.isfinite(v)]
@@ -958,8 +953,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                             continue
                         mean = sum(samples) / len(samples)
                         means[alias] = mean
-                        print(f"         {alias}: {len(samples)} samples, "
-                              f"mean={mean:.6f} V")
+                        print(f"         {alias}: {len(samples)} samples, mean={mean:.6f} V")
 
                     # AIN0 and AIN1 share the same source (DAC0) — verify
                     # they agree within SKEW_TOLERANCE_V to confirm
@@ -967,12 +961,14 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     if AI_ALIAS_0 in means and AI_ALIAS_1 in means:
                         skew = abs(means[AI_ALIAS_0] - means[AI_ALIAS_1])
                         flag = "" if skew <= SKEW_TOLERANCE_V else "  <-- SKEW FAIL"
-                        print(f"         AIN0 vs AIN1 skew: {skew*1000:.3f} mV"
-                              f" (limit {SKEW_TOLERANCE_V*1000:.0f} mV){flag}")
+                        print(
+                            f"         AIN0 vs AIN1 skew: {skew * 1000:.3f} mV"
+                            f" (limit {SKEW_TOLERANCE_V * 1000:.0f} mV){flag}"
+                        )
                         if skew > SKEW_TOLERANCE_V:
                             errs.append(
-                                f"AIN0/AIN1 skew {skew*1000:.3f} mV > "
-                                f"{SKEW_TOLERANCE_V*1000:.0f} mV — "
+                                f"AIN0/AIN1 skew {skew * 1000:.3f} mV > "
+                                f"{SKEW_TOLERANCE_V * 1000:.0f} mV — "
                                 "channels may not be sampled simultaneously"
                             )
 
@@ -986,15 +982,10 @@ class TestLabJackT8Hardware(unittest.TestCase):
                         if alias not in means:
                             continue
                         err = means[alias] - target
-                        flag = ("" if abs(err) <= HW_TIMED_TOLERANCE_V
-                                else "  <-- OUT OF TOLERANCE")
-                        print(f"         {alias} err vs DAC set point: "
-                              f"{err:+.6f} V{flag}")
+                        flag = "" if abs(err) <= HW_TIMED_TOLERANCE_V else "  <-- OUT OF TOLERANCE"
+                        print(f"         {alias} err vs DAC set point: {err:+.6f} V{flag}")
                         if abs(err) > HW_TIMED_TOLERANCE_V:
-                            errs.append(
-                                f"{alias}: mean={means[alias]:.4f} V, "
-                                f"target={target} V, err={err:+.4f} V"
-                            )
+                            errs.append(f"{alias}: mean={means[alias]:.4f} V, target={target} V, err={err:+.4f} V")
 
                     self.assertFalse(errs, "; ".join(errs))
                 finally:
@@ -1008,8 +999,8 @@ class TestLabJackT8Hardware(unittest.TestCase):
             "HW-timed multi-channel stream (AIN0, AIN1, AIN2)",
             f"Stream AIN0+AIN1 (DAC0={DAC0_V} V) and AIN2 (DAC1={DAC1_V} V) "
             f"simultaneously at {SAMPLE_RATE_HZ} Hz. Verifies sample counts, "
-            f"finite values, AIN0/AIN1 skew < {SKEW_TOLERANCE_V*1000:.0f} mV, "
-            f"and per-channel accuracy within {HW_TIMED_TOLERANCE_V*1000:.0f} mV.",
+            f"finite values, AIN0/AIN1 skew < {SKEW_TOLERANCE_V * 1000:.0f} mV, "
+            f"and per-channel accuracy within {HW_TIMED_TOLERANCE_V * 1000:.0f} mV.",
             step,
         )
 
@@ -1029,8 +1020,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     daq.write_digital_line(DO_ALIAS, state)
                     time.sleep(0.05)
                     read = int(daq.read_digital_line(DI_ALIAS).latest)
-                    flag = ("" if (not LOOPBACK_WIRED or read == state)
-                            else "  <-- mismatch")
+                    flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         FIO4←{state} | FIO5={read}{flag}")
                     if LOOPBACK_WIRED and read != state:
                         errs.append(f"drove FIO4={state}, read FIO5={read}")
@@ -1042,8 +1032,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         self._run_step(
             "Digital line loopback",
-            "Drive FIO4 through 0/1 sequence via write_digital_line(); "
-            "verify FIO5 follows via read_digital_line().",
+            "Drive FIO4 through 0/1 sequence via write_digital_line(); verify FIO5 follows via read_digital_line().",
             step,
         )
 
@@ -1057,8 +1046,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             print(f"         [start {self._ts(start_ns)}]")
             daq = self._create_daq()
             try:
-                for ao_phys, ao_alias in [(AO_CHANNEL_0, AO_ALIAS_0),
-                                          (AO_CHANNEL_1, AO_ALIAS_1)]:
+                for ao_phys, ao_alias in [(AO_CHANNEL_0, AO_ALIAS_0), (AO_CHANNEL_1, AO_ALIAS_1)]:
                     self._configure_ao(daq, ao_phys, ao_alias)
                     daq.write_analog_value(ao_alias, 0.0)
                 self._configure_digital_lines(daq)
@@ -1083,9 +1071,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
             print(f"         [start {self._ts(start_ns)}]")
             daq = self._create_daq()
             try:
-                with self.assertRaises(NotImplementedError,
-                                       msg="configure_digital_port should raise "
-                                           "NotImplementedError on the T8 driver"):
+                with self.assertRaises(
+                    NotImplementedError, msg="configure_digital_port should raise NotImplementedError on the T8 driver"
+                ):
                     daq.configure_digital_port(
                         direction=Direction.OUTPUT,
                         physical_channel="FIO0",
@@ -1112,8 +1100,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 daq.configure_relay_channel(physical_channel="3101", alias="relay1")
-                with self.assertRaises(NotImplementedError,
-                                       msg="close_relay should raise NotImplementedError"):
+                with self.assertRaises(NotImplementedError, msg="close_relay should raise NotImplementedError"):
                     daq.close_relay("relay1")
             finally:
                 daq.close()
@@ -1123,6 +1110,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             "Assert close_relay() raises NotImplementedError on the T8 driver.",
             step,
         )
+
 
 if __name__ == "__main__":
     unittest.main()
