@@ -216,7 +216,7 @@ class EtherNetIPDevice(Instrument):
 
         return self._publish_measurement(channel_data, timestamp, **kwargs)
 
-    def write_tag(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
+    def write_tag(self, alias: str, value: bool | int | float, **kwargs) -> Command:
         """Write one configured tag by alias and publish the command."""
         tag = self._config.get_tag(alias)
 
@@ -234,7 +234,7 @@ class EtherNetIPDevice(Instrument):
         self.publish(command)
         return command
 
-    def write(self, alias: str, value: bool | int | float | str, **kwargs) -> Command:
+    def write(self, alias: str, value: bool | int | float, **kwargs) -> Command:
         """Write one configured tag by alias and publish the command."""
         return self.write_tag(alias, value, **kwargs)
 
@@ -272,7 +272,7 @@ class EtherNetIPDevice(Instrument):
         if plc_value.kind != expected_kind:
             raise TypeError(f"Tag '{tag.alias}' expected PLC kind {expected_kind_name} but read {plc_value.kind!r}.")
 
-    def _build_plc_value(self, raw_value: bool | int | float | str, tag: TagDef) -> Any:
+    def _build_plc_value(self, raw_value: bool | int | float, tag: TagDef) -> Any:
         native = self._require_native()
         data_type = tag.data_type
 
@@ -287,9 +287,6 @@ class EtherNetIPDevice(Instrument):
 
         if data_type == "lreal":
             return native.PlcValue.lreal(float(cast(int | float, raw_value)))
-
-        if data_type == "string":
-            return native.PlcValue.string(cast(str, raw_value))
 
         raise ValueError(f"Unsupported EtherNet/IP data_type '{data_type}' for tag '{tag.alias}'.")
 
