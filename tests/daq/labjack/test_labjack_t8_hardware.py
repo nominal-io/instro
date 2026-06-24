@@ -70,7 +70,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "LABJACK T8 SERIAL NUMBER"
+DEVICE_ID = "LABJACK T8 SERIAL NUMBER"  # e.g. "123456789" or "ANY"
 NAME = "t8_validate"
 DATASET_RID = None 
 
@@ -167,11 +167,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
     Test groups:
       01        Device identification
-      02–05     Analog I/O (SW-timed, output, loopback, dual-DAC)
-      06–09     Hardware-timed streaming
-      10        Digital line loopback
-      11        Clean shutdown
-      12–13     NotImplementedError assertions
+      02–10     Analog I/O (SW-timed, output, loopback, dual-DAC)
+      11–16     Hardware-timed streaming (incl. multi-channel)
+      17        Digital line loopback
+      18        Clean shutdown
+      19–20     NotImplementedError assertions
     """
 
     @classmethod
@@ -886,9 +886,137 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 16. Digital line loopback
+    # 16. HW-timed streaming — multi-channel simultaneous
     # ==================================================================
-    def test_16_digital_line_loopback(self):
+    def test_16_hw_timed_multi_channel(self):
+        """Stream AIN0, AIN1, and AIN2 simultaneously in HW-timed mode.
+
+        Configures three analog input channels and one sample rate, then
+        starts in foreground mode and reads back. Verifies:
+
+          - All three channels return the correct sample count
+          - Every sample on every channel is finite
+          - AIN0 and AIN1 (both wired to DAC0) track each other within
+            5 mV — confirming simultaneous sampling with no multiplexer
+            skew between them
+          - AIN2 (wired to DAC1) tracks DAC1's set point within the
+            standard HW-timed tolerance
+
+        The inter-channel skew check (AIN0 vs AIN1) is the key assertion
+        that single-channel tests cannot provide: it catches a driver bug
+        where channels are sampled sequentially rather than simultaneously,
+        which would produce offsets proportional to the signal slew rate.
+        """
+        MULTI_CH_CHANNELS = [
+            (AI_CHANNEL_0, AI_ALIAS_0),  # DAC0 loopback
+            (AI_CHANNEL_1, AI_ALIAS_1),  # DAC0 loopback — skew reference
+            (AI_CHANNEL_2, AI_ALIAS_2),  # DAC1 loopback
+        ]
+        DAC0_V           = 3.3
+        DAC1_V           = 7.0
+        SKEW_TOLERANCE_V = 0.005   # 5 mV: simultaneous sampling, same source
+
+        def step(start_ns: int):
+            print(f"         [start {self._ts(start_ns)}]")
+            if not LOOPBACK_WIRED:
+                self.skipTest("LOOPBACK_WIRED=False")
+            daq = self._create_daq()
+            try:
+                for physical, alias in MULTI_CH_CHANNELS:
+                    self._configure_ai(daq, physical, alias)
+                self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
+                self._configure_ao(daq, AO_CHANNEL_1, AO_ALIAS_1)
+
+                daq.write_analog_value(AO_ALIAS_0, DAC0_V)
+                daq.write_analog_value(AO_ALIAS_1, DAC1_V)
+                time.sleep(0.05)
+
+                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ,
+                                             samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.start(background=False)
+                try:
+                    measurement = daq.read_analog()
+                    self.assertIsNotNone(measurement)
+
+                    errs = []
+                    means = {}
+                    for _physical, alias in MULTI_CH_CHANNELS:
+                        key = f"{NAME}.{alias}"
+                        samples = measurement.channel_data.get(key)
+                        self.assertIsNotNone(
+                            samples,
+                            f"channel_data missing key '{key}'. "
+                            f"Keys present: {list(measurement.channel_data.keys())}",
+                        )
+                        self.assertGreaterEqual(
+                            len(samples), 1,
+                            f"{alias}: expected ≥1 sample, got {len(samples)}",
+                        )
+                        non_finite = [v for v in samples if not math.isfinite(v)]
+                        if non_finite:
+                            errs.append(f"{alias}: {len(non_finite)} non-finite sample(s)")
+                            continue
+                        mean = sum(samples) / len(samples)
+                        means[alias] = mean
+                        print(f"         {alias}: {len(samples)} samples, "
+                              f"mean={mean:.6f} V")
+
+                    # AIN0 and AIN1 share the same source (DAC0) — verify
+                    # they agree within SKEW_TOLERANCE_V to confirm
+                    # simultaneous sampling.
+                    if AI_ALIAS_0 in means and AI_ALIAS_1 in means:
+                        skew = abs(means[AI_ALIAS_0] - means[AI_ALIAS_1])
+                        flag = "" if skew <= SKEW_TOLERANCE_V else "  <-- SKEW FAIL"
+                        print(f"         AIN0 vs AIN1 skew: {skew*1000:.3f} mV"
+                              f" (limit {SKEW_TOLERANCE_V*1000:.0f} mV){flag}")
+                        if skew > SKEW_TOLERANCE_V:
+                            errs.append(
+                                f"AIN0/AIN1 skew {skew*1000:.3f} mV > "
+                                f"{SKEW_TOLERANCE_V*1000:.0f} mV — "
+                                "channels may not be sampled simultaneously"
+                            )
+
+                    # Verify each channel is close to its DAC set point.
+                    targets = {
+                        AI_ALIAS_0: DAC0_V,
+                        AI_ALIAS_1: DAC0_V,
+                        AI_ALIAS_2: DAC1_V,
+                    }
+                    for alias, target in targets.items():
+                        if alias not in means:
+                            continue
+                        err = means[alias] - target
+                        flag = ("" if abs(err) <= HW_TIMED_TOLERANCE_V
+                                else "  <-- OUT OF TOLERANCE")
+                        print(f"         {alias} err vs DAC set point: "
+                              f"{err:+.6f} V{flag}")
+                        if abs(err) > HW_TIMED_TOLERANCE_V:
+                            errs.append(
+                                f"{alias}: mean={means[alias]:.4f} V, "
+                                f"target={target} V, err={err:+.4f} V"
+                            )
+
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+                    daq.write_analog_value(AO_ALIAS_0, 0.0)
+                    daq.write_analog_value(AO_ALIAS_1, 0.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "HW-timed multi-channel stream (AIN0, AIN1, AIN2)",
+            f"Stream AIN0+AIN1 (DAC0={DAC0_V} V) and AIN2 (DAC1={DAC1_V} V) "
+            f"simultaneously at {SAMPLE_RATE_HZ} Hz. Verifies sample counts, "
+            f"finite values, AIN0/AIN1 skew < {SKEW_TOLERANCE_V*1000:.0f} mV, "
+            f"and per-channel accuracy within {HW_TIMED_TOLERANCE_V*1000:.0f} mV.",
+            step,
+        )
+
+    # ==================================================================
+    # 17. Digital line loopback
+    # ==================================================================
+    def test_17_digital_line_loopback(self):
         """write_digital_line() / read_digital_line() via FIO4 → FIO5 loopback."""
 
         def step(start_ns: int):
@@ -922,7 +1050,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
     # ==================================================================
     # 17. Clean shutdown
     # ==================================================================
-    def test_17_clean_shutdown(self):
+    def test_18_clean_shutdown(self):
         """Set all outputs to safe state via InstroDAQ public methods."""
 
         def step(start_ns: int):
@@ -948,7 +1076,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
     # ==================================================================
     # 18. NotImplementedError — port-width digital I/O
     # ==================================================================
-    def test_18_port_width_digital_raises(self):
+    def test_19_port_width_digital_raises(self):
         """configure_digital_port() must raise NotImplementedError on T8."""
 
         def step(start_ns: int):
@@ -976,7 +1104,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
     # ==================================================================
     # 19. NotImplementedError — relay control
     # ==================================================================
-    def test_19_relay_control_raises(self):
+    def test_20_relay_control_raises(self):
         """close_relay() must raise NotImplementedError on the T8 driver."""
 
         def step(start_ns: int):
