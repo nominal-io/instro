@@ -281,7 +281,7 @@ def _open_resource_manager(backend: str | None) -> pyvisa.ResourceManager:
         return pyvisa.ResourceManager(backend)
     try:
         return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND)
-    except OSError as exc:
+    except (OSError, pyvisa.errors.Error) as exc:
         logger.warning(
             "VISA backend %s unavailable (%s); falling back to %s",
             DEFAULT_VISA_BACKEND,
