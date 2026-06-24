@@ -45,6 +45,8 @@ class ArduinoFirmata(DAQDriverBase):
             )
             self._sampling_interval_ms = 1
 
+        elif sampling_rate_hz <= 0:
+            raise ValueError(f"sampling_rate_hz must be > 0; got {sampling_rate_hz}Hz")
         else:
             self._sampling_interval_ms = int(1000 / sampling_rate_hz)
         self._board: pyfirmata2.Arduino | None = None
@@ -81,6 +83,9 @@ class ArduinoFirmata(DAQDriverBase):
                 stacklevel=2,
             )
             rate_hz = 1000
+
+        elif rate_hz <= 0:
+            raise ValueError(f"rate_hz must be > 0; got {rate_hz}Hz")
         self._sampling_interval_ms = int(1000 / rate_hz)
         if self._board is not None:
             self._board.setSamplingInterval(self._sampling_interval_ms)
@@ -151,7 +156,11 @@ class ArduinoFirmata(DAQDriverBase):
         return result
 
     def fetch_analog(self) -> dict[str, float]:
-        return self._sample_queue.get()
+        timeout = max(1.0, self._sampling_interval_ms / 1000 * 3)
+        try:
+            return self._sample_queue.get(timeout=timeout)
+        except queue.Empty:
+            return {}
 
     def _read_to_measurements(
         self,
@@ -161,6 +170,8 @@ class ArduinoFirmata(DAQDriverBase):
         default_tags: dict[str, str],
         **kwargs: Any,
     ) -> list[Measurement]:
+        if not response:
+            return []
         timestamp = time.time_ns()
         channel_data: dict[str, list[float]] = {}
         for alias, raw in response.items():
