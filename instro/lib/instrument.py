@@ -336,7 +336,6 @@ class Instrument:
 
         return None
 
-
     def _background_daemon_loop(self):
         """Daemon loop: run registered functions every ``background_interval``, publish loop timing."""
         while not self._background_stop_event.is_set():
