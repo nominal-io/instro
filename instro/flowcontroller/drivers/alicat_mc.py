@@ -230,7 +230,10 @@ class AlicatMC(FlowControllerDriverBase):
                             gas_type_line = self._visa.read()
                         except VisaIOError as e:  # we expect a timeout when we run out of items to read
                             if e.abbreviation == "VI_ERROR_TMO":
-                                break  # this means we've hit the last line and can exit
+                                if len(gas_types_list) > 0:
+                                    break  # this means we've hit the last line and can exit
+                                else:
+                                    raise
                             else:
                                 raise  # unexpected error - reraise
                         if gas_type_line:
