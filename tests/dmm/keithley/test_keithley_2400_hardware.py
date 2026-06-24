@@ -129,16 +129,13 @@ def run_all() -> list:
         _run("set_range manual + auto (V/I/ohms)", _range_sweep, failures)
 
         def _ac_function_unsupported() -> None:
+            # The HAL calls the driver before recording state, so a rejected AC function
+            # leaves _measurement_config untouched (no restore needed).
             try:
                 hal.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
             except NotImplementedError:
                 return
-            else:
-                raise AssertionError("set_measurement_function(AC_VOLTAGE) should raise NotImplementedError")
-            finally:
-                # The HAL records the requested function before calling the driver, so
-                # restore a valid function for any subsequent state.
-                hal.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+            raise AssertionError("set_measurement_function(AC_VOLTAGE) should raise NotImplementedError")
 
         _run("AC function unsupported (NotImplementedError)", _ac_function_unsupported, failures)
 
