@@ -69,6 +69,14 @@ def test_from_json_happy_path(valid_config, tmp_path):
     assert psu.name == "test_psu"
 
 
+def test_from_json_str_happy_path(valid_config):
+    with patch("instro.lib.transports.visa.VisaDriver"):
+        psu = InstroPSU.from_json_str(json.dumps(valid_config))
+
+    assert isinstance(psu, InstroPSU)
+    assert psu.name == "test_psu"
+
+
 def test_from_json_malformed_json(tmp_path):
     config_file = tmp_path / "psu.json"
     config_file.write_text("this is not json {{{")
