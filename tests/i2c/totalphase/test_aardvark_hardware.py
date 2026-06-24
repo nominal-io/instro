@@ -18,10 +18,10 @@ Three phases against one adapter session:
     points.
 
 Optional Nominal Core publishing:
-    Set ``NOMINAL_DATASET_RID`` to stream this test's measurements/commands to a
-    Nominal Core dataset (no RID is hard-coded here; credentials come from the
-    on-disk ``default`` profile). When it is unset, no publisher is attached and
-    the test still runs and validates fully. With it set, Phase C streams a clean
+    Set the ``DATASET_RID`` constant below to a dataset RID to stream this test's
+    measurements/commands to Nominal Core (credentials come from the on-disk
+    ``default`` profile). Left as ``None``, no publisher is attached and the test
+    still runs and validates fully. With it set, Phase C streams a clean
     commanded-vs-read-back sine you can plot in Core.
 
 Target hardware:
@@ -38,7 +38,6 @@ Target hardware:
 
 Run:
     uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py
-    NOMINAL_DATASET_RID=<rid> uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py
 
 Recorded firmware/hardware versions of the tested unit are printed at the top of
 the run and asserted non-empty; see the PR description for the values observed.
@@ -47,7 +46,6 @@ the run and asserted non-empty; see the PR description for the values observed.
 from __future__ import annotations
 
 import math
-import os
 import sys
 import time
 
@@ -63,10 +61,10 @@ from instro.lib.publishers import NominalCorePublisher
 # to pin a specific unit.
 SERIAL_NUMBER: str | None = None
 
-# Optionally publish to Nominal Core. Set NOMINAL_DATASET_RID to stream this
-# test's data (including the Phase C dense sine) to a dataset; leave it unset to
-# run without any publisher. The RID is never hard-coded here.
-DATASET_RID: str | None = os.environ.get("NOMINAL_DATASET_RID")
+# Optionally publish to Nominal Core: set this to a dataset RID to stream this
+# test's data (including the Phase C dense sine) to that dataset; leave it None to
+# run without any publisher.
+DATASET_RID: str | None = None
 
 NAME = "hw_validate"  # Channel-name prefix used by the I2CInterface.
 BITRATE_KHZ = 100  # Aardvark snaps to the nearest supported rate.
@@ -308,9 +306,7 @@ def run_all() -> list:
         print(f"  firmware version   = {device.firmware_version}")
         print(f"  hardware revision  = {device.hardware_revision}")
         print(f"  api (sw) version   = {device.api_version}")
-        print(
-            f"  publishing to Core = {'yes (' + DATASET_RID + ')' if DATASET_RID else 'no (NOMINAL_DATASET_RID unset)'}"
-        )
+        print(f"  publishing to Core = {'yes (' + DATASET_RID + ')' if DATASET_RID else 'no (DATASET_RID is None)'}")
         print()
 
         # --- Phase A: raw driver contract ---
