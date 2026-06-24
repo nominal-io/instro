@@ -1,6 +1,6 @@
-"""Hardware validation for the Total Phase Aardvark I2C driver. Self-contained; no publishers.
+"""Hardware validation for the Total Phase Aardvark I2C driver.
 
-Two phases against one adapter session:
+Three phases against one adapter session:
 
   Phase A - raw driver contract. Exercises every method the ``Aardvark`` driver
     implements (``packages/instro-i2c-aardvark/instro/i2c/drivers/totalphase/aardvark.py``):
@@ -11,6 +11,18 @@ Two phases against one adapter session:
     public HAL with a real ``SystemDefinition`` (the way users actually use the
     driver): register read/write roundtrips, field-level read-modify-write
     (lights the board LEDs), and ``reset_reg``.
+
+  Phase C - dense streaming. Runs the background daemon at a fixed rate, driving
+    the PCA9554 output register with a sine waveform and reading it back, so the
+    test produces a dense (non-sparse) time series rather than a few scattered
+    points.
+
+Optional Nominal Core publishing:
+    Set ``NOMINAL_DATASET_RID`` to stream this test's measurements/commands to a
+    Nominal Core dataset (no RID is hard-coded here; credentials come from the
+    on-disk ``default`` profile). When it is unset, no publisher is attached and
+    the test still runs and validates fully. With it set, Phase C streams a clean
+    commanded-vs-read-back sine you can plot in Core.
 
 Target hardware:
     Total Phase Aardvark I2C/SPI host adapter
@@ -26,6 +38,7 @@ Target hardware:
 
 Run:
     uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py
+    NOMINAL_DATASET_RID=<rid> uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py
 
 Recorded firmware/hardware versions of the tested unit are printed at the top of
 the run and asserted non-empty; see the PR description for the values observed.
@@ -33,6 +46,8 @@ the run and asserted non-empty; see the PR description for the values observed.
 
 from __future__ import annotations
 
+import math
+import os
 import sys
 import time
 
@@ -41,16 +56,27 @@ import pytest
 from instro.i2c import I2CInterface, RegisterDevice, SystemDefinition
 from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c.types import DataFormat, FieldDef, RegisterDef
+from instro.lib.publishers import NominalCorePublisher
 
 # --- HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING ------------------
 # None selects the first available adapter; set to a serial (e.g. "2239-764425")
 # to pin a specific unit.
 SERIAL_NUMBER: str | None = None
 
+# Optionally publish to Nominal Core. Set NOMINAL_DATASET_RID to stream this
+# test's data (including the Phase C dense sine) to a dataset; leave it unset to
+# run without any publisher. The RID is never hard-coded here.
+DATASET_RID: str | None = os.environ.get("NOMINAL_DATASET_RID")
+
 NAME = "hw_validate"  # Channel-name prefix used by the I2CInterface.
 BITRATE_KHZ = 100  # Aardvark snaps to the nearest supported rate.
 ENABLE_PULLUPS = True
 ENABLE_TARGET_POWER = True  # Activity Board is powered from the Aardvark.
+
+# Phase C streaming parameters.
+STREAM_RATE_HZ = 20  # Background-daemon publish rate; high enough for dense plots.
+STREAM_WAVEFORM_HZ = 0.5  # Sine period 2 s, so a run shows several clean cycles.
+STREAM_DURATION_S = 15  # How long the dense streaming phase runs.
 
 # AT24C02 EEPROM on the Activity Board.
 EEPROM_ADDRESS = 0x50
@@ -67,7 +93,7 @@ PCA9554_CONFIG_REG = 0x03  # 1 = input (default 0xFF), 0 = output.
 
 
 def activity_board_system() -> SystemDefinition:
-    """SystemDefinition describing the two onboard I2C devices used by Phase B."""
+    """SystemDefinition describing the two onboard I2C devices used by Phases B and C."""
     eeprom = RegisterDevice(
         name="eeprom",
         address=EEPROM_ADDRESS,
@@ -105,6 +131,19 @@ def activity_board_system() -> SystemDefinition:
     )
 
     return SystemDefinition(devices={eeprom.name: eeprom, pca9554.name: pca9554})
+
+
+def _make_i2c() -> I2CInterface:
+    """Construct the I2CInterface, optionally attaching a NominalCorePublisher."""
+    i2c = I2CInterface(
+        name=NAME,
+        driver=Aardvark(serial_number=SERIAL_NUMBER),
+        system_definition=activity_board_system(),
+        publishers=None,
+    )
+    if DATASET_RID:
+        i2c.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+    return i2c
 
 
 def _run(name: str, fn, failures: list) -> None:
@@ -222,13 +261,40 @@ def _hal_pca_field_and_reset(i2c: I2CInterface) -> None:
         i2c.write("pca9554", "config", 0xFF)  # restore power-on default (all inputs)
 
 
+# --- Phase C: dense streaming via the background daemon ----------------------
+
+
+def _stream_tick(i2c: I2CInterface) -> None:
+    """One daemon tick: command a sine sample, write it, read it back (both publish)."""
+    value = round(127.5 + 127.5 * math.sin(2 * math.pi * STREAM_WAVEFORM_HZ * time.time()))
+    value = max(0, min(255, value))
+    i2c.write("pca9554", "output", value)  # publishes pca9554.output.cmd
+    i2c.read("pca9554", "output")  # publishes pca9554.output (read-back)
+
+
+def _stream_and_verify(i2c: I2CInterface) -> None:
+    """Run a fixed-rate sine stream and confirm the data is dense (non-sparse) and varying."""
+    output_ch = f"{NAME}.pca9554.output"
+    i2c.write("pca9554", "config", 0x00)  # all lines outputs so the LEDs animate
+    i2c.background_interval = 1.0 / STREAM_RATE_HZ
+    i2c.add_background_daemon_function(_stream_tick, i2c)
+    i2c.start()
+    try:
+        time.sleep(STREAM_DURATION_S)
+        # Read the most recent buffered samples while the daemon is still running.
+        samples = i2c.get_channel(output_ch, length=10).channel_data[output_ch]
+        if len(samples) < 10:
+            raise AssertionError(f"expected a dense buffer, only got {len(samples)} samples")
+        if len(set(samples)) <= 1:
+            raise AssertionError(f"expected a varying waveform, samples are flat: {samples}")
+    finally:
+        i2c.stop()
+        i2c.write("pca9554", "output", 0xFF)
+        i2c.write("pca9554", "config", 0xFF)
+
+
 def run_all() -> list:
-    i2c = I2CInterface(
-        name=NAME,
-        driver=Aardvark(serial_number=SERIAL_NUMBER),
-        system_definition=activity_board_system(),
-        publishers=None,
-    )
+    i2c = _make_i2c()
     failures: list = []
 
     # I2CInterface.open() opens the underlying Aardvark driver.
@@ -242,6 +308,9 @@ def run_all() -> list:
         print(f"  firmware version   = {device.firmware_version}")
         print(f"  hardware revision  = {device.hardware_revision}")
         print(f"  api (sw) version   = {device.api_version}")
+        print(
+            f"  publishing to Core = {'yes (' + DATASET_RID + ')' if DATASET_RID else 'no (NOMINAL_DATASET_RID unset)'}"
+        )
         print()
 
         # --- Phase A: raw driver contract ---
@@ -266,7 +335,7 @@ def run_all() -> list:
         driver.write(EEPROM_ADDRESS, bytes([EEPROM_SCRATCH_REG]) + original)
         time.sleep(EEPROM_WRITE_CYCLE_S)
 
-        # --- Phase B: SystemDefinition + I2CInterface ---
+        # --- Phase B: SystemDefinition / I2CInterface ---
         print("\nPhase B - SystemDefinition + I2CInterface:")
         hal_original = _hal_value(i2c.read("eeprom", "scratch"), f"{NAME}.eeprom.scratch")
         _run("I2CInterface EEPROM register roundtrip (write/read)", lambda: _hal_eeprom_roundtrip(i2c, 0x42), failures)
@@ -274,6 +343,10 @@ def run_all() -> list:
         time.sleep(EEPROM_WRITE_CYCLE_S)
         _run("I2CInterface PCA9554 register roundtrip (write/read)", lambda: _hal_pca_polarity_roundtrip(i2c), failures)
         _run("I2CInterface field RMW (led0/led1) + reset_reg", lambda: _hal_pca_field_and_reset(i2c), failures)
+
+        # --- Phase C: dense streaming ---
+        print(f"\nPhase C - dense streaming ({STREAM_RATE_HZ} Hz sine for {STREAM_DURATION_S}s):")
+        _run("background-daemon sine stream is dense and varying", lambda: _stream_and_verify(i2c), failures)
 
     finally:
         # Restore a safe state: target power off, then close the interface (and driver).
