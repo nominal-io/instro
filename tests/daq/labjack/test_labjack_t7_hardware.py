@@ -68,11 +68,11 @@ import unittest
 from datetime import timedelta
 
 import pytest
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from labjack import ljm
 from nominal.core import EventType, NominalClient
 
 from instro.daq import InstroDAQ
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq.types import Direction, Logic
 from instro.lib.publishers import NominalCorePublisher
 
