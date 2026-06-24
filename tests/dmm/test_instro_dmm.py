@@ -85,6 +85,17 @@ def test_agilent_measure_with_range_and_resolution_includes_params(
     assert "1.000000e-05" in cmd
 
 
+def test_agilent_measure_with_range_only_appends_range(agilent: Agilent34401A, agilent_visa: MagicMock) -> None:
+    # Range set without set_digits must still reach the wire (issue #145).
+    agilent.set_dc_voltage_range(10.0)
+    agilent_visa.query.side_effect = ["0.5", '0,"No error"']
+
+    agilent.measure_dc_voltage()
+
+    cmd = agilent_visa.query.call_args_list[0].args[0]
+    assert cmd == "MEAS:VOLT:DC? 1.000000e+01"
+
+
 def test_agilent_per_function_range_methods_share_state(agilent: Agilent34401A) -> None:
     # The 34401A applies one shared range cache regardless of function. All
     # per-function range setters should write to the same private slot.
@@ -327,6 +338,34 @@ def test_nominal_dmm_set_measurement_function_delegates(stub_driver: _StubDMMDri
     dmm = InstroDMM(name="ut", driver=stub_driver)
     dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
     assert stub_driver.last_function is MeasurementFunction.DC_VOLTAGE
+
+
+def test_nominal_dmm_set_measurement_function_keeps_config_when_driver_rejects(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        side_effect=NotImplementedError("unsupported")
+    )
+    with pytest.raises(NotImplementedError):
+        dmm.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
+
+    # The rejected function must not be recorded: config still reflects the hardware.
+    assert dmm._measurement_config is not None
+    assert dmm._measurement_config.function is MeasurementFunction.DC_VOLTAGE
+
+
+def test_nominal_dmm_first_set_measurement_function_not_recorded_when_driver_rejects(
+    stub_driver: _StubDMMDriver,
+) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        side_effect=NotImplementedError("unsupported")
+    )
+    with pytest.raises(NotImplementedError):
+        dmm.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
+
+    assert dmm._measurement_config is None
 
 
 def test_nominal_dmm_set_aperture_nplc_dispatches_to_function_method(stub_driver: _StubDMMDriver) -> None:

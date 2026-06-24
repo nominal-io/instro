@@ -24,7 +24,6 @@ class FakePlcKind(Enum):
     ULINT = "ULINT"
     REAL = "REAL"
     LREAL = "LREAL"
-    STRING = "STRING"
     STRUCTURED = "STRUCTURED"
 
 
@@ -76,10 +75,6 @@ class FakePlcValue:
     @staticmethod
     def lreal(value: float) -> "FakePlcValue":
         return FakePlcValue(FakePlcKind.LREAL, value)
-
-    @staticmethod
-    def string(value: str) -> "FakePlcValue":
-        return FakePlcValue(FakePlcKind.STRING, value)
 
 
 @dataclass

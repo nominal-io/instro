@@ -35,10 +35,9 @@ INTEGER_RANGES: dict[str, tuple[int, int]] = {
 INTEGER_DATA_TYPES = tuple(INTEGER_RANGES)
 FLOAT_DATA_TYPES = ("real", "lreal")
 BOOL_DATA_TYPES = ("bool",)
-STRING_DATA_TYPES = ("string",)
 STREAMABLE_DATA_TYPES = BOOL_DATA_TYPES + INTEGER_DATA_TYPES + FLOAT_DATA_TYPES
 
-WriteValue = bool | int | float | str
+WriteValue = bool | int | float
 RouteSlot = Annotated[int, Field(ge=0, le=255, description="Backplane slot number; CIP port 1 is implied.")]
 
 DataType = Literal[
@@ -53,7 +52,6 @@ DataType = Literal[
     "ulint",
     "real",
     "lreal",
-    "string",
 ]
 
 
@@ -145,11 +143,6 @@ class TagDef(EtherNetIPBaseModel):
             self._validate_numeric_write_limits(value)
             return
 
-        if self.data_type in STRING_DATA_TYPES:
-            if not isinstance(value, str):
-                raise TypeError(f"Tag '{self.alias}' is a string type but got {type(value).__name__}.")
-            return
-
     def _validate_numeric_write_limits(self, value: int | float) -> None:
         if self.write_min is not None and value < self.write_min:
             raise ValueError(f"Tag '{self.alias}' value {value} is below write_min ({self.write_min}).")
@@ -201,13 +194,6 @@ class TagDef(EtherNetIPBaseModel):
             raise ValueError(f"write_min ({self.write_min}) must be less than or equal to write_max ({self.write_max})")
 
         self._validate_numeric_write_limit_ranges()
-
-        if self.data_type in STRING_DATA_TYPES and self.poll:
-            raise ValueError(
-                f"Tag '{self.alias}' has data_type='string' but poll=true. "
-                "String values are not publishable measurement data in the current streaming path; "
-                "set poll=false and use write_tag() for string command tags."
-            )
 
         return self
 

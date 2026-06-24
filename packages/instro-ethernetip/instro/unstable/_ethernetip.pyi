@@ -68,11 +68,10 @@ class PlcKind:
     ULINT: ClassVar["PlcKind"]
     REAL: ClassVar["PlcKind"]
     LREAL: ClassVar["PlcKind"]
-    STRING: ClassVar["PlcKind"]
     STRUCTURED: ClassVar["PlcKind"]
 
 
-PlcPayload: TypeAlias = bool | _int | float | str | StructuredValue
+PlcPayload: TypeAlias = bool | _int | float | StructuredValue
 
 
 class PlcValue:
@@ -108,9 +107,6 @@ class PlcValue:
 
     @staticmethod
     def lreal(value: float) -> "PlcValue": ...
-
-    @staticmethod
-    def string(value: str) -> "PlcValue": ...
 
     @staticmethod
     def structured(value: StructuredValue) -> "PlcValue": ...
@@ -157,7 +153,7 @@ class EtherNetIpSession:
         """
         ...
 
-    def write_tag(self, name: str, value: PlcValue | StructuredValue | bool | str) -> None: ...
+    def write_tag(self, name: str, value: PlcValue | StructuredValue | bool) -> None: ...
 
     def close(self) -> None: ...
 
