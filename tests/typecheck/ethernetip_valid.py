@@ -30,7 +30,6 @@ def write_supported_values(session: EtherNetIpSession) -> None:
     session.write_tag("Tag", PlcValue.ulint(1))
     session.write_tag("Tag", PlcValue.real(1.0))
     session.write_tag("Tag", PlcValue.lreal(1.0))
-    session.write_tag("Tag", PlcValue.string("abc"))
     session.write_tag("Tag", PlcValue.structured(StructuredValue(data=b"abc")))
 
 

@@ -24,7 +24,6 @@ class FakePlcKind(Enum):
     ULINT = "ULINT"
     REAL = "REAL"
     LREAL = "LREAL"
-    STRING = "STRING"
     STRUCTURED = "STRUCTURED"
 
 
@@ -77,10 +76,6 @@ class FakePlcValue:
     def lreal(value: float) -> "FakePlcValue":
         return FakePlcValue(FakePlcKind.LREAL, value)
 
-    @staticmethod
-    def string(value: str) -> "FakePlcValue":
-        return FakePlcValue(FakePlcKind.STRING, value)
-
 
 @dataclass
 class FakeEtherNetIPNativeState:
@@ -89,11 +84,13 @@ class FakeEtherNetIPNativeState:
     reads: list[str] = field(default_factory=list)
     batch_reads: list[list[str]] = field(default_factory=list)
     writes: list[tuple[str, object]] = field(default_factory=list)
+    closes: int = 0
 
 
 def install_fake_native_ethernetip(
     monkeypatch: pytest.MonkeyPatch,
     values: dict[str, FakePlcValue] | None = None,
+    close_error: Exception | None = None,
 ) -> FakeEtherNetIPNativeState:
     state = FakeEtherNetIPNativeState(values=values or {})
 
@@ -113,7 +110,9 @@ def install_fake_native_ethernetip(
             state.writes.append((name, value))
 
         def close(self) -> None:
-            pass
+            state.closes += 1
+            if close_error is not None:
+                raise close_error
 
     monkeypatch.setattr(
         ethernetip_module,

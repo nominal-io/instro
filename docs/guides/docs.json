@@ -65,7 +65,8 @@
                   "instrumentation/protocols/i2c/system-definition"
                 ]
               },
-              "instrumentation/protocols/modbus"
+              "instrumentation/protocols/modbus",
+              "instrumentation/protocols/ethernetip"
             ]
           },
           {
@@ -154,6 +155,14 @@
             ]
           },
           {
+            "group": "EtherNet/IP",
+            "pages": [
+              "instrumentation/examples/ethernetip/ethernetip_example",
+              "instrumentation/examples/ethernetip/minimal_example",
+              "instrumentation/examples/ethernetip/programmatic_config_example"
+            ]
+          },
+          {
             "group": "Test Rack",
             "pages": [
               "instrumentation/examples/test_rack_example/test_rack"
@@ -195,8 +204,8 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "https://portal.usepylon.com/nominal"
+        "label": "Community",
+        "href": "https://community.instro.nominal.io"
       }
     ],
     "primary": {

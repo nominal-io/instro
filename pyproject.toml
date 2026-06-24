@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.11.0"
+version = "0.12.1"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -56,12 +56,13 @@ packages = ["instro"]
 dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
+    "cpppo>=4.0.0",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings>=0.30.1",
     "mkdocstrings-python>=1.19.0",
     "types-requests>=2.32.4.20250913",
-    "instro-ethernetip-python",
+    "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
 ]
@@ -78,7 +79,7 @@ instro-daq-ni = { workspace = true }
 instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
-instro-ethernetip-python = { workspace = true }
+instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 
@@ -88,7 +89,7 @@ members = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -134,7 +135,7 @@ mypy_path = [
     "packages/instro-daq-labjack",
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
-    "packages/instro-ethernetip-python",
+    "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -146,7 +147,10 @@ testpaths = ["tests"]
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
 # --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
 # (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
+# --ignore=tests/i2c/totalphase: Aardvark tests depend on the optional `i2c` extra
+# (pyaardvark; hardware-only) and must be invoked explicitly (e.g.
+# `uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/i2c/totalphase"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]

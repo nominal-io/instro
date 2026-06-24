@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/nominal-io/instro/compare/instro-unstable-v0.2.0...instro-unstable-v0.2.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **ethernetip:** remove strings from Python EIP surface ([#128](https://github.com/nominal-io/instro/issues/128)) ([c133d81](https://github.com/nominal-io/instro/commit/c133d814a66b68775fb5a05114cf1ccac22aa466))
+
+## [0.2.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.1.0...instro-unstable-v0.2.0) (2026-06-22)
+
+
+### Features
+
+* **ethernetip:** reconnect after transient failures ([#100](https://github.com/nominal-io/instro/issues/100)) ([e9a35da](https://github.com/nominal-io/instro/commit/e9a35da96e619719cad008ee591d6be250343cbd))
+
 ## [0.1.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.0.1...instro-unstable-v0.1.0) (2026-06-17)
 
 

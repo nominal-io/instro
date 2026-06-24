@@ -12,6 +12,7 @@ from typing import Any
 
 STARTUP_TIMEOUT_SECONDS = 10.0
 MAX_STARTUP_ATTEMPTS = 10
+WINDOWS_SOCKET_ACCESS_DENIED = 10013
 
 
 class CpppoTestServer:
@@ -90,29 +91,35 @@ class CpppoTestServer:
 
         try:
             enip_main(
-                argv=tag_args + ["--address", f"{self.address}:{self.port}"],
+                argv=build_cpppo_argv(tag_args, self.address, self.port),
                 idle_service=idle_sync,
             )
         except KeyboardInterrupt:
             pass
         except Exception as exc:
             self._last_error = exc
-            if is_address_in_use_error(exc):
+            if is_retryable_bind_error(exc):
                 return
             raise
         finally:
             self._ready.clear()
 
 
-def reserve_local_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        sock.listen(1)
-        return sock.getsockname()[1]
+def reserve_local_port(address: str) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_sock:
+        tcp_sock.bind((address, 0))
+        tcp_sock.listen(1)
+        return tcp_sock.getsockname()[1]
 
 
-def is_address_in_use_error(error: Exception | None) -> bool:
-    return isinstance(error, OSError) and error.errno == errno.EADDRINUSE
+def build_cpppo_argv(tag_args: list[str], address: str, port: int) -> list[str]:
+    return tag_args + ["--address", f"{address}:{port}", "--no-udp"]
+
+
+def is_retryable_bind_error(error: Exception | None) -> bool:
+    if not isinstance(error, OSError):
+        return False
+    return error.errno == errno.EADDRINUSE or getattr(error, "winerror", None) == WINDOWS_SOCKET_ACCESS_DENIED
 
 
 def parse_tag_spec(spec: str) -> tuple[str, tuple[str, Any]]:
@@ -154,7 +161,14 @@ def start_server_with_retries(
     last_error: Exception | None = None
 
     for _ in range(MAX_STARTUP_ATTEMPTS):
-        port = reserve_local_port()
+        try:
+            port = reserve_local_port(address)
+        except OSError as exc:
+            if is_retryable_bind_error(exc):
+                last_error = exc
+                continue
+            raise
+
         server = CpppoTestServer(tags=tags, address=address, port=port)
         server.start()
 
@@ -166,7 +180,7 @@ def start_server_with_retries(
                 break
             time.sleep(0.1)
 
-        if is_address_in_use_error(server.last_error):
+        if is_retryable_bind_error(server.last_error):
             server.stop()
             last_error = server.last_error
             continue

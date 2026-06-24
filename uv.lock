@@ -15,7 +15,7 @@ members = [
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-daq-ni",
-    "instro-ethernetip-python",
+    "instro-ethernetip",
     "instro-i2c-aardvark",
     "instro-unstable",
 ]
@@ -465,7 +465,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.10.0"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -513,8 +513,9 @@ nidaq = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "cpppo" },
     { name = "instro-contrib" },
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
     { name = "instro-unstable" },
     { name = "mkdocs" },
     { name = "mkdocs-material" },
@@ -559,8 +560,9 @@ provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "cont
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "cpppo", specifier = ">=4.0.0" },
     { name = "instro-contrib", editable = "packages/instro-contrib" },
-    { name = "instro-ethernetip-python", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip", editable = "packages/instro-ethernetip" },
     { name = "instro-unstable", editable = "packages/instro-unstable" },
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "mkdocs-material", specifier = ">=9.7.0" },
@@ -577,7 +579,7 @@ test = [
 
 [[package]]
 name = "instro-contrib"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/instro-contrib" }
 dependencies = [
     { name = "instro" },
@@ -588,7 +590,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -603,7 +605,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -618,7 +620,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
@@ -632,9 +634,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "instro-ethernetip-python"
-version = "0.1.0"
-source = { editable = "packages/instro-ethernetip-python" }
+name = "instro-ethernetip"
+version = "0.2.0"
+source = { editable = "packages/instro-ethernetip" }
 dependencies = [
     { name = "instro" },
 ]
@@ -644,7 +646,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-i2c-aardvark"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "packages/instro-i2c-aardvark" }
 dependencies = [
     { name = "instro" },
@@ -659,7 +661,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-unstable"
-version = "0.0.1"
+version = "0.2.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },
@@ -667,17 +669,17 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
 ]
 ethernetip = [
-    { name = "instro-ethernetip-python" },
+    { name = "instro-ethernetip" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "instro", editable = "." },
-    { name = "instro-ethernetip-python", marker = "extra == 'all'", editable = "packages/instro-ethernetip-python" },
-    { name = "instro-ethernetip-python", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip-python" },
+    { name = "instro-ethernetip", marker = "extra == 'all'", editable = "packages/instro-ethernetip" },
+    { name = "instro-ethernetip", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip" },
 ]
 provides-extras = ["ethernetip", "all"]
 

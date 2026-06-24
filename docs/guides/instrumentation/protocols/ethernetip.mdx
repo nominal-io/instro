@@ -1,0 +1,569 @@
+---
+title: EtherNet/IP
+description: Using EtherNet/IP for Allen-Bradley PLC tag communication
+---
+
+<Info>The Nominal Instrumentation Library is in alpha testing. To request access, open the [Support Portal](https://portal.usepylon.com/nominal).</Info>
+
+# EtherNet/IP
+
+EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route, and the scalar tags Nominal reads or writes. `EtherNetIPDevice` exposes those tags by local alias from Python and can publish boolean and numeric tag values to Nominal Core or Nominal Connect.
+
+<Warning>
+The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the optional native package `instro-ethernetip`. Install it with `instro-unstable[ethernetip]`; it is not part of the stable `instro[all]` install path.
+</Warning>
+
+## Install
+
+Install the unstable package with the EtherNet/IP extra:
+
+```bash
+uv add "instro-unstable[ethernetip]"
+```
+
+or with pip:
+
+```bash
+pip install "instro-unstable[ethernetip]"
+```
+
+## Quickstart
+
+This example opens a CompactLogix connection, polls scalar tags, and publishes numeric samples to Nominal Core.
+
+<Tabs>
+
+<Tab title="Code">
+
+```python
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.ethernetip import EtherNetIPDevice
+
+RID = "<dataset_rid>"  # Nominal Core dataset RID.
+
+# autostart opens the session and starts polling.
+with EtherNetIPDevice(config="compactlogix.json", autostart=True) as plc:
+    # Publish boolean and numeric tag samples to Nominal Core.
+    plc.add_publisher(NominalCorePublisher(dataset_rid=RID))
+
+    # Let the background daemon collect one polling window.
+    time.sleep(10)
+```
+
+</Tab>
+
+<Tab title="Config (compactlogix.json)">
+
+Create `compactlogix.json` with the PLC connection and tag definitions:
+
+```json
+{
+  "version": 1,
+  "protocol": "ethernetip",
+  "device": {
+    "name": "line_plc",
+    "description": "CompactLogix PLC for line telemetry",
+    "manufacturer": "Allen-Bradley",
+    "model": "CompactLogix 5332E 1769-L32E"
+  },
+  "connection": {
+    "host": "192.168.1.10",
+    "port": 44818,
+    "route_path": {
+      "hops": [
+        {"type": "backplane", "slot": 0}
+      ]
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "tags": [
+    {
+      "alias": "motor_running",
+      "tag_name": "MotorRunning",
+      "data_type": "bool",
+      "poll": true
+    },
+    {
+      "alias": "line_speed",
+      "tag_name": "LineSpeed",
+      "data_type": "real",
+      "poll": true
+    }
+  ]
+}
+```
+
+</Tab>
+
+</Tabs>
+
+## Current support
+
+EtherNet/IP support is intentionally narrow. It targets PLC tags whose names and scalar data types are known before runtime.
+
+| Area | Supported today |
+| --- | --- |
+| PLC family | Tested on Allen-Bradley CompactLogix 5332E 1769-L32E |
+| Transport | EtherNet/IP explicit messaging over TCP |
+| Route paths | Direct connection, or local backplane slot hops only |
+| Background polling | Automatic batched reads for tags marked `poll: true` in the config |
+| Streaming to Nominal Core or Nominal Connect | Boolean and numeric scalar tag values |
+| Manual tag operations | Single-tag and batched non-string scalar reads, plus writes, through the native session API |
+| Unsigned integer validation | `usint`, `uint`, `udint`, and `ulint` are implemented, but not validated |
+| Tag discovery | Not supported |
+| UDTs | Not supported |
+| Arrays | Not supported |
+
+<Note>
+Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol. Current hardware testing covers only CompactLogix 5332E 1769-L32E.
+</Note>
+
+## When to use each feature
+
+A connection, scalar tag definitions, and `autostart=True` cover the common path. Use the fields and APIs below for specific EtherNet/IP requirements.
+
+| Requirement | Use |
+| --- | --- |
+| Stream live scalar PLC data to Nominal Core or Nominal Connect | `timing.poll_interval` + tags with `poll: true` |
+| Poll configured tags automatically | `timing.poll_interval` + tags with `poll: true` |
+| Reject out-of-range setpoints before PLC writes | `write_min` / `write_max` on numeric tags |
+| Reach a PLC CPU behind a local chassis/backplane | `connection.route_path.hops` with `type: "backplane"` |
+| Read several PLC tags in one native request | `EtherNetIpSession.read_tags([...])` |
+
+## Key concepts
+
+### Lifecycle
+
+The EtherNet/IP workflow has six steps:
+
+1. Define PLC tags in a JSON config file or an `EtherNetIPConfig`.
+2. Instantiate `EtherNetIPDevice(config)` with an optional connection override.
+3. Call `open()` to establish the native EtherNet/IP session.
+4. Call `start()` to begin background polling when timing is configured.
+5. Read or write tags by alias with type validation.
+6. Call `close()` to close the session and stop background polling.
+
+Prefer a `with` statement for normal scripts so `close()` runs when the block exits. `close()` stops the background polling daemon, closes publishers, and closes the native EtherNet/IP session.
+
+<Tip>
+Pass `autostart=True` to combine steps 3 and 4 by starting a background polling thread ([Background polling](#background-polling)). A `timing` section in the config must be provided when using `autostart=True`.
+</Tip>
+
+Opening the session and validating the config do not probe the PLC tag map. Tag existence and actual PLC type are only validated when PLC I/O touches the tag: either when the background polling task reads `poll: true` tags, or when the user explicitly calls `read_tag()`, `read_tags()`, or `write_tag()`.
+
+Example `timing` section:
+
+```json
+{
+  "timing": {
+    "poll_interval": 1.0
+  }
+}
+```
+
+### Supported data types
+
+The config-driven API supports scalar PLC tag types. The `data_type` field is required for every tag so reads can validate that the PLC returned the expected kind before publishing. If the PLC returns a different kind than the configured `data_type`, `EtherNetIPDevice.read_tag()` raises `TypeError`.
+
+| Data type | Python payload | Streaming to Nominal Core or Nominal Connect | Notes |
+| --- | --- | --- | --- |
+| `bool` | `bool` read as `0` or `1` in measurements | Yes | Boolean reads are published as numeric samples. |
+| `sint` | `int` | Yes | 8-bit signed integer. |
+| `int` | `int` | Yes | 16-bit signed integer. |
+| `dint` | `int` | Yes | 32-bit signed integer. |
+| `lint` | `int` | Yes | 64-bit signed integer. |
+| `usint` | `int` | Yes | 8-bit unsigned integer. Implemented, but not validated. |
+| `uint` | `int` | Yes | 16-bit unsigned integer. Implemented, but not validated. |
+| `udint` | `int` | Yes | 32-bit unsigned integer. Implemented, but not validated. |
+| `ulint` | `int` | Yes | 64-bit unsigned integer. Implemented, but not validated. |
+| `real` | `float` | Yes | 32-bit floating point. |
+| `lreal` | `float` | Yes | 64-bit floating point. |
+| `string` | N/A | No | Allen-Bradley Logix `STRING` tags (`LEN` as `DINT`, `DATA` as `SINT[]`) are not supported |
+
+<Warning>
+The config-driven EtherNet/IP API supports scalar tags only. Structured values cannot be declared as a tag `data_type`; if a configured scalar tag actually returns a structured value, it is treated as an expected-versus-actual PLC kind mismatch. `EtherNetIPDevice.read_tag()` raises `TypeError`.
+</Warning>
+
+### Strings
+
+Allen-Bradley Logix `STRING` tags are encoded as `LEN` (`DINT`) plus `DATA` (`SINT[]`), which is unsupported at this time. Furthermore, string measurements are not supported by Nominal Core or Nominal Connect.
+
+### Batched reads
+
+Use the private native session to read several PLC tags in one request:
+
+```python
+from instro.unstable._ethernetip import EtherNetIpBatchError, EtherNetIpSession
+
+with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
+    for name, result in session.read_tags(["MotorRunning", "LineSpeed"]):
+        if isinstance(result, EtherNetIpBatchError):
+            print(f"{name} failed: {result}")
+            continue
+
+        print(name, result.kind, result.value)
+```
+
+`read_tags()` preserves input order. The call raises `EtherNetIpError` only when the whole batch cannot be dispatched or parsed. Individual tag failures are returned in the result list as typed `EtherNetIpBatchError` instances such as `TagNotFoundError`, `DataTypeMismatchError`, or `CipError`, so successful tags in the same batch remain available.
+
+### Background polling
+
+With `timing` configured and polling started, `EtherNetIPDevice` reads every tag with `poll: true` in one batched native request at the configured interval.
+
+If one tag in the batch fails, that tag is skipped for the current measurement and the other successful tag values are still published.
+
+Poll only streamable scalar tags:
+
+- `bool`
+- signed and unsigned integer types
+- `real`
+- `lreal`
+
+String tags, UDTs, and arrays are not part of the Python EtherNet/IP polling surface.
+
+### Route paths
+
+Route paths are limited to local backplane slot hops:
+
+```json
+{
+  "connection": {
+    "host": "192.168.1.10",
+    "port": 44818,
+    "route_path": {
+      "hops": [
+        {"type": "backplane", "slot": 0}
+      ]
+    }
+  }
+}
+```
+
+The config schema allows multiple local backplane hops:
+
+```json
+{
+  "route_path": {
+    "hops": [
+      {"type": "backplane", "slot": 2},
+      {"type": "backplane", "slot": 0}
+    ]
+  }
+}
+```
+
+Current testing has covered one backplane hop.
+
+<Warning>
+Network hops are not supported. A route path cannot hop through Ethernet to another PLC, remote chassis, or IP address. The only accepted hop type is `backplane`, and CIP port 1 is implied by the `slot` value.
+</Warning>
+
+### Tag discovery
+
+Tag discovery is not supported. Every tag must be declared explicitly in the `tags` array with:
+
+- a local `alias`
+- the PLC `tag_name`
+- the expected scalar `data_type`
+- optional `poll`, `write_min`, and `write_max`
+
+If the PLC tag's actual type differs from the configured `data_type`, an `EtherNetIPDevice.read_tag()` call raises `TypeError`.
+
+### Write limits
+
+Set `write_min` and `write_max` to reject unsafe writes before they reach the PLC:
+
+```json
+{
+  "alias": "speed_setpoint",
+  "tag_name": "SpeedSetpoint",
+  "data_type": "real",
+  "write_min": 0.0,
+  "write_max": 2500.0
+}
+```
+
+```python
+plc.write_tag("speed_setpoint", 1200.0)  # OK
+plc.write_tag("speed_setpoint", 9999.0)  # Raises ValueError
+```
+
+EtherNet/IP checks write limits against the value passed by the caller before sending the write to the PLC.
+
+## Configuration
+
+Every EtherNet/IP config file must include:
+
+- **`version`**: identifies the config schema version.
+- **`protocol`**: must be `"ethernetip"` so the wrong protocol config fails clearly.
+- **`device`**: metadata used for channel naming.
+- **`tags`**: explicit tag definitions.
+
+### Full configuration example
+
+```json
+{
+  "version": 1,
+  "protocol": "ethernetip",
+  "device": {
+    "name": "line_plc",
+    "description": "CompactLogix PLC for line telemetry",
+    "manufacturer": "Allen-Bradley",
+    "model": "CompactLogix 5332E 1769-L32E"
+  },
+  "connection": {
+    "host": "192.168.1.10",
+    "port": 44818,
+    "route_path": {
+      "hops": [
+        {"type": "backplane", "slot": 0}
+      ]
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "tags": [
+    {
+      "alias": "motor_running",
+      "tag_name": "MotorRunning",
+      "data_type": "bool",
+      "description": "Motor run feedback",
+      "poll": true
+    },
+    {
+      "alias": "line_speed",
+      "tag_name": "LineSpeed",
+      "data_type": "real",
+      "description": "Measured line speed in rpm",
+      "poll": true
+    },
+    {
+      "alias": "part_count",
+      "tag_name": "PartCount",
+      "data_type": "dint",
+      "description": "Completed parts since reset",
+      "poll": true
+    },
+    {
+      "alias": "speed_setpoint",
+      "tag_name": "SpeedSetpoint",
+      "data_type": "real",
+      "description": "Commanded line speed in rpm",
+      "poll": false,
+      "write_min": 0.0,
+      "write_max": 2500.0
+    }
+  ]
+}
+```
+
+### Device section
+
+The `device` section describes the physical PLC. `EtherNetIPDevice` uses the `name` field as a prefix for published channel names.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `name` | Yes | Device name, used as channel name prefix |
+| `description` | No | Human-readable description |
+| `manufacturer` | No | Device manufacturer |
+| `model` | No | Device model number |
+
+### Connection section
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `host` | Yes | - | PLC IP address or hostname |
+| `port` | No | `44818` | EtherNet/IP TCP port |
+| `route_path` | No | - | Optional local backplane route path |
+
+#### Route path
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `hops` | No | `[]` | Ordered list of local backplane hops |
+
+Each hop must be:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `type` | Yes | Must be `"backplane"` |
+| `slot` | Yes | Backplane slot number, 0-255 |
+
+### Tag definitions
+
+Each tag entry defines one aliasable PLC tag:
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `alias` | Yes | - | Unique local alias used in `read_tag()` and `write_tag()` |
+| `tag_name` | Yes | - | PLC tag name |
+| `data_type` | Yes | - | Expected scalar PLC data type |
+| `description` | No | - | Optional human-readable description |
+| `poll` | No | `true` | Include this tag in background polling |
+| `write_min` | No | - | Minimum allowed write value for numeric tags |
+| `write_max` | No | - | Maximum allowed write value for numeric tags |
+
+### Timing section
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `poll_interval` | Yes | - | Polling interval in seconds (0.01-10.0) |
+
+When the `timing` section is present, `EtherNetIPDevice` reads tags with `poll: true` in a batched background request at the specified interval. Successful values are published and buffered for retrieval.
+
+### Validation rules
+
+`EtherNetIPDevice` validates configuration at load time:
+
+- `protocol` must be `"ethernetip"`.
+- Tag aliases must be unique.
+- Every tag must declare `data_type`.
+- `data_type` must be one of the [supported scalar types](#supported-data-types).
+- Only numeric tags can use `write_min` and `write_max`.
+- `write_min` must be less than or equal to `write_max`.
+- Integer write limits must fit in the configured PLC integer type.
+- Route path hops must be local backplane hops with slots from 0 to 255.
+
+Load-time validation is local to the config. It does not verify that PLC tags exist or that their actual PLC types match `data_type`; those checks happen only when the background polling task runs or when the user explicitly initiates a `read_tag()`, `read_tags()`, or `write_tag()` operation.
+
+## Create an EtherNetIPDevice instance
+
+<Tabs>
+
+<Tab title="JSON config">
+
+```python
+from instro.unstable.ethernetip import EtherNetIPDevice
+
+# Uses the connection section from compactlogix.json.
+with EtherNetIPDevice(config="compactlogix.json") as plc:
+    # Assumes "line_speed" is a specified tag in compactlogix.json
+    # and that 1200.0 is a valid value.
+    measurement = plc.read_tag("line_speed")
+    plc.write_tag("line_speed", 1200.0)
+```
+
+</Tab>
+
+<Tab title="Connection override">
+
+```python
+from instro.unstable.ethernetip import EtherNetIPDevice
+
+with EtherNetIPDevice(
+    config="compactlogix.json",
+    # Overrides any connection in the config; the config can omit connection.
+    connection={
+        "host": "192.168.1.10",
+        "port": 44818,
+        # Local backplane hop to the PLC CPU slot.
+        "route_path": {"hops": [{"type": "backplane", "slot": 0}]},
+    },
+) as plc:
+    measurement = plc.read_tag("line_speed")
+```
+
+</Tab>
+
+<Tab title="Python config">
+
+```python
+from instro.lib.types import DeviceInfo
+from instro.unstable.ethernetip import (
+    EtherNetIPConfig,
+    EtherNetIPConnectionInfo,
+    EtherNetIPDevice,
+    TagDef,
+    TimingConfig,
+)
+
+config = EtherNetIPConfig(
+    device=DeviceInfo(name="line_plc"),
+    # Required when autostart should begin background polling.
+    timing=TimingConfig(poll_interval=1.0),
+    tags=[
+        TagDef(alias="ready", tag_name="Ready", data_type="bool"),
+        TagDef(alias="line_speed", tag_name="LineSpeed", data_type="real"),
+    ],
+)
+
+# Keep environment-specific connection details separate from the tag map.
+connection = EtherNetIPConnectionInfo(
+    host="192.168.1.10",
+    # Local backplane hop to the PLC CPU slot.
+    route_path={"hops": [{"type": "backplane", "slot": 0}]},
+)
+
+# Opens the session and starts polling immediately because timing is configured.
+with EtherNetIPDevice(config, connection=connection, autostart=True) as plc:
+    measurement = plc.read_tag("line_speed")
+```
+
+</Tab>
+
+</Tabs>
+
+## Read and write
+
+Returned `Measurement` and `Command` objects use channel names in the pattern `{device_name}.{tag_alias}`. Write commands append `.cmd` to the channel name.
+
+```python
+# The config examples above name the device "line_plc".
+measurement = plc.read_tag("line_speed")
+print(measurement.channel_data["line_plc.line_speed"])
+
+command = plc.write_tag("line_speed", 1200.0)
+print(command.channel_data["line_plc.line_speed.cmd"])
+```
+
+## Background polling
+
+Use `autostart=True` to open the session and begin background polling immediately:
+
+```python
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.ethernetip import EtherNetIPDevice
+
+plc = EtherNetIPDevice(config="compactlogix.json", autostart=True)
+plc.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
+
+recent_speed = plc.get_channel("line_plc.line_speed", length=100)
+plc.close()
+```
+
+Start explicitly when the session should open before polling begins:
+
+```python
+plc = EtherNetIPDevice(config="compactlogix.json")
+plc.open()
+plc.start()
+```
+
+## Error handling
+
+EtherNet/IP raises these errors for common failures:
+
+| Error | Meaning |
+| --- | --- |
+| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip'` | The native PyO3 package is not installed. Install `instro-unstable[ethernetip]`. |
+| `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
+| `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different kind than the configured scalar `data_type`, including a structured value for a scalar tag. |
+| `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |
+| `ValueError: Tag '{alias}' raw value ... is out of range for ...` | A raw integer write does not fit in the configured PLC integer type. |
+| Native `EtherNetIpError` | The underlying EtherNet/IP request failed because of a connection, CIP, or tag error. |
+| Native `EtherNetIpBatchError` | One tag in a `read_tags()` batch failed. Check subclasses such as `TagNotFoundError`, `DataTypeMismatchError`, and `CipError`. |
+
+## Known limitations
+
+- EtherNet/IP support is unstable and installed through `instro-unstable[ethernetip]`.
+- Hardware testing covers Allen-Bradley CompactLogix 5332E 1769-L32E.
+- Route paths support local backplane hops only. Network hops are unsupported.
+- Current testing covers one local backplane hop.
+- Tag discovery is unsupported.
+- Arrays and UDTs are unsupported.
+- PLC string tags are not exposed through the Python EtherNet/IP API.
