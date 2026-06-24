@@ -290,7 +290,7 @@ class Instrument:
             logger.info("Background daemon not running for instrument '%s'; stop() is a no-op", self.name)
 
     def get_channel(
-        self, channel_name: str, length: int = 1, wait_for_latest: bool = False, timeout: float = 10.0
+        self, channel_name: str, length: int = 1, wait_for_new_samples: bool = False, timeout: float = 10.0
     ) -> Measurement:
         """Return the most recent ``length`` samples for ``channel_name`` from the in-memory buffer.
 
@@ -299,19 +299,19 @@ class Instrument:
         Args:
             channel_name: Name of the channel to retrieve.
             length: Number of trailing samples to return.
-            wait_for_latest: Block until at least ``length`` new values arrive.
-            timeout: Seconds to wait when insufficient data exists or ``wait_for_latest=True``.
+            wait_for_new_samples: Block until at least ``length`` new values arrive.
+            timeout: Seconds to wait when insufficient data exists or ``wait_for_new_samples=True``.
 
         Raises:
             RuntimeError: No background buffer; ``start()`` was not called.
             ChannelNotFoundError:
                 channel had no values and no data appeared before ``timeout``.
-                ``wait_for_latest=True`` and channel did not appear within ``timeout``.
-            ChannelValueTimeoutError: ``wait_for_latest=True`` and values did not arrive within ``timeout``.
+                ``wait_for_new_samples=True`` and channel did not appear within ``timeout``.
+            ChannelValueTimeoutError: ``wait_for_new_samples=True`` and values did not arrive within ``timeout``.
         """
         if self._background_thread and self._background_thread.is_alive():
             assert self._channel_buffer
-            return self._channel_buffer.get(channel_name, length, wait_for_latest, timeout)
+            return self._channel_buffer.get(channel_name, length, wait_for_new_samples, timeout)
 
         raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
 
@@ -327,7 +327,7 @@ class Instrument:
             RuntimeError: No background buffer; ``start()`` was not called.
         """
         try:
-            cached_measurement = self.get_channel(channel_name, length=1, wait_for_latest=False, timeout=0)
+            cached_measurement = self.get_channel(channel_name, length=1, wait_for_new_samples=False, timeout=0)
             return cached_measurement.channel_data[channel_name][0]
         except RuntimeError:  # expect: this means instrument not started, good to report
             raise

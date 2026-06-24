@@ -5,13 +5,14 @@ Vrms, Vpp, and Frequency on channel 1 while printing results in a main loop.
 
 """
 
-from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.scope import (
     InstroScope,
     ScopeMeasurementType,
 )
 from instro.unstable.scope.drivers.keysight import Keysight1200X
 from instro.unstable.scope.types import AcquisitionMode, Coupling, TriggerMode, TriggerSlope, TriggerType
+
+from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::10893::923::CN64191203::INSTR"
 DATASET_RID = "ri.catalog.cerulean-staging.dataset.50a647a4-0d00-460c-9898-4c282adfe7a4"
@@ -60,7 +61,7 @@ try:
     # --- Main loop: read back measurements and print ---
     while True:
         try:
-            vrms = scope.get_channel("scope.ch1.vrms", length=1, wait_for_latest=True)
+            vrms = scope.get_channel("scope.ch1.vrms", length=1, wait_for_new_samples=True)
             vpp = scope.get_channel("scope.ch1.vpp", length=1)
             freq = scope.get_channel("scope.ch1.frequency", length=1)
 
