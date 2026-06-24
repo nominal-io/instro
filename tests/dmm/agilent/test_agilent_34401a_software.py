@@ -133,6 +133,17 @@ def test_agilent_measure_with_range_only_appends_range(agilent: Agilent34401A, a
     assert cmd == "MEAS:VOLT:DC? 1.000000e+01"
 
 
+def test_agilent_measure_with_digits_only_issues_bare_command(agilent: Agilent34401A, agilent_visa: MagicMock) -> None:
+    # Resolution-without-range is not expressible in MEAS?, so set_digits alone is dropped.
+    agilent.set_digits(6)
+    agilent_visa.query.side_effect = ["0.5", '0,"No error"']
+
+    agilent.measure_dc_voltage()
+
+    cmd = agilent_visa.query.call_args_list[0].args[0]
+    assert cmd == "MEAS:VOLT:DC?"
+
+
 @pytest.mark.parametrize(
     "setter",
     [

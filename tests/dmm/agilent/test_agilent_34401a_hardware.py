@@ -117,6 +117,8 @@ def run_all() -> list:
 
         def _digits() -> None:
             hal.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+            # Resolution only reaches the wire alongside a range, so set one first.
+            hal.set_range(10.0)
             for n in (4, 5, 6):
                 hal.set_digits(n)
                 _read_value(hal)
