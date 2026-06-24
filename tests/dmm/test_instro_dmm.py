@@ -85,6 +85,17 @@ def test_agilent_measure_with_range_and_resolution_includes_params(
     assert "1.000000e-05" in cmd
 
 
+def test_agilent_measure_with_range_only_appends_range(agilent: Agilent34401A, agilent_visa: MagicMock) -> None:
+    # Range set without set_digits must still reach the wire (issue #145).
+    agilent.set_dc_voltage_range(10.0)
+    agilent_visa.query.side_effect = ["0.5", '0,"No error"']
+
+    agilent.measure_dc_voltage()
+
+    cmd = agilent_visa.query.call_args_list[0].args[0]
+    assert cmd == "MEAS:VOLT:DC? 1.000000e+01"
+
+
 def test_agilent_per_function_range_methods_share_state(agilent: Agilent34401A) -> None:
     # The 34401A applies one shared range cache regardless of function. All
     # per-function range setters should write to the same private slot.
