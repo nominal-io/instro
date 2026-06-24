@@ -329,6 +329,34 @@ def test_nominal_dmm_set_measurement_function_delegates(stub_driver: _StubDMMDri
     assert stub_driver.last_function is MeasurementFunction.DC_VOLTAGE
 
 
+def test_nominal_dmm_set_measurement_function_keeps_config_when_driver_rejects(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        side_effect=NotImplementedError("unsupported")
+    )
+    with pytest.raises(NotImplementedError):
+        dmm.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
+
+    # The rejected function must not be recorded: config still reflects the hardware.
+    assert dmm._measurement_config is not None
+    assert dmm._measurement_config.function is MeasurementFunction.DC_VOLTAGE
+
+
+def test_nominal_dmm_first_set_measurement_function_not_recorded_when_driver_rejects(
+    stub_driver: _StubDMMDriver,
+) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        side_effect=NotImplementedError("unsupported")
+    )
+    with pytest.raises(NotImplementedError):
+        dmm.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
+
+    assert dmm._measurement_config is None
+
+
 def test_nominal_dmm_set_aperture_nplc_dispatches_to_function_method(stub_driver: _StubDMMDriver) -> None:
     dmm = InstroDMM(name="ut", driver=stub_driver)
     dmm.set_measurement_function(MeasurementFunction.DC_CURRENT)
