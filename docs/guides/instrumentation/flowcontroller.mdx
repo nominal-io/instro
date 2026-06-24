@@ -5,16 +5,11 @@ description: Using InstroFlowController for gas flow controllers
 
 # InstroFlowController
 
-`InstroPSU` is a hardware abstraction layer (HAL) that provides a unified interface for programmable power supplies. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `TDKLambdaGenesys`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
+`InstroFlowController` is a hardware abstraction layer (HAL) that provides a unified interface for InstroFlowMeter. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `TDKLambdaGenesys`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
 
-- **B&K Precision**: 9115-series and 914X-series via SCPI/VISA (`BK9115`, `BK914X`)
-- **Keysight**: E36100-series single-channel via SCPI/VISA (`KeysightE36100`)
-- **Rigol**: DP-series via SCPI/VISA (`RigolDP800`), including OVP/OCP controls and remote sense on supported DP800 channels
-- **Siglent**: SPD-series via SCPI/VISA (`SiglentSPD3303`)
-- **TDK Lambda**: Genesys family via SCPI/VISA (`TDKLambdaGenesys`), including white-label Agilent/Keysight N5700-series supplies
-- **Simulated**: `SimulatedPSU` for use with the bundled SCPI simulator
+- **AlicatMC**: Alicat MC-series serial-controlled flow meters
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -22,63 +17,58 @@ If your vendor or model is not listed, see [Custom Driver Development](#custom-d
 
 ### Driver Composition
 
-An `InstroPSU` is built from a concrete driver:
+An `InstroFlowController` is built from a concrete driver:
 
 ```
-InstroPSU("name", driver=BK9115(visa_resource="USB0::..."), num_channels=1)
+InstroFlowController(
+    name="FlowController",
+    driver = AlicatMC(VisaConfig(visa_resource=VISA_RESOURCE)
+)
 ```
 
-- The **vendor driver** (e.g. `BK9115`) owns the connection setup and vendor-specific command mapping.
-- **`InstroPSU`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
+- The **vendor driver** (e.g. `AlicatMC`) owns the connection setup and vendor-specific command mapping.
+- **`InstroFlowController`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
 
 ### Lifecycle
 
-The typical InstroPSU workflow:
+The typical InstroFlowController workflow:
 
-1. **Construct**: instantiate the vendor driver and pass it to `InstroPSU`.
+1. **Construct**: instantiate the vendor driver and pass it to `InstroFlowController`.
 2. **`open()`**: establishes the VISA connection.
 3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements.
-4. **`start()`**: begins a periodic background daemon. (Optional)
+4. **`start()`**: begins a periodic background daemon. (Optional) By default this calls `get_flow_data` periodically.
 5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
 
-## Creating an InstroPSU Instance
+## Creating an InstroFlowController Instance
 
 ```python
-from instro.psu.drivers import SiglentSPD3303
-from instro.psu import InstroPSU
+from instro.flowcontroller.drivers import AlicatMC
+from instro.flowcontroller import InstroFlowController
 
-psu = InstroPSU(
-    name="myPSU",
-    driver=SiglentSPD3303(visa_resource="USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"),
-    num_channels=2,
+fc = InstroFlowController(
+    name="myFlowController",
+    driver = AlicatMC(
+        VisaConfig(
+            visa_resource=VISA_RESOURCE,
+            serial_config=SerialConfig(baud_rate=19200),
+            terminator=TerminatorConfig(read="\r", write="\r"),
+        ),
+        device_id="M",
+    ),
 )
 ```
 
 ### Parameters
 
-- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
-- **`num_channels`**: Number of output channels on the power supply.
+- **`name`**: A name for this flow controller instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `FlowControllerDriverBase` instance (e.g. `AlicatMC`) configured with the connection details for that model.
 - **`publishers`**: Optional list of publishers to attach.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### Choosing a Driver
 
-Choose the concrete driver that matches the power supply model, then pass the instrument connection settings to that driver. For example, use `BK914X` for the B&K 914X-series, `KeysightE36100` for Keysight E36100-series supplies, or `RigolDP800` for Rigol DP-series.
-
-To inspect a VISA instrument's identity before choosing a driver:
-
-```python
-from instro.lib.transports import VisaDriver
-
-visa = VisaDriver("USB0::...")
-try:
-    visa.open()
-    print(visa.query("*IDN?"))
-finally:
-    visa.close()
-```
+Choose the concrete driver that matches the flow controller model, then pass the instrument connection settings to that driver. For example, use `AlicatMC` for the Alicat MC-series.
 
 ## Examples
 
@@ -89,37 +79,38 @@ All measurement methods return [`Measurement`](/instrumentation/library#measurem
 ```python
 import time
 
-from instro.psu.drivers import SiglentSPD3303
-from instro.psu import InstroPSU
-from instro.lib.publishers import NominalCorePublisher
+from instro.flowcontroller import InstroFlowController
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC
+from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
 
-VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
-DATASET_RID = "<your dataset here>"
+VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
+ALICAT_DEVICE_ID = "A" #DEFAULT FOR ALICATMC
 
-psu = InstroPSU(
-    name="myPSU",
-    driver=SiglentSPD3303(visa_resource=VISA_RESOURCE),
-    num_channels=2,
+device = AlicatMC(
+    VisaConfig(
+        visa_resource=VISA_RESOURCE,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    ),
+    device_id=ALICAT_DEVICE_ID,
 )
-psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-psu.open()
+fc = InstroFlowController(
+    name="fc",
+    driver=device
+)
 
-# Configure channel 1
-psu.set_current_limit(0.5, channel=1)
-psu.set_voltage(12.0, channel=1)
-psu.output_enable(True, channel=1)
 
-time.sleep(0.5)
+fc.background_interval = 0.5  # poll the controller for new values every half second.
+fc.open()
+fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
+fc.select_gas("air")  # Air [case insensitive]
+fc.tare_flow() #optional
+flow_data = fc.get_flow_data()
+print(f'Initial data: {flow_data}')
+fc.close()
 
-# Read channel 1
-voltage = psu.get_voltage(channel=1)
-current = psu.get_current(channel=1)
-status = psu.get_output_status(channel=1)
-print(f"V: {voltage.latest:.3f}V, I: {current.latest:.3f}A, On: {status.latest}")
-
-psu.output_enable(False, channel=1)
-psu.close()
 ```
 
 ### Background Daemon for Continuous Monitoring
@@ -127,56 +118,70 @@ psu.close()
 ```python
 import time
 
-from instro.psu.drivers import SiglentSPD3303
-from instro.psu import InstroPSU
-from instro.lib.publishers import NominalCorePublisher
+from instro.flowcontroller import InstroFlowController
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC
+from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
 
-VISA_RESOURCE = "USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"
-DATASET_RID = "<your dataset here>"
+VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
+ALICAT_DEVICE_ID = "A" #DEFAULT FOR ALICATMC
 
-psu = InstroPSU(
-    name="myPSU",
-    driver=SiglentSPD3303(visa_resource=VISA_RESOURCE),
-    num_channels=2,
+device = AlicatMC(
+    VisaConfig(
+        visa_resource=VISA_RESOURCE,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    ),
+    device_id=ALICAT_DEVICE_ID,
 )
-psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
-# Configure telemetry rate (optional, default is 1 second)
-psu.background_interval = 0.5  # Poll every 500ms
+fc = InstroFlowController(
+    name="fc",
+    driver=device
+)
 
-psu.open()
 
-# Start background daemon
-psu.start()
+fc.background_interval = 0.5  # poll the controller for new values every half second.
+fc.open()
+fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
+fc.select_gas("air")  # Air [case insensitive]
+fc.tare_flow() #optional
+flow_data = fc.get_flow_data()
+print(f'Initial data: {flow_data}')
 
-# Configure channel 1
-psu.set_current_limit(0.5, channel=1)
-psu.set_voltage(12.0, channel=1)
-psu.output_enable(True, channel=1)
+try:
+    # Launches a background daemon that polls mass flow, volumetric flow,
+    # pressure, temperature, and setpoint.
+    fc.start()
+    #starting automatically creates a channel buffer accessible with fc.get_channel(..)
 
-# Data flows automatically to publishers
-while True:
+    # Allow the daemon to publish baseline measurements before changing setpoint.
+    time.sleep(1)
+    
+    fc.set_setpoint(value=50.0)
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=25.0)
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=0.0)
+
+    time.sleep(1)
+
+    print("Sequence complete. Press Ctrl+C to stop.")
     try:
-        # Optionally grab data being produced by the background daemon.
-        ch1_voltage = psu.get_channel(
-            channel_name = "myPSU.ch1.voltage",
-            length = 1,
-            wait_for_latest = True)  # This will block for the next sample from the background daemon
-        ch1_current = psu.get_channel(
-            channel_name = "myPSU.ch1.current",
-            length = 5,
-            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
-        print(f"Voltage, Channel 1: {ch1_voltage}")
-        print(f"Current, Channel 1: {ch1_current}")
+        while True:
+            time.sleep(1) # during this time, data will still be acquired by the flowmeter process
+            #and published across all publishers. Use fc.get_channel(..) to pull from a local buffer
+
     except KeyboardInterrupt:
-        print("Stopping...")
-        break
+        pass
 
-psu.output_enable(False, channel=1)
-
-# Stop background daemon
-psu.stop()
-psu.close()
+finally:
+    fc.stop()
+    fc.close()
 ```
 
 In this mode:
@@ -184,14 +189,18 @@ In this mode:
 - `stop()` ends the background daemon.
 
 <Note>
-**Default PSU Background Daemon**
+**Default Flow Controller Background Daemon**
 
-For each <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip>:
-- Output voltage (via `get_voltage(channel=...)`)
-- Output current (via `get_current()`)
-- Output enable status (via `get_output_status()`)
+For each meter, using `get_flow_data()`:
+- temperature
+- pressure
+- mass flow (`mass_flow`)
+- volumetric flow (`vol_flow`)
+- setpoint (as read back from the meter)
+  - `setpoint.cmd` represents the last command to the controller from this client)
 
-The default polling interval is 1 second, configurable via the `background_interval` property.
+
+The default polling interval is 1 second, the default within the base `Instrument` class, but is configurable via the `background_interval` property.
 </Note>
 
 **Custom Background Daemon**
@@ -205,192 +214,129 @@ See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for m
 
 Data is published as a direct result of an instrument method being called.
 
-For example, when you call `get_voltage(channel=1)`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+For example, when you call `get_flow_data()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
 
 Therefore the background daemon, when calling these instrument methods, is publishing data in the background as well!
 </Note>
 
 ## Published channels
 
-Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. Substitute `{N}` with the actual channel number (`1`, `2`, …). If you need the pre-v1.0 channel names instead, pass [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) to the constructor.
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the `name` argument passed to the constructor.
 
 | Method | Descriptor | Type |
 |--------|------------|------|
-| `set_voltage(channel=N)` | `ch{N}.voltage.cmd` | command |
-| `get_voltage(channel=N)` | `ch{N}.voltage` | telemetry |
-| `set_current_limit(channel=N)` | `ch{N}.current.cmd` | command |
-| `get_current(channel=N)` | `ch{N}.current` | telemetry |
-| `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
-| `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
-| `set_overvoltage_protection_level(channel=N)` | `ch{N}.ovp.cmd` | command |
-| `get_overvoltage_protection_level(channel=N)` | `ch{N}.ovp` | telemetry |
-| `set_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled.cmd` | command |
-| `get_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled` | telemetry |
-| `set_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay.cmd` | command |
-| `get_overvoltage_protection_delay(channel=N)` | `ch{N}.ovp.delay` | telemetry |
-| `set_overcurrent_protection_level(channel=N)` | `ch{N}.ocp.cmd` | command |
-| `get_overcurrent_protection_level(channel=N)` | `ch{N}.ocp` | telemetry |
-| `set_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled.cmd` | command |
-| `get_overcurrent_protection_enabled(channel=N)` | `ch{N}.ocp.enabled` | telemetry |
-| `set_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense.cmd` | command |
-| `get_remote_sense_enabled(channel=N)` | `ch{N}.remote_sense` | telemetry |
+| `get_flow_data()` | `{name}.setpoint` | telemetry |
+| `get_flow_data()` | `{name}.mass_flow` | telemetry |
+| `get_flow_data()` | `{name}.vol_flow` | telemetry |
+| `get_flow_data()` | `{name}.pressure` | telemetry |
+| `get_flow_data()` | `{name}.temperature` | telemetry |
+| `set_setpoint(value)` | `{name}.setpoint.cmd` | command |
+| `select_gas(gas_name)` | `{name}.gas.cmd` | command |
+| `tare_flow()` | `{name}.tare.cmd` | command |
 
 ## Method Reference
 
 | Method | Purpose |
 |--------|---------|
-| `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
-| `open()` | Establish the connection to the PSU |
-| `close()` | Disconnect from PSU and close all publishers |
-| `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
-| `get_voltage(channel=N)` | Read measured output voltage in volts |
-| `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |
-| `get_current(channel=N)` | Read measured output current in amperes |
-| `output_enable(enable, channel=N)` | Enable (True) or disable (False) the output |
-| `get_output_status(channel=N)` | Query output enable state (returns Measurement with bool value) |
-| `set_overvoltage_protection_level(voltage, channel=N)` | Set the overvoltage protection threshold in volts |
-| `get_overvoltage_protection_level(channel=N)` | Read the overvoltage protection threshold in volts |
-| `set_overvoltage_protection_enabled(enabled, channel=N)` | Enable or disable overvoltage protection |
-| `get_overvoltage_protection_enabled(channel=N)` | Query whether overvoltage protection is enabled |
-| `set_overvoltage_protection_delay(delay, channel=N)` | Set the overvoltage protection trip delay in seconds |
-| `get_overvoltage_protection_delay(channel=N)` | Read the overvoltage protection trip delay in seconds |
-| `set_overcurrent_protection_level(current, channel=N)` | Set the overcurrent protection threshold in amperes |
-| `get_overcurrent_protection_level(channel=N)` | Read the overcurrent protection threshold in amperes |
-| `set_overcurrent_protection_enabled(enabled, channel=N)` | Enable or disable overcurrent protection |
-| `get_overcurrent_protection_enabled(channel=N)` | Query whether overcurrent protection is enabled |
-| `set_remote_sense_enabled(enabled, channel=N)` | Enable or disable remote sense |
-| `get_remote_sense_enabled(channel=N)` | Query whether remote sense is enabled |
+| `InstroFlowController(name, driver, publishers=None, **kwargs)` | Construct an InstroFlowController with a vendor driver |
+| `open()` | Open the underlying driver transport |
+| `close()` | Close the driver transport and stop all publishers |
+| `get_flow_data()` | Poll the device and return a `Measurement` with all live readings |
+| `set_setpoint(value)` | Command a new flow setpoint in the device's configured engineering units |
+| `select_gas(gas_name)` | Select the active gas by name (case-insensitive) |
+| `tare_flow()` | Zero the flow reading; device must have zero flow when called |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
 
-# Simulated Power Supply
-
-For development and testing without physical hardware, Nominal Instrumentation includes a local SCPI power-supply simulator. See [PSU simulator](/instrumentation/psu-simulator) for the quickstart, usage notes, and supported command set.
 
 ---
 
 # Custom Driver Development
 
-This section is for developers implementing `InstroPSU` support for power supplies that aren't supported out of the box.
+This section is for developers implementing `InstroFlowController` support for flow controllers that aren't shipped in the library.
 
 ## Overview
 
-Driver developers subclass `PSUDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver, and that concrete driver exposes connection parameters that make sense for its protocol:
+Driver developers subclass `FlowControllerDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver and passes it to `InstroFlowController`:
 
 ```python
-psu = InstroPSU(
-    name="labPSU",
-    driver=MyVendorPSU(host="10.0.0.42", unit_id=1),
-    num_channels=1,
+fc = InstroFlowController(
+    name="fc",
+    driver=MyVendorFlowController(visa_resource="ASRL7::INSTR"),
 )
 ```
 
-The driver is responsible for translating `InstroPSU`'s vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …) into vendor-specific commands.
+The driver translates `InstroFlowController`'s vendor-independent API (`get_flow_data`, `set_setpoint`, `select_gas`, `tare_flow`) into vendor-specific commands.
 
 ## Driver Responsibilities
 
-A PSU driver must:
+A flow controller driver must:
 
-1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, `unit_id`, `interface`, or `node_id`, depending on the instrument.
-2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver`, socket client, Modbus client, or other transport object.
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, or `device_id`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver` or other transport object.
 3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
 4. **Map commands**: translate each abstract method into vendor-specific commands.
-5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, etc.).
+5. **Parse responses**: convert instrument responses into `FlowData` or the expected return type.
 
-## PSUDriverBase Interface
+## FlowControllerDriverBase Interface
 
-All PSU drivers subclass `PSUDriverBase` and implement these abstract methods:
+All flow controller drivers subclass `FlowControllerDriverBase` and implement these abstract methods:
 
 ```python
 def open(self) -> None:
-    """Open the driver's underlying transport and perform any vendor handshake."""
+    """Open the driver's underlying transport."""
 
 def close(self) -> None:
-    """Close the driver's underlying transport."""
+    """Close the driver's underlying transport. Idempotent."""
 
-def set_voltage(self, voltage: float, channel: int) -> None:
-    """Set the output voltage (volts) on `channel`."""
+def get_flow_data(self) -> FlowData:
+    """Read a full measurement frame from the device."""
 
-def get_voltage(self, channel: int) -> float:
-    """Query and return the measured output voltage in volts."""
+def set_setpoint(self, setpt: float) -> float:
+    """Command a new flow setpoint in the device's configured engineering units."""
 
-def set_current_limit(self, current_limit: float, channel: int) -> None:
-    """Set the current limit (amperes) on `channel`."""
+def select_gas(self, gas_name: str) -> str:
+    """Select the active gas by name; driver resolves the device-internal number."""
 
-def get_current(self, channel: int) -> float:
-    """Query and return the measured output current in amperes."""
-
-def output_enable(self, enable: bool, channel: int) -> None:
-    """Enable or disable the output on `channel`."""
-
-def get_output_status(self, channel: int) -> bool:
-    """Query and return the output enable status on `channel`."""
-
-def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
-    """Set the overvoltage protection threshold (volts) on `channel`."""
-
-def get_overvoltage_protection_level(self, channel: int) -> float:
-    """Query and return the overvoltage protection threshold in volts."""
-
-def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
-    """Enable or disable overvoltage protection on `channel`."""
-
-def get_overvoltage_protection_enabled(self, channel: int) -> bool:
-    """Query and return whether overvoltage protection is enabled."""
-
-def set_overvoltage_protection_delay(self, delay: float, channel: int) -> None:
-    """Set the overvoltage protection trip delay (seconds) on `channel`."""
-
-def get_overvoltage_protection_delay(self, channel: int) -> float:
-    """Query and return the overvoltage protection trip delay in seconds."""
-
-def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
-    """Set the overcurrent protection threshold (amperes) on `channel`."""
-
-def get_overcurrent_protection_level(self, channel: int) -> float:
-    """Query and return the overcurrent protection threshold in amperes."""
-
-def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
-    """Enable or disable overcurrent protection on `channel`."""
-
-def get_overcurrent_protection_enabled(self, channel: int) -> bool:
-    """Query and return whether overcurrent protection is enabled."""
-
-def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
-    """Enable or disable remote sense on `channel`."""
-
-def get_remote_sense_enabled(self, channel: int) -> bool:
-    """Query and return the remote sense enable status on `channel`."""
+def tare_flow(self) -> FlowData:
+    """Zero the flow reading. Device must have zero flow when called."""
 ```
 
-Required output-control and measurement methods on `PSUDriverBase` are declared with `@abc.abstractmethod`. Optional protection and sense methods default to `NotImplementedError`; override the ones the driver implements. See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling.
+All six methods are `@abc.abstractmethod`. `FlowData` (from `instro.flowcontroller.types`) carries `pressure`, `temperature`, `vol_flow`, `mass_flow`, `setpoint`, `gas`, and `status_flags`.
 
 ### Talking to the Instrument
 
-Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
+Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers (including RS-232/serial), create a `VisaDriver` internally and use it for all I/O:
 
-- **`self._visa.write(command)`**: Send a SCPI command (no response expected).
-- **`self._visa.query(command)`**: Send a SCPI query and receive the response string.
+- **`self._visa.write(command)`**: Send a command (no response expected).
+- **`self._visa.query(command)`**: Send a command and receive the response string.
+- **`self._visa.read()`**: Read one line from the device buffer.
 
-`VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a write and its error check need to execute atomically.
+`VisaDriver` owns the resource lock. Use `with self._visa.lock():` when a sequence of writes and reads must execute atomically.
 
-See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, and serial settings.
 
-For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
+## Implementation Example: Alicat MC-Series
 
-## Implementation Example: B&K Precision Single-Channel Driver
-
-Here's a representative driver implementation for the B&K Precision 9115-series single-channel supplies:
+`AlicatMC` is the reference driver. It communicates over RS-232 using Alicat's proprietary ASCII polling protocol — **not SCPI** — so commands are terse single-character identifiers rather than IEEE 488.2-style mnemonics.
 
 ```python
-from instro.psu import PSUDriverBase
-from instro.lib.transports import VisaConfig, VisaDriver
+from instro.flowcontroller import FlowControllerDriverBase
+from instro.flowcontroller.types import FlowData
+from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 
 
-class BK9115(PSUDriverBase):
-    """SCPI mapping for the B&K Precision 9115-series single-channel power supplies."""
+class AlicatMC(FlowControllerDriverBase):
+    """Alicat MC-series mass-flow controller over RS-232 ASCII polling."""
 
-    def __init__(self, visa_resource: str | VisaConfig) -> None:
+    def __init__(self, visa_resource: str | VisaConfig, device_id: str = "A") -> None:
+        self.unit_id = device_id
+        if isinstance(visa_resource, str):
+            visa_resource = VisaConfig(
+                visa_resource=visa_resource,
+                serial_config=SerialConfig(baud_rate=19200),
+                terminator=TerminatorConfig(read="\r", write="\r"),
+            )
         self._visa = VisaDriver(visa_resource)
 
     def open(self) -> None:
@@ -399,107 +345,90 @@ class BK9115(PSUDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def set_voltage(self, voltage: float, channel: int) -> None:
-        self._write_checked(f"VOLT {voltage:.3f}")
+    def get_flow_data(self) -> FlowData:
+        # Poll: send the unit ID alone to request a measurement frame
+        response = self._query_checked(self.unit_id)
+        return self._parse_flowdata(response)
 
-    def get_voltage(self, channel: int) -> float:
-        return self._query_checked_float("MEAS:VOLT?")
+    def set_setpoint(self, setpt: float) -> float:
+        response = self._query_checked(f"{self.unit_id}s{setpt}")
+        return self._parse_flowdata(response).setpoint
 
-    def set_current_limit(self, current_limit: float, channel: int) -> None:
-        self._write_checked(f"CURR {current_limit:.3f}")
+    def tare_flow(self) -> FlowData:
+        response = self._query_checked(f"{self.unit_id}v")
+        return self._parse_flowdata(response)
 
-    def get_current(self, channel: int) -> float:
-        return self._query_checked_float("MEAS:CURR?")
+    def select_gas(self, gas_name: str) -> str:
+        # Resolves name → device gas number via list_gas_types(), then sends '{id}g{number}'
+        ...
 
-    def output_enable(self, enable: bool, channel: int) -> None:
-        self._write_checked("OUTP:STAT ON" if enable else "OUTP:STAT OFF")
+    def _query_checked(self, command: str) -> str:
+        response = self._visa.query(command)
+        if response == "?":
+            raise RuntimeError(f"Device returned '?' for command {command!r}")
+        return response
 
-    def get_output_status(self, channel: int) -> bool:
-        with self._visa.lock():
-            resp = self._visa.query("OUTP:STAT?")
-            self._check_errors()
-        return resp == "1"
-
-    def _write_checked(self, command: str) -> None:
-        with self._visa.lock():
-            self._visa.write(command)
-            self._check_errors()
-
-    def _query_checked_float(self, command: str) -> float:
-        with self._visa.lock():
-            value = self._visa.query(command)
-            self._check_errors()
-            return float(value)
-
-    def _check_errors(self) -> None:
-        err = self._visa.query("SYST:ERR?")
-        if not err.startswith("0"):
-            raise RuntimeError(f"BK PSU reported error: {err}")
+    def _parse_flowdata(self, response: str) -> FlowData:
+        # Frame order: UnitID AbsPressure Temp VolumetricFlow MassFlow Setpoint Gas [status...]
+        fields = response.split()
+        return FlowData(
+            pressure=float(fields[1]),
+            temperature=float(fields[2]),
+            vol_flow=float(fields[3]),
+            mass_flow=float(fields[4]),
+            setpoint=float(fields[5]),
+            gas=fields[6],
+            status_flags=set(fields[7:]),
+        )
 ```
 
-<Tip>
-**Vendor SCPI Variations**
+<Note>
+**Alicat ASCII protocol, not SCPI**
 
-Different PSU vendors use different SCPI command sets:
-- **Siglent**: `CH<n>:VOLT`, `MEAS:VOLT? CH<n>`, `SYST:ERR?` (positive-zero prefix)
-- **Keysight E36100**: `VOLT`, `MEAS:VOLT?`, `SYST:ERR?` (single channel)
-- **Rigol**: `:SOUR<n>:VOLT`, `:MEAS:VOLT? CH<n>`, `:SYST:ERR?`
-- **TDK Lambda Genesys / white-label Agilent/Keysight N5700**: `VOLT`, `MEAS:VOLT?`, `SYSTEM:ERROR?` (single channel)
-
-Always consult your PSU's programming manual for the correct SCPI syntax.
-</Tip>
+Alicat MC-series devices use a proprietary ASCII polling protocol. Commands are single-character identifiers (e.g. `{id}` to poll, `{id}s{setpt}` to set a setpoint, `{id}v` to tare, `{id}g{n}` to select a gas) rather than SCPI mnemonics. An unrecognized command returns `?`. Consult the [Alicat Gas Flow Controller Manual](https://documents.alicat.com/manuals/Gas_Flow_Controller_Manual.pdf) for the full command reference.
+</Note>
 
 ## Using a Custom Driver
 
-For drivers that aren't shipped in the library, construct `InstroPSU` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
+Construct `InstroFlowController` with your own driver instance:
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu import PSUDriverBase
-from instro.lib.transports import VisaDriver
+from instro.flowcontroller import InstroFlowController, FlowControllerDriverBase
+from instro.flowcontroller.types import FlowData
 
 
-class MyCustomPSUDriver(PSUDriverBase):
-    """Custom driver for my lab's proprietary PSU."""
+class MyFlowControllerDriver(FlowControllerDriverBase):
 
     def __init__(self, visa_resource: str) -> None:
-        self._visa = VisaDriver(visa_resource)
+        # create transport internally
+        ...
 
-    def open(self) -> None:
-        self._visa.open()
-
-    def close(self) -> None:
-        self._visa.close()
-
-    def set_voltage(self, voltage: float, channel: int) -> None:
-        self._visa.write(f"VOLTAGE {voltage}")
-
-    # ... implement other required methods ...
-
-    def get_output_status(self, channel: int) -> bool:
-        return self._visa.query("OUTP?") == "ON"
+    def open(self) -> None: ...
+    def close(self) -> None: ...
+    def get_flow_data(self) -> FlowData: ...
+    def set_setpoint(self, setpt: float) -> float: ...
+    def select_gas(self, gas_name: str) -> str: ...
+    def tare_flow(self) -> FlowData: ...
 
 
-psu = InstroPSU(
-    name="labPSU",
-    driver=MyCustomPSUDriver(visa_resource="<VISA_ADDRESS>"),
-    num_channels=1,
+fc = InstroFlowController(
+    name="fc",
+    driver=MyFlowControllerDriver(visa_resource="<VISA_ADDRESS>"),
 )
 
-psu.open()
-psu.set_voltage(12.0, channel=1)
-psu.close()
+fc.open()
+fc.set_setpoint(50.0)
+fc.close()
 ```
 
 ## Summary
 
-Driver development requires careful mapping of vendor-specific behavior to the unified `InstroPSU` interface. Focus on:
+Driver development requires careful mapping of vendor-specific behavior to the unified `InstroFlowController` interface. Focus on:
 
-- Subclassing `PSUDriverBase`
+- Subclassing `FlowControllerDriverBase`
 - Designing a constructor around natural connection parameters for the instrument
 - Hiding transport construction inside the driver
-- Implementing all abstract methods on `PSUDriverBase`
-- Using the correct vendor protocol or command syntax
-- Converting instrument responses to the expected Python types
-- Querying and reporting errors from the instrument's error queue where one exists
+- Implementing all six abstract methods on `FlowControllerDriverBase`
+- Returning correctly typed `FlowData` from measurement methods
+- Parsing and raising instrument errors appropriately
 - Testing with actual hardware to ensure commands work as expected
