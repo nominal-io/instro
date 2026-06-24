@@ -52,7 +52,7 @@ class ArduinoFirmata(DAQDriverBase):
         self._board: pyfirmata2.Arduino | None = None
         self._pins: dict[str, Any] = {}
         self._latest_values: dict[str, float] = {}
-        self._sample_queue: queue.Queue[dict[str, float]] = queue.Queue()
+        self._sample_queue: queue.Queue[tuple[int, dict[str, float]]] = queue.Queue()
         self._pending_updates: set[str] = set()
         self._expected_ai_channels: frozenset[str] = frozenset()
 
@@ -118,7 +118,8 @@ class ArduinoFirmata(DAQDriverBase):
     def start(self, **kwargs: Any) -> None:
         if self._board is not None:
             # Set a synthetic timing config so InstroDAQ routes daemon calls through fetch_analog()
-            # rather than raising. samples_per_channel=1 because each fetch returns one snapshot.
+            # rather than raising. samples_per_channel=1 because each fetch returns one snapshot per interval;
+            # fetch_analog drains the full queue and may return multiple snapshots as a batch.
             # This bypasses the normal configure_ai_hw_timing() path intentionally - Firmata has no
             # hardware timing; start()/stop() own the config lifecycle instead
             sample_rate = 1000 / self._sampling_interval_ms
@@ -146,7 +147,8 @@ class ArduinoFirmata(DAQDriverBase):
         self._latest_values[alias] = value if value is not None else 0.0
         self._pending_updates.add(alias)
         if self._expected_ai_channels and self._pending_updates >= self._expected_ai_channels:
-            self._sample_queue.put(dict(self._latest_values))
+            timestamp = time.time_ns()
+            self._sample_queue.put((timestamp, dict(self._latest_values)))
             self._pending_updates.clear()
 
     def read_analog(self) -> dict[str, float]:
@@ -155,33 +157,42 @@ class ArduinoFirmata(DAQDriverBase):
             result[alias] = self._latest_values.get(alias, 0.0)
         return result
 
-    def fetch_analog(self) -> dict[str, float]:
+    def fetch_analog(self) -> list[tuple[int, dict[str, float]]]:
         timeout = max(1.0, self._sampling_interval_ms / 1000 * 3)
+        result = []
         try:
-            return self._sample_queue.get(timeout=timeout)
+            result.append(self._sample_queue.get(timeout=timeout))
         except queue.Empty:
-            return {}
+            raise TimeoutError("fetch_analog timed out waiting for a sample")
+        while True:
+            try:
+                result.append(self._sample_queue.get_nowait())
+            except queue.Empty:
+                break
+        return result
 
     def _read_to_measurements(
         self,
-        response: dict[str, float],
+        response: list[tuple[int, dict[str, float]]],
         channel_list: Mapping[str, DAQChannel],
         daq_name: str,
         default_tags: dict[str, str],
         **kwargs: Any,
     ) -> list[Measurement]:
-        if not response:
-            return []
-        timestamp = time.time_ns()
-        channel_data: dict[str, list[float]] = {}
-        for alias, raw in response.items():
-            ch = channel_list.get(alias)
-            if not isinstance(ch, AnalogChannel):
-                continue
-            voltage = ch.range_min + (raw * (ch.range_max - ch.range_min))
+        measurements = []
+        for timestamp, values in response:
+            channel_data: dict[str, list[float]] = {}
+            for alias, raw in values.items():
+                ch = channel_list.get(alias)
+                if not isinstance(ch, AnalogChannel):
+                    continue
+                voltage = ch.range_min + (raw * (ch.range_max - ch.range_min))
 
-            channel_data[f"{daq_name}.{alias}"] = [voltage]
-        return [Measurement(channel_data=channel_data, timestamps=[timestamp], tags={**default_tags, **kwargs})]
+                channel_data[f"{daq_name}.{alias}"] = [voltage]
+            measurements.append(
+                Measurement(channel_data=channel_data, timestamps=[timestamp], tags={**default_tags, **kwargs})
+            )
+        return measurements
 
     def configure_di_line_channel(
         self, physical_channel: str, logic: Logic, logic_level: float | None = None, alias: str | None = None
