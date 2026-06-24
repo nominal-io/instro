@@ -205,8 +205,8 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "https://portal.usepylon.com/nominal"
+        "label": "Community",
+        "href": "https://community.instro.nominal.io"
       }
     ],
     "primary": {

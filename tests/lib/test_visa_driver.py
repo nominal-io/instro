@@ -8,7 +8,8 @@ import time
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from pyvisa.constants import InterfaceType
+import pyvisa
+from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
 from instro.lib.transports import (
@@ -136,6 +137,18 @@ def test_open_uses_ivi_backend_by_default(mock_pyvisa):
 def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa):
     rm_class, rm_instance, _ = mock_pyvisa
     rm_class.side_effect = [OSError("Could not locate a VISA implementation"), rm_instance]
+    driver = _make_driver()
+
+    driver.open()
+
+    assert rm_class.call_args_list == [call("@ivi"), call("@py")]
+    assert driver.is_open is True
+
+
+def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
+    """A missing native VISA library surfaces as VisaIOError, not OSError (issue #133)."""
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [pyvisa.errors.VisaIOError(VI_ERROR_LIBRARY_NFOUND), rm_instance]
     driver = _make_driver()
 
     driver.open()
