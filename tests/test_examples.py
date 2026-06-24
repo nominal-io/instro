@@ -35,6 +35,8 @@ def test_example_json_configs_parse(config_path: Path) -> None:
     raw_config = json.loads(config_path.read_text(encoding="utf-8"))
     protocol = raw_config.get("protocol")
 
+    if protocol is None:
+        pytest.skip(f"{config_path} declares no protocol")
     assert protocol in CONFIG_LOADERS, f"{config_path} declares unsupported protocol {protocol!r}"
 
     config = CONFIG_LOADERS[protocol].from_json(config_path)

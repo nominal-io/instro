@@ -66,15 +66,25 @@ psu = InstroPSU.from_json("bench_psu.json")
 ```
 
 Where bench_psu.json contains:
+
+```json
 {
   "name": "bench_psu",
   "vendor": "bk_9115",
   "connection": "USB0::0x2A8D::0x0101::MY12345::INSTR",
   "num_channels": 1,
-  "dataset_rid": "<your dataset here>"
+  "dataset_rid": "<your dataset RID>",
+  "output_file": "<path to output directory>",
+  "visa_backend": "@py"
 }
+```
 
-To construct from a Python dict instead, use InstroPSU.from_dict(data).
+`dataset_rid` and `output_file` and `visa_backend` are optional. To construct from a Python dict or a raw JSON string instead:
+
+```python
+InstroPSU.from_dict(data)
+InstroPSU.from_json_str(json_string)
+```
 
 ### Parameters
 
@@ -82,7 +92,9 @@ To construct from a Python dict instead, use InstroPSU.from_dict(data).
 - **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
 - **`num_channels`**: Number of output channels on the power supply.
 - **`publishers`**: Optional list of publishers to attach.
-- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+- **`dataset_rid`**: Optional Nominal dataset RID. When set, automatically publishes measurements to that dataset.
+- **`output_file`**: Optional path to a directory for writing output data to a local file.
+- **`visa_backend`**: Optional pyvisa backend specifier (e.g. `"@py"`). Defaults to `@ivi` with fallback to `@py`.
 
 ### Choosing a Driver
 
@@ -264,6 +276,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
 | `from_json(path)` | Construct from a JSON config file |
+| `from_json_str(json_str)` | Construct from a JSON string |
 | `from_dict(data)` | Construct from a Python dict |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
 | `get_voltage(channel=N)` | Read measured output voltage in volts |
