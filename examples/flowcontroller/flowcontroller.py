@@ -11,26 +11,28 @@ from instro.flowcontroller.drivers.alicat_mc import AlicatMC
 from instro.lib.publishers.nominal_core import NominalCorePublisher
 from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
 
-VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
+VISA_RESOURCE = "ASRL7::INSTR"  # REPLACE WITH YOUR OWN
 NOMINAL_DATASET_RID = ""
 ALICAT_DEVICE_ID = "A"
 
-def get_single_channel(fc:InstroFlowController, channel:str) -> dict[str,float]:
+
+def get_single_channel(fc: InstroFlowController, channel: str) -> dict[str, float]:
     try:
-        meas = fc.get_channel(f'{fc.name}.{channel}', timeout=0)
+        meas = fc.get_channel(f"{fc.name}.{channel}", timeout=0)
         return {k: v[-1] for k, v in meas.channel_data.items()}
     except:
         return {}
 
-#helper function for collecting all measurements from the channel buffer
-def collect_flow_measurements_from_buffer(fc:InstroFlowController) -> dict[str,float]:
+
+# helper function for collecting all measurements from the channel buffer
+def collect_flow_measurements_from_buffer(fc: InstroFlowController) -> dict[str, float]:
     channel_data = {}
-    channel_data |= get_single_channel(fc, 'setpoint')
-    channel_data |= get_single_channel(fc, 'mass_flow')
-    channel_data |= get_single_channel(fc, 'vol_flow')
-    channel_data |= get_single_channel(fc, 'pressure')
-    channel_data |= get_single_channel(fc, 'temperature')
-    channel_data |= get_single_channel(fc, 'setpoint.cmd')
+    channel_data |= get_single_channel(fc, "setpoint")
+    channel_data |= get_single_channel(fc, "mass_flow")
+    channel_data |= get_single_channel(fc, "vol_flow")
+    channel_data |= get_single_channel(fc, "pressure")
+    channel_data |= get_single_channel(fc, "temperature")
+    channel_data |= get_single_channel(fc, "setpoint.cmd")
     return channel_data
 
 
@@ -47,36 +49,33 @@ try:
     corePublisher = NominalCorePublisher(NOMINAL_DATASET_RID)
     example_publishers.append(corePublisher)
 except:
-    print(f'Unable to configure Nominal Core Publisher, this publisher will not be available during the run.\r\nData will still be available through the built-in channel buffer')
+    print(
+        f"Unable to configure Nominal Core Publisher, this publisher will not be available during the run.\r\nData will still be available through the built-in channel buffer"
+    )
 
-fc = InstroFlowController(
-    name="fc",
-    driver=device,
-    publishers=example_publishers
-)
+fc = InstroFlowController(name="fc", driver=device, publishers=example_publishers)
 
 
 fc.background_interval = 0.5  # poll the controller for new values every half second.
 fc.open()
 fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
 fc.select_gas("air")  # Air [case insensitive]
-fc.tare_flow() #optional
-flow_data = fc.get_flow_data() #returns a measurement which is automatically published using the example_publishers
+fc.tare_flow()  # optional
+flow_data = fc.get_flow_data()  # returns a measurement which is automatically published using the example_publishers
 # it will also be available using the instrument channel buffer ONCE start is called or if you explicitly
 # add a channel buffer to the instrument publishers.
-print(f'Initial data: {flow_data}')
+print(f"Initial data: {flow_data}")
 
 try:
     # Launches a background daemon that polls mass flow, volumetric flow,
     # pressure, temperature, and setpoint.
     fc.start()
-    #starting automatically creates a channel buffer accessible with fc.get_channel(..)
+    # starting automatically creates a channel buffer accessible with fc.get_channel(..)
 
     # Allow the daemon to publish baseline measurements before changing setpoint.
     time.sleep(1)
     print(collect_flow_measurements_from_buffer(fc))
 
-    
     fc.set_setpoint(value=50.0)  # 50 SCCM
     print(collect_flow_measurements_from_buffer(fc))
 
