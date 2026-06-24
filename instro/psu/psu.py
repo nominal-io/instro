@@ -151,18 +151,16 @@ class InstroPSU(Instrument):
         cls,
         data: dict[str, Any],
         publishers: list[Publisher] | None = None,
-        **kwargs: Any,
     ) -> "InstroPSU":
         """Construct an InstroPSU from a config dict."""
         config = PSUConfig.model_validate(data)
-        return build_psu_from_config(config, publishers=publishers, **kwargs)
+        return build_psu_from_config(config, publishers=publishers)
 
     @classmethod
     def from_json(
         cls,
         path: Path | str,
         publishers: list[Publisher] | None = None,
-        **kwargs: Any,
     ) -> "InstroPSU":
         """Construct an InstroPSU from a JSON config file."""
         import json
@@ -170,7 +168,18 @@ class InstroPSU(Instrument):
         path = Path(path)
         with open(path) as f:
             raw = json.load(f)
-        return cls.from_dict(raw, publishers=publishers, **kwargs)
+        return cls.from_dict(raw, publishers=publishers)
+
+    @classmethod
+    def from_json_str(
+        cls,
+        json_str: str,
+        publishers: list[Publisher] | None = None,
+    ) -> "InstroPSU":
+        """Construct an InstroPSU from a JSON string."""
+        import json
+
+        return cls.from_dict(json.loads(json_str), publishers=publishers)
 
     @publish_command
     def _execute_command(
