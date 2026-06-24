@@ -13,6 +13,7 @@ from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
 NOMINAL_DATASET_RID = ""
+ALICAT_DEVICE_ID = "A"
 
 def get_single_channel(fc:InstroFlowController, channel:str) -> dict[str,float]:
     try:
@@ -39,7 +40,7 @@ device = AlicatMC(
         serial_config=SerialConfig(baud_rate=19200),
         terminator=TerminatorConfig(read="\r", write="\r"),
     ),
-    device_id="M",
+    device_id=ALICAT_DEVICE_ID,
 )
 example_publishers = []
 try:
