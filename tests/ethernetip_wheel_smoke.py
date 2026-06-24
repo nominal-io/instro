@@ -64,6 +64,7 @@ def _assert_installed_wheel_types() -> None:
         invalid_output = invalid_result.stdout + invalid_result.stderr
         assert invalid_result.returncode != 0, invalid_output
         assert "read_tags" in invalid_output
+        assert "write_tag" in invalid_output
         assert "str" in invalid_output
 
 

@@ -1,0 +1,55 @@
+"""Minimal EtherNet/IP example: read a PLC tag and optionally write a setpoint.
+
+Configure the PLC endpoint with environment variables:
+    export ETHERNETIP_HOST=192.168.1.10
+    export ETHERNETIP_PORT=44818
+    export ETHERNETIP_SLOT=0
+
+By default this example only reads. To also write:
+    export ETHERNETIP_ENABLE_WRITES=1
+
+Then run:
+    python examples/ethernetip/minimal_example.py
+"""
+
+import os
+from pathlib import Path
+from typing import Any
+
+from instro.unstable.ethernetip import EtherNetIPDevice
+
+CONFIG_PATH = Path(__file__).parent / "sample_device.json"
+
+
+def connection_from_env() -> dict[str, Any]:
+    connection: dict[str, Any] = {
+        "host": os.environ.get("ETHERNETIP_HOST", "192.168.1.10"),
+        "port": int(os.environ.get("ETHERNETIP_PORT", "44818")),
+    }
+
+    if slot := os.environ.get("ETHERNETIP_SLOT"):
+        connection["route_path"] = {"hops": [{"type": "backplane", "slot": int(slot)}]}
+
+    return connection
+
+
+def main() -> None:
+    device = EtherNetIPDevice(config=CONFIG_PATH, connection=connection_from_env())
+    device.open()
+
+    try:
+        measurement = device.read_tag("line_speed")
+        print(f"line_speed: {measurement.latest}")
+
+        if os.environ.get("ETHERNETIP_ENABLE_WRITES") == "1":
+            device.write_tag("speed_setpoint", 75.0)
+            readback = device.read_tag("speed_setpoint")
+            print(f"speed_setpoint after write: {readback.latest}")
+        else:
+            print("writes disabled; set ETHERNETIP_ENABLE_WRITES=1 to write speed_setpoint")
+    finally:
+        device.close()
+
+
+if __name__ == "__main__":
+    main()
