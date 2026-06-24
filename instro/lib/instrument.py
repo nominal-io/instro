@@ -294,15 +294,19 @@ class Instrument:
     ) -> Measurement:
         """Return the most recent ``length`` samples for ``channel_name`` from the in-memory buffer.
 
+        If the channel does not exist yet, or no sample is available, the code will always block until ``timeout`` expires.
+
         Args:
             channel_name: Name of the channel to retrieve.
             length: Number of trailing samples to return.
             wait_for_latest: Block until at least ``length`` new values arrive.
-            timeout: Seconds to wait when ``wait_for_latest=True``.
+            timeout: Seconds to wait when insufficient data exists or ``wait_for_latest=True``.
 
         Raises:
             RuntimeError: No background buffer; ``start()`` was not called.
-            ChannelNotFoundTimeoutError: ``wait_for_latest=True`` and channel did not appear within ``timeout``.
+            ChannelNotFoundError:
+                channel had no values and no data appeared before ``timeout``.
+                ``wait_for_latest=True`` and channel did not appear within ``timeout``.
             ChannelValueTimeoutError: ``wait_for_latest=True`` and values did not arrive within ``timeout``.
         """
         if self._background_thread and self._background_thread.is_alive():
