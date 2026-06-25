@@ -34,6 +34,8 @@ use anyhow::Error;
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use open62541::Certificate;
 use open62541::DataType;
 use open62541::DataValue;
@@ -49,6 +51,7 @@ use open62541::ua::DateTime;
 use open62541::ua::Double;
 use open62541::ua::EndpointDescription;
 use open62541::ua::Float;
+use open62541::ua::Guid;
 use open62541::ua::Int16;
 use open62541::ua::Int32;
 use open62541::ua::Int64;
@@ -67,6 +70,7 @@ use open62541_sys::UA_UserTokenType;
 use serde::Deserialize;
 use serde::Serialize;
 use time::UtcDateTime;
+use uuid::Uuid;
 use zeroize::Zeroize as _;
 
 /// Convenience function to read values from raw `open62541-sys` types.
@@ -475,6 +479,8 @@ impl Display for OpcUaNodeId {
         match &self.inner {
             NodeIdInner::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
             NodeIdInner::String(s) => write!(f, "ns={};s={}", self.namespace, s),
+            NodeIdInner::ByteString(b) => write!(f, "ns={};b={}", self.namespace, STANDARD.encode(b)),
+            NodeIdInner::Guid(g) => write!(f, "ns={};g={}", self.namespace, g.to_string()),
         }
     }
 }
@@ -502,6 +508,13 @@ impl FromStr for OpcUaNodeId {
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
             NodeIdInner::String(string.to_owned())
+        } else if let Some(guid) = rest.strip_prefix("g=") {
+            let uuid = Uuid::from_str(guid)
+                .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
+            NodeIdInner::Guid(uuid)
+        } else if let Some(byte_string) = rest.strip_prefix("b=") {
+            let bytes = STANDARD.decode(byte_string).with_context(|| format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'"))?;
+            NodeIdInner::ByteString(bytes)
         } else {
             bail!("OpcUaNodeId '{s}': identifier must start with 'i=' or 's='");
         };
@@ -533,19 +546,20 @@ impl TryFrom<NodeId> for OpcUaNodeId {
 impl TryFrom<&NodeId> for OpcUaNodeId {
     type Error = Error;
     fn try_from(node_id: &NodeId) -> Result<Self> {
-        Ok(if let Some((ns, numeric)) = node_id.as_numeric() {
-            OpcUaNodeId {
-                namespace: ns,
-                inner: NodeIdInner::Numeric(numeric),
-            }
+        let (namespace, inner) = if let Some((ns, numeric)) = node_id.as_numeric() {
+            (ns, NodeIdInner::Numeric(numeric))
         } else if let Some((ns, string)) = node_id.as_string() {
-            OpcUaNodeId {
-                namespace: ns,
-                inner: NodeIdInner::String(string.to_string()),
-            }
-        } else {
+            (ns, NodeIdInner::String(string.to_string()))
+        } else if let Some((ns, binary)) = node_id.as_byte_string() {
+            let bytes = binary.as_bytes().context("invalid byte string node id")?.to_vec();
+            (ns, NodeIdInner::ByteString(bytes))
+        } else if let Some((ns, guid)) = node_id.as_guid() {
+            (ns, NodeIdInner::Guid(Uuid::from_fields(guid.data1(), guid.data2(), guid.data3(), &guid.data4())))
+        }else {
             bail!("node id wasn't valid: '{node_id:?}'");
-        })
+        };
+
+        Ok(OpcUaNodeId { namespace, inner })
     }
 }
 
@@ -554,6 +568,8 @@ impl From<OpcUaNodeId> for NodeId {
         match other.inner {
             NodeIdInner::Numeric(n) => NodeId::numeric(other.namespace, n),
             NodeIdInner::String(ref s) => NodeId::string(other.namespace, s),
+            NodeIdInner::ByteString(ref bytes) => NodeId::byte_string(other.namespace, bytes),
+            NodeIdInner::Guid(ref uuid) => NodeId::guid(other.namespace, Guid::from_uuid(uuid.clone())),
         }
     }
 }
@@ -562,6 +578,8 @@ impl From<OpcUaNodeId> for NodeId {
 pub enum NodeIdInner {
     Numeric(u32),
     String(String),
+    ByteString(Vec<u8>),
+    Guid(Uuid),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -841,11 +859,11 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
             };
 
             match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => OpcUaNodeClass::Object,
-                ua::NodeClass::VARIABLE_U32 => OpcUaNodeClass::Variable,
-                ua::NodeClass::METHOD_U32 => OpcUaNodeClass::Method,
-                ua::NodeClass::VIEW_U32 => OpcUaNodeClass::View,
-                other => OpcUaNodeClass::Other(other),
+                ua::NodeClass::OBJECT_U32 => Self::Object,
+                ua::NodeClass::VARIABLE_U32 => Self::Variable,
+                ua::NodeClass::METHOD_U32 => Self::Method,
+                ua::NodeClass::VIEW_U32 => Self::View,
+                other => Self::Other(other),
             }
         })
     }
@@ -1011,7 +1029,7 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
             .map(|ts| ts.as_unix_timestamp_nanos() as u64);
 
         Ok(Self {
-            value: variant_to_value(value)?,
+            value: value.try_into()?,
             server_timestamp,
             source_timestamp,
         })
@@ -1100,39 +1118,43 @@ pub fn scalar_to_variant(scalar: ScalarValue) -> Result<ua::Variant> {
     })
 }
 
-pub fn variant_to_value(value: DataValue<ua::Variant>) -> Result<OpcUaValue> {
-    use open62541::VariantValue;
+impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
+    type Error = Error;
+    fn try_from(variant: DataValue<ua::Variant>) -> Result<Self> {
+        use open62541::VariantValue;
+        let value = variant
+            .value()
+            .ok_or_else(|| anyhow!("value is null"))?;
 
-    value
-        .value()
-        .ok_or(anyhow!("value is null"))
-        .and_then(|variant| {
-            Ok(match variant.to_value() {
-                VariantValue::Scalar(scalar) => match scalar {
-                    ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
-                    ScalarValue::SByte(v) => OpcUaValue::Int8(v.value()),
-                    ScalarValue::Byte(v) => OpcUaValue::UInt8(v.value()),
-                    ScalarValue::Int16(v) => OpcUaValue::Int16(v.value()),
-                    ScalarValue::UInt16(v) => OpcUaValue::UInt16(v.value()),
-                    ScalarValue::Int32(v) => OpcUaValue::Int32(v.value()),
-                    ScalarValue::UInt32(v) => OpcUaValue::UInt32(v.value()),
-                    ScalarValue::Int64(v) => OpcUaValue::Int64(v.value()),
-                    ScalarValue::UInt64(v) => OpcUaValue::UInt64(v.value()),
-                    ScalarValue::Float(v) => OpcUaValue::Float(v.value()),
-                    ScalarValue::Double(v) => OpcUaValue::Double(v.value()),
-                    ScalarValue::String(v) => OpcUaValue::String(Cow::Owned(v.to_string())),
-                    ScalarValue::DateTime(dt) => {
-                        OpcUaValue::DateTime(dt.to_utc().ok_or(anyhow!("invalid date time"))?)
-                    }
+        let scalar = match value.to_value() {
+            VariantValue::Scalar(scalar) => scalar,
+            variant => bail!("unsupported OPC-UA variant value read: '{variant:?}'"),
+        };
 
-                    scalar_variant => {
-                        bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
-                    }
-                },
+        let unwrapped_value = match scalar {
+            ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
+            ScalarValue::SByte(v) => OpcUaValue::Int8(v.value()),
+            ScalarValue::Byte(v) => OpcUaValue::UInt8(v.value()),
+            ScalarValue::Int16(v) => OpcUaValue::Int16(v.value()),
+            ScalarValue::UInt16(v) => OpcUaValue::UInt16(v.value()),
+            ScalarValue::Int32(v) => OpcUaValue::Int32(v.value()),
+            ScalarValue::UInt32(v) => OpcUaValue::UInt32(v.value()),
+            ScalarValue::Int64(v) => OpcUaValue::Int64(v.value()),
+            ScalarValue::UInt64(v) => OpcUaValue::UInt64(v.value()),
+            ScalarValue::Float(v) => OpcUaValue::Float(v.value()),
+            ScalarValue::Double(v) => OpcUaValue::Double(v.value()),
+            ScalarValue::String(v) => OpcUaValue::String(Cow::Owned(v.to_string())),
+            ScalarValue::DateTime(dt) => {
+                OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
+            }
 
-                variant => bail!("unsupported OPC-UA variant value read: '{variant:?}'"),
-            })
-        })
+            scalar_variant => {
+                bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
+            }
+        };
+
+        Ok(unwrapped_value)
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
