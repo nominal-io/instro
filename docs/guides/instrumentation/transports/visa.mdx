@@ -108,6 +108,10 @@ When the VISA resource is an ASRL (RS-232 / RS-485) interface, `VisaDriver` appl
 
 `VisaConfig.visa_backend` selects which pyvisa backend handles the resource. Most callers should leave it unset. When unset (`None`), `instro` uses the system IVI VISA implementation (`"@ivi"`, e.g. NI-VISA or Keysight IO Libraries) and automatically falls back to the pure-Python `"@py"` backend when no IVI implementation is installed. Setting `visa_backend` to any explicit value (such as `"@ivi"`, `"@py"`, or `"@sim"`) uses that backend as-is, with no fallback.
 
+### Raw TCP Sockets and Nagle's Algorithm
+
+For raw `TCPIP...::SOCKET` resources, `VisaDriver` disables Nagle's algorithm (`TCP_NODELAY`) on `open()`. IVI backends already do this by default, but the pure-Python `"@py"` backend does not, so on `"@py"` it would otherwise leave Nagle enabled. With Nagle on, several small back-to-back SCPI writes can be coalesced into one TCP segment, and some instruments' lightweight LAN firmware resets the connection when that happens. Disabling it makes the `"@py"` SOCKET path behave like IVI. Set `VisaConfig(tcp_nodelay=False)` to opt out; it has no effect on non-socket transports.
+
 ## Building a Custom Driver
 
 The intended use of `VisaDriver` is as an internal transport inside a vendor-specific instrument driver. `instro`'s shipped SCPI drivers all follow the same shape: take a `str | VisaConfig` in the constructor, store a `VisaDriver`, and delegate `open()` / `close()` and all I/O to it.
@@ -243,6 +247,7 @@ Top-level connection parameters.
 | `serial_config` | No | `SerialConfig()` | Serial settings, applied only when the resource is an ASRL interface |
 | `terminator` | No | `TerminatorConfig()` | Read and write terminators |
 | `timeout` | No | `TimeoutConfig()` | Operation timeouts |
+| `tcp_nodelay` | No | `True` | Disable Nagle's algorithm on raw TCP SOCKET connections. No effect on non-socket transports |
 
 ### `TerminatorConfig`
 
