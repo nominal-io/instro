@@ -298,7 +298,8 @@ def test_open_disables_nagle_on_pyvisa_py_socket(mock_pyvisa):
     _attach_pyvisa_py_socket(resource, sock)
     try:
         _make_driver().open()
-        assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) == 1
+        # macOS reads TCP_NODELAY back as a non-1 truthy value; assert "enabled", not literally 1.
+        assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
     finally:
         sock.close()
 
