@@ -1,4 +1,4 @@
-"""Data-acquisition (DAQ) instrument interface package."""
+"""Arbitrary Waveform Generator (AWG) instrument interface package."""
 
 from pkgutil import extend_path
 
