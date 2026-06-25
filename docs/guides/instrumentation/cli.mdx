@@ -1,0 +1,61 @@
+---
+title: CLI
+description: Command-line tools for working with instro
+---
+
+`instro` ships a command-line interface for inspecting and discovering instruments on your bench.
+
+## instro discover
+
+Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
+Run the discover CLI using 'uv'. Use the discovery command once, creating a throwaway isolated environment:
+
+```bash
+uv run instro discover
+```
+
+Or install `instro` so it lives on your PATH and you can call it from anywhere:
+
+```bash
+uv tool install instro
+instro discover
+```
+
+To force a specific VISA backend, pass `--backend`:
+
+```bash
+uv run instro discover --backend @py
+uv run instro discover --backend @ivi
+```
+
+<Note>
+The `@ivi` backend finds an available IVI-compliant backend on your system e.g. NI-VISA or Keysight IO. `@ivi` is more reliable for USB and GPIB instruments. The `@py` backend (`pyvisa-py`) is a pure-Python fallback that works without NI-VISA installed but may not detect all instruments.
+</Note>
+
+### Output
+
+The command groups results into up to three tables.
+
+**Recognized devices** — instruments with a known driver. The table shows the VISA resource address, instrument category, and the `instro` driver class to use.
+
+**Serial devices** — serial ports detected by the OS. These are listed separately because serial instruments require manual configuration; `instro discover` cannot query them automatically.
+
+**Unrecognized devices** — instruments that responded to `*IDN?` but did not match any known driver. The raw IDN response is shown so you can identify the device.
+
+If no devices are found at all, the command prints a single error panel.
+
+### Using a recognized device
+
+Pass the resource address from the **Recognized devices** table directly to the driver's constructor:
+
+```python
+from instro.psu.drivers.bk_9115 import BK9115
+from instro.psu import InstroPSU
+
+psu = InstroPSU(name="psu", driver=BK9115("USB0::0x15EF::0x0099::INSTR"), num_channels=1)
+psu.open()
+```
+
+### Unrecognized devices
+
+If your instrument appears in the **Unrecognized devices** table, `instro` does not yet have a driver for it. See [Custom instruments](/instrumentation/custom-instruments) for how to author one, or [instro-contrib](/instrumentation/contrib) to check for community-contributed drivers.

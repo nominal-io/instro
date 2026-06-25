@@ -194,11 +194,11 @@ while True:
         ch1_voltage = psu.get_channel(
             channel_name = "myPSU.ch1.voltage",
             length = 1,
-            wait_for_latest = True)  # This will block for the next sample from the background daemon
+            wait_for_new_samples = True)  # This will block for the next sample from the background daemon
         ch1_current = psu.get_channel(
             channel_name = "myPSU.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
+            wait_for_new_samples = False)  # This will immediately return with the last 5 measurements for this channel (if available).
         print(f"Voltage, Channel 1: {ch1_voltage}")
         print(f"Current, Channel 1: {ch1_current}")
     except KeyboardInterrupt:

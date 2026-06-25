@@ -173,11 +173,11 @@ while True:
         ch1_voltage = eload.get_channel(
             channel_name = "myELoad.ch1.voltage",
             length = 1,
-            wait_for_latest = True)  # This will block for the next sample from the background daemon
+            wait_for_new_samples = True)  # This will block for the next sample from the background daemon
         ch1_current = eload.get_channel(
             channel_name = "myELoad.ch1.current",
             length = 5,
-            wait_for_latest = False)  # This will immediately return with the last 5 measurements for this channel (if available).
+            wait_for_new_samples = False)  # This will immediately return with the last 5 measurements for this channel (if available).
 
     except KeyboardInterrupt:
         print("Stopping...")
