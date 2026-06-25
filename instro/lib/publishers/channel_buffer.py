@@ -67,11 +67,11 @@ class ChannelBufferPublisher(ABC):
                 self._condition.notify_all()
 
     def get(
-        self, channel_name: str, length: int = 1, wait_for_latest: bool = False, timeout: float = 10.0
+        self, channel_name: str, length: int = 1, wait_for_new_samples: bool = False, timeout: float = 10.0
     ) -> Measurement:
         """Return the trailing ``length`` samples for ``channel_name``.
 
-        With ``wait_for_latest=True`` blocks for new samples; otherwise waits for
+        With ``wait_for_new_samples=True`` blocks for ``length`` new samples; otherwise waits for
         the buffer to already hold ``length``.
 
         Raises:
@@ -79,7 +79,7 @@ class ChannelBufferPublisher(ABC):
             ChannelValueTimeoutError: Values did not arrive within ``timeout``.
         """
         start_time = time.monotonic()
-        if wait_for_latest:
+        if wait_for_new_samples:
             # Wait for channel to exist if it doesn't exist yet
             if channel_name not in self._values:
                 with self._condition:

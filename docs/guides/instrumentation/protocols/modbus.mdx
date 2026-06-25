@@ -895,7 +895,7 @@ finally:
 | `read(alias, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
 | `write(alias, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
 | `unit_id` | Property: returns the Modbus unit/slave ID from config |
-| `get_channel(channel_name, length=1, wait_for_latest=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
+| `get_channel(channel_name, length=1, wait_for_new_samples=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
 | `start()` | Start background polling daemon |
 | `stop()` | Stop background polling daemon |
 
