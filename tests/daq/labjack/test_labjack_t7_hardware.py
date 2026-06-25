@@ -81,7 +81,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "ANY"  # LabJack T7 serial number (or "ANY" for the first device found)
+DEVICE_ID = "<LABJACK T7 SERIAL NUMBER>"  # LabJack T7 serial number (or "ANY" for the first device found)
 NAME = "t7_validate"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -117,7 +117,9 @@ ANALOG_TOLERANCE_V = 0.05  # DAC ~10 mV + AIN noise/offset; 50 mV is comfortable
 
 SAMPLE_RATE_HZ = 1000.0
 SAMPLES_PER_CHANNEL = 100
-HW_TIMED_DC_V = 2.0  # DC level held on DAC0 during hardware-timed reads.
+# Distinct DC levels held on DAC0/DAC1 (looped to AIN0/AIN1) during hardware-timed reads.
+HW_TIMED_DC_V0 = 2.0
+HW_TIMED_DC_V1 = 3.5
 HW_TIMED_TOLERANCE_V = 0.1
 
 
@@ -559,17 +561,18 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 8. HW-timed analog read with background daemon
+    # 8. Multichannel HW-timed analog read with background daemon
     # =====================================================================
     def test_08_hw_timed_analog_read_background(self):
-        """Start HW-timed acquisition with background daemon and read buffered data."""
+        """Start multichannel HW-timed acquisition with background daemon and verify each channel's buffer."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V0)  # hold distinct DC levels before streaming
+                daq.write_analog_value(AO1_ALIAS, HW_TIMED_DC_V1)
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -579,40 +582,52 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 try:
                     time.sleep(1.0)  # let background daemon collect samples
 
-                    ch = daq.get_channel(f"{NAME}.{AI0_ALIAS}", 50, True)
-                    self.assertIsNotNone(ch)
-                    self.assertGreaterEqual(len(ch.values), 1)
-                    self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
-
-                    mean = sum(ch.values) / len(ch.values)
-                    print(f"         background buffer: {len(ch.values)} samples, mean AIN0 = {mean:.4f} V")
-                    if LOOPBACK_WIRED:
-                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
+                    for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):
+                        ch = daq.get_channel(f"{NAME}.{ai_alias}", 50, True)
+                        self.assertIsNotNone(ch)
+                        self.assertGreaterEqual(len(ch.values), 1)
+                        self.assertTrue(
+                            all(math.isfinite(v) for v in ch.values), f"non-finite samples in {ai_alias} buffer"
+                        )
+                        mean = sum(ch.values) / len(ch.values)
+                        print(
+                            f"         background {ai_alias}: {len(ch.values)} samples, mean = {mean:.4f} V (expected {level} V)"
+                        )
+                        if LOOPBACK_WIRED:
+                            self.assertAlmostEqual(
+                                mean,
+                                level,
+                                delta=HW_TIMED_TOLERANCE_V,
+                                msg=f"{ai_alias} mean {mean:.4f} V != expected {level} V",
+                            )
                 finally:
                     daq.stop()
                     daq.write_analog_value(AO0_ALIAS, 0.0)
+                    daq.write_analog_value(AO1_ALIAS, 0.0)
             finally:
                 daq.close()
 
         self._run_step(
-            "HW-timed analog read (background)",
-            f"Start HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon. "
-            f"Hold DAC0 at {HW_TIMED_DC_V} V, verify AIN0 reads match via get_channel().",
+            "HW-timed analog read (background, multichannel)",
+            f"Start multichannel HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon. "
+            f"Hold DAC0 at {HW_TIMED_DC_V0} V and DAC1 at {HW_TIMED_DC_V1} V; verify AIN0 and AIN1 buffers "
+            "each track their own source via get_channel().",
             step,
         )
 
     # =====================================================================
-    # 9. HW-timed analog read without background daemon
+    # 9. Multichannel HW-timed analog read without background daemon
     # =====================================================================
     def test_09_hw_timed_analog_read_no_background(self):
-        """Start HW-timed acquisition without background daemon and read directly."""
+        """Start multichannel HW-timed acquisition without background daemon and read both channels directly."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V)
+                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V0)
+                daq.write_analog_value(AO1_ALIAS, HW_TIMED_DC_V1)
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -623,26 +638,37 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     # No background daemon: read_analog() dispatches to the driver's fetch_analog().
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
-                    vals = measurement.channel_data.get(f"{NAME}.{AI0_ALIAS}", [])
-                    self.assertGreaterEqual(len(vals), 1)
-                    self.assertTrue(all(math.isfinite(v) for v in vals), f"non-finite HW-timed fetch: n={len(vals)}")
 
-                    mean = sum(vals) / len(vals)
-                    print(
-                        f"         fetched {len(vals)} samples, mean AIN0 = {mean:.4f} V (DAC0 held at {HW_TIMED_DC_V} V)"
-                    )
-                    if LOOPBACK_WIRED:
-                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
+                    for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):
+                        vals = measurement.channel_data.get(f"{NAME}.{ai_alias}", [])
+                        self.assertGreaterEqual(len(vals), 1, f"no samples fetched for {ai_alias}")
+                        self.assertTrue(
+                            all(math.isfinite(v) for v in vals),
+                            f"non-finite HW-timed fetch for {ai_alias}: n={len(vals)}",
+                        )
+                        mean = sum(vals) / len(vals)
+                        print(
+                            f"         fetched {ai_alias}: {len(vals)} samples, mean = {mean:.4f} V (expected {level} V)"
+                        )
+                        if LOOPBACK_WIRED:
+                            self.assertAlmostEqual(
+                                mean,
+                                level,
+                                delta=HW_TIMED_TOLERANCE_V,
+                                msg=f"{ai_alias} mean {mean:.4f} V != expected {level} V",
+                            )
                 finally:
                     daq.stop()
                     daq.write_analog_value(AO0_ALIAS, 0.0)
+                    daq.write_analog_value(AO1_ALIAS, 0.0)
             finally:
                 daq.close()
 
         self._run_step(
-            "HW-timed analog read (no background)",
-            f"Start HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon disabled. "
-            f"Hold DAC0 at {HW_TIMED_DC_V} V and read directly via read_analog() (driver fetch_analog()).",
+            "HW-timed analog read (no background, multichannel)",
+            f"Start multichannel HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon disabled. "
+            f"Hold DAC0 at {HW_TIMED_DC_V0} V and DAC1 at {HW_TIMED_DC_V1} V and read both directly via "
+            "read_analog() (driver fetch_analog()); verify each channel tracks its own source.",
             step,
         )
 
