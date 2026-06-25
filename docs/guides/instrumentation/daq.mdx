@@ -371,7 +371,7 @@ while True:
         sensor_1 = daq.get_channel(
             channel_name = "myDAQ.sensor_1",
             length = 10,
-            wait_for_latest = True)  # This will block for the next 10 samples from the background daemon
+            wait_for_new_samples = True)  # This will block for the next 10 samples from the background daemon
         print("Stopping acquisition")
         break
     except KeyboardInterrupt:
