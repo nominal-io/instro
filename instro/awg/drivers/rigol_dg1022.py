@@ -2,22 +2,8 @@
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.sig_gen.hal import SigGenDriverBase
-from instro.sig_gen.types import (
-    BurstMode,
-    Channel,
-    ClockSource,
-    ModSource,
-    ModWaveform,
-    OutputPolarity,
-    SweepSpacing,
-    TriggerSlope,
-    TriggerSource,
-    VoltageUnit,
-    WaveformType,
-)
 
-FRIENDLY_NAME = "Rigol DG1022"
-
+MODEL_NAME = "Rigol DG1022"
 
 class RigolDG1022(SigGenDriverBase):
     """Rigol DG1022 two-channel function/arbitrary waveform generator."""
@@ -54,7 +40,7 @@ class RigolDG1022(SigGenDriverBase):
         err = self._visa.query("SYST:ERR?")
         code = err.split(",")[0].strip()
         if code != "0":
-            raise RuntimeError(f"{FRIENDLY_NAME} error: {err.strip()}")
+            raise RuntimeError(f"{MODEL_NAME} error: {err.strip()}")
 
     def check_errors(self) -> None:
         with self._visa.lock():
