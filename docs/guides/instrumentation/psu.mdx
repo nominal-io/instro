@@ -74,12 +74,12 @@ Where bench_psu.json contains:
   "connection": "USB0::0x2A8D::0x0101::MY12345::INSTR",
   "num_channels": 1,
   "dataset_rid": "<your dataset RID>",
-  "output_file": "<path to output directory>",
+  "output_directory": "<path to output directory>",
   "visa_backend": "@py"
 }
 ```
 
-`dataset_rid` and `output_file` and `visa_backend` are optional. To construct from a Python dict or a raw JSON string instead:
+`dataset_rid` and `output_directory` and `visa_backend` are optional. To construct from a Python dict or a raw JSON string instead:
 
 ```python
 InstroPSU.from_dict(data)
@@ -93,7 +93,7 @@ InstroPSU.from_json_str(json_string)
 - **`num_channels`**: Number of output channels on the power supply.
 - **`publishers`**: Optional list of publishers to attach.
 - **`dataset_rid`**: Optional Nominal dataset RID. When set, automatically publishes measurements to that dataset.
-- **`output_file`**: Optional path to a directory for writing output data to a local file.
+- **`output_directory`**: Optional path to a directory for writing output data to a local file.
 - **`visa_backend`**: Optional pyvisa backend specifier (e.g. `"@py"`). Defaults to `@ivi` with fallback to `@py`.
 
 ### Choosing a Driver
