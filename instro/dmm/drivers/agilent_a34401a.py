@@ -66,10 +66,12 @@ class Agilent34401A(DMMDriverBase):
     set_four_wire_resistance_range = _store_range
 
     def _build_meas_cmd(self, base_cmd: str) -> str:
-        """Build ``MEAS:...?`` with ``[range,resolution]`` appended only when both are set."""
-        if self._range is not None and self._resolution is not None:
-            return f"{base_cmd}? {self._range:.6e},{self._resolution:.6e}"
-        return f"{base_cmd}?"
+        """Build ``MEAS:...?`` appending range when set, and resolution when set alongside it."""
+        if self._range is None:
+            return f"{base_cmd}?"
+        if self._resolution is None:
+            return f"{base_cmd}? {self._range:.6e}"
+        return f"{base_cmd}? {self._range:.6e},{self._resolution:.6e}"
 
     def measure_dc_voltage(self) -> float:
         return self._query_checked_float(self._build_meas_cmd("MEAS:VOLT:DC"))

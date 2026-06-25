@@ -20,7 +20,7 @@ def test_structured_value_bytes_conversion() -> None:
 
 
 def test_ethernetip_stub_matches_runtime_boundaries(tmp_path: Path) -> None:
-    """The private local stub accepts supported APIs and rejects bare string tag batches."""
+    """The private local stub accepts supported APIs and rejects string misuse."""
     pytest.importorskip("mypy", reason="mypy is required to validate exported type information")
 
     repo_root = Path(__file__).resolve().parents[1]
@@ -75,4 +75,5 @@ def test_ethernetip_stub_matches_runtime_boundaries(tmp_path: Path) -> None:
     invalid_output = invalid_result.stdout + invalid_result.stderr
     assert invalid_result.returncode != 0, invalid_output
     assert "read_tags" in invalid_output
+    assert "write_tag" in invalid_output
     assert "str" in invalid_output

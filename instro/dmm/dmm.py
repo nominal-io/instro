@@ -218,15 +218,15 @@ class InstroDMM(Instrument):
     @publish_command
     def set_measurement_function(self, function: MeasurementFunction, **kwargs) -> Command:
         """Configure the DMM for ``function`` (DC voltage, resistance, etc.)."""
-        if self._measurement_config is None:
-            self._measurement_config = DMMMeasurementConfig(function)
-        else:
-            self._measurement_config.function = function
-
         logger.debug("Sending DMM set_measurement_function command to '%s'", self.name)
         with self._resource_lock:
             self._driver.set_measurement_function(function)
             timestamp = time.time_ns()
+
+        if self._measurement_config is None:
+            self._measurement_config = DMMMeasurementConfig(function)
+        else:
+            self._measurement_config = replace(self._measurement_config, function=function)
 
         return self._package_command("set_measurement_function.cmd", function.value, timestamp, **kwargs)
 
