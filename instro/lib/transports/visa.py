@@ -6,6 +6,7 @@ import contextlib
 import dataclasses
 import enum
 import logging
+import socket
 import threading
 import typing
 
@@ -96,6 +97,10 @@ class VisaConfig:
             ASRL (RS-232/RS-485) interface.
         terminator: Read and write terminators.
         timeout: Operation timeouts.
+        tcp_nodelay: Disable Nagle's algorithm on raw TCP SOCKET connections.
+            NI-VISA does this by default; pyvisa-py does not, which can wedge
+            instruments that reset on coalesced writes (issue #156). No effect
+            on non-socket transports. Defaults to ``True``.
     """
 
     visa_resource: str
@@ -103,6 +108,7 @@ class VisaConfig:
     serial_config: SerialConfig = dataclasses.field(default_factory=SerialConfig)
     terminator: TerminatorConfig = dataclasses.field(default_factory=TerminatorConfig)
     timeout: TimeoutConfig = dataclasses.field(default_factory=TimeoutConfig)
+    tcp_nodelay: bool = True
 
 
 class VisaDriver:
@@ -299,6 +305,9 @@ def _configure_resource(
     inst.write_termination = cfg.terminator.write
     inst.timeout = cfg.timeout.recv * 1000
 
+    if cfg.tcp_nodelay:
+        _disable_nagle(inst)
+
     if inst.interface_type != InterfaceType.asrl:
         return
 
@@ -308,6 +317,27 @@ def _configure_resource(
     inst.stop_bits = int(serial.stop_bits.value * 10)  # type: ignore[attr-defined]
     inst.parity = _PARITY_MAP[serial.parity]  # type: ignore[attr-defined]
     inst.flow_control = serial.flow_control  # type: ignore[attr-defined]
+
+
+def _disable_nagle(inst: pyvisa.resources.MessageBasedResource) -> None:
+    """Turn off Nagle on a raw TCP socket. NI-VISA does this by default; pyvisa-py does not (issue #156)."""
+    sock = _pyvisa_py_socket(inst)
+    if sock is None:
+        return
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except OSError as exc:
+        logger.warning("Could not disable Nagle (TCP_NODELAY) on %s: %s", inst.resource_name, exc)
+
+
+def _pyvisa_py_socket(inst: pyvisa.resources.MessageBasedResource) -> socket.socket | None:
+    """Return the raw socket backing a pyvisa-py TCPIP SOCKET session, else None (e.g. NI-VISA, serial)."""
+    sessions = getattr(getattr(inst, "visalib", None), "sessions", None)
+    if not isinstance(sessions, dict):
+        return None
+    session = sessions.get(getattr(inst, "session", None))
+    sock = getattr(session, "interface", None)
+    return sock if isinstance(sock, socket.socket) else None
 
 
 def _coerce_connection_config(visa_resource: str | VisaConfig) -> VisaConfig:
