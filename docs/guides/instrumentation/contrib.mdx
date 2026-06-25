@@ -50,34 +50,7 @@ The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported fro
 
 Single-channel programmable DC power supply. Supports voltage and current setpoints, output enable/disable, OVP level and enable/disable, OCP level and enable/disable. Remote sense and OVP/OCP delay are not supported by this hardware.
 
-The PSU's UART silently drops characters when commands arrive back-to-back. The driver paces all I/O through a configurable `command_interval` (default 200 ms).
-
-```python
-from instro.contrib.psu.drivers import MatrixWPS300S
-from instro.psu import InstroPSU
-
-psu = InstroPSU(
-    name="bench-psu",
-    driver=MatrixWPS300S(visa_resource="ASRL/dev/ttyUSB0::INSTR"),
-    num_channels=1,
-)
-psu.open()
-psu.set_voltage(24.0, channel=1)
-psu.set_current_limit(1.0, channel=1)
-psu.output_enable(True, channel=1)
-```
-
-To adjust the inter-command pacing (or disable it entirely):
-
-```python
-# Slow down for a noisier RS-232 cable:
-driver = MatrixWPS300S(visa_resource="ASRL/dev/ttyUSB0::INSTR", command_interval=0.5)
-
-# Disable throttling (only safe if your cable and adapter are reliable):
-driver = MatrixWPS300S(visa_resource="ASRL/dev/ttyUSB0::INSTR", command_interval=None)
-```
-
-**Not supported** (raises `FeatureNotSupportedError`): `set_overvoltage_protection_delay`, `get_overvoltage_protection_delay`, `set_remote_sense_enabled`, `get_remote_sense_enabled`.
+The PSU drops messages when commands arrive back-to-back. The driver paces all I/O through a configurable `command_interval` (default 200 ms).
 
 To check what's currently in the repo, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib).
 
