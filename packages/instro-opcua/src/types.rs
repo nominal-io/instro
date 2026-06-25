@@ -565,11 +565,224 @@ pub enum NodeIdInner {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct QualifiedBrowseName {
+    pub namespace_index: u16,
+    pub name: String,
+}
+
+impl QualifiedBrowseName {
+    pub fn new(namespace_index: u16, name: String) -> Self {
+        Self {
+            namespace_index,
+            name,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(try_from = "String", into = "String")]
+pub struct BrowsePath {
+    segments: Vec<QualifiedBrowseName>,
+}
+
+impl BrowsePath {
+    pub fn from_segment(segment: QualifiedBrowseName) -> Self {
+        Self {
+            segments: vec![segment],
+        }
+    }
+
+    pub fn child(&self, segment: QualifiedBrowseName) -> Self {
+        let mut segments = self.segments.clone();
+        segments.push(segment);
+        Self { segments }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    pub fn segments(&self) -> &[QualifiedBrowseName] {
+        &self.segments
+    }
+}
+
+impl Display for BrowsePath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for segment in &self.segments {
+            f.write_str("/")?;
+            if segment.namespace_index != 0 {
+                write!(f, "{}:", segment.namespace_index)?;
+            }
+            f.write_str(&escape_browse_name(&segment.name))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl FromStr for BrowsePath {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.is_empty() {
+            return Ok(Self::default());
+        }
+
+        if !s.starts_with('/') {
+            bail!("browse path must start with '/' or be empty: {s}");
+        }
+
+        let mut segments = Vec::new();
+        let mut segment_start = 1;
+        let mut escaped = false;
+
+        for (i, ch) in s.char_indices().skip(1) {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+
+            match ch {
+                '&' => escaped = true,
+                '/' => {
+                    segments.push(parse_browse_path_segment(&s[segment_start..i])?);
+                    segment_start = i.saturating_add(ch.len_utf8());
+                }
+                _ => {}
+            }
+        }
+
+        segments.push(parse_browse_path_segment(&s[segment_start..])?);
+
+        Ok(Self { segments })
+    }
+}
+
+impl TryFrom<String> for BrowsePath {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        value.parse()
+    }
+}
+
+impl From<BrowsePath> for String {
+    fn from(value: BrowsePath) -> Self {
+        value.to_string()
+    }
+}
+
+fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
+    if segment.is_empty() {
+        bail!("browse path contains an empty segment");
+    }
+
+    let namespace_separator = namespace_separator(segment)?;
+    let (namespace_index, name) = match namespace_separator {
+        Some(separator) => {
+            let (namespace, rest) = segment.split_at(separator);
+            let name = rest
+                .strip_prefix(':')
+                .context("namespace separator should point at ':'")?;
+            (namespace.parse::<u16>()?, name)
+        }
+        None => (0, segment),
+    };
+
+    let name = unescape_browse_name(name)?;
+    if name.is_empty() {
+        bail!("browse path segment name must not be empty");
+    }
+
+    Ok(QualifiedBrowseName {
+        namespace_index,
+        name,
+    })
+}
+
+fn namespace_separator(segment: &str) -> Result<Option<usize>> {
+    let mut escaped = false;
+
+    for (i, ch) in segment.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if ch == '&' {
+            escaped = true;
+            continue;
+        }
+
+        if ch == ':' {
+            if i > 0 && segment[..i].chars().all(|c| c.is_ascii_digit()) {
+                return Ok(Some(i));
+            }
+
+            bail!("':' in a browse path segment must be escaped unless it separates a namespace");
+        }
+    }
+
+    Ok(None)
+}
+
+fn escape_browse_name(name: &str) -> String {
+    let mut escaped = String::with_capacity(name.len());
+
+    for ch in name.chars() {
+        if is_browse_path_reserved(ch) {
+            escaped.push('&');
+        }
+        escaped.push(ch);
+    }
+
+    escaped
+}
+
+fn unescape_browse_name(name: &str) -> Result<String> {
+    let mut unescaped = String::with_capacity(name.len());
+    let mut escaped = false;
+
+    for ch in name.chars() {
+        if escaped {
+            if !is_browse_path_reserved(ch) {
+                bail!("'&' in a browse path segment must escape a reserved character");
+            }
+
+            unescaped.push(ch);
+            escaped = false;
+            continue;
+        }
+
+        if ch == '&' {
+            escaped = true;
+        } else if is_browse_path_reserved(ch) {
+            bail!("reserved character '{ch}' in a browse path segment must be escaped");
+        } else {
+            unescaped.push(ch);
+        }
+    }
+
+    if escaped {
+        bail!("browse path segment cannot end with an escape marker");
+    }
+
+    Ok(unescaped)
+}
+
+const fn is_browse_path_reserved(ch: char) -> bool {
+    matches!(ch, '/' | '.' | '<' | '>' | ':' | '#' | '!' | '&')
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpcUaNode {
     pub node_id: OpcUaNodeId,
     pub browse_name: String,
     pub display_name: String,
     pub node_class: OpcUaNodeClass,
+    #[serde(default)]
+    pub browse_path: BrowsePath,
     pub children: Vec<OpcUaNode>,
 }
 
@@ -1434,6 +1647,72 @@ mod tests {
     }
 
     #[test]
+    fn browse_path_display_and_parse_roundtrip() {
+        let cases = [
+            BrowsePath::default(),
+            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+                .child(QualifiedBrowseName::new(0, "Objects".into()))
+                .child(QualifiedBrowseName::new(0, "Temperature".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(4, "PLC1".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(
+                2,
+                "Name/with:reserved&chars".into(),
+            )),
+        ];
+
+        for path in cases {
+            let rendered = path.to_string();
+            let parsed: BrowsePath = rendered.parse().expect("browse path should parse");
+            assert_eq!(parsed, path);
+        }
+    }
+
+    #[test]
+    fn browse_path_renders_standard_relative_path_text() {
+        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+            .child(QualifiedBrowseName::new(0, "Objects".into()))
+            .child(QualifiedBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
+
+        assert_eq!(
+            path.to_string(),
+            "/Root/Objects/4:PLC1&/MAIN&:TEMP&&&<hot&>"
+        );
+    }
+
+    #[test]
+    fn browse_path_rejects_malformed_text() {
+        for malformed in [
+            "Root",
+            "/Root/",
+            "/Root//Objects",
+            "/Root/4:",
+            "/Root/Foo:Bar",
+            "/Root/Foo&x",
+            "/Root/Foo&",
+            "/Root/Foo.Bar",
+        ] {
+            let parsed: Result<BrowsePath> = malformed.parse();
+            assert!(parsed.is_err(), "{malformed} should fail to parse");
+        }
+    }
+
+    #[test]
+    fn browse_path_serializes_as_json_object_key() {
+        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+            .child(QualifiedBrowseName::new(0, "Objects".into()));
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(path.clone(), "selected".to_owned());
+
+        let json = serde_json::to_value(&map).expect("serialize browse path map");
+        assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
+
+        let back: std::collections::BTreeMap<BrowsePath, String> =
+            serde_json::from_value(json).expect("deserialize browse path map");
+        assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
+    }
+
+    #[test]
     fn serde_roundtrip_browse_node() {
         let browse = OpcUaNode {
             node_id: OpcUaNodeId {
@@ -1443,6 +1722,7 @@ mod tests {
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
+            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId {
                     namespace: 2,
@@ -1451,11 +1731,29 @@ mod tests {
                 browse_name: "Temperature".into(),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
+                browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
+                    2,
+                    "Temperature".into(),
+                )),
                 children: vec![],
             }],
         };
 
         assert_serde_json_roundtrip_eq(&browse);
+    }
+
+    #[test]
+    fn opcua_node_deserializes_without_browse_path() {
+        let node: OpcUaNode = serde_json::from_value(serde_json::json!({
+            "node_id": "ns=0;i=85",
+            "browse_name": "Objects",
+            "display_name": "Objects",
+            "node_class": "Object",
+            "children": [],
+        }))
+        .expect("node without browse path should deserialize");
+
+        assert!(node.browse_path.is_empty());
     }
 
     #[test]
