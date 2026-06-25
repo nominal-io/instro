@@ -1,7 +1,5 @@
 """Signal generator shared types and enumerations."""
 
-# Leave the types up to
-
 from enum import Enum
 
 
