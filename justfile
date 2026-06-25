@@ -106,6 +106,10 @@ eip-live-test:
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
 
+# run a fixed local EtherNet/IP simulator for the closing bell workflow
+eip-closing-bell-sim:
+    @uv run python scripts/eip_closing_bell_sim.py
+
 # create an isolated PyPI-only EtherNet/IP test env and starter test file
 eip-pypi-test-env:
     #!/usr/bin/env bash
