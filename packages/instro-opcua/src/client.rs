@@ -47,18 +47,19 @@ use open62541::AsyncMonitoredItem;
 use open62541::Certificate;
 use open62541::ClientBuilder;
 use open62541::DataType;
+use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
 use open62541::PrivateKey;
+use open62541::ScalarValue;
 use open62541::SubscriptionBuilder;
+use open62541::VariantValue;
 use open62541::ua;
 use tokio::runtime;
 use tokio::sync::oneshot;
 use tokio::task::yield_now;
-use tokio::time::Instant;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 use tokio::time::interval;
-use tokio::time::sleep;
 
 use super::generate_self_signed_cert;
 use super::metrics::NodeReadCounts;
@@ -66,12 +67,14 @@ use super::metrics::PollLoopMetricsLogger;
 use super::types::OpcUaDataPoint;
 use super::types::OpcUaMonitoredItemConfig;
 use super::types::OpcUaNode;
+use super::types::OpcUaNodeClass;
 use super::types::OpcUaPki;
 use super::types::OpcUaSample;
 use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
+use super::types::QualifiedBrowseName;
 use crate::types::OpcUaNodeId;
 
 /// Enables either borrow or move of the nodes via the default implementations, avoiding clones out-of-the-box.
@@ -137,6 +140,34 @@ impl<'nodes> OpcUaNodeReadBatch<'nodes> {
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
+}
+
+fn decode_node_class_variant(
+    value: &DataValue<ua::NodeClass>,
+    node_id: &OpcUaNodeId,
+) -> Result<OpcUaNodeClass> {
+    let Some(variant) = value.value() else {
+        bail!(
+            "node class attribute for node {node_id} was not readable: {:?}",
+            value.status()
+        );
+    };
+
+    let raw = match variant.to_value() {
+        VariantValue::Scalar(ScalarValue::Enumeration(value)) => value.as_u32(),
+        VariantValue::Scalar(ScalarValue::UInt32(value)) => value.value(),
+        VariantValue::Scalar(ScalarValue::Int32(value)) => u32::try_from(value.value())
+            .with_context(|| format!("node class attribute for node {node_id} was negative"))?,
+        other => bail!("node class attribute for node {node_id} had unexpected value {other:?}"),
+    };
+
+    Ok(match raw {
+        ua::NodeClass::OBJECT_U32 => OpcUaNodeClass::Object,
+        ua::NodeClass::VARIABLE_U32 => OpcUaNodeClass::Variable,
+        ua::NodeClass::METHOD_U32 => OpcUaNodeClass::Method,
+        ua::NodeClass::VIEW_U32 => OpcUaNodeClass::View,
+        other => OpcUaNodeClass::Other(other),
+    })
 }
 
 // `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
@@ -269,6 +300,56 @@ impl OpcUaClient {
             .collect_vec())
     }
 
+    /// Reads the browse name, display name, and node class for a node.
+    pub async fn read_node_metadata(
+        &self,
+        node_id: &OpcUaNodeId,
+    ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
+        let ua_node_id = ua::NodeId::from(node_id.clone());
+
+        let browse_name_value = self
+            .read_attribute(&ua_node_id, ua::AttributeId::BROWSENAME_T)
+            .await
+            .with_context(|| format!("reading browse name for node {node_id}"))?;
+        let browse_name = browse_name_value.scalar_value().with_context(|| {
+            format!(
+                "browse name attribute for node {node_id} was not readable: {:?}",
+                browse_name_value.status()
+            )
+        })?;
+
+        let display_name_value = self
+            .read_attribute(&ua_node_id, ua::AttributeId::DISPLAYNAME_T)
+            .await
+            .with_context(|| format!("reading display name for node {node_id}"))?;
+        let display_name = display_name_value.scalar_value().with_context(|| {
+            format!(
+                "display name attribute for node {node_id} was not readable: {:?}",
+                display_name_value.status()
+            )
+        })?;
+
+        let node_class_value = self
+            .read_attribute(&ua_node_id, ua::AttributeId::NODECLASS_T)
+            .await
+            .with_context(|| format!("reading node class for node {node_id}"))?;
+        let node_class = node_class_value
+            .scalar_value()
+            .with_context(|| format!("node class attribute for node {node_id} was not readable"));
+
+        Ok((
+            QualifiedBrowseName {
+                namespace_index: browse_name.namespace_index(),
+                name: browse_name.name().to_string(),
+            },
+            display_name.text().to_string(),
+            match node_class {
+                Ok(node_class) => OpcUaNodeClass::from(node_class),
+                Err(_) => decode_node_class_variant(&node_class_value, node_id)?,
+            },
+        ))
+    }
+
     /// Starts a server-push subscription for the given `nodes`, invoking
     /// `on_data` as new samples arrive.
     ///
@@ -396,8 +477,18 @@ impl OpcUaClient {
         let total_nodes = node_list.nodes().len() as u64;
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
+        let mut maybe_interval = if polling_interval.is_zero() {
+            None
+        } else {
+            Some(interval(polling_interval))
+        };
+
         loop {
-            let start_time = Instant::now();
+            if let Some(ref mut interval) = maybe_interval {
+                interval.tick().await;
+            } else {
+                yield_now().await;
+            }
 
             let read_start = metrics.start_read();
 
@@ -445,16 +536,16 @@ impl OpcUaClient {
                 }
             };
 
-            metrics.finish_read(read_start, outcome);
-
             if let Some(samples) = samples {
                 on_data(Box::new(samples.into_iter()));
             }
 
-            match polling_interval.checked_sub(start_time.elapsed()) {
-                Some(duration) => sleep(duration).await,
-                None => yield_now().await, // injected suspension point to allow cooperative cancellation before next server read
-            }
+            metrics.finish_read(read_start, outcome);
+
+            // match polling_interval.checked_sub(start_time.elapsed()) {
+            //     Some(duration) => sleep(duration).await,
+            //     None => yield_now().await, // injected suspension point to allow cooperative cancellation before next server read
+            // }
         }
     }
 
@@ -935,6 +1026,7 @@ mod subscription_loop_tests {
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
+    use crate::types::BrowsePath;
     use crate::types::NodeIdInner;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNode;
@@ -942,6 +1034,7 @@ mod subscription_loop_tests {
     use crate::types::OpcUaNodeId;
     use crate::types::OpcUaSample;
     use crate::types::OpcUaValue;
+    use crate::types::QualifiedBrowseName;
 
     /// Generous deadline; the deterministic loop should make progress near-instantly, so this
     /// only fires if the loop wedges (which is itself a test failure worth surfacing).
@@ -1042,6 +1135,7 @@ mod subscription_loop_tests {
             browse_name: name.to_owned(),
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,
+            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),
             children: Vec::new(),
         }
     }
