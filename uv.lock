@@ -21,6 +21,15 @@ members = [
 ]
 
 [[package]]
+name = "annotated-doc"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4", size = 7288, upload-time = "2025-11-10T22:07:42.062Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/d3/26bf1008eb3d2daa8ef4cacc7f3bfdc11818d111f7e2d0201bc6e3b49d45/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320", size = 5303, upload-time = "2025-11-10T22:07:40.673Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -477,6 +486,7 @@ dependencies = [
     { name = "pyvisa-py", extra = ["gpib-ctypes", "hislip-discovery", "psutil", "usb-full", "vicp"] },
     { name = "textual" },
     { name = "thermocouples" },
+    { name = "typer" },
 ]
 
 [package.optional-dependencies]
@@ -523,6 +533,7 @@ dev = [
     { name = "mkdocstrings-python" },
     { name = "mypy" },
     { name = "ruff" },
+    { name = "types-pyserial" },
     { name = "types-requests" },
 ]
 test = [
@@ -555,6 +566,7 @@ requires-dist = [
     { name = "pyvisa-py", extras = ["usb-full", "gpib-ctypes", "psutil", "hislip-discovery", "vicp"], specifier = ">=0.8.1,<0.9" },
     { name = "textual", specifier = ">=0.80" },
     { name = "thermocouples", specifier = ">=2.1.2" },
+    { name = "typer", specifier = ">=0.12" },
 ]
 provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "contrib", "all"]
 
@@ -570,6 +582,7 @@ dev = [
     { name = "mkdocstrings-python", specifier = ">=1.19.0" },
     { name = "mypy", specifier = ">=1.15.0,<2" },
     { name = "ruff", specifier = ">=0.12.2,<0.13" },
+    { name = "types-pyserial", specifier = ">=3.0" },
     { name = "types-requests", specifier = ">=2.32.4.20250913" },
 ]
 test = [
@@ -1283,11 +1296,11 @@ wheels = [
 
 [[package]]
 name = "packaging"
-version = "25.0"
+version = "26.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/f1/e7a6dd94a8d4a5626c03e4e99c87f241ba9e350cd9e6d75123f992427270/packaging-26.2.tar.gz", hash = "sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661", size = 228134, upload-time = "2026-04-24T20:15:23.917Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
+    { url = "https://files.pythonhosted.org/packages/df/b2/87e62e8c3e2f4b32e5fe99e0b86d576da1312593b39f47d8ceef365e95ed/packaging-26.2-py3-none-any.whl", hash = "sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e", size = 100195, upload-time = "2026-04-24T20:15:22.081Z" },
 ]
 
 [[package]]
@@ -1858,6 +1871,15 @@ wheels = [
 ]
 
 [[package]]
+name = "shellingham"
+version = "1.5.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1941,12 +1963,36 @@ wheels = [
 ]
 
 [[package]]
+name = "typer"
+version = "0.26.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "rich" },
+    { name = "shellingham" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5e/ed/ef06584ccdd5c410df0837951ecd7e15d9a6144ea1bd4c73cecab1a89891/typer-0.26.7.tar.gz", hash = "sha256:e314a34c617e419c091b2830dda3ea1f257134ff593061a8f5b9717ab8dddb3a", size = 201709, upload-time = "2026-06-03T07:18:06.843Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/25/2201973529af2c954de0bb725323c3aaed6d7f0ceee8f550dec9185df013/typer-0.26.7-py3-none-any.whl", hash = "sha256:5c87cfbc5d34491c5346ebf49c23e18d56ccb863268d3a8d592b26087c2f5e58", size = 122456, upload-time = "2026-06-03T07:18:05.732Z" },
+]
+
+[[package]]
 name = "types-cachetools"
 version = "6.2.0.20250827"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/31/f2/e14f51330093fd640fd11663863dc7dd80e5894ef9d2eb39325cc61ba3cf/types_cachetools-6.2.0.20250827.tar.gz", hash = "sha256:f27febfd1b5e517e3cb1ca6daf38ad6ddb4eeb1e29bdbd81a082971ba30c0d8e", size = 9128, upload-time = "2025-08-27T02:56:50.593Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/80/9c/be9d24c246ff825385b4a139409ae7e2d36ea2294f12681951a6b9f905f7/types_cachetools-6.2.0.20250827-py3-none-any.whl", hash = "sha256:96ae5abcb5ea1e1f1faf811a2ff8b2ce7e6d820fc42c4fcb4b332b2da485de16", size = 8940, upload-time = "2025-08-27T02:56:49.645Z" },
+]
+
+[[package]]
+name = "types-pyserial"
+version = "3.5.0.20260519"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/b2/0d74759b5b40827b38f144be6e188fe117d592c218c98347d7aa4966193c/types_pyserial-3.5.0.20260519.tar.gz", hash = "sha256:0d6452781871f9af7b8598e24faa5f75d4ad50848a6fb301b4ae30b0e6ec3765", size = 20507, upload-time = "2026-05-19T05:56:16.839Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/02/53eb53c5ec22c6b81591f1a19c60cd24ac06dafae14c1580231b208749ae/types_pyserial-3.5.0.20260519-py3-none-any.whl", hash = "sha256:cfec8dbc3a60f81afad9223dff7772391ddc5067aca469a1c9d3e72f2caccfa2", size = 25321, upload-time = "2026-05-19T05:56:15.871Z" },
 ]
 
 [[package]]
