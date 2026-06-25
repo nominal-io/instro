@@ -18,6 +18,7 @@ open62541.workspace = true
 open62541-sys.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 futures-util.workspace = true
+petgraph.workspace = true
 
 # private
 time = { version = "0.3.47", features = [
