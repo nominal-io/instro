@@ -1,13 +1,12 @@
-//! Test helpers for OPC-UA work in the Connect workspace.
+//! Test helpers for OPC UA.
 //!
-//! This crate is consumed as a dev-dependency from any layer that touches
-//! OPC UA.
+//! This crate is consumed as a dev-dependency from any layer that touches OPC UA.
 //!
 //! Two surfaces:
 //!
 //! - [`assert_roundtrip`] for native ↔ shim type-conversion tests.
 //! - [`server`] — a declarative in-process [`TestServer`] backed by
-//!   `open62541`'s server API. Use [`TestServer::builder`] to set up nodes,
+//!   [`open62541`]'s server API. Use [`TestServer::builder`] to set up nodes,
 //!   types, values, and access levels for end-to-end tests.
 
 use std::fmt::Debug;

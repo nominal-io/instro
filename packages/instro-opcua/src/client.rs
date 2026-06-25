@@ -748,10 +748,10 @@ impl OpcUaClientBuilder {
 
     fn connect_app_description() -> ua::ApplicationDescription {
         ua::ApplicationDescription::init()
-            .with_application_name("en-US", "Nominal Connect OPC-UA Client")
-            .with_product_uri("urn:nominal:connect-opc-ua-client")
+            .with_application_name("en-US", "Nominal OPC UA Client")
+            .with_product_uri("urn:nominal:opcua-client")
             .with_application_type(ua::ApplicationType::CLIENT)
-            .with_application_uri("urn:nominal:connect-opc-ua-client")
+            .with_application_uri("urn:nominal:opcua-client")
     }
 
     /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
