@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from typing import Callable
 
 from instro.awg.types import Channel, VoltageUnit, WaveformType
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
@@ -18,11 +19,14 @@ logger = logging.getLogger(__name__)
 class AWGDriverBase(abc.ABC):
     """Vendor AWG driver contract. Concrete drivers own their transport and lifecycle.
 
-    All methods here apply to standard periodic (LTI) waveforms. Non-LTI signal
+    All methods here apply to standard waveforms. Composite waveform
     support (modulation, sweep, burst, arb upload) is added in later milestones as
     optional method groups that raise NotImplementedError by default.
-    """
 
+    ..._std_... - use with standard waveforms
+    ..._arb_... - use with composite waveforms
+
+    """
     @abc.abstractmethod
     def open(self) -> None:
         """Open the underlying transport."""
@@ -38,31 +42,31 @@ class AWGDriverBase(abc.ABC):
     # --- Standard periodic waveforms ---
 
     @abc.abstractmethod
-    def set_waveform(self, channel: Channel, waveform: WaveformType) -> None:
+    def set_std_waveform(self, channel: Channel, waveform: WaveformType) -> None:
         """Set the waveform function on channel."""
 
     @abc.abstractmethod
-    def get_waveform(self, channel: Channel) -> WaveformType:
+    def get_std_waveform(self, channel: Channel) -> WaveformType:
         """Get the current waveform function on channel."""
 
     @abc.abstractmethod
-    def set_frequency(self, channel: Channel, frequency: float) -> None:
+    def set_std_frequency(self, channel: Channel, frequency: float) -> None:
         """Set the output frequency (Hz) on channel."""
 
     @abc.abstractmethod
-    def get_frequency(self, channel: Channel) -> float:
+    def get_std_frequency(self, channel: Channel) -> float:
         """Get the output frequency (Hz) on channel."""
 
     @abc.abstractmethod
-    def set_amplitude(self, channel: Channel, amplitude: float, unit: VoltageUnit) -> None:
+    def set_std_amplitude(self, channel: Channel, amplitude: float, unit: VoltageUnit) -> None:
         """Set the output amplitude on channel."""
 
     @abc.abstractmethod
-    def set_offset(self, channel: Channel, offset: float) -> None:
+    def set_std_offset(self, channel: Channel, offset: float) -> None:
         """Set the DC offset (volts) on channel."""
 
     @abc.abstractmethod
-    def get_offset(self, channel: Channel) -> float:
+    def get_std_offset(self, channel: Channel) -> float:
         """Get the DC offset (volts) on channel."""
 
     @abc.abstractmethod
@@ -74,12 +78,54 @@ class AWGDriverBase(abc.ABC):
         """Return True if the output on channel is enabled."""
 
     @abc.abstractmethod
-    def set_output_load(self, channel: Channel, load: float | None) -> None:
+    def set_std_output_load(self, channel: Channel, load: float | None) -> None:
         """Set the output load impedance; None means high-Z."""
 
     @abc.abstractmethod
-    def get_output_load(self, channel: Channel) -> float | None:
+    def get_std_output_load(self, channel: Channel) -> float | None:
         """Get the output load impedance; None means high-Z."""
+    
+    @abc.abstractmethod
+    def set_voltage_unit(self, channel: Channel, unit: VoltageUnit) -> None:
+        """Set the voltage unit for a specific channel."""
+    
+    @abc.abstractmethod
+    def set_high_level(self, channel: Channel, volts: float) -> None:
+        """Set the high voltage level for a channel."""
+
+    @abc.abstractmethod
+    def set_low_level(self, channel: Channel, volts: float) -> None:
+        """Set the low voltage level for a channel."""
+
+    @abc.abstractmethod
+    def set_phase(self, channel: Channel, phase_deg: float) -> None:
+        """Set the phase (degrees) for a channel."""
+
+    @abc.abstractmethod
+    def align_phase(self) -> None:
+        """Sync the phase of both channels."""
+
+    # --- Waveform-specific ---
+
+    def set_square_duty_cycle(self, channel: Channel, duty_pct: float) -> None:
+        """Set the duty cycle (%) for a square waveform on channel."""
+        raise NotImplementedError(f"set_square_duty_cycle is not implemented for {type(self).__name__}")
+
+    def set_ramp_symmetry(self, channel: Channel, symmetry_pct: float) -> None:
+        """Set the symmetry (%) for a ramp waveform on channel."""
+        raise NotImplementedError(f"set_ramp_symmetry is not implemented for {type(self).__name__}")
+
+    def set_pulse_period(self, channel: Channel, period_s: float) -> None:
+        """Set the period (seconds) for a pulse waveform on channel."""
+        raise NotImplementedError(f"set_pulse_period is not implemented for {type(self).__name__}")
+
+    def set_pulse_width(self, channel: Channel, width_s: float) -> None:
+        """Set the pulse width (seconds) for a pulse waveform on channel."""
+        raise NotImplementedError(f"set_pulse_width is not implemented for {type(self).__name__}")
+
+    def set_pulse_duty_cycle(self, channel: Channel, duty_pct: float) -> None:
+        """Set the duty cycle (%) for a pulse waveform on channel."""
+        raise NotImplementedError(f"set_pulse_duty_cycle is not implemented for {type(self).__name__}")
 
     # --- Non-LTI / composite waveforms (add method groups here in later milestones) ---
 
@@ -126,39 +172,75 @@ class InstroAWG(Instrument):
         super().close()
         self._driver.close()
         logger.info("Closed AWG '%s'", self.name)
+    
+    def channel(self, n: int) -> Channel:
+        """Validate ``n`` is a valid channel number and return the corresponding Channel enum.
+
+        Raises:
+            ValueError: If ``n`` is outside the range 1–num_channels.
+        """
+        if n < 1 or n > self._num_channels:
+            raise ValueError(f"Channel {n} is out of range for '{self.name}' (1–{self._num_channels})")
+        return Channel(n)
+
+    def check_errors(self) -> None:
+        """Query the instrument error queue and raise on any non-zero error code."""
+        with self._resource_lock:
+            self._driver.check_errors()
 
     @publish_command
-    def set_waveform(self, channel: Channel, waveform: WaveformType, **kwargs) -> Command:
+    def _execute_command(
+        self,
+        driver_method: Callable,
+        channel: Channel,
+        value: float | bool | str,
+        channel_suffix: str,
+        **kwargs,
+    ) -> Command:
+        """General-purpose command helper: call ``driver_method(channel, value)``, timestamp, and package.
+
+        Covers the common two-argument driver pattern ``method(channel, value)``.
+        Methods with extra parameters (e.g. ``set_std_amplitude``) handle their own
+        driver calls directly.
+        """
+        with self._resource_lock:
+            driver_method(channel, value)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.{channel_suffix}.cmd"
+        return self._package_command(descriptor, value, timestamp, **kwargs)
+    
+    @publish_command
+    def set_std_waveform(self, channel: Channel, waveform: WaveformType, **kwargs) -> Command:
         """Set the waveform type on channel."""
         with self._resource_lock:
-            self._driver.set_waveform(channel=channel, waveform=waveform)
+            self._driver.set_std_waveform(channel=channel, waveform=waveform)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.waveform.cmd"
         return self._package_command(descriptor, waveform.value, timestamp, **kwargs)
 
     @publish_command
-    def set_frequency(self, channel: Channel, frequency_hz: float, **kwargs) -> Command:
+    def set_std_frequency(self, channel: Channel, frequency_hz: float, **kwargs) -> Command:
         """Set the output frequency (Hz) on channel."""
         with self._resource_lock:
-            self._driver.set_frequency(channel=channel, frequency=frequency_hz)
+            self._driver.set_std_frequency(channel=channel, frequency=frequency_hz)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.frequency.cmd"
         return self._package_command(descriptor, frequency_hz, timestamp, **kwargs)
 
     @publish_command
-    def set_amplitude(self, channel: Channel, amplitude: float, unit: VoltageUnit, **kwargs) -> Command:
+    def set_std_amplitude(self, channel: Channel, amplitude: float, unit: VoltageUnit, **kwargs) -> Command:
         """Set the output amplitude on channel."""
         with self._resource_lock:
-            self._driver.set_amplitude(channel=channel, amplitude=amplitude, unit=unit)
+            self._driver.set_std_amplitude(channel=channel, amplitude=amplitude, unit=unit)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.amplitude.cmd"
         return self._package_command(descriptor, amplitude, timestamp, **kwargs)
 
     @publish_command
-    def set_offset(self, channel: Channel, offset_v: float, **kwargs) -> Command:
+    def set_std_offset(self, channel: Channel, offset_v: float, **kwargs) -> Command:
         """Set the DC offset (volts) on channel."""
         with self._resource_lock:
-            self._driver.set_offset(channel=channel, offset=offset_v)
+            self._driver.set_std_offset(channel=channel, offset=offset_v)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.offset.cmd"
         return self._package_command(descriptor, offset_v, timestamp, **kwargs)
@@ -173,29 +255,29 @@ class InstroAWG(Instrument):
         return self._package_command(descriptor, enable, timestamp, **kwargs)
 
     @publish_command
-    def set_output_load(self, channel: Channel, load: float | None, **kwargs) -> Command:
+    def set_std_output_load(self, channel: Channel, load: float | None, **kwargs) -> Command:
         """Set the output load impedance; None means high-Z."""
         with self._resource_lock:
-            self._driver.set_output_load(channel=channel, load=load)
+            self._driver.set_std_output_load(channel=channel, load=load)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.load.cmd"
         # _package_command requires float|str; represent high-Z as "INF"
         load_value = "INF" if load is None else load
         return self._package_command(descriptor, load_value, timestamp, **kwargs)
 
-    def get_waveform(self, channel: Channel) -> WaveformType:
+    def get_std_waveform(self, channel: Channel) -> WaveformType:
         """Read back the current waveform type on channel.
 
         Not published as a Measurement — WaveformType is not numeric.
         """
         with self._resource_lock:
-            return self._driver.get_waveform(channel=channel)
+            return self._driver.get_std_waveform(channel=channel)
 
     @publish_measurement
-    def get_frequency(self, channel: Channel, **kwargs) -> Measurement | None:
+    def get_std_frequency(self, channel: Channel, **kwargs) -> Measurement | None:
         """Read back the current output frequency (Hz) on channel."""
         with self._resource_lock:
-            val = self._driver.get_frequency(channel=channel)
+            val = self._driver.get_std_frequency(channel=channel)
             timestamp = time.time_ns()
         descriptor = f"ch{channel.value}.frequency"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
@@ -209,7 +291,7 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel.value}.enabled"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
-    def configure_channel(
+    def configure_std_channel(
         self,
         channel: Channel,
         waveform: WaveformType,
@@ -221,8 +303,100 @@ class InstroAWG(Instrument):
     ) -> list[Command]:
         """Configure all standard waveform parameters on channel in one call."""
         return [
-            self.set_waveform(channel, waveform, **kwargs),
-            self.set_frequency(channel, frequency_hz, **kwargs),
-            self.set_amplitude(channel, amplitude, unit, **kwargs),
-            self.set_offset(channel, offset_v, **kwargs),
+            self.set_std_waveform(channel, waveform, **kwargs),
+            self.set_std_frequency(channel, frequency_hz, **kwargs),
+            self.set_std_amplitude(channel, amplitude, unit, **kwargs),
+            self.set_std_offset(channel, offset_v, **kwargs),
         ]
+
+    @publish_command
+    def set_voltage_unit(self, channel: Channel, unit: VoltageUnit, **kwargs) -> Command:
+        """Set the voltage unit on channel."""
+        with self._resource_lock:
+            self._driver.set_voltage_unit(channel=channel, unit=unit)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.voltage_unit.cmd"
+        return self._package_command(descriptor, unit.value, timestamp, **kwargs)
+
+    @publish_command
+    def set_high_level(self, channel: Channel, volts: float, **kwargs) -> Command:
+        """Set the high voltage level (volts) on channel."""
+        with self._resource_lock:
+            self._driver.set_high_level(channel=channel, volts=volts)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.high_level.cmd"
+        return self._package_command(descriptor, volts, timestamp, **kwargs)
+
+    @publish_command
+    def set_low_level(self, channel: Channel, volts: float, **kwargs) -> Command:
+        """Set the low voltage level (volts) on channel."""
+        with self._resource_lock:
+            self._driver.set_low_level(channel=channel, volts=volts)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.low_level.cmd"
+        return self._package_command(descriptor, volts, timestamp, **kwargs)
+
+    @publish_command
+    def set_phase(self, channel: Channel, phase_deg: float, **kwargs) -> Command:
+        """Set the phase (degrees) on channel."""
+        with self._resource_lock:
+            self._driver.set_phase(channel=channel, phase_deg=phase_deg)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.phase.cmd"
+        return self._package_command(descriptor, phase_deg, timestamp, **kwargs)
+
+    @publish_command
+    def align_phase(self, **kwargs) -> Command:
+        """Sync the phase of both channels."""
+        with self._resource_lock:
+            self._driver.align_phase()
+            timestamp = time.time_ns()
+        descriptor = "phase.align.cmd"
+        return self._package_command(descriptor, 1.0, timestamp, **kwargs)
+
+    # --- Waveform-specific ---
+
+    @publish_command
+    def set_square_duty_cycle(self, channel: Channel, duty_pct: float, **kwargs) -> Command:
+        """Set the duty cycle (%) for a square waveform on channel."""
+        with self._resource_lock:
+            self._driver.set_square_duty_cycle(channel=channel, duty_pct=duty_pct)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.square.duty_cycle.cmd"
+        return self._package_command(descriptor, duty_pct, timestamp, **kwargs)
+
+    @publish_command
+    def set_ramp_symmetry(self, channel: Channel, symmetry_pct: float, **kwargs) -> Command:
+        """Set the symmetry (%) for a ramp waveform on channel."""
+        with self._resource_lock:
+            self._driver.set_ramp_symmetry(channel=channel, symmetry_pct=symmetry_pct)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.ramp.symmetry.cmd"
+        return self._package_command(descriptor, symmetry_pct, timestamp, **kwargs)
+
+    @publish_command
+    def set_pulse_period(self, channel: Channel, period_s: float, **kwargs) -> Command:
+        """Set the period (seconds) for a pulse waveform on channel."""
+        with self._resource_lock:
+            self._driver.set_pulse_period(channel=channel, period_s=period_s)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.pulse.period.cmd"
+        return self._package_command(descriptor, period_s, timestamp, **kwargs)
+
+    @publish_command
+    def set_pulse_width(self, channel: Channel, width_s: float, **kwargs) -> Command:
+        """Set the pulse width (seconds) on channel."""
+        with self._resource_lock:
+            self._driver.set_pulse_width(channel=channel, width_s=width_s)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.pulse.width.cmd"
+        return self._package_command(descriptor, width_s, timestamp, **kwargs)
+
+    @publish_command
+    def set_pulse_duty_cycle(self, channel: Channel, duty_pct: float, **kwargs) -> Command:
+        """Set the duty cycle (%) for a pulse waveform on channel."""
+        with self._resource_lock:
+            self._driver.set_pulse_duty_cycle(channel=channel, duty_pct=duty_pct)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel.value}.pulse.duty_cycle.cmd"
+        return self._package_command(descriptor, duty_pct, timestamp, **kwargs)

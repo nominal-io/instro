@@ -1,9 +1,10 @@
 """Rigol DG1022 signal generator driver."""
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.sig_gen.hal import SigGenDriverBase
+from instro.awg.awg import AWGDriverBase
 
 MODEL_NAME = "Rigol DG1022"
+
 
 class RigolDG1022(SigGenDriverBase):
     """Rigol DG1022 two-channel function/arbitrary waveform generator."""

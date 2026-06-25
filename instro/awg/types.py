@@ -1,8 +1,9 @@
 """Signal generator shared types and enumerations."""
 
-# Leave the types up to 
+# Leave the types up to
 
 from enum import Enum
+
 
 # Start without ARB since ARB can theoretically be an infinite number of waves added together.
 # Starting with fully defined waveforms then adding ARB after single waveforms are fully implemented.
