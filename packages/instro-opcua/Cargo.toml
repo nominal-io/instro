@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 # workspace
+base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
@@ -15,6 +16,7 @@ tokio = { workspace = true, features = ["time"] }
 itertools.workspace = true
 open62541.workspace = true
 open62541-sys.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 futures-util.workspace = true
 
 # private
