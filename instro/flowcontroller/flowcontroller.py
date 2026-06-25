@@ -7,7 +7,12 @@ import logging
 import threading
 import time
 
-from instro.flowcontroller.types import FlowData
+from instro.flowcontroller.types import (
+    MASS_FLOW_KEY,
+    SETPOINT_KEY,
+    VOLUMETRIC_FLOW_KEY,
+    FlowData,
+)
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -41,6 +46,21 @@ class FlowControllerDriverBase(abc.ABC):
     @abc.abstractmethod
     def tare_flow(self) -> FlowData:
         """Zero the flow reading. Device must have zero flow when called."""
+
+    @property
+    @abc.abstractmethod
+    def setpoint(self) -> float:
+        """Current setpoint in the device's configured engineering units."""
+
+    @property
+    @abc.abstractmethod
+    def mass_flow(self) -> float:
+        """Current mass flow reading in the device's configured engineering units."""
+
+    @property
+    @abc.abstractmethod
+    def volumetric_flow(self) -> float:
+        """Current volumetric flow reading in the device's configured engineering units."""
 
 
 class InstroFlowController(Instrument):
@@ -95,11 +115,7 @@ class InstroFlowController(Instrument):
 
         return Measurement(
             channel_data={
-                f"{self.name}.setpoint": [data.setpoint],
-                f"{self.name}.mass_flow": [data.mass_flow],
-                f"{self.name}.vol_flow": [data.vol_flow],
-                f"{self.name}.pressure": [data.pressure],
-                f"{self.name}.temperature": [data.temperature],
+                f"{self.name}.{key}": [float(value)] for key, value in data.items() if isinstance(value, (int, float))
             },
             timestamps=[timestamp],
             tags={**self.default_tags, **kwargs},
@@ -134,6 +150,45 @@ class InstroFlowController(Instrument):
             timestamp = time.time_ns()
 
         return self._package_command("tare.cmd", True, timestamp, **kwargs)
+
+    @publish_measurement
+    def get_setpoint(self, **kwargs) -> Measurement | None:
+        """Read the current setpoint. A subset of get_flow_data(); driver implementations may fetch a full frame internally."""
+        with self._resource_lock:
+            value = self._driver.setpoint
+            timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{SETPOINT_KEY}": [value]},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
+
+    @publish_measurement
+    def get_mass_flow(self, **kwargs) -> Measurement | None:
+        """Read the current mass flow. A subset of get_flow_data(); driver implementations may fetch a full frame internally."""
+        with self._resource_lock:
+            value = self._driver.mass_flow
+            timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{MASS_FLOW_KEY}": [value]},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
+
+    @publish_measurement
+    def get_volumetric_flow(self, **kwargs) -> Measurement | None:
+        """Read the current volumetric flow. A subset of get_flow_data(); driver implementations may fetch a full frame internally."""
+        with self._resource_lock:
+            value = self._driver.volumetric_flow
+            timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{VOLUMETRIC_FLOW_KEY}": [value]},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
 
     def _define_background_daemon(self) -> None:
         """Register background polling functions."""

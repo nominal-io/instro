@@ -52,12 +52,20 @@ import re
 from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Final, Literal
 
 from pyvisa import VisaIOError
 
 from instro.flowcontroller import FlowControllerDriverBase
 from instro.flowcontroller.types import FlowData
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+
+
+class AlicatFlowData(FlowData):
+    """FlowData extended with the Alicat-specific gas field."""
+
+    gas: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +164,29 @@ class MeasurementHeaderEntry:
         )
 
 
+@dataclass
+class AlicatFlowSample:
+    """Single parsed measurement frame from one Alicat device poll."""
+
+    pressure: float
+    temperature: float
+    vol_flow: float
+    mass_flow: float
+    setpoint: float
+    gas: str
+
+    def to_flow_data(self) -> AlicatFlowData:
+        """Serialize to the Alicat-extended FlowData dict."""
+        return AlicatFlowData(
+            pressure=self.pressure,
+            temperature=self.temperature,
+            vol_flow=self.vol_flow,
+            mass_flow=self.mass_flow,
+            setpoint=self.setpoint,
+            gas=self.gas,
+        )
+
+
 class AlicatMC(FlowControllerDriverBase):
     """Alicat MC-series mass-flow controller (MC-100SCCM and related MC models).
 
@@ -164,6 +195,8 @@ class AlicatMC(FlowControllerDriverBase):
     Default baud is 19200 with 8data-1stop-none_parity-none_flow
     Termination is always carriage return.
     """
+
+    GAS_KEY: Final[Literal["gas"]] = "gas"
 
     unit_id: str
     _visa: VisaDriver
@@ -202,7 +235,7 @@ class AlicatMC(FlowControllerDriverBase):
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support flow rate tare-ing"
             )
-        return self._parse_flowdata(response)
+        return self._parse_flowdata(response).to_flow_data()
 
     def tare_barometer(self) -> FlowData:
         """Zero the barometer reading; device must support barometer tare."""
@@ -212,7 +245,7 @@ class AlicatMC(FlowControllerDriverBase):
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support barometer tare-ing"
             )
-        return self._parse_flowdata(response)
+        return self._parse_flowdata(response).to_flow_data()
 
     ###GAS TYPES
     def list_gas_types(self, refresh=False) -> list[GasTypeEntry]:
@@ -263,8 +296,7 @@ class AlicatMC(FlowControllerDriverBase):
                 f"{[kgt.name for kgt in self.known_gas_types]}"
             )
         response = self._query_checked(f"{self.unit_id}g{gas_number}")
-        measurement = self._parse_flowdata(response)
-        return measurement.gas
+        return self._parse_flowdata(response).gas
 
     def define_gas_mixture(self, mix_name: str, mixture: list[GasMixEntry], gas_id: int = 0) -> GasTypeEntry:
         """Allows defining an arbitrary gas mixture of 2-5 components.
@@ -294,10 +326,29 @@ class AlicatMC(FlowControllerDriverBase):
         return mixture_identifier
 
     ###Normal Operation
-    def get_flow_data(self) -> FlowData:
-        """Poll the device for a single measurement frame."""
+    def _get_flow_data(self) -> AlicatFlowSample:
+        """Poll the device for a single measurement frame, returning alicat-specific format."""
         response = self._query_checked(self.unit_id)
         return self._parse_flowdata(response)
+
+    def get_flow_data(self) -> AlicatFlowData:
+        """Poll the device for a single measurement frame."""
+        return self._get_flow_data().to_flow_data()
+
+    @property
+    def setpoint(self) -> float:
+        """Current setpoint in the device's configured engineering units."""
+        return self._get_flow_data().setpoint
+
+    @property
+    def mass_flow(self) -> float:
+        """Current mass flow reading in the device's configured engineering units."""
+        return self._get_flow_data().mass_flow
+
+    @property
+    def volumetric_flow(self) -> float:
+        """Current volumetric flow reading in the device's configured engineering units."""
+        return self._get_flow_data().vol_flow
 
     def get_flow_sample_metadata(self, refresh=False) -> list[MeasurementHeaderEntry]:
         """Return measurement field descriptors; cached after first call unless refresh=True."""
@@ -343,15 +394,13 @@ class AlicatMC(FlowControllerDriverBase):
         or on the front panel of the device itself.
         """
         response = self._query_checked(f"{self.unit_id}s{setpt}")
-        flowdata = self._parse_flowdata(response)
-        return flowdata.setpoint
+        return self._parse_flowdata(response).setpoint
 
     def set_setpoint_int(self, setpt: float, full_scale_range: float, range_minimum: float) -> float:
         """Command a setpoint using integer encoding for the given full-scale range and minimum."""
         setpoint_integer = int(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
         response = self._query_checked(f"{self.unit_id}{setpoint_integer}")
-        flowdata = self._parse_flowdata(response)
-        return flowdata.setpoint
+        return self._parse_flowdata(response).setpoint
 
     ###Hold commands
     def hold_valve_at_position(self) -> FlowData:
@@ -360,7 +409,7 @@ class AlicatMC(FlowControllerDriverBase):
         Use `cancel_valve_hold` to remove the hold.
         """
         response = self._query_checked(f"{self.unit_id}hp")
-        return self._parse_flowdata(response)
+        return self._parse_flowdata(response).to_flow_data()
 
     def hold_valve_closed(self) -> FlowData:
         """Hold the valve closed.
@@ -368,15 +417,15 @@ class AlicatMC(FlowControllerDriverBase):
         Use `cancel_valve_hold` to remove the hold.
         """
         response = self._query_checked(f"{self.unit_id}hc")
-        return self._parse_flowdata(response)
+        return self._parse_flowdata(response).to_flow_data()
 
     def cancel_valve_hold(self) -> FlowData:
         """Release any active valve hold and return to normal setpoint control."""
         response = self._query_checked(f"{self.unit_id}c")
-        return self._parse_flowdata(response)
+        return self._parse_flowdata(response).to_flow_data()
 
-    def _parse_flowdata(self, response: str) -> FlowData:
-        """Parse one device ASCII response into a FlowData snapshot."""
+    def _parse_flowdata(self, response: str) -> AlicatFlowSample:
+        """Parse one device ASCII response into an AlicatFlowSample."""
         # order: Unit[0], Abs press[1], flow temp[2], volu flow[3], mass flow[4], mass flow setpt[5], gas[6], status[7+]
         # area for improvement: use get_flow_sample_metadata to dynamically determine order
         fields = response.split()
@@ -384,12 +433,11 @@ class AlicatMC(FlowControllerDriverBase):
             raise RuntimeError(f"AlicatMC: short response from {self.unit_id!r}: {response!r}")
         if fields[0].upper() != self.unit_id.upper():
             raise RuntimeError(f"AlicatMC: response ID {fields[0]!r} does not match device ID {self.unit_id!r}")
-        return FlowData(
+        return AlicatFlowSample(
             pressure=float(fields[1]),
             temperature=float(fields[2]),
             vol_flow=float(fields[3]),
             mass_flow=float(fields[4]),
             setpoint=float(fields[5]),
             gas=fields[6],
-            status_flags=set(fields[7:]),
         )

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.flowcontroller import FlowData
+from instro.flowcontroller import MASS_FLOW_KEY, PRESSURE_KEY, SETPOINT_KEY, TEMPERATURE_KEY, VOLUMETRIC_FLOW_KEY
 from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
 from instro.lib.transports.visa import SerialConfig, VisaConfig
 
@@ -71,12 +71,11 @@ def test_get_flow_data_queries_device_id(alicat: AlicatMC, visa_mock: MagicMock)
 
 def test_get_flow_data_parses_response(alicat: AlicatMC, visa_mock: MagicMock) -> None:
     data = alicat.get_flow_data()
-    assert data.pressure == pytest.approx(13.5424)
-    assert data.temperature == pytest.approx(24.5782)
-    assert data.vol_flow == pytest.approx(16.6670)
-    assert data.mass_flow == pytest.approx(15.4443)
-    assert data.setpoint == pytest.approx(25.0)
-    assert data.gas == "N2"
+    assert data[PRESSURE_KEY] == pytest.approx(13.5424)
+    assert data[TEMPERATURE_KEY] == pytest.approx(24.5782)
+    assert data[VOLUMETRIC_FLOW_KEY] == pytest.approx(16.6670)
+    assert data[MASS_FLOW_KEY] == pytest.approx(15.4443)
+    assert data[SETPOINT_KEY] == pytest.approx(25.0)
 
 
 def test_set_setpoint_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:

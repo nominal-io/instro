@@ -71,6 +71,12 @@ print(f"setting alicat setpoint to {setpoint} using integer setpoint")
 setpoint_ret = device.set_setpoint_int(5.12, 100, 0)
 print(f"Set alicat setpoint to {setpoint_ret}")
 print(f"Current flow reading = {device.get_flow_data()}")
+
+###Single-value convenience properties
+print(f"Setpoint      = {device.setpoint}")
+print(f"Mass flow     = {device.mass_flow}")
+print(f"Volumetric flow = {device.volumetric_flow}")
+
 print(f"Forcing valve closed on alicat")
 print(device.hold_valve_closed())
 print(f"Current flow reading = {device.get_flow_data()}")

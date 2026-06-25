@@ -4,7 +4,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from instro.flowcontroller import FlowControllerDriverBase, FlowData, InstroFlowController
+from instro.flowcontroller import (
+    MASS_FLOW_KEY,
+    PRESSURE_KEY,
+    SETPOINT_KEY,
+    TEMPERATURE_KEY,
+    VOLUMETRIC_FLOW_KEY,
+    FlowControllerDriverBase,
+    FlowData,
+    InstroFlowController,
+)
 
 mock_flow_data = FlowData(
     pressure=13.5424,
@@ -12,7 +21,6 @@ mock_flow_data = FlowData(
     vol_flow=16.6670,
     mass_flow=15.4443,
     setpoint=25.0,
-    gas="N2",
 )
 
 
@@ -20,6 +28,9 @@ def _stub_driver() -> MagicMock:
     driver = MagicMock(spec=FlowControllerDriverBase)
     driver.get_flow_data.return_value = mock_flow_data
     driver.set_setpoint.return_value = 50.0
+    type(driver).setpoint = property(lambda self: mock_flow_data[SETPOINT_KEY])
+    type(driver).mass_flow = property(lambda self: mock_flow_data[MASS_FLOW_KEY])
+    type(driver).volumetric_flow = property(lambda self: mock_flow_data[VOLUMETRIC_FLOW_KEY])
     return driver
 
 
@@ -56,7 +67,7 @@ def test_get_flow_data_returns_measurement() -> None:
     measurement = fc.get_flow_data()
     assert measurement is not None
     assert "ut.mass_flow" in measurement.channel_data
-    assert measurement.channel_data["ut.mass_flow"] == [pytest.approx(mock_flow_data.mass_flow)]
+    assert measurement.channel_data["ut.mass_flow"] == [pytest.approx(mock_flow_data[MASS_FLOW_KEY])]
 
 
 def test_get_flow_data_publishes_all_fields() -> None:
@@ -72,6 +83,15 @@ def test_get_flow_data_publishes_all_fields() -> None:
         "ut.pressure",
         "ut.temperature",
     }
+
+
+def test_get_flow_data_omits_absent_optional_fields() -> None:
+    driver = _stub_driver()
+    driver.get_flow_data.return_value = FlowData(setpoint=1.0, mass_flow=2.0, vol_flow=3.0)
+    fc = InstroFlowController(name="ut", driver=driver)
+    measurement = fc.get_flow_data()
+    assert measurement is not None
+    assert set(measurement.channel_data.keys()) == {"ut.setpoint", "ut.mass_flow", "ut.vol_flow"}
 
 
 def test_set_setpoint_delegates() -> None:
@@ -101,3 +121,30 @@ def test_tare_flow_delegates() -> None:
     fc = InstroFlowController(name="ut", driver=driver)
     fc.tare_flow()
     driver.tare_flow.assert_called_once_with()
+
+
+def test_setpoint_returns_measurement() -> None:
+    driver = _stub_driver()
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_setpoint()
+    assert m is not None
+    assert list(m.channel_data.keys()) == ["ut.setpoint"]
+    assert m.channel_data["ut.setpoint"] == [pytest.approx(25.0)]
+
+
+def test_mass_flow_returns_measurement() -> None:
+    driver = _stub_driver()
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_mass_flow()
+    assert m is not None
+    assert list(m.channel_data.keys()) == ["ut.mass_flow"]
+    assert m.channel_data["ut.mass_flow"] == [pytest.approx(15.4443)]
+
+
+def test_volumetric_flow_returns_measurement() -> None:
+    driver = _stub_driver()
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_volumetric_flow()
+    assert m is not None
+    assert list(m.channel_data.keys()) == ["ut.vol_flow"]
+    assert m.channel_data["ut.vol_flow"] == [pytest.approx(16.6670)]
