@@ -1,6 +1,13 @@
-"""Signal generator instrument interface package."""
+"""Data-acquisition (DAQ) instrument interface package."""
 
-from instro.awg.awg import AWGDriverBase
+from pkgutil import extend_path
+
+__path__ = extend_path(__path__, __name__)
+
+from instro.awg.awg import (
+    AWGDriverBase,
+    InstroAWG,
+)
 from instro.awg.types import (
     BurstMode,
     Channel,
@@ -16,16 +23,17 @@ from instro.awg.types import (
 )
 
 __all__ = [
+    "InstroAWG",
     "AWGDriverBase",
-    "BurstMode",
+    "WaveformType",
     "Channel",
-    "ClockSource",
     "ModSource",
     "ModWaveform",
-    "OutputPolarity",
     "SweepSpacing",
-    "TriggerSlope",
     "TriggerSource",
+    "TriggerSlope",
+    "BurstMode",
+    "OutputPolarity",
     "VoltageUnit",
-    "WaveformType",
+    "ClockSource",
 ]
