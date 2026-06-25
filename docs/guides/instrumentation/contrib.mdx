@@ -48,10 +48,6 @@ The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported fro
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 
-Single-channel programmable DC power supply. Supports voltage and current setpoints, output enable/disable, OVP level and enable/disable, OCP level and enable/disable. Remote sense and OVP/OCP delay are not supported by this hardware.
-
-The PSU drops messages when commands arrive back-to-back. The driver paces all I/O through a configurable `command_interval` (default 200 ms).
-
 To check what's currently in the repo, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib).
 
 ## Graduation to core
