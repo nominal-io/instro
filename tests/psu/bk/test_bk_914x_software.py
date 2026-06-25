@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
-from instro.lib.transports import VisaConfig
+from instro.lib.transports import TerminatorConfig, VisaConfig
 from instro.psu.drivers.bk_914x import BK914X
 
 
@@ -33,13 +33,20 @@ def bk_multi(bk_multi_visa_cls: MagicMock) -> BK914X:
 
 def test_bk_multi_init_builds_visa_driver_from_resource(bk_multi_visa_cls: MagicMock) -> None:
     BK914X("USB0::0xFFFF::0x9140::SN::INSTR")
-    bk_multi_visa_cls.assert_called_once_with("USB0::0xFFFF::0x9140::SN::INSTR")
+    bk_multi_visa_cls.assert_called_once_with(
+        VisaConfig(
+            visa_resource="USB0::0xFFFF::0x9140::SN::INSTR",
+            terminator=TerminatorConfig(read="\n", write="\n"),
+        )
+    )
 
 
-def test_bk_multi_init_accepts_prebuilt_connection_config(bk_multi_visa_cls: MagicMock) -> None:
-    config = VisaConfig(visa_resource="USB0::example::INSTR")
+def test_bk_multi_init_forces_lf_terminator_on_connection_config(bk_multi_visa_cls: MagicMock) -> None:
+    config = VisaConfig(visa_resource="USB0::example::INSTR", terminator=TerminatorConfig(read="\r\n", write="\r\n"))
     BK914X(config)
-    bk_multi_visa_cls.assert_called_once_with(config)
+    bk_multi_visa_cls.assert_called_once_with(
+        VisaConfig(visa_resource="USB0::example::INSTR", terminator=TerminatorConfig(read="\n", write="\n"))
+    )
 
 
 def test_bk_multi_set_voltage_selects_channel_then_writes(bk_multi: BK914X, bk_multi_visa: MagicMock) -> None:

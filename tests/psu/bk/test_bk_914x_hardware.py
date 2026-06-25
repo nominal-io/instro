@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
-from instro.lib.transports import TerminatorConfig, VisaConfig
+from instro.lib.transports import VisaConfig
 from instro.psu.drivers.bk_914x import BK914X
 
 pytestmark = pytest.mark.hardware
@@ -18,7 +18,8 @@ pytestmark = pytest.mark.hardware
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND
 # to "@ivi" for NI-VISA or Keysight IO Libraries, or "@py" for pyvisa-py.
 # Keep the programmed values comfortably inside the specific unit's ratings.
-VISA_RESOURCE = "TCPIP::192.168.5.223::5025::SOCKET"
+VISA_RESOURCE = "TCPIP0::IP_ADDRESS::5025::SOCKET"
+VISA_BACKEND = "@ivi"
 
 
 @dataclass(frozen=True)
@@ -83,9 +84,7 @@ def driver() -> Iterator[BK914X]:
     psu_driver = BK914X(
         VisaConfig(
             visa_resource=VISA_RESOURCE,
-            # Raw SOCKET sends bytes verbatim; the 914X LAN port is LF-terminated,
-            # so a trailing CR (the default write terminator) gets rejected.
-            terminator=TerminatorConfig(read="\n", write="\n"),
+            visa_backend=VISA_BACKEND,
         )
     )
     opened = False
@@ -359,16 +358,13 @@ def test_set_remote_sense_enabled(driver: BK914X, channel_config: ChannelConfig)
     try:
         driver.set_remote_sense_enabled(True, channel=channel_config.channel)
         enabled_on = driver.get_remote_sense_enabled(channel=channel_config.channel)
+        print(f"\n[BK914X] ch{channel_config.channel} set_remote_sense_enabled: after set(True)={enabled_on}")
         assert enabled_on is True
     finally:
         driver.set_remote_sense_enabled(False, channel=channel_config.channel)
 
     enabled_off = driver.get_remote_sense_enabled(channel=channel_config.channel)
-    print(
-        f"\n[BK914X] ch{channel_config.channel} set_remote_sense_enabled: "
-        f"after set(True)={enabled_on}, after set(False)={enabled_off}"
-    )
-
+    print(f"\n[BK914X] ch{channel_config.channel} set_remote_sense_enabled: after set(False)={enabled_off}")
     assert enabled_off is False
 
 
