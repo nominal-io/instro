@@ -1,7 +1,7 @@
 """Signal generator instrument interface package."""
 
-from instro.sig_gen.hal import SigGenDriverBase
-from instro.sig_gen.types import (
+from instro.awg.awg import AWGDriverBase
+from instro.awg.types import (
     BurstMode,
     Channel,
     ClockSource,
@@ -16,7 +16,7 @@ from instro.sig_gen.types import (
 )
 
 __all__ = [
-    "SigGenDriverBase",
+    "AWGDriverBase",
     "BurstMode",
     "Channel",
     "ClockSource",

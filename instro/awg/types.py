@@ -1,18 +1,22 @@
 """Signal generator shared types and enumerations."""
 
+# Leave the types up to 
+
 from enum import Enum
 
-
+# Start without ARB since ARB can theoretically be an infinite number of waves added together.
+# Starting with fully defined waveforms then adding ARB after single waveforms are fully implemented.
 class WaveformType(Enum):
-    SINE = "SIN"
-    SQUARE = "SQU"
+    SINE = "SINE"
+    SQUARE = "SQUARE"
     RAMP = "RAMP"
-    PULSE = "PULS"
-    NOISE = "NOIS"
+    PULSE = "PULSE"
+    NOISE = "NOISE"
     DC = "DC"
     ARB = "USER"
 
 
+# Start with 2 channels since Rigol DG1022 has 2 channels. More can be added if needed in the future.
 class Channel(Enum):
     CH1 = 1
     CH2 = 2
@@ -24,12 +28,12 @@ class ModSource(Enum):
 
 
 class ModWaveform(Enum):
-    SINE = "SIN"
-    SQUARE = "SQU"
+    SINE = "SINE"
+    SQUARE = "SQUARE"
     RAMP = "RAMP"
     NEG_RAMP = "NRAM"
     TRIANGLE = "TRI"
-    NOISE = "NOIS"
+    NOISE = "NOISE"
     ARB = "USER"
 
 
