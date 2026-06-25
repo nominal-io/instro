@@ -16,14 +16,16 @@ exclude = ["tests/client_harness.rs"]
 
 [dependencies]
 # workspace
+base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
-tokio = { workspace = true, features = ["time", "macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["time", "macros", "rt"] }
 itertools.workspace = true
 open62541.workspace = true
 open62541-sys.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 futures-util.workspace = true
 
 # private
@@ -33,7 +35,7 @@ time = { version = "0.3.47", features = [
     "serde-human-readable",
     "serde-well-known",
 ] }
-zeroize = { version = "1.8", features = ["std"] }
+zeroize = { version = "1.8.2", features = ["std"] }
 
 [dev-dependencies]
 instro-opcua-test.workspace = true
