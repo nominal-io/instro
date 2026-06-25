@@ -311,6 +311,8 @@ class Instrument:
         """
         if self._background_thread and self._background_thread.is_alive():
             assert self._channel_buffer
+            if not channel_name.startswith(f"{self.name}."):
+                channel_name = f"{self.name}.{channel_name}"
             return self._channel_buffer.get(channel_name, length, wait_for_new_samples, timeout)
 
         raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
