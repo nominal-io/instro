@@ -17,18 +17,20 @@ LABJACK T7 LOOPBACK WIRING
 ============================================================================
 
   Device specs:
-    - Analog inputs AIN0-AIN3, +/-10 V (T7 high-voltage lines)
+    - Analog inputs AIN0-AIN3, +/-10 V (default), +/-1 V, +/-0.1 V, +/-0.01 V (configurable gain)
     - 2 analog outputs DAC0/DAC1, 0-5 V
     - Flexible I/O FIO0-FIO3 usable as digital lines
 
   Analog loopback (wire DAC0 -> AIN0):
-    DAC0 (AO, 0-5 V)  --->  AIN0  (AI, +/-10 V line)
+    DAC0 (AO, 0-5 V)  --->  AIN0  (AI)
+    DAC1 (AO, 0-5 V)  --->  AIN1  (AI)
 
   Digital loopback (wire FIO0 -> FIO1):
     FIO0 (driven as output)  --->  FIO1 (read as input)
 
   Channel configuration summary:
-    AI ch "AIN0"  — alias "ain0", RSE, +/-10 V (loopback from DAC0)
+    AI ch "AIN0"  — alias "ain0", RSE (loopback from DAC0)
+    AI ch "AIN1"  — alias "ain1", RSE (loopback from DAC0)
     AO ch "DAC0"  — alias "dac0", 0-5 V
     DO line "FIO0" — alias "fio0", Logic.HIGH
     DI line "FIO1" — alias "fio1", Logic.HIGH
@@ -73,13 +75,13 @@ from nominal.core import EventType, NominalClient
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq.types import Direction, Logic
+from instro.daq.types import Direction, Logic, TerminalConfig
 from instro.lib.publishers import NominalCorePublisher
 
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "<LABJACK T7 SERIAL NUMBER>"  # LabJack T7 serial number (or "ANY" for the first device found)
+DEVICE_ID = "ANY"  # LabJack T7 serial number (or "ANY" for the first device found)
 NAME = "t7_validate"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -87,12 +89,23 @@ NAME = "t7_validate"
 DATASET_RID = None
 
 # Analog channel mapping
-AI_CHANNEL, AI_ALIAS = "AIN0", "ain0"
-AO_CHANNEL, AO_ALIAS = "DAC0", "dac0"
+AI0_CHANNEL, AI0_ALIAS = "AIN0", "ain0"
+AI1_CHANNEL, AI1_ALIAS = "AIN1", "ain1"
+AO0_CHANNEL, AO0_ALIAS = "DAC0", "dac0"
+AO1_CHANNEL, AO1_ALIAS = "DAC1", "dac1"
 
 # Digital channel mapping
 DO_LINE, DO_ALIAS = "FIO0", "fio0"
 DI_LINE, DI_ALIAS = "FIO1", "fio1"
+
+# T7 analog input ranges, each with an in-range and over-range DAC0 test voltage.
+# DAC0 maxes at 5 V, so the +/-10 V range has no over-range case.
+AIN_VOLTAGE_RANGES = [
+    (-10, 10, 5.0, None),
+    (-1, 1, 0.5, 2.5),
+    (-0.1, 0.1, 0.05, 1.0),
+    (-0.01, 0.01, 0.005, 0.1),
+]
 
 # True when DAC0->AIN0 and FIO0->FIO1 are physically looped back. Gates the
 # strict value checks; structural checks always run.
@@ -208,24 +221,26 @@ class TestLabJackT7Hardware(unittest.TestCase):
         return daq
 
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
-        """Configure the standard AIN0 input channel (RSE)."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
-            physical_channel=AI_CHANNEL,
-            alias=AI_ALIAS,
-            range_min=range_min,
-            range_max=range_max,
-        )
+        """Configure the AIN0 and AIN1 input channels (RSE)."""
+        for channel, alias in ((AI0_CHANNEL, AI0_ALIAS), (AI1_CHANNEL, AI1_ALIAS)):
+            daq.configure_analog_channel(
+                direction=Direction.INPUT,
+                physical_channel=channel,
+                alias=alias,
+                range_min=range_min,
+                range_max=range_max,
+            )
 
     def _configure_ao(self, daq: InstroDAQ):
-        """Configure the standard DAC0 output channel (0-5 V)."""
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
-            physical_channel=AO_CHANNEL,
-            alias=AO_ALIAS,
-            range_min=0,
-            range_max=5,
-        )
+        """Configure the DAC0 and DAC1 output channels (0-5 V)."""
+        for channel, alias in ((AO0_CHANNEL, AO0_ALIAS), (AO1_CHANNEL, AO1_ALIAS)):
+            daq.configure_analog_channel(
+                direction=Direction.OUTPUT,
+                physical_channel=channel,
+                alias=alias,
+                range_min=0,
+                range_max=5,
+            )
 
     def _configure_digital_lines(self, daq: InstroDAQ):
         """Configure FIO0 as output and FIO1 as input (single lines)."""
@@ -300,7 +315,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 for _ in range(3):
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
-                    vals = measurement.values
+                    vals = measurement.channel_data.get(f"{NAME}.{AI0_ALIAS}", [])
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
                     print(f"         AIN0 (sw-timed) = {vals[-1]:.4f} V")
                     time.sleep(0.25)
@@ -325,8 +340,8 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
-                    readback = ljm.eReadNames(daq.driver._handle, 1, [AO_CHANNEL])[0]
+                    daq.write_analog_value(AO0_ALIAS, v)
+                    readback = ljm.eReadNames(daq.driver._handle, 1, [AO0_CHANNEL])[0]
                     print(f"         DAC0<-{v:.3f} V | register readback={readback:.4f} V")
                     self.assertAlmostEqual(
                         readback,
@@ -335,7 +350,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                         msg=f"DAC0 register readback {readback:.4f} V != written {v} V",
                     )
                     time.sleep(0.02)
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO0_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -346,9 +361,73 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 4. Analog loopback — write DAC0, verify on AIN0 (software-timed)
+    # 4. Software-timed differential analog inputs
     # =====================================================================
-    def test_04_analog_loopback_sw_timed(self):
+    def test_04_differential_pair(self):
+        """Read AIN0/AIN1 single-ended, then verify a differential read equals their difference."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+                daq.write_analog_value(AO0_ALIAS, 3.0)
+                daq.write_analog_value(AO1_ALIAS, 1.0)
+                time.sleep(0.05)
+
+                m = daq.read_analog()
+                ain0 = m.channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+                ain1 = m.channel_data.get(f"{NAME}.{AI1_ALIAS}", [None])[-1]
+                self.assertTrue(
+                    ain0 is not None and ain1 is not None and math.isfinite(ain0) and math.isfinite(ain1),
+                    f"non-finite single-ended reads: AIN0={ain0}, AIN1={ain1}",
+                )
+                single_ended_diff = ain0 - ain1
+                print(f"         single-ended: AIN0={ain0:.4f} V, AIN1={ain1:.4f} V, diff={single_ended_diff:+.4f} V")
+
+                # Reconfigure AIN0 as the positive leg of a differential pair (AIN1 = negative).
+                daq.configure_analog_channel(
+                    direction=Direction.INPUT,
+                    physical_channel=AI0_CHANNEL,
+                    alias=AI0_ALIAS,
+                    terminal_config=TerminalConfig.DIFF,
+                )
+                time.sleep(0.05)
+                diff_reading = daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+                self.assertTrue(
+                    diff_reading is not None and math.isfinite(diff_reading),
+                    f"non-finite differential read: {diff_reading}",
+                )
+                err = diff_reading - single_ended_diff
+                flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- mismatch"
+                print(
+                    f"         differential AIN0-AIN1 = {diff_reading:.4f} V (err vs single-ended {err:+.4f} V){flag}"
+                )
+                if LOOPBACK_WIRED:
+                    self.assertAlmostEqual(
+                        diff_reading,
+                        single_ended_diff,
+                        delta=ANALOG_TOLERANCE_V,
+                        msg=f"differential read {diff_reading:.4f} V != single-ended diff {single_ended_diff:.4f} V",
+                    )
+                daq.write_analog_value(AO0_ALIAS, 0.0)
+                daq.write_analog_value(AO1_ALIAS, 0.0)
+            finally:
+                daq.write_analog_value(AO0_ALIAS, 0.0)
+                daq.write_analog_value(AO1_ALIAS, 0.0)
+                daq.close()
+
+        self._run_step(
+            "Differential analog inputs",
+            "Read AIN0 and AIN1 single-ended and compute their difference, then reconfigure "
+            "AIN0/AIN1 as a differential pair and verify the differential read matches that difference.",
+            step,
+        )
+
+    # =====================================================================
+    # 5. Analog loopback — write DAC0, verify on AIN0 (software-timed)
+    # =====================================================================
+    def test_05_analog_loopback_sw_timed(self):
         """Write known voltages to DAC0 and verify they appear on AIN0 (SW-timed)."""
 
         def step():
@@ -359,9 +438,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
                 errs = []
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
+                    daq.write_analog_value(AO0_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read_analog().latest
+                    measured = daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -369,10 +448,10 @@ class TestLabJackT7Hardware(unittest.TestCase):
                         errs.append(f"non-finite read at {v} V")
                     if LOOPBACK_WIRED and abs(err) > ANALOG_TOLERANCE_V:
                         errs.append(f"DAC0={v} V -> AIN0={measured:.4f} V (err {err:+.4f} V > {ANALOG_TOLERANCE_V} V)")
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO0_ALIAS, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO0_ALIAS, 0.0)
                 daq.close()
 
         self._run_step(
@@ -383,9 +462,73 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 5. Digital line write/read loopback
+    # 6. Software-timed analog input ranges
     # =====================================================================
-    def test_05_digital_line_loopback(self):
+    def test_06_ain_voltage_ranges(self):
+        """Configure AIN0 to each input range; verify in-range voltages track and over-range voltages clamp."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+
+                def read_ain0():
+                    return daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+
+                errs = []
+                for range_min, range_max, in_v, over_v in AIN_VOLTAGE_RANGES:
+                    self._configure_ai(daq, range_min=range_min, range_max=range_max)
+
+                    daq.write_analog_value(AO0_ALIAS, in_v)
+                    time.sleep(0.05)
+                    measured = read_ain0()
+                    if measured is None or not math.isfinite(measured):
+                        errs.append(f"non-finite in-range read at +/-{range_max} V")
+                    else:
+                        ok = not LOOPBACK_WIRED or abs(measured - in_v) <= ANALOG_TOLERANCE_V
+                        flag = "" if ok else "  <-- FAIL"
+                        print(f"         +/-{range_max} V | in   DAC0={in_v:.4f} V | AIN0={measured:.4f} V{flag}")
+                        if not ok:
+                            errs.append(f"in-range +/-{range_max} V: DAC0={in_v} V -> AIN0={measured:.4f} V")
+
+                    if over_v is None:
+                        continue
+                    daq.write_analog_value(AO0_ALIAS, over_v)
+                    time.sleep(0.05)
+                    measured = read_ain0()
+                    if measured is None or not math.isfinite(measured):
+                        errs.append(f"non-finite over-range read at +/-{range_max} V")
+                    else:
+                        clamped = measured <= range_max + ANALOG_TOLERANCE_V and measured < over_v - ANALOG_TOLERANCE_V
+                        ok = not LOOPBACK_WIRED or clamped
+                        flag = "" if ok else "  <-- FAIL"
+                        print(
+                            f"         +/-{range_max} V | over DAC0={over_v:.4f} V | AIN0={measured:.4f} V (clamp~{range_max} V){flag}"
+                        )
+                        if not ok:
+                            errs.append(
+                                f"over-range +/-{range_max} V: DAC0={over_v} V -> AIN0={measured:.4f} V "
+                                f"(expected clamp ~{range_max} V)"
+                            )
+
+                daq.write_analog_value(AO0_ALIAS, 0.0)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.write_analog_value(AO0_ALIAS, 0.0)
+                daq.close()
+
+        self._run_step(
+            "AIN voltage ranges",
+            "Configure AIN0 to each T7 input range (+/-10, +/-1, +/-0.1, +/-0.01 V). For each, verify an "
+            "in-range DAC0 voltage tracks and an over-range voltage clamps near full scale "
+            "(no over-range case for +/-10 V since DAC0 maxes at 5 V).",
+            step,
+        )
+
+    # =====================================================================
+    # 7. Digital line write/read loopback
+    # =====================================================================
+    def test_07_digital_line_loopback(self):
         """Drive FIO0 and verify the state on FIO1 via single-line loopback."""
 
         def step():
@@ -416,9 +559,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 6. HW-timed analog read with background daemon
+    # 8. HW-timed analog read with background daemon
     # =====================================================================
-    def test_06_hw_timed_analog_read_background(self):
+    def test_08_hw_timed_analog_read_background(self):
         """Start HW-timed acquisition with background daemon and read buffered data."""
 
         def step():
@@ -426,7 +569,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -436,7 +579,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 try:
                     time.sleep(1.0)  # let background daemon collect samples
 
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 50, True)
+                    ch = daq.get_channel(f"{NAME}.{AI0_ALIAS}", 50, True)
                     self.assertIsNotNone(ch)
                     self.assertGreaterEqual(len(ch.values), 1)
                     self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
@@ -447,7 +590,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write_analog_value(AO0_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -459,9 +602,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 7. HW-timed analog read without background daemon
+    # 9. HW-timed analog read without background daemon
     # =====================================================================
-    def test_07_hw_timed_analog_read_no_background(self):
+    def test_09_hw_timed_analog_read_no_background(self):
         """Start HW-timed acquisition without background daemon and read directly."""
 
         def step():
@@ -469,7 +612,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)
+                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V)
                 daq.configure_ai_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -480,7 +623,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     # No background daemon: read_analog() dispatches to the driver's fetch_analog().
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
-                    vals = measurement.values
+                    vals = measurement.channel_data.get(f"{NAME}.{AI0_ALIAS}", [])
                     self.assertGreaterEqual(len(vals), 1)
                     self.assertTrue(all(math.isfinite(v) for v in vals), f"non-finite HW-timed fetch: n={len(vals)}")
 
@@ -492,7 +635,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write_analog_value(AO0_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -504,9 +647,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 8. Actual sample rate reporting
+    # 10. Actual sample rate reporting
     # =====================================================================
-    def test_08_actual_sample_rate(self):
+    def test_10_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
@@ -541,9 +684,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Buffer-depth telemetry
+    # 11. Buffer-depth telemetry
     # =====================================================================
-    def test_09_buffer_depth_telemetry(self):
+    def test_11_buffer_depth_telemetry(self):
         """Verify get_points_in_buffer reports a valid depth during background acquisition."""
 
         def step():
@@ -574,9 +717,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Clean shutdown — outputs to safe state
+    # 12. Clean shutdown — outputs to safe state
     # =====================================================================
-    def test_10_clean_shutdown(self):
+    def test_12_clean_shutdown(self):
         """Set all outputs to safe state as a final step."""
 
         def step():
@@ -585,7 +728,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
                 self._configure_digital_lines(daq)
 
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO0_ALIAS, 0.0)
                 daq.write_digital_line(DO_ALIAS, 0)
             finally:
                 daq.close()
@@ -597,13 +740,13 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Methods not implemented on the T7 — reported as skipped
+    # 13. Methods not implemented on the T7 — reported as skipped
     # =====================================================================
-    def test_11_port_width_digital_unsupported(self):
+    def test_13_port_width_digital_unsupported(self):
         """write_digital_port / read_digital_port are not implemented for the T7."""
         self.skipTest("driver raises NotImplementedError for LabJack port-width digital I/O")
 
-    def test_12_relay_control_unsupported(self):
+    def test_14_relay_control_unsupported(self):
         """Relay control is not supported by the LabJack driver."""
         self.skipTest("DAQDriverBase relays unsupported by LabJack")
 
