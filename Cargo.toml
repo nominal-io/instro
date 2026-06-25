@@ -1,6 +1,35 @@
 [workspace]
+resolver = "2"
+
 members = [
     "packages/instro-ethernetip",
     "packages/instro-ethernetip-rs",
+    "packages/instro-opcua",
+    "crates/opcua-test",
+    "crates/instro-test-utils",
 ]
-resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.93"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+anyhow = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["full"] }
+itertools = "0.13"
+open62541 = { version = "0.10", features = ["mbedtls", "x509"] }
+open62541-sys = { version = "0.5", features = ["mbedtls"] }
+futures-util = "0.3"
+opcua-test = { path = "crates/opcua-test" }
+instro-test-utils = { path = "crates/instro-test-utils" }
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+indexing_slicing = "warn"
+panic = "warn"
+todo = "warn"
+result_large_err = "allow"

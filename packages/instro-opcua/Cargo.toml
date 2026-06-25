@@ -9,7 +9,6 @@ rust-version.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
-zmq.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["time"] }
 itertools.workspace = true
@@ -28,7 +27,7 @@ zeroize = { version = "1.8.2", features = ["std"] }
 
 [dev-dependencies]
 opcua-test.workspace = true
-connect-serde-utils = { path = "../connect-serde-utils", features = ["assertions"] }
+instro-test-utils = { workspace = true, features = ["serde_assertions"] }
 
 [lints]
 workspace = true

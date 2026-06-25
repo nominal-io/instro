@@ -1,0 +1,15 @@
+[package]
+name = "instro-test-utils"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+serde_assertions = ["serde", "serde_json"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[lints]
+workspace = true
