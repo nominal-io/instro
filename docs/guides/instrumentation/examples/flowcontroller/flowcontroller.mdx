@@ -13,7 +13,7 @@ import time
 
 from instro.flowcontroller import InstroFlowController
 from instro.flowcontroller.drivers.alicat_mc import AlicatMC
-from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL7::INSTR"  # REPLACE WITH YOUR OWN
@@ -31,7 +31,7 @@ def get_single_channel(fc: InstroFlowController, channel: str) -> dict[str, floa
 
 # helper function for collecting all measurements from the channel buffer
 def collect_flow_measurements_from_buffer(fc: InstroFlowController) -> dict[str, float]:
-    channel_data = {}
+    channel_data: dict[str, float] = {}
     channel_data |= get_single_channel(fc, "setpoint")
     channel_data |= get_single_channel(fc, "mass_flow")
     channel_data |= get_single_channel(fc, "vol_flow")
@@ -49,11 +49,11 @@ device = AlicatMC(
     ),
     device_id=ALICAT_DEVICE_ID,
 )
-example_publishers = []
+example_publishers: list[Publisher] = []
 try:
     corePublisher = NominalCorePublisher(NOMINAL_DATASET_RID)
     example_publishers.append(corePublisher)
-except:
+except Exception as e:
     print(
         f"Unable to configure Nominal Core Publisher, this publisher will not be available during the run.\r\nData will still be available through the built-in channel buffer"
     )
