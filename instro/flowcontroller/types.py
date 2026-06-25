@@ -1,6 +1,12 @@
 """Flow-controller shared types."""
 
-from typing import Final, Literal, NotRequired, TypedDict
+import sys
+from typing import Final, Literal, TypedDict
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
 
 # Constants matching FlowData's field names.
 # Typed Final[Literal[...]] so they work as TypedDict subscript keys.
