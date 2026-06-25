@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from instro.lib.publishers import Publisher
-    from instro.psu.psu import InstroPSU
+    from instro.psu.psu import InstroPSU, PSUDriverBase
 
 PSUVendor = Literal[
     "bk_9115",
@@ -32,7 +32,9 @@ class PSUConfig(BaseModel):
         default=None, description="pyvisa backend specifier, defaults to @ivi and falls back to @py."
     )
     dataset_rid: str | None = Field(default=None, description="Nominal dataset RID for auto-publishing.")
-    output_file: str | None = Field(default=None, description="File path for writing output data.")
+    output_directory: str | None = Field(
+        default=None, description="Directory path for writing output data to a local file."
+    )
 
 
 def build_psu_from_config(
@@ -53,7 +55,7 @@ def build_psu_from_config(
     )
     from instro.psu.psu import InstroPSU
 
-    _registry: dict[PSUVendor, type] = {
+    _registry: dict[PSUVendor, type[PSUDriverBase]] = {
         "bk_9115": BK9115,
         "bk_914x": BK914X,
         "keysight_e36100": KeysightE36100,
@@ -64,19 +66,23 @@ def build_psu_from_config(
         "tdk_lambda_genesys": TDKLambdaGenesys,
     }
 
+    assert set(_registry.keys()) == set(get_args(PSUVendor)), (
+        f"_registry and PSUVendor are out of sync: {set(_registry.keys()) ^ set(get_args(PSUVendor))}"
+    )
+
     driver_cls = _registry[config.vendor]
 
     visa_config = VisaConfig(visa_resource=config.connection, visa_backend=config.visa_backend)
 
-    driver = driver_cls(visa_config)
+    driver: PSUDriverBase = driver_cls(visa_config)  # type: ignore[call-arg]
 
     from instro.lib.publishers import FilePublisher, NominalCorePublisher
 
     all_publishers = list(publishers or [])
     if config.dataset_rid is not None:
         all_publishers.append(NominalCorePublisher(config.dataset_rid))
-    if config.output_file is not None:
-        all_publishers.append(FilePublisher(directory=config.output_file))
+    if config.output_directory is not None:
+        all_publishers.append(FilePublisher(directory=config.output_directory))
 
     return InstroPSU(
         name=config.name,
