@@ -106,6 +106,41 @@ eip-live-test:
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
 
+# create an isolated PyPI-only EtherNet/IP test env and starter test file
+eip-pypi-test-env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work_dir=".context/eip-pypi-test"
+    env_dir="$work_dir/.venv"
+    test_file="$work_dir/eip_pypi_test.py"
+
+    mkdir -p "$work_dir"
+    uv venv "$env_dir"
+    uv pip install \
+        --python "$env_dir/bin/python" \
+        --index-url https://pypi.org/simple \
+        --refresh-package instro \
+        --refresh-package instro-unstable \
+        --refresh-package instro-ethernetip \
+        'instro-unstable[ethernetip]'
+
+    if [ ! -e "$test_file" ]; then
+        printf '%s\n' \
+            'from instro.unstable.ethernetip import EtherNetIPDevice' \
+            '' \
+            '' \
+            'def main() -> None:' \
+            '    print(EtherNetIPDevice)' \
+            '' \
+            '' \
+            'if __name__ == "__main__":' \
+            '    main()' \
+            > "$test_file"
+    fi
+
+    echo "Edit: $test_file"
+    echo "Run:  $env_dir/bin/python $test_file"
+
 # clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
