@@ -9,8 +9,8 @@ This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with in
 ```toml
 [dependencies]
 anyhow = "1"
-instro-opcua = "0.1"
-open62541 = { version = "0.10", features = ["mbedtls", "x509"] }
+instro-opcua = "1"
+open62541 = { version = "0.12", features = ["mbedtls", "x509"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -19,10 +19,10 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ## Usage
 
 ```rust
-use instro_opcua::browse::BrowseAll as _;
+use instro_opcua::browse::OpcUaBrowseOptions;
 use instro_opcua::client::{OpcUaClientBuilder, OpcUaNodeReadBatch};
 use instro_opcua::types::{
-    OpcUaNodeId, OpcUaPki, OpcUaSecurityMode, OpcUaSecurityPolicy, OpcUaUserToken,
+    OpcUaPki, OpcUaSecurityMode, OpcUaSecurityPolicy, OpcUaUserToken,
 };
 use open62541::ua;
 
@@ -34,18 +34,28 @@ fn main() -> anyhow::Result<()> {
         .pki(OpcUaPki::None)
         .connect("opc.tcp://127.0.0.1:4840")?;
 
-    let node_id: OpcUaNodeId = "ns=0;i=85".parse()?;
-    let nodes = client.browse_all(node_id, Some(2));
-
     let runtime = tokio::runtime::Runtime::new()?;
-    let nodes = runtime.block_on(nodes)?;
-    let batch = OpcUaNodeReadBatch::new(nodes, ua::AttributeId::VALUE);
-    let samples = runtime.block_on(client.read_nodes(&batch))?;
+    let graph = runtime.block_on(client.browse_root(OpcUaBrowseOptions::new()))?;
+    let variables = graph
+        .find_all("/Objects/**/{Temperature,Pressure*}")?
+        .variables()
+        .leaves();
+    let batch = OpcUaNodeReadBatch::new(variables.read_targets(), ua::AttributeId::VALUE);
+    let outcomes = runtime.block_on(client.read_nodes(&batch))?;
+    let samples = outcomes.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
 
     println!("read {} samples", samples.len());
     runtime.block_on(client.disconnect())
 }
 ```
+
+`browse_root` eagerly returns one immutable route graph including the standard Root route at `/`. Queries remain tied to that graph and are reusable: `routes()` can be iterated repeatedly, while `find_all`, `variables`, and `leaves` return another reusable selection. Glob segments use globset's full grammar; a whole `**` segment recursively matches zero or more route segments.
+
+All browse paths are rooted and absolute. `browse_path(path, options)` resolves every matching route from `/`, while `browse_from(node_id, path, options)` reads the node metadata and requires the asserted mount path to end in its actual browse name. `/` is reserved for the standard Root node; empty and relative paths are rejected when parsed.
+
+All forward hierarchical references are expanded regardless of node class. Diamonds, duplicate node IDs, duplicate paths, and server order are preserved as routes, while each NodeId's complete continuation-drained child snapshot is fetched once per operation. An ancestry cycle inserts a terminal `Cycle` route and continues with siblings. Routes stopped by `max_depth` are `DepthLimited`; only fully `Expanded` routes with no children are leaves.
+
+Browse operations have no hidden route or fetch ceiling. Use `OpcUaBrowseOptions::with_max_depth` when the caller needs an explicit limit.
 
 ## Development
 

@@ -27,6 +27,7 @@ open62541.workspace = true
 open62541-sys.workspace = true
 uuid.workspace = true
 futures-util.workspace = true
+globset.workspace = true
 
 # private
 time = { version = "0.3", features = [

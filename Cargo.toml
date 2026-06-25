@@ -12,7 +12,7 @@ rust-version = "1.93"
 
 [workspace.dependencies]
 base64 = "0.22"
-uuid = "1"
+uuid = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 anyhow = "1"
@@ -23,6 +23,7 @@ itertools = "0.13"
 open62541 = { version = "0.12", features = ["mbedtls", "x509"] }
 open62541-sys = { version = "0.6", features = ["mbedtls"] }
 futures-util = "0.3"
+globset = "0.4"
 instro-opcua-test = { path = "crates/instro-opcua-test" }
 instro-test-utils = { path = "crates/instro-test-utils" }
 

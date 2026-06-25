@@ -5,17 +5,17 @@ use std::time::Duration;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::bail;
-use instro_opcua::browse::Browse as _;
-use instro_opcua::browse::BrowseAll as _;
+use instro_opcua::browse::OpcUaBrowseOptions;
 use instro_opcua::client::OpcUaClient;
 use instro_opcua::client::OpcUaClientBuilder;
 use instro_opcua::client::OpcUaNodeReadBatch;
-use instro_opcua::types::BrowsePath;
+use instro_opcua::path::OpcUaBrowseName;
+use instro_opcua::path::OpcUaBrowsePath;
 use instro_opcua::types::NodeIdKind;
 use instro_opcua::types::OpcUaMonitoredItemConfig;
-use instro_opcua::types::OpcUaNode;
 use instro_opcua::types::OpcUaNodeClass;
 use instro_opcua::types::OpcUaNodeId;
+use instro_opcua::types::OpcUaNodeReadTarget;
 use instro_opcua::types::OpcUaPki;
 use instro_opcua::types::OpcUaSample;
 use instro_opcua::types::OpcUaSecurityMode;
@@ -23,7 +23,6 @@ use instro_opcua::types::OpcUaSecurityPolicy;
 use instro_opcua::types::OpcUaSubscriptionConfig;
 use instro_opcua::types::OpcUaUserToken;
 use instro_opcua::types::OpcUaValue;
-use instro_opcua::types::QualifiedBrowseName;
 use instro_opcua_test::FolderSpec;
 use instro_opcua_test::ParentRef;
 use instro_opcua_test::TestNodeId;
@@ -58,16 +57,22 @@ fn opcua_node_id(server: &TestServer, browse_name: &str) -> Result<OpcUaNodeId> 
 fn opcua_node(
     server: &TestServer,
     browse_name: &str,
-    node_class: OpcUaNodeClass,
-) -> Result<OpcUaNode> {
-    Ok(OpcUaNode {
-        node_id: opcua_node_id(server, browse_name)?,
-        browse_name: browse_name.to_owned(),
-        display_name: browse_name.to_owned(),
-        node_class,
-        browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
-        children: Vec::new(),
-    })
+    _node_class: OpcUaNodeClass,
+) -> Result<OpcUaNodeReadTarget> {
+    Ok(OpcUaNodeReadTarget::new(
+        opcua_node_id(server, browse_name)?,
+        OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(
+            server.namespace_index(),
+            browse_name.to_owned(),
+        )),
+    ))
+}
+
+fn browse_path(namespace: u16, segments: &[&str]) -> OpcUaBrowsePath {
+    segments
+        .iter()
+        .map(|segment| OpcUaBrowseName::new(namespace, (*segment).to_owned()))
+        .collect()
 }
 
 fn nonzero(value: u32) -> Result<NonZeroU32> {
@@ -124,7 +129,7 @@ fn has_value(samples: &[OpcUaSample], node_id: &OpcUaNodeId, expected: &OpcUaVal
 async fn recv_matching_batch(
     rx: &mut mpsc::UnboundedReceiver<Vec<OpcUaSample>>,
     description: &str,
-    mut matches: impl FnMut(&[OpcUaSample]) -> bool,
+    mut matcher: impl FnMut(&[OpcUaSample]) -> bool,
 ) -> Result<Vec<OpcUaSample>> {
     let deadline = tokio::time::Instant::now() + LIFETIME_TIMEOUT;
 
@@ -142,7 +147,7 @@ async fn recv_matching_batch(
         let samples = maybe_samples
             .with_context(|| format!("callback channel closed while waiting for {description}"))?;
 
-        if matches(&samples) {
+        if matcher(&samples) {
             return Ok(samples);
         }
     }
@@ -249,7 +254,11 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
     let batch = OpcUaNodeReadBatch::new(&nodes, ua::AttributeId::VALUE);
     let client = connect_client(&server)?;
 
-    let samples = client.read_nodes(&batch).await?;
+    let samples = client
+        .read_nodes(&batch)
+        .await?
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
     assert_eq!(samples.len(), 5);
     assert_timestamps_present(&samples);
 
@@ -277,7 +286,68 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
+async fn read_nodes_retains_first_middle_and_last_decode_failures() -> Result<()> {
+    let unsupported = || {
+        ua::Variant::array(ua::Array::from_slice(&[
+            ua::Double::new(1.0),
+            ua::Double::new(2.0),
+        ]))
+    };
+    let server = TestServer::builder()
+        .variable(TestNodeId::Numeric(1100), "InvalidFirst", unsupported())
+        .variable(
+            TestNodeId::Numeric(1101),
+            "ValidSecond",
+            ua::Variant::scalar(ua::Double::new(2.0)),
+        )
+        .variable(TestNodeId::Numeric(1102), "InvalidMiddle", unsupported())
+        .variable(
+            TestNodeId::Numeric(1103),
+            "ValidFourth",
+            ua::Variant::scalar(ua::Double::new(4.0)),
+        )
+        .variable(TestNodeId::Numeric(1104), "InvalidLast", unsupported())
+        .start()?;
+    let targets = [
+        opcua_node(&server, "InvalidFirst", OpcUaNodeClass::Variable)?,
+        opcua_node(&server, "ValidSecond", OpcUaNodeClass::Variable)?,
+        opcua_node(&server, "InvalidMiddle", OpcUaNodeClass::Variable)?,
+        opcua_node(&server, "ValidFourth", OpcUaNodeClass::Variable)?,
+        opcua_node(&server, "InvalidLast", OpcUaNodeClass::Variable)?,
+    ];
+    let batch = OpcUaNodeReadBatch::new(&targets, ua::AttributeId::VALUE);
+    let client = connect_client(&server)?;
+
+    let outcomes = client.read_nodes(&batch).await?;
+    assert_eq!(outcomes.len(), targets.len());
+    let [first, second, middle, fourth, last] = outcomes.as_slice() else {
+        bail!("read outcomes did not retain five positions");
+    };
+    let [_, second_target, _, fourth_target, _] = &targets;
+    assert!(first.is_err());
+    assert_eq!(
+        second
+            .as_ref()
+            .expect("second outcome should decode")
+            .node_id,
+        second_target.node_id
+    );
+    assert!(middle.is_err());
+    assert_eq!(
+        fourth
+            .as_ref()
+            .expect("fourth outcome should decode")
+            .node_id,
+        fourth_target.node_id
+    );
+    assert!(last.is_err());
+
+    client.disconnect().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn graph_browse_methods_return_test_hierarchy() -> Result<()> {
     let server = TestServer::builder()
         .add_folder(FolderSpec::new(TestNodeId::Numeric(2000), "Sensors"))
         .add_folder(
@@ -321,16 +391,29 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let sensors_id = opcua_node_id(&server, "Sensors")?;
     let namespace = server.namespace_index();
 
-    let mut immediate_names = client
-        .as_ref()
-        .browse_node(sensors_id.clone())
-        .await?
-        .into_iter()
-        .map(|node| {
+    let sensors_path = OpcUaBrowsePath::from_segments([
+        OpcUaBrowseName::new(0, "Objects".to_owned()),
+        OpcUaBrowseName::new(namespace, "Sensors".to_owned()),
+    ]);
+    let graph = client
+        .browse_from(
+            sensors_id.clone(),
+            sensors_path.clone(),
+            OpcUaBrowseOptions::new(),
+        )
+        .await?;
+    let sensors = graph
+        .roots()
+        .routes()
+        .next()
+        .context("browse_from omitted selected Sensors route")?;
+    let mut immediate_names = sensors
+        .children()
+        .routes()
+        .map(|route| {
             (
-                node.browse_name,
-                node.node_class,
-                node.browse_path.to_string(),
+                route.node().browse_name().clone(),
+                route.node().node_class().clone(),
             )
         })
         .collect::<Vec<_>>();
@@ -340,45 +423,71 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         immediate_names,
         vec![
             (
-                "Flow".to_owned(),
+                OpcUaBrowseName::new(namespace, "Flow".to_owned()),
                 OpcUaNodeClass::Variable,
-                "/2:Flow".to_owned()
             ),
             (
-                "Inner".to_owned(),
+                OpcUaBrowseName::new(namespace, "Inner".to_owned()),
                 OpcUaNodeClass::Object,
-                "/2:Inner".to_owned()
             ),
             (
-                "Temperature".to_owned(),
+                OpcUaBrowseName::new(namespace, "Temperature".to_owned()),
                 OpcUaNodeClass::Variable,
-                "/2:Temperature".to_owned()
             ),
         ],
     );
 
-    let tree = client.as_ref().browse_all(sensors_id.clone(), None).await?;
-    let temperature = tree
-        .iter()
-        .find(|node| node.browse_name == "Temperature")
-        .context("browse_all omitted Temperature")?;
-    assert_eq!(temperature.node_class, OpcUaNodeClass::Variable);
+    let root_graph = client
+        .browse_root(OpcUaBrowseOptions::new().with_max_depth(1))
+        .await?;
     assert!(
-        temperature.children.is_empty(),
+        root_graph
+            .resolve_path(&browse_path(0, &["Objects"]))
+            .routes()
+            .next()
+            .is_some(),
+        "Root-default browse omitted Objects",
+    );
+
+    let exact = client
+        .browse_path(sensors_path.clone(), OpcUaBrowseOptions::new())
+        .await?;
+    let pattern = format!("/Objects/{namespace}:Sensors/**");
+    let leaf_variables = exact.find_all(pattern)?.variables().leaves();
+    assert_eq!(leaf_variables.len(), 4);
+
+    let temperature_path = sensors_path
+        .clone()
+        .with_child(OpcUaBrowseName::new(namespace, "Temperature".to_owned()));
+    let temperature = graph
+        .resolve_path(&temperature_path)
+        .routes()
+        .next()
+        .context("browse graph omitted Temperature")?;
+    assert_eq!(temperature.node().node_class(), &OpcUaNodeClass::Variable);
+    assert!(
+        temperature.children().is_empty(),
         "Temperature has no children in this test server",
     );
-    assert_eq!(temperature.browse_path.to_string(), "/2:Temperature");
+    assert_eq!(temperature.browse_path(), temperature_path);
 
-    let flow = tree
-        .iter()
-        .find(|node| node.browse_name == "Flow")
-        .context("browse_all omitted Flow")?;
-    assert_eq!(flow.node_class, OpcUaNodeClass::Variable);
-    assert!(flow.children.is_empty(), "Flow has no children");
-    assert_eq!(flow.browse_path.to_string(), "/2:Flow");
-    assert_eq!(flow.node_id.namespace(), namespace);
+    let flow_path = sensors_path
+        .clone()
+        .with_child(OpcUaBrowseName::new(namespace, "Flow".to_owned()));
+    let flow = graph
+        .resolve_path(&flow_path)
+        .routes()
+        .next()
+        .context("browse graph omitted Flow")?;
+    assert_eq!(flow.node().node_class(), &OpcUaNodeClass::Variable);
+    assert!(
+        flow.children().is_empty(),
+        "Flow has no children in this test server"
+    );
+    assert_eq!(flow.browse_path(), flow_path);
+    assert_eq!(flow.node().node_id().namespace(), namespace);
     assert_eq!(
-        flow.node_id.kind(),
+        flow.node().node_id().kind(),
         &NodeIdKind::Guid(uuid::Uuid::from_fields(
             0x2233_4455,
             0x6677,
@@ -387,38 +496,56 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         ))
     );
 
-    let inner = tree
-        .iter()
-        .find(|node| node.browse_name == "Inner")
-        .context("browse_all omitted Inner folder")?;
-    assert_eq!(inner.node_class, OpcUaNodeClass::Object);
-    assert_eq!(inner.browse_path.to_string(), "/2:Inner");
+    let inner_path = sensors_path
+        .clone()
+        .with_child(OpcUaBrowseName::new(namespace, "Inner".to_owned()));
 
-    let pressure = inner
-        .children
-        .iter()
-        .find(|node| node.browse_name == "Pressure")
-        .context("browse_all omitted nested Pressure node")?;
-    assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
-    assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
+    let inner = graph
+        .resolve_path(&inner_path)
+        .routes()
+        .next()
+        .context("browse graph omitted Inner folder")?;
 
-    let status = inner
-        .children
-        .iter()
-        .find(|node| node.browse_name == "Status")
-        .context("browse_all omitted nested Status node")?;
-    assert_eq!(status.node_class, OpcUaNodeClass::Variable);
-    assert_eq!(status.browse_path.to_string(), "/2:Inner/2:Status");
-    assert_eq!(status.node_id.namespace(), namespace);
+    assert_eq!(inner.node().node_class(), &OpcUaNodeClass::Object);
+    assert_eq!(inner.browse_path(), inner_path);
+
+    let pressure_path = inner_path
+        .clone()
+        .with_child(OpcUaBrowseName::new(namespace, "Pressure".to_owned()));
+
+    let pressure = graph
+        .resolve_path(&pressure_path)
+        .routes()
+        .next()
+        .context("browse graph omitted nested Pressure node")?;
+
+    assert_eq!(pressure.node().node_class(), &OpcUaNodeClass::Variable);
+    assert_eq!(pressure.browse_path(), pressure_path);
+
+    let status_path = inner_path
+        .clone()
+        .with_child(OpcUaBrowseName::new(namespace, "Status".to_owned()));
+
+    let status = graph
+        .resolve_path(&status_path)
+        .routes()
+        .next()
+        .context("browse graph omitted nested Status node")?;
+
+    assert_eq!(status.node().node_class(), &OpcUaNodeClass::Variable);
+    assert_eq!(status.browse_path(), status_path);
+    assert_eq!(status.node().node_id().namespace(), namespace);
     assert_eq!(
-        status.node_id.kind(),
+        status.node().node_id().kind(),
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
-    assert_eq!(metadata_name.name, "Sensors");
-    assert_eq!(display_name, "Sensors");
-    assert_eq!(node_class, OpcUaNodeClass::Object);
+    let batch = OpcUaNodeReadBatch::new(graph.read_targets(), ua::AttributeId::VALUE);
+    assert_eq!(batch.len(), graph.len());
+
+    assert_eq!(sensors.node().browse_name().name(), "Sensors");
+    assert_eq!(sensors.node().display_name(), "Sensors");
+    assert_eq!(sensors.node().node_class(), &OpcUaNodeClass::Object);
 
     client.disconnect().await?;
     Ok(())

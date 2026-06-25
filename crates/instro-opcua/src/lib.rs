@@ -1,6 +1,7 @@
 pub mod browse;
 pub mod client;
 pub(crate) mod metrics;
+pub mod path;
 pub mod types;
 
 use anyhow::Context as _;
