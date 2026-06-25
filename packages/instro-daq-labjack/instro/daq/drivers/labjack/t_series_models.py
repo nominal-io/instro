@@ -151,7 +151,7 @@ class LJ_T7:
             "STREAM_RESOLUTION_INDEX",
             "STREAM_SETTLING_US",
         ]
-        aValues = [0, 0, 0]
+        aValues = [0, 0, 0, 0]
 
         return aNames, aValues
 
