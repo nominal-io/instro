@@ -222,6 +222,33 @@ class InstroPSU(Instrument):
             descriptor = f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
+    @classmethod
+    def discover(
+        cls,
+        backend: str | None = None,
+        timeout: int = 2,
+    ) -> "list[PSUConfig]":  # TODO - it doesn't know about this yet
+        """Scan VISA resources and return PSUConfig for each recognized PSU."""
+        from instro.lib.discover import scan_visa_resources
+
+        # TODO - how do we make this reliable though?
+        # this only shows if we correctly recognized the visa, no hope elsewise..
+        # how do we do it in connect, also with IDN?
+        # should we do several discovery iterations, trying different terminator bits?
+        result = scan_visa_resources(backend=backend, timeout=timeout)
+        configs = []
+        for info in result.instruments:
+            if info.category == "psu" and info.vendor_key is not None and info.num_channels is not None:
+                configs.append(
+                    PSUConfig(
+                        name=info.resource,
+                        vendor=info.vendor_key,
+                        connection=info.resource,
+                        num_channels=info.num_channels,
+                    )
+                )
+        return configs
+
     def open(self):
         """Establish connection to the device."""
         logger.info("Opening PSU '%s'", self.name)
