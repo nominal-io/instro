@@ -464,9 +464,10 @@ mod support {
 
         #[cfg(unix)]
         fn kill_process_tree(child: &mut Child) {
-            // The child leads its own process group (see `start`); signal the group.
+            // The child leads its own process group (see `start`); signal the whole
+            // group. `--` keeps the negative pgid from being parsed as an option.
             let _ = Command::new("kill")
-                .args(["-KILL", &format!("-{}", child.id())])
+                .args(["-KILL", "--", &format!("-{}", child.id())])
                 .status();
             let _ = child.kill();
         }
