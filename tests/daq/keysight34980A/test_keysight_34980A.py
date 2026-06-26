@@ -54,7 +54,7 @@ import pytest
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.keysight_34980a import Keysight34980A  # ADJUST PATH if needed
-from instro.daq.types import Direction, Logic
+from instro.daq.types import Direction, Logic, DigitalPortWidth
 
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
