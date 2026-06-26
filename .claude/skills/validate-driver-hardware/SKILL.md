@@ -57,9 +57,10 @@ resource or a wiring map.
 The script must exercise **everything the driver implements** — that is the
 point of hardware validation. Build the list from code, not memory:
 
-- Read the category base `instro/<category>/<category>.py` (or the unstable
-  package equivalent, e.g. `packages/instro-unstable/instro/unstable/scope/driver.py`)
-  for the required + optional method set.
+- Read the category base `instro/<category>/<category>.py` (named `driver.py`
+  in some categories, e.g. `instro/scope/driver.py`, or living under
+  `packages/instro-unstable/` for in-development categories) for the required +
+  optional method set.
 - Read the concrete driver module and list every method it actually overrides.
   Skip only the ones that raise `FeatureNotSupportedError`/`NotImplementedError`.
 - Read the matching HAL (`InstroPSU`, `InstroDMM`, `InstroScope`, `InstroDAQ`,

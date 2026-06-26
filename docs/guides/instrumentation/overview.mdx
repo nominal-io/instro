@@ -205,12 +205,12 @@ These are the instrument types available out of the box.
 - `InstroDAQ`: data Acquisition devices
 - `InstroELoad`: electronic Loads
 - `InstroDMM`: digital Multimeters
+- `InstroScope`: oscilloscopes
 - `I2CInterface`: I2C master for communicating to peripherals on an I2C bus
 - `ModbusDevice`: Modbus register/coil device (TCP or RTU)
 
 Additional instrument types are in development in the separate `instro-unstable` package, where APIs may change between releases:
 
-- `InstroScope`: oscilloscopes (Keysight 1200x, Tektronix 2-series), via `instro.unstable.scope`
 - `EtherNetIPDevice`: EtherNet/IP and CIP devices, via `instro.unstable.ethernetip`
 
 ### Drivers
@@ -235,6 +235,10 @@ These are the vendor/model-specific drivers available out of the box.
 - `InstroDMM`
   - Keithley 2400
   - Agilent/HP/Keysight 34401A
+- `InstroScope`
+  - Keysight 1200X
+  - Tektronix 2-Series
+  - Siglent SDS1000X-E
 
 ### Publishers
 
