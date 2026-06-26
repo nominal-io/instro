@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 
-from instro.unstable.scope.types import (
+from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,

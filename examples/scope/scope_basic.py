@@ -9,7 +9,7 @@ import time
 
 from instro.lib.publishers import NominalCorePublisher
 from instro.lib.transports.visa import VisaConfig
-from instro.unstable.scope import (
+from instro.scope import (
     AcquisitionMode,
     Coupling,
     InstroScope,
@@ -18,14 +18,12 @@ from instro.unstable.scope import (
     TriggerSlope,
     TriggerType,
 )
-from instro.unstable.scope.drivers.keysight import Keysight1200X
+from instro.scope.drivers.keysight import Keysight1200X
 
 # VISA_RESOURCE = "TCPIP0::127.0.0.1::INSTR"
 # VISA_RESOURCE = "USB0::0x2A8D::0x039B::CN64191203::INSTR"
 VISA_RESOURCE = "USB0::10893::923::CN64191203::INSTR"
-DATASET_RID = (
-    "ri.catalog.cerulean-staging.dataset.50a647a4-0d00-460c-9898-4c282adfe7a4"  # Replace with your dataset RID.
-)
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 
 scope = InstroScope(
     name="scope",

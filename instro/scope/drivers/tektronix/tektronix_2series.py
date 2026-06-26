@@ -6,8 +6,8 @@ import math
 import time
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.types import (
+from instro.scope.driver import ScopeDriverBase
+from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,
