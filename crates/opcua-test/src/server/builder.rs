@@ -204,10 +204,6 @@ impl TestServerBuilder {
 
 /// Best-effort teardown when `start()` fails after spawning the runner thread:
 /// wait briefly for the cancel flag to take effect, otherwise log and detach.
-#[expect(
-    clippy::disallowed_methods,
-    reason = "test code — blocking the test thread is acceptable"
-)]
 fn shutdown_runner_on_startup_failure(
     handle: thread::JoinHandle<open62541::Result<()>>,
     endpoint_url: &str,

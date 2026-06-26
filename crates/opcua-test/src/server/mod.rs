@@ -185,10 +185,6 @@ impl Drop for TestServer {
         clippy::panic,
         reason = "test server panics on shutdown timeout or server shutdown error"
     )]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "test code — blocking the test thread is acceptable"
-    )]
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::Release);
         let handle = self
