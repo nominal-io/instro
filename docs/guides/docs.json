@@ -50,8 +50,7 @@
               },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq",
-              "instrumentation/daq-ni-multi-task"
+              "instrumentation/daq"
             ]
           },
           {
