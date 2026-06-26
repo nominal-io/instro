@@ -1,3 +1,5 @@
 """Community-contributed PSU drivers."""
 
-__all__: list[str] = []
+from .matrix_wps300s import MatrixWPS300S
+
+__all__: list[str] = ["MatrixWPS300S"]
