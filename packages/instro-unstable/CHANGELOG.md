@@ -36,6 +36,7 @@
 * **scope:** add hardware-validated Siglent SDS1104X-E driver ([#74](https://github.com/nominal-io/instro/issues/74)) ([b572a87](https://github.com/nominal-io/instro/commit/b572a876efc7b3d80e0b4eac18d4f8721fbd2171))
 
 
+
 ### Bug Fixes
 
 * **lib:** bundle every pyvisa-py backend for clean-install VISA support ([#103](https://github.com/nominal-io/instro/issues/103)) ([60604dc](https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0))
