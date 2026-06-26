@@ -42,7 +42,7 @@ NOMINAL CORE CONFIGURATION
 
   Before running, set the following environment variables:
 
-    MCC_DEVICE_ID       — unique device ID reported by mcculw (e.g. "344371")
+    MCC_DEVICE_ID       — unique device ID reported by mcculw / InstaCal (the device serial)
     NOMINAL_DATASET_RID — dataset RID for the NominalCorePublisher
     NOMINAL_API_TOKEN   — Nominal API token (optional if authenticated via
                           `nominal auth set-token`, which stores a default profile
@@ -66,6 +66,8 @@ import unittest
 from datetime import timedelta
 
 import pytest
+from mcculw import ul
+from mcculw.enums import BoardInfo, FirmwareVersionType, InfoType
 from nominal.core import EventType, NominalClient
 
 from instro.daq import InstroDAQ
@@ -76,8 +78,13 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "344371:0"  # MCC DAQ device ID, optionally suffixed with ":<board_number>" (default 0)
-DATASET_RID = None  # Replace with your dataset RID.
+DEVICE_ID = "MCC DAQ SERIAL NUMBER:0"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
+DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
+
+# Set False to run structure-only checks (finite readings, no value asserts) when the
+# AO->AI loopback harness is not wired.
+LOOPBACK_WIRED = True
 
 # Analog channel mapping
 AI_CH0 = "0"
@@ -187,7 +194,7 @@ class TestMCCDAQHardware(unittest.TestCase):
     def _create_daq(self) -> InstroDAQ:
         """Create, optionally attach publisher, and open a fresh DAQ instance."""
         daq = InstroDAQ(
-            name="mccdaq_test",
+            name=NAME,
             driver=MCCDriver(device_id=DEVICE_ID),
         )
         if DATASET_RID:
@@ -248,6 +255,31 @@ class TestMCCDAQHardware(unittest.TestCase):
             port_width=DigitalPortWidth.WIDTH_8,
         )
 
+    def _check_ai(self, measurement, expected: dict, errs: list):
+        """Assert each AI alias read finite, and (when LOOPBACK_WIRED and target is not None) within tolerance.
+
+        ``expected`` maps AI alias -> target volts (or ``None`` for a finite-only check). Per-channel data is
+        pulled from ``channel_data`` because ``.latest``/``.values`` raise when multiple channels are present.
+        """
+        for alias, target in expected.items():
+            key = f"{NAME}.{alias}"
+            samples = measurement.channel_data.get(key)
+            if not samples:
+                errs.append(f"{alias}: missing/empty channel_data key '{key}' (have {list(measurement.channel_data)})")
+                continue
+            v = samples[-1]
+            if not math.isfinite(v):
+                errs.append(f"{alias}: non-finite reading {v}")
+                continue
+            if target is not None and LOOPBACK_WIRED:
+                err = v - target
+                flag = "" if abs(err) <= ANALOG_LOOPBACK_TOLERANCE_V else "  <-- OUT OF TOLERANCE"
+                print(f"         {alias} = {v:.6f} V (target {target:+.3f} V, err {err:+.4f} V){flag}")
+                if abs(err) > ANALOG_LOOPBACK_TOLERANCE_V:
+                    errs.append(f"{alias}: read {v:.4f} V, expected {target:.4f} V (err {err:+.4f} V)")
+            else:
+                print(f"         {alias} = {v:.6f} V")
+
     def _run_step(self, name: str, description: str, fn):
         """Execute *fn*, record a Nominal event with description, and re-raise on failure."""
         start_ns = time.time_ns()
@@ -257,6 +289,77 @@ class TestMCCDAQHardware(unittest.TestCase):
         except Exception as exc:
             _recorder.record_event(
                 name, start_ns, time.time_ns(), passed=False, description=f"{description}\n\nError: {exc}"
+            )
+            raise
+
+    @staticmethod
+    def _read_board_str(board_num: int, config_item: BoardInfo, dev_num: int = 0) -> str | None:
+        """Read a BOARDINFO config item, returning None if the device doesn't support it."""
+        try:
+            return str(ul.get_config(InfoType.BOARDINFO, board_num, dev_num, config_item))
+        except Exception:
+            return None
+
+    @staticmethod
+    def _read_device_version(board_num: int, fw_type: FirmwareVersionType) -> str | None:
+        """Read a firmware/FPGA version string via cbGetConfigString(BOARDINFO, DEVVERSION).
+
+        Per the mcculw docs, firmware/FPGA versions are read with get_config_string and
+        BoardInfo.DEVVERSION, selecting which version through the dev_num argument
+        (a FirmwareVersionType: MAIN / MEASUREMENT / MEASUREMENT_EXP / RADIO / FPGA). The integer
+        get_config(BoardInfo.FWVERSION) path returns 0 / raises on the USB-1616HS-4. Returns the
+        version string (e.g. "1.30") or None if the device doesn't expose that firmware type.
+        """
+        try:
+            version = ul.get_config_string(InfoType.BOARDINFO, board_num, fw_type, BoardInfo.DEVVERSION, 64)
+        except Exception:
+            return None
+        return version or None
+
+    # =====================================================================
+    # 0. Device info — firmware / hardware version
+    # =====================================================================
+    def test_00_device_info(self):
+        """Report the device's product name, firmware version, and serial numbers."""
+        start_ns = time.time_ns()
+        try:
+            daq = self._create_daq()
+            try:
+                board_num = daq.driver._board_number
+                info = daq.driver.get_info()
+
+                # DaqDeviceInfo.product_name / unique_id are lazy properties that call
+                # into the UL at access time, so they must be read before daq.close()
+                # releases the board (otherwise: "Invalid board number").
+                product_name = info.product_name
+                unique_id = info.unique_id
+
+                main_fw = self._read_device_version(board_num, FirmwareVersionType.MAIN)
+                measurement_fw = self._read_device_version(board_num, FirmwareVersionType.MEASUREMENT)
+                fpga_version = self._read_device_version(board_num, FirmwareVersionType.FPGA)
+                serial_num = self._read_board_str(board_num, BoardInfo.SERIALNUM)
+                factory_id = self._read_board_str(board_num, BoardInfo.FACTORYID)
+            finally:
+                daq.close()
+
+            detail = "\n".join(
+                [
+                    f"product_name={product_name}",
+                    f"unique_id={unique_id}",
+                    f"main_firmware_version={main_fw}",
+                    f"measurement_firmware_version={measurement_fw}",
+                    f"fpga_version={fpga_version}",
+                    f"serial_number={serial_num}",
+                    f"factory_id={factory_id}",
+                ]
+            )
+            print(f"\n         {detail.replace(chr(10), chr(10) + '         ')}")
+
+            self.assertIsNotNone(product_name)
+            _recorder.record_event("Device info", start_ns, time.time_ns(), passed=True, description=detail)
+        except Exception as exc:
+            _recorder.record_event(
+                "Device info", start_ns, time.time_ns(), passed=False, description=f"Device info failed\n\nError: {exc}"
             )
             raise
 
@@ -271,16 +374,21 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
 
+                errs: list = []
                 for _ in range(3):
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
+                    # No AO driven here, so the loopback wire value is undefined — assert structure only.
+                    self._check_ai(measurement, {"ai_0": None, "ai_1": None}, errs)
                     time.sleep(0.25)
+                self.assertFalse(errs, "; ".join(errs))
             finally:
                 daq.close()
 
         self._run_step(
             "SW-timed analog read",
-            "Configure 2 differential AI channels (+/-10V) and perform 3 single-shot software-timed reads.",
+            "Configure 2 differential AI channels (+/-10V) and perform 3 single-shot software-timed reads. "
+            "Asserts both channels return finite values.",
             step,
         )
 
@@ -322,6 +430,7 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 test_voltages = [0.0, 1.0, 2.5, 5.0, -5.0, -2.5]
 
+                errs: list = []
                 for v in test_voltages:
                     daq.write_analog_value("ao_0", v)
                     daq.write_analog_value("ao_1", -v)
@@ -329,13 +438,19 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
+                    # ao_0 -> ai_0 carries +v, ao_1 -> ai_1 carries -v via loopback wiring.
+                    self._check_ai(measurement, {"ai_0": v, "ai_1": -v}, errs)
+                self.assertFalse(errs, "; ".join(errs))
             finally:
+                daq.write_analog_value("ao_0", 0.0)
+                daq.write_analog_value("ao_1", 0.0)
                 daq.close()
 
         self._run_step(
             "Analog loopback (SW-timed)",
             "Write known voltages to AO and read back on AI via loopback wiring. "
-            "Verifies AO->AI signal path using software-timed single-shot reads.",
+            "Verifies the AO->AI signal path: ai_0 tracks ao_0 and ai_1 tracks ao_1 within "
+            f"{ANALOG_LOOPBACK_TOLERANCE_V} V (software-timed single-shot reads).",
             step,
         )
 
@@ -363,14 +478,19 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.write_analog_value("ao_0", 0.5)
                 time.sleep(0.2)
 
+                errs: list = []
                 measurement = daq.read_analog()
                 self.assertIsNotNone(measurement)
+                self._check_ai(measurement, {"ai_0_narrow": 0.5}, errs)
+                self.assertFalse(errs, "; ".join(errs))
             finally:
+                daq.write_analog_value("ao_0", 0.0)
                 daq.close()
 
         self._run_step(
             "Analog narrow range (+/-1V)",
-            "Configure AI ch0 to +/-1V range, write 0.5V via AO, and verify SW-timed read.",
+            "Configure AI ch0 to +/-1V range, write 0.5V via AO, and verify the SW-timed read "
+            f"returns ~0.5V within {ANALOG_LOOPBACK_TOLERANCE_V} V.",
             step,
         )
 
@@ -388,22 +508,25 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 boundary_voltages = [-9.5, -5.0, 0.0, 5.0, 9.5]
 
+                errs: list = []
                 for v in boundary_voltages:
                     daq.write_analog_value("ao_0", v)
                     time.sleep(0.2)
 
                     measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
-
+                    # Only ao_0 is driven here; ao_1/ai_1 is left undriven, so check ai_0 only.
+                    self._check_ai(measurement, {"ai_0": v}, errs)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
                 # Reset output to 0V
                 daq.write_analog_value("ao_0", 0.0)
-            finally:
                 daq.close()
 
         self._run_step(
             "Analog output boundary voltages",
             "Write voltages near the +/-10V hardware limits (-9.5, -5, 0, 5, 9.5V) "
-            "and verify AI readback via SW-timed read.",
+            f"and verify ai_0 tracks each within {ANALOG_LOOPBACK_TOLERANCE_V} V via SW-timed read.",
             step,
         )
 
@@ -745,6 +868,194 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "Clean shutdown — safe state",
             "Set all analog outputs to 0V and digital output port to 0x00 as a final safety step.",
+            step,
+        )
+
+    # =====================================================================
+    # 15. Buffer-depth telemetry
+    # =====================================================================
+    def test_15_buffer_depth_telemetry(self):
+        """get_points_in_buffer() reports a valid depth during background acquisition."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                daq.configure_ai_sample_rate(
+                    sample_rate=SAMPLE_RATE_HZ,
+                    samples_per_channel=SAMPLES_PER_CHANNEL,
+                )
+                daq.start()
+                try:
+                    time.sleep(0.5)  # let the background daemon run a few fetches so depth is populated
+                    depth = daq.get_points_in_buffer().latest
+                    print(f"         points_in_buffer={depth}")
+                    self.assertTrue(
+                        math.isfinite(depth) and depth >= 0,
+                        f"get_points_in_buffer returned an invalid depth: {depth}",
+                    )
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Buffer-depth telemetry",
+            "Start HW-timed acquisition and verify get_points_in_buffer() reports a non-negative "
+            "finite depth. Exercises the fetch-path sample counter (INSTRO-384).",
+            step,
+        )
+
+    # =====================================================================
+    # 16. read_analog() raises while background daemon is running
+    # =====================================================================
+    def test_16_read_analog_raises_while_daemon_running(self):
+        """read_analog() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                daq.configure_ai_sample_rate(
+                    sample_rate=SAMPLE_RATE_HZ,
+                    samples_per_channel=SAMPLES_PER_CHANNEL,
+                )
+                daq.start(background=True)
+                try:
+                    time.sleep(0.2)  # confirm the daemon is alive before testing the guard
+                    self.assertTrue(
+                        daq._background_thread and daq._background_thread.is_alive(),
+                        "Background daemon is not alive after start() — cannot test the RuntimeError guard",
+                    )
+                    with self.assertRaises(
+                        RuntimeError,
+                        msg="read_analog() should raise RuntimeError while the background daemon is running",
+                    ):
+                        daq.read_analog()
+                    print("         RuntimeError raised correctly — daemon owns the buffer")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "read_analog() raises while daemon running",
+            "Verify read_analog() raises RuntimeError when the background daemon is active. "
+            "Guards against buffer race conditions (INSTRO-149).",
+            step,
+        )
+
+    # =====================================================================
+    # 17. Analog output — Command return value
+    # =====================================================================
+    def test_17_analog_output_command_return(self):
+        """write_analog_value() must return a Command with the correct channel key and value."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                for v in [0.0, 2.5, 5.0, -5.0]:
+                    cmd = daq.write_analog_value("ao_0", v)
+                    self.assertIsNotNone(cmd, f"write_analog_value returned None at {v} V")
+                    expected_key = f"{NAME}.ao_0.cmd"
+                    self.assertIn(
+                        expected_key,
+                        cmd.channel_data,
+                        f"Command missing key '{expected_key}' at {v} V. Keys present: {list(cmd.channel_data)}",
+                    )
+                    returned_v = cmd.channel_data[expected_key]
+                    self.assertAlmostEqual(
+                        returned_v, v, places=6, msg=f"Command value {returned_v} != written value {v}"
+                    )
+                    print(f"         write {v:.2f} V -> Command key='{expected_key}' value={returned_v}")
+                daq.write_analog_value("ao_0", 0.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Analog output — Command return value",
+            "Verify write_analog_value() returns a Command with the correct channel key and value "
+            "at 0, 2.5, 5.0, and -5.0 V.",
+            step,
+        )
+
+    # =====================================================================
+    # 18. Analog output — unconfigured channel raises KeyError
+    # =====================================================================
+    def test_18_analog_output_unconfigured_raises(self):
+        """write_analog_value() on an unconfigured alias must raise KeyError immediately."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                with self.assertRaises(
+                    KeyError, msg="write_analog_value on an unconfigured channel should raise KeyError"
+                ):
+                    daq.write_analog_value("ao_0", 1.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Analog output — unconfigured channel raises KeyError",
+            "Call write_analog_value() on an alias that was never configured. "
+            "Confirms InstroDAQ's channel guard raises KeyError immediately.",
+            step,
+        )
+
+    # =====================================================================
+    # 19. Per-line digital config unsupported on USB-1616HS-4
+    # =====================================================================
+    def test_19_digital_line_config_unsupported(self):
+        """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
+
+        The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
+        driver re-raises the UL failure as a RuntimeError directing the caller to the port-width
+        API. This asserts that contract rather than silently skipping the line methods.
+        """
+
+        def step():
+            daq = self._create_daq()
+            try:
+                with self.assertRaises(
+                    RuntimeError,
+                    msg="configure_digital_line should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
+                ):
+                    daq.configure_digital_line(
+                        direction=Direction.OUTPUT,
+                        physical_channel="FIRSTPORTA/0",
+                        logic=Logic.HIGH,
+                    )
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Per-line digital config unsupported",
+            "Assert configure_digital_line() raises RuntimeError on the USB-1616HS-4, which lacks "
+            "per-bit digital configuration. Port-width digital I/O is covered by tests 11–13.",
+            step,
+        )
+
+    # =====================================================================
+    # 20. Relay control unsupported
+    # =====================================================================
+    def test_20_relay_control_unsupported(self):
+        """close_relay() must raise NotImplementedError — the MCC driver has no relay support."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                daq.configure_relay_channel(physical_channel="0", alias="relay1")
+                with self.assertRaises(
+                    NotImplementedError, msg="close_relay should raise NotImplementedError on the MCC driver"
+                ):
+                    daq.close_relay("relay1")
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Relay control unsupported",
+            "Assert close_relay() raises NotImplementedError on the MCC driver, which implements no relay control.",
             step,
         )
 
