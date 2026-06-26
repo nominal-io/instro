@@ -34,7 +34,7 @@ class ArduinoFirmata(DAQDriverBase):
     Pin ranges depend on specific Arduino board.
     """
 
-    def __init__(self, port: str, sampling_rate_hz: float = 1000 / 19) -> None:
+    def __init__(self, port: str, sampling_rate_hz: float = 1000 / 19, buffer_size: int = 10_000) -> None:
         super().__init__()
         self._port = port
         if sampling_rate_hz > 1000:
@@ -49,10 +49,13 @@ class ArduinoFirmata(DAQDriverBase):
             raise ValueError(f"sampling_rate_hz must be > 0; got {sampling_rate_hz}Hz")
         else:
             self._sampling_interval_ms = int(1000 / sampling_rate_hz)
+
+        if buffer_size < 1:
+            raise ValueError(f"buffer_size must be >= 1; got {buffer_size}")
         self._board: pyfirmata2.Arduino | None = None
         self._pins: dict[str, Any] = {}
         self._latest_values: dict[str, float] = {}
-        self._sample_queue: queue.Queue[tuple[int, dict[str, float]]] = queue.Queue()
+        self._sample_queue: queue.Queue[tuple[int, dict[str, float]]] = queue.Queue(maxsize=buffer_size)
         self._pending_updates: set[str] = set()
         self._expected_ai_channels: frozenset[str] = frozenset()
 
@@ -89,6 +92,13 @@ class ArduinoFirmata(DAQDriverBase):
         self._sampling_interval_ms = int(1000 / rate_hz)
         if self._board is not None:
             self._board.setSamplingInterval(self._sampling_interval_ms)
+        if self._ai_hw_timing_config is not None:
+            sample_rate = 1000 / self._sampling_interval_ms
+            self._ai_hw_timing_config = HWTimingConfig(
+                sample_rate=sample_rate,
+                sample_period=round(1e9 / sample_rate),
+                samples_per_channel=1,
+            )
 
     def configure_ao_channel(self, channel: AnalogChannel) -> None:
         assert self._board is not None, "Call open() before configuring channels"
@@ -148,7 +158,16 @@ class ArduinoFirmata(DAQDriverBase):
         self._pending_updates.add(alias)
         if self._expected_ai_channels and self._pending_updates >= self._expected_ai_channels:
             timestamp = time.time_ns()
-            self._sample_queue.put((timestamp, dict(self._latest_values)))
+            if self._sample_queue.full():
+                warnings.warn(
+                    "ArduinoFirmata sample buffer is full; dropping oldest sample. "
+                    "Reduce sampling_rate_hz or increase buffer_size",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                self._sample_queue.get_nowait()
+
+            self._sample_queue.put_nowait((timestamp, dict(self._latest_values)))
             self._pending_updates.clear()
 
     def read_analog(self) -> dict[str, float]:
