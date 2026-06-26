@@ -10,6 +10,7 @@ use opcua::browse::BrowseAll as _;
 use opcua::client::OpcUaClient;
 use opcua::client::OpcUaClientBuilder;
 use opcua::client::OpcUaNodeReadBatch;
+use opcua::types::BrowsePath;
 use opcua::types::OpcUaMonitoredItemConfig;
 use opcua::types::OpcUaNode;
 use opcua::types::OpcUaNodeClass;
@@ -21,6 +22,7 @@ use opcua::types::OpcUaSecurityPolicy;
 use opcua::types::OpcUaSubscriptionConfig;
 use opcua::types::OpcUaUserToken;
 use opcua::types::OpcUaValue;
+use opcua::types::QualifiedBrowseName;
 use opcua_test::FolderSpec;
 use opcua_test::ParentRef;
 use opcua_test::TestNodeId;
@@ -62,6 +64,7 @@ fn opcua_node(
         browse_name: browse_name.to_owned(),
         display_name: browse_name.to_owned(),
         node_class,
+        browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
         children: Vec::new(),
     })
 }
@@ -255,19 +258,33 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .browse_node(sensors_id.clone())
         .await?
         .into_iter()
-        .map(|node| (node.browse_name, node.node_class))
+        .map(|node| {
+            (
+                node.browse_name,
+                node.node_class,
+                node.browse_path.to_string(),
+            )
+        })
         .collect::<Vec<_>>();
     immediate_names.sort();
 
     assert_eq!(
         immediate_names,
         vec![
-            ("Inner".to_owned(), OpcUaNodeClass::Object),
-            ("Temperature".to_owned(), OpcUaNodeClass::Variable),
+            (
+                "Inner".to_owned(),
+                OpcUaNodeClass::Object,
+                "/2:Inner".to_owned()
+            ),
+            (
+                "Temperature".to_owned(),
+                OpcUaNodeClass::Variable,
+                "/2:Temperature".to_owned()
+            ),
         ],
     );
 
-    let tree = client.as_ref().browse_all(sensors_id, None).await?;
+    let tree = client.as_ref().browse_all(sensors_id.clone(), None).await?;
     let temperature = tree
         .iter()
         .find(|node| node.browse_name == "Temperature")
@@ -275,14 +292,16 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     assert_eq!(temperature.node_class, OpcUaNodeClass::Variable);
     assert!(
         temperature.children.is_empty(),
-        "variable nodes should not be recursed into",
+        "Temperature has no children in this test server",
     );
+    assert_eq!(temperature.browse_path.to_string(), "/2:Temperature");
 
     let inner = tree
         .iter()
         .find(|node| node.browse_name == "Inner")
         .context("browse_all omitted Inner folder")?;
     assert_eq!(inner.node_class, OpcUaNodeClass::Object);
+    assert_eq!(inner.browse_path.to_string(), "/2:Inner");
 
     let pressure = inner
         .children
@@ -290,6 +309,12 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .find(|node| node.browse_name == "Pressure")
         .context("browse_all omitted nested Pressure node")?;
     assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
+    assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
+
+    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
+    assert_eq!(metadata_name.name, "Sensors");
+    assert_eq!(display_name, "Sensors");
+    assert_eq!(node_class, OpcUaNodeClass::Object);
 
     client.disconnect().await?;
     Ok(())
