@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/nominal-io/instro/compare/instro-v0.13.0...instro-v0.14.0) (2026-06-26)
+
+
+### Features
+
+* **psu:** add support for matrix WPS300s [closes [#124](https://github.com/nominal-io/instro/issues/124)] ([#125](https://github.com/nominal-io/instro/issues/125)) ([5e84286](https://github.com/nominal-io/instro/commit/5e84286596b1c52a5f6130b5bb752453beac79be))
+
+
+### Bug Fixes
+
+* **ethernetip:** kill cpppo simulator process tree on test teardown ([#174](https://github.com/nominal-io/instro/issues/174)) ([f9e00e8](https://github.com/nominal-io/instro/commit/f9e00e849956a619ab69fd1acfe5dcb7845f9125))
+
 ## [0.13.0](https://github.com/nominal-io/instro/compare/instro-v0.12.1...instro-v0.13.0) (2026-06-25)
 
 
