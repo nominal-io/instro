@@ -30,7 +30,7 @@ LABJACK T7 LOOPBACK WIRING
 
   Channel configuration summary:
     AI ch "AIN0"  — alias "ain0", RSE (loopback from DAC0)
-    AI ch "AIN1"  — alias "ain1", RSE (loopback from DAC0)
+    AI ch "AIN1"  — alias "ain1", RSE (loopback from DAC1)
     AO ch "DAC0"  — alias "dac0", 0-5 V
     DO line "FIO0" — alias "fio0", Logic.HIGH
     DI line "FIO1" — alias "fio1", Logic.HIGH
@@ -76,6 +76,7 @@ from nominal.core import EventType, NominalClient
 from instro.daq import InstroDAQ
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq.types import Direction, Logic, TerminalConfig
+from instro.lib import InstrumentNotOpenError
 from instro.lib.publishers import NominalCorePublisher
 
 # ---------------------------------------------------------------------------
@@ -100,8 +101,9 @@ DI_LINE, DI_ALIAS = "FIO1", "fio1"
 
 # T7 analog input ranges, each with an in-range and over-range DAC0 test voltage.
 # DAC0 maxes at 5 V, so the +/-10 V range has no over-range case.
+
 AIN_VOLTAGE_RANGES = [
-    (-10, 10, 5.0, None),
+    (-10, 10, 4.5, None),
     (-1, 1, 0.5, 2.5),
     (-0.1, 0.1, 0.05, 1.0),
     (-0.01, 0.01, 0.005, 0.1),
@@ -210,6 +212,19 @@ class TestLabJackT7Hardware(unittest.TestCase):
             raise
 
     # -- helpers ----------------------------------------------------------
+
+    def _ain_tolerance(self, value: float, range_max: float) -> float:
+        """Per-range tolerance for an AIN reading vs the DAC0 source voltage.
+
+        Models the three error sources that scale differently:
+        - gain error  (DAC gain + AIN gain)      -> fraction of reading
+        - offset/noise (scales with the AIN range) -> fraction of full scale
+        - DAC offset + quantization (fixed)        -> absolute floor
+        """
+        REL_FRAC = 0.01  # 1% of reading: covers DAC + AIN gain error
+        RANGE_FRAC = 0.002  # 0.2% of full scale: AIN offset/noise floor per range
+        FLOOR_V = 0.003  # 3 mV: fixed DAC offset + ADC quantization
+        return REL_FRAC * abs(value) + RANGE_FRAC * range_max + FLOOR_V
 
     def _create_daq(self) -> InstroDAQ:
         """Create, optionally attach publisher, and open a fresh DAQ instance."""
@@ -481,31 +496,43 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 for range_min, range_max, in_v, over_v in AIN_VOLTAGE_RANGES:
                     self._configure_ai(daq, range_min=range_min, range_max=range_max)
 
+                    # --- in-range: AIN0 should track DAC0 within the per-range tolerance ---
                     daq.write_analog_value(AO0_ALIAS, in_v)
                     time.sleep(0.05)
                     measured = read_ain0()
                     if measured is None or not math.isfinite(measured):
                         errs.append(f"non-finite in-range read at +/-{range_max} V")
                     else:
-                        ok = not LOOPBACK_WIRED or abs(measured - in_v) <= ANALOG_TOLERANCE_V
+                        tol = self._ain_tolerance(in_v, range_max)
+                        ok = not LOOPBACK_WIRED or abs(measured - in_v) <= tol
                         flag = "" if ok else "  <-- FAIL"
-                        print(f"         +/-{range_max} V | in   DAC0={in_v:.4f} V | AIN0={measured:.4f} V{flag}")
+                        print(
+                            f"         +/-{range_max} V | in   DAC0={in_v:.4f} V | AIN0={measured:.4f} V "
+                            f"(err {measured - in_v:+.4f} V, tol {tol * 1e3:.1f} mV){flag}"
+                        )
                         if not ok:
-                            errs.append(f"in-range +/-{range_max} V: DAC0={in_v} V -> AIN0={measured:.4f} V")
+                            errs.append(
+                                f"in-range +/-{range_max} V: DAC0={in_v} V -> AIN0={measured:.4f} V "
+                                f"(err {measured - in_v:+.4f} V > {tol:.4f} V)"
+                            )
 
                     if over_v is None:
                         continue
+
+                    # --- over-range: AIN0 should clamp near full scale ---
                     daq.write_analog_value(AO0_ALIAS, over_v)
                     time.sleep(0.05)
                     measured = read_ain0()
                     if measured is None or not math.isfinite(measured):
                         errs.append(f"non-finite over-range read at +/-{range_max} V")
                     else:
-                        clamped = measured <= range_max + ANALOG_TOLERANCE_V and measured < over_v - ANALOG_TOLERANCE_V
+                        tol = self._ain_tolerance(range_max, range_max)
+                        clamped = measured <= range_max + tol and measured < over_v - tol
                         ok = not LOOPBACK_WIRED or clamped
                         flag = "" if ok else "  <-- FAIL"
                         print(
-                            f"         +/-{range_max} V | over DAC0={over_v:.4f} V | AIN0={measured:.4f} V (clamp~{range_max} V){flag}"
+                            f"         +/-{range_max} V | over DAC0={over_v:.4f} V | AIN0={measured:.4f} V "
+                            f"(clamp~{range_max} V, tol {tol * 1e3:.1f} mV){flag}"
                         )
                         if not ok:
                             errs.append(
@@ -522,8 +549,8 @@ class TestLabJackT7Hardware(unittest.TestCase):
         self._run_step(
             "AIN voltage ranges",
             "Configure AIN0 to each T7 input range (+/-10, +/-1, +/-0.1, +/-0.01 V). For each, verify an "
-            "in-range DAC0 voltage tracks and an over-range voltage clamps near full scale "
-            "(no over-range case for +/-10 V since DAC0 maxes at 5 V).",
+            "in-range DAC0 voltage tracks within a per-range tolerance and an over-range voltage clamps near "
+            "full scale (no over-range case for +/-10 V since DAC0 maxes below 5 V).",
             step,
         )
 
@@ -766,13 +793,106 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 13. Methods not implemented on the T7 — reported as skipped
+    # 13. Channel registry introspection + immutability
     # =====================================================================
-    def test_13_port_width_digital_unsupported(self):
+    def test_13_channel_registry(self):
+        """Configured channels appear in the driver's frozen snapshots, keyed by alias, and those snapshots are read-only (MappingProxyType)."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+                self._configure_digital_lines(daq)
+
+                # configure_* must land each channel in the matching frozen snapshot.
+                self.assertEqual(set(daq.ai_channels), {AI0_ALIAS, AI1_ALIAS})
+                self.assertEqual(set(daq.ao_channels), {AO0_ALIAS, AO1_ALIAS})
+                self.assertEqual(set(daq.di_channels), {DI_ALIAS})
+                self.assertEqual(set(daq.do_channels), {DO_ALIAS})
+
+                # range_min/max and physical_channel round-trip onto the AnalogChannel.
+                ai0 = daq.ai_channels[AI0_ALIAS]
+                print(f"         {AI0_ALIAS}: phys={ai0.physical_channel} range=[{ai0.range_min},{ai0.range_max}]")
+                self.assertEqual(ai0.physical_channel, AI0_CHANNEL)
+                self.assertEqual((ai0.range_min, ai0.range_max), (-10, 10))
+
+                # Snapshot is a read-only MappingProxyType; mutation must raise.
+                with self.assertRaises(TypeError):
+                    daq.ai_channels["bogus"] = ai0
+                print("         ai/ao/di/do snapshots correct; snapshot mutation rejected")
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Channel registry introspection",
+            "Verify configure_* lands channels in the driver's frozen ai/ao/di/do snapshots keyed by alias, "
+            "that physical_channel and range bounds round-trip onto the AnalogChannel, and that the snapshots "
+            "are immutable (MappingProxyType).",
+            step,
+        )
+
+    # =====================================================================
+    # 14. Error contract — acting on unconfigured channels
+    # =====================================================================
+    def test_14_unconfigured_channel_errors(self):
+        """Writing/reading an unconfigured alias raises KeyError (per the driver contract)."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                # Nothing configured yet -- every alias lookup should miss and raise.
+                with self.assertRaises(KeyError):
+                    daq.write_analog_value("nonexistent_dac", 1.0)
+                with self.assertRaises(KeyError):
+                    daq.write_digital_line("nonexistent_line", 1)
+                with self.assertRaises(KeyError):
+                    daq.read_digital_line("nonexistent_line")
+                print("         KeyError raised for all three unconfigured-channel operations")
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Unconfigured-channel error contract",
+            "Verify write_analog_value / write_digital_line / read_digital_line each raise KeyError when the "
+            "target alias was never configured, matching the driver's documented contract.",
+            step,
+        )
+
+    # =====================================================================
+    # 15. Lifecycle guard — operations before open()
+    # =====================================================================
+    def test_15_requires_open(self):
+        """Device operations before open() raise InstrumentNotOpenError."""
+
+        def step():
+            # Construct but deliberately do NOT open the DAQ.
+            daq = InstroDAQ(name=NAME, driver=LabJackTSeriesDriver(device_id=DEVICE_ID))
+            with self.assertRaises(InstrumentNotOpenError):
+                daq.configure_analog_channel(
+                    direction=Direction.INPUT,
+                    physical_channel=AI0_CHANNEL,
+                    alias=AI0_ALIAS,
+                )
+            with self.assertRaises(InstrumentNotOpenError):
+                daq.read_analog()
+            print("         InstrumentNotOpenError raised for config + read before open()")
+
+        self._run_step(
+            "Lifecycle guard (not open)",
+            "Verify configure_analog_channel() and read_analog() raise InstrumentNotOpenError when called "
+            "before open(), confirming the _require_open() gate.",
+            step,
+        )
+
+    # =====================================================================
+    # 16. Methods not implemented on the T7 — reported as skipped
+    # =====================================================================
+    def test_16_port_width_digital_unsupported(self):
         """write_digital_port / read_digital_port are not implemented for the T7."""
         self.skipTest("driver raises NotImplementedError for LabJack port-width digital I/O")
 
-    def test_14_relay_control_unsupported(self):
+    def test_17_relay_control_unsupported(self):
         """Relay control is not supported by the LabJack driver."""
         self.skipTest("DAQDriverBase relays unsupported by LabJack")
 
