@@ -73,7 +73,7 @@ dev = [
 ]
 test = [
     "cpppo>=4.0.0",
-    "pytest>=8.4.0,<9",
+    "pytest>=9.0.3,<10",
 ]
 
 [tool.uv]
