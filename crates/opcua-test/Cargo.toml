@@ -1,0 +1,18 @@
+[package]
+name = "opcua-test"
+version = "0.1.0"
+license = "Apache-2.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+open62541.workspace = true
+open62541-sys.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true
