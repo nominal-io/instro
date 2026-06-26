@@ -23,7 +23,7 @@ _VALID_MIX = [GasMixEntry(Decimal("50.00"), 1), GasMixEntry(Decimal("50.00"), 8)
 
 @pytest.fixture
 def visa_driver_cls() -> Iterator[MagicMock]:
-    with patch("instro.flowcontroller.drivers.alicat_mc.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.unstable.flowcontroller.drivers.alicat_mc.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 

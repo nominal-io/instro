@@ -3,9 +3,10 @@ title: Flow Controller
 description: Using InstroFlowController for gas flow controllers
 ---
 
+<Warning>This Instrument category is new and is currently available only in the Unstable package</Warning>
+
 # InstroFlowController
 
-<Warning>This Instrument category is new and is currently available only in the Unstable package</Warning>
 
 `InstroFlowController` is a hardware abstraction layer (HAL) that provides a unified interface for InstroFlowMeter. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `TDKLambdaGenesys`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
 
