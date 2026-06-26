@@ -6,9 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.flowcontroller import MASS_FLOW_KEY, PRESSURE_KEY, SETPOINT_KEY, TEMPERATURE_KEY, VOLUMETRIC_FLOW_KEY
-from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
 from instro.lib.transports.visa import SerialConfig, VisaConfig
+from instro.unstable.flowcontroller import (
+    MASS_FLOW_KEY,
+    PRESSURE_KEY,
+    SETPOINT_KEY,
+    TEMPERATURE_KEY,
+    VOLUMETRIC_FLOW_KEY,
+)
+from instro.unstable.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
 
 _SAMPLE_RESPONSE = "A +13.5424 +24.5782 +16.6670 +15.4443 +25.0000 N2"
 

@@ -56,9 +56,9 @@ from typing import Final, Literal
 
 from pyvisa import VisaIOError
 
-from instro.flowcontroller import FlowControllerDriverBase
-from instro.flowcontroller.types import FlowData
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.unstable.flowcontroller import FlowControllerDriverBase
+from instro.unstable.flowcontroller.types import FlowData
 
 
 class AlicatFlowData(FlowData):

@@ -7,8 +7,8 @@ can be accessed directly.
 
 from decimal import Decimal
 
-from instro.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig
+from instro.unstable.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry
 
 VISA_RESOURCE = "ASRL7::INSTR"
 device = AlicatMC(

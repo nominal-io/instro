@@ -1,7 +1,7 @@
 """Flow-controller instrument interface package."""
 
-from instro.flowcontroller.flowcontroller import FlowControllerDriverBase, InstroFlowController
-from instro.flowcontroller.types import (
+from instro.unstable.flowcontroller.flowcontroller import FlowControllerDriverBase, InstroFlowController
+from instro.unstable.flowcontroller.types import (
     MASS_FLOW_KEY,
     PRESSURE_KEY,
     SETPOINT_KEY,

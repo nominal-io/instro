@@ -6,10 +6,10 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 import time
 
-from instro.flowcontroller import InstroFlowController
-from instro.flowcontroller.drivers.alicat_mc import AlicatMC
 from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+from instro.unstable.flowcontroller import InstroFlowController
+from instro.unstable.flowcontroller.drivers.alicat_mc import AlicatMC
 
 VISA_RESOURCE = "ASRL7::INSTR"  # REPLACE WITH YOUR OWN
 NOMINAL_DATASET_RID = ""

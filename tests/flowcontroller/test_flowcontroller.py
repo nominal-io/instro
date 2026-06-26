@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from instro.flowcontroller import (
+from instro.unstable.flowcontroller import (
     MASS_FLOW_KEY,
     PRESSURE_KEY,
     SETPOINT_KEY,

@@ -1,5 +1,7 @@
 # Flow Controller
 
+<Warning>This Instrument category is new and is currently available only in the Unstable package</Warning>
+
 ## Interface
 
 ::: instro.flowcontroller.InstroFlowController

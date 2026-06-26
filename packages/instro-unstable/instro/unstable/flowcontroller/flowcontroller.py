@@ -7,15 +7,15 @@ import logging
 import threading
 import time
 
-from instro.flowcontroller.types import (
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib.publishers import Publisher
+from instro.unstable.flowcontroller.types import (
     MASS_FLOW_KEY,
     SETPOINT_KEY,
     VOLUMETRIC_FLOW_KEY,
     FlowData,
 )
-from instro.lib import Command, Instrument, Measurement
-from instro.lib.instrument import publish_command, publish_measurement
-from instro.lib.publishers import Publisher
 
 logger = logging.getLogger(__name__)
 
