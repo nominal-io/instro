@@ -54,7 +54,7 @@ import pytest
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.keysight_34980a import Keysight34980A  # ADJUST PATH if needed
-from instro.daq.types import Direction, Logic, DigitalPortWidth
+from instro.daq.types import DigitalPortWidth, Direction, Logic
 
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
@@ -64,7 +64,7 @@ NAME = "ks34980a_validate"
 
 # Slot holding the 34922A and the channels used by the tests.
 MUX_SLOT = 4
-AI_CHANNEL, AI_ALIAS = f"{MUX_SLOT}060", "ai0"   # 1060 = slot 1, channel 60 (your 1 V source)
+AI_CHANNEL, AI_ALIAS = f"{MUX_SLOT}060", "ai0"  # 1060 = slot 1, channel 60 (your 1 V source)
 AI_CHANNEL_2, AI_ALIAS_2 = f"{MUX_SLOT}002", "ai1"
 RELAY_CHANNEL = f"{MUX_SLOT}003"
 
@@ -86,12 +86,14 @@ DIGITAL_SLOT = 8
 # NOTE: confirm these are valid 34950A digital LINE addresses for your module;
 # 001/002 are placeholders. The loopback assert only fires if DO is physically
 # jumpered to DI and DIGITAL_LOOPBACK_WIRED is True.
-DO_LINE, DO_ALIAS = "8101/0", "do0"   # slot 8, bank 1 ch 101, bit 0  -> output
-DI_LINE, DI_ALIAS = "8201/0", "di0"   # slot 8, bank 2 ch 201, bit 0  -> input
+DO_LINE, DO_ALIAS = "8101/0", "do0"  # slot 8, bank 1 ch 101, bit 0  -> output
+DI_LINE, DI_ALIAS = "8201/0", "di0"  # slot 8, bank 2 ch 201, bit 0  -> input
 DIGITAL_LOOPBACK_WIRED = True
 
-DO_PORT, DO_PORT_ALIAS = f"{DIGITAL_SLOT}101", "do_port"   # bank 1, channel 101
-DI_PORT, DI_PORT_ALIAS = f"{DIGITAL_SLOT}201", "di_port"   # bank 2, channel 201
+DO_PORT, DO_PORT_ALIAS = f"{DIGITAL_SLOT}101", "do_port"  # bank 1, channel 101
+DI_PORT, DI_PORT_ALIAS = f"{DIGITAL_SLOT}201", "di_port"  # bank 2, channel 201
+
+
 # ---------------------------------------------------------------------------
 # Test suite
 # ---------------------------------------------------------------------------
@@ -319,7 +321,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
     # =====================================================================
     def test_09_analog_output_unsupported(self):
         """The 34980A driver implements no analog output (no 34951A/34952A DAC).
- 
+
         This is a negative test: configuring an analog OUTPUT channel must raise
         rather than silently succeed, confirming the unsupported path fails loudly.
         """
@@ -336,13 +338,13 @@ class TestKeysight34980AHardware(unittest.TestCase):
             print("         analog output correctly rejected (no AO path on 34980A)")
         finally:
             daq.close()
- 
+
     # =====================================================================
     # 10. Digital PORT (byte-wide) write/read on the 34950A
     # =====================================================================
     def test_10_digital_port_write_read(self):
         """Write a byte to an output port and read an input port back (34950A, 8-bit).
- 
+
         Writes whole bytes rather than single bits. Only bit 0 is physically
         jumpered (bank1 bit0 -> bank2 bit0), so when DIGITAL_LOOPBACK_WIRED is
         True the assertion checks bit 0 of the readback; the other 7 input bits
