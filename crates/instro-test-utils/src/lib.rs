@@ -1,12 +1,17 @@
-#[cfg(feature = "serde_assertions")]
 pub mod assertions {
+    use std::fmt::Debug;
+
+    use serde::Serialize;
+    use serde::Deserialize;
+
     /// Assert that a serializable value can be serialized and deserialized without loss of information.
     ///
     /// This function **_PANICS_** if the value cannot be serialized or deserialized.
     /// Meant for use in unit tests.
+    #[track_caller]
     pub fn assert_serde_json_roundtrip_eq<T>(serializable: &T)
     where
-        for<'a> T: std::fmt::Debug + PartialEq + serde::Serialize + serde::Deserialize<'a>,
+        for<'a> T: Debug + PartialEq + Serialize + Deserialize<'a>,
     {
         #[expect(
             clippy::expect_used,

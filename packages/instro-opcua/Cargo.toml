@@ -28,7 +28,7 @@ zeroize = { version = "1.8", features = ["std"] }
 
 [dev-dependencies]
 opcua-test.workspace = true
-instro-test-utils = { workspace = true, features = ["serde_assertions"] }
+instro-test-utils.workspace = true
 
 [lints]
 workspace = true
