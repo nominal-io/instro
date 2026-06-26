@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.lib.transports.visa import SerialConfig, VisaConfig
-from instro.unstable.scope import (
+from instro.scope import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,
@@ -22,10 +22,10 @@ from instro.unstable.scope import (
     TriggerStatus,
     TriggerType,
 )
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.drivers.keysight import Keysight1200X
-from instro.unstable.scope.drivers.siglent import SiglentSDS1000XE
-from instro.unstable.scope.drivers.tektronix import Tektronix2SeriesMSO
+from instro.scope.driver import ScopeDriverBase
+from instro.scope.drivers.keysight import Keysight1200X
+from instro.scope.drivers.siglent import SiglentSDS1000XE
+from instro.scope.drivers.tektronix import Tektronix2SeriesMSO
 
 
 def _make_temp_timeout_cm() -> MagicMock:
@@ -41,7 +41,7 @@ def _make_temp_timeout_cm() -> MagicMock:
 
 @pytest.fixture
 def keysight_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.keysight.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.keysight.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -188,7 +188,7 @@ def test_keysight_measure_returns_nan_on_sentinel(keysight: Keysight1200X, keysi
 
 @pytest.fixture
 def tektronix_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.tektronix.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.tektronix.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -386,7 +386,7 @@ def test_tektronix_digitize_raises_timeout_and_clears(
 
 @pytest.fixture
 def siglent_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.siglent.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.siglent.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -782,12 +782,12 @@ class _StubScopeDriver(ScopeDriverBase):
         self.calls.append(("digitize", timeout))
 
     def get_acquisition_state(self):
-        from instro.unstable.scope.types import AcquisitionState
+        from instro.scope.types import AcquisitionState
 
         return AcquisitionState.STOPPED
 
     def fetch_waveform(self, channel: int):
-        from instro.unstable.scope.types import WaveformData
+        from instro.scope.types import WaveformData
 
         return WaveformData(times=[0, 1, 2], voltages=[0.1, 0.2, 0.3])
 
@@ -813,7 +813,7 @@ class _StubScopeDriver(ScopeDriverBase):
         self.calls.append(("force_trigger",))
 
     def get_trigger_status(self):
-        from instro.unstable.scope.types import TriggerStatus
+        from instro.scope.types import TriggerStatus
 
         return TriggerStatus.TRIGGERED
 

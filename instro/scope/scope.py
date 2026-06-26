@@ -6,8 +6,8 @@ import time
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.types import (
+from instro.scope.driver import ScopeDriverBase
+from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
     ChannelConfig,

@@ -14,13 +14,10 @@ def test_unstable_imports_do_not_require_native_ethernetip(monkeypatch: pytest.M
     # Simulate the EtherNet/IP module missing.
     monkeypatch.setitem(sys.modules, "instro.unstable._ethernetip", None)
 
-    # Importing unstable packages must stay pure Python. Scope should keep
-    # working, and EIP config/types should remain importable, even when the
-    # native EIP backend is unavailable.
-    scope = importlib.import_module("instro.unstable.scope")
+    # Importing unstable packages must stay pure Python: EIP config/types should
+    # remain importable even when the native EIP backend is unavailable.
     ethernetip = importlib.import_module("instro.unstable.ethernetip")
 
-    assert hasattr(scope, "InstroScope")
     assert hasattr(ethernetip, "EtherNetIPDevice")
 
 
