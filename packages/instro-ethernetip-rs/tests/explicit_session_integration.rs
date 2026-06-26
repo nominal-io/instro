@@ -425,6 +425,8 @@ mod support {
 
     mod cpppo_simulator {
         use std::io::{BufRead, BufReader};
+        #[cfg(unix)]
+        use std::os::unix::process::CommandExt;
         use std::path::PathBuf;
         use std::process::{Child, Command, Stdio};
         use std::sync::mpsc;
@@ -444,25 +446,48 @@ mod support {
 
         impl Drop for Process {
             fn drop(&mut self) {
-                let _ = self.child.kill();
+                kill_process_tree(&mut self.child);
                 let _ = self.child.wait(); // wait for the child to exit completely
             }
+        }
+
+        // `uv run` spawns python as a grandchild, so killing only `self.child`
+        // (the `uv` process) orphans the simulator (INSTRO-418). Kill the tree.
+        #[cfg(windows)]
+        fn kill_process_tree(child: &mut Child) {
+            let _ = Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &child.id().to_string()])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+
+        #[cfg(unix)]
+        fn kill_process_tree(child: &mut Child) {
+            // The child leads its own process group (see `start`); signal the group.
+            let _ = Command::new("kill")
+                .args(["-KILL", &format!("-{}", child.id())])
+                .status();
+            let _ = child.kill();
         }
 
         /// Start cpppo with the same tag definition used by live-target tests.
         pub(super) fn start(fixtures: &[TagFixture]) -> (String, Process) {
             let script = script_path();
-            let mut child = Command::new("uv")
+            let mut command = Command::new("uv");
+            command
                 .args(["run", "python"])
                 .arg(&script)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
-                .args(tag_args(fixtures))
-                .spawn()
-                .unwrap_or_else(|error| {
-                    panic!("failed to start cpppo simulator process via `uv run python`: {error}")
-                });
+                .args(tag_args(fixtures));
+            // Lead a new process group so teardown can kill the whole tree (INSTRO-418).
+            #[cfg(unix)]
+            command.process_group(0);
+            let mut child = command.spawn().unwrap_or_else(|error| {
+                panic!("failed to start cpppo simulator process via `uv run python`: {error}")
+            });
 
             let endpoint = read_endpoint_from_stdout(&mut child);
             (endpoint, Process { child })
