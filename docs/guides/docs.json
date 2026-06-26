@@ -175,13 +175,6 @@
             "pages": [
               "instrumentation/examples/custom/simple_temp_controller"
             ]
-          },
-          {
-            "group": "Flowcontroller",
-            "pages": [
-              "instrumentation/examples/flowcontroller/flowcontroller",
-              "instrumentation/examples/flowcontroller/drivers/alicat_mc"
-            ]
           }
         ]
       }
