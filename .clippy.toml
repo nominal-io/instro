@@ -1,0 +1,36 @@
+too-many-arguments-threshold = 16
+type-complexity-threshold = 10000
+
+disallowed-methods = [
+    { path = "f32::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "f64::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "i8::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "i16::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "i32::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "i64::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "i128::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "isize::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "u8::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "u16::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "u32::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "u64::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "u128::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "usize::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "core::cmp::Ord::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "std::cmp::Ord::clamp", reason = "panics when min > max. Use `ClampExt::safe_clamp` from `connect_utils` instead." },
+    { path = "std::path::PathBuf::set_extension", reason = "panics if the extension contains path separators. Use `PathBufExt::safe_set_extension` from `connect_utils` instead." },
+    { path = "std::path::Path::with_extension", reason = "panics if the extension contains path separators. Use `PathExt::safe_with_extension` from `connect_utils` instead." },
+    { path = "alloc::vec::Vec::remove", reason = "panics on out-of-bounds index. Use `VecExt::safe_remove` from `connect_utils` instead." },
+    { path = "std::vec::Vec::remove", reason = "panics on out-of-bounds index. Use `VecExt::safe_remove` from `connect_utils` instead." },
+    { path = "alloc::vec::Vec::insert", reason = "panics when index > len. Use `VecExt::safe_insert` from `connect_utils` instead." },
+    { path = "std::vec::Vec::insert", reason = "panics when index > len. Use `VecExt::safe_insert` from `connect_utils` instead." },
+    { path = "slice::copy_from_slice", reason = "panics when source and destination lengths differ. Use `SliceExt::safe_copy_from_slice` from `connect_utils` instead." },
+    { path = "alloc::vec::Vec::swap_remove", reason = "panics on out-of-bounds index. Use `VecExt::safe_swap_remove` from `connect_utils` instead." },
+    { path = "std::vec::Vec::swap_remove", reason = "panics on out-of-bounds index. Use `VecExt::safe_swap_remove` from `connect_utils` instead." },
+]
+
+allow-panic-in-tests = true
+allow-expect-in-consts = true
+allow-expect-in-tests = true
+allow-unwrap-in-consts = true
+allow-unwrap-in-tests = true
