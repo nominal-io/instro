@@ -34,10 +34,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install just
         uses: extractions/setup-just@v3
+      # `rustup` is available by default on GitHub runners
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88.0
-        with:
-          components: rustfmt, clippy
+        run: rustup show
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@v2
       - name: Install dependencies
