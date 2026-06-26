@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.2.1...instro-unstable-v0.3.0) (2026-06-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151))
+
+### Bug Fixes
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151)) ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+* closes [#149](https://github.com/nominal-io/instro/issues/149). First, updates documentation about timeout behavior. ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+
 ## [0.2.1](https://github.com/nominal-io/instro/compare/instro-unstable-v0.2.0...instro-unstable-v0.2.1) (2026-06-24)
 
 
