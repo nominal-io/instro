@@ -1,0 +1,36 @@
+too-many-arguments-threshold = 16
+type-complexity-threshold = 10000
+
+disallowed-methods = [
+    { path = "f32::clamp", reason = "panics when min > max" },
+    { path = "f64::clamp", reason = "panics when min > max" },
+    { path = "i8::clamp", reason = "panics when min > max" },
+    { path = "i16::clamp", reason = "panics when min > max" },
+    { path = "i32::clamp", reason = "panics when min > max" },
+    { path = "i64::clamp", reason = "panics when min > max" },
+    { path = "i128::clamp", reason = "panics when min > max" },
+    { path = "isize::clamp", reason = "panics when min > max" },
+    { path = "u8::clamp", reason = "panics when min > max" },
+    { path = "u16::clamp", reason = "panics when min > max" },
+    { path = "u32::clamp", reason = "panics when min > max" },
+    { path = "u64::clamp", reason = "panics when min > max" },
+    { path = "u128::clamp", reason = "panics when min > max" },
+    { path = "usize::clamp", reason = "panics when min > max" },
+    { path = "core::cmp::Ord::clamp", reason = "panics when min > max" },
+    { path = "std::cmp::Ord::clamp", reason = "panics when min > max" },
+    { path = "std::path::PathBuf::set_extension", reason = "panics if the extension contains path separators" },
+    { path = "std::path::Path::with_extension", reason = "panics if the extension contains path separators" },
+    { path = "alloc::vec::Vec::remove", reason = "panics on out-of-bounds index" },
+    { path = "std::vec::Vec::remove", reason = "panics on out-of-bounds index" },
+    { path = "alloc::vec::Vec::insert", reason = "panics when index > len" },
+    { path = "std::vec::Vec::insert", reason = "panics when index > len" },
+    { path = "slice::copy_from_slice", reason = "panics when source and destination lengths differ" },
+    { path = "alloc::vec::Vec::swap_remove", reason = "panics on out-of-bounds index" },
+    { path = "std::vec::Vec::swap_remove", reason = "panics on out-of-bounds index" },
+]
+
+allow-panic-in-tests = true
+allow-expect-in-consts = true
+allow-expect-in-tests = true
+allow-unwrap-in-consts = true
+allow-unwrap-in-tests = true
