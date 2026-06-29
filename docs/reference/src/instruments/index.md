@@ -9,6 +9,7 @@ instruments. Each instrument type defines a standard API that works across multi
 | [`InstroDMM`](dmm.md) | Digital multimeters |
 | [`InstroPSU`](psu.md) | Programmable power supply units |
 | [`InstroELoad`](eload.md) | Electronic loads |
+| [`InstroScope`](scope.md) | Oscilloscopes |
 | [`I2CInterface`](i2c.md) | I2C bus communication devices |
 
 Each instrument page includes the interface, configuration types, driver base classes,

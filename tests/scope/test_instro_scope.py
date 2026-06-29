@@ -16,16 +16,14 @@ from instro.scope import (
     AcquisitionState,
     Coupling,
     InstroScope,
+    ScopeDriverBase,
     ScopeMeasurementType,
     TriggerMode,
     TriggerSlope,
     TriggerStatus,
     TriggerType,
 )
-from instro.scope.driver import ScopeDriverBase
-from instro.scope.drivers.keysight import Keysight1200X
-from instro.scope.drivers.siglent import SiglentSDS1000XE
-from instro.scope.drivers.tektronix import Tektronix2SeriesMSO
+from instro.scope.drivers import Keysight1200X, SiglentSDS1000XE, Tektronix2SeriesMSO
 
 
 def _make_temp_timeout_cm() -> MagicMock:
@@ -41,7 +39,7 @@ def _make_temp_timeout_cm() -> MagicMock:
 
 @pytest.fixture
 def keysight_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.scope.drivers.keysight.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -188,7 +186,7 @@ def test_keysight_measure_returns_nan_on_sentinel(keysight: Keysight1200X, keysi
 
 @pytest.fixture
 def tektronix_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.scope.drivers.tektronix.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -386,7 +384,7 @@ def test_tektronix_digitize_raises_timeout_and_clears(
 
 @pytest.fixture
 def siglent_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.scope.drivers.siglent.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 

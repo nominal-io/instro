@@ -39,7 +39,7 @@ from instro.scope import (
     TriggerSlope,
     TriggerType,
 )
-from instro.scope.drivers.siglent import SiglentSDS1000XE
+from instro.scope.drivers import SiglentSDS1000XE
 
 # --- Configuration — edit before running -----------------------------------
 RESOURCE = "USB0::0xF4EC::0xEE38::SDSMMGKD804634::INSTR"

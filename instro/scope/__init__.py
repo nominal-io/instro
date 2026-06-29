@@ -1,7 +1,6 @@
 """Oscilloscope instrument interface package."""
 
-from instro.scope.driver import ScopeDriverBase
-from instro.scope.scope import InstroScope
+from instro.scope.scope import InstroScope, ScopeDriverBase
 from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
