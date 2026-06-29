@@ -1,4 +1,4 @@
-"""Unit tests for unstable EtherNet/IP timing config."""
+"""Unit tests for EtherNet/IP timing config."""
 
 from __future__ import annotations
 

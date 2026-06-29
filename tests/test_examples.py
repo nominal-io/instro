@@ -41,7 +41,7 @@ def test_example_json_configs_parse(config_path: Path) -> None:
 
 
 def test_ethernetip_examples_type_check(tmp_path: Path) -> None:
-    """EtherNet/IP examples should keep matching the public unstable Python API."""
+    """EtherNet/IP examples should keep matching the public Python API."""
     pytest.importorskip("mypy", reason="mypy is required to type-check examples")
 
     config = tmp_path / "mypy.ini"

@@ -1,4 +1,4 @@
-"""Unit tests for unstable EtherNet/IP route-path config."""
+"""Unit tests for EtherNet/IP route-path config."""
 
 from __future__ import annotations
 
