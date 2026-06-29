@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from instro.unstable._ethernetip import (
+from instro.ethernetip._ethernetip import (
     CipError,
     DataTypeMismatchError,
     EtherNetIpBatchError,

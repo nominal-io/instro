@@ -7,26 +7,24 @@ import sys
 
 import pytest
 
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 
-def test_unstable_imports_do_not_require_native_ethernetip(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Simulate the EtherNet/IP module missing.
-    monkeypatch.setitem(sys.modules, "instro.unstable._ethernetip", None)
+def test_hal_imports_without_native_ethernetip(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Simulate the native EtherNet/IP module being unavailable.
+    monkeypatch.setitem(sys.modules, "instro.ethernetip._ethernetip", None)
 
-    # Importing unstable packages must stay pure Python. Scope should keep
-    # working, and EIP config/types should remain importable, even when the
-    # native EIP backend is unavailable.
-    scope = importlib.import_module("instro.unstable.scope")
-    ethernetip = importlib.import_module("instro.unstable.ethernetip")
+    # The pure-Python HAL (config, types, EtherNetIPDevice) must stay importable
+    # even when the native backend is not installed.
+    ethernetip = importlib.import_module("instro.ethernetip")
 
-    assert hasattr(scope, "InstroScope")
     assert hasattr(ethernetip, "EtherNetIPDevice")
+    assert hasattr(ethernetip, "EtherNetIPConfig")
 
 
 def test_open_reports_extra_when_native_ethernetip_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     # Simulate the EtherNet/IP module missing.
-    monkeypatch.setitem(sys.modules, "instro.unstable._ethernetip", None)
+    monkeypatch.setitem(sys.modules, "instro.ethernetip._ethernetip", None)
     instrument = EtherNetIPDevice(
         {
             "device": {"name": "test_plc"},
@@ -37,8 +35,7 @@ def test_open_reports_extra_when_native_ethernetip_is_missing(monkeypatch: pytes
     with pytest.raises(RuntimeError) as exc_info:
         instrument.open()
 
-    # The failure should tell users which package is missing and the preferred
-    # `instro-unstable` extra that installs it.
+    # The failure should tell users which package is missing and the extra that installs it.
     message = str(exc_info.value)
     assert "instro-ethernetip" in message
-    assert "instro-unstable[ethernetip]" in message
+    assert "instro[ethernetip]" in message

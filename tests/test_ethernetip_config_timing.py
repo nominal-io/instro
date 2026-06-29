@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from instro.unstable.ethernetip import EtherNetIPConfig, EtherNetIPDevice
+from instro.ethernetip import EtherNetIPConfig, EtherNetIPDevice
 from tests.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
 
 
@@ -204,7 +204,7 @@ def test_close_tolerates_broken_native_session(
     )
     instrument.open()
 
-    with caplog.at_level("WARNING", logger="instro.unstable.ethernetip.ethernetip"):
+    with caplog.at_level("WARNING", logger="instro.ethernetip.ethernetip"):
         instrument.close()
 
     assert state.closes == 1

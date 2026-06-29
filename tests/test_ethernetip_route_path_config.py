@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from instro.unstable.ethernetip import EtherNetIPConnectionInfo, EtherNetIPDevice, EtherNetIPRoutePath
+from instro.ethernetip import EtherNetIPConnectionInfo, EtherNetIPDevice, EtherNetIPRoutePath
 from tests.ethernetip_fakes import install_fake_native_ethernetip
 
 

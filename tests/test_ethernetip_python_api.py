@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from instro.unstable._ethernetip import StructuredValue
+from instro.ethernetip._ethernetip import StructuredValue
 
 TYPECHECK_DIR = Path(__file__).with_name("typecheck")
 

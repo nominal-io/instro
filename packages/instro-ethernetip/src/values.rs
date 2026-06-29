@@ -4,7 +4,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBool, PyByteArray, PyBytes, PyFloat, PyInt};
 
-#[pyclass(module = "instro.unstable._ethernetip", skip_from_py_object)]
+#[pyclass(module = "instro.ethernetip._ethernetip", skip_from_py_object)]
 #[derive(Clone, Debug)]
 /// Explicit PLC value wrapper that preserves the underlying EtherNet/IP scalar kind.
 ///
@@ -17,7 +17,7 @@ pub(crate) struct PlcValue {
 
 #[pyclass(
     eq,
-    module = "instro.unstable._ethernetip",
+    module = "instro.ethernetip._ethernetip",
     rename_all = "UPPERCASE",
     skip_from_py_object
 )]
@@ -58,7 +58,7 @@ impl PlcValue {
     }
 }
 
-#[pyclass(module = "instro.unstable._ethernetip", skip_from_py_object)]
+#[pyclass(module = "instro.ethernetip._ethernetip", skip_from_py_object)]
 #[derive(Clone, Debug)]
 /// Opaque bytes for a structured PLC value.
 ///

@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from instro.unstable import _ethernetip as ethernetip
+from instro.ethernetip import _ethernetip as ethernetip
 from tests.cpppo_sim_server import start_server_with_retries
 
 PLC_ENDPOINT_ENV_VAR = "INSTRO_EIP_PLC_ENDPOINT"
@@ -272,12 +272,13 @@ def ethernetip_session(endpoint: str, *, use_configured_route_path: bool = False
     return EtherNetIpSession(endpoint, route_path_slots=slots)
 
 
-def test_ethernetip_native_types_use_private_local_import_path() -> None:
-    """Native EtherNet/IP bindings should stay private until the published wheel surface exists."""
-    assert EtherNetIpSession.__module__ == "instro.unstable._ethernetip"
-    assert PlcKind.__module__ == "instro.unstable._ethernetip"
-    assert StructuredValue.__module__ == "instro.unstable._ethernetip"
-    assert importlib.util.find_spec("instro.ethernetip") is None
+def test_ethernetip_native_types_use_private_module_path() -> None:
+    """Native EtherNet/IP bindings live in the package-private `_ethernetip` module."""
+    assert EtherNetIpSession.__module__ == "instro.ethernetip._ethernetip"
+    assert PlcKind.__module__ == "instro.ethernetip._ethernetip"
+    assert StructuredValue.__module__ == "instro.ethernetip._ethernetip"
+    # The public HAL subpackage ships alongside the native module.
+    assert importlib.util.find_spec("instro.ethernetip") is not None
 
 
 def test_plc_value_preserves_explicit_scalar_kinds() -> None:
@@ -324,7 +325,7 @@ def test_batch_error_subclasses_form_expected_hierarchy() -> None:
     for cls in variant_classes:
         assert issubclass(cls, EtherNetIpBatchError)
         assert issubclass(cls, EtherNetIpError)
-        assert cls.__module__ == "instro.unstable._ethernetip"
+        assert cls.__module__ == "instro.ethernetip._ethernetip"
 
 
 def test_plc_value_wraps_structured_payload_explicitly() -> None:

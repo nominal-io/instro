@@ -474,7 +474,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.12.1"
+version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -498,6 +498,7 @@ all = [
     { name = "instro-daq-labjack" },
     { name = "instro-daq-mcc" },
     { name = "instro-daq-ni" },
+    { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
 ]
 contrib = [
@@ -507,6 +508,9 @@ daq = [
     { name = "instro-daq-labjack" },
     { name = "instro-daq-mcc" },
     { name = "instro-daq-ni" },
+]
+ethernetip = [
+    { name = "instro-ethernetip" },
 ]
 i2c = [
     { name = "instro-i2c-aardvark" },
@@ -555,6 +559,8 @@ requires-dist = [
     { name = "instro-daq-ni", marker = "extra == 'all'", editable = "packages/instro-daq-ni" },
     { name = "instro-daq-ni", marker = "extra == 'daq'", editable = "packages/instro-daq-ni" },
     { name = "instro-daq-ni", marker = "extra == 'nidaq'", editable = "packages/instro-daq-ni" },
+    { name = "instro-ethernetip", marker = "extra == 'all'", editable = "packages/instro-ethernetip" },
+    { name = "instro-ethernetip", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip" },
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
@@ -568,7 +574,7 @@ requires-dist = [
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "contrib", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -674,27 +680,14 @@ requires-dist = [
 
 [[package]]
 name = "instro-unstable"
-version = "0.2.1"
+version = "0.3.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },
 ]
 
-[package.optional-dependencies]
-all = [
-    { name = "instro-ethernetip" },
-]
-ethernetip = [
-    { name = "instro-ethernetip" },
-]
-
 [package.metadata]
-requires-dist = [
-    { name = "instro", editable = "." },
-    { name = "instro-ethernetip", marker = "extra == 'all'", editable = "packages/instro-ethernetip" },
-    { name = "instro-ethernetip", marker = "extra == 'ethernetip'", editable = "packages/instro-ethernetip" },
-]
-provides-extras = ["ethernetip", "all"]
+requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "jinja2"

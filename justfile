@@ -106,7 +106,7 @@ eip-live-test:
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
 
-# clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
+# clean build of the EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
 # [build-system] backend; for instro-ethernetip that backend is maturin.
@@ -121,7 +121,7 @@ eip-wheel-smoke-test:
     wheel_dir="$(mktemp -d)"
     trap 'rm -rf "$wheel_dir"' EXIT
     # Build the platform-specific native extension wheel. This wheel provides
-    # instro.unstable._ethernetip, the private PyO3 module loaded at import time.
+    # instro.ethernetip._ethernetip, the private PyO3 module loaded at import time.
     uv build --wheel --package instro-ethernetip --out-dir "$wheel_dir"
     wheel="$(find "$wheel_dir" -maxdepth 1 -name 'instro_ethernetip-*.whl' -print -quit)"
     if [ -z "$wheel" ]; then
