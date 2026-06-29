@@ -40,13 +40,15 @@ USB-1616HS-4 LOOPBACK WIRING
 NOMINAL CORE CONFIGURATION
 ============================================================================
 
-  Before running, set the following environment variables:
+  Before running, hand-edit the configuration constants below:
 
-    MCC_DEVICE_ID       — unique device ID reported by mcculw / InstaCal (the device serial)
-    NOMINAL_DATASET_RID — dataset RID for the NominalCorePublisher
-    NOMINAL_API_TOKEN   — Nominal API token (optional if authenticated via
-                          `nominal auth set-token`, which stores a default profile
-                          in ~/.nominal/config)
+    DEVICE_ID   — unique device ID reported by mcculw / InstaCal (the device serial),
+                  optionally suffixed with ":<board_number>" (default 0)
+    DATASET_RID — dataset RID for the NominalCorePublisher; None to skip publishing
+    NAME        — InstroDAQ instance name; prefixes every published channel key
+
+  Auth uses the "default" Nominal profile (`nominal auth set-token`, which stores a
+  default profile in ~/.nominal/config).
 
   A Nominal Core asset is found or created for the device. Each test method
   creates an event on that asset with the test name, status (SUCCESS/ERROR),
@@ -848,33 +850,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 14. Clean shutdown — outputs to safe state
+    # 14. Buffer-depth telemetry
     # =====================================================================
-    def test_14_clean_shutdown(self):
-        """Set all outputs to safe state as a final step."""
-
-        def step():
-            daq = self._create_daq()
-            try:
-                self._configure_ao(daq)
-                self._configure_digital_ports(daq)
-
-                daq.write_analog_value("ao_0", 0.0)
-                daq.write_analog_value("ao_1", 0.0)
-                daq.write_digital_port("do_port_a", 0x00)
-            finally:
-                daq.close()
-
-        self._run_step(
-            "Clean shutdown — safe state",
-            "Set all analog outputs to 0V and digital output port to 0x00 as a final safety step.",
-            step,
-        )
-
-    # =====================================================================
-    # 15. Buffer-depth telemetry
-    # =====================================================================
-    def test_15_buffer_depth_telemetry(self):
+    def test_14_buffer_depth_telemetry(self):
         """get_points_in_buffer() reports a valid depth during background acquisition."""
 
         def step():
@@ -907,9 +885,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 16. read_analog() raises while background daemon is running
+    # 15. read_analog() raises while background daemon is running
     # =====================================================================
-    def test_16_read_analog_raises_while_daemon_running(self):
+    def test_15_read_analog_raises_while_daemon_running(self):
         """read_analog() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
 
         def step():
@@ -946,9 +924,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 17. Analog output — Command return value
+    # 16. Analog output — Command return value
     # =====================================================================
-    def test_17_analog_output_command_return(self):
+    def test_16_analog_output_command_return(self):
         """write_analog_value() must return a Command with the correct channel key and value."""
 
         def step():
@@ -981,9 +959,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 18. Analog output — unconfigured channel raises KeyError
+    # 17. Analog output — unconfigured channel raises KeyError
     # =====================================================================
-    def test_18_analog_output_unconfigured_raises(self):
+    def test_17_analog_output_unconfigured_raises(self):
         """write_analog_value() on an unconfigured alias must raise KeyError immediately."""
 
         def step():
@@ -1004,9 +982,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 19. Per-line digital config unsupported on USB-1616HS-4
+    # 18. Per-line digital config unsupported on USB-1616HS-4
     # =====================================================================
-    def test_19_digital_line_config_unsupported(self):
+    def test_18_digital_line_config_unsupported(self):
         """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
@@ -1037,9 +1015,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 20. Relay control unsupported
+    # 19. Relay control unsupported
     # =====================================================================
-    def test_20_relay_control_unsupported(self):
+    def test_19_relay_control_unsupported(self):
         """close_relay() must raise NotImplementedError — the MCC driver has no relay support."""
 
         def step():
@@ -1056,6 +1034,30 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "Relay control unsupported",
             "Assert close_relay() raises NotImplementedError on the MCC driver, which implements no relay control.",
+            step,
+        )
+
+    # =====================================================================
+    # 20. Clean shutdown — outputs to safe state (runs last)
+    # =====================================================================
+    def test_20_clean_shutdown(self):
+        """Set all outputs to safe state as the final step."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_digital_ports(daq)
+
+                daq.write_analog_value("ao_0", 0.0)
+                daq.write_analog_value("ao_1", 0.0)
+                daq.write_digital_port("do_port_a", 0x00)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Clean shutdown — safe state",
+            "Set all analog outputs to 0V and digital output port to 0x00 as a final safety step.",
             step,
         )
 
