@@ -125,11 +125,10 @@ impl EtherNetIpSession {
             .collect()
     }
 
-    /// Write a PLC tag from a `PlcValue` or another unambiguous Python value.
+    /// Write a PLC tag from a `PlcValue` or another supported Python value.
     ///
-    /// Bare Python `int` and `float` inputs are rejected because they do not preserve the PLC
-    /// scalar kind required for correct writes. Structured payloads can be passed directly as
-    /// `StructuredValue`.
+    /// Bare Python `int`, `float`, and `str` inputs are rejected by the Python surface.
+    /// Structured payloads can be passed directly as `StructuredValue`.
     fn write_tag(&mut self, py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let session = self.session_mut()?;
         let value = py_to_value(value)?;

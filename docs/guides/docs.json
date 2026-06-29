@@ -22,7 +22,8 @@
               "instrumentation/overview",
               "instrumentation/scope",
               "instrumentation/installation",
-              "instrumentation/driver-dependencies"
+              "instrumentation/driver-dependencies",
+              "instrumentation/cli"
             ]
           },
           {
@@ -49,8 +50,7 @@
               },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq",
-              "instrumentation/daq-ni-multi-task"
+              "instrumentation/daq"
             ]
           },
           {
@@ -155,6 +155,14 @@
             ]
           },
           {
+            "group": "EtherNet/IP",
+            "pages": [
+              "instrumentation/examples/ethernetip/ethernetip_example",
+              "instrumentation/examples/ethernetip/minimal_example",
+              "instrumentation/examples/ethernetip/programmatic_config_example"
+            ]
+          },
+          {
             "group": "Test Rack",
             "pages": [
               "instrumentation/examples/test_rack_example/test_rack"
@@ -196,8 +204,8 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "https://portal.usepylon.com/nominal"
+        "label": "Community",
+        "href": "https://community.instro.nominal.io"
       }
     ],
     "primary": {

@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.11.0"
+version = "0.13.0"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -21,6 +21,7 @@ dependencies = [
     "pyvisa-py[usb-full,gpib-ctypes,psutil,hislip-discovery,vicp]>=0.8.1,<0.9",
     "textual>=0.80",
     "thermocouples>=2.1.2",
+    "typer>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +46,9 @@ Homepage = "https://github.com/nominal-io/instro"
 Repository = "https://github.com/nominal-io/instro"
 Issues = "https://github.com/nominal-io/instro/issues"
 
+[project.scripts]
+instro = "instro.cli.main:app"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -62,13 +66,14 @@ dev = [
     "mkdocstrings>=0.30.1",
     "mkdocstrings-python>=1.19.0",
     "types-requests>=2.32.4.20250913",
+    "types-pyserial>=3.0",
     "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
 ]
 test = [
     "cpppo>=4.0.0",
-    "pytest>=8.4.0,<9",
+    "pytest>=9.0.3,<10",
 ]
 
 [tool.uv]
@@ -147,7 +152,10 @@ testpaths = ["tests"]
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
 # --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
 # (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack"
+# --ignore=tests/i2c/totalphase: Aardvark tests depend on the optional `i2c` extra
+# (pyaardvark; hardware-only) and must be invoked explicitly (e.g.
+# `uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/i2c/totalphase"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]

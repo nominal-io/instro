@@ -1,4 +1,4 @@
-# EtherNet/IP
+# EtherNet/IP (unstable)
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
 and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
@@ -137,10 +137,8 @@ Supported `data_type` values:
 | `ulint` | Yes | 64-bit unsigned integer. Implemented, but not validated |
 | `real` | Yes | 32-bit floating point |
 | `lreal` | Yes | 64-bit floating point |
-| `string` | No | Allen-Bradley Logix `STRING` (`LEN` as `DINT`, `DATA` as `SINT[]`). Must set `poll: false`; use manual reads and writes |
 
-String tags cannot be streamed to Nominal Core or Nominal Connect. Manual reads and writes use
-`instro.unstable._ethernetip.EtherNetIpSession`.
+PLC string tags are not part of the Python EtherNet/IP API.
 
 ### Native batched reads
 
@@ -192,7 +190,6 @@ plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.
 - `write_min` and `write_max` are only valid for numeric tags.
 - `write_min` must be less than or equal to `write_max`.
 - Integer write limits must fit in the configured PLC integer type.
-- String tags must set `poll: false`.
 - Route path hops must use `type: "backplane"` with `slot` from 0 to 255.
 - Tag discovery, UDTs, and arrays are not supported.
 

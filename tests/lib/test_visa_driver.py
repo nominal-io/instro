@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import importlib.util
+import socket
 import threading
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from pyvisa.constants import InterfaceType
+import pyvisa
+from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
 from instro.lib.transports import (
@@ -30,6 +33,7 @@ def _make_config(
     serial_config: SerialConfig | None = None,
     terminator: TerminatorConfig | None = None,
     timeout: TimeoutConfig | None = None,
+    tcp_nodelay: bool = True,
 ) -> VisaConfig:
     kwargs = {} if visa_backend is None else {"visa_backend": visa_backend}
     return VisaConfig(
@@ -37,6 +41,7 @@ def _make_config(
         serial_config=serial_config or SerialConfig(),
         terminator=terminator or TerminatorConfig(read="\n", write="\r\n"),
         timeout=timeout or TimeoutConfig(connect=30, recv=15, send=15),
+        tcp_nodelay=tcp_nodelay,
         **kwargs,
     )
 
@@ -136,6 +141,18 @@ def test_open_uses_ivi_backend_by_default(mock_pyvisa):
 def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa):
     rm_class, rm_instance, _ = mock_pyvisa
     rm_class.side_effect = [OSError("Could not locate a VISA implementation"), rm_instance]
+    driver = _make_driver()
+
+    driver.open()
+
+    assert rm_class.call_args_list == [call("@ivi"), call("@py")]
+    assert driver.is_open is True
+
+
+def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
+    """A missing native VISA library surfaces as VisaIOError, not OSError (issue #133)."""
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [pyvisa.errors.VisaIOError(VI_ERROR_LIBRARY_NFOUND), rm_instance]
     driver = _make_driver()
 
     driver.open()
@@ -267,6 +284,46 @@ def test_open_applies_serial_config_for_asrl(mock_pyvisa):
     assert resource.stop_bits == 10
     assert resource.parity == VisaParity.space
     assert resource.flow_control == ControlFlow.NONE
+
+
+def _attach_pyvisa_py_socket(resource: MagicMock, sock: object) -> None:
+    """Make a mocked resource look like a pyvisa-py session whose .interface is ``sock``."""
+    resource.session = "sess"
+    resource.visalib.sessions = {"sess": SimpleNamespace(interface=sock)}
+
+
+def test_open_disables_nagle_on_pyvisa_py_socket(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _attach_pyvisa_py_socket(resource, sock)
+    try:
+        _make_driver().open()
+        # macOS reads TCP_NODELAY back as a non-1 truthy value; assert "enabled", not literally 1.
+        assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
+    finally:
+        sock.close()
+
+
+def test_open_leaves_nagle_untouched_when_tcp_nodelay_false(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _attach_pyvisa_py_socket(resource, sock)
+    try:
+        _make_driver(_make_config(tcp_nodelay=False)).open()
+        assert sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) == 0
+    finally:
+        sock.close()
+
+
+def test_open_ignores_non_socket_backend_interface(mock_pyvisa):
+    # NI-VISA has no pyvisa-py sessions dict; a non-socket .interface must be skipped without error.
+    _, _, resource = mock_pyvisa
+    _attach_pyvisa_py_socket(resource, object())
+
+    driver = _make_driver()
+    driver.open()
+
+    assert driver.is_open is True
 
 
 def test_write_when_not_open_raises():

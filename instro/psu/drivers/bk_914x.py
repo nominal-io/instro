@@ -1,19 +1,25 @@
 """B&K Precision 914X-series PSU driver."""
 
+import dataclasses
 import time
 
 from instro.lib.exceptions import FeatureNotSupportedError
-from instro.lib.transports.visa import VisaConfig, VisaDriver
+from instro.lib.transports.visa import TerminatorConfig, VisaConfig, VisaDriver
 from instro.psu import PSUDriverBase
 
 FRIENDLY_NAME = "B&K Precision 914X-series PSU"
+
+# The 914X LAN port speaks raw SOCKET and is LF-terminated; the VisaConfig default
+# CR/LF write terminator gets rejected. LF is also correct over USB/INSTR.
+_TERMINATOR = TerminatorConfig(read="\n", write="\n")
 
 
 class BK914X(PSUDriverBase):
     """B&K Precision 914X-series multi-channel PSU."""
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
-        self._visa = VisaDriver(visa_resource)
+        config = VisaConfig(visa_resource=visa_resource) if isinstance(visa_resource, str) else visa_resource
+        self._visa = VisaDriver(dataclasses.replace(config, terminator=_TERMINATOR))
         self._active_channel: int | None = None
 
     def open(self) -> None:

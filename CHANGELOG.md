@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.13.0](https://github.com/nominal-io/instro/compare/instro-v0.12.1...instro-v0.13.0) (2026-06-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151))
+
+### Features
+
+* **cli:** add instro discover command ([#99](https://github.com/nominal-io/instro/issues/99)) ([699648c](https://github.com/nominal-io/instro/commit/699648cf66e87f3d3c7c1122d1004c89fffb43c2))
+* **instrument:** auto-prepend instrument name in get_channel ([#152](https://github.com/nominal-io/instro/issues/152)) ([e807209](https://github.com/nominal-io/instro/commit/e807209caccc5d28e55be69169c68f58db22984c)), closes [#147](https://github.com/nominal-io/instro/issues/147)
+
+
+### Bug Fixes
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151)) ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+* closes [#149](https://github.com/nominal-io/instro/issues/149). First, updates documentation about timeout behavior. ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+* **transports:** disable Nagle on raw TCP sockets for pyvisa-py ([#157](https://github.com/nominal-io/instro/issues/157)) ([e1ce26a](https://github.com/nominal-io/instro/commit/e1ce26a01384d940d8e7dda84c54f293311cf72d))
+
+## [0.12.1](https://github.com/nominal-io/instro/compare/instro-v0.12.0...instro-v0.12.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **dmm:** apply Agilent34401A manual range without requiring set_digits ([#148](https://github.com/nominal-io/instro/issues/148)) ([563aabb](https://github.com/nominal-io/instro/commit/563aabbd366e60ceafc63e44a35c3aab588d3170))
+* **dmm:** record measurement function only after driver accepts it ([#146](https://github.com/nominal-io/instro/issues/146)) ([d720cf1](https://github.com/nominal-io/instro/commit/d720cf146aa2f7edb52c58a64a6ac7d67247c67b))
+* **ethernetip:** disable cpppo UDP in simulator tests ([#137](https://github.com/nominal-io/instro/issues/137)) ([4048fbf](https://github.com/nominal-io/instro/commit/4048fbf42889332b0fe8ebe4d75a6ca7445887c9))
+* **ethernetip:** remove strings from Python EIP surface ([#128](https://github.com/nominal-io/instro/issues/128)) ([c133d81](https://github.com/nominal-io/instro/commit/c133d814a66b68775fb5a05114cf1ccac22aa466))
+* **visa:** catch pyvisa errors so [@ivi](https://github.com/ivi) to [@py](https://github.com/py) fallback fires correctly ([#136](https://github.com/nominal-io/instro/issues/136)) ([9329df6](https://github.com/nominal-io/instro/commit/9329df6f48d92f196ce205a0e07f9bf0f3df21d0))
+
+## [0.12.0](https://github.com/nominal-io/instro/compare/instro-v0.11.0...instro-v0.12.0) (2026-06-22)
+
+
+### Features
+
+* **ethernetip:** reconnect after transient failures ([#100](https://github.com/nominal-io/instro/issues/100)) ([e9a35da](https://github.com/nominal-io/instro/commit/e9a35da96e619719cad008ee591d6be250343cbd))
+* **visa:** default to [@ivi](https://github.com/ivi) backend, fall back to [@py](https://github.com/py) ([#130](https://github.com/nominal-io/instro/issues/130)) ([61a2166](https://github.com/nominal-io/instro/commit/61a21664053cb5d81e1fee0df03817bfe83f056a))
+
 ## [0.11.0](https://github.com/nominal-io/instro/compare/instro-v0.10.0...instro-v0.11.0) (2026-06-17)
 
 

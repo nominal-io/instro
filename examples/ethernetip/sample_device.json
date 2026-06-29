@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "protocol": "ethernetip",
+  "device": {
+    "name": "cell_controller",
+    "description": "Sample ControlLogix/CompactLogix cell controller",
+    "manufacturer": "Rockwell Automation",
+    "model": "ControlLogix / CompactLogix"
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "tags": [
+    {
+      "alias": "line_speed",
+      "tag_name": "LineSpeedActual",
+      "description": "Line speed feedback in units per minute",
+      "data_type": "real"
+    },
+    {
+      "alias": "speed_setpoint",
+      "tag_name": "LineSpeedSetpoint",
+      "description": "Line speed command in units per minute",
+      "data_type": "real",
+      "write_min": 0.0,
+      "write_max": 500.0
+    },
+    {
+      "alias": "temperature_c",
+      "tag_name": "TemperatureC",
+      "description": "Process temperature in degrees Celsius",
+      "data_type": "real",
+      "write_min": -20.0,
+      "write_max": 150.0
+    },
+    {
+      "alias": "pressure_psi",
+      "tag_name": "PressurePsi",
+      "description": "Process pressure in psi",
+      "data_type": "real"
+    },
+    {
+      "alias": "batch_count",
+      "tag_name": "BatchCount",
+      "description": "Completed batch counter",
+      "data_type": "udint"
+    },
+    {
+      "alias": "running",
+      "tag_name": "Running",
+      "description": "Machine running status",
+      "data_type": "bool"
+    },
+    {
+      "alias": "faulted",
+      "tag_name": "Faulted",
+      "description": "Machine fault status",
+      "data_type": "bool"
+    },
+    {
+      "alias": "mode",
+      "tag_name": "OperatingMode",
+      "description": "Operating mode command/state",
+      "data_type": "dint",
+      "write_min": 0,
+      "write_max": 3
+    },
+    {
+      "alias": "run_command",
+      "tag_name": "RunCommand",
+      "description": "Run command bit",
+      "data_type": "bool"
+    }
+  ]
+}
