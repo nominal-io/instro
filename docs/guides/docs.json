@@ -22,7 +22,8 @@
               "instrumentation/overview",
               "instrumentation/scope",
               "instrumentation/installation",
-              "instrumentation/driver-dependencies"
+              "instrumentation/driver-dependencies",
+              "instrumentation/cli"
             ]
           },
           {
@@ -49,8 +50,7 @@
               },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq",
-              "instrumentation/daq-ni-multi-task"
+              "instrumentation/daq"
             ]
           },
           {

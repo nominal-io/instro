@@ -89,7 +89,7 @@ gen-examples:
 rust:
     cargo fmt --all
     cargo clippy --workspace --all-targets --all-features -- -D warnings
-    cargo test --workspace --all-features --lib
+    cargo test --workspace --all-features --lib --tests
     cargo test --workspace --all-features --doc
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
