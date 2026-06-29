@@ -25,6 +25,8 @@ from instro.scope import (
 )
 from instro.scope.drivers import Keysight1200X, SiglentSDS1000XE, Tektronix2SeriesMSO
 
+VISA_RESOURCE = "<visa_resource>"  # placeholder; these mocked tests only assert it is forwarded to VisaDriver
+
 
 def _make_temp_timeout_cm() -> MagicMock:
     """Build a MagicMock that supports `with self._visa.temporary_timeout(ms):`."""
@@ -53,12 +55,12 @@ def keysight_visa(keysight_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def keysight(keysight_visa_cls: MagicMock, keysight_visa: MagicMock) -> Keysight1200X:
-    return Keysight1200X("<visa_resource>")
+    return Keysight1200X(VISA_RESOURCE)
 
 
 def test_keysight_init_passes_resource_to_visa(keysight_visa_cls: MagicMock) -> None:
-    Keysight1200X("<visa_resource>")
-    keysight_visa_cls.assert_called_once_with("<visa_resource>")
+    Keysight1200X(VISA_RESOURCE)
+    keysight_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_keysight_init_accepts_prebuilt_visa_config(keysight_visa_cls: MagicMock) -> None:
@@ -200,12 +202,12 @@ def tektronix_visa(tektronix_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def tektronix(tektronix_visa_cls: MagicMock, tektronix_visa: MagicMock) -> Tektronix2SeriesMSO:
-    return Tektronix2SeriesMSO("TCPIP0::scope.local::INSTR")
+    return Tektronix2SeriesMSO(VISA_RESOURCE)
 
 
 def test_tektronix_init_passes_resource_to_visa(tektronix_visa_cls: MagicMock) -> None:
-    Tektronix2SeriesMSO("TCPIP0::scope.local::INSTR")
-    tektronix_visa_cls.assert_called_once_with("TCPIP0::scope.local::INSTR")
+    Tektronix2SeriesMSO(VISA_RESOURCE)
+    tektronix_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_tektronix_init_accepts_prebuilt_visa_config(tektronix_visa_cls: MagicMock) -> None:
@@ -398,12 +400,12 @@ def siglent_visa(siglent_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def siglent(siglent_visa_cls: MagicMock, siglent_visa: MagicMock) -> SiglentSDS1000XE:
-    return SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
+    return SiglentSDS1000XE(VISA_RESOURCE)
 
 
 def test_siglent_init_passes_resource_to_visa(siglent_visa_cls: MagicMock) -> None:
-    SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
-    siglent_visa_cls.assert_called_once_with("TCPIP0::192.168.1.10::INSTR")
+    SiglentSDS1000XE(VISA_RESOURCE)
+    siglent_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_siglent_init_accepts_prebuilt_visa_config(siglent_visa_cls: MagicMock) -> None:
