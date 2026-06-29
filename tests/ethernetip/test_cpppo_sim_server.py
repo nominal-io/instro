@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import errno
 
-from tests.cpppo_sim_server import (
+from tests.ethernetip.cpppo_sim_server import (
     WINDOWS_SOCKET_ACCESS_DENIED,
     build_cpppo_argv,
     is_retryable_bind_error,

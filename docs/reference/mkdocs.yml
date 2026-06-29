@@ -34,7 +34,7 @@ nav:
   - Protocols:
       - protocols/index.md
       - Modbus: protocols/modbus.md
-      - EtherNet/IP (unstable): protocols/ethernetip.md
+      - EtherNet/IP: protocols/ethernetip.md
   - Changelog:
       - changelog.md
 

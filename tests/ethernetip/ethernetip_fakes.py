@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import instro.unstable.ethernetip.ethernetip as ethernetip_module
+import instro.ethernetip.ethernetip as ethernetip_module
 
 
 class FakePlcKind(Enum):

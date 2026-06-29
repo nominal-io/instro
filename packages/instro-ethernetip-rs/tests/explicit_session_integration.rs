@@ -585,6 +585,7 @@ mod support {
                 .join("..")
                 .join("..")
                 .join("tests")
+                .join("ethernetip")
                 .join("cpppo_sim_server.py")
         }
     }

@@ -33,6 +33,7 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[mccdaq]` | MCC UL (Windows-only) |
 | `instro[daq]` | All three DAQ vendor SDKs |
 | `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) |
 | `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
 | `instro[all]` | Everything above |
 
@@ -72,6 +73,7 @@ That's the whole loop: construct, `open()`, configure, measure, `close()`. When 
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
+| EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
 Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
 
@@ -80,9 +82,8 @@ Don't see your vendor? Drivers the maintainers can't verify directly against the
 In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
 
 - **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x, Tektronix 2-series, and Siglent SDS1000X-E. Import via `instro.unstable.scope`.
-- **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
 
-Opt in by depending on `instro-unstable` explicitly. EtherNet/IP uses an optional native backend; install it with `instro-unstable[ethernetip]`.
+Opt in by depending on `instro-unstable` explicitly.
 
 ## Documentation
 

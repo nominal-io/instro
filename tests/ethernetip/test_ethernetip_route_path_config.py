@@ -1,12 +1,12 @@
-"""Unit tests for unstable EtherNet/IP route-path config."""
+"""Unit tests for EtherNet/IP route-path config."""
 
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
-from instro.unstable.ethernetip import EtherNetIPConnectionInfo, EtherNetIPDevice, EtherNetIPRoutePath
-from tests.ethernetip_fakes import install_fake_native_ethernetip
+from instro.ethernetip import EtherNetIPConnectionInfo, EtherNetIPDevice, EtherNetIPRoutePath
+from tests.ethernetip.ethernetip_fakes import install_fake_native_ethernetip
 
 
 def test_route_path_accepts_explicit_backplane_hops() -> None:

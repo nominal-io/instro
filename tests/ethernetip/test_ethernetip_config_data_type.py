@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from instro.unstable.ethernetip import EtherNetIPConfig, EtherNetIPDevice
-from tests.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
+from instro.ethernetip import EtherNetIPConfig, EtherNetIPDevice
+from tests.ethernetip.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
 
 
 def test_data_type_is_required_for_tags() -> None:
