@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from instro.ethernetip import EtherNetIPConnectionInfo, EtherNetIPDevice, EtherNetIPRoutePath
-from tests.ethernetip_fakes import install_fake_native_ethernetip
+from tests.ethernetip.ethernetip_fakes import install_fake_native_ethernetip
 
 
 def test_route_path_accepts_explicit_backplane_hops() -> None:

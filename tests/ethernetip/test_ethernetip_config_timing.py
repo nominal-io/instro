@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from instro.ethernetip import EtherNetIPConfig, EtherNetIPDevice
-from tests.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
+from tests.ethernetip.ethernetip_fakes import FakePlcKind, FakePlcValue, install_fake_native_ethernetip
 
 
 def test_tag_poll_defaults_true_and_accepts_false() -> None:

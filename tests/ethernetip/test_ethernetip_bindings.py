@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from instro.ethernetip import _ethernetip as ethernetip
-from tests.cpppo_sim_server import start_server_with_retries
+from tests.ethernetip.cpppo_sim_server import start_server_with_retries
 
 PLC_ENDPOINT_ENV_VAR = "INSTRO_EIP_PLC_ENDPOINT"
 ROUTE_PATH_SLOTS_ENV_VAR = "INSTRO_EIP_ROUTE_PATH_SLOTS"
