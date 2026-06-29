@@ -53,12 +53,12 @@ def keysight_visa(keysight_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def keysight(keysight_visa_cls: MagicMock, keysight_visa: MagicMock) -> Keysight1200X:
-    return Keysight1200X("USB0::10893::923::SN::INSTR")
+    return Keysight1200X("<visa_resource>")
 
 
 def test_keysight_init_passes_resource_to_visa(keysight_visa_cls: MagicMock) -> None:
-    Keysight1200X("USB0::10893::923::SN::INSTR")
-    keysight_visa_cls.assert_called_once_with("USB0::10893::923::SN::INSTR")
+    Keysight1200X("<visa_resource>")
+    keysight_visa_cls.assert_called_once_with("<visa_resource>")
 
 
 def test_keysight_init_accepts_prebuilt_visa_config(keysight_visa_cls: MagicMock) -> None:

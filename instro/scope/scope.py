@@ -288,7 +288,7 @@ class InstroScope(Instrument):
 
                 scope = InstroScope(
                     "scope",
-                    driver=Keysight1200X("USB0::0x2A8D::0x039B::SN::INSTR"),
+                    driver=Keysight1200X("<visa_resource>"),
                     num_channels=4,
                 )
 

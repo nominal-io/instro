@@ -42,7 +42,7 @@ from instro.scope import (
 from instro.scope.drivers import SiglentSDS1000XE
 
 # --- Configuration — edit before running -----------------------------------
-RESOURCE = "USB0::0xF4EC::0xEE38::SN::INSTR"  # <-- edit to your instrument's serial
+RESOURCE = "<visa_resource>"  # <-- edit to your instrument's VISA resource string
 NUM_CHANNELS = 4
 SIGNAL_CHANNEL = 1  # CH1 carries the ~1 kHz comp-signal square wave
 

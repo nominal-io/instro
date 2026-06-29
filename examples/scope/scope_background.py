@@ -13,7 +13,7 @@ from instro.scope import (
 from instro.scope.drivers import Keysight1200X
 from instro.scope.types import AcquisitionMode, Coupling, TriggerMode, TriggerSlope, TriggerType
 
-VISA_RESOURCE = "USB0::10893::923::SN::INSTR"  # Replace with your instrument's VISA resource string.
+VISA_RESOURCE = "<visa_resource>"  # Replace with your instrument's VISA resource string.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 
 scope = InstroScope(
