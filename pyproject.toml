@@ -32,12 +32,14 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+arduino = ["pyfirmata2"]
 contrib = ["instro-contrib"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "pyfirmata2",
     "instro-contrib",
 ]
 
@@ -146,16 +148,22 @@ mypy_path = [
 ]
 packages = ["instro", "instro.unstable.ethernetip"]
 
+[[tool.mypy.overrides]]
+module = "pyfirmata2.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
 # (mcculw is Windows-only) and must be invoked explicitly (e.g. `pytest tests/daq/mcc`).
 # --ignore=tests/daq/labjack: labjack tests depend on the optional `labjack` extra
 # (LJM SDK; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/labjack`).
+# --ignore=tests/daq/arduino: arduino tests depend on the optional `arduino` extra
+# (pyfirmata2; hardware-only) and must be invoked explicitly (e.g. `pytest tests/daq/arduino`).
+addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/daq/arduino --ignore=tests/i2c/totalphase"
 # --ignore=tests/i2c/totalphase: Aardvark tests depend on the optional `i2c` extra
 # (pyaardvark; hardware-only) and must be invoked explicitly (e.g.
 # `uv run --extra i2c python tests/i2c/totalphase/test_aardvark_hardware.py`).
-addopts = "-m 'not hardware' --ignore=tests/daq/mcc --ignore=tests/daq/labjack --ignore=tests/i2c/totalphase"
 markers = [
     "hardware: tests that require a physical device and loopback wiring (deselected by default)",
 ]
