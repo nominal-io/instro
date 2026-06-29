@@ -32,6 +32,7 @@ LABJACK T7 LOOPBACK WIRING
     AI ch "AIN0"  — alias "ain0", RSE (loopback from DAC0)
     AI ch "AIN1"  — alias "ain1", RSE (loopback from DAC1)
     AO ch "DAC0"  — alias "dac0", 0-5 V
+    AO ch "DAC1"  — alias "dac1", 0-5 V
     DO line "FIO0" — alias "fio0", Logic.HIGH
     DI line "FIO1" — alias "fio1", Logic.HIGH
 
