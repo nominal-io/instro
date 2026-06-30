@@ -4,11 +4,11 @@ from pkgutil import extend_path
 
 __path__ = extend_path(__path__, __name__)
 
-from instro.awg.awg import (
+from instro.unstable.awg.awg import (
     AWGDriverBase,
     InstroAWG,
 )
-from instro.awg.types import (
+from instro.unstable.awg.types import (
     BurstMode,
     Channel,
     ClockSource,

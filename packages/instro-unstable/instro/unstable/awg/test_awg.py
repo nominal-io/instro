@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from instro.awg.awg import AWGDriverBase, InstroAWG
-from instro.awg.types import Channel, VoltageUnit, WaveformType
+from instro.unstable.awg.awg import AWGDriverBase, InstroAWG
+from instro.unstable.awg.types import Channel, VoltageUnit, WaveformType
 
 # ---------------------------------------------------------------------------
 # Minimal concrete driver — implements every abstract method with no-ops
