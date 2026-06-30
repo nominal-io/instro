@@ -1,4 +1,4 @@
-"""Unstable config-driven EtherNet/IP device."""
+"""Config-driven EtherNet/IP device."""
 
 from __future__ import annotations
 
@@ -11,27 +11,27 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
-from instro.lib import Command, Instrument, Measurement
-from instro.lib.publishers import Publisher
-from instro.unstable.ethernetip.ethernetip_types import (
+from instro.ethernetip.ethernetip_types import (
     BOOL_DATA_TYPES,
     INTEGER_DATA_TYPES,
     EtherNetIPConfig,
     EtherNetIPConnectionInfo,
     TagDef,
 )
+from instro.lib import Command, Instrument, Measurement
+from instro.lib.publishers import Publisher
 
 logger = logging.getLogger(__name__)
 
 
 def _load_native_ethernetip() -> SimpleNamespace:
     try:
-        from instro.unstable._ethernetip import EtherNetIpSession, PlcKind, PlcValue
+        from instro.ethernetip._ethernetip import EtherNetIpSession, PlcKind, PlcValue
     except ImportError as exc:
         raise RuntimeError(
             "EtherNet/IP support requires the native package 'instro-ethernetip'. "
-            'Install it with `pip install "instro-unstable[ethernetip]"` or '
-            '`uv add "instro-unstable[ethernetip]"`.'
+            'Install it with `pip install instro-ethernetip` (or `pip install "instro[ethernetip]"`), '
+            "or `uv add instro-ethernetip`."
         ) from exc
 
     return SimpleNamespace(
@@ -55,7 +55,7 @@ def _eip_op(fn):
 
 
 class EtherNetIPDevice(Instrument):
-    """Unstable EtherNet/IP device with config-driven tag access."""
+    """EtherNet/IP device with config-driven tag access."""
 
     def __init__(
         self,

@@ -9,23 +9,32 @@ description: Using EtherNet/IP for Allen-Bradley PLC tag communication
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route, and the scalar tags Nominal reads or writes. `EtherNetIPDevice` exposes those tags by local alias from Python and can publish boolean and numeric tag values to Nominal Core or Nominal Connect.
 
-<Warning>
-The EtherNet/IP client lives under `instro.unstable.ethernetip` and requires the optional native package `instro-ethernetip`. Install it with `instro-unstable[ethernetip]`; it is not part of the stable `instro[all]` install path.
-</Warning>
+<Info>
+The EtherNet/IP client lives under `instro.ethernetip` and is provided by the `instro-ethernetip` package (a native backend). Install it with the `instro[ethernetip]` extra; it is also included in `instro[all]`.
+</Info>
 
 ## Install
 
-Install the unstable package with the EtherNet/IP extra:
+Install with the EtherNet/IP extra:
 
 ```bash
-uv add "instro-unstable[ethernetip]"
+uv add "instro[ethernetip]"
 ```
 
 or with pip:
 
 ```bash
-pip install "instro-unstable[ethernetip]"
+pip install "instro[ethernetip]"
 ```
+
+The standalone package also installs directly: `pip install instro-ethernetip`.
+
+<Note>
+EtherNet/IP graduated out of the experimental `instro-unstable` package. If you used a pre-release
+build, update imports from `instro.unstable.ethernetip` to `instro.ethernetip` (and the native
+module from `instro.unstable._ethernetip` to `instro.ethernetip._ethernetip`), and install
+`instro[ethernetip]` instead of `instro-unstable[ethernetip]`.
+</Note>
 
 ## Quickstart
 
@@ -39,7 +48,7 @@ This example opens a CompactLogix connection, polls scalar tags, and publishes n
 import time
 
 from instro.lib.publishers import NominalCorePublisher
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 RID = "<dataset_rid>"  # Nominal Core dataset RID.
 
@@ -197,7 +206,7 @@ Allen-Bradley Logix `STRING` tags are encoded as `LEN` (`DINT`) plus `DATA` (`SI
 Use the private native session to read several PLC tags in one request:
 
 ```python
-from instro.unstable._ethernetip import EtherNetIpBatchError, EtherNetIpSession
+from instro.ethernetip._ethernetip import EtherNetIpBatchError, EtherNetIpSession
 
 with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
     for name, result in session.read_tags(["MotorRunning", "LineSpeed"]):
@@ -438,7 +447,7 @@ Load-time validation is local to the config. It does not verify that PLC tags ex
 <Tab title="JSON config">
 
 ```python
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 # Uses the connection section from compactlogix.json.
 with EtherNetIPDevice(config="compactlogix.json") as plc:
@@ -453,7 +462,7 @@ with EtherNetIPDevice(config="compactlogix.json") as plc:
 <Tab title="Connection override">
 
 ```python
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 with EtherNetIPDevice(
     config="compactlogix.json",
@@ -474,7 +483,7 @@ with EtherNetIPDevice(
 
 ```python
 from instro.lib.types import DeviceInfo
-from instro.unstable.ethernetip import (
+from instro.ethernetip import (
     EtherNetIPConfig,
     EtherNetIPConnectionInfo,
     EtherNetIPDevice,
@@ -527,7 +536,7 @@ Use `autostart=True` to open the session and begin background polling immediatel
 
 ```python
 from instro.lib.publishers import NominalCorePublisher
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 plc = EtherNetIPDevice(config="compactlogix.json", autostart=True)
 plc.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
@@ -550,7 +559,7 @@ EtherNet/IP raises these errors for common failures:
 
 | Error | Meaning |
 | --- | --- |
-| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip'` | The native PyO3 package is not installed. Install `instro-unstable[ethernetip]`. |
+| `RuntimeError: EtherNet/IP support requires the native package 'instro-ethernetip'` | The native PyO3 package is not installed. Install `instro[ethernetip]`. |
 | `RuntimeError: EtherNet/IP client not connected. Call open() first.` | A read or write occurred before `open()`. |
 | `TypeError: Tag '{alias}' expected PLC kind ...` | The PLC returned a different kind than the configured scalar `data_type`, including a structured value for a scalar tag. |
 | `ValueError: Tag '{alias}' value ... is below write_min` | A write was rejected by local bounds checking. |
@@ -560,7 +569,7 @@ EtherNet/IP raises these errors for common failures:
 
 ## Known limitations
 
-- EtherNet/IP support is unstable and installed through `instro-unstable[ethernetip]`.
+- EtherNet/IP support is installed through `instro[ethernetip]` (or the standalone `instro-ethernetip` package).
 - Hardware testing covers Allen-Bradley CompactLogix 5332E 1769-L32E.
 - Route paths support local backplane hops only. Network hops are unsupported.
 - Current testing covers one local backplane hop.

@@ -275,7 +275,7 @@ Different DAQ devices have different timing capabilities:
 </Warning>
 
 <Note>
-A single `InstroDAQ` instance carries one analog input sample rate. To run multiple NI DAQmx tasks at different hardware sample rates, create one `InstroDAQ` instance per task: see [Multiple InstroDAQ instances on NI](/instrumentation/daq-ni-multi-task).
+A single `InstroDAQ` instance carries one analog input sample rate. To run multiple NI DAQmx tasks at different hardware sample rates, create one `InstroDAQ` instance per task: see the [NI multi-rate acquisition example](/instrumentation/examples/daq/daq_multi_rate_ni).
 </Note>
 
 
@@ -312,7 +312,8 @@ daq.close()
 The `read_analog()` method returns a `Measurement` object (or list of `Measurement` objects for multiple channels) containing:
 - `channel_data`: Dictionary mapping channel aliases to lists of values
 - `timestamps`: List of timestamps (nanoseconds since epoch)
-- `value`: Property returning the first value (convenience for single-value reads)
+- `values`: Property returning all values as a list (convenience for single-channel reads)
+- `latest`: Property returning the most recent value (convenience for single-channel reads)
 
 ### Hardware-Timed Acquisition with Background Fetching
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.

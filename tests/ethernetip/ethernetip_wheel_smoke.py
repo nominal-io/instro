@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from zipfile import ZipFile
 
-from instro.unstable._ethernetip import EtherNetIpSession, PlcKind, PlcValue, StructuredValue
+from instro.ethernetip._ethernetip import EtherNetIpSession, PlcKind, PlcValue, StructuredValue
 
 TYPECHECK_DIR = Path(__file__).with_name("typecheck")
 
@@ -21,15 +21,18 @@ def _assert_wheel_contains_expected_files(wheel_path: Path) -> None:
     name_set = set(names)
 
     required = {
-        "instro/py.typed",
-        "instro/unstable/_ethernetip.pyi",
+        "instro/ethernetip/py.typed",
+        "instro/ethernetip/_ethernetip.pyi",
+        "instro/ethernetip/__init__.py",
+        "instro/ethernetip/ethernetip.py",
+        "instro/ethernetip/ethernetip_types.py",
     }
     missing = sorted(required - name_set)
     if missing:
         raise AssertionError(f"{wheel_path.name} is missing: {', '.join(missing)}")
 
     native_files = [
-        name for name in names if name.startswith("instro/unstable/_ethernetip.") and name.endswith((".so", ".pyd"))
+        name for name in names if name.startswith("instro/ethernetip/_ethernetip.") and name.endswith((".so", ".pyd"))
     ]
     if len(native_files) != 1:
         raise AssertionError(f"{wheel_path.name} expected one native extension, found {native_files}")

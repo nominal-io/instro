@@ -1,12 +1,12 @@
-# EtherNet/IP (unstable)
+# EtherNet/IP
 
 EtherNet/IP config files declare an Allen-Bradley PLC endpoint, an optional local backplane route,
-and the scalar tags Nominal reads or writes. The client lives under `instro.unstable.ethernetip`
-and depends on the optional native `instro-ethernetip` package from
-`instro-unstable[ethernetip]`.
+and the scalar tags Nominal reads or writes. The client lives under `instro.ethernetip`
+and is provided by the `instro-ethernetip` package, installable via the `instro[ethernetip]`
+extra (also included in `instro[all]`).
 
 ```python
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 connection = {
     "host": "192.168.1.10",
@@ -142,11 +142,11 @@ PLC string tags are not part of the Python EtherNet/IP API.
 
 ### Native batched reads
 
-`instro.unstable._ethernetip.EtherNetIpSession.read_tags()` reads several PLC tags in one native
+`instro.ethernetip._ethernetip.EtherNetIpSession.read_tags()` reads several PLC tags in one native
 request and preserves input order:
 
 ```python
-from instro.unstable._ethernetip import EtherNetIpBatchError, EtherNetIpSession
+from instro.ethernetip._ethernetip import EtherNetIpBatchError, EtherNetIpSession
 
 with EtherNetIpSession("192.168.1.10:44818", route_path_slots=[0]) as session:
     for name, result in session.read_tags(["MotorRunning", "LineSpeed"]):
@@ -197,11 +197,11 @@ plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.
 
 ### EtherNetIPDevice
 
-::: instro.unstable.ethernetip.ethernetip.EtherNetIPDevice
+::: instro.ethernetip.ethernetip.EtherNetIPDevice
 
 ### Configuration types
 
-::: instro.unstable.ethernetip.ethernetip_types
+::: instro.ethernetip.ethernetip_types
     options:
       members:
         - EtherNetIPConfig

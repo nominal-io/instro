@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from instro.unstable._ethernetip import StructuredValue
+from instro.ethernetip._ethernetip import StructuredValue
 
 TYPECHECK_DIR = Path(__file__).with_name("typecheck")
 
@@ -23,7 +23,7 @@ def test_ethernetip_stub_matches_runtime_boundaries(tmp_path: Path) -> None:
     """The private local stub accepts supported APIs and rejects string misuse."""
     pytest.importorskip("mypy", reason="mypy is required to validate exported type information")
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     config = tmp_path / "mypy.ini"
     config.write_text(
         "\n".join(

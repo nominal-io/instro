@@ -7,8 +7,7 @@ with non-overlapping channels. Each instance carries its own sample rate,
 hardware buffer, and background daemon, started and stopped independently.
 
 How to partition channels across tasks, and how many tasks a device can run
-concurrently, is device specific; see the "Multiple InstroDAQ instances on
-NI" guide.
+concurrently, is device specific.
 """
 
 import time

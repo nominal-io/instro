@@ -18,8 +18,7 @@ Then run:
 import os
 import time
 
-from instro.lib.types import DeviceInfo
-from instro.unstable.ethernetip import (
+from instro.ethernetip import (
     EtherNetIPBackplaneHop,
     EtherNetIPConfig,
     EtherNetIPConnectionInfo,
@@ -28,6 +27,7 @@ from instro.unstable.ethernetip import (
     TagDef,
     TimingConfig,
 )
+from instro.lib.types import DeviceInfo
 
 
 def connection_from_env() -> EtherNetIPConnectionInfo:

@@ -1,4 +1,4 @@
-"""Configuration types for the unstable EtherNet/IP instrument."""
+"""Configuration types for the EtherNet/IP instrument."""
 
 from __future__ import annotations
 
@@ -213,7 +213,7 @@ class TagDef(EtherNetIPBaseModel):
 
 
 class EtherNetIPConfig(EtherNetIPBaseModel):
-    """Complete unstable EtherNet/IP instrument configuration."""
+    """Complete EtherNet/IP instrument configuration."""
 
     version: int = 1
     protocol: str = "ethernetip"

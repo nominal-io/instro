@@ -104,9 +104,9 @@ eip-live-test:
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
     cargo test -p instro-ethernetip-rs --test explicit_session_integration
-    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/test_ethernetip_bindings.py -q
+    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
 
-# clean build of the unstable EtherNet/IP Python bindings (sdist + wheel)
+# clean build of the EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
 
 # [build-system] backend; for instro-ethernetip that backend is maturin.
@@ -121,7 +121,7 @@ eip-wheel-smoke-test:
     wheel_dir="$(mktemp -d)"
     trap 'rm -rf "$wheel_dir"' EXIT
     # Build the platform-specific native extension wheel. This wheel provides
-    # instro.unstable._ethernetip, the private PyO3 module loaded at import time.
+    # instro.ethernetip._ethernetip, the private PyO3 module loaded at import time.
     uv build --wheel --package instro-ethernetip --out-dir "$wheel_dir"
     wheel="$(find "$wheel_dir" -maxdepth 1 -name 'instro_ethernetip-*.whl' -print -quit)"
     if [ -z "$wheel" ]; then
@@ -136,8 +136,8 @@ eip-wheel-smoke-test:
         --with "$wheel" # Install the freshly built native extension wheel.
         --with mypy # Provide the type checker used by the smoke script.
     )
-    INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip_wheel_smoke.py
+    INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip/ethernetip_wheel_smoke.py
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
 eip-test: eip-wheel-smoke-test rust eip-rs-test
-    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest tests/test_ethernetip_bindings.py -q
+    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q
