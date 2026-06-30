@@ -83,3 +83,16 @@ def test_from_json_malformed_json(tmp_path):
 
     with pytest.raises(Exception):
         InstroPSU.from_json(config_file)
+
+
+def test_vendor_registry_complete():
+    import importlib
+
+    import instro.psu.drivers as drv_pkg
+    from instro.psu.config import PSU_VENDOR_REGISTRY
+    from instro.psu.psu import PSUDriverBase
+
+    for key, path in PSU_VENDOR_REGISTRY.items():
+        mod_path, cls_name = path.rsplit(".", 1)
+        cls = getattr(importlib.import_module(mod_path), cls_name)
+        assert issubclass(cls, PSUDriverBase), f"{key} does not point to a PSUDriverBase subclass"

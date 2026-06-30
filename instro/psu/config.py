@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 if TYPE_CHECKING:
     from instro.lib.publishers import Publisher
     from instro.psu.psu import InstroPSU, PSUDriverBase
 
-PSUVendor = Literal[
-    "bk_9115",
-    "bk_914x",
-    "keysight_e36100",
-    "keysight_n5700",
-    "rigol_dp800",
-    "siglent_spd3303",
-    "simulated",
-    "tdk_lambda_genesys",
-]
+PSU_VENDOR_REGISTRY: dict[str, str] = {
+    "bk_9115": "instro.psu.drivers.bk_9115.BK9115",
+    "bk_914x": "instro.psu.drivers.bk_914x.BK914X",
+    "keysight_e36100": "instro.psu.drivers.keysight_e36100.KeysightE36100",
+    "keysight_n5700": "instro.psu.drivers.keysight_n5700.KeysightN5700",
+    "rigol_dp800": "instro.psu.drivers.rigol_dp800.RigolDP800",
+    "siglent_spd3303": "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
+    "simulated": "instro.psu.drivers.simulated.SimulatedPSU",
+    "tdk_lambda_genesys": "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
+}
 
 
 class PSUConfig(BaseModel):
@@ -25,7 +25,7 @@ class PSUConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(description="Channel-name prefix for published data.")
-    vendor: PSUVendor = Field(description="PSU vendor/model key.")
+    vendor: str = Field(description="PSU vendor/model key.")
     connection: str = Field(description="VISA resource string (e.g 'USB0::...' or 'TCPIP0::...').")
     num_channels: int = Field(ge=1, description="Number of output channels.")
     visa_backend: str | None = Field(
@@ -36,41 +36,26 @@ class PSUConfig(BaseModel):
         default=None, description="Directory path for writing output data to a local file."
     )
 
+    @field_validator("vendor")
+    @classmethod
+    def vendor_must_be_registered(cls, v: str) -> str:
+        if v not in PSU_VENDOR_REGISTRY:
+            raise ValueError(f"unknown vendor {v!r}; valid: {sorted(PSU_VENDOR_REGISTRY)}")
+        return v
+
 
 def build_psu_from_config(
     config: PSUConfig,
     publishers: list[Publisher] | None = None,
 ) -> InstroPSU:
     """Construct an InstroPSU from a validated PSUConfig."""
+    import importlib
+
     from instro.lib.transports.visa import VisaConfig
-    from instro.psu.drivers import (
-        BK914X,
-        BK9115,
-        KeysightE36100,
-        KeysightN5700,
-        RigolDP800,
-        SiglentSPD3303,
-        SimulatedPSU,
-        TDKLambdaGenesys,
-    )
     from instro.psu.psu import InstroPSU
 
-    _registry: dict[PSUVendor, type[PSUDriverBase]] = {
-        "bk_9115": BK9115,
-        "bk_914x": BK914X,
-        "keysight_e36100": KeysightE36100,
-        "keysight_n5700": KeysightN5700,
-        "rigol_dp800": RigolDP800,
-        "siglent_spd3303": SiglentSPD3303,
-        "simulated": SimulatedPSU,
-        "tdk_lambda_genesys": TDKLambdaGenesys,
-    }
-
-    assert set(_registry.keys()) == set(get_args(PSUVendor)), (
-        f"_registry and PSUVendor are out of sync: {set(_registry.keys()) ^ set(get_args(PSUVendor))}"
-    )
-
-    driver_cls = _registry[config.vendor]
+    module_path, class_name = PSU_VENDOR_REGISTRY[config.vendor].rsplit(".", 1)
+    driver_cls = getattr(importlib.import_module(module_path), class_name)
 
     visa_config = VisaConfig(visa_resource=config.connection, visa_backend=config.visa_backend)
 
