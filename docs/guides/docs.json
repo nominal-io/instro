@@ -181,6 +181,13 @@
               "instrumentation/examples/scope/scope_background",
               "instrumentation/examples/scope/scope_basic"
             ]
+          },
+          {
+            "group": "Flowcontroller (Unstable)",
+            "pages": [
+              "instrumentation/examples/unstable/flowcontroller/flowcontroller",
+              "instrumentation/examples/unstable/flowcontroller/alicat_mc"
+            ]
           }
         ]
       }
