@@ -2,9 +2,8 @@
 
 from unittest.mock import MagicMock
 
-from instro.unstable.scope import InstroScope
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.types import (
+from instro.scope import InstroScope, ScopeDriverBase
+from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,

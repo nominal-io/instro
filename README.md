@@ -22,6 +22,8 @@ uv sync --extra all
 
 This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
+For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies that `just test` requires), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
+
 ### Optional extras
 
 Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
@@ -33,6 +35,7 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[mccdaq]` | MCC UL (Windows-only) |
 | `instro[daq]` | All three DAQ vendor SDKs |
 | `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) |
 | `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
 | `instro[all]` | Everything above |
 
@@ -69,20 +72,13 @@ That's the whole loop: construct, `open()`, configure, measure, `close()`. When 
 | Power supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
 | Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
+| EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
 Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
-
-## Experimental modules
-
-In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
-
-- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x, Tektronix 2-series, and Siglent SDS1000X-E. Import via `instro.unstable.scope`.
-- **`EtherNetIPDevice`**: EtherNet/IP / CIP support for CompactLogix-class PLCs. Import via `instro.unstable.ethernetip`.
-
-Opt in by depending on `instro-unstable` explicitly. EtherNet/IP uses an optional native backend; install it with `instro-unstable[ethernetip]`.
 
 ## Documentation
 

@@ -50,8 +50,7 @@
               },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq",
-              "instrumentation/daq-ni-multi-task"
+              "instrumentation/daq"
             ]
           },
           {
@@ -176,10 +175,10 @@
             ]
           },
           {
-            "group": "Scope (Unstable)",
+            "group": "Scope",
             "pages": [
-              "instrumentation/examples/unstable/scope/scope_background",
-              "instrumentation/examples/unstable/scope/scope_basic"
+              "instrumentation/examples/scope/scope_background",
+              "instrumentation/examples/scope/scope_basic"
             ]
           }
         ]
