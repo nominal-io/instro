@@ -33,7 +33,7 @@ INVALID_CHANNEL = 4
 # ---------------------------------------------------------------------------
 # Set DATASET_RID to a Nominal dataset RID to stream readings and test events to
 # Nominal Core. Leave as None to skip all Nominal publishing (tests still run normally).
-DATASET_RID: str | None = None
+DATASET_RID = None
 NOMINAL_PROFILE = "default"
 
 
@@ -110,13 +110,15 @@ class _EventRecorder:
         passed: bool,
         description: str = "",
     ) -> None:
-        self._events.append({
-            "name": name,
-            "start_ns": start_ns,
-            "end_ns": end_ns,
-            "passed": passed,
-            "description": description,
-        })
+        self._events.append(
+            {
+                "name": name,
+                "start_ns": start_ns,
+                "end_ns": end_ns,
+                "passed": passed,
+                "description": description,
+            }
+        )
 
     def finish(self) -> None:
         assert self._client is not None
@@ -148,10 +150,12 @@ def _stream(channel: str, value: float) -> None:
     """Stream a single scalar reading to Nominal Core. No-op when DATASET_RID is None."""
     if _publisher is None:
         return
-    _publisher.publish(Measurement(
-        timestamps=[time.time_ns()],
-        channel_data={channel: [value]},
-    ))
+    _publisher.publish(
+        Measurement(
+            timestamps=[time.time_ns()],
+            channel_data={channel: [value]},
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -236,9 +240,7 @@ def record_test_event(request: pytest.FixtureRequest) -> Iterator[None]:
         description = request.node.nodeid
         if exc_str:
             description += f"\n\nError: {exc_str}"
-        _recorder.record_event(
-            request.node.name, start_ns, time.time_ns(), passed=passed, description=description
-        )
+        _recorder.record_event(request.node.name, start_ns, time.time_ns(), passed=passed, description=description)
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +249,9 @@ def record_test_event(request: pytest.FixtureRequest) -> Iterator[None]:
 
 
 def test_query_status(driver: RigolDP800) -> None:
+    idn = driver._visa.query("*IDN?")
+    print(f"\nIDN: {idn.strip()}")
+
     status = driver.query_status()
 
     assert set(status) == {f"ch{channel_config.channel}" for channel_config in CHANNELS}
