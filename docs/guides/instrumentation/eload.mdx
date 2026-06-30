@@ -50,6 +50,8 @@ Electronic loads can operate in four modes:
 **Mode Configuration Required**
 
 The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes. Consult your instrument's manual.
+
+`set_range()` applies to CC and CV modes only; CP and CR are auto-ranged from the level value (on the `BK85XXB` driver, calling `set_range()` in CP or CR mode raises `NotImplementedError`).
 </Note>
 
 ## Creating an InstroELoad Instance
@@ -160,9 +162,8 @@ eload.open()
 # Start background daemon
 eload.start()
 
-# Configure constant power mode
+# Configure constant power mode (CP and CR are auto-ranged, so no set_range call)
 eload.set_mode(LoadMode.CP, channel=1)
-eload.set_range(100.0, channel=1)  # Set range for up to 100W
 eload.set_level(25.0, channel=1)   # Draw 25W
 eload.output_enable(True, channel=1)
 
@@ -244,7 +245,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `close()` | Disconnect from electronic load and close all publishers |
 | `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |
 | `set_level(value, channel=1, curr_limit=None)` | Set the operating level (A, V, Ω, or W depending on mode) |
-| `set_range(value, channel=1)` | Set the operating range for auto-ranging |
+| `set_range(value, channel=1)` | Set the operating range (CC/CV modes only; CP/CR are auto-ranged) |
 | `set_slewrate(direction, rate, channel=1)` | Set current slew rate in A/μs |
 | `output_enable(enable, channel=1)` | Enable (True) or disable (False) the load input |
 | `short_output(enable, channel=1)` | Short the load channel (occurs immediately) |
@@ -395,6 +396,11 @@ class BK85XXB(ELoadDriverBase):
         self._visa.write(f"{loadmode_to_unit(mode)} {value}")
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
+        # The 85xx series only exposes :RANGe for CC and CV; CP/CR are auto-ranged.
+        if mode not in (LoadMode.CC, LoadMode.CV):
+            raise NotImplementedError(
+                f"BK85XXB only exposes :RANGe for CC and CV; {mode.value} is auto-ranged from the level value"
+            )
         self._visa.write(f"{loadmode_to_unit(mode)}:RANGe {value}")
 
     def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
