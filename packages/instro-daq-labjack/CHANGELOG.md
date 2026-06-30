@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.7.1...instro-daq-labjack-v0.8.0) (2026-06-30)
+
+
+### Miscellaneous
+
+* release 0.8.0 to track the instro 0.14.0 core release
+
 ## [0.7.1](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.7.0...instro-daq-labjack-v0.7.1) (2026-06-17)
 
 
