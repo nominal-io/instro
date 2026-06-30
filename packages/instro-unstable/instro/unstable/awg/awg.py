@@ -8,10 +8,10 @@ import threading
 import time
 from typing import Callable
 
-from instro.unstable.awg.types import Channel, VoltageUnit, WaveformType
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
+from instro.unstable.awg.types import Channel, VoltageUnit, WaveformType
 
 logger = logging.getLogger(__name__)
 
