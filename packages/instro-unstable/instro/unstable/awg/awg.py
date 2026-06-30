@@ -8,7 +8,7 @@ import threading
 import time
 from typing import Callable
 
-from instro.awg.types import Channel, VoltageUnit, WaveformType
+from instro.unstable.awg.types import Channel, VoltageUnit, WaveformType
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
