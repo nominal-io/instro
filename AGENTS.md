@@ -14,6 +14,8 @@ uv build --package <name>        # build a wheel for a workspace package
 
 If `just check` and `just test` both pass, CI will pass.
 
+`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+
 ## Codebase layout
 
 `instro` is a uv workspace. The top-level package is `instro`. Workspace members live under `packages/`.

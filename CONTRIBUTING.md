@@ -6,6 +6,88 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ## Development setup
 
+### Prerequisites
+
+What you need depends on which command you run. **`just check` is lightweight** (just + uv). **`just test` needs a full native toolchain**: it builds a maturin/PyO3 wheel and runs `cargo test` across the whole Rust workspace, which includes the `opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
+
+| Layer | `just check` | `just test` |
+|---|:---:|:---:|
+| [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
+| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python) | ✅ | ✅ |
+| Synced Python deps (`uv sync`) | ✅ | ✅ |
+| Git Bash (Windows only — for the `#!/usr/bin/env bash` recipes) | — | ✅ |
+| Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
+| C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
+
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.13) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+```powershell
+# Core (covers `just check`)
+winget install --id Casey.Just -e            # just
+winget install --id astral-sh.uv -e          # uv
+winget install --id Git.Git -e               # Git + Git Bash (the bash recipes need it)
+
+# Additional for `just test`
+winget install --id Rustlang.Rustup -e       # rustup -> installs the pinned toolchain on first use
+winget install --id Kitware.CMake -e         # cmake (open62541-sys build)
+winget install --id LLVM.LLVM -e             # libclang for bindgen
+# C/C++ build tools (MSVC) — required to compile and link the native crates:
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e `
+  --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+After installing LLVM, set `LIBCLANG_PATH` so `bindgen` can find `libclang.dll`, then open a fresh shell:
+
+```powershell
+setx LIBCLANG_PATH "C:\Program Files\LLVM\bin"
+```
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+```bash
+# Core (covers `just check`)
+brew install just uv
+# git + the C compiler come from the Command Line Tools:
+xcode-select --install
+
+# Additional for `just test`
+brew install rustup-init && rustup-init -y   # or: brew install rustup; rustup default stable
+brew install cmake llvm                       # cmake + libclang (bindgen)
+```
+
+Apple Clang (from the Command Line Tools) is enough as the C compiler/linker, but `open62541-sys`'s `bindgen` wants Homebrew `llvm`'s `libclang`. If it isn't found, export:
+
+```bash
+export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+```
+
+</details>
+
+<details>
+<summary><strong>Linux (Debian/Ubuntu)</strong></summary>
+
+```bash
+# Core (covers `just check`)
+curl -LsSf https://astral.sh/uv/install.sh | sh                  # uv
+sudo apt-get install -y just git                                 # or: cargo install just
+
+# Additional for `just test`
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # rustup
+sudo apt-get install -y build-essential cmake clang libclang-dev pkg-config
+```
+
+`build-essential` (gcc + make + linker), `cmake`, and `clang`/`libclang-dev` cover the `open62541-sys` + `mbedtls` C build and the `bindgen` step. On Fedora/RHEL the equivalents are `gcc gcc-c++ make cmake clang clang-devel pkgconf-pkg-config`.
+
+</details>
+
+### Install and run
+
 Clone the repo and install dependencies with [uv](https://docs.astral.sh/uv/):
 
 ```bash
@@ -14,14 +96,18 @@ cd instro
 uv sync --extra all
 ```
 
-See the [README](./README.md) for prerequisites and basic usage.
-
 Common dev tasks (via [just](https://github.com/casey/just)):
 
 ```bash
 just check    # ruff format, mypy, ruff lint
-just test     # unit tests (no hardware required)
+just test     # unit tests + Rust workspace + EtherNet/IP wheel checks (no hardware required)
 ```
+
+Notes:
+
+- The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
+- `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
+- The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
 ## Issues and discussion
 
