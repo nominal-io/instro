@@ -32,7 +32,7 @@ from collections.abc import Callable
 import pytest
 
 from instro.eload import InstroELoad
-from instro.eload.drivers.bk_85xxb import BK85XXB
+from instro.eload.drivers.bk_85xxb import BK85XXB, loadmode_to_unit
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports import SerialConfig, VisaConfig
 from instro.lib.types import Command
@@ -97,11 +97,17 @@ def run_all() -> list:
 
         _run("identity (*IDN?)", identity, failures)
 
-        # --- set_mode for all four modes ---
+        # --- set_mode for all four modes (verified against the device's queried function) ---
         def modes() -> None:
             for mode in (LoadMode.CC, LoadMode.CV, LoadMode.CP, LoadMode.CR):
                 cmd = eload.set_mode(mode, channel=ch)
                 assert _cmd_value(cmd) == mode.value, f"{mode} command echo mismatch"
+                # set_mode already error-checks via SYST:ERR?; also confirm the device
+                # actually switched function. FUNCtion? may echo short (CURR) or long
+                # (CURRENT) form, so match on the driver's short prefix.
+                expected = loadmode_to_unit(mode)
+                active = eload._driver._visa.query("FUNCtion?").strip().upper()
+                assert active.startswith(expected), f"{mode}: device reports {active!r}, expected {expected!r}"
             eload.set_mode(LoadMode.CC, channel=ch)  # leave in CC
 
         _run("set_mode (CC/CV/CP/CR)", modes, failures)
