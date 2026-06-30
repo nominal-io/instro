@@ -126,6 +126,13 @@ jobs:
               "packages/instro-ethernetip-rs/src/blocking.rs",
               "packages/instro-ethernetip-rs/Cargo.toml",
               "Cargo.lock",
+              # The Python HAL ships in this sdist too; a source build must produce
+              # an importable instro.ethernetip, not just the native extension.
+              "instro/ethernetip/__init__.py",
+              "instro/ethernetip/ethernetip.py",
+              "instro/ethernetip/ethernetip_types.py",
+              "instro/ethernetip/_ethernetip.pyi",
+              "instro/ethernetip/py.typed",
           ]
           with tarfile.open(sdists[0]) as archive:
               names = archive.getnames()

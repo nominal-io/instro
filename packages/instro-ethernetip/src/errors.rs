@@ -6,28 +6,28 @@ use pyo3::exceptions::{PyRuntimeError, PyRuntimeWarning};
 use pyo3::prelude::*;
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     EtherNetIpError,
     pyo3::exceptions::PyException,
     "EtherNet/IP operation failed."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     EtherNetIpBatchError,
     EtherNetIpError,
     "A single tag in a batched read failed. Base class for all batch-read variant exceptions."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     TagNotFoundError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the tag does not exist on the PLC."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     DataTypeMismatchError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the tag's actual type did not match the expected type. \
@@ -35,14 +35,14 @@ create_exception!(
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     NetworkBatchError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: a network-layer error occurred while reading this tag."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     CipError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the PLC returned a CIP protocol error. \
@@ -50,28 +50,28 @@ create_exception!(
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     TagPathError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the tag path could not be parsed or resolved."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     SerializationError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the value could not be serialized or deserialized."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     BatchTimeoutError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: the operation timed out."
 );
 
 create_exception!(
-    instro.unstable._ethernetip,
+    instro.ethernetip._ethernetip,
     OtherBatchError,
     EtherNetIpBatchError,
     "Per-tag batch read failure: an unclassified error occurred."

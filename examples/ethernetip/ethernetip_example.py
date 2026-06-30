@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from instro.unstable.ethernetip import EtherNetIPDevice
+from instro.ethernetip import EtherNetIPDevice
 
 CONFIG_PATH = Path(__file__).parent / "sample_device.json"
 DEVICE_NAME = "cell_controller"

@@ -51,7 +51,6 @@
               "instrumentation/eload",
               "instrumentation/dmm",
               "instrumentation/daq",
-              "instrumentation/daq-ni-multi-task",
               "instrumentation/flowcontroller"
             ]
           },
@@ -174,6 +173,13 @@
             "group": "Custom",
             "pages": [
               "instrumentation/examples/custom/simple_temp_controller"
+            ]
+          },
+          {
+            "group": "Scope",
+            "pages": [
+              "instrumentation/examples/scope/scope_background",
+              "instrumentation/examples/scope/scope_basic"
             ]
           }
         ]

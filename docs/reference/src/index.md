@@ -17,7 +17,7 @@ The SDK is organized into several key components:
   and [I2C](instruments/i2c.md).
 
 - **Protocols**: Config-driven clients for direct hardware communication via standard
-  wire protocols: [Modbus](protocols/modbus.md) and unstable
+  wire protocols: [Modbus](protocols/modbus.md) and
   [EtherNet/IP](protocols/ethernetip.md).
 
 - **Drivers**: Vendor-specific implementations that connect instrument interfaces to real hardware.

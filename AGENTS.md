@@ -14,13 +14,15 @@ uv build --package <name>        # build a wheel for a workspace package
 
 If `just check` and `just test` both pass, CI will pass.
 
+`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+
 ## Codebase layout
 
 `instro` is a uv workspace. The top-level package is `instro`. Workspace members live under `packages/`.
 
 | Path | What it is |
 |---|---|
-| `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`. |
+| `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
 | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
 | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
 | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |

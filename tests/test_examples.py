@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from instro.ethernetip import EtherNetIPConfig
 from instro.modbus import ModbusConfig
-from instro.unstable.ethernetip import EtherNetIPConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -19,7 +19,6 @@ EXAMPLE_JSON_CONFIGS = sorted(EXAMPLES_DIR.rglob("*.json"))
 ETHERNETIP_EXAMPLES = sorted((EXAMPLES_DIR / "ethernetip").glob("*.py"))
 ETHERNETIP_MYPY_PATHS = [
     REPO_ROOT,
-    REPO_ROOT / "packages/instro-unstable",
     REPO_ROOT / "packages/instro-ethernetip",
 ]
 
@@ -42,7 +41,7 @@ def test_example_json_configs_parse(config_path: Path) -> None:
 
 
 def test_ethernetip_examples_type_check(tmp_path: Path) -> None:
-    """EtherNet/IP examples should keep matching the public unstable Python API."""
+    """EtherNet/IP examples should keep matching the public Python API."""
     pytest.importorskip("mypy", reason="mypy is required to type-check examples")
 
     config = tmp_path / "mypy.ini"
