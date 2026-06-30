@@ -32,12 +32,14 @@ nidaq = ["instro-daq-ni"]
 mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
+ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
     "instro-daq-mcc",
     "instro-i2c-aardvark",
+    "instro-ethernetip",
     "instro-contrib",
 ]
 
@@ -73,7 +75,7 @@ dev = [
 ]
 test = [
     "cpppo>=4.0.0",
-    "pytest>=8.4.0,<9",
+    "pytest>=9.0.3,<10",
 ]
 
 [tool.uv]
@@ -144,7 +146,7 @@ mypy_path = [
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
-packages = ["instro", "instro.unstable.ethernetip"]
+packages = ["instro", "instro.ethernetip"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

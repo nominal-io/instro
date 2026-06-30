@@ -6,7 +6,7 @@ use pyo3::types::PyAny;
 use crate::errors::map_error_with_py;
 use crate::values::{py_to_value, rust_value_to_py};
 
-#[pyclass(module = "instro.unstable._ethernetip")]
+#[pyclass(module = "instro.ethernetip._ethernetip")]
 /// Synchronous EtherNet/IP session wrapper for Python.
 ///
 /// Instances own a single Rust `ExplicitSession` connected to one target address. The object is

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from instro.unstable._ethernetip import EtherNetIpSession
+from instro.ethernetip._ethernetip import EtherNetIpSession
 
 
 def read_tags_rejects_bare_string(session: EtherNetIpSession) -> None:

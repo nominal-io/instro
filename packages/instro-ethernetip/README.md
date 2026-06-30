@@ -1,8 +1,8 @@
 # instro-ethernetip
 
-Python binding layer for the Rust EtherNet/IP client.
+EtherNet/IP device support for instro: the config-driven `EtherNetIPDevice` HAL plus its native session backend.
 
-This is surfaced to Python as the private native module `instro.unstable._ethernetip`, while remaining intentionally excluded from the stable `instro[all]` extra. Published users install it through the optional `instro-unstable[ethernetip]` extra.
+This is a dedicated, self-contained package. It owns the entire `instro.ethernetip` subpackage: the pure-Python HAL (`EtherNetIPDevice`, config, and types) and the private native module `instro.ethernetip._ethernetip` built from Rust. Install it with `pip install instro-ethernetip`, via the `instro[ethernetip]` extra, or as part of `instro[all]`.
 
 It exists separately from `instro-ethernetip-rs` on purpose:
 
@@ -17,8 +17,11 @@ That split keeps the Rust crate focused on its transport and value API while all
 - `src/sync_session.rs`: synchronous `EtherNetIpSession` API
 - `src/values.rs`: `PlcValue`, `PlcKind`, `StructuredValue`, and Python/Rust value conversions
 - `src/errors.rs`: shared Python exception mapping
-- `instro/unstable/_ethernetip.pyi`: typing stub for the private native module
-- `instro/py.typed`: marker that makes the package's type information visible to type checkers
+- `instro/ethernetip/__init__.py`: public HAL exports (`EtherNetIPDevice`, config and types)
+- `instro/ethernetip/ethernetip.py`: the config-driven `EtherNetIPDevice` instrument
+- `instro/ethernetip/ethernetip_types.py`: pydantic config models (`EtherNetIPConfig`, `TagDef`, …)
+- `instro/ethernetip/_ethernetip.pyi`: typing stub for the private native module
+- `instro/ethernetip/py.typed`: marker that makes the package's type information visible to type checkers
 - `pyproject.toml`: `maturin` packaging configuration
 
 ## Relationship to the Rust crate
@@ -57,12 +60,12 @@ raw structured bytes.
 The `.pyi` file describes the Python API for type checkers, editors, and tests. It is not executed
 at runtime.
 
-- `instro/unstable/_ethernetip.pyi` belongs to this package and describes the private
+- `instro/ethernetip/_ethernetip.pyi` belongs to this package and describes the private
   compiled extension module built from Rust. The runtime `_ethernetip` module is a PyO3 native
   module, so this stub is where Python tooling learns about `EtherNetIpSession`, `PlcKind`,
   `PlcValue`, `StructuredValue`, `EtherNetIpError`, method signatures, properties, and value
   aliases.
-- `instro/py.typed` marks the package as typed so consumers and tests can see the stub
+- `instro/ethernetip/py.typed` marks the package as typed so consumers and tests can see the stub
   when the package is installed.
 
 When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
@@ -71,7 +74,7 @@ When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
 
 `instro-ethernetip` is a PyO3 extension crate packaged by `maturin`.
 
-- `pyo3` exposes Rust types and functions as Python classes in the private `instro.unstable._ethernetip` module
+- `pyo3` exposes Rust types and functions as Python classes in the private `instro.ethernetip._ethernetip` module
 - `maturin` drives the Python packaging step and turns the Rust crate into a Python wheel
 - the crate is built as a C-compatible dynamic library (`cdylib`), which the wheel includes.
   - It's this dynamic library that's loaded by Python at import time to interface with Rust code.
@@ -81,13 +84,13 @@ When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
   - concretely, this means we don't need to build each wheel for different python versions (3.10, 3.11, 3.12, etc).
 
 At build time, `maturin` compiles the Rust crate, places the resulting shared library in the wheel
-as the private `instro.unstable._ethernetip` extension module, and includes `_ethernetip.pyi`
+as the private `instro.ethernetip._ethernetip` extension module, and includes `_ethernetip.pyi`
 and `py.typed` for typing.
 
 For local verification on your current machine:
 
 - `just eip-build` builds both an sdist and a wheel for the current host platform into `dist/`
-- `just eip-wheel-smoke-test` builds the wheel, installs it into an isolated environment, and verifies that `instro.unstable._ethernetip` imports successfully
+- `just eip-wheel-smoke-test` builds the wheel, installs it into an isolated environment, and verifies that `instro.ethernetip._ethernetip` imports successfully
 - `just eip-test` runs the EtherNet/IP-specific flow: wheel import smoke test, Rust formatting,
   linting, library tests, doc tests, and Python binding tests in editable mode
 - `just test` runs `just eip-test` and then the broader Python test suite, including the local
@@ -95,11 +98,10 @@ For local verification on your current machine:
 
 ## Distribution and platform coverage
 
-EtherNet/IP support is exposed as the optional `ethernetip` extra on `instro-unstable`.
-Bare `instro-unstable` installs remain pure Python, so other unstable modules can import
-without resolving a native wheel.
+EtherNet/IP support is published as the standalone `instro-ethernetip` package and surfaced on
+the core distribution as the `instro[ethernetip]` extra (also included in `instro[all]`).
 
-- `instro-unstable[ethernetip]` depends on `instro-ethernetip`
+- `instro[ethernetip]` (and `instro[all]`) depend on `instro-ethernetip`
 - the root dev dependency group includes `instro-ethernetip`, so `uv sync` builds and installs the local PyO3 package for development
 - `just eip-wheel-smoke-test` can still build a local wheel and verify the private native module against that wheel
 
@@ -123,14 +125,15 @@ After `uv sync`, the local native package is available from its private module p
 
 ## Import path and runtime loading
 
-Local development currently imports the private native module directly:
+Most callers use the `EtherNetIPDevice` HAL from `instro.ethernetip`. The native session API can
+also be imported directly:
 
 ```python
-from instro.unstable._ethernetip import EtherNetIpSession, PlcValue, StructuredValue
+from instro.ethernetip._ethernetip import EtherNetIpSession, PlcValue, StructuredValue
 ```
 
 Under the hood:
 
-- `instro.unstable._ethernetip` is a private local module owned by this unpublished package
-- importing `instro.unstable._ethernetip` loads the compiled PyO3 extension module from the installed package
+- `instro.ethernetip._ethernetip` is the private native module owned by this package
+- importing `instro.ethernetip._ethernetip` loads the compiled PyO3 extension module from the installed package
 - the module initializer registers the Rust-backed Python classes, and method calls then execute in Rust against `instro-ethernetip-rs`

@@ -14,7 +14,19 @@ If a driver is in `instro-contrib`, that means: it type-checks, it has a unit te
 
 ## Install
 
-`instro-contrib` is not yet published as its own distribution. For now, depend on it via a workspace install or a Git ref to this repo. A published release will arrive alongside `instro`'s PyPI publication.
+`instro-contrib` is published on PyPI and installed via the `contrib` extra:
+
+```bash
+$ uv add "instro[contrib]"
+```
+
+or with pip:
+
+```bash
+(.venv) $ pip install "instro[contrib]"
+```
+
+It's also included in the `all` extra. See [Installation](/instrumentation/installation#additional-packages) for the full list of extras.
 
 ## Import path
 
@@ -41,7 +53,14 @@ The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported fro
 
 ## Available drivers
 
-The list starts empty. Drivers will appear here as they're contributed. To check what's currently available, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib) in the repo.
+### Matrix WPS300S-series PSU
+
+**Class**: `MatrixWPS300S`  
+**Import**: `from instro.contrib.psu.drivers import MatrixWPS300S`  
+**Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
+**Protocol**: SCPI over RS-232, 9600 baud 8-N-1
+
+To check what's currently in the repo, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib).
 
 ## Graduation to core
 
