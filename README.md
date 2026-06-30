@@ -73,6 +73,7 @@ That's the whole loop: construct, `open()`, configure, measure, `close()`. When 
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
 | Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
+| Flow Controller | `InstroFlowController` | Alicat MC-series |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |

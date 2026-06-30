@@ -10,6 +10,7 @@ instruments. Each instrument type defines a standard API that works across multi
 | [`InstroPSU`](psu.md) | Programmable power supply units |
 | [`InstroELoad`](eload.md) | Electronic loads |
 | [`InstroScope`](scope.md) | Oscilloscopes |
+| [`InstroFlowController`](flowcontroller.md) | Electronic loads |
 | [`I2CInterface`](i2c.md) | I2C bus communication devices |
 
 Each instrument page includes the interface, configuration types, driver base classes,

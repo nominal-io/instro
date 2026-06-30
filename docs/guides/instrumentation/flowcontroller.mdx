@@ -1,0 +1,437 @@
+---
+title: Flow Controller
+description: Using InstroFlowController for gas flow controllers
+---
+
+<Warning>This Instrument category is new and is currently available only in the Unstable package</Warning>
+
+# InstroFlowController
+
+
+`InstroFlowController` is a hardware abstraction layer (HAL) that provides a unified interface for InstroFlowMeter. The category class defines the vendor-independent API (`set_voltage`, `get_voltage`, `output_enable`, …). A vendor-specific driver (e.g. `BK9115`, `KeysightE36100`, `TDKLambdaGenesys`, `RigolDP800`) owns its connection details and translates those calls into vendor commands.
+
+## Supported Vendors
+
+- **AlicatMC**: Alicat MC-series serial-controlled flow meters
+
+If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
+
+## Key Concepts
+
+### Driver Composition
+
+An `InstroFlowController` is built from a concrete driver:
+
+```
+InstroFlowController(
+    name="FlowController",
+    driver = AlicatMC(VisaConfig(visa_resource=VISA_RESOURCE)
+)
+```
+
+- The **vendor driver** (e.g. `AlicatMC`) owns the connection setup and vendor-specific command mapping.
+- **`InstroFlowController`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroFlowController workflow:
+
+1. **Construct**: instantiate the vendor driver and pass it to `InstroFlowController`.
+2. **`open()`**: establishes the VISA connection.
+3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements.
+4. **`start()`**: begins a periodic background daemon. (Optional) By default this calls `get_flow_data` periodically.
+5. **`stop()`**: ends the background daemon (if started).
+6. **`close()`**: disconnects from hardware.
+
+## Creating an InstroFlowController Instance
+
+```python
+from instro.flowcontroller.drivers import AlicatMC
+from instro.flowcontroller import InstroFlowController
+
+fc = InstroFlowController(
+    name="myFlowController",
+    driver = AlicatMC(
+        VisaConfig(
+            visa_resource=VISA_RESOURCE,
+            serial_config=SerialConfig(baud_rate=19200),
+            terminator=TerminatorConfig(read="\r", write="\r"),
+        ),
+        device_id="M",
+    ),
+)
+```
+
+### Parameters
+
+- **`name`**: A name for this flow controller instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `FlowControllerDriverBase` instance (e.g. `AlicatMC`) configured with the connection details for that model.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### Choosing a Driver
+
+Choose the concrete driver that matches the flow controller model, then pass the instrument connection settings to that driver. For example, use `AlicatMC` for the Alicat MC-series.
+
+## Examples
+
+All measurement methods return [`Measurement`](/instrumentation/library#measurement) objects. This is common amongst all `Instrument` objects.
+
+### Basic Usage
+
+```python
+import time
+
+from instro.flowcontroller import InstroFlowController
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC
+from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+
+VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
+ALICAT_DEVICE_ID = "A" #DEFAULT FOR ALICATMC
+
+device = AlicatMC(
+    VisaConfig(
+        visa_resource=VISA_RESOURCE,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    ),
+    device_id=ALICAT_DEVICE_ID,
+)
+
+fc = InstroFlowController(
+    name="fc",
+    driver=device
+)
+
+
+fc.background_interval = 0.5  # poll the controller for new values every half second.
+fc.open()
+fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
+fc.select_gas("air")  # Air [case insensitive]
+fc.tare_flow() #optional
+flow_data = fc.get_flow_data()
+print(f'Initial data: {flow_data}')
+fc.close()
+
+```
+
+### Background Daemon for Continuous Monitoring
+
+```python
+import time
+
+from instro.flowcontroller import InstroFlowController
+from instro.flowcontroller.drivers.alicat_mc import AlicatMC
+from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+
+VISA_RESOURCE = "ASRL7::INSTR" #REPLACE WITH YOUR OWN
+ALICAT_DEVICE_ID = "A" #DEFAULT FOR ALICATMC
+
+device = AlicatMC(
+    VisaConfig(
+        visa_resource=VISA_RESOURCE,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    ),
+    device_id=ALICAT_DEVICE_ID,
+)
+
+fc = InstroFlowController(
+    name="fc",
+    driver=device
+)
+
+
+fc.background_interval = 0.5  # poll the controller for new values every half second.
+fc.open()
+fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
+fc.select_gas("air")  # Air [case insensitive]
+fc.tare_flow() #optional
+flow_data = fc.get_flow_data()
+print(f'Initial data: {flow_data}')
+
+try:
+    # Launches a background daemon that polls mass flow, volumetric flow,
+    # pressure, temperature, and setpoint.
+    fc.start()
+    #starting automatically creates a channel buffer accessible with fc.get_channel(..)
+
+    # Allow the daemon to publish baseline measurements before changing setpoint.
+    time.sleep(1)
+    
+    fc.set_setpoint(value=50.0)
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=25.0)
+
+    time.sleep(2)
+
+    fc.set_setpoint(value=0.0)
+
+    time.sleep(1)
+
+    print("Sequence complete. Press Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(1) # during this time, data will still be acquired by the flowmeter process
+            #and published across all publishers. Use fc.get_channel(..) to pull from a local buffer
+
+    except KeyboardInterrupt:
+        pass
+
+finally:
+    fc.stop()
+    fc.close()
+```
+
+In this mode:
+- `start()` begins a background daemon, executing a function or list of functions periodically.
+- `stop()` ends the background daemon.
+
+<Note>
+**Default Flow Controller Background Daemon**
+
+For each meter, using `get_flow_data()`:
+- temperature
+- pressure
+- mass flow (`mass_flow`)
+- volumetric flow (`vol_flow`)
+- setpoint (as read back from the meter)
+  - `setpoint.cmd` represents the last command to the controller from this client)
+
+
+The default polling interval is 1 second, the default within the base `Instrument` class, but is configurable via the `background_interval` property.
+</Note>
+
+**Custom Background Daemon**
+* To define your own background daemon, call `define_background_daemon(method, *args, **kwargs)`, which replaces the registered daemon functions.
+* To add a method to the background daemon stack, call `add_background_daemon_function()`.
+
+See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
+
+<Note>
+**Important Note about Publishers**
+
+Data is published as a direct result of an instrument method being called.
+
+For example, when you call `get_flow_data()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+
+Therefore the background daemon, when calling these instrument methods, is publishing data in the background as well!
+</Note>
+
+## Published channels
+
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the `name` argument passed to the constructor.
+
+| Method | Descriptor | Type |
+|--------|------------|------|
+| `get_flow_data()` | `{name}.setpoint` | telemetry |
+| `get_flow_data()` | `{name}.mass_flow` | telemetry |
+| `get_flow_data()` | `{name}.vol_flow` | telemetry |
+| `get_flow_data()` | `{name}.pressure` | telemetry |
+| `get_flow_data()` | `{name}.temperature` | telemetry |
+| `set_setpoint(value)` | `{name}.setpoint.cmd` | command |
+| `select_gas(gas_name)` | `{name}.gas.cmd` | command |
+| `tare_flow()` | `{name}.tare.cmd` | command |
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroFlowController(name, driver, publishers=None, **kwargs)` | Construct an InstroFlowController with a vendor driver |
+| `open()` | Open the underlying driver transport |
+| `close()` | Close the driver transport and stop all publishers |
+| `get_flow_data()` | Poll the device and return a `Measurement` with all live readings |
+| `set_setpoint(value)` | Command a new flow setpoint in the device's configured engineering units |
+| `select_gas(gas_name)` | Select the active gas by name (case-insensitive) |
+| `tare_flow()` | Zero the flow reading; device must have zero flow when called |
+| `start()` | Begin background telemetry daemon |
+| `stop()` | End background telemetry daemon |
+
+
+---
+
+# Custom Driver Development
+
+This section is for developers implementing `InstroFlowController` support for flow controllers that aren't shipped in the library.
+
+## Overview
+
+Driver developers subclass `FlowControllerDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver and passes it to `InstroFlowController`:
+
+```python
+fc = InstroFlowController(
+    name="fc",
+    driver=MyVendorFlowController(visa_resource="ASRL7::INSTR"),
+)
+```
+
+The driver translates `InstroFlowController`'s vendor-independent API (`get_flow_data`, `set_setpoint`, `select_gas`, `tare_flow`) into vendor-specific commands.
+
+## Driver Responsibilities
+
+A flow controller driver must:
+
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, or `device_id`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver` or other transport object.
+3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands**: translate each abstract method into vendor-specific commands.
+5. **Parse responses**: convert instrument responses into `FlowData` or the expected return type.
+
+## FlowControllerDriverBase Interface
+
+All flow controller drivers subclass `FlowControllerDriverBase` and implement these abstract methods:
+
+```python
+def open(self) -> None:
+    """Open the driver's underlying transport."""
+
+def close(self) -> None:
+    """Close the driver's underlying transport. Idempotent."""
+
+def get_flow_data(self) -> FlowData:
+    """Read a full measurement frame from the device."""
+
+def set_setpoint(self, setpt: float) -> float:
+    """Command a new flow setpoint in the device's configured engineering units."""
+
+def select_gas(self, gas_name: str) -> str:
+    """Select the active gas by name; driver resolves the device-internal number."""
+
+def tare_flow(self) -> FlowData:
+    """Zero the flow reading. Device must have zero flow when called."""
+```
+
+All six methods are `@abc.abstractmethod`. `FlowData` (from `instro.flowcontroller.types`) carries `pressure`, `temperature`, `vol_flow`, `mass_flow`, `setpoint`, `gas`, and `status_flags`.
+
+### Talking to the Instrument
+
+Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers (including RS-232/serial), create a `VisaDriver` internally and use it for all I/O:
+
+- **`self._visa.write(command)`**: Send a command (no response expected).
+- **`self._visa.query(command)`**: Send a command and receive the response string.
+- **`self._visa.read()`**: Read one line from the device buffer.
+
+`VisaDriver` owns the resource lock. Use `with self._visa.lock():` when a sequence of writes and reads must execute atomically.
+
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, and serial settings.
+
+## Implementation Example: Alicat MC-Series
+
+`AlicatMC` is the reference driver. It communicates over RS-232 using Alicat's proprietary ASCII polling protocol — **not SCPI** — so commands are terse single-character identifiers rather than IEEE 488.2-style mnemonics.
+
+```python
+from instro.flowcontroller import FlowControllerDriverBase
+from instro.flowcontroller.types import FlowData
+from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+
+
+class AlicatMC(FlowControllerDriverBase):
+    """Alicat MC-series mass-flow controller over RS-232 ASCII polling."""
+
+    def __init__(self, visa_resource: str | VisaConfig, device_id: str = "A") -> None:
+        self.unit_id = device_id
+        if isinstance(visa_resource, str):
+            visa_resource = VisaConfig(
+                visa_resource=visa_resource,
+                serial_config=SerialConfig(baud_rate=19200),
+                terminator=TerminatorConfig(read="\r", write="\r"),
+            )
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        self._visa.open()
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def get_flow_data(self) -> FlowData:
+        # Poll: send the unit ID alone to request a measurement frame
+        response = self._query_checked(self.unit_id)
+        return self._parse_flowdata(response)
+
+    def set_setpoint(self, setpt: float) -> float:
+        response = self._query_checked(f"{self.unit_id}s{setpt}")
+        return self._parse_flowdata(response).setpoint
+
+    def tare_flow(self) -> FlowData:
+        response = self._query_checked(f"{self.unit_id}v")
+        return self._parse_flowdata(response)
+
+    def select_gas(self, gas_name: str) -> str:
+        # Resolves name → device gas number via list_gas_types(), then sends '{id}g{number}'
+        ...
+
+    def _query_checked(self, command: str) -> str:
+        response = self._visa.query(command)
+        if response == "?":
+            raise RuntimeError(f"Device returned '?' for command {command!r}")
+        return response
+
+    def _parse_flowdata(self, response: str) -> FlowData:
+        # Frame order: UnitID AbsPressure Temp VolumetricFlow MassFlow Setpoint Gas [status...]
+        fields = response.split()
+        return FlowData(
+            pressure=float(fields[1]),
+            temperature=float(fields[2]),
+            vol_flow=float(fields[3]),
+            mass_flow=float(fields[4]),
+            setpoint=float(fields[5]),
+            gas=fields[6],
+            status_flags=set(fields[7:]),
+        )
+```
+
+<Note>
+**Alicat ASCII protocol, not SCPI**
+
+Alicat MC-series devices use a proprietary ASCII polling protocol. Commands are single-character identifiers (e.g. `{id}` to poll, `{id}s{setpt}` to set a setpoint, `{id}v` to tare, `{id}g{n}` to select a gas) rather than SCPI mnemonics. An unrecognized command returns `?`. Consult the [Alicat Gas Flow Controller Manual](https://documents.alicat.com/manuals/Gas_Flow_Controller_Manual.pdf) for the full command reference.
+</Note>
+
+## Using a Custom Driver
+
+Construct `InstroFlowController` with your own driver instance:
+
+```python
+from instro.flowcontroller import InstroFlowController, FlowControllerDriverBase
+from instro.flowcontroller.types import FlowData
+
+
+class MyFlowControllerDriver(FlowControllerDriverBase):
+
+    def __init__(self, visa_resource: str) -> None:
+        # create transport internally
+        ...
+
+    def open(self) -> None: ...
+    def close(self) -> None: ...
+    def get_flow_data(self) -> FlowData: ...
+    def set_setpoint(self, setpt: float) -> float: ...
+    def select_gas(self, gas_name: str) -> str: ...
+    def tare_flow(self) -> FlowData: ...
+
+
+fc = InstroFlowController(
+    name="fc",
+    driver=MyFlowControllerDriver(visa_resource="<VISA_ADDRESS>"),
+)
+
+fc.open()
+fc.set_setpoint(50.0)
+fc.close()
+```
+
+## Summary
+
+Driver development requires careful mapping of vendor-specific behavior to the unified `InstroFlowController` interface. Focus on:
+
+- Subclassing `FlowControllerDriverBase`
+- Designing a constructor around natural connection parameters for the instrument
+- Hiding transport construction inside the driver
+- Implementing all six abstract methods on `FlowControllerDriverBase`
+- Returning correctly typed `FlowData` from measurement methods
+- Parsing and raising instrument errors appropriately
+- Testing with actual hardware to ensure commands work as expected
