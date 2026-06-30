@@ -50,7 +50,8 @@
               },
               "instrumentation/eload",
               "instrumentation/dmm",
-              "instrumentation/daq"
+              "instrumentation/daq",
+              "instrumentation/oscilloscope"
             ]
           },
           {
