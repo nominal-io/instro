@@ -42,7 +42,7 @@
             "icon": "microchip",
             "pages": [
               {
-                "group": "PSU",
+                "group": "Power Supply (PSU)",
                 "pages": [
                   "instrumentation/psu",
                   "instrumentation/psu-simulator"
