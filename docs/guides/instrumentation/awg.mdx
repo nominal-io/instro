@@ -1,0 +1,395 @@
+---
+title: Arbitrary Waveform Generator (AWG)
+description: Using InstroAWG for SCPI-based arbitrary waveform generators
+---
+
+# InstroAWG
+
+`InstroAWG` is a hardware abstraction layer (HAL) that provides a unified interface for arbitrary waveform generators. The category class defines the vendor-independent API (`set_std_waveform`, `set_std_frequency`, `output_enable`, …). A vendor-specific driver owns its connection details and translates those calls into vendor commands.
+
+<Note>
+**No bundled vendor drivers yet**
+
+`InstroAWG` does not ship with a vendor driver in this release — only the category-level interface and the `AWGDriverBase` contract. If you need to drive an AWG today, implement `AWGDriverBase` yourself; see [Custom Driver Development](#custom-driver-development) below. Contributions of vendor drivers are welcome.
+</Note>
+
+## Key Concepts
+
+### Driver Composition
+
+An `InstroAWG` is built from a concrete driver:
+
+```
+InstroAWG("name", driver=MyVendorAWG(visa_resource="USB0::..."), num_channels=2)
+```
+
+- The **vendor driver** owns the connection setup and vendor-specific command mapping.
+- **`InstroAWG`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroAWG workflow:
+
+1. **Construct**: instantiate the vendor driver and pass it to `InstroAWG`.
+2. **`open()`**: establishes the connection.
+3. **Configure and measure**: set waveform, frequency, amplitude, enable outputs, read measurements back.
+4. **`start()`**: begins a periodic background daemon. (Optional)
+5. **`stop()`**: ends the background daemon (if started).
+6. **`close()`**: disconnects from hardware.
+
+### Waveform Types
+
+Every channel outputs one `WaveformType` at a time:
+
+- **SINE**, **SQUARE**, **RAMP**, **PULSE**: standard periodic waveforms with tunable frequency, amplitude, offset, and phase.
+- **NOISE**: broadband output — no frequency or phase concept.
+- **DC**: a constant level — no amplitude or frequency concept; the level is set via `set_std_offset`.
+- **ARB**: an arbitrary/composite waveform built from uploaded sample data via `apply_waveform`.
+
+<Note>
+**Not every method applies to every waveform**
+
+For example, `set_std_frequency` is meaningless for NOISE and DC, and `set_std_amplitude` is meaningless for DC. Each method on `AWGDriverBase` documents exactly which `WaveformType` values it applies to — check the docstring before calling it for a given waveform.
+</Note>
+
+## Creating an InstroAWG Instance
+
+```python
+from instro.unstable.awg import InstroAWG
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=MyVendorAWG(visa_resource="USB0::..."),
+    num_channels=2,
+)
+```
+
+### Parameters
+
+- **`name`**: A name for this AWG instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `AWGDriverBase` instance configured with the connection details for that model.
+- **`num_channels`**: Number of output channels on the waveform generator.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+To inspect a VISA instrument's identity before writing a driver:
+
+```python
+from instro.lib.transports import VisaDriver
+
+visa = VisaDriver("USB0::...")
+try:
+    visa.open()
+    print(visa.query("*IDN?"))
+finally:
+    visa.close()
+```
+
+## Examples
+
+All measurement methods return [`Measurement`](/instrumentation/library#measurement) objects. This is common amongst all `Instrument` objects.
+
+### Basic Usage
+
+```python
+import time
+
+from instro.unstable.awg import InstroAWG, VoltageUnit, WaveformType
+from instro.lib.publishers import NominalCorePublisher
+
+DATASET_RID = "<your dataset here>"
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=MyVendorAWG(visa_resource="<VISA_ADDRESS>"),
+    num_channels=2,
+)
+awg.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+awg.open()
+
+# Configure channel 1: 1 kHz sine wave, 2 Vpp, no offset
+awg.configure_std_channel(
+    channel=1,
+    waveform=WaveformType.SINE,
+    frequency_hz=1000.0,
+    amplitude=2.0,
+    unit=VoltageUnit.VPP,
+    enable=True,
+)
+
+time.sleep(0.5)
+
+# Read channel 1 back
+frequency = awg.get_std_frequency(channel=1)
+enabled = awg.get_output_state(channel=1)
+print(f"Freq: {frequency.latest:.1f} Hz, On: {enabled.latest}")
+
+awg.output_enable(channel=1, enable=False)
+awg.close()
+```
+
+### Configuring a Single Channel in One Call
+
+`configure_std_channel` bundles the common waveform/frequency/amplitude/offset setup (plus optional load, enable, and phase) into a single call, returning every emitted `Command`:
+
+```python
+from instro.unstable.awg import InstroAWG, VoltageUnit, WaveformType
+
+awg = InstroAWG(name="myAWG", driver=MyVendorAWG(visa_resource="<VISA_ADDRESS>"), num_channels=2)
+awg.open()
+
+commands = awg.configure_std_channel(
+    channel=1,
+    waveform=WaveformType.SQUARE,
+    frequency_hz=500.0,
+    amplitude=1.0,
+    unit=VoltageUnit.VPP,
+    offset_v=0.0,
+    load=50.0,
+    enable=True,
+    phase_deg=0.0,
+)
+
+awg.close()
+```
+
+## Published channels
+
+Every measurement/command call produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is the row below. Substitute `{N}` with the actual channel number (`1`, `2`, …). If you need the pre-v1.0 channel names instead, pass [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) to the constructor.
+
+| Method | Descriptor | Type |
+|--------|------------|------|
+| `set_std_waveform(channel=N)` | `ch{N}.waveform.cmd` | command |
+| `set_std_frequency(channel=N)` | `ch{N}.frequency.cmd` | command |
+| `get_std_frequency(channel=N)` | `ch{N}.frequency` | telemetry |
+| `set_std_amplitude(channel=N)` | `ch{N}.amplitude.cmd` | command |
+| `set_std_offset(channel=N)` | `ch{N}.offset.cmd` | command |
+| `get_std_offset(channel=N)` | `ch{N}.offset` | telemetry |
+| `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
+| `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
+| `set_std_output_load(channel=N)` | `ch{N}.load.cmd` | command |
+| `get_std_output_load(channel=N)` | `ch{N}.load` | telemetry |
+| `set_phase(channel=N)` | `ch{N}.phase.cmd` | command |
+| `get_phase(channel=N)` | `ch{N}.phase` | telemetry |
+| `align_phase()` | `phase.align.cmd` | command |
+| `set_voltage_unit(channel=N)` | `ch{N}.voltage_unit.cmd` | command |
+| `set_high_level(channel=N)` | `ch{N}.high_level.cmd` | command |
+| `set_low_level(channel=N)` | `ch{N}.low_level.cmd` | command |
+| `set_square_duty_cycle(channel=N)` | `ch{N}.square.duty_cycle.cmd` | command |
+| `set_ramp_symmetry(channel=N)` | `ch{N}.ramp.symmetry.cmd` | command |
+| `set_pulse_width(channel=N)` | `ch{N}.pulse.width.cmd` | command |
+
+`get_std_waveform`, `get_std_amplitude`, and `get_voltage_unit` are intentionally not published — each returns a non-numeric type (`WaveformType`/`VoltageUnit`) that can't be represented as a float channel value.
+
+## Method Reference
+
+| Method | Purpose |
+|--------|---------|
+| `InstroAWG(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroAWG with a vendor driver |
+| `open()` | Establish the connection to the AWG |
+| `close()` | Disconnect from AWG and close all publishers |
+| `set_std_waveform(channel, waveform)` | Set the waveform function on a channel |
+| `get_std_waveform(channel)` | Read back the waveform function |
+| `set_std_frequency(channel, frequency_hz)` | Set the output frequency in Hz |
+| `get_std_frequency(channel)` | Read back the output frequency |
+| `set_std_amplitude(channel, amplitude, unit)` | Set the output amplitude and voltage unit |
+| `get_std_amplitude(channel)` | Read back the amplitude and voltage unit |
+| `set_std_offset(channel, offset_v)` | Set the DC offset in volts |
+| `get_std_offset(channel)` | Read back the DC offset |
+| `output_enable(channel, enable)` | Enable (True) or disable (False) the output |
+| `get_output_state(channel)` | Query output enable state |
+| `set_std_output_load(channel, load)` | Set the output load impedance; `None` for high-Z |
+| `get_std_output_load(channel)` | Read back the output load impedance |
+| `set_phase(channel, phase_deg)` | Set the phase in degrees |
+| `get_phase(channel)` | Read back the phase |
+| `align_phase()` | Sync the phase of both channels |
+| `set_voltage_unit(channel, unit)` | Set the voltage representation unit |
+| `get_voltage_unit(channel)` | Read back the voltage representation unit |
+| `set_high_level(channel, volts)` | Set the high voltage level (alternative to amplitude/offset) |
+| `set_low_level(channel, volts)` | Set the low voltage level (alternative to amplitude/offset) |
+| `set_square_duty_cycle(channel, duty_pct)` | Set duty cycle (%) — SQUARE only |
+| `set_ramp_symmetry(channel, symmetry_pct)` | Set symmetry (%) — RAMP only |
+| `set_pulse_width(channel, width_s)` | Set pulse width (seconds) — PULSE only |
+| `configure_std_channel(channel, waveform, frequency_hz, amplitude, unit, offset_v=0.0, load=..., enable=..., phase_deg=...)` | Configure waveform/frequency/amplitude/offset (plus optional load/enable/phase) in one call |
+
+---
+
+# Custom Driver Development
+
+This section is for developers implementing `InstroAWG` support for waveform generators, since no vendor driver ships out of the box yet.
+
+## Overview
+
+Driver developers subclass `AWGDriverBase` and own whatever transport their instrument needs. The caller chooses a concrete driver, and that concrete driver exposes connection parameters that make sense for its protocol:
+
+```python
+awg = InstroAWG(
+    name="labAWG",
+    driver=MyVendorAWG(visa_resource="USB0::..."),
+    num_channels=2,
+)
+```
+
+The driver is responsible for translating `InstroAWG`'s vendor-independent API into vendor-specific commands.
+
+## Driver Responsibilities
+
+An AWG driver must:
+
+1. **Expose a protocol-native constructor**: accept inputs like `visa_resource`, `host`, `port`, depending on the instrument.
+2. **Own transport setup**: create and store the transport internally. Do not require users to pass a `VisaDriver` or other transport object.
+3. **Own lifecycle**: implement `open()` and `close()` by opening and closing the underlying transport.
+4. **Map commands**: translate each abstract method into vendor-specific commands, respecting which `WaveformType` values each method applies to (documented on `AWGDriverBase`).
+5. **Parse responses**: convert instrument responses to the expected Python types (`float`, `bool`, `WaveformType`, etc.).
+
+## AWGDriverBase Interface
+
+All AWG drivers subclass `AWGDriverBase`. The following methods are required (`@abc.abstractmethod`):
+
+```python
+def open(self) -> None:
+    """Open the driver's underlying transport."""
+
+def close(self) -> None:
+    """Close the driver's underlying transport. Idempotent."""
+
+def check_errors(self) -> None:
+    """Query the instrument error queue and raise on non-zero error code."""
+
+def set_std_waveform(self, channel: int, waveform: WaveformType) -> None:
+    """Set the waveform function on `channel`. Applies to all WaveformType values."""
+
+def get_std_waveform(self, channel: int) -> WaveformType:
+    """Get the current waveform function on `channel`."""
+
+def set_std_frequency(self, channel: int, frequency: float) -> None:
+    """Set the output frequency (Hz). Not valid for NOISE or DC."""
+
+def get_std_frequency(self, channel: int) -> float:
+    """Get the output frequency (Hz). Not valid for NOISE or DC."""
+
+def set_std_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit) -> None:
+    """Set the output amplitude and voltage unit. Not valid for DC."""
+
+def get_std_amplitude(self, channel: int) -> tuple[float, VoltageUnit]:
+    """Get the current output amplitude and voltage unit. Not valid for DC."""
+
+def set_std_offset(self, channel: int, offset: float) -> None:
+    """Set the DC offset (volts). Applies to all WaveformType values."""
+
+def get_std_offset(self, channel: int) -> float:
+    """Get the DC offset (volts)."""
+
+def output_enable(self, channel: int, enable: bool) -> None:
+    """Enable or disable the output on `channel`."""
+
+def get_output_state(self, channel: int) -> bool:
+    """Return True if the output on `channel` is enabled."""
+
+def set_std_output_load(self, channel: int, load: float | None) -> None:
+    """Set the output load impedance; None means high-Z."""
+
+def get_std_output_load(self, channel: int) -> float | None:
+    """Get the output load impedance; None means high-Z."""
+
+def set_phase(self, channel: int, phase_deg: float) -> None:
+    """Set the phase (degrees). Not valid for NOISE or DC."""
+
+def get_phase(self, channel: int) -> float:
+    """Get the current phase (degrees)."""
+```
+
+The following are optional — they default to `NotImplementedError`; override the ones your instrument supports:
+
+```python
+def apply_waveform(self, channel: int, waveform: WaveformType, waveform_data: list[int], disable_output: bool = False) -> None:
+    """Apply an arbitrary/composite waveform. ARB only."""
+
+def align_phase(self) -> None:
+    """Sync the phase of both channels."""
+
+def set_voltage_unit(self, channel: int, unit: VoltageUnit) -> None: ...
+def get_voltage_unit(self, channel: int) -> VoltageUnit: ...
+def set_high_level(self, channel: int, volts: float) -> None: ...
+def set_low_level(self, channel: int, volts: float) -> None: ...
+def set_square_duty_cycle(self, channel: int, duty_pct: float) -> None:
+    """SQUARE only."""
+
+def set_ramp_symmetry(self, channel: int, symmetry_pct: float) -> None:
+    """RAMP only."""
+
+def set_pulse_width(self, channel: int, width_s: float) -> None:
+    """PULSE only."""
+```
+
+See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling, and the `AWGDriverBase` docstrings for the full "Applies to" list per method.
+
+### Talking to the Instrument
+
+Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
+
+- **`self._visa.write(command)`**: Send a SCPI command (no response expected).
+- **`self._visa.query(command)`**: Send a SCPI query and receive the response string.
+
+`VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a write and its error check need to execute atomically.
+
+See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
+
+## Using a Custom Driver
+
+```python
+from instro.unstable.awg import AWGDriverBase, InstroAWG, VoltageUnit, WaveformType
+from instro.lib.transports import VisaDriver
+
+
+class MyCustomAWGDriver(AWGDriverBase):
+    """Custom driver for my lab's proprietary AWG."""
+
+    def __init__(self, visa_resource: str) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    def open(self) -> None:
+        self._visa.open()
+
+    def close(self) -> None:
+        self._visa.close()
+
+    def check_errors(self) -> None:
+        err = self._visa.query("SYST:ERR?")
+        if not err.startswith("0"):
+            raise RuntimeError(f"AWG reported error: {err}")
+
+    def set_std_waveform(self, channel: int, waveform: WaveformType) -> None:
+        self._visa.write(f"FUNC {waveform.value}")
+
+    # ... implement other required methods ...
+
+    def get_output_state(self, channel: int) -> bool:
+        return self._visa.query("OUTP?") == "ON"
+
+
+awg = InstroAWG(
+    name="labAWG",
+    driver=MyCustomAWGDriver(visa_resource="<VISA_ADDRESS>"),
+    num_channels=1,
+)
+
+awg.open()
+awg.set_std_waveform(channel=1, waveform=WaveformType.SINE)
+awg.close()
+```
+
+## Summary
+
+Driver development requires careful mapping of vendor-specific behavior to the unified `InstroAWG` interface. Focus on:
+
+- Subclassing `AWGDriverBase`
+- Designing a constructor around natural connection parameters for the instrument
+- Hiding transport construction inside the driver
+- Implementing all abstract methods on `AWGDriverBase`
+- Respecting which `WaveformType` values each method applies to
+- Using the correct vendor protocol or command syntax
+- Converting instrument responses to the expected Python types
+- Querying and reporting errors from the instrument's error queue where one exists
+- Testing with actual hardware to ensure commands work as expected

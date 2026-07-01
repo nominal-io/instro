@@ -24,6 +24,9 @@
 * 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151)) ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
 * closes [#149](https://github.com/nominal-io/instro/issues/149). First, updates documentation about timeout behavior. ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
 
+### Features
+* **awg:** adding awg support ([#158](https://github.com/nominal-io/instro/issues/158))
+
 ## [0.2.1](https://github.com/nominal-io/instro/compare/instro-unstable-v0.2.0...instro-unstable-v0.2.1) (2026-06-24)
 
 
@@ -46,6 +49,7 @@
 * **ethernetip:** batch reads ([#68](https://github.com/nominal-io/instro/issues/68)) ([0afb900](https://github.com/nominal-io/instro/commit/0afb900ad01c752397ecbf23ea1012370658fc77))
 * **psu:** add ovp, ocp, and remote sense method signatures ([#31](https://github.com/nominal-io/instro/issues/31)) ([ecd4071](https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd))
 * **scope:** add hardware-validated Siglent SDS1104X-E driver ([#74](https://github.com/nominal-io/instro/issues/74)) ([b572a87](https://github.com/nominal-io/instro/commit/b572a876efc7b3d80e0b4eac18d4f8721fbd2171))
+
 
 
 ### Bug Fixes

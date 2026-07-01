@@ -49,6 +49,7 @@
                 ]
               },
               "instrumentation/eload",
+              "instrumentation/awg",
               "instrumentation/dmm",
               "instrumentation/daq",
               "instrumentation/oscilloscope"
