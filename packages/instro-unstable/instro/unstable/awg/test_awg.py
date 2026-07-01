@@ -487,9 +487,7 @@ def test_configure_std_channel_with_enable_returns_five_commands(awg: InstroAWG,
 def test_configure_std_channel_with_load_and_enable_returns_six_commands(
     awg: InstroAWG, mock_driver: MagicMock
 ) -> None:
-    cmds = awg.configure_std_channel(
-        1, WaveformType.SINE, 1000.0, 2.5, VoltageUnit.VPP, load=50.0, enable=True
-    )
+    cmds = awg.configure_std_channel(1, WaveformType.SINE, 1000.0, 2.5, VoltageUnit.VPP, load=50.0, enable=True)
     assert len(cmds) == 6
 
 
