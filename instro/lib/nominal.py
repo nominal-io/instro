@@ -1,6 +1,3 @@
-# This code is derived from concepts in the py-lab-hal codebase (Apache 2.0 licensed)
-# Original py-lab-hal repository: https://github.com/google/py-lab-hal
-
 """Nominal Core integration helpers: client/dataset resolution and Measurement shaping."""
 
 from __future__ import annotations
