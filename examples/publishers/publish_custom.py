@@ -2,7 +2,7 @@
 
 import time
 
-from instro.lib.types import Command, Measurement
+from instro.lib import Command, Measurement
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 

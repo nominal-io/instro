@@ -12,11 +12,15 @@ Vrms, Vpp, and Frequency on channel 1 while printing results in a main loop.
 
 from instro.lib.publishers import NominalCorePublisher
 from instro.scope import (
+    AcquisitionMode,
+    Coupling,
     InstroScope,
     ScopeMeasurementType,
+    TriggerMode,
+    TriggerSlope,
+    TriggerType,
 )
 from instro.scope.drivers import Keysight1200X
-from instro.scope.types import AcquisitionMode, Coupling, TriggerMode, TriggerSlope, TriggerType
 
 VISA_RESOURCE = "<visa_resource>"  # Replace with your instrument's VISA resource string.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
@@ -28,27 +32,24 @@ scope = InstroScope(
     publishers=[NominalCorePublisher(DATASET_RID)],
 )
 
-try:
-    scope.open()
-
-    # # --- Configure channel 1 ---
+with scope:
+    # --- Configure channel 1 ---
     scope.set_coupling(Coupling.DC, channel=1)
     scope.set_probe_attenuation(1.0, channel=1)
     scope.set_vertical_scale(1.0, channel=1)  # 1 V/div
     scope.set_vertical_offset(0, channel=1)
 
-    # # --- Configure timebase ---
-    scope.set_horizontal_scale(0.01)  # 100 ms/div
+    # --- Configure timebase ---
+    scope.set_horizontal_scale(0.01)  # 10 ms/div
 
-    # # --- Configure acquisition ---
+    # --- Configure acquisition ---
     scope.set_acquisition_mode(AcquisitionMode.NORMAL)
 
-    # # # --- Configure trigger ---
+    # --- Configure trigger ---
     scope.set_trigger_source(channel=1)
-
     scope.set_trigger_type(TriggerType.EDGE)
     scope.set_trigger_slope(TriggerSlope.RISING)
-    scope.set_trigger_level(0)  # 2.5 Volts
+    scope.set_trigger_level(0)  # 0 V
     scope.set_trigger_mode(TriggerMode.NORMAL)
 
     # --- Register background measurements ---
@@ -75,7 +76,4 @@ try:
             break
 
     print("Done")
-
-finally:
-    scope.close()
 ```
