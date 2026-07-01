@@ -1,0 +1,7 @@
+{
+    "name": "bench_psu",
+    "vendor": "bk_9115",
+    "connection": "USB0::0x2A8D::0x0101::MY12345::INSTR",
+    "num_channels": 1,
+    "dataset_rid": "<dataset_rid>"
+}
