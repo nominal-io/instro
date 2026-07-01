@@ -3,7 +3,7 @@
 import time
 
 from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor, Direction, Logic
+from instro.daq.types import DAQVendor
 from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
