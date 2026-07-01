@@ -7,6 +7,7 @@ import logging
 import socket
 import threading
 import time
+import warnings
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
@@ -164,7 +165,7 @@ def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
     assert driver.is_open is True
 
 
-def test_open_warns_when_resource_fails_on_py_fallback(mock_pyvisa, caplog):
+def test_open_warns_when_py_fallback_lacks_library_for_resource(mock_pyvisa, caplog):
     rm_class, rm_instance, _ = mock_pyvisa
     rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
     err = pyvisa.errors.VisaIOError(VI_ERROR_LIBRARY_NFOUND)
@@ -177,6 +178,57 @@ def test_open_warns_when_resource_fails_on_py_fallback(mock_pyvisa, caplog):
 
     assert "pyvisa-py (@py) fallback" in caplog.text
     assert driver.is_open is False
+
+
+def test_open_warns_when_py_fallback_has_no_session_class_for_resource(mock_pyvisa, caplog):
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
+    # pyvisa-py raises ValueError for a resource class it can't serve (e.g. GPIB
+    # without the C library: "gpib_ctypes is installed but could not locate ...").
+    rm_instance.open_resource.side_effect = ValueError("No class registered for gpib, INSTR")
+    driver = _make_driver()
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
+        with pytest.raises(ValueError, match="No class registered"):
+            driver.open()
+
+    assert "pyvisa-py (@py) fallback" in caplog.text
+    assert driver.is_open is False
+
+
+def test_open_does_not_warn_for_ordinary_failure_on_py_fallback(mock_pyvisa, caplog):
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
+    # Device off / wrong IP on @py surfaces as a plain Exception, not a backend gap.
+    rm_instance.open_resource.side_effect = Exception("could not connect: -1073807339")
+    driver = _make_driver()
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
+        with pytest.raises(Exception, match="could not connect"):
+            driver.open()
+
+    assert caplog.records == []
+    assert driver.is_open is False
+
+
+def test_py_fallback_muffles_gpib_warning_but_not_others(mock_pyvisa):
+    rm_class, rm_instance, _ = mock_pyvisa
+
+    def construct(backend: str) -> MagicMock:
+        if backend == "@ivi":
+            raise OSError("no IVI backend")
+        warnings.warn("GPIB library not found. Please manually load it using _load_lib(filename).")
+        warnings.warn("unrelated pyvisa-py warning")
+        return rm_instance
+
+    rm_class.side_effect = construct
+    driver = _make_driver()
+
+    with pytest.warns(UserWarning, match="unrelated pyvisa-py warning") as caught:
+        driver.open()
+
+    assert driver.is_open is True
+    assert not any("GPIB" in str(w.message) for w in caught)
 
 
 def test_open_does_not_warn_when_explicit_backend_fails(mock_pyvisa, caplog):

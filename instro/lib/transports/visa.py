@@ -12,7 +12,7 @@ import typing
 import warnings
 
 import pyvisa
-from pyvisa.constants import InterfaceType
+from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
 logger = logging.getLogger(__name__)
@@ -160,15 +160,14 @@ class VisaDriver:
                     rm.open_resource(cfg.visa_resource),
                 )
                 _configure_resource(inst, cfg)
-            except Exception:
+            except Exception as exc:
                 if inst is not None:
                     with contextlib.suppress(Exception):
                         inst.close()
-                if used_py_fallback:
+                if used_py_fallback and _is_missing_backend_error(exc):
                     logger.warning(
-                        "Failed to open %s on the pyvisa-py (@py) fallback backend (no IVI VISA "
-                        "found). If this instrument needs a vendor VISA library, install NI-VISA "
-                        "or set visa_backend explicitly.",
+                        "The pyvisa-py (@py) fallback backend (no IVI VISA found) cannot serve "
+                        "%s. Install NI-VISA or set visa_backend explicitly.",
                         cfg.visa_resource,
                     )
                 raise
@@ -302,11 +301,22 @@ def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager,
             exc,
             FALLBACK_VISA_BACKEND,
         )
-        # pyvisa-py warns at construction about optional backends it can't load (e.g. GPIB);
-        # irrelevant unless the resource being opened needs one, so muffle it here.
+        # gpib_ctypes warns at @py construction when the GPIB C library is missing;
+        # irrelevant unless the resource being opened is GPIB, which fails at
+        # open_resource with its own actionable error.
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            warnings.filterwarnings("ignore", message=".*GPIB.*")
             return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), True
+
+
+def _is_missing_backend_error(exc: BaseException) -> bool:
+    """True when an open failure means the backend can't serve the resource class, not that the device is unreachable."""
+    if isinstance(exc, pyvisa.errors.VisaIOError):
+        return exc.error_code == VI_ERROR_LIBRARY_NFOUND
+    # pyvisa-py signals "no session class for this resource" (unsupported class, or its
+    # optional library is missing, e.g. GPIB) as ValueError; ordinary connection
+    # failures surface as VisaIOError/OSError/plain Exception.
+    return isinstance(exc, ValueError)
 
 
 def _configure_resource(
