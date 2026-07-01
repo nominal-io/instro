@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.3.0...instro-unstable-v0.4.0) (2026-06-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167))
+
+### Features
+
+* **ethernetip:** graduate EtherNet/IP out of unstable into a dedicated package ([#178](https://github.com/nominal-io/instro/issues/178)) ([4f716e4](https://github.com/nominal-io/instro/commit/4f716e4e8e3b56fa0cfa4543732bd306f068cea5))
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167)) ([787a8ba](https://github.com/nominal-io/instro/commit/787a8bad9a566f25bb161ee5b34c6dc90eab520f))
+
 ## [0.3.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.2.1...instro-unstable-v0.3.0) (2026-06-25)
 
 

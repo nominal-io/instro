@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v0.2.1...instro-i2c-aardvark-v0.3.0) (2026-06-30)
+
+
+### Miscellaneous
+
+* release 0.3.0 to track the instro 0.14.0 core release
+
 ## [0.2.1](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v0.2.0...instro-i2c-aardvark-v0.2.1) (2026-06-17)
 
 

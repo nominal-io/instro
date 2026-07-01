@@ -53,16 +53,16 @@ with daq:
     daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_0,
-        alias=f"di_0",
+        alias="di_0",
         logic=Logic.HIGH,
     )
     daq.configure_digital_line(
         direction=Direction.INPUT,
         physical_channel=CHANNEL_1,
-        alias=f"di_1",
+        alias="di_1",
         logic=Logic.LOW,
     )
 
     read0 = daq.read_digital_line(channel="di_0")
     read1 = daq.read_digital_line(channel="di_1")
-    print(f"Values: ", read0.latest, read1.latest)
+    print(f"Values: {read0.latest}, {read1.latest}")

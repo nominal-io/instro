@@ -1,6 +1,6 @@
 [project]
 name = "instro-daq-labjack"
-version = "0.7.1"
+version = "0.8.0"
 description = "LabJack T-series DAQ drivers for instro"
 readme = "README.md"
 license = "Apache-2.0"
