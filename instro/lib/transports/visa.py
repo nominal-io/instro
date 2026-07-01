@@ -316,7 +316,7 @@ def _is_missing_backend_error(exc: BaseException) -> bool:
     # pyvisa-py signals "no session class for this resource" (unsupported class, or its
     # optional library is missing, e.g. GPIB) as ValueError; ordinary connection
     # failures surface as VisaIOError/OSError/plain Exception.
-    return isinstance(exc, ValueError)
+    return isinstance(exc, ValueError) and "No class registered" in str(exc)
 
 
 def _configure_resource(
