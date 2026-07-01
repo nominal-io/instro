@@ -49,6 +49,7 @@
                 ]
               },
               "instrumentation/eload",
+              "instrumentation/arbitrarywaveformgen",
               "instrumentation/dmm",
               "instrumentation/daq"
             ]

@@ -13,7 +13,8 @@ The SDK is organized into several key components:
 
 - **Instruments**: High-level, vendor-agnostic interfaces for common instrument types:
   [DAQ](instruments/daq.md), [DMM](instruments/dmm.md), [PSU](instruments/psu.md),
-  [Electronic Load](instruments/eload.md), and [I2C](instruments/i2c.md).
+  [Electronic Load](instruments/eload.md), [AWG](instruments/arbitrarywaveformgen.md), and
+  [I2C](instruments/i2c.md).
 
 - **Protocols**: Config-driven clients for direct hardware communication via standard
   wire protocols: [Modbus](protocols/modbus.md) and

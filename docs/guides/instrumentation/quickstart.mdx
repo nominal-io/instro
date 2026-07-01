@@ -77,7 +77,7 @@ That's the whole loop: construct → `open()` → configure → measure → `clo
 
 ## Two ways to manage the lifecycle
 
-You can drive the instrument with explicit `open()` / `close()` calls, or let Python do it for you with a `with` block. Both are first-class. Pick whichever fits your script. Every `instro` instrument is a context manager. `__enter__` calls `self.open()`, `__exit__` calls `self.close()` (including when an exception escapes the block, so the daemon and publishers always get torn down). This works for every built-in category (`InstroPSU`, `InstroDMM`, `InstroDAQ`, `InstroELoad`, `I2CInterface`, …) and for any custom `Instrument` subclass (see [Custom instruments](/instrumentation/custom-instruments)).
+You can drive the instrument with explicit `open()` / `close()` calls, or let Python do it for you with a `with` block. Both are first-class. Pick whichever fits your script. Every `instro` instrument is a context manager. `__enter__` calls `self.open()`, `__exit__` calls `self.close()` (including when an exception escapes the block, so the daemon and publishers always get torn down). This works for every built-in category (`InstroPSU`, `InstroDMM`, `InstroDAQ`, `InstroELoad`, `InstroAWG`, `I2CInterface`, …) and for any custom `Instrument` subclass (see [Custom instruments](/instrumentation/custom-instruments)).
 
 <Tabs>
 <Tab title="Explicit open() / close()">
