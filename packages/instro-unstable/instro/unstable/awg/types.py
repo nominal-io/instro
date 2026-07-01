@@ -2,6 +2,7 @@
 
 from enum import Enum
 
+
 class WaveformType(Enum):
     SINE = "SINE"
     SQUARE = "SQUARE"
