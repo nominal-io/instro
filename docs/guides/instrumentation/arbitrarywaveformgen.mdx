@@ -49,7 +49,7 @@ Every channel outputs one `WaveformType` at a time:
 <Note>
 **Not every method applies to every waveform**
 
-For example, `set_std_frequency` is meaningless for NOISE and DC, and `set_std_amplitude` is meaningless for DC. Each method on `AWGDriverBase` documents exactly which `WaveformType` values it applies to — check the docstring (or the [reference page](/reference/instruments/arbitrarywaveformgen)) before calling it for a given waveform.
+For example, `set_std_frequency` is meaningless for NOISE and DC, and `set_std_amplitude` is meaningless for DC. Each method on `AWGDriverBase` documents exactly which `WaveformType` values it applies to — check the docstring before calling it for a given waveform.
 </Note>
 
 ## Creating an InstroAWG Instance
@@ -323,7 +323,7 @@ def set_pulse_width(self, channel: int, width_s: float) -> None:
     """PULSE only."""
 ```
 
-See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling, and the `AWGDriverBase` docstrings (or the [reference page](/reference/instruments/arbitrarywaveformgen)) for the full "Applies to" list per method.
+See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling, and the `AWGDriverBase` docstrings for the full "Applies to" list per method.
 
 ### Talking to the Instrument
 
