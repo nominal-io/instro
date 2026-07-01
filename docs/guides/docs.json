@@ -49,7 +49,7 @@
                 ]
               },
               "instrumentation/eload",
-              "instrumentation/arbitrarywaveformgen",
+              "instrumentation/awg",
               "instrumentation/dmm",
               "instrumentation/daq"
             ]
