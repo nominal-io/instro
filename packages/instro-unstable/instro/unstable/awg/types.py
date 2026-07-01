@@ -2,9 +2,6 @@
 
 from enum import Enum
 
-
-# Start without ARB since ARB can theoretically be an infinite number of waves added together.
-# Starting with fully defined waveforms then adding ARB after single waveforms are fully implemented.
 class WaveformType(Enum):
     SINE = "SINE"
     SQUARE = "SQUARE"
