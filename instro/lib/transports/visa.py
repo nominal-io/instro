@@ -9,6 +9,7 @@ import logging
 import socket
 import threading
 import typing
+import warnings
 
 import pyvisa
 from pyvisa.constants import InterfaceType
@@ -151,7 +152,7 @@ class VisaDriver:
             # pyvisa caches one ResourceManager per backend and shares it across every
             # driver in the process; closing it would kill all other drivers' sessions.
             # pyvisa closes it via its own atexit handler.
-            rm = _open_resource_manager(cfg.visa_backend)
+            rm, used_py_fallback = _open_resource_manager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
                 inst = typing.cast(
@@ -163,6 +164,13 @@ class VisaDriver:
                 if inst is not None:
                     with contextlib.suppress(Exception):
                         inst.close()
+                if used_py_fallback:
+                    logger.warning(
+                        "Failed to open %s on the pyvisa-py (@py) fallback backend (no IVI VISA "
+                        "found). If this instrument needs a vendor VISA library, install NI-VISA "
+                        "or set visa_backend explicitly.",
+                        cfg.visa_resource,
+                    )
                 raise
 
             self._inst = inst
@@ -281,20 +289,24 @@ class VisaDriver:
         return self._inst
 
 
-def _open_resource_manager(backend: str | None) -> pyvisa.ResourceManager:
-    """Open a ResourceManager. An unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
+def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, bool]:
+    """Open a ResourceManager, returning (rm, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
     if backend is not None:
-        return pyvisa.ResourceManager(backend)
+        return pyvisa.ResourceManager(backend), False
     try:
-        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND)
+        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND), False
     except (OSError, pyvisa.errors.Error) as exc:
-        logger.warning(
+        logger.debug(
             "VISA backend %s unavailable (%s); falling back to %s",
             DEFAULT_VISA_BACKEND,
             exc,
             FALLBACK_VISA_BACKEND,
         )
-        return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND)
+        # pyvisa-py warns at construction about optional backends it can't load (e.g. GPIB);
+        # irrelevant unless the resource being opened needs one, so muffle it here.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), True
 
 
 def _configure_resource(

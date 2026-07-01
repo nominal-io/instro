@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 import socket
 import threading
 import time
@@ -138,15 +139,17 @@ def test_open_uses_ivi_backend_by_default(mock_pyvisa):
     rm_class.assert_called_once_with("@ivi")
 
 
-def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa):
+def test_open_falls_back_to_py_when_ivi_backend_missing(mock_pyvisa, caplog):
     rm_class, rm_instance, _ = mock_pyvisa
     rm_class.side_effect = [OSError("Could not locate a VISA implementation"), rm_instance]
     driver = _make_driver()
 
-    driver.open()
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
+        driver.open()
 
     assert rm_class.call_args_list == [call("@ivi"), call("@py")]
     assert driver.is_open is True
+    assert caplog.records == []  # a successful fallback is a healthy path: no warning
 
 
 def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
@@ -159,6 +162,33 @@ def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
 
     assert rm_class.call_args_list == [call("@ivi"), call("@py")]
     assert driver.is_open is True
+
+
+def test_open_warns_when_resource_fails_on_py_fallback(mock_pyvisa, caplog):
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
+    err = pyvisa.errors.VisaIOError(VI_ERROR_LIBRARY_NFOUND)
+    rm_instance.open_resource.side_effect = err
+    driver = _make_driver()
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
+        with pytest.raises(pyvisa.errors.VisaIOError):  # original type preserved, not wrapped
+            driver.open()
+
+    assert "pyvisa-py (@py) fallback" in caplog.text
+    assert driver.is_open is False
+
+
+def test_open_does_not_warn_when_explicit_backend_fails(mock_pyvisa, caplog):
+    _, rm_instance, _ = mock_pyvisa
+    rm_instance.open_resource.side_effect = RuntimeError("device offline")
+    driver = _make_driver(_make_config(visa_backend="@py"))
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
+        with pytest.raises(RuntimeError, match="device offline"):
+            driver.open()
+
+    assert caplog.records == []  # explicit backend, no fallback: no fallback hint
 
 
 @pytest.mark.parametrize("backend", ["@ivi", "@py", "@sim"])
