@@ -1,6 +1,6 @@
 {
   "include-component-in-tag": true,
-  "bump-minor-pre-major": true,
+  "release-as": "1.0.0",
   "changelog-sections": [
     {
       "type": "feat",
