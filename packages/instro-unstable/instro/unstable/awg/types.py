@@ -15,12 +15,6 @@ class WaveformType(Enum):
     ARB = "USER"
 
 
-# Start with 2 channels since Rigol DG1022 has 2 channels. More can be added if needed in the future.
-class Channel(Enum):
-    CH1 = 1
-    CH2 = 2
-
-
 class ModSource(Enum):
     INTERNAL = "INT"
     EXTERNAL = "EXT"

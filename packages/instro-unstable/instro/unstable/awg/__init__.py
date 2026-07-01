@@ -10,7 +10,6 @@ from instro.unstable.awg.awg import (
 )
 from instro.unstable.awg.types import (
     BurstMode,
-    Channel,
     ClockSource,
     ModSource,
     ModWaveform,
@@ -26,7 +25,6 @@ __all__ = [
     "InstroAWG",
     "AWGDriverBase",
     "WaveformType",
-    "Channel",
     "ModSource",
     "ModWaveform",
     "SweepSpacing",
