@@ -1,3 +1,4 @@
+```text
 --+++++                                                                                                
 --+++++                                                                                                
                                                   --+++++                                              
@@ -13,6 +14,7 @@
 --++++++++++++++++++    --++++++--+++++++----+++++--+++++++++++++++++++++++++++++++  --++++++----++++++
 ---+++++++++++++++++    --++++++---+++++++++++++++ --++++++++++++++++++++++++++++++  ---++++++++++++++ 
   ----++++++++++++++    --++++++  ----++++++++++     ---+++++++++++++++++++++++++++     ---+++++++++   
+```
 
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
@@ -36,7 +38,7 @@ from instro.psu.drivers import SimulatedPSU
 
 with InstroPSU(
     name="my-psu",
-    driver=SimulatedPSU("<TCPIP0::127.0.0.1::5025::SOCKET>"),
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
     num_channels=2,
 ) as psu:
     psu.set_voltage(3.3, channel=1)
