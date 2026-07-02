@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/nominal-io/instro/compare/instro-v1.0.0...instro-v1.0.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **visa:** quiet pyvisa-py fallback on the healthy path ([#192](https://github.com/nominal-io/instro/issues/192)) ([e3c675d](https://github.com/nominal-io/instro/commit/e3c675d6ce8d7f47c22b4d4603738d12e27a5404))
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-v0.14.0...instro-v1.0.0) (2026-07-02)
 
 
