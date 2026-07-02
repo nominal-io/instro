@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.0.0](https://github.com/nominal-io/instro/compare/instro-v0.14.0...instro-v1.0.0) (2026-07-02)
+
+
+### Miscellaneous
+
+* release main ([#198](https://github.com/nominal-io/instro/issues/198)) ([c12e274](https://github.com/nominal-io/instro/commit/c12e2744537241be228ba49312ab3f4c9be16c61))
+
+## [0.14.0](https://github.com/nominal-io/instro/compare/instro-v0.13.0...instro-v0.14.0) (2026-06-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167))
+
+### Features
+
+* **ethernetip:** graduate EtherNet/IP out of unstable into a dedicated package ([#178](https://github.com/nominal-io/instro/issues/178)) ([4f716e4](https://github.com/nominal-io/instro/commit/4f716e4e8e3b56fa0cfa4543732bd306f068cea5))
+* **psu:** add support for matrix WPS300s [closes [#124](https://github.com/nominal-io/instro/issues/124)] ([#125](https://github.com/nominal-io/instro/issues/125)) ([5e84286](https://github.com/nominal-io/instro/commit/5e84286596b1c52a5f6130b5bb752453beac79be))
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167)) ([787a8ba](https://github.com/nominal-io/instro/commit/787a8bad9a566f25bb161ee5b34c6dc90eab520f))
+
+
+### Bug Fixes
+
+* **ethernetip:** kill cpppo simulator process tree on test teardown ([#174](https://github.com/nominal-io/instro/issues/174)) ([f9e00e8](https://github.com/nominal-io/instro/commit/f9e00e849956a619ab69fd1acfe5dcb7845f9125))
+
 ## [0.13.0](https://github.com/nominal-io/instro/compare/instro-v0.12.1...instro-v0.13.0) (2026-06-25)
 
 

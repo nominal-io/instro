@@ -6,8 +6,8 @@ import math
 import time
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.types import (
+from instro.scope import ScopeDriverBase
+from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,
@@ -183,12 +183,12 @@ class SiglentSDS1000XE(ScopeDriverBase):
             if inst is None:
                 raise RuntimeError("SiglentSDS1000XE transport is not open")
             saved_termination = inst.read_termination
-            inst.read_termination = None
+            inst.read_termination = None  # type: ignore[assignment]  # pyvisa accepts None to read to EOM
             try:
                 self._visa.write(command)
                 return inst.read_raw()
             finally:
-                inst.read_termination = saved_termination
+                inst.read_termination = saved_termination  # type: ignore[assignment]
 
     def check_errors(self) -> None:
         """Poll ``CMR?`` then ``EXR?`` and raise on the first non-zero code (no error queue on Siglent)."""
