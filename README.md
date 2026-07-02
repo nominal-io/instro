@@ -61,9 +61,8 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni)](https://pypi.org/project/instro-daq-ni/) |
 | `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack)](https://pypi.org/project/instro-daq-labjack/) |
 | `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc)](https://pypi.org/project/instro-daq-mcc/) |
-| `instro[daq]` | All three DAQ vendor SDKs | — |
-| `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark)](https://pypi.org/project/instro-i2c-aardvark/) |
-| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip)](https://pypi.org/project/instro-ethernetip/) |
+| `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark)](https://pypi.org/project/instro-i2c-aardvark/) |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip)](https://pypi.org/project/instro-ethernetip/) |
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
@@ -80,7 +79,8 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
-Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
+Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/). 
+Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
 ## Documentation
 
