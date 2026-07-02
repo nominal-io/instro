@@ -1,8 +1,50 @@
-# ⟢ instro
+--+++++                                                                                                
+--+++++                                                                                                
+                                                  --+++++                                              
+                                                  --+++++                                              
+--+++++      --+++++---++++++     -----+++++++    --++++++++++++ --+++++++++ ---+++++   ----+++++++    
+--+++++      --++++-++++++++++  ---++++++++++++++ --++++++++++++ --+++++++++--+++++++ --+++++++++++++  
+--+++++      --++++++++-+++++++ --++++++ ---++++++--++++++++++++ --++++++++++++++++++--+++++++--+++++++
+--+++++      --++++++   --+++++---+++++   ---+++++--+++++             --++++++      --++++++    --+++++
+--+++++      --+++++    --++++++--+++++++++       --+++++             --+++++       --+++++     --+++++
+--+++++      --+++++    --++++++ ---+++++++++++++ --+++++             --++++        --+++++     --+++++
+--+++++      --+++++    --++++++     ------+++++++--+++++             --++++        --+++++     --+++++
+--+++++      --+++++    --+++++--++++++    --+++++--+++++             --++++        --+++++     --+++++
+--++++++++++++++++++    --++++++--+++++++----+++++--+++++++++++++++++++++++++++++++  --++++++----++++++
+---+++++++++++++++++    --++++++---+++++++++++++++ --++++++++++++++++++++++++++++++  ---++++++++++++++ 
+  ----++++++++++++++    --++++++  ----++++++++++     ---+++++++++++++++++++++++++++     ---+++++++++   
 
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg)](https://pypi.org/project/instro/)
+[![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
+[![SDK Reference](https://img.shields.io/badge/SDK_reference-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
+
+## Quickstart
+
+Talk to a simulated PSU. No hardware required.
+
+```bash
+# Terminal 1: start the in-process SCPI sim server:
+uv run python -m instro.psu.scpi_sim_server
+```
+
+```python
+# Terminal 2: run this:
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+with InstroPSU(
+    name="my-psu",
+    driver=SimulatedPSU("<TCPIP0::127.0.0.1::5025::SOCKET>"),
+    num_channels=2,
+) as psu:
+    psu.set_voltage(3.3, channel=1)
+    psu.output_enable(True, channel=1)
+    print(psu.get_voltage(channel=1))
+```
+
+That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Installation
 
@@ -38,32 +80,6 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) |
 | `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
 | `instro[all]` | Everything above |
-
-## Quickstart
-
-Talk to a simulated PSU. No hardware required.
-
-```bash
-# Terminal 1: start the in-process SCPI sim server:
-uv run python -m instro.psu.scpi_sim_server
-```
-
-```python
-# Terminal 2: run this:
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
-
-with InstroPSU(
-    name="my-psu",
-    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-) as psu:
-    psu.output_enable(True, channel=1)
-    psu.set_voltage(3.3, channel=1)
-    print(psu.get_voltage(channel=1))  # Measurement(channel_data={'my-psu.ch1.voltage': [3.31...]}, ...)
-```
-
-That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Supported devices
 
