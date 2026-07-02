@@ -82,10 +82,6 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/). 
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
-## Documentation
-
-Full guides, API reference, and per-category walkthroughs live at **[instro.nominal.io](https://instro.nominal.io)**.
-
 ## Contributing
 
 - **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
