@@ -126,7 +126,7 @@ CI verifies all committed lockfiles with `--locked`:
 - `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
 - `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
 
-Both run explicitly in CI and are included in `just rust` (which `just test` invokes via `just eip-test`).
+Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
 
 **Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
 
