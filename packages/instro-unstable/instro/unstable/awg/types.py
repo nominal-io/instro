@@ -34,7 +34,7 @@ class SweepSpacing(Enum):
 
 
 class TriggerSource(Enum):
-    INTERNAL = "IMM"  # DG1022 uses IMMediate, not INT
+    INTERNAL = "INT"
     EXTERNAL = "EXT"
     MANUAL = "BUS"
 
