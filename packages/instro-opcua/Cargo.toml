@@ -11,7 +11,7 @@ serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
-tokio = { workspace = true, features = ["time", "macros"] }
+tokio = { workspace = true, features = ["time", "macros", "rt", "sync"] }
 itertools.workspace = true
 open62541.workspace = true
 open62541-sys.workspace = true
