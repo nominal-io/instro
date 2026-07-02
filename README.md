@@ -67,7 +67,7 @@ Instro drivers that require a separate vendor sdk installation ship as separate 
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
-Pass the extra in brackets to `pip install` (quote it so your shell doesn't interpret the brackets). Combine several with commas:
+Pass the extra package name in brackets to `pip install`. Don't forget the quotes!:
 
 ```bash
 pip install "instro[labjack]"
