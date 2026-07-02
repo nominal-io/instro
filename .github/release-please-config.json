@@ -1,6 +1,5 @@
 {
   "include-component-in-tag": true,
-  "release-as": "1.0.0",
   "changelog-sections": [
     {
       "type": "feat",
