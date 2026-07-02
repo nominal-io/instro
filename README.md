@@ -67,6 +67,13 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
+Pass the extra in brackets to `pip install` (quote it so your shell doesn't interpret the brackets). Combine several with commas:
+
+```bash
+pip install "instro[labjack]"
+pip install "instro[nidaq,contrib]"
+```
+
 ## Supported devices
 
 | Category | Class | Vendors |
