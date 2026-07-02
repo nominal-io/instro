@@ -480,6 +480,7 @@ impl OpcUaClient {
         let mut maybe_interval = if polling_interval.is_zero() {
             None
         } else {
+            // missed-tick behavior defaults to `Burst`, which is what we want
             Some(interval(polling_interval))
         };
 
@@ -541,11 +542,6 @@ impl OpcUaClient {
             }
 
             metrics.finish_read(read_start, outcome);
-
-            // match polling_interval.checked_sub(start_time.elapsed()) {
-            //     Some(duration) => sleep(duration).await,
-            //     None => yield_now().await, // injected suspension point to allow cooperative cancellation before next server read
-            // }
         }
     }
 
