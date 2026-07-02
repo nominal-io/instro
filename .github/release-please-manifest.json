@@ -1,10 +1,10 @@
 {
-  ".": "0.14.0",
-  "packages/instro-daq-labjack": "0.8.0",
-  "packages/instro-daq-mcc": "0.6.0",
-  "packages/instro-daq-ni": "0.8.0",
-  "packages/instro-i2c-aardvark": "0.3.0",
-  "packages/instro-unstable": "0.4.0",
-  "packages/instro-ethernetip": "0.3.0",
-  "packages/instro-contrib": "0.2.0"
+  ".": "1.0.0",
+  "packages/instro-daq-labjack": "1.0.0",
+  "packages/instro-daq-mcc": "1.0.0",
+  "packages/instro-daq-ni": "1.0.0",
+  "packages/instro-i2c-aardvark": "1.0.0",
+  "packages/instro-unstable": "1.0.0",
+  "packages/instro-ethernetip": "1.0.0",
+  "packages/instro-contrib": "1.0.0"
 }
