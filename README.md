@@ -64,7 +64,7 @@ Native-SDK drivers ship as separate workspace packages so the heavy dependencies
 | `instro[daq]` | All three DAQ vendor SDKs | — |
 | `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark)](https://pypi.org/project/instro-i2c-aardvark/) |
 | `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip)](https://pypi.org/project/instro-ethernetip/) |
-| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
+| `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
 ## Supported devices
