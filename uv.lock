@@ -474,7 +474,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "0.14.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -598,7 +598,7 @@ test = [
 
 [[package]]
 name = "instro-contrib"
-version = "0.2.0"
+version = "1.0.0"
 source = { editable = "packages/instro-contrib" }
 dependencies = [
     { name = "instro" },
@@ -609,7 +609,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "0.8.0"
+version = "1.0.0"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -624,7 +624,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "0.6.0"
+version = "1.0.0"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -639,7 +639,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "0.8.0"
+version = "1.0.0"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
@@ -654,7 +654,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-ethernetip"
-version = "0.3.0"
+version = "1.0.0"
 source = { editable = "packages/instro-ethernetip" }
 dependencies = [
     { name = "instro" },
@@ -665,7 +665,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-i2c-aardvark"
-version = "0.3.0"
+version = "1.0.0"
 source = { editable = "packages/instro-i2c-aardvark" }
 dependencies = [
     { name = "instro" },
@@ -680,7 +680,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-unstable"
-version = "0.4.0"
+version = "1.0.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },

@@ -85,12 +85,52 @@ build-docs:
 gen-examples:
     uv run python docs/guides/generate_examples.py
 
+# PyO3/maturin crates excluded from the root Cargo workspace (see Cargo.toml exclude).
+rust-standalone-packages := "packages/instro-ethernetip"
+
+# Verify all committed Cargo.lock files match current manifests (no regeneration).
+rust-lock-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo check --locked --workspace --all-targets --all-features
+    for pkg in {{ rust-standalone-packages }}; do
+        cargo check --locked --manifest-path "$pkg/Cargo.toml"
+    done
+
+# Run fmt-check, clippy, and locked check for standalone native-extension crates.
+rust-standalone manifest="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{ manifest }}" ]; then
+        manifests=("{{ manifest }}")
+    else
+        manifests=()
+        for pkg in {{ rust-standalone-packages }}; do
+            manifests+=("$pkg/Cargo.toml")
+        done
+    fi
+    for manifest in "${manifests[@]}"; do
+        cargo fmt --manifest-path "$manifest" -- --check
+        cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+        cargo check --locked --manifest-path "$manifest"
+    done
+
+# Format standalone native-extension crates (local convenience; mutates files).
+rust-standalone-fix:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ rust-standalone-packages }}; do
+        cargo fmt --manifest-path "$pkg/Cargo.toml"
+    done
+
 # run Rust formatting, linting, and library/doc tests for the workspace
 rust:
+    just rust-lock-check
     cargo fmt --all
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     cargo test --workspace --all-features --lib --tests
     cargo test --workspace --all-features --doc
+    just rust-standalone
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:

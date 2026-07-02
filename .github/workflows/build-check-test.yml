@@ -54,6 +54,10 @@ jobs:
       - name: Static type check
         run: |
           just check-types
+      - name: Check Rust lockfiles
+        run: just rust-lock-check
+      - name: Standalone native extension Rust checks
+        run: just rust-standalone
       - name: Run unit tests
         run: |
           just test
