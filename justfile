@@ -153,6 +153,15 @@ eip-live-test:
 eip-build:
     uv build --package instro-ethernetip
 
+# build the EtherNet/IP sdist and verify it contains source-build inputs
+eip-sdist-smoke-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dist_dir="$(mktemp -d)"
+    trap 'rm -rf "$dist_dir"' EXIT
+    uv build --sdist --package instro-ethernetip --out-dir "$dist_dir"
+    uv run python tests/ethernetip/check_ethernetip_sdist.py "$dist_dir"
+
 # install the built wheel into an isolated environment and verify the private native module
 eip-wheel-smoke-test:
     #!/usr/bin/env bash
@@ -179,5 +188,5 @@ eip-wheel-smoke-test:
     INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip/ethernetip_wheel_smoke.py
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
-eip-test: eip-wheel-smoke-test rust eip-rs-test
+eip-test: eip-sdist-smoke-test eip-wheel-smoke-test rust eip-rs-test
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q

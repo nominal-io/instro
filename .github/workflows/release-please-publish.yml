@@ -111,36 +111,7 @@ jobs:
       - name: Verify EtherNet/IP sdist includes Rust source
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import tarfile
-
-          sdists = list(Path("dist").glob("instro_ethernetip-*.tar.gz"))
-          if not sdists:
-              raise SystemExit("No instro-ethernetip sdist found")
-
-          required = [
-              "packages/instro-ethernetip/src/lib.rs",
-              "packages/instro-ethernetip/src/sync_session.rs",
-              "packages/instro-ethernetip-rs/src/lib.rs",
-              "packages/instro-ethernetip-rs/src/blocking.rs",
-              "packages/instro-ethernetip-rs/Cargo.toml",
-              "packages/instro-ethernetip/Cargo.lock",
-              # The Python HAL ships in this sdist too; a source build must produce
-              # an importable instro.ethernetip, not just the native extension.
-              "instro/ethernetip/__init__.py",
-              "instro/ethernetip/ethernetip.py",
-              "instro/ethernetip/ethernetip_types.py",
-              "instro/ethernetip/_ethernetip.pyi",
-              "instro/ethernetip/py.typed",
-          ]
-          with tarfile.open(sdists[0]) as archive:
-              names = archive.getnames()
-
-          missing = [path for path in required if not any(name.endswith(path) for name in names)]
-          if missing:
-              raise SystemExit(f"EtherNet/IP sdist is missing: {', '.join(missing)}")
-          PY
+          python3 tests/ethernetip/check_ethernetip_sdist.py dist
       - name: Upload EtherNet/IP sdist
         uses: actions/upload-artifact@v4
         with:
