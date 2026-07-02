@@ -67,7 +67,7 @@ Instro drivers that require a separate vendor sdk installation ship as separate 
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
-Pass the extra package name in brackets to `pip install`. Don't forget the quotes!:
+Pass the extra package name in brackets to `pip install`:
 
 ```bash
 pip install "instro[labjack]"
@@ -78,16 +78,16 @@ pip install "instro[nidaq,contrib]"
 
 | Category | Class | Vendors |
 |---|---|---|
-| Power supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
-| Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
-Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/). 
+Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing
