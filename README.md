@@ -56,16 +56,16 @@ For the full toolchain needed to run `just check` and `just test` (including the
 
 Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
-| Extra | Pulls in |
-|---|---|
-| `instro[nidaq]` | NI-DAQmx (Linux + Windows) |
-| `instro[labjack]` | LabJack LJM |
-| `instro[mccdaq]` | MCC UL (Windows-only) |
-| `instro[daq]` | All three DAQ vendor SDKs |
-| `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
-| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) |
-| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
-| `instro[all]` | Everything above |
+| Extra | Pulls in | Package |
+|---|---|---|
+| `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni)](https://pypi.org/project/instro-daq-ni/) |
+| `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack)](https://pypi.org/project/instro-daq-labjack/) |
+| `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc)](https://pypi.org/project/instro-daq-mcc/) |
+| `instro[daq]` | All three DAQ vendor SDKs | — |
+| `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark)](https://pypi.org/project/instro-i2c-aardvark/) |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip)](https://pypi.org/project/instro-ethernetip/) |
+| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
+| `instro[all]` | Everything above | — |
 
 ## Supported devices
 
