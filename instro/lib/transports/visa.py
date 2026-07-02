@@ -9,9 +9,10 @@ import logging
 import socket
 import threading
 import typing
+import warnings
 
 import pyvisa
-from pyvisa.constants import InterfaceType
+from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
 logger = logging.getLogger(__name__)
@@ -151,7 +152,7 @@ class VisaDriver:
             # pyvisa caches one ResourceManager per backend and shares it across every
             # driver in the process; closing it would kill all other drivers' sessions.
             # pyvisa closes it via its own atexit handler.
-            rm = _open_resource_manager(cfg.visa_backend)
+            rm, used_py_fallback = _open_resource_manager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
                 inst = typing.cast(
@@ -159,10 +160,16 @@ class VisaDriver:
                     rm.open_resource(cfg.visa_resource),
                 )
                 _configure_resource(inst, cfg)
-            except Exception:
+            except Exception as exc:
                 if inst is not None:
                     with contextlib.suppress(Exception):
                         inst.close()
+                if used_py_fallback and _is_missing_backend_error(exc):
+                    logger.warning(
+                        "The pyvisa-py (@py) fallback backend (no IVI VISA found) cannot serve "
+                        "%s. Install NI-VISA or set visa_backend explicitly.",
+                        cfg.visa_resource,
+                    )
                 raise
 
             self._inst = inst
@@ -281,20 +288,35 @@ class VisaDriver:
         return self._inst
 
 
-def _open_resource_manager(backend: str | None) -> pyvisa.ResourceManager:
-    """Open a ResourceManager. An unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
+def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, bool]:
+    """Open a ResourceManager, returning (rm, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
     if backend is not None:
-        return pyvisa.ResourceManager(backend)
+        return pyvisa.ResourceManager(backend), False
     try:
-        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND)
+        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND), False
     except (OSError, pyvisa.errors.Error) as exc:
-        logger.warning(
+        logger.debug(
             "VISA backend %s unavailable (%s); falling back to %s",
             DEFAULT_VISA_BACKEND,
             exc,
             FALLBACK_VISA_BACKEND,
         )
-        return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND)
+        # gpib_ctypes warns at @py construction when the GPIB C library is missing;
+        # irrelevant unless the resource being opened is GPIB, which fails at
+        # open_resource with its own actionable error.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*GPIB.*")
+            return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), True
+
+
+def _is_missing_backend_error(exc: BaseException) -> bool:
+    """True when an open failure means the backend can't serve the resource class, not that the device is unreachable."""
+    if isinstance(exc, pyvisa.errors.VisaIOError):
+        return exc.error_code == VI_ERROR_LIBRARY_NFOUND
+    # pyvisa-py signals "no session class for this resource" (unsupported class, or its
+    # optional library is missing, e.g. GPIB) as ValueError; ordinary connection
+    # failures surface as VisaIOError/OSError/plain Exception.
+    return isinstance(exc, ValueError) and "No class registered" in str(exc)
 
 
 def _configure_resource(
