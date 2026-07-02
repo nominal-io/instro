@@ -56,6 +56,7 @@ from instro.daq import InstroDAQ
 from instro.daq.drivers.arduino_firmata import ArduinoFirmata
 from instro.daq.types import Direction, Logic
 from instro.lib.publishers import NominalCorePublisher
+from instro.lib.types import Measurement
 
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
@@ -178,6 +179,16 @@ class TestArduinoFirmataHardware(unittest.TestCase):
 
     # -- helpers ----------------------------------------------------------
 
+    def _wait_for_digital(self, daq: InstroDAQ, alias: str, expected: int, timeout: float = 2.0) -> int:
+        """Poll read_digital_line until it matches expected or timeout expires. Returns the last read value."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            read = int(daq.read_digital_line(alias).latest)
+            if read == expected:
+                return read
+            time.sleep(0.01)
+        return int(daq.read_digital_line(alias).latest)
+
     def _create_daq(self) -> InstroDAQ:
         daq = InstroDAQ(
             name=NAME,
@@ -267,8 +278,8 @@ class TestArduinoFirmataHardware(unittest.TestCase):
                 daq.start()
                 try:
                     time.sleep(0.5)
-                    ch0 = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_latest=True)
-                    ch1 = daq.get_channel(f"{NAME}.{AI_ALIAS_1}", 1, wait_for_latest=False)
+                    ch0 = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_new_samples=True)
+                    ch1 = daq.get_channel(f"{NAME}.{AI_ALIAS_1}", 1, wait_for_new_samples=False)
                     self.assertIsNotNone(ch0)
                     self.assertIsNotNone(ch1)
                     self.assertTrue(math.isfinite(ch0.latest), f"non-finite A0 read: {ch0.latest}")
@@ -325,7 +336,7 @@ class TestArduinoFirmataHardware(unittest.TestCase):
                 daq.start()
                 try:
                     time.sleep(0.5)
-                    ch0 = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_latest=True)
+                    ch0 = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_new_samples=True)
                     self.assertTrue(math.isfinite(ch0.latest), f"non-finite loopback read: {ch0.latest}")
                     self.assertGreaterEqual(ch0.latest, 0.0)
                     self.assertLessEqual(ch0.latest, 5.0)
@@ -356,9 +367,15 @@ class TestArduinoFirmataHardware(unittest.TestCase):
             try:
                 self._configure_digital_lines(daq)
                 errs = []
-                for state in (0, 1, 0, 1, 0):
+                for state in (
+                    0,
+                    1,
+                    0,
+                    1,
+                    0,
+                ):
                     daq.write_digital_line(DO_ALIAS, state)
-                    time.sleep(0.05)
+                    time.sleep(0.15)
                     read = int(daq.read_digital_line(DI_ALIAS).latest)
                     flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         D2<-{state} | D3={read}{flag}")
@@ -390,14 +407,14 @@ class TestArduinoFirmataHardware(unittest.TestCase):
                 daq.start()
                 try:
                     time.sleep(0.3)
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_latest=True)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_new_samples=True)
                     self.assertTrue(math.isfinite(ch.latest))
                     print(f"         before rate change: A0={ch.latest:.3f} V")
 
                     daq.driver.set_sampling_rate(50.0)
                     time.sleep(0.5)
 
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_latest=True)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_new_samples=True)
                     self.assertTrue(math.isfinite(ch.latest))
                     print(f"         after rate change to 50 Hz: A0={ch.latest:.3f} V")
                 finally:
@@ -461,13 +478,112 @@ class TestArduinoFirmataHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Methods not implemented — reported as skipped
+    # 9. Analog input — software-timed (no daemon)
     # =====================================================================
-    def test_09_hw_timing_unsupported(self) -> None:
+    def test_09_analog_input_software_timed(self) -> None:
+        """Read A0 via software-timed read_analog() without starting the daemon."""
+
+        def step() -> None:
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                time.sleep(0.3)  # allow callbacks to populate _latest_values
+                result = daq.read_analog()
+                self.assertIsInstance(result, Measurement)
+                self.assertEqual(len(result.timestamps), 1)
+                voltage = result.channel_data[f"{NAME}.{AI_ALIAS_0}"][0]
+                self.assertTrue(math.isfinite(voltage), f"non-finite A0 read: {voltage}")
+                self.assertGreaterEqual(voltage, 0.0)
+                self.assertLessEqual(voltage, 5.0)
+                print(f"         A0 (software-timed)={voltage:.3f} V")
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Analog input (software-timed)",
+            "Configure A0 and A1, wait for callbacks, and verify read_analog() returns a finite value without starting the daemon.",
+            step,
+        )
+
+    # =====================================================================
+    # 10. Analog input — start(background=False)
+    # =====================================================================
+    def test_10_analog_input_no_daemon(self) -> None:
+        """Read A0 via fetch_analog with start(background=False)."""
+
+        def step() -> None:
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                daq.start(background=False)
+                try:
+                    result = daq.read_analog()
+                    self.assertIsInstance(result, Measurement)
+                    voltage = result.channel_data[f"{NAME}.{AI_ALIAS_0}"][0]
+                    self.assertTrue(math.isfinite(voltage), f"non-finite A0 read: {voltage}")
+                    self.assertGreaterEqual(voltage, 0.0)
+                    self.assertLessEqual(voltage, 5.0)
+                    print(f"         A0 (no daemon)={voltage:.3f} V")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Analog input (no daemon)",
+            "Configure A0 and A1, start(background=False), and verify read_analog() returns a finite value via fetch_analog.",
+            step,
+        )
+
+    # =====================================================================
+    # 11. Digital write while daemon running
+    # =====================================================================
+    def test_11_digital_write_while_daemon_running(self) -> None:
+        """Drive D2 while the background analog daemon is active."""
+
+        def step() -> None:
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_digital_lines(daq)
+                daq.start()
+                try:
+                    time.sleep(0.3)
+                    errs = []
+                    for state in (0, 1, 0, 1, 0):
+                        daq.write_digital_line(DO_ALIAS, state)
+                        time.sleep(0.15)
+                        read = self._wait_for_digital(daq, DI_ALIAS, state)
+                        flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
+                        print(f"         D2<-{state} | D3={read}{flag}")
+                        if LOOPBACK_WIRED and read != state:
+                            errs.append(f"drove D2={state}, read D3={read}")
+                    ch0 = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 1, wait_for_new_samples=True)
+                    self.assertTrue(math.isfinite(ch0.latest), f"analog stopped during digital writes: {ch0.latest}")
+                    print(f"         A0 during digital writes={ch0.latest:.3f} V")
+                    daq.write_digital_line(DO_ALIAS, 0)
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+            finally:
+                daq.write_digital_line(DO_ALIAS, 0)
+                daq.close()
+
+        self._run_step(
+            "Digital write while daemon running",
+            "Start the background analog daemon, then drive D2 through a 0/1 sequence and verify "
+            "D3 reads back correctly and A0 analog data keeps flowing.",
+            step,
+        )
+
+    # =====================================================================
+    # 12. Methods not implemented — reported as skipped
+    # =====================================================================
+    def test_12_hw_timing_unsupported(self) -> None:
         """configure_ai_hw_timing raises NotImplementedError on ArduinoFirmata."""
         self.skipTest("ArduinoFirmata has no hardware-timed buffered acquisition")
 
-    def test_10_port_width_digital_unsupported(self) -> None:
+    def test_13_port_width_digital_unsupported(self) -> None:
         """write_digital_port / read_digital_port raise NotImplementedError."""
         self.skipTest("ArduinoFirmata does not support port-mode digital I/O")
 

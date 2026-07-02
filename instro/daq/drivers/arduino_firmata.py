@@ -70,6 +70,7 @@ class ArduinoFirmata(DAQDriverBase):
         it = pyfirmata2.util.Iterator(self._board)
         it.start()
         time.sleep(0.1)  # allow the iterator to receive first handshake response
+        self._board.samplingOn(self._sampling_interval_ms)
 
     def close(self) -> None:
         if self._board is not None:
@@ -170,11 +171,9 @@ class ArduinoFirmata(DAQDriverBase):
             self._sample_queue.put_nowait((timestamp, dict(self._latest_values)))
             self._pending_updates.clear()
 
-    def read_analog(self) -> dict[str, float]:
-        result: dict[str, float] = {}
-        for alias in self._ai_channels:
-            result[alias] = self._latest_values.get(alias, 0.0)
-        return result
+    def read_analog(self) -> list[tuple[int, dict[str, float]]]:
+        values = {alias: self._latest_values.get(alias, 0.0) for alias in self._ai_channels}
+        return [(time.time_ns(), values)]
 
     def fetch_analog(self) -> list[tuple[int, dict[str, float]]]:
         timeout = max(1.0, self._sampling_interval_ms / 1000 * 3)
@@ -198,20 +197,18 @@ class ArduinoFirmata(DAQDriverBase):
         default_tags: dict[str, str],
         **kwargs: Any,
     ) -> list[Measurement]:
-        measurements = []
+        timestamps: list[int] = []
+        channel_data: dict[str, list[float]] = {}
         for timestamp, values in response:
-            channel_data: dict[str, list[float]] = {}
+            timestamps.append(timestamp)
             for alias, raw in values.items():
                 ch = channel_list.get(alias)
                 if not isinstance(ch, AnalogChannel):
                     continue
                 voltage = ch.range_min + (raw * (ch.range_max - ch.range_min))
+                channel_data.setdefault(f"{daq_name}.{alias}", []).append(voltage)
 
-                channel_data[f"{daq_name}.{alias}"] = [voltage]
-            measurements.append(
-                Measurement(channel_data=channel_data, timestamps=[timestamp], tags={**default_tags, **kwargs})
-            )
-        return measurements
+        return [Measurement(channel_data=channel_data, timestamps=timestamps, tags={**default_tags, **kwargs})]
 
     def configure_di_line_channel(
         self, physical_channel: str, logic: Logic, logic_level: float | None = None, alias: str | None = None
@@ -259,6 +256,8 @@ class ArduinoFirmata(DAQDriverBase):
 
     def write_digital_line(self, channel: DigitalChannel, data: int) -> None:
         self._pins[channel.alias].write(data)
+        if self._board is not None:
+            self._board.sp.flush()
 
     def read_digital_line(self, channel: DigitalChannel) -> int:
         raw = self._latest_values.get(channel.alias, 0)
