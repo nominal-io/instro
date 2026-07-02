@@ -53,18 +53,18 @@ This creates a virtual environment with the core library, all optional vendor dr
 
 For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies that `just test` requires), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
 
-### Optional extras
+## Optional Extras
 
-Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
+Instro drivers that require a separate vendor sdk installation ship as separate packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
 | Extra | Pulls in <img width="500" height="1"> | Package |
 |---|---|---|
-| `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni)](https://pypi.org/project/instro-daq-ni/) |
-| `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack)](https://pypi.org/project/instro-daq-labjack/) |
-| `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc)](https://pypi.org/project/instro-daq-mcc/) |
-| `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark)](https://pypi.org/project/instro-i2c-aardvark/) |
-| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip)](https://pypi.org/project/instro-ethernetip/) |
-| `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib)](https://pypi.org/project/instro-contrib/) |
+| `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni&color=419B55)](https://pypi.org/project/instro-daq-ni/) |
+| `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack&color=419B55)](https://pypi.org/project/instro-daq-labjack/) |
+| `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc&color=419B55)](https://pypi.org/project/instro-daq-mcc/) |
+| `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark&color=419B55)](https://pypi.org/project/instro-i2c-aardvark/) |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip&color=419B55)](https://pypi.org/project/instro-ethernetip/) |
+| `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
 
 Pass the extra in brackets to `pip install` (quote it so your shell doesn't interpret the brackets). Combine several with commas:
