@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "0.13.0"
+version = "1.0.0"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"

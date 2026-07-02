@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.0.0](https://github.com/nominal-io/instro/compare/instro-v0.14.0...instro-v1.0.0) (2026-07-02)
+
+
+### Miscellaneous
+
+* release main ([#198](https://github.com/nominal-io/instro/issues/198)) ([c12e274](https://github.com/nominal-io/instro/commit/c12e2744537241be228ba49312ab3f4c9be16c61))
+
+## [0.14.0](https://github.com/nominal-io/instro/compare/instro-v0.13.0...instro-v0.14.0) (2026-06-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167))
+
+### Features
+
+* **ethernetip:** graduate EtherNet/IP out of unstable into a dedicated package ([#178](https://github.com/nominal-io/instro/issues/178)) ([4f716e4](https://github.com/nominal-io/instro/commit/4f716e4e8e3b56fa0cfa4543732bd306f068cea5))
+* **psu:** add support for matrix WPS300s [closes [#124](https://github.com/nominal-io/instro/issues/124)] ([#125](https://github.com/nominal-io/instro/issues/125)) ([5e84286](https://github.com/nominal-io/instro/commit/5e84286596b1c52a5f6130b5bb752453beac79be))
+* **scope:** graduate InstroScope from instro-unstable to core ([#167](https://github.com/nominal-io/instro/issues/167)) ([787a8ba](https://github.com/nominal-io/instro/commit/787a8bad9a566f25bb161ee5b34c6dc90eab520f))
+
+
+### Bug Fixes
+
+* **ethernetip:** kill cpppo simulator process tree on test teardown ([#174](https://github.com/nominal-io/instro/issues/174)) ([f9e00e8](https://github.com/nominal-io/instro/commit/f9e00e849956a619ab69fd1acfe5dcb7845f9125))
+
+## [0.13.0](https://github.com/nominal-io/instro/compare/instro-v0.12.1...instro-v0.13.0) (2026-06-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151))
+
+### Features
+
+* **cli:** add instro discover command ([#99](https://github.com/nominal-io/instro/issues/99)) ([699648c](https://github.com/nominal-io/instro/commit/699648cf66e87f3d3c7c1122d1004c89fffb43c2))
+* **instrument:** auto-prepend instrument name in get_channel ([#152](https://github.com/nominal-io/instro/issues/152)) ([e807209](https://github.com/nominal-io/instro/commit/e807209caccc5d28e55be69169c68f58db22984c)), closes [#147](https://github.com/nominal-io/instro/issues/147)
+
+
+### Bug Fixes
+
+* 149 bug documentation for get channel does not match behavior ([#151](https://github.com/nominal-io/instro/issues/151)) ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+* closes [#149](https://github.com/nominal-io/instro/issues/149). First, updates documentation about timeout behavior. ([f4f3966](https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d))
+* **transports:** disable Nagle on raw TCP sockets for pyvisa-py ([#157](https://github.com/nominal-io/instro/issues/157)) ([e1ce26a](https://github.com/nominal-io/instro/commit/e1ce26a01384d940d8e7dda84c54f293311cf72d))
+
 ## [0.12.1](https://github.com/nominal-io/instro/compare/instro-v0.12.0...instro-v0.12.1) (2026-06-24)
 
 
