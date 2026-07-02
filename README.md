@@ -3,9 +3,9 @@
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
-[![Docs](https://img.shields.io/badge/docs-instro.nominal.io-D1D0C5)](https://instro.nominal.io)
+[![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
 [![SDK Reference](https://img.shields.io/badge/SDK_reference-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
-[![Community](https://img.shields.io/badge/community-community.instro.nominal.io-D1D0C5)](https://community.instro.nominal.io)
+[![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
 
 ## Quickstart
 
