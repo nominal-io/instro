@@ -125,7 +125,7 @@ jobs:
               "packages/instro-ethernetip-rs/src/lib.rs",
               "packages/instro-ethernetip-rs/src/blocking.rs",
               "packages/instro-ethernetip-rs/Cargo.toml",
-              "Cargo.lock",
+              "packages/instro-ethernetip/Cargo.lock",
               # The Python HAL ships in this sdist too; a source build must produce
               # an importable instro.ethernetip, not just the native extension.
               "instro/ethernetip/__init__.py",

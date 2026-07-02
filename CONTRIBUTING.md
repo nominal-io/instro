@@ -109,6 +109,27 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
+### Rust Cargo.lock (dual-lock policy)
+
+Rust tooling spans two dependency graphs:
+
+- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip-rs`, `opcua`, …).
+- Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
+
+**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
+
+- Workspace members: `cargo update` at the repo root.
+- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
+
+CI verifies all committed lockfiles with `--locked`:
+
+- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
+- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
+
+Both run explicitly in CI and are included in `just rust` (which `just test` invokes via `just eip-test`).
+
+**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+
 ## Issues and discussion
 
 **Every change is tracked by a GitHub issue or ticket: no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instro/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.

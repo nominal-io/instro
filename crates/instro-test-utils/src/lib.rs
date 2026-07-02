@@ -1,8 +1,8 @@
 pub mod assertions {
     use std::fmt::Debug;
 
-    use serde::Serialize;
     use serde::Deserialize;
+    use serde::Serialize;
 
     /// Assert that a serializable value can be serialized and deserialized without loss of information.
     ///
