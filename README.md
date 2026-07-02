@@ -4,7 +4,7 @@ Python library for talking to test-and-measurement instruments (power supplies, 
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
 [![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
-[![SDK Reference](https://img.shields.io/badge/SDK_reference-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
+[![SDK](https://img.shields.io/badge/sdk-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
 [![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
 
 ## Quickstart
