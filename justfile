@@ -85,12 +85,52 @@ build-docs:
 gen-examples:
     uv run python docs/guides/generate_examples.py
 
+# PyO3/maturin crates excluded from the root Cargo workspace (see Cargo.toml exclude).
+rust-standalone-packages := "packages/instro-ethernetip"
+
+# Verify all committed Cargo.lock files match current manifests (no regeneration).
+rust-lock-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo check --locked --workspace --all-targets --all-features
+    for pkg in {{ rust-standalone-packages }}; do
+        cargo check --locked --manifest-path "$pkg/Cargo.toml"
+    done
+
+# Run fmt-check, clippy, and locked check for standalone native-extension crates.
+rust-standalone manifest="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{ manifest }}" ]; then
+        manifests=("{{ manifest }}")
+    else
+        manifests=()
+        for pkg in {{ rust-standalone-packages }}; do
+            manifests+=("$pkg/Cargo.toml")
+        done
+    fi
+    for manifest in "${manifests[@]}"; do
+        cargo fmt --manifest-path "$manifest" -- --check
+        cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
+        cargo check --locked --manifest-path "$manifest"
+    done
+
+# Format standalone native-extension crates (local convenience; mutates files).
+rust-standalone-fix:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ rust-standalone-packages }}; do
+        cargo fmt --manifest-path "$pkg/Cargo.toml"
+    done
+
 # run Rust formatting, linting, and library/doc tests for the workspace
 rust:
+    just rust-lock-check
     cargo fmt --all
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     cargo test --workspace --all-features --lib --tests
     cargo test --workspace --all-features --doc
+    just rust-standalone
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:
@@ -112,6 +152,15 @@ eip-live-test:
 # [build-system] backend; for instro-ethernetip that backend is maturin.
 eip-build:
     uv build --package instro-ethernetip
+
+# build the EtherNet/IP sdist and verify it contains source-build inputs
+eip-sdist-smoke-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dist_dir="$(mktemp -d)"
+    trap 'rm -rf "$dist_dir"' EXIT
+    uv build --sdist --package instro-ethernetip --out-dir "$dist_dir"
+    uv run python tests/ethernetip/check_ethernetip_sdist.py "$dist_dir"
 
 # install the built wheel into an isolated environment and verify the private native module
 eip-wheel-smoke-test:
@@ -139,5 +188,5 @@ eip-wheel-smoke-test:
     INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip/ethernetip_wheel_smoke.py
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
-eip-test: eip-wheel-smoke-test rust eip-rs-test
+eip-test: eip-sdist-smoke-test eip-wheel-smoke-test rust eip-rs-test
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q

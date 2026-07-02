@@ -42,7 +42,7 @@
             "icon": "microchip",
             "pages": [
               {
-                "group": "PSU",
+                "group": "Power Supply (PSU)",
                 "pages": [
                   "instrumentation/psu",
                   "instrumentation/psu-simulator"
@@ -51,6 +51,7 @@
               "instrumentation/eload",
               "instrumentation/dmm",
               "instrumentation/daq",
+              "instrumentation/oscilloscope",
               "instrumentation/flowcontroller"
             ]
           },

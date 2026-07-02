@@ -58,10 +58,10 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
     daq.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=CHANNEL_0, alias=f"ch_0", range_min=0, range_max=5
+        direction=Direction.INPUT, physical_channel=CHANNEL_0, alias="ch_0", range_min=0, range_max=5
     )
     daq.configure_analog_channel(
-        direction=Direction.INPUT, physical_channel=CHANNEL_1, alias=f"ch_1", range_min=0, range_max=5
+        direction=Direction.INPUT, physical_channel=CHANNEL_1, alias="ch_1", range_min=0, range_max=5
     )
 
     for i in range(5):
