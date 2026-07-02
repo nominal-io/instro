@@ -56,7 +56,7 @@ For the full toolchain needed to run `just check` and `just test` (including the
 
 Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
-| Extra | Pulls in | Package |
+| Extra | Pulls in <img width="500" height="1"> | Package |
 |---|---|---|
 | `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni)](https://pypi.org/project/instro-daq-ni/) |
 | `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack)](https://pypi.org/project/instro-daq-labjack/) |
