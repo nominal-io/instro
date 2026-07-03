@@ -500,6 +500,7 @@ all = [
     { name = "instro-daq-ni" },
     { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
+    { name = "instro-unstable" },
 ]
 contrib = [
     { name = "instro-contrib" },
@@ -567,6 +568,7 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
+    { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.99.0,<2.0.0" },
     { name = "pydantic", specifier = ">=2.0" },

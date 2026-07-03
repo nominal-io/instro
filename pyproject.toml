@@ -42,6 +42,7 @@ all = [
     "instro-i2c-aardvark",
     "instro-ethernetip",
     "instro-contrib",
+    "instro-unstable",
 ]
 
 [project.urls]
