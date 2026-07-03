@@ -67,6 +67,7 @@ Instro drivers that require a separate vendor sdk installation ship as separate 
 | `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip&color=419B55)](https://pypi.org/project/instro-ethernetip/) |
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
 | `instro[all]` | Everything above | — |
+| `instro[unstable]` | In-development features whose API isn't settled; not part of `instro[all]` | [![PyPI](https://img.shields.io/pypi/v/instro-unstable.svg?label=instro-unstable&color=419B55)](https://pypi.org/project/instro-unstable/) |
 
 Pass the extra package name in brackets to `pip install`:
 

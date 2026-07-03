@@ -34,6 +34,7 @@ i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
+unstable = ["instro-unstable"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
