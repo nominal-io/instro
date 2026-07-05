@@ -21,13 +21,13 @@ use opcua::types::OpcUaSecurityPolicy;
 use opcua::types::OpcUaSubscriptionConfig;
 use opcua::types::OpcUaUserToken;
 use opcua::types::OpcUaValue;
-use opcua_test::FolderSpec;
-use opcua_test::ParentRef;
-use opcua_test::TestNodeId;
-use opcua_test::TestServer;
-use opcua_test::VariableSpec;
-use opcua_test::server::LIFETIME_TIMEOUT;
-use opcua_test::ua;
+use instro_opcua_test::FolderSpec;
+use instro_opcua_test::ParentRef;
+use instro_opcua_test::TestNodeId;
+use instro_opcua_test::TestServer;
+use instro_opcua_test::VariableSpec;
+use instro_opcua_test::server::LIFETIME_TIMEOUT;
+use instro_opcua_test::ua;
 use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {

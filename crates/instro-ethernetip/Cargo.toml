@@ -1,12 +1,12 @@
 [package]
-name = "instro-ethernetip-rs"
+name = "instro-ethernetip"
 version = "0.1.0"
 license = "Apache-2.0"
 edition.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "instro_ethernetip_rs"
+name = "instro_ethernetip"
 path = "src/lib.rs"
 
 [features]

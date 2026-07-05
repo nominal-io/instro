@@ -27,7 +27,7 @@ time = { version = "0.3.47", features = [
 zeroize = { version = "1.8", features = ["std"] }
 
 [dev-dependencies]
-opcua-test.workspace = true
+instro-opcua-test.workspace = true
 instro-test-utils.workspace = true
 
 [lints]

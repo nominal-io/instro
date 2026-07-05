@@ -1007,7 +1007,7 @@ mod tests {
     use anyhow::Result;
     use instro_test_utils::assertions::assert_serde_json_roundtrip_eq;
     use itertools::Itertools as _;
-    use opcua_test::assert_roundtrip;
+    use instro_opcua_test::assert_roundtrip;
     use open62541::ScalarValue;
     use open62541::VariantValue;
     use open62541::ua;
