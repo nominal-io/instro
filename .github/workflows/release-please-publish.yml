@@ -111,7 +111,12 @@ jobs:
       - name: Verify EtherNet/IP sdist includes Rust source
         run: |
           set -euo pipefail
-          python3 tests/ethernetip/check_ethernetip_sdist.py dist
+          sdists=(dist/instro_ethernetip-*.tar.gz)
+          if [ "${#sdists[@]}" -ne 1 ] || [ ! -f "${sdists[0]}" ]; then
+            echo "Expected exactly one instro-ethernetip sdist in dist" >&2
+            exit 1
+          fi
+          python3 tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
       - name: Upload EtherNet/IP sdist
         uses: actions/upload-artifact@v4
         with:
