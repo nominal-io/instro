@@ -152,7 +152,7 @@ class VisaDriver:
             # pyvisa caches one ResourceManager per backend and shares it across every
             # driver in the process; closing it would kill all other drivers' sessions.
             # pyvisa closes it via its own atexit handler.
-            rm, used_py_fallback = _open_resource_manager(cfg.visa_backend)
+            rm, _, used_py_fallback = _open_resource_manager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
                 inst = typing.cast(
@@ -288,25 +288,25 @@ class VisaDriver:
         return self._inst
 
 
-def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, bool]:
-    """Open a ResourceManager, returning (rm, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
-    if backend is not None:
-        return pyvisa.ResourceManager(backend), False
-    try:
-        return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND), False
-    except (OSError, pyvisa.errors.Error) as exc:
-        logger.debug(
-            "VISA backend %s unavailable (%s); falling back to %s",
-            DEFAULT_VISA_BACKEND,
-            exc,
-            FALLBACK_VISA_BACKEND,
-        )
-        # gpib_ctypes warns at @py construction when the GPIB C library is missing;
-        # irrelevant unless the resource being opened is GPIB, which fails at
-        # open_resource with its own actionable error.
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*GPIB.*")
-            return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), True
+def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, str, bool]:
+    """Open a ResourceManager, returning (rm, active_backend, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
+    # gpib_ctypes warns at @py construction when the GPIB C library is missing;
+    # irrelevant unless the resource being opened is GPIB, which fails at
+    # open_resource with its own actionable error.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*GPIB.*")
+        if backend is not None:
+            return pyvisa.ResourceManager(backend), backend, False
+        try:
+            return pyvisa.ResourceManager(DEFAULT_VISA_BACKEND), DEFAULT_VISA_BACKEND, False
+        except (OSError, pyvisa.errors.Error) as exc:
+            logger.debug(
+                "VISA backend %s unavailable (%s); falling back to %s",
+                DEFAULT_VISA_BACKEND,
+                exc,
+                FALLBACK_VISA_BACKEND,
+            )
+            return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), FALLBACK_VISA_BACKEND, True
 
 
 def _is_missing_backend_error(exc: BaseException) -> bool:

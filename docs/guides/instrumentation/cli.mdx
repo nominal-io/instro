@@ -24,8 +24,8 @@ instro discover
 To force a specific VISA backend, pass `--backend`:
 
 ```bash
-uv run instro discover --backend @py
-uv run instro discover --backend @ivi
+uv run instro discover --backend=@py
+uv run instro discover --backend "@ivi"
 ```
 
 <Note>
@@ -33,6 +33,8 @@ The `@ivi` backend finds an available IVI-compliant backend on your system e.g. 
 </Note>
 
 ### Output
+
+Before scanning, the command prints which VISA backend is active (`@ivi`, or `@py` when no IVI VISA is installed). On the `@py` backend it also lists any interfaces the scan cannot cover — for example `GPIB: unavailable — gpib_ctypes is installed but could not locate the gpib library (install NI-488.2 or linux-gpib)` — so you know when an empty result reflects a missing library rather than an empty bench. These notes are informational; the scan still runs and the command exits 0.
 
 The command groups results into up to three tables.
 
@@ -42,7 +44,7 @@ The command groups results into up to three tables.
 
 **Unrecognized devices** — instruments that responded to `*IDN?` but did not match any known driver. The raw IDN response is shown so you can identify the device.
 
-If no devices are found at all, the command prints a single error panel.
+If no devices are found at all, the command prints a single error panel; on the `@py` backend the panel repeats any unavailable interfaces.
 
 ### Using a recognized device
 
