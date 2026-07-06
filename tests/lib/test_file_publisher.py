@@ -54,6 +54,22 @@ def test_jsonl_record_shape_matches_json_writer(tmp_path):
     assert jsonl_record == json_record
 
 
+def test_jsonl_maps_non_finite_floats_to_null(tmp_path):
+    publisher = FilePublisher(directory=tmp_path, format="jsonl", custom_file_name="capture")
+
+    publisher.publish(
+        Measurement(
+            channel_data={"channel_a": [float("nan"), float("inf"), float("-inf"), 1.5]},
+            timestamps=[100, 200, 300, 400],
+            tags=None,
+        )
+    )
+    publisher.close()
+
+    record = json.loads((tmp_path / "capture.jsonl").read_text())
+    assert record["channel_data"]["channel_a"] == [None, None, None, 1.5]
+
+
 def test_jsonl_each_line_is_complete_before_close(tmp_path):
     publisher = FilePublisher(directory=tmp_path, format="jsonl", custom_file_name="capture")
 

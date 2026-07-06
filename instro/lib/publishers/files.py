@@ -2,6 +2,7 @@
 
 import csv
 import json
+import math
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -133,17 +134,31 @@ class JsonFileWriter:
         pass
 
 
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 class JsonlFileWriter:
     """Handles newline-delimited JSON writing with a persistent file handle."""
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_file_exists()
         self._file = open(self.file_path, "a")
 
+    def _ensure_file_exists(self):
+        """Create directory if it doesn't exist."""
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+
     def write(self, data: Measurement | Command):
-        """Append data as one JSON line."""
-        self._file.write(json.dumps(data.__dict__) + "\n")
+        """Append data as one JSON line, mapping non-finite floats to null."""
+        self._file.write(json.dumps(_json_safe(data.__dict__), allow_nan=False) + "\n")
         self._file.flush()
 
     def open(self):
@@ -151,8 +166,7 @@ class JsonlFileWriter:
 
     def close(self):
         """Close the file writer."""
-        if self._file and not self._file.closed:
-            self._file.close()
+        self._file.close()
 
 
 class CsvFileWriter:
