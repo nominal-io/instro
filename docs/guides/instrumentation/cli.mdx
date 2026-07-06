@@ -19,7 +19,7 @@ To try a command once without installing anything, `uvx` runs it in a throwaway 
 uvx instro discover
 ```
 
-Or put `instro` on your PATH permanently so you can call it from anywhere:
+`uvx` can be slow when it triggers a fresh install of `instro`'s full dependency tree. For regular use, put `instro` on your PATH instead so you can call it from anywhere:
 
 ```bash
 uv tool install instro
