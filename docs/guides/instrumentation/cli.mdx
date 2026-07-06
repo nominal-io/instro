@@ -5,6 +5,16 @@ description: Command-line tools for working with instro
 
 `instro` ships a command-line interface for inspecting and discovering instruments on your bench.
 
+## instro --version
+
+Prints the installed version of the core `instro` package followed by every optional workspace package (`instro-contrib`, `instro-unstable`, `instro-ethernetip`, `instro-daq-ni`, `instro-daq-labjack`, `instro-daq-mcc`, `instro-i2c-aardvark`). Packages that are not installed are marked `not installed` with the `pip install "instro[<extra>]"` command that provides them.
+
+```bash
+instro --version
+```
+
+The full roster is printed on purpose: attach the output to bug reports as an environment summary.
+
 ## instro discover
 
 Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
