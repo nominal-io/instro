@@ -125,29 +125,26 @@ class JsonFileWriter:
 
 
 class CsvFileWriter:
-    """Handles CSV format writing with proper file management."""
+    """Handles CSV format writing with a persistent file handle."""
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self._headers_written = False
         self._ensure_file_exists()
+        self._file = open(self.file_path, "a", newline="")
+        self._writer = csv.writer(self._file)
 
     def _ensure_file_exists(self):
-        """Create directory and file if they don't exist."""
+        """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
-        # CSV file will be created when first write occurs
 
     def write(self, data: Measurement | Command):
         """Append data to CSV file."""
-        mode = "a" if self.file_path.exists() else "w"
-
-        with open(self.file_path, mode, newline="") as f:
-            writer = csv.writer(f)
-
-            if isinstance(data, Measurement):
-                self._write_measurement(writer, data)
-            elif isinstance(data, Command):
-                self._write_command(writer, data)
+        if isinstance(data, Measurement):
+            self._write_measurement(self._writer, data)
+        elif isinstance(data, Command):
+            self._write_command(self._writer, data)
+        self._file.flush()
 
     def _write_measurement(self, writer: Any, data: Measurement):
         """Write Measurement data as individual rows."""
@@ -180,12 +177,11 @@ class CsvFileWriter:
             writer.writerow([data.timestamp, channel_name, value, tags])
 
     def open(self):
-        # Stubbing out open method for when we opt to refactor this to use a file handle
         pass
 
     def close(self):
         """Close the file writer."""
-        pass
+        self._file.close()
 
 
 class AvroFileWriter:
