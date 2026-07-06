@@ -95,7 +95,7 @@ def discover(backend: str | None = None) -> None:
     console.print()
 
     serial_devices = [
-        ((p.device, p.manufacturer, p.product), "serial - configure manually")
+        ((p.device, p.manufacturer, p.product or "unknown"), "serial - configure manually")
         for p in list_ports.comports()
         if p.description != "n/a"
     ]

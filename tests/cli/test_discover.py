@@ -142,11 +142,16 @@ def test_discover_two_supported_one_unsupported_one_serial():
     mock_port.manufacturer = "Arduino LLC"
     mock_port.product = "Arduino Uno"
     mock_port.description = "Arduino Uno"
+    mock_port_no_product = MagicMock()
+    mock_port_no_product.device = "COM3"
+    mock_port_no_product.manufacturer = None
+    mock_port_no_product.product = None
+    mock_port_no_product.description = "USB Serial Port (COM3)"
 
     with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
         with patch("instro.cli.discover.list_ports") as mock_lp:
             with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
-                mock_lp.comports.return_value = [mock_port]
+                mock_lp.comports.return_value = [mock_port, mock_port_no_product]
                 mock_driver_cls.return_value.query.side_effect = [
                     "KEITHLEY INSTRUMENTS,2400,12345,C30",
                     "AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
@@ -160,3 +165,5 @@ def test_discover_two_supported_one_unsupported_one_serial():
     assert result.output.count("Keithley2400") == 1
     assert result.output.count("Agilent34401A") == 1
     assert "Arduino Uno" in result.output
+    assert "COM3" in result.output
+    assert "unknown" in result.output
