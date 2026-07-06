@@ -1,7 +1,8 @@
-"""File-based publishers (JSON, CSV, Avro)."""
+"""File-based publishers (JSON, JSONL, CSV, Avro)."""
 
 import csv
 import json
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -25,14 +26,14 @@ class FilePublisher:
     def __init__(
         self,
         directory: str | Path,
-        format: Literal["json", "csv", "avro"] = "avro",
+        format: Literal["json", "jsonl", "csv", "avro"] = "avro",
         custom_file_name: str | None = None,
     ):
         """Write Measurement/Command data to a file.
 
         Args:
             directory: Output directory.
-            format: ``"json"``, ``"csv"``, or ``"avro"`` (default).
+            format: ``"jsonl"``, ``"csv"``, ``"avro"`` (default), or ``"json"`` (deprecated).
             custom_file_name: Filename without extension; defaults to ``measurements-<UTC-timestamp>``.
         """
         self.directory = Path(directory)
@@ -56,7 +57,15 @@ class FilePublisher:
 
         # Initialize appropriate writer based on format
         if format == "json":
+            warnings.warn(
+                'FilePublisher format="json" rewrites the whole file on every publish and is deprecated; '
+                'use format="jsonl" instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self._writer = JsonFileWriter(self.file_path)
+        elif format == "jsonl":
+            self._writer = JsonlFileWriter(self.file_path)
         elif format == "csv":
             self._writer = CsvFileWriter(self.file_path)
         elif format == "avro":
@@ -122,6 +131,28 @@ class JsonFileWriter:
     def close(self):
         """Close the file writer."""
         pass
+
+
+class JsonlFileWriter:
+    """Handles newline-delimited JSON writing with a persistent file handle."""
+
+    def __init__(self, file_path: Path):
+        self.file_path = file_path
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = open(self.file_path, "a")
+
+    def write(self, data: Measurement | Command):
+        """Append data as one JSON line."""
+        self._file.write(json.dumps(data.__dict__) + "\n")
+        self._file.flush()
+
+    def open(self):
+        pass
+
+    def close(self):
+        """Close the file writer."""
+        if self._file and not self._file.closed:
+            self._file.close()
 
 
 class CsvFileWriter:
