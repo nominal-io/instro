@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from serial.tools import list_ports
 
-from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
+from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
 
 MARK = "⟢"
 GREEN = "#4ADE80"
@@ -15,6 +15,15 @@ FOREGROUND = "#FFFFFF"
 FOREGROUND_MUTED = "#A3A3A3"
 FOREGROUND_ERROR = "#B91C1C"
 BORDER = "#333333"
+
+
+_INTERFACE_HINTS = {
+    "GPIB": "install NI-488.2 or linux-gpib",
+    "USB": "install libusb",
+    "ASRL": "install pyserial",
+}
+
+_INTERFACE_SUFFIXES = (" INSTR", " INTFC", " SOCKET", " RAW")
 
 
 _IDN_MAP = {
@@ -32,30 +41,64 @@ _IDN_MAP = {
 }
 
 
+def _degraded_interfaces(rm: pyvisa.ResourceManager) -> list[tuple[str, str]]:
+    """Return (interface family, reason) for pyvisa-py interfaces that are not Available."""
+    get_debug_info = getattr(rm.visalib, "get_debug_info", None)
+    if get_debug_info is None:
+        return []
+    degraded: dict[str, str] = {}
+    for key, value in get_debug_info().items():
+        if not key.endswith(_INTERFACE_SUFFIXES):
+            continue
+        lines = value if isinstance(value, list) else str(value).splitlines()
+        reason = lines[0].strip() if lines else ""
+        if reason.startswith("Available"):
+            continue
+        degraded.setdefault(key.split(" ", 1)[0], reason.rstrip("."))
+    return sorted(degraded.items())
+
+
+def _degraded_line(family: str, reason: str) -> str:
+    hint = _INTERFACE_HINTS.get(family)
+    suffix = f" ({hint})" if hint else ""
+    return f"{family}: unavailable — {reason}{suffix}"
+
+
+def _backend_label(active_backend: str, used_py_fallback: bool) -> str:
+    if active_backend == "@ivi":
+        return "@ivi (system IVI VISA)"
+    if active_backend == "@py":
+        return "@py (pyvisa-py — no IVI VISA found)" if used_py_fallback else "@py (pyvisa-py)"
+    return active_backend
+
+
+def _no_devices_panel(degraded: list[tuple[str, str]]) -> Panel:
+    body = f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]"
+    for family, reason in degraded:
+        body += f"\n   [dim]{_degraded_line(family, reason)}[/]"
+    return Panel(body, border_style=FOREGROUND_ERROR)
+
+
 def discover(backend: str | None = None) -> None:
     """Scan for SCPI devices and print a discovery table."""
     console = Console()
     width = console.width
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
-    console.print("\nScanning VISA resources ... \n", style="dim")
-    active_backend: str
+
+    rm, active_backend, used_py_fallback = _open_resource_manager(backend)
+    degraded = _degraded_interfaces(rm) if active_backend == "@py" else []
+
+    console.print("\nScanning VISA resources ... ", style="dim")
+    console.print(f"   backend: {_backend_label(active_backend, used_py_fallback)}", style="dim")
+    for family, reason in degraded:
+        console.print(f"   {_degraded_line(family, reason)}", style="dim")
+    console.print()
 
     serial_devices = [
-        ((p.device, p.manufacturer, p.product), "serial - configure manually")
+        ((p.device, p.manufacturer, p.product or "unknown"), "serial - configure manually")
         for p in list_ports.comports()
         if p.description != "n/a"
     ]
-
-    if backend is not None:
-        rm = pyvisa.ResourceManager(backend)
-        active_backend = backend
-    else:
-        try:
-            rm = pyvisa.ResourceManager("@ivi")
-            active_backend = "@ivi"
-        except Exception:
-            rm = pyvisa.ResourceManager("@py")
-            active_backend = "@py"
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -65,7 +108,7 @@ def discover(backend: str | None = None) -> None:
     unsupported_devices: list[tuple[str, str]] = []
 
     if not resources and not serial_devices:
-        console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
+        console.print(_no_devices_panel(degraded))
         return
 
     for resource in resources:
@@ -109,7 +152,7 @@ def discover(backend: str | None = None) -> None:
             driver.close()
 
     if not supported_devices and not unsupported_devices and not serial_devices:
-        console.print(Panel(f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]", border_style=FOREGROUND_ERROR))
+        console.print(_no_devices_panel(degraded))
     else:
         if supported_devices:
             table = Table(

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.6.0...instro-daq-mcc-v1.0.0) (2026-07-02)
+
+
+### Miscellaneous
+
+* release main ([#198](https://github.com/nominal-io/instro/issues/198)) ([c12e274](https://github.com/nominal-io/instro/commit/c12e2744537241be228ba49312ab3f4c9be16c61))
+
+## [0.6.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.5.1...instro-daq-mcc-v0.6.0) (2026-06-30)
+
+
+### Miscellaneous
+
+* release 0.6.0 to track the instro 0.14.0 core release
+
 ## [0.5.1](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.5.0...instro-daq-mcc-v0.5.1) (2026-06-17)
 
 

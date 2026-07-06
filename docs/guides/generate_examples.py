@@ -4,6 +4,10 @@ Walks every ``*.py`` under ``examples/`` (relative to the repo root), writes a
 matching ``.mdx`` page under ``docs/guides/instrumentation/examples/``, and
 rewrites the "Examples" tab in ``docs/guides/docs.json``.
 
+Also walks ``examples/`` directories inside ``packages/instro-unstable/`` and
+emits pages under ``instrumentation/examples/unstable/``, each with a warning
+callout that the API is not stable.
+
 Run via ``just gen-examples``.
 """
 
@@ -17,6 +21,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 EXAMPLES_SRC = REPO_ROOT / "examples"
+UNSTABLE_SRC = REPO_ROOT / "packages" / "instro-unstable" / "instro" / "unstable"
 EXAMPLES_OUT = SCRIPT_DIR / "instrumentation" / "examples"
 DOCS_JSON = SCRIPT_DIR / "docs.json"
 
@@ -38,6 +43,13 @@ CATEGORY_TITLES: "OrderedDict[str, str]" = OrderedDict(
 
 ROOT_GROUP_TITLE = "General"
 
+_UNSTABLE_WARNING = """\
+<Warning>
+  This example uses `instro-unstable`. This code is new and may change without notice.
+</Warning>
+
+"""
+
 
 def extract_title(py_path: Path) -> str:
     docstring = ast.get_docstring(ast.parse(py_path.read_text()))
@@ -49,13 +61,14 @@ def extract_title(py_path: Path) -> str:
     return first.rstrip(".") or py_path.stem
 
 
-def write_mdx(py_path: Path, out_path: Path) -> None:
+def write_mdx(py_path: Path, out_path: Path, *, unstable: bool = False) -> None:
     title = extract_title(py_path)
     body = py_path.read_text()
     if not body.endswith("\n"):
         body += "\n"
+    warning = _UNSTABLE_WARNING if unstable else ""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(f'---\ntitle: "{title}"\n---\n\n```python {py_path.name}\n{body}```\n')
+    out_path.write_text(f'---\ntitle: "{title}"\n---\n\n{warning}```python {py_path.name}\n{body}```\n')
 
 
 def clean_output_dir() -> None:
@@ -84,6 +97,17 @@ def discover() -> "tuple[OrderedDict[str, list[str]], list[str]]":
     return categories, root_files
 
 
+def discover_unstable() -> "OrderedDict[str, list[str]]":
+    categories: "OrderedDict[str, list[str]]" = OrderedDict()
+    if not UNSTABLE_SRC.exists():
+        return categories
+    for py_path in sorted(UNSTABLE_SRC.rglob("examples/*.py")):
+        category = py_path.parent.parent.name
+        nav_path = f"{NAV_PREFIX}/unstable/{category}/{py_path.stem}"
+        categories.setdefault(category, []).append(nav_path)
+    return categories
+
+
 def reorder_by_existing(pages: list[str], existing: list[str]) -> list[str]:
     page_set = set(pages)
     kept = [p for p in existing if p in page_set]
@@ -101,6 +125,7 @@ def existing_examples_groups(docs: dict) -> list[dict]:
 def build_groups(
     categories: "OrderedDict[str, list[str]]",
     root_files: list[str],
+    unstable_categories: "OrderedDict[str, list[str]]",
     existing_groups: list[dict],
 ) -> list[dict]:
     prior_pages: dict[str, list[str]] = {
@@ -123,15 +148,19 @@ def build_groups(
                 "pages": reorder_by_existing(root_files, prior_pages.get(ROOT_GROUP_TITLE, [])),
             }
         )
+    for folder, pages in unstable_categories.items():
+        group_title = f"{folder.replace('_', ' ').title()} (Unstable)"
+        groups.append({"group": group_title, "pages": reorder_by_existing(pages, prior_pages.get(group_title, []))})
     return groups
 
 
 def update_docs_json(
     categories: "OrderedDict[str, list[str]]",
     root_files: list[str],
+    unstable_categories: "OrderedDict[str, list[str]]",
 ) -> None:
     docs = json.loads(DOCS_JSON.read_text())
-    groups = build_groups(categories, root_files, existing_examples_groups(docs))
+    groups = build_groups(categories, root_files, unstable_categories, existing_examples_groups(docs))
     tabs = docs["navigation"]["tabs"]
     for tab in tabs:
         if tab.get("tab") == "Examples":
@@ -149,8 +178,14 @@ def main() -> None:
         out_path = (EXAMPLES_OUT / rel).with_suffix(".mdx")
         write_mdx(py_path, out_path)
         print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
+    for py_path in sorted(UNSTABLE_SRC.rglob("examples/*.py")):
+        category = py_path.parent.parent.name
+        out_path = EXAMPLES_OUT / "unstable" / category / py_path.with_suffix(".mdx").name
+        write_mdx(py_path, out_path, unstable=True)
+        print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
     categories, root_files = discover()
-    update_docs_json(categories, root_files)
+    unstable_categories = discover_unstable()
+    update_docs_json(categories, root_files, unstable_categories)
     print(f"updated {DOCS_JSON.relative_to(SCRIPT_DIR)}")
 
 

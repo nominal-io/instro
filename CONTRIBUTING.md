@@ -109,6 +109,27 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
+### Rust Cargo.lock (dual-lock policy)
+
+Rust tooling spans two dependency graphs:
+
+- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip-rs`, `opcua`, …).
+- Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
+
+**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
+
+- Workspace members: `cargo update` at the repo root.
+- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
+
+CI verifies all committed lockfiles with `--locked`:
+
+- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
+- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
+
+Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
+
+**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+
 ## Issues and discussion
 
 **Every change is tracked by a GitHub issue or ticket: no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instro/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.
@@ -264,9 +285,11 @@ When the maintainers acquire the device and can verify the driver directly:
 
 1. `git mv` the file from `packages/instro-contrib/instro/contrib/<cat>/drivers/<driver>.py` to `instro/<cat>/drivers/<driver>.py`.
 2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
-3. Note the graduation in `CHANGELOG.md`.
+3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
+4. Open a follow-up issue to delete the stub in the next release.
+5. Note the graduation in `CHANGELOG.md`.
 
-The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`.
+The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`. The stub is not a compatibility shim. Old code stays broken; the error just points to the new import path for one release.
 
 ### `instro-unstable`: in-development categories and abstractions
 

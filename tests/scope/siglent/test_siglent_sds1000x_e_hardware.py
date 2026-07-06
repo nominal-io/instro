@@ -30,7 +30,7 @@ from collections.abc import Callable
 import pytest
 
 from instro.lib.types import Command, Measurement
-from instro.unstable.scope import (
+from instro.scope import (
     AcquisitionMode,
     Coupling,
     InstroScope,
@@ -39,10 +39,10 @@ from instro.unstable.scope import (
     TriggerSlope,
     TriggerType,
 )
-from instro.unstable.scope.drivers.siglent import SiglentSDS1000XE
+from instro.scope.drivers import SiglentSDS1000XE
 
 # --- Configuration — edit before running -----------------------------------
-RESOURCE = "USB0::0xF4EC::0xEE38::SDSMMGKD804634::INSTR"
+RESOURCE = "<visa_resource>"  # <-- edit to your instrument's VISA resource string
 NUM_CHANNELS = 4
 SIGNAL_CHANNEL = 1  # CH1 carries the ~1 kHz comp-signal square wave
 

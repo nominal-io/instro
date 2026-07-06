@@ -1,6 +1,6 @@
 [project]
 name = "instro-unstable"
-version = "0.3.0"
+version = "1.0.0"
 description = "Unstable modules for instro (in-development features)"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

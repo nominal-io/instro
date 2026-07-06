@@ -136,11 +136,11 @@ driver is wired before assuming:
 
 - **Core categories:** edit `instro/<category>/drivers/__init__.py`, adding both
   the import and the `__all__` entry.
-- **Vendor-subdir categories (e.g. `scope`):** register in the vendor
-  subpackage's `drivers/<vendor>/__init__.py` (import + `__all__`). The top-level
-  `drivers/__init__.py` may be intentionally empty and drivers are imported
-  directly from the vendor subpackage (`from ...scope.drivers.siglent import
-  SiglentSDS1000XE`) — don't add a top-level re-export if siblings don't have one.
+- **Workspace vendor packages (e.g. `daq`, `i2c`):** the driver lives in its own
+  package under `packages/`; register it in that package's `drivers/__init__.py`
+  (import + `__all__`). The category's top-level `drivers/__init__.py` relies on
+  `pkgutil.extend_path` to make the vendor-package subpackage importable — don't
+  remove it.
 - **Contrib drivers:** register in the corresponding contrib
   `drivers/__init__.py` (the smoke test picks it up automatically).
 

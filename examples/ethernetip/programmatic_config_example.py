@@ -27,7 +27,7 @@ from instro.ethernetip import (
     TagDef,
     TimingConfig,
 )
-from instro.lib.types import DeviceInfo
+from instro.lib import DeviceInfo
 
 
 def connection_from_env() -> EtherNetIPConnectionInfo:

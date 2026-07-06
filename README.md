@@ -2,7 +2,37 @@
 
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
-[![PyPI](https://img.shields.io/pypi/v/instro.svg)](https://pypi.org/project/instro/)
+[![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
+[![Downloads](https://img.shields.io/pepy/dt/instro?color=419B55&label=downloads)](https://pypi.org/project/instro/)
+[![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
+[![SDK](https://img.shields.io/badge/sdk-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
+[![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
+
+## Quickstart
+
+Talk to a simulated PSU. No hardware required.
+
+```bash
+# Terminal 1: start the in-process SCPI sim server:
+uv run python -m instro.psu.scpi_sim_server
+```
+
+```python
+# Terminal 2: run this:
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+with InstroPSU(
+    name="my-psu",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+) as psu:
+    psu.set_voltage(3.3, channel=1)
+    psu.output_enable(True, channel=1)
+    print(psu.get_voltage(channel=1))
+```
+
+That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Installation
 
@@ -24,72 +54,43 @@ This creates a virtual environment with the core library, all optional vendor dr
 
 For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies that `just test` requires), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
 
-### Optional extras
+## Optional Extras
 
-Native-SDK drivers ship as separate workspace packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
+Instro drivers that require a separate vendor sdk installation ship as separate packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
 
-| Extra | Pulls in |
-|---|---|
-| `instro[nidaq]` | NI-DAQmx (Linux + Windows) |
-| `instro[labjack]` | LabJack LJM |
-| `instro[mccdaq]` | MCC UL (Windows-only) |
-| `instro[daq]` | All three DAQ vendor SDKs |
-| `instro[aardvark]` | Total Phase Aardvark (I2C); alias: `instro[i2c]` |
-| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs (native backend) |
-| `instro[contrib]` | Community-contributed drivers for devices the maintainers can't verify directly |
-| `instro[all]` | Everything above |
+| Extra | Pulls in <img width="500" height="1"> | Package |
+|---|---|---|
+| `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni&color=419B55)](https://pypi.org/project/instro-daq-ni/) |
+| `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack&color=419B55)](https://pypi.org/project/instro-daq-labjack/) |
+| `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc&color=419B55)](https://pypi.org/project/instro-daq-mcc/) |
+| `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark&color=419B55)](https://pypi.org/project/instro-i2c-aardvark/) |
+| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip&color=419B55)](https://pypi.org/project/instro-ethernetip/) |
+| `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
+| `instro[unstable]` | In-development features whose API isn't settled | [![PyPI](https://img.shields.io/pypi/v/instro-unstable.svg?label=instro-unstable&color=419B55)](https://pypi.org/project/instro-unstable/) |
+| `instro[all]` | Everything above | — |
 
-## Quickstart
-
-Talk to a simulated PSU. No hardware required.
+Pass the extra package name in brackets to `pip install`:
 
 ```bash
-# Terminal 1: start the in-process SCPI sim server:
-uv run python -m instro.psu.scpi_sim_server
+pip install "instro[labjack]"
+pip install "instro[nidaq,contrib]"
 ```
-
-```python
-# Terminal 2: run this:
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
-
-with InstroPSU(
-    name="my-psu",
-    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-) as psu:
-    psu.output_enable(True, channel=1)
-    psu.set_voltage(3.3, channel=1)
-    print(psu.get_voltage(channel=1))  # Measurement(channel_data={'my-psu.ch1.voltage': [3.31...]}, ...)
-```
-
-That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Supported devices
 
 | Category | Class | Vendors |
 |---|---|---|
-| Power supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
-| Electronic load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
-Don't see your vendor? Drivers the maintainers can't verify directly against the device land in [`instro-contrib`](./packages/instro-contrib/) on contributor verification — install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the bar.
-
-## Experimental modules
-
-In-development categories whose APIs may break between releases live in the separate [`instro-unstable`](./packages/instro-unstable/) workspace package:
-
-- **`InstroScope`**: oscilloscope category, with drivers for Keysight 1200x, Tektronix 2-series, and Siglent SDS1000X-E. Import via `instro.unstable.scope`.
-
-Opt in by depending on `instro-unstable` explicitly.
-
-## Documentation
-
-Full guides, API reference, and per-category walkthroughs live at **[instro.nominal.io](https://instro.nominal.io)**.
+Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
+Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing
 

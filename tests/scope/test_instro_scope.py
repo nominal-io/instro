@@ -11,21 +11,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.lib.transports.visa import SerialConfig, VisaConfig
-from instro.unstable.scope import (
+from instro.scope import (
     AcquisitionMode,
     AcquisitionState,
     Coupling,
     InstroScope,
+    ScopeDriverBase,
     ScopeMeasurementType,
     TriggerMode,
     TriggerSlope,
     TriggerStatus,
     TriggerType,
 )
-from instro.unstable.scope.driver import ScopeDriverBase
-from instro.unstable.scope.drivers.keysight import Keysight1200X
-from instro.unstable.scope.drivers.siglent import SiglentSDS1000XE
-from instro.unstable.scope.drivers.tektronix import Tektronix2SeriesMSO
+from instro.scope.drivers import Keysight1200X, SiglentSDS1000XE, Tektronix2SeriesMSO
+
+VISA_RESOURCE = "<visa_resource>"  # placeholder; these mocked tests only assert it is forwarded to VisaDriver
 
 
 def _make_temp_timeout_cm() -> MagicMock:
@@ -41,7 +41,7 @@ def _make_temp_timeout_cm() -> MagicMock:
 
 @pytest.fixture
 def keysight_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.keysight.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.keysight_1200x.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -55,12 +55,12 @@ def keysight_visa(keysight_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def keysight(keysight_visa_cls: MagicMock, keysight_visa: MagicMock) -> Keysight1200X:
-    return Keysight1200X("USB0::10893::923::CN64191203::INSTR")
+    return Keysight1200X(VISA_RESOURCE)
 
 
 def test_keysight_init_passes_resource_to_visa(keysight_visa_cls: MagicMock) -> None:
-    Keysight1200X("USB0::10893::923::CN64191203::INSTR")
-    keysight_visa_cls.assert_called_once_with("USB0::10893::923::CN64191203::INSTR")
+    Keysight1200X(VISA_RESOURCE)
+    keysight_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_keysight_init_accepts_prebuilt_visa_config(keysight_visa_cls: MagicMock) -> None:
@@ -188,7 +188,7 @@ def test_keysight_measure_returns_nan_on_sentinel(keysight: Keysight1200X, keysi
 
 @pytest.fixture
 def tektronix_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.tektronix.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.tektronix_2series.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -202,12 +202,12 @@ def tektronix_visa(tektronix_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def tektronix(tektronix_visa_cls: MagicMock, tektronix_visa: MagicMock) -> Tektronix2SeriesMSO:
-    return Tektronix2SeriesMSO("TCPIP0::scope.local::INSTR")
+    return Tektronix2SeriesMSO(VISA_RESOURCE)
 
 
 def test_tektronix_init_passes_resource_to_visa(tektronix_visa_cls: MagicMock) -> None:
-    Tektronix2SeriesMSO("TCPIP0::scope.local::INSTR")
-    tektronix_visa_cls.assert_called_once_with("TCPIP0::scope.local::INSTR")
+    Tektronix2SeriesMSO(VISA_RESOURCE)
+    tektronix_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_tektronix_init_accepts_prebuilt_visa_config(tektronix_visa_cls: MagicMock) -> None:
@@ -386,7 +386,7 @@ def test_tektronix_digitize_raises_timeout_and_clears(
 
 @pytest.fixture
 def siglent_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.scope.drivers.siglent.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.scope.drivers.siglent_sds1000x_e.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
@@ -400,12 +400,12 @@ def siglent_visa(siglent_visa_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def siglent(siglent_visa_cls: MagicMock, siglent_visa: MagicMock) -> SiglentSDS1000XE:
-    return SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
+    return SiglentSDS1000XE(VISA_RESOURCE)
 
 
 def test_siglent_init_passes_resource_to_visa(siglent_visa_cls: MagicMock) -> None:
-    SiglentSDS1000XE("TCPIP0::192.168.1.10::INSTR")
-    siglent_visa_cls.assert_called_once_with("TCPIP0::192.168.1.10::INSTR")
+    SiglentSDS1000XE(VISA_RESOURCE)
+    siglent_visa_cls.assert_called_once_with(VISA_RESOURCE)
 
 
 def test_siglent_init_accepts_prebuilt_visa_config(siglent_visa_cls: MagicMock) -> None:
@@ -782,12 +782,12 @@ class _StubScopeDriver(ScopeDriverBase):
         self.calls.append(("digitize", timeout))
 
     def get_acquisition_state(self):
-        from instro.unstable.scope.types import AcquisitionState
+        from instro.scope.types import AcquisitionState
 
         return AcquisitionState.STOPPED
 
     def fetch_waveform(self, channel: int):
-        from instro.unstable.scope.types import WaveformData
+        from instro.scope.types import WaveformData
 
         return WaveformData(times=[0, 1, 2], voltages=[0.1, 0.2, 0.3])
 
@@ -813,7 +813,7 @@ class _StubScopeDriver(ScopeDriverBase):
         self.calls.append(("force_trigger",))
 
     def get_trigger_status(self):
-        from instro.unstable.scope.types import TriggerStatus
+        from instro.scope.types import TriggerStatus
 
         return TriggerStatus.TRIGGERED
 
