@@ -68,8 +68,8 @@ class Publisher(Protocol):
 
 ### Data Types
 
-- **`Measurement`**: Contains data read from the instrument (e.g., analog input readings, voltage measurements). Includes channel data, timestamps, and optional tags.
-- **`Command`**: Represents a command sent to the instrument (e.g., setting voltage, enabling output). Includes channel data, a single timestamp, and optional tags.
+- [**`Measurement`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement): Contains data read from the instrument (e.g., analog input readings, voltage measurements). Includes channel data, timestamps, and optional tags.
+- [**`Command`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command): Represents a command sent to the instrument (e.g., setting voltage, enabling output). Includes channel data, a single timestamp, and optional tags.
 
 ## Built-in Publishers
 
@@ -114,7 +114,7 @@ The `NominalCorePublisher` includes built-in batching via the Nominal Core Pytho
 
 ### NominalConnectPublisher
 
-Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application.
+Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application. Nominal Connect apps can also install `instro` for you; see [Using Nominal Connect](/instrumentation/installation#using-nominal-connect).
 
 **Constructor Parameters:**
 
@@ -262,6 +262,8 @@ class Publisher(Protocol):
 
     def close(self): ...
 ```
+
+`publish` runs synchronously, on the same thread as the instrument method that produced the data. That is deliberate: the in-memory channel buffer behind `get_channel` is itself a publisher, and `get_channel`'s blocking semantics rely on samples being in the buffer by the time each background-daemon iteration completes. If publishing were deferred to a background thread by default, a `get_channel` call could miss a sample the daemon just collected. Keep custom `publish` implementations fast; when the sink is slow (network, disk), wrap the publisher in a [`QueuedPublisher`](#queuedpublisher) to opt into background publishing.
 
 ### Example
 This publisher prints to the console every time a `Measurement` is published corresponding to a predefined <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
