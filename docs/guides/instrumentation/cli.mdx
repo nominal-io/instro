@@ -5,9 +5,30 @@ description: Command-line tools for working with instro
 
 `instro` ships a command-line interface for inspecting and discovering instruments on your bench.
 
+## Running the CLI
+
+The CLI comes with the `instro` package — see [Installation](/instrumentation/installation) for adding it to your project. In a project that has `instro` installed, run commands with `uv run`:
+
+```bash
+uv run instro discover
+```
+
+To try a command once without installing anything, `uvx` runs it in a throwaway environment:
+
+```bash
+uvx instro discover
+```
+
+Or put `instro` on your PATH permanently so you can call it from anywhere:
+
+```bash
+uv tool install instro
+instro discover
+```
+
 ## instro --version
 
-Prints the installed version of the core `instro` package followed by every optional workspace package (`instro-contrib`, `instro-unstable`, `instro-ethernetip`, `instro-daq-ni`, `instro-daq-labjack`, `instro-daq-mcc`, `instro-i2c-aardvark`). Packages that are not installed are marked `not installed` with the `pip install "instro[<extra>]"` command that provides them.
+Prints the installed version of the core `instro` package followed by every optional workspace package (`instro-contrib`, `instro-unstable`, `instro-ethernetip`, `instro-daq-ni`, `instro-daq-labjack`, `instro-daq-mcc`, `instro-i2c-aardvark`). Packages that are not installed are marked `not installed` with the `pip install "instro[<extra>]"` command that provides them — see [Additional Packages](/instrumentation/installation#additional-packages) for what each extra covers.
 
 ```bash
 instro --version
@@ -18,18 +39,6 @@ The full roster is printed on purpose: attach the output to bug reports as an en
 ## instro discover
 
 Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
-Run the discover CLI using 'uv'. Use the discovery command once, creating a throwaway isolated environment:
-
-```bash
-uv run instro discover
-```
-
-Or install `instro` so it lives on your PATH and you can call it from anywhere:
-
-```bash
-uv tool install instro
-instro discover
-```
 
 To force a specific VISA backend, pass `--backend`:
 
