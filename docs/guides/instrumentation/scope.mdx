@@ -9,9 +9,9 @@ description: What instro is for, and when to use native interfaces instead
 
 - **Unified interfaces and code reusability** across different vendors and models of the same equipment type. For example, if you have a data acquisition system from National Instruments or LabJack, the library provides a consistent API so your code can work with either vendor by changing a configuration parameter.
 - **Common tools and extensions** to the core instrument model
- - **Background threads** which automatically poll data from instruments
- - **Built-in publishers** that stream measurements to Nominal Core and Nominal Connect
- - **Measurement cacheing** which stores the latest measurements for easy access
+  - **Background threads** which automatically poll data from instruments
+  - **Built-in publishers** that stream measurements to Nominal Core and Nominal Connect
+  - **Measurement cacheing** which stores the latest measurements for easy access
 
 <Warning>
 `instro` targets scripting and automation workflows, not tight control applications with strict real-time requirements. For precise timing control, choose instruments that provide hardware-level guarantees (such as hardware triggers or dedicated hardware clocks) and use `instro` to configure those capabilities.
