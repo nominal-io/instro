@@ -7,11 +7,12 @@ description: What instro is for, and when to use native interfaces instead
 
 ## What instro provides
 
-- **Unified interfaces and code reusability** across different vendors and models of the same equipment type. For example, if you have a data acquisition system from National Instruments or LabJack, the library provides a consistent API so your code can work with either vendor by changing a configuration parameter.
-- **Common tools and extensions** to the core instrument model
-  - **Background threads** which automatically poll data from instruments
-  - **Built-in publishers** that stream measurements to Nominal Core and Nominal Connect
-  - **Measurement cacheing** which stores the latest measurements for easy access
+- **Unified interfaces and code reusability** across different vendors and models of the same equipment type. For example, switching out an NI DAQmx device for a LabJack device entails switching out the underlying `driver` object while the rest of the code is unchanged.
+- **Background threads** which automatically poll data from instruments on a user-defined cycle or can be overridden to provide application-specific behavior
+- **Publishing classes** to forward `Measurement` data read from instruments or `Command` data sent to instruments on to any number of downstream services, including:
+  - **File-based publishing** which writes instrument data to several on-disk formats
+  - **Built-in publishers** that stream `Measurements` and `Commands` to Nominal Core and Nominal Connect
+  - **Caching publishers** which store the latest `Measurements` and `Commands` for easy in-memory access
 
 <Warning>
 `instro` targets scripting and automation workflows, not tight control applications with strict real-time requirements. For precise timing control, choose instruments that provide hardware-level guarantees (such as hardware triggers or dedicated hardware clocks) and use `instro` to configure those capabilities.
