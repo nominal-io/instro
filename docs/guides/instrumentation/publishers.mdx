@@ -68,8 +68,8 @@ class Publisher(Protocol):
 
 ### Data Types
 
-- **`Measurement`**: Contains data read from the instrument (e.g., analog input readings, voltage measurements). Includes channel data, timestamps, and optional tags.
-- **`Command`**: Represents a command sent to the instrument (e.g., setting voltage, enabling output). Includes channel data, a single timestamp, and optional tags.
+- [**`Measurement`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement): Contains data read from the instrument (e.g., analog input readings, voltage measurements). Includes channel data, timestamps, and optional tags.
+- [**`Command`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command): Represents a command sent to the instrument (e.g., setting voltage, enabling output). Includes channel data, a single timestamp, and optional tags.
 
 ## Built-in Publishers
 
@@ -114,7 +114,7 @@ The `NominalCorePublisher` includes built-in batching via the Nominal Core Pytho
 
 ### NominalConnectPublisher
 
-Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application.
+Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application. Nominal Connect apps can also install `instro` for you; see [Using Nominal Connect](/instrumentation/installation#using-nominal-connect).
 
 **Constructor Parameters:**
 
@@ -256,18 +256,18 @@ daq = InstroDAQ(
 
 ## Custom Publisher
 
-To create a custom publisher, create a class that implements the following protocol. i.e. has a `publish` and a `close` method.
+To create a custom publisher, create a class that implements the publisher protocol: a `publish` method and a `close` method. The example below prints to the console every time a `Measurement` is published corresponding to a predefined <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
+
 ```python
+from typing import Protocol
+
+from instro.lib.types import Measurement, Command
+
 class Publisher(Protocol):
     def publish(self, data: Measurement | Command, **kwargs): ...
 
     def close(self): ...
-```
 
-### Example
-This publisher prints to the console every time a `Measurement` is published corresponding to a predefined <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
-```python
-from instro.lib.types import Measurement, Command
 
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
@@ -285,6 +285,12 @@ class PrintChannelPublisher:
     def close(self):
         pass
 ```
+
+### Publisher execution model
+
+Custom publishers face the classic buffered versus unbuffered I/O tradeoff. By default, publishing is unbuffered: `publish` runs synchronously, on the same thread as the instrument method that produced the data. That is deliberate. The in-memory channel buffer behind `get_channel` is itself a publisher, and `get_channel`'s blocking semantics rely on samples being in the buffer by the time each background-daemon iteration completes. If publishing were deferred to a background thread by default, a `get_channel` call could miss a sample the daemon just collected.
+
+Keep custom `publish` implementations fast. When the sink is slow (network, disk), opt into buffered or background publishing by wrapping the publisher in a [`BasicBufferedPublisher`](#basicbufferedpublisher) or [`QueuedPublisher`](#queuedpublisher).
 
 ## Publisher Wrappers
 
