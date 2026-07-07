@@ -41,7 +41,7 @@ nav:
 
 theme:
   name: material
-  logo: instro-logo-solid-black.svg
+  logo: instro-sdk-logo.svg
   favicon: favicon.ico
   features:
     - content.action.edit
