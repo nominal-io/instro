@@ -30,6 +30,7 @@
             "group": "Concepts",
             "icon": "book-open",
             "pages": [
+              "instrumentation/concepts",
               "instrumentation/publishers",
               "instrumentation/library",
               "instrumentation/exceptions",
@@ -41,6 +42,7 @@
             "group": "Instruments",
             "icon": "microchip",
             "pages": [
+              "instrumentation/instruments",
               {
                 "group": "Power Supply (PSU)",
                 "pages": [
