@@ -12,4 +12,21 @@ div.doc-contents:not(.first) {
   lightgreen;
 }
 
+/* Remove default margin and padding restrictions */
+.md-header__button.md-logo {
+  margin: 0;
+  padding: 0;
+}
 
+/* Force the image or SVG logo to scale to your desired height */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1rem; /* Increase or decrease this value as needed */
+  width: auto;    /* Keeps the original aspect ratio */
+  padding-bottom: 0.125rem;
+  padding-left: 0.75rem;
+}
+
+.md-header__topic {
+  display: none !important;
+}
