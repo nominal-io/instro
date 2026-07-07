@@ -1,4 +1,8 @@
-# ⟢ instro
+<div align="center">
+  <img width="512" src="./res/Instro_Vector_ascii.svg" />
+</div>
+
+<br>
 
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
