@@ -10,6 +10,7 @@ description: Using InstroELoad for SCPI-based programmable electronic loads
 ## Supported Vendors
 
 - **B&K Precision**: 85xx Series via SCPI/VISA (`BK85XXB`)
+- **Simulated**: `SimulatedELoad` for use with the bundled SCPI simulator
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -253,6 +254,10 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_current(channel=1)` | Read measured input current |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
+
+# Simulated Electronic Load
+
+For development and testing without physical hardware, Nominal Instrumentation includes a local SCPI electronic-load simulator. See [E-Load simulator](/instrumentation/eload-simulator) for the quickstart, usage notes, and supported command set.
 
 ---
 
