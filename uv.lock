@@ -474,7 +474,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -500,6 +500,7 @@ all = [
     { name = "instro-daq-ni" },
     { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
+    { name = "instro-unstable" },
 ]
 contrib = [
     { name = "instro-contrib" },
@@ -523,6 +524,9 @@ mccdaq = [
 ]
 nidaq = [
     { name = "instro-daq-ni" },
+]
+unstable = [
+    { name = "instro-unstable" },
 ]
 
 [package.dev-dependencies]
@@ -564,6 +568,8 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
+    { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
+    { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.99.0,<2.0.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pymodbus", specifier = ">=3.10,<3.13" },
@@ -574,7 +580,7 @@ requires-dist = [
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "unstable", "all"]
 
 [package.metadata.requires-dev]
 dev = [

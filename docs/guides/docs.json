@@ -143,6 +143,7 @@
               "instrumentation/examples/publishers/publish_buffered",
               "instrumentation/examples/publishers/publish_custom",
               "instrumentation/examples/publishers/publish_file",
+              "instrumentation/examples/publishers/publish_jsonl",
               "instrumentation/examples/publishers/publish_queued"
             ]
           },
@@ -206,8 +207,8 @@
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/instro-logo-solid-black.svg",
+    "dark": "/logo/instro-logo-solid-white.svg"
   },
   "navbar": {
     "links": [
