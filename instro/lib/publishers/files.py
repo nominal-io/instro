@@ -132,7 +132,9 @@ class CsvFileWriter:
         self._ensure_file_exists()
         self._file = open(self.file_path, "a", newline="")
         self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
-        self._writer.writeheader()
+        if self.file_path.stat().st_size == 0:
+            self._writer.writeheader()
+            self._file.flush()
 
     def _ensure_file_exists(self):
         """Create directory if it doesn't exist."""

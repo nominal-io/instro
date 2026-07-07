@@ -61,7 +61,7 @@ def test_csv_uses_one_handle_across_writes(tmp_path):
     publisher.close()  # idempotent
 
 
-def test_csv_appends_across_publisher_instances(tmp_path):
+def test_csv_appends_across_publisher_instances_with_one_header(tmp_path):
     first = FilePublisher(directory=tmp_path, format="csv", custom_file_name="capture")
     first.publish(_command())
     first.close()
@@ -71,5 +71,15 @@ def test_csv_appends_across_publisher_instances(tmp_path):
     second.close()
 
     rows = _rows(tmp_path / "capture.csv")
-    assert rows.count(["timestamp", "channel", "value", "tags"]) == 2  # per-instance header, as before
+    assert rows.count(["timestamp", "channel", "value", "tags"]) == 1
     assert rows.count(["300", "channel_b", "5.0", ""]) == 2
+
+
+def test_csv_construction_writes_header_exactly_once_per_file(tmp_path):
+    first = FilePublisher(directory=tmp_path, format="csv", custom_file_name="capture")
+    first.close()  # never published
+
+    second = FilePublisher(directory=tmp_path, format="csv", custom_file_name="capture")
+    second.close()
+
+    assert _rows(tmp_path / "capture.csv") == [["timestamp", "channel", "value", "tags"]]
