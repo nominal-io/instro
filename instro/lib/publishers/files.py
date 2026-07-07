@@ -6,7 +6,7 @@ import math
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 import fastavro
 
