@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="512" src="./res/Instro_Vector_ascii.svg" />
+  <img width="512" src="./res/logo/instro-logo-ascii-white.svg" />
 </div>
 
 <br>
