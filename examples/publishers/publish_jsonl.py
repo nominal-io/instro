@@ -1,0 +1,44 @@
+"""Example: Publishers: publish JSONL.
+
+Demonstrates publishing measurements to a newline-delimited JSON file (FilePublisher).
+
+Start the simulated PSU first:
+    python -m instro.psu.scpi_sim_server
+
+Then in another shell:
+    python examples/publishers/publish_jsonl.py
+"""
+
+import time
+
+from instro.lib.publishers import FilePublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
+
+file_publisher = FilePublisher(directory="./captures", format="jsonl", custom_file_name="psu_capture")
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU(VISA_RESOURCE),
+    num_channels=2,
+    publishers=[file_publisher],
+)
+
+with psu:
+    psu.set_current_limit(0.2, channel=1)
+    psu.output_enable(True, channel=1)
+
+    # Voltage sweep. Every command and measurement is appended to the
+    # capture file as one complete JSON line.
+    for v in range(5):
+        psu.set_voltage(v, channel=1)
+        time.sleep(0.5)
+        psu.get_voltage(channel=1)
+        psu.get_current(channel=1)
+
+    psu.output_enable(False, channel=1)
+
+print(f"Wrote {file_publisher.file_path}:")
+print(file_publisher.file_path.read_text(), end="")

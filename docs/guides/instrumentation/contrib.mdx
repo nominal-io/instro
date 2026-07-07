@@ -74,7 +74,16 @@ from instro.contrib.psu.drivers import SomeVendorPSU
 from instro.psu.drivers import SomeVendorPSU
 ```
 
-Graduations are noted in `CHANGELOG.md`. The old `instro.contrib` import path is a hard cutover. There is no compatibility shim.
+Graduations are noted in `CHANGELOG.md`. The old `instro.contrib` import path is a hard cutover. There is no compatibility shim: old code stays broken until the import is updated.
+
+For one release after the graduation, a stub at the old path raises an `ImportError` that names the destination:
+
+```python
+from instro.contrib.psu.drivers import SomeVendorPSU
+# ImportError: SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.
+```
+
+The stub is deleted in the following release, after which the old import fails with a plain `ImportError`.
 
 ## Contributing a driver
 

@@ -45,13 +45,17 @@ description: Drive a simulated power supply end-to-end in about five minutes. No
   </Step>
 
   <Step title="Set a voltage and enable the output">
-    Configure channel 1 with a 5 V setpoint and a 1 A current limit, then enable the output.
+    Configure channel 1 with a 5 V setpoint, a 1 A current limit, and overvoltage protection at 5.5 V, then enable the output.
 
     ```python
     psu.set_voltage(5.0, channel=1)
     psu.set_current_limit(1.0, channel=1)
+    psu.set_overvoltage_protection_level(5.5, channel=1)
+    psu.set_overvoltage_protection_enabled(True, channel=1)
     psu.output_enable(True, channel=1)
     ```
+
+    The simulator models protection trips just like a real supply: if the output ever exceeds the OVP threshold, the channel shuts down and `SYST:ERR?` reports the trip.
   </Step>
 
   <Step title="Read a measurement back">
@@ -64,7 +68,7 @@ description: Drive a simulated power supply end-to-end in about five minutes. No
     print(f"I: {current.latest:.3f} A")
     ```
 
-    When you're done, disable the output and close the connection:
+    When you're done, disable the output and close the connection. Turning the output off before disconnecting is standard bench safety, and `close()` does more than drop the socket: it stops the background daemon and flushes any attached publishers.
 
     ```python
     psu.output_enable(False, channel=1)
