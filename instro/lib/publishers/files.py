@@ -4,7 +4,7 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Literal, Protocol
 
 import fastavro
 
@@ -129,10 +129,10 @@ class CsvFileWriter:
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
-        self._headers_written = False
         self._ensure_file_exists()
         self._file = open(self.file_path, "a", newline="")
-        self._writer = csv.writer(self._file)
+        self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
+        self._writer.writeheader()
 
     def _ensure_file_exists(self):
         """Create directory if it doesn't exist."""
@@ -141,19 +141,13 @@ class CsvFileWriter:
     def write(self, data: Measurement | Command):
         """Append data to CSV file."""
         if isinstance(data, Measurement):
-            self._write_measurement(self._writer, data)
+            self._write_measurement(data)
         elif isinstance(data, Command):
-            self._write_command(self._writer, data)
+            self._write_command(data)
         self._file.flush()
 
-    def _write_measurement(self, writer: Any, data: Measurement):
+    def _write_measurement(self, data: Measurement):
         """Write Measurement data as individual rows."""
-        # Write headers if not already written
-        if not self._headers_written:
-            headers = ["timestamp", "channel", "value", "tags"]
-            writer.writerow(headers)
-            self._headers_written = True
-
         # Write each channel's data as separate rows
         for channel_name, values in data.channel_data.items():
             for i, value in enumerate(values):
@@ -161,20 +155,14 @@ class CsvFileWriter:
                 # but handle edge case where they don't match
                 timestamp = data.timestamps[i] if i < len(data.timestamps) else data.timestamps[-1]
                 tags = json.dumps(data.tags) if data.tags else ""
-                writer.writerow([timestamp, channel_name, value, tags])
+                self._writer.writerow({"timestamp": timestamp, "channel": channel_name, "value": value, "tags": tags})
 
-    def _write_command(self, writer: Any, data: Command):
+    def _write_command(self, data: Command):
         """Write Command data as individual rows."""
-        # Write headers if not already written
-        if not self._headers_written:
-            headers = ["timestamp", "channel", "value", "tags"]
-            writer.writerow(headers)
-            self._headers_written = True
-
         # Write each channel's data as separate rows
         for channel_name, value in data.channel_data.items():
             tags = json.dumps(data.tags) if data.tags else ""
-            writer.writerow([data.timestamp, channel_name, value, tags])
+            self._writer.writerow({"timestamp": data.timestamp, "channel": channel_name, "value": value, "tags": tags})
 
     def open(self):
         pass
