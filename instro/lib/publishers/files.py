@@ -2,6 +2,7 @@
 
 import csv
 import json
+import logging
 import math
 import warnings
 from datetime import datetime
@@ -11,6 +12,8 @@ from typing import Any, Literal, Protocol
 import fastavro
 
 from instro.lib.types import Command, Measurement
+
+logger = logging.getLogger(__name__)
 
 
 class FileWriter(Protocol):
@@ -150,14 +153,21 @@ class JsonlFileWriter:
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self._ensure_file_exists()
-        self._file = open(self.file_path, "a")
+        self._open_file()
 
     def _ensure_file_exists(self):
         """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
+    def _open_file(self):
+        """Open the file for appending."""
+        self._file = open(self.file_path, "a")
+
     def write(self, data: Measurement | Command):
         """Append data as one JSON line, mapping non-finite floats to null."""
+        if self._file.closed:
+            logger.info("Reopening closed JSONL writer for append: %s", self.file_path)
+            self._open_file()
         self._file.write(json.dumps(_json_safe(data.__dict__), allow_nan=False) + "\n")
         self._file.flush()
 
@@ -175,18 +185,25 @@ class CsvFileWriter:
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self._ensure_file_exists()
+        self._open_file()
+
+    def _ensure_file_exists(self):
+        """Create directory if it doesn't exist."""
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _open_file(self):
+        """Open the file for appending and write the header if the file is empty."""
         self._file = open(self.file_path, "a", newline="")
         self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
         if self.file_path.stat().st_size == 0:
             self._writer.writeheader()
             self._file.flush()
 
-    def _ensure_file_exists(self):
-        """Create directory if it doesn't exist."""
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
-
     def write(self, data: Measurement | Command):
         """Append data to CSV file."""
+        if self._file.closed:
+            logger.info("Reopening closed CSV writer for append: %s", self.file_path)
+            self._open_file()
         if isinstance(data, Measurement):
             self._write_measurement(data)
         elif isinstance(data, Command):
@@ -239,18 +256,23 @@ class AvroFileWriter:
             ],
         }
         self._parsed_schema = fastavro.parse_schema(self.schema)
-
-        # Open file and initialize writer
-        self._file = open(self.file_path, "wb")
-        # Using snappy compression requires cramjam package
-        self._writer = fastavro.write.Writer(self._file, self._parsed_schema, codec="snappy")
+        self._open_file("wb")
 
     def _ensure_file_exists(self):
         """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
+    def _open_file(self, mode: Literal["wb", "a+b"]):
+        """Open the file and initialize the Avro writer."""
+        self._file = open(self.file_path, mode)
+        # Using snappy compression requires cramjam package
+        self._writer = fastavro.write.Writer(self._file, self._parsed_schema, codec="snappy")
+
     def write(self, data: Measurement | Command):
         """Append data to Avro file."""
+        if self._file.closed:
+            logger.info("Reopening closed Avro writer for append: %s", self.file_path)
+            self._open_file("a+b")
         if isinstance(data, Measurement):
             self._write_measurement(data)
         elif isinstance(data, Command):

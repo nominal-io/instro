@@ -1,8 +1,9 @@
-"""Unit tests for FilePublisher JSONL support and JSON deprecation."""
+"""Unit tests for FilePublisher writers: JSONL/JSON behavior and reopen-after-close."""
 
 import json
 import warnings
 
+import fastavro
 import pytest
 
 from instro.lib.publishers import FilePublisher
@@ -112,3 +113,49 @@ def test_jsonl_does_not_warn(tmp_path):
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
         FilePublisher(directory=tmp_path, format="jsonl", custom_file_name="capture")
+
+
+def test_jsonl_publish_after_close_reopens_and_appends(tmp_path):
+    publisher = FilePublisher(directory=tmp_path, format="jsonl", custom_file_name="capture")
+
+    publisher.publish(_measurement())
+    publisher.close()
+    publisher.publish(_command())
+    publisher.close()
+
+    lines = (tmp_path / "capture.jsonl").read_text().splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0])["channel_data"] == {"channel_a": [1.0, 2.0]}
+    assert json.loads(lines[1])["channel_data"] == {"channel_b": 5.0}
+    assert publisher._writer._file.closed
+
+
+def test_csv_publish_after_close_reopens_without_second_header(tmp_path):
+    publisher = FilePublisher(directory=tmp_path, format="csv", custom_file_name="capture")
+
+    publisher.publish(_command())
+    publisher.close()
+    publisher.publish(_command())
+    publisher.close()
+
+    lines = (tmp_path / "capture.csv").read_text().splitlines()
+    assert lines[0] == "timestamp,channel,value,tags"
+    assert sum(1 for line in lines if line.startswith("timestamp,")) == 1
+    assert len(lines) == 3
+
+
+def test_avro_publish_after_close_appends_valid_container(tmp_path):
+    publisher = FilePublisher(directory=tmp_path, format="avro", custom_file_name="capture")
+
+    publisher.publish(_measurement())
+    publisher.close()
+    publisher.publish(_command())
+    publisher.close()
+
+    with open(tmp_path / "capture.avro", "rb") as f:
+        records = list(fastavro.reader(f))
+    assert len(records) == 2
+    assert records[0]["channel"] == "channel_a"
+    assert records[0]["values"] == [1.0, 2.0]
+    assert records[1]["channel"] == "channel_b"
+    assert records[1]["values"] == [5.0]

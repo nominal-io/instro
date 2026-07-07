@@ -211,6 +211,19 @@ daq = InstroDAQ(
 If you only need a local file as a fallback for when network connectivity to Nominal Core is lost, use the `file_fallback` parameter on `NominalCorePublisher` instead of attaching a separate `FilePublisher`.
 </Note>
 
+**Sharing one file across instruments:**
+
+A single `FilePublisher` can be attached to multiple instruments to capture their data in one file:
+
+```python
+capture = FilePublisher(directory="./captures", format="avro")
+
+psu = InstroPSU(name="myPSU", driver=psu_driver, num_channels=1, publishers=[capture])
+daq = InstroDAQ(name="myDAQ", driver=daq_driver, publishers=[capture])
+```
+
+Each instrument closes its publishers when it closes. When a shared `FilePublisher` receives a publish after its file was closed, it reopens the file in append mode and logs the reopen, so instruments can close in any order without losing data. Every close flushes the file, and the last close leaves it closed.
+
 
 ## Attaching Publishers
 
