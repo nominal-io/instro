@@ -297,7 +297,8 @@ def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager,
 
 def _list_resources(backend: str) -> tuple[str, ...]:
     try:
-        return pyvisa.ResourceManager(backend).list_resources()
+        rm, _, _ = _open_resource_manager(backend)
+        return rm.list_resources()
     except (OSError, pyvisa.errors.Error):
         return ()
 
@@ -311,7 +312,7 @@ def _open_resource(visa_resource: str, backend: str | None) -> pyvisa.resources.
     """
     if backend is not None:
         logger.info("Opening VISA resource %r via %s", visa_resource, backend)
-        rm = pyvisa.ResourceManager(backend)
+        rm, _, _ = _open_resource_manager(backend)
         return typing.cast(
             pyvisa.resources.MessageBasedResource,
             rm.open_resource(visa_resource),
@@ -319,9 +320,7 @@ def _open_resource(visa_resource: str, backend: str | None) -> pyvisa.resources.
     else:  # no backend selected, try to discover the correct back-end
         logger.info("Opening VISA resource %r via %s", visa_resource, DEFAULT_VISA_BACKEND)
         try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message=".*GPIB.*")
-                rm = pyvisa.ResourceManager(DEFAULT_VISA_BACKEND)
+            rm, _, _ = _open_resource_manager(DEFAULT_VISA_BACKEND)
             return typing.cast(
                 pyvisa.resources.MessageBasedResource,
                 rm.open_resource(visa_resource),
@@ -336,9 +335,7 @@ def _open_resource(visa_resource: str, backend: str | None) -> pyvisa.resources.
 
         logger.info("Opening VISA resource %r via %s", visa_resource, FALLBACK_VISA_BACKEND)
         try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message=".*GPIB.*")
-                rm = pyvisa.ResourceManager(FALLBACK_VISA_BACKEND)
+            rm, _, _ = _open_resource_manager(FALLBACK_VISA_BACKEND)
             return typing.cast(
                 pyvisa.resources.MessageBasedResource,
                 rm.open_resource(visa_resource),
