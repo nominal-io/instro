@@ -17,6 +17,7 @@
             "group": "Getting started",
             "icon": "rocket",
             "root": "getting-started",
+            "expanded": true,
             "pages": [
               "instrumentation/quickstart",
               "instrumentation/overview",
@@ -30,6 +31,7 @@
             "group": "Concepts",
             "icon": "book-open",
             "root": "instrumentation/concepts",
+            "expanded": true,
             "pages": [
               "instrumentation/publishers",
               "instrumentation/library",
@@ -42,9 +44,11 @@
             "group": "Instruments",
             "icon": "microchip",
             "root": "instrumentation/instruments",
+            "expanded": true,
             "pages": [
               {
                 "group": "Power Supply (PSU)",
+                "expanded": true,
                 "pages": [
                   "instrumentation/psu",
                   "instrumentation/psu-simulator"
@@ -60,9 +64,11 @@
             "group": "Protocols",
             "icon": "network-wired",
             "root": "instrumentation/protocols/overview",
+            "expanded": true,
             "pages": [
               {
                 "group": "I2C",
+                "expanded": true,
                 "pages": [
                   "instrumentation/protocols/i2c/overview",
                   "instrumentation/protocols/i2c/system-definition"
