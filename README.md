@@ -22,7 +22,7 @@ Talk to a simulated PSU. No hardware required.
 
 ```bash
 # Terminal 1: start the in-process SCPI sim server:
-uv run python -m instro.psu.scpi_sim_server
+python -m instro.psu.scpi_sim_server
 ```
 
 ```python
