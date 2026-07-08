@@ -1,4 +1,12 @@
-# ⟢ instro
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./res/logo/instro-logo-ascii-white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./res/logo/instro-logo-ascii-black.svg">
+  <img width="512" alt="Nominal Instro SDK Logo" src="./res/logo/instro-logo-ascii-black.svg">
+</picture>
+</div>
+
+<br>
 
 Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
