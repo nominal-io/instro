@@ -65,6 +65,8 @@ Same shape as above, but in `packages/instro-contrib/instro/contrib/<category>/d
 
 The contrib bar is in [CONTRIBUTING.md](./CONTRIBUTING.md#instro-contrib--community-contributed-drivers).
 
+Add the driver to the "Available drivers" section of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
+
 ## Documentation
 
 Docs live in this repo and ship in the same PR as the code change. When a change is user-visible or alters how contributors work, update the relevant files on the same branch:
@@ -72,6 +74,7 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 | Change type | Files to update |
 |---|---|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` (reference docs) and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
