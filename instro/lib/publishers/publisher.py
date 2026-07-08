@@ -134,7 +134,7 @@ class SharedPublisher(Publisher):
     @classmethod
     def __from_state(cls, state: "SharedPublisher.__ControlBlock") -> "SharedPublisher":
         instance = cls.__new__(cls)
-        instance.__state_lock = threading.RLock()
+        instance.__state_lock = threading.Lock()
         instance.__state = state
         return instance
 
