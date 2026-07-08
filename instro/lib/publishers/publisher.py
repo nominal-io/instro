@@ -95,7 +95,7 @@ class SharedPublisher(Publisher):
             with self.__lock:
                 if self.__count == 0:
                     raise RuntimeError(
-                        "attempted to increment a shared publisher that was already closed."
+                        "attempted to increment a shared publisher that was already closed. "
                         "If you're seeing this, it's probably a bug. Please report it to the instro developers."
                     )
 
@@ -107,7 +107,7 @@ class SharedPublisher(Publisher):
             with self.__lock:
                 if self.__count <= 0:
                     raise RuntimeError(
-                        "attempted to decrement a shared publisher that was already closed."
+                        "attempted to decrement a shared publisher that was already closed. "
                         "If you're seeing this, it's probably a bug. Please report it to the instro developers."
                     )
 
