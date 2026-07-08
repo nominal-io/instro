@@ -247,5 +247,10 @@
   },
   "interaction": {
     "drilldown": true
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-LR7QM29GGQ"
+    }
   }
 }
