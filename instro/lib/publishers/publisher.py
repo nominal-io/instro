@@ -127,7 +127,8 @@ class SharedPublisher(Publisher):
             self.__publisher.close()
 
         def __del__(self) -> None:
-            self.__close()
+            if self.__count > 0:
+                self.__close()
 
     @overload
     def __init__(self, _state: "SharedPublisher.__ControlBlock", /): ...
