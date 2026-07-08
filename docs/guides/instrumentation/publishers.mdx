@@ -307,7 +307,7 @@ Publisher wrappers modify the behavior of other publishers by adding buffering, 
 
 ### SharedPublisher
 
-`SharedPublisher` is an escape hatch for sharing one underlying publisher across multiple instruments. The default model is still exclusive ownership: one publisher instance belongs to one instrument. Use `SharedPublisher` only when multiple instruments must publish to the same file, stream, client, or other sink.
+`SharedPublisher` coordinates shared ownership of one underlying publisher across multiple instruments. The default model is still exclusive ownership: one publisher instance belongs to one instrument. Use `SharedPublisher` only when multiple instruments must publish to the same file, stream, client, or other sink.
 
 Each instrument receives its own `SharedPublisher` handle. Closing one instrument closes only that handle. The underlying publisher closes after the last shared handle closes.
 
