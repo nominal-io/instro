@@ -4,7 +4,7 @@ import abc
 import logging
 import queue
 import threading
-from typing import Protocol, cast, overload
+from typing import Protocol
 
 from instro.lib.types import Command, Measurement
 
@@ -81,13 +81,12 @@ class QueuedPublisher(Publisher):
         self._thread.join()
         self.publisher.close()
 
-
 class SharedPublisher(Publisher):
     """A publisher that can be shared between multiple instruments."""
 
     class __ControlBlock:
         def __init__(self, publisher: Publisher):
-            self.__lock = threading.Lock()
+            self.__lock = threading.RLock()
             self.__count = 1
             self.__publisher = publisher
 
@@ -126,38 +125,38 @@ class SharedPublisher(Publisher):
             if self.__count > 0:
                 self.__close()
 
-    @overload
-    def __init__(self, _state: "SharedPublisher.__ControlBlock", /): ...
-    @overload
-    def __init__(self, publisher: Publisher, /): ...
-
-    def __init__(self, publisher: "Publisher | SharedPublisher.__ControlBlock", /):
+    def __init__(self, publisher: Publisher):
         """Initialize a shared publisher, assuming exclusive ownership of the publisher provided."""
-        self.__state = None
-        if isinstance(state := publisher, SharedPublisher.__ControlBlock):
-            self.__state = state
-            self.__state.increment()
-        else:
-            self.__state = SharedPublisher.__ControlBlock(cast(Publisher, publisher))
+        self.__state_lock = threading.Lock()
+        self.__state: SharedPublisher.__ControlBlock | None = SharedPublisher.__ControlBlock(publisher)
 
-    def __get_state(self) -> "SharedPublisher.__ControlBlock":
-        if self.__state is None:
-            raise RuntimeError("attempted to access a shared publisher that was already closed")
-        return self.__state
+    @classmethod
+    def __from_state(cls, state: "SharedPublisher.__ControlBlock") -> "SharedPublisher":
+        instance = cls.__new__(cls)
+        instance.__state_lock = threading.RLock()
+        instance.__state = state
+        return instance
 
     def clone(self) -> "SharedPublisher":
         """Clone the shared publisher for use with another instrument."""
-        return SharedPublisher(self.__get_state())
+        with self.__state_lock:
+            if (state := self.__state) is None:
+                raise RuntimeError("attempted to clone a shared publisher handle that was already closed")
+            return SharedPublisher.__from_state(state.increment())
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Publish data to the underlying publisher being shared."""
-        self.__get_state().publish(data, **kwargs)
+        with self.__state_lock:
+            if (state := self.__state) is None:
+                raise RuntimeError("attempted to publish to a shared publisher handle that was already closed")
+            state.publish(data, **kwargs)
 
     def close(self) -> None:
         """Close this instance and possibly release the underlying publisher."""
-        if self.__state is not None:
-            self.__state.decrement()
-            self.__state = None
+        with self.__state_lock:
+            if self.__state is not None:
+                self.__state.decrement()
+                self.__state = None
 
     def __del__(self) -> None:
         """Ensure that the shared publisher is closed when the instance is garbage collected."""
