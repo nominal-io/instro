@@ -87,7 +87,7 @@ class SharedPublisher(Publisher):
 
     class __ControlBlock:
         def __init__(self, publisher: Publisher):
-            self.__lock = threading.RLock()
+            self.__lock = threading.Lock()
             self.__count = 1
             self.__publisher = publisher
 
