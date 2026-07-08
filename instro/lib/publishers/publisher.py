@@ -134,13 +134,20 @@ class SharedPublisher(Publisher):
     @overload
     def __init__(self, publisher: Publisher, /): ...
 
-    def __init__(self, pub_or_state: "Publisher | SharedPublisher.__ControlBlock", /):
+    def __init__(self, publisher: "Publisher | SharedPublisher.__ControlBlock", /):
+        """Initialize a shared publisher.
+
+        The ``SharedPublisher`` assumes exclusive ownership of the publisher provided.
+
+        Args:
+            publisher: The publisher to be shared.
+        """
         self.__state = None
-        if isinstance(state := pub_or_state, SharedPublisher.__ControlBlock):
+        if isinstance(state := publisher, SharedPublisher.__ControlBlock):
             self.__state = state
             self.__state.increment()
         else:
-            self.__state = SharedPublisher.__ControlBlock(cast(Publisher, pub_or_state))
+            self.__state = SharedPublisher.__ControlBlock(cast(Publisher, publisher))
 
     def __get_state(self) -> "SharedPublisher.__ControlBlock":
         if self.__state is None:
