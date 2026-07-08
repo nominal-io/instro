@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-v1.1.0...instro-v1.2.0) (2026-07-07)
+
+
+### Features
+
+* **dmm:** add Keithley 2750 DMM driver (unstable) ([#237](https://github.com/nominal-io/instro/issues/237)) ([ff01368](https://github.com/nominal-io/instro/commit/ff013685d879c6c8e2105d7c3048abf8d79e7121)), closes [#193](https://github.com/nominal-io/instro/issues/193)
+
+
+### Bug Fixes
+
+* use dark foreground in light mode ([#242](https://github.com/nominal-io/instro/issues/242)) ([fee81d5](https://github.com/nominal-io/instro/commit/fee81d5627af04097c92cc03cae6f464b79de740))
+
 ## [1.1.0](https://github.com/nominal-io/instro/compare/instro-v1.0.1...instro-v1.1.0) (2026-07-06)
 
 

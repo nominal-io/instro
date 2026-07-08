@@ -200,6 +200,7 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 | Change type | Files to update |
 |------|------|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (the Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
@@ -237,6 +238,7 @@ A contrib driver must:
 - **Ship a unit test** that exercises the driver against a mocked transport.
 - **Document the model(s) it targets** in a module docstring.
 - **Be verified by the contributor against real hardware**: this is the trust we're extending. Note the model(s) and firmware version(s) you tested against in the PR description.
+- **Add an entry to the "Available drivers" section** of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release; a merged driver missing from it makes the doc wrong.
 
 It does **not** need:
 
