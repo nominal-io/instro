@@ -193,6 +193,10 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
 
+Write unit tests to cover the invariant or edge case under test with the least necessary complexity. Prefer targeted, high-signal cases overly broad redundant matrices, heavily abstracted helpers, or rewrites whose main effect is making tests look shareable. Don't add tests simply to increase line coverage or the number of executed cases. You're going to be working features/bug-fixes that have a clear reason test, so make sure that your tests are meaningfully addressing the real needs for test coverage. Shared test helpers are fine when they remove duplication without hiding what behavior each test proves. A large, complicated test suite that repeats the same assertion in different shapes is almost as unhelpful as no coverage.
+
+Bug fixes should usually add regression coverage. A PR titled `fix(...): ...` should include at least one new test that would have failed before the fix, or a convincing explanation in the PR description for why new coverage is not practical or useful.
+
 ### Documentation
 
 Docs live in this repo, so they ship in the same PR as the code change. If your change is user-visible or alters how contributors work, update the relevant files on the same branch:

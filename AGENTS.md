@@ -40,6 +40,7 @@ If `just check` and `just test` both pass, CI will pass.
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
+- **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) should usually add regression coverage or explain why no new test is practical.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
@@ -57,7 +58,7 @@ Use `instro/psu/drivers/bk_9115.py` as the reference. The shape is:
 3. Implement `open`, `close`, and the category-required methods.
 4. Add per-driver `_write_checked` / `_check_errors` helpers if the device supports `SYST:ERR?`. Do **not** extract these to a shared mixin (see Patterns below).
 5. Register in `instro/<category>/drivers/__init__.py` (both the import and `__all__`).
-6. Add tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands.
+6. Add targeted tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands, and avoid redundant matrices, coverage-count padding, or shared helpers that obscure the behavior under test.
 
 ## How to add a community driver
 
