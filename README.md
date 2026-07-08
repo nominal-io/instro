@@ -86,6 +86,7 @@ pip install "instro[nidaq,contrib]"
 
 ## Supported devices
 
+<!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
 |---|---|---|
 | Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
@@ -96,6 +97,7 @@ pip install "instro[nidaq,contrib]"
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
+<!-- --8<-- [end:supported-devices] -->
 
 Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
