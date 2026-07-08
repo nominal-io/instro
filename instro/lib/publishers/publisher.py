@@ -83,11 +83,7 @@ class QueuedPublisher(Publisher):
 
 
 class SharedPublisher(Publisher):
-    """A publisher that can be shared between multiple instruments.
-
-    Publishers are treated as exclusive resources, owned by a single instrument. Instruments attempt to close the publisher that they own when they are closed.
-    ``SharedPublisher`` is an escape hatch to allow multiple instruments to share a single publisher that will only be closed when the last instrument that is sharing it is closed.
-    """
+    """A publisher that can be shared between multiple instruments."""
 
     class __ControlBlock:
         def __init__(self, publisher: Publisher):
@@ -136,13 +132,7 @@ class SharedPublisher(Publisher):
     def __init__(self, publisher: Publisher, /): ...
 
     def __init__(self, publisher: "Publisher | SharedPublisher.__ControlBlock", /):
-        """Initialize a shared publisher.
-
-        The ``SharedPublisher`` assumes exclusive ownership of the publisher provided.
-
-        Args:
-            publisher: The publisher to be shared.
-        """
+        """Initialize a shared publisher, assuming exclusive ownership of the publisher provided."""
         self.__state = None
         if isinstance(state := publisher, SharedPublisher.__ControlBlock):
             self.__state = state
@@ -164,7 +154,7 @@ class SharedPublisher(Publisher):
         self.__get_state().publish(data, **kwargs)
 
     def close(self) -> None:
-        """Close the this instance and possibly release the underlying publisher."""
+        """Close this instance and possibly release the underlying publisher."""
         if self.__state is not None:
             self.__state.decrement()
             self.__state = None
