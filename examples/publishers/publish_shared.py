@@ -1,7 +1,6 @@
 """Example: Publishers: publish shared."""
 
-from instro.lib.publishers import FilePublisher
-from instro.lib.publishers.publisher import SharedPublisher
+from instro.lib.publishers import FilePublisher, SharedPublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 

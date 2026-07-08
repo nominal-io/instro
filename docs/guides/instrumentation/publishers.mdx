@@ -327,8 +327,7 @@ SharedPublisher(
 **Example:**
 
 ```python
-from instro.lib.publishers import FilePublisher
-from instro.lib.publishers.publisher import SharedPublisher
+from instro.lib.publishers import FilePublisher, SharedPublisher
 
 file_publisher = FilePublisher(directory="./captures", format="avro")
 shared_publisher = SharedPublisher(file_publisher)
