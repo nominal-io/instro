@@ -52,6 +52,24 @@ def test_repeated_close_is_idempotent():
     assert sink.close_count == 1
 
 
+def test_failing_underlying_close_still_closes_handle():
+    class FailingClosePublisher(Publisher):
+        def publish(self, data: Measurement | Command, **kwargs: object) -> None:
+            raise AssertionError("publish should not be called")
+
+        def close(self) -> None:
+            raise OSError("flush failed")
+
+    publisher = SharedPublisher(FailingClosePublisher())
+
+    with pytest.raises(OSError, match="flush failed"):
+        publisher.close()
+
+    publisher.close()
+    with pytest.raises(RuntimeError, match="already closed"):
+        publisher.publish(Measurement(channel_data={"voltage": [1.0]}, timestamps=[100]))
+
+
 def test_explicit_close_then_gc_does_not_close_again():
     sink = RecordingPublisher()
     publisher = SharedPublisher(sink)

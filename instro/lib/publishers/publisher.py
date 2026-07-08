@@ -156,8 +156,10 @@ class SharedPublisher(Publisher):
         """Close this instance and possibly release the underlying publisher."""
         with self.__state_lock:
             if self.__state is not None:
-                self.__state.decrement()
-                self.__state = None
+                try:
+                    self.__state.decrement()
+                finally:
+                    self.__state = None
 
     def __del__(self) -> None:
         """Ensure that the shared publisher is closed when the instance is garbage collected."""
