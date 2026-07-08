@@ -1,0 +1,39 @@
+"""Example: Publishers: publish shared."""
+
+from instro.lib.publishers import FilePublisher
+from instro.lib.publishers.publisher import SharedPublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+PRIMARY_VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
+SECONDARY_VISA_RESOURCE = "TCPIP0::127.0.0.1::5026::SOCKET"
+
+file_publisher = FilePublisher(directory="./captures", format="avro", custom_file_name="shared_publishers")
+shared_publisher = SharedPublisher(file_publisher)
+
+primary_psu = InstroPSU(
+    name="primaryPSU",
+    driver=SimulatedPSU(PRIMARY_VISA_RESOURCE),
+    num_channels=2,
+    publishers=[shared_publisher],
+)
+secondary_psu = InstroPSU(
+    name="secondaryPSU",
+    driver=SimulatedPSU(SECONDARY_VISA_RESOURCE),
+    num_channels=2,
+    publishers=[shared_publisher.clone()],
+)
+
+try:
+    primary_psu.open()
+    secondary_psu.open()
+
+    primary_psu.set_voltage(1.0, channel=1)
+    primary_psu.get_voltage(channel=1)
+
+    secondary_psu.set_voltage(2.0, channel=1)
+    secondary_psu.get_voltage(channel=1)
+finally:
+    primary_psu.close()
+    # The underlying FilePublisher stays open until the final shared handle closes.
+    secondary_psu.close()
