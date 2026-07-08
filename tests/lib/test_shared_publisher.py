@@ -29,6 +29,7 @@ def test_cloned_and_closed_independently():
     cloned.close()
     assert dummy.closed
 
+
 def test_cloning_closed_publisher_raises_error():
     dummy = DummyPublisher()
     publisher = SharedPublisher(dummy)
@@ -37,6 +38,7 @@ def test_cloning_closed_publisher_raises_error():
 
     with pytest.raises(RuntimeError):
         publisher.clone()
+
 
 def test_idempotent_close():
     dummy = DummyPublisher()
