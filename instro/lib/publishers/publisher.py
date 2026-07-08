@@ -81,6 +81,7 @@ class QueuedPublisher(Publisher):
         self._thread.join()
         self.publisher.close()
 
+
 class SharedPublisher(Publisher):
     """A publisher that can be shared between multiple instruments."""
 
