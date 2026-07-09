@@ -5,7 +5,7 @@ description: Drivers Nominal accepts on contributor verification rather than dir
 
 # Contrib drivers
 
-`instro-contrib` is a separate package containing drivers that have passed code review but were **verified on real hardware by the contributor**, not by Nominal. They typically come from one of two sources:
+[`instro-contrib`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib) is a separate package containing drivers that have passed code review but were **verified on real hardware by the contributor**, not by Nominal. They typically come from one of two sources:
 
 - **Community contributions**: drivers submitted by users who own the hardware and tested locally.
 - **Staff drops**: drivers Nominal has written for a device it doesn't have on hand.
@@ -53,6 +53,8 @@ The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported fro
 
 ## Available drivers
 
+This is the complete set of `instro-contrib` drivers as of the current release.
+
 ### Matrix WPS300S-series PSU
 
 **Class**: `MatrixWPS300S`  
@@ -60,7 +62,7 @@ The category-level class (`InstroPSU`, `InstroDMM`, etc.) is always imported fro
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 
-To check what's currently in the repo, browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib).
+Drivers should be added to this list as part of the merge which brings them into the main branch. For pre-release drivers browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib) or [this file](https://github.com/nominal-io/instro/blob/main/docs/guides/instrumentation/contrib.mdx) in the source GitHub repository.
 
 ## Graduation to core
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.3.0](https://github.com/nominal-io/instro/compare/instro-v1.2.0...instro-v1.3.0) (2026-07-08)
+
+
+### Features
+
+* **instrument:** add channel_names property ([#243](https://github.com/nominal-io/instro/issues/243)) ([6936ac8](https://github.com/nominal-io/instro/commit/6936ac8fd2c010b6036ab849bdefbeca7655891b))
+
+
+### Bug Fixes
+
+* close [#219](https://github.com/nominal-io/instro/issues/219) by adding additional rules for properly listing out available contrib drivers ([#230](https://github.com/nominal-io/instro/issues/230)) ([6f81dd0](https://github.com/nominal-io/instro/commit/6f81dd06131bfcd6e3008df8b0becfd444971793))
+
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-v1.1.0...instro-v1.2.0) (2026-07-07)
+
+
+### Features
+
+* **dmm:** add Keithley 2750 DMM driver (unstable) ([#237](https://github.com/nominal-io/instro/issues/237)) ([ff01368](https://github.com/nominal-io/instro/commit/ff013685d879c6c8e2105d7c3048abf8d79e7121)), closes [#193](https://github.com/nominal-io/instro/issues/193)
+
+
+### Bug Fixes
+
+* use dark foreground in light mode ([#242](https://github.com/nominal-io/instro/issues/242)) ([fee81d5](https://github.com/nominal-io/instro/commit/fee81d5627af04097c92cc03cae6f464b79de740))
+
 ## [1.1.0](https://github.com/nominal-io/instro/compare/instro-v1.0.1...instro-v1.1.0) (2026-07-06)
 
 
