@@ -54,7 +54,13 @@
                   "instrumentation/psu-simulator"
                 ]
               },
-              "instrumentation/eload",
+              {
+                "group": "Electronic Load (E-Load)",
+                "pages": [
+                  "instrumentation/eload",
+                  "instrumentation/eload-simulator"
+                ]
+              },
               "instrumentation/dmm",
               "instrumentation/daq",
               "instrumentation/oscilloscope"

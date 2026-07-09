@@ -21,3 +21,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ::: instro.eload.drivers.bk_85xxb
     options:
       heading_level: 4
+
+### Simulated
+
+::: instro.eload.drivers.simulated
+    options:
+      heading_level: 4
