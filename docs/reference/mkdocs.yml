@@ -2,7 +2,7 @@ site_name: "instro SDK"
 repo_url: "https://github.com/nominal-io/instro"
 repo_name: "nominal-io/instro"
 site_dir: site
-watch: [mkdocs.yml, ../../README.md, ../../CHANGELOG.md, ../../instro, ../../packages]
+watch: [mkdocs.yml, main.py, ../../README.md, ../../CHANGELOG.md, ../../instro, ../../packages]
 copyright: Copyright &copy; Nominal, Inc.
 edit_uri: edit/main/docs/reference/
 docs_dir: src
@@ -103,6 +103,7 @@ markdown_extensions:
 
 plugins:
   - search
+  - macros
   - mkdocstrings:
       handlers:
         python:

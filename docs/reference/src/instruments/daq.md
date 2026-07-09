@@ -26,8 +26,4 @@
 
 ## Vendor Drivers
 
-### Keysight 34980A
-
-::: instro.daq.drivers.keysight_34980a
-    options:
-      heading_level: 4
+{{ driver_list("daq") }}

@@ -14,8 +14,4 @@
 
 ## Vendor Drivers
 
-### BK 85XXB
-
-::: instro.eload.drivers.bk_85xxb
-    options:
-      heading_level: 4
+{{ driver_list("eload") }}

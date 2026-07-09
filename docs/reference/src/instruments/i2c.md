@@ -11,3 +11,7 @@
 ## Driver Interface
 
 ::: instro.i2c.I2CDriverBase
+
+## Vendor Drivers
+
+{{ driver_list("i2c") }}
