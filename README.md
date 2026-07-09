@@ -8,7 +8,7 @@
 
 <br>
 
-Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
+Python library for talking to test instrumentation (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
 [![Downloads](https://img.shields.io/pepy/dt/instro?color=419B55&label=downloads)](https://pypi.org/project/instro/)
@@ -22,7 +22,7 @@ Talk to a simulated PSU. No hardware required.
 
 ```bash
 # Terminal 1: start the in-process SCPI sim server:
-uv run python -m instro.psu.scpi_sim_server
+python -m instro.psu.scpi_sim_server
 ```
 
 ```python
@@ -40,7 +40,7 @@ with InstroPSU(
     print(psu.get_voltage(channel=1))
 ```
 
-That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
+That's the flow. Construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Installation
 
@@ -58,7 +58,8 @@ cd instro
 uv sync --extra all
 ```
 
-This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
+This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. 
+Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
 For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies that `just test` requires), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
 
@@ -97,7 +98,7 @@ pip install "instro[nidaq,contrib]"
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 
-Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
+Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing
