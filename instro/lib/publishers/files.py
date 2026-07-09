@@ -76,7 +76,22 @@ class FilePublisher:
 
     def publish(self, data: Measurement | Command, **kwargs):
         """Publish data to file using the appropriate writer."""
-        self._writer.write(data)
+        SHARED_PUBLISHER_WARNING = (
+            "If you're attempting to publish from multiple instruments, consider using SharedPublisher. "
+            "See https://instro.nominal.io/instrumentation/publishers#sharedpublisher for more information."
+        )
+
+        try:
+            self._writer.write(data)
+        except Exception as e:
+            add_note = getattr(e, "add_note", None)
+            if add_note:
+                add_note(SHARED_PUBLISHER_WARNING)
+
+            elif e.args:
+                e.args = (f"{e.args}\n\n{SHARED_PUBLISHER_WARNING}", *e.args[1:])
+
+            raise
 
     def open(self):
         # Stubbing out open method for when we opt to refactor this to use a file handle
