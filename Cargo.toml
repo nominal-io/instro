@@ -4,11 +4,13 @@ resolver = "2"
 members = [
     "packages/instro-ethernetip-rs",
     "packages/instro-opcua",
+    "packages/instro-simulation-physics-rs",
     "crates/opcua-test",
     "crates/instro-test-utils",
 ]
 exclude = [
     "packages/instro-ethernetip",
+    "packages/instro-simulation-physics",
 ]
 
 [workspace.package]

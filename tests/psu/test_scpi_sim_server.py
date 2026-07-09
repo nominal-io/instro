@@ -50,6 +50,21 @@ def _path_forms(
     return forms
 
 
+def _settle(psu: SimulatedPSU) -> None:
+    """Fast-forward every channel's physics clock past the output capacitor's transient.
+
+    The physics engine's `dt` is real wall-clock time (see `_update_voltage_source`), so
+    a settled steady-state assertion needs *some* elapsed time between the setpoint/output
+    change and the next measurement -- back-dating the timestamp and immediately driving
+    one more `_update()` gets there deterministically, without a real (and much slower)
+    `time.sleep`. Mirrors plan.md's own guidance for testing the transient: "driving
+    _update() directly with controlled elapsed time rather than real wall-clock sleeps."
+    """
+    for ch in psu.channels:
+        ch._last_update_monotonic -= 0.1
+    psu._update()
+
+
 def _trip_ocp(psu: SimulatedPSU) -> None:
     psu.channels[0].load = SimulatedLoad(resistance=1.0, emf=10.0, probe_resistance=0.0)
     psu.process_scpi_command("CURR 2.0")
@@ -64,6 +79,7 @@ def _trip_ovp(psu: SimulatedPSU) -> None:
     psu.process_scpi_command("VOLT:PROT:STAT ON")
     psu.process_scpi_command("OUTP ON")
     psu.channels[0].overvoltage_protection_level = 4.0
+    _settle(psu)
     psu.process_scpi_command("MEAS:VOLT?")
 
 
@@ -390,6 +406,7 @@ def test_measure_voltage_accepted_query_forms(psu: SimulatedPSU, header: str) ->
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
     assert psu.process_scpi_command(f"{header}?") == pytest.approx(5.0, rel=0.05)
 
 
@@ -398,6 +415,7 @@ def test_measure_current_accepted_query_forms(psu: SimulatedPSU, header: str) ->
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
     assert psu.process_scpi_command(f"{header}?") == pytest.approx(0.005, rel=0.1)
 
 
@@ -671,6 +689,7 @@ def test_remote_sense_eliminates_probe_drop(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
 
     i_local = psu.process_scpi_command(":MEAS:CURR?")
     assert i_local == pytest.approx(5.0 / 110.0, rel=0.1)
@@ -681,6 +700,64 @@ def test_remote_sense_eliminates_probe_drop(psu: SimulatedPSU) -> None:
     assert i_remote > i_local
 
 
+def test_local_sense_terminal_voltage_regulates_to_setpoint_under_load(psu: SimulatedPSU) -> None:
+    """Local sense regulates the PSU's own terminal; the probe-lead drop must not appear here.
+
+    A large probe_resistance opens a multi-volt gap between the setpoint and the
+    (bug-era) load-side reading -- far above MEAS:VOLT?'s own ~0.5% measurement noise --
+    so this fails deterministically today and passes deterministically once fixed.
+    """
+    psu.channels[0].load = SimulatedLoad(resistance=1000.0, probe_resistance=100.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 20.0")
+    psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
+
+    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(20.0, abs=0.2)
+
+
+def test_remote_sense_source_clamps_at_voltage_max_and_delivers_short(psu: SimulatedPSU) -> None:
+    """A lead drop the output stage can't overcome rails the source at voltage_max (UNREG).
+
+    Remote sense compensates the probe-lead drop by raising the PSU's own internal terminal;
+    with a 1 kOhm lead and a 1 A CC demand that would need ~1005 V internally, far past the
+    60 V rating. The output stage physically can't do that -- it saturates at voltage_max, so
+    the delivered voltage/current honestly fall short instead of the terminal running away.
+    """
+    ch = psu.channels[0]
+    ch.load = SimulatedLoad(resistance=5.0, probe_resistance=1000.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 12.0")
+    psu.process_scpi_command(":OUTP ON")
+    psu.process_scpi_command(":SYST:SENS REM")
+    _settle(psu)
+
+    assert ch.mode == OperatingMode.UNREG
+    # The internal terminal is pinned at the rating, not the unbounded ~1005 V it took before.
+    assert ch.terminal_voltage == pytest.approx(ch.voltage_max, abs=1e-3)
+    assert ch.terminal_voltage <= ch.voltage_max + 1e-6
+    # The regulated (load-side) point genuinely falls short of the 12 V / 1 A setpoint.
+    assert ch.load_voltage < 12.0
+    assert ch.current < 1.0
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(ch.load_voltage, rel=0.05)
+
+
+def test_remote_sense_within_voltage_max_regulates_normally(psu: SimulatedPSU) -> None:
+    """A lead drop the output stage *can* overcome regulates at the load, no UNREG."""
+    ch = psu.channels[0]
+    ch.load = SimulatedLoad(resistance=100.0, probe_resistance=1.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 12.0")
+    psu.process_scpi_command(":OUTP ON")
+    psu.process_scpi_command(":SYST:SENS REM")
+    _settle(psu)
+
+    assert ch.mode == OperatingMode.CV
+    assert ch.terminal_voltage <= ch.voltage_max + 1e-6
+    assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(12.0, rel=0.05)
+
+
 # --- CV/CC and EMF-driven current ---
 
 
@@ -688,6 +765,7 @@ def test_cv_mode_measures_setpoint_voltage(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
 
     assert psu.channels[0].mode == OperatingMode.CV
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
@@ -708,6 +786,7 @@ def test_emf_load_draws_charging_current(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR 10.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
 
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(2.0, rel=0.1)
 
@@ -728,6 +807,7 @@ def test_zero_resistance_load_at_matching_emf_stays_in_cv_mode(psu: SimulatedPSU
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
 
     assert psu.channels[0].mode == OperatingMode.CV
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
@@ -739,6 +819,7 @@ def test_infinite_resistance_load_stays_in_cv_mode(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR 1.0")
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
 
     assert psu.channels[0].mode == OperatingMode.CV
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
@@ -828,3 +909,24 @@ def test_cls_clears_error_queue(psu: SimulatedPSU, command: str) -> None:
     psu.process_scpi_command(":BOGUS")
     psu.process_scpi_command(command)
     assert _error_code(psu) == SCPIError.NO_ERROR.value
+
+
+# --- Physics engine transient (Cycle 1) ---
+
+
+def test_voltage_settles_gradually_after_setpoint_change(psu: SimulatedPSU) -> None:
+    """A setpoint step settles gradually along a real RC curve, not an instant snap."""
+    ch = psu.channels[0]
+    ch.load = SimulatedLoad(resistance=1000.0, probe_resistance=0.5)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 10.0")
+    psu.process_scpi_command(":OUTP ON")
+    _settle(psu)
+    assert ch.terminal_voltage == pytest.approx(10.0, abs=0.05)
+
+    psu.process_scpi_command(":VOLT 15.0")
+    # Driven with whatever (tiny) real dt has elapsed since _settle -- not yet snapped.
+    assert abs(ch.terminal_voltage - 15.0) > 0.5
+
+    _settle(psu)
+    assert ch.terminal_voltage == pytest.approx(15.0, abs=0.05)

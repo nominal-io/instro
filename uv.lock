@@ -17,6 +17,7 @@ members = [
     "instro-daq-ni",
     "instro-ethernetip",
     "instro-i2c-aardvark",
+    "instro-simulation-physics",
     "instro-unstable",
 ]
 
@@ -474,10 +475,11 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.0.1"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
+    { name = "instro-simulation-physics" },
     { name = "nominal" },
     { name = "pydantic" },
     { name = "pymodbus" },
@@ -568,6 +570,7 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
+    { name = "instro-simulation-physics", editable = "packages/instro-simulation-physics" },
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.99.0,<2.0.0" },
@@ -685,8 +688,13 @@ requires-dist = [
 ]
 
 [[package]]
-name = "instro-unstable"
+name = "instro-simulation-physics"
 version = "1.0.0"
+source = { editable = "packages/instro-simulation-physics" }
+
+[[package]]
+name = "instro-unstable"
+version = "1.1.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },

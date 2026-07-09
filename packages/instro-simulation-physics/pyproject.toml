@@ -1,0 +1,17 @@
+[project]
+name = "instro-simulation-physics"
+version = "1.0.0"
+description = "Rust circuit-solving engine for instro's simulated instruments (SCPI simulator servers)"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<3.14"
+dependencies = []
+
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "instro.simulation.physics._physics"
+python-source = "."

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
@@ -56,6 +58,7 @@ def test_set_voltage(driver: SimulatedPSU, channel: int, current_limit: float, v
     driver.set_current_limit(current_limit, channel=channel)
     driver.set_voltage(voltage, channel=channel)
     driver.output_enable(True, channel=channel)
+    time.sleep(0.05)  # let the output settle before measuring
 
     assert driver.get_voltage(channel=channel) == pytest.approx(voltage, abs=0.15)
 
@@ -71,6 +74,7 @@ def test_get_voltage(driver: SimulatedPSU, channel: int, current_limit: float, v
     driver.set_current_limit(current_limit, channel=channel)
     driver.set_voltage(voltage, channel=channel)
     driver.output_enable(True, channel=channel)
+    time.sleep(0.05)  # let the output settle before measuring
 
     measured_voltage = driver.get_voltage(channel=channel)
 

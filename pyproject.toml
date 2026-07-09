@@ -8,6 +8,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
+    "instro-simulation-physics",
     "nominal>=1.99.0,<2.0.0",
     "pydantic>=2.0",
     "pymodbus>=3.10,<3.13",
@@ -89,6 +90,7 @@ instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
 instro-ethernetip = { workspace = true }
+instro-simulation-physics = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 
@@ -99,6 +101,7 @@ members = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-simulation-physics",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -145,10 +148,11 @@ mypy_path = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-simulation-physics",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
-packages = ["instro", "instro.ethernetip"]
+packages = ["instro", "instro.ethernetip", "instro.simulation.physics"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

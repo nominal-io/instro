@@ -86,7 +86,7 @@ gen-examples:
     uv run python docs/guides/generate_examples.py
 
 # PyO3/maturin crates excluded from the root Cargo workspace (see Cargo.toml exclude).
-rust-standalone-packages := "packages/instro-ethernetip"
+rust-standalone-packages := "packages/instro-ethernetip packages/instro-simulation-physics"
 
 # Verify all committed Cargo.lock files match current manifests (no regeneration).
 rust-lock-check:

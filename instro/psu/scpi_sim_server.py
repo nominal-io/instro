@@ -24,6 +24,8 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, Input, Label, Log, Static
 
+from instro.simulation.physics import Circuit
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 5025
@@ -98,6 +100,14 @@ class OperatingMode(Enum):
     OFF = "OFF"
     CV = "CV"  # voltage regulated
     CC = "CC"  # current regulated
+    UNREG = "UNREG"  # output stage railed at voltage_max; setpoint unsatisfiable
+
+
+_OPERATING_MODE_BY_ENGINE = {
+    "CV": OperatingMode.CV,
+    "CC": OperatingMode.CC,
+    "UNREG": OperatingMode.UNREG,
+}
 
 
 class SimulatedLoad:
@@ -142,6 +152,9 @@ class SimulatedPSUChannel:
         self.overvoltage_tripped = False
         self.overcurrent_tripped = False
         self.protection_latched = False
+        # Wall-clock reference for the physics engine's dt (Circuit.step); reset whenever
+        # output is (re-)enabled so a long idle period doesn't force a huge catch-up step.
+        self._last_update_monotonic = time.monotonic()
 
 
 def _normalize_header(header: str) -> tuple[str, int]:
@@ -176,6 +189,16 @@ class SimulatedPSU:
         # log panel write only new entries on each refresh tick.
         self._command_log: deque[str] = deque(maxlen=200)
         self._command_log_seq = 0
+        # Rust circuit-solving engine backing every channel's CV/CC/UNREG regulation
+        # (Circuit.step) and output-capacitor transient. Registered lazily, per channel,
+        # on that channel's first physics update (see _update_voltage_source) rather than
+        # here, so a channel whose load is reassigned before its first SCPI command still
+        # registers with the load's r_series (today's probe_resistance) at that point --
+        # add_psu itself is still only ever called once per channel; later probe_resistance
+        # changes are kept in sync via the engine's own set_psu_r_series (see below), not by
+        # re-registering.
+        self._circuit = Circuit()
+        self._circuit_psu_ids: set[int] = set()
 
     # ---- Channel lookup and error queue ----
 
@@ -401,6 +424,9 @@ class SimulatedPSU:
             ch.protection_latched = False
             ch.overvoltage_tripped = False
             ch.overcurrent_tripped = False
+            # Don't charge the output capacitor through however long the output sat
+            # idle -- dt for the next physics step starts counting from now.
+            ch._last_update_monotonic = time.monotonic()
         ch.output_enabled = enable
         self._update()
 
@@ -537,39 +563,43 @@ class SimulatedPSU:
             return
 
     def _update_voltage_source(self, ch: SimulatedPSUChannel) -> None:
-        v_set = ch.voltage_setpoint
-        i_limit = ch.current_limit
-        r_load = ch.load.resistance
+        psu_id = str(ch.channel_id)
+        if ch.channel_id not in self._circuit_psu_ids:
+            self._circuit.add_psu(psu_id, r_series=ch.load.probe_resistance)
+            self._circuit_psu_ids.add(ch.channel_id)
+
+        self._circuit.attach_synthetic_load(psu_id, "resistive", resistance=ch.load.resistance, emf=ch.load.emf)
+        # Keep the engine's lead resistance in step with the live probe value: the
+        # compliance ceiling reasons about source_node = bus + I*r_series, and this must be
+        # the same lead the terminal-voltage reconstruction below divides across, even when
+        # probe_resistance is changed after the channel first registered.
+        self._circuit.set_psu_r_series(psu_id, ch.load.probe_resistance)
+        self._circuit.set_psu_voltage_setpoint(psu_id, ch.voltage_setpoint)
+        self._circuit.set_psu_current_limit(psu_id, ch.current_limit)
+        # The physical output stage can't be driven past the instrument's rated ceiling:
+        # in remote sense the engine raises source_node to compensate the probe-lead drop,
+        # and without this it would run away unbounded (a real PSU rails at voltage_max).
+        self._circuit.set_psu_voltage_max(psu_id, ch.voltage_max)
+        self._circuit.set_psu_remote_sense(psu_id, ch.remote_sense)
+        self._circuit.set_psu_output_enabled(psu_id, True)
+
+        now = time.monotonic()
+        dt = now - ch._last_update_monotonic
+        ch._last_update_monotonic = now
+        self._circuit.step(dt)
+
+        ch.current = self._circuit.psu_current(psu_id)
+        ch.mode = _OPERATING_MODE_BY_ENGINE[self._circuit.psu_mode(psu_id)]
+
+        # Circuit reports one externally-measurable node (`bus`); which of
+        # terminal/load voltage that represents depends on remote sense (Circuit
+        # regulates directly at the sensed point when remote-sensing -- see the Rust
+        # crate's `regulation_node`). Reconstruct the other side of the probe-resistance
+        # drop the same way today's Ohm's-law arithmetic did.
+        bus_voltage = self._circuit.psu_voltage(psu_id)
         r_probe = ch.load.probe_resistance
-        emf = ch.load.emf
-
-        r_total = r_load if ch.remote_sense else r_load + r_probe
-
-        if r_total == 0:
-            i_demand = math.inf if (v_set - emf) != 0 else 0.0
-        elif not math.isfinite(r_total):
-            i_demand = 0.0
-        else:
-            i_demand = (v_set - emf) / r_total
-
-        if i_demand <= i_limit:
-            ch.mode = OperatingMode.CV
-            ch.current = i_demand
-            if ch.remote_sense:
-                ch.load_voltage = v_set
-                ch.terminal_voltage = v_set + i_demand * r_probe
-            else:
-                ch.terminal_voltage = v_set
-                ch.load_voltage = v_set - i_demand * r_probe
-        else:
-            ch.mode = OperatingMode.CC
-            ch.current = i_limit
-            if math.isfinite(r_load):
-                ch.load_voltage = ch.current * r_load + emf
-                ch.terminal_voltage = ch.load_voltage + ch.current * r_probe
-            else:
-                ch.load_voltage = 0.0
-                ch.terminal_voltage = 0.0
+        ch.load_voltage = bus_voltage
+        ch.terminal_voltage = bus_voltage + ch.current * r_probe
 
     def _sense_voltage(self, ch: SimulatedPSUChannel) -> float:
         return ch.load_voltage if ch.remote_sense else ch.terminal_voltage
