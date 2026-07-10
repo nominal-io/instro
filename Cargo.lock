@@ -427,6 +427,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "instro-opcua"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "instro-opcua-test",
+ "instro-test-utils",
+ "itertools",
+ "open62541",
+ "open62541-sys",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "zeroize",
+]
+
+[[package]]
 name = "instro-opcua-test"
 version = "0.1.0"
 dependencies = [
@@ -599,25 +618,6 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
-
-[[package]]
-name = "opcua"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures-util",
- "instro-opcua-test",
- "instro-test-utils",
- "itertools",
- "open62541",
- "open62541-sys",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tracing",
- "zeroize",
-]
 
 [[package]]
 name = "open62541"

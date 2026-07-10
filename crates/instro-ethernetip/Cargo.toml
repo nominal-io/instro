@@ -1,9 +1,16 @@
 [package]
 name = "instro-ethernetip"
 version = "0.1.0"
+description = "Instro EtherNet/IP driver"
 license = "Apache-2.0"
+readme = "../../README.md"
 edition.workspace = true
 rust-version.workspace = true
+authors = ["Ben Liepert <ben.liepert@nominal.io>", "Carter Canedy <carter.canedy@nominal.io>"]
+keywords = ["ethernetip", "plc", "automation", "instrumentation", "instro"]
+homepage = "https://instro.nominal.io"
+repository = "https://github.com/nominal-io/instro"
+documentation = "https://instro.nominal.io"
 
 [lib]
 name = "instro_ethernetip"
