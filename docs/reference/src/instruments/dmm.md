@@ -27,3 +27,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ::: instro.dmm.drivers.agilent_a34401a
     options:
       heading_level: 4
+
+### Keysight 34461A
+
+::: instro.dmm.drivers.keysight_34461a
+    options:
+      heading_level: 4
