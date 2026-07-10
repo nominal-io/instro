@@ -1,0 +1,292 @@
+"""Config-driven Mecalc QuantusSeries device."""
+
+import json
+import logging
+import time
+from pathlib import Path
+
+from instro.lib import Instrument, InstrumentNotOpenError, Measurement
+from instro.lib.instrument import publish_measurement
+from instro.lib.publishers import Publisher
+
+logger = logging.getLogger(__name__)
+
+
+class QuantusDevice(Instrument):
+    """Mecalc QuantusSeries mainframe: declarative rack config, streamed data.
+
+    Wraps the Rust-backed ``quantus`` wheel. ``open()`` connects and asserts a
+    Q2.x QServer; ``reconcile()`` writes every declared setting and applies
+    once; ``start()`` connects the binary stream and publishes Measurements.
+    """
+
+    def __init__(
+        self,
+        config: dict | str | Path,
+        name: str = "quantus",
+        publishers: list[Publisher] | None = None,
+        dbc: dict[str, str] | None = None,
+        **kwargs,
+    ):
+        """Initialize a QuantusDevice.
+
+        Args:
+            config: Rack config as a dict, a path to a .json/.toml file, or
+                inline JSON text (see the quantus repo's fixtures/rack/).
+            name: Channel-name prefix for published data.
+            dbc: Optional map of CAN channel alias -> DBC file path; frames on
+                those channels are decoded to per-signal channels (requires
+                the ``can`` extra / cantools).
+            publishers: Publishers that receive emitted Measurement data.
+            **kwargs: Default tags applied to every emitted Measurement.
+        """
+        super().__init__(name, publishers=publishers, **kwargs)
+        self._config_text = self._resolve_config(config)
+        self._dbc_paths = dict(dbc or {})
+        self._dbc_databases: dict[str, object] = {}
+        self._client = None
+        self._reader = None
+        self._report: dict | None = None
+        self._alias_by_item: dict[int, str] = {}
+        self._rate_by_item: dict[int, float | None] = {}
+        self._item_by_alias: dict[str, int] = {}
+        self._last_tacho_ms: dict[int, float] = {}
+        self._unknown_can_counts: dict[str, int] = {}
+        self._epoch_anchor_ns: int | None = None
+        self._is_open = False
+        # The blocking stream read paces the daemon loop.
+        self._background_config.interval = 0
+
+    @staticmethod
+    def _resolve_config(config: dict | str | Path) -> str:
+        if isinstance(config, dict):
+            return json.dumps(config)
+        # Path or path-string or inline JSON: the quantus wheel dispatches.
+        return str(config)
+
+    def _require_open(self) -> None:
+        if not self._is_open:
+            raise InstrumentNotOpenError(f"QuantusDevice '{self.name}' is not open. Call open() first.")
+
+    def open(self):
+        """Connect to the device (ping + Q2.x version check). Writes nothing."""
+        import quantus  # deferred so the native wheel is only needed at runtime
+
+        logger.info("Opening QuantusDevice '%s'", self.name)
+        self._client = quantus.QuantusClient(self._config_text)
+        for alias, path in self._dbc_paths.items():
+            self._dbc_databases[alias] = self._load_dbc(path)
+        self._is_open = True
+
+    @staticmethod
+    def _load_dbc(path: str):
+        try:
+            import cantools
+        except ImportError as exc:
+            raise RuntimeError(
+                "CAN decoding requires cantools. Install with `pip install 'instro-quantus[can]'`."
+            ) from exc
+        return cantools.database.load_file(path)
+
+    def reconcile(self) -> dict:
+        """Write every declared setting, apply once, and return the report."""
+        self._require_open()
+        report = self._client.reconcile()
+        self._report = report
+        self._alias_by_item = {c["item_id"]: c["alias"] for c in report["channels"]}
+        self._rate_by_item = {c["item_id"]: c["sample_rate_hz"] for c in report["channels"]}
+        self._item_by_alias = {c["alias"]: c["item_id"] for c in report["channels"]}
+        if report["restart_required"]:
+            logger.info("QuantusDevice '%s': settings applied, streaming epoch restarts", self.name)
+        for module in report["modules"]:
+            if module["requested_hz"] and module["achieved_hz"] != module["requested_hz"]:
+                logger.warning(
+                    "QuantusDevice '%s': module %s snapped %s Hz -> %s Hz",
+                    self.name,
+                    module["name"],
+                    module["requested_hz"],
+                    module["achieved_hz"],
+                )
+        return report
+
+    def start(self, background: bool = True):
+        """Connect the data stream; with ``background`` spin the publish daemon."""
+        self._require_open()
+        if self._report is None:
+            self.reconcile()
+        self._reader = self._client.open_stream()
+        self._epoch_anchor_ns = None
+        if background:
+            already = any(m == self._pump for m, _, _ in self._background_methods)
+            if not already:
+                self.add_background_daemon_function(self._pump)
+            super().start()
+
+    def stop(self, **kwargs):
+        """Stop the publish daemon and close the stream connection."""
+        super().stop()
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
+
+    def close(self):
+        """Full teardown: daemon, publishers, stream."""
+        logger.info("Closing QuantusDevice '%s'", self.name)
+        super().close()
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
+        self._client = None
+        self._is_open = False
+
+    # ========  Streaming -> Measurements  ========
+
+    @publish_measurement
+    def _pump(self) -> Measurement | list[Measurement] | None:
+        """Pull one stream event and convert it to Measurement(s)."""
+        event = self._reader.next_event(timeout_ms=1000)
+        if event is None:
+            return None
+        kind = event["type"]
+        if kind == "analog":
+            return self._analog_measurement(event)
+        if kind == "tacho":
+            return self._tacho_measurement(event)
+        if kind == "can":
+            return self._can_measurements(event)
+        if kind == "epoch_restart":
+            logger.warning("QuantusDevice '%s': streaming epoch restarted", self.name)
+            self._epoch_anchor_ns = None
+            self._last_tacho_ms.clear()
+            return None
+        if kind == "gap":
+            logger.warning("QuantusDevice '%s': server discarded %d packets", self.name, event["missing"])
+            return self._package_measurement("stream.missing_packets", event["missing"], time.time_ns())
+        if kind == "disconnected":
+            logger.error("QuantusDevice '%s': stream disconnected: %s", self.name, event["reason"])
+            self._background_stop_event.set()
+            return None
+        return None
+
+    def _anchor(self, epoch_relative_ns: int) -> int:
+        """Wall-clock anchor for epoch-relative stream timestamps."""
+        if self._epoch_anchor_ns is None:
+            self._epoch_anchor_ns = time.time_ns() - epoch_relative_ns
+        return self._epoch_anchor_ns
+
+    def _alias(self, item_id: int) -> str:
+        return self._alias_by_item.get(item_id, str(item_id))
+
+    def _analog_measurement(self, event: dict) -> Measurement | None:
+        samples = event["samples"]
+        if len(samples) == 0:
+            return None
+        anchor = self._anchor(event["timestamp_ns"])
+        rate = self._rate_by_item.get(event["channel_id"])
+        dt_ns = round(1e9 / rate) if rate else 0
+        t0 = anchor + event["timestamp_ns"]
+        timestamps = [t0 + i * dt_ns for i in range(len(samples))]
+        alias = self._alias(event["channel_id"])
+        return Measurement(
+            channel_data={f"{self.name}.{alias}": [float(s) for s in samples]},
+            timestamps=timestamps,
+            tags=dict(self.default_tags),
+        )
+
+    def _tacho_measurement(self, event: dict) -> Measurement | None:
+        """Publish RPM computed from successive edge intervals (1 pulse/rev)."""
+        events_ms = list(event["events_ms"])
+        if not events_ms:
+            return None
+        channel_id = event["channel_id"]
+        anchor = self._anchor(int(events_ms[0] * 1e6))
+        previous = self._last_tacho_ms.get(channel_id)
+        rpms, timestamps = [], []
+        for edge_ms in events_ms:
+            if previous is not None and edge_ms > previous:
+                rpms.append(60_000.0 / (edge_ms - previous))
+                timestamps.append(anchor + int(edge_ms * 1e6))
+            previous = edge_ms
+        self._last_tacho_ms[channel_id] = previous
+        if not rpms:
+            return None
+        alias = self._alias(channel_id)
+        return Measurement(
+            channel_data={f"{self.name}.{alias}": rpms},
+            timestamps=timestamps,
+            tags=dict(self.default_tags),
+        )
+
+    def _can_measurements(self, event: dict) -> list[Measurement] | None:
+        alias = self._alias(event["channel_id"])
+        database = self._dbc_databases.get(alias)
+        measurements: list[Measurement] = []
+        unknown = 0
+        for frame in event["frames"]:
+            anchor = self._anchor(int(frame["timestamp_s"] * 1e9))
+            timestamp = anchor + int(frame["timestamp_s"] * 1e9)
+            if database is None:
+                unknown += 1
+                continue
+            try:
+                message = database.get_message_by_frame_id(frame["id"])
+                signals = message.decode(bytes(frame["data"]))
+            except (KeyError, ValueError):
+                unknown += 1
+                continue
+            channel_data = {
+                f"{self.name}.{alias}.{signal}": [float(value)]
+                for signal, value in signals.items()
+                if isinstance(value, (int, float))
+            }
+            if channel_data:
+                measurements.append(
+                    Measurement(
+                        channel_data=channel_data,
+                        timestamps=[timestamp],
+                        tags=dict(self.default_tags),
+                    )
+                )
+        if unknown:
+            self._unknown_can_counts[alias] = self._unknown_can_counts.get(alias, 0) + unknown
+            measurements.append(
+                self._package_measurement(
+                    f"{alias}.unknown_frames", self._unknown_can_counts[alias], time.time_ns()
+                )
+            )
+        return measurements or None
+
+    # ========  Runtime writes (quantus repo PLAN.md D12)  ========
+
+    def _item_id(self, channel: str) -> int:
+        self._require_open()
+        if self._report is None:
+            raise RuntimeError("Call reconcile() before addressing channels by alias.")
+        if (item_id := self._item_by_alias.get(channel)) is None:
+            raise KeyError(
+                f"Channel '{channel}' is not configured. Configured channels: {sorted(self._item_by_alias)}."
+            )
+        return item_id
+
+    def write_settings(self, channel: str, values: dict[str, str | float]) -> bool:
+        """Settings-plane write: set values on ``channel`` (alias) and apply.
+
+        Returns True when the streaming epoch restarts (expect a data gap).
+        """
+        return self._client.write_settings(self._item_id(channel), values)
+
+    def auto_zero(self, channel: str | None = None):
+        """Auto-zero one channel (alias) or the whole system."""
+        self._require_open()
+        self._client.auto_zero(self._item_id(channel) if channel else None)
+
+    def bridge_balance(self, channel: str | None = None):
+        """Balance WSB bridges on one channel (alias) or system-wide."""
+        self._require_open()
+        self._client.bridge_balance(self._item_id(channel) if channel else None)
+
+    def can_transmit(self, channel: str, messages: list[dict]):
+        """Cache ``messages`` on CAN ``channel`` (alias) and transmit."""
+        item_id = self._item_id(channel)
+        self._client.put_can_message_list(item_id, {"MessageList": messages})
+        self._client.can_transmit(item_id)
