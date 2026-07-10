@@ -134,7 +134,7 @@ rust:
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:
-    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    cargo test -p instro-ethernetip --test explicit_session_integration
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
