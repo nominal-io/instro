@@ -35,7 +35,7 @@ placeholder with your dataset RID (authentication per the
 | Files | What it shows |
 |---|---|
 | `simple_stream.py` + `rack_simple.json` + `sim_simple.toml` | Minimum viable flow: rack config from a JSON file, open -> reconcile -> start, one analog channel printed by a 6-line publisher |
-| `full_workflow.py` + `rack_full.json` + `sim_full.toml` + `vehicle.dbc` | Everything: rack file without a `connection` section (supplied at runtime via `connection=`), name-from-config, default tags, Nominal Core + CSV publishers, rate snapping in the reconcile report, analog + tacho-RPM + CAN streaming with native DBC decoding (the `dbc` entry on the CAN channel in the rack file), runtime writes published as Commands (auto-zero, bridge balance, CAN transmit, settings-plane write with epoch restart), teardown |
+| `full_workflow.py` + `rack_full.json` + `sim_full.toml` + `vehicle.dbc` | Everything: autostart, name-from-config, Nominal Core + CSV publishers, rate snapping in the reconcile report, analog + tacho-RPM + CAN streaming with native DBC decoding (the `dbc` entry on the CAN channel in the rack file), runtime writes published as Commands (auto-zero, bridge balance, CAN transmit, settings-plane write with epoch restart), teardown |
 
 The sim TOML files also demonstrate fault-injection knobs — add a `[faults]`
 section (`drop_every_nth_packet`, `disconnect_after_packets`, `apply_delay_ms`)

@@ -7,7 +7,14 @@
     "manufacturer": "Mecalc",
     "model": "MicroQ"
   },
-  "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
+  "connection": {
+    "host": "127.0.0.1",
+    "port": 8082
+  },
+  "system": { 
+    "master_sampling_rate": 131072, 
+    "streaming_format": "Processed" 
+  },
   "modules": [
     {
       "name": "MIC42X7",

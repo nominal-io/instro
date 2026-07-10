@@ -1,13 +1,12 @@
 """Example: every QuantusDevice capability against a full simulated rack.
 
-The rack is described in rack_full.json - deliberately without a `connection`
-section, so the same file works on any bench: the connection is supplied at
-runtime via the `connection=` argument. Covers name-from-config, default tags,
-Nominal Core + CSV file publishers, reconcile report (rate snapping), streamed
-analog / tacho-RPM / DBC-decoded CAN channels (the `dbc` entry on the
-vehicle_bus channel; decoding happens natively), runtime writes published as
-Commands (auto-zero, bridge balance, settings-plane write with epoch restart,
-CAN transmit), and teardown.
+The rack is described in rack_full.json (a `connection=` argument can override
+its `connection` section for bench-specific hosts). Covers autostart,
+name-from-config, Nominal Core + CSV file publishers, reconcile report (rate
+snapping), streamed analog / tacho-RPM / DBC-decoded CAN channels (the `dbc`
+entry on the vehicle_bus channel; decoding happens natively), runtime writes
+published as Commands (auto-zero, bridge balance, settings-plane write with
+epoch restart, CAN transmit), and teardown.
 
 Start the simulator first:
 
@@ -26,20 +25,19 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 
 csv_dir = Path(tempfile.mkdtemp(prefix="quantus_demo_"))
 
+# autostart=True: open + reconcile (one declarative pass, applied atomically)
+# + start streaming, all in the constructor.
 daq = QuantusDevice(
     config=HERE / "rack_full.json",
-    connection={"host": "127.0.0.1", "port": 8082},  # bench-specific, not in the rack file
     publishers=[
         NominalCorePublisher(dataset_rid=DATASET_RID),
         FilePublisher(csv_dir, format="csv"),  # local CSV copy of the same channels
     ],
-    test_stand="sim-bench",  # default tag on every Measurement
+    autostart=True,
 )
 assert daq.name == "demo_rig"  # from the rack file's device.name
 
-# ---- configure: one declarative pass, applied atomically ----
-daq.open()
-report = daq.reconcile()
+report = daq.report
 print(f"QServer {report['version']}; epoch restart on apply: {report['restart_required']}")
 for module in report["modules"]:
     if module["requested_hz"] and module["requested_hz"] != module["achieved_hz"]:
@@ -48,8 +46,6 @@ for module in report["modules"]:
             f"snapped to {module['achieved_hz']} Hz (divisor {module['divisor']})"
         )
 
-# ---- stream ----
-daq.start()
 time.sleep(2)
 
 # ---- runtime writes (safe while streaming: dedicated endpoints, no apply) ----
