@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.3.0](https://github.com/nominal-io/instro/compare/instro-v1.2.0...instro-v1.3.0) (2026-07-08)
+
+
+### Features
+
+* **instrument:** add channel_names property ([#243](https://github.com/nominal-io/instro/issues/243)) ([6936ac8](https://github.com/nominal-io/instro/commit/6936ac8fd2c010b6036ab849bdefbeca7655891b))
+
+
+### Bug Fixes
+
+* close [#219](https://github.com/nominal-io/instro/issues/219) by adding additional rules for properly listing out available contrib drivers ([#230](https://github.com/nominal-io/instro/issues/230)) ([6f81dd0](https://github.com/nominal-io/instro/commit/6f81dd06131bfcd6e3008df8b0becfd444971793))
+
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-v1.1.0...instro-v1.2.0) (2026-07-07)
+
+
+### Features
+
+* **dmm:** add Keithley 2750 DMM driver (unstable) ([#237](https://github.com/nominal-io/instro/issues/237)) ([ff01368](https://github.com/nominal-io/instro/commit/ff013685d879c6c8e2105d7c3048abf8d79e7121)), closes [#193](https://github.com/nominal-io/instro/issues/193)
+
+
+### Bug Fixes
+
+* use dark foreground in light mode ([#242](https://github.com/nominal-io/instro/issues/242)) ([fee81d5](https://github.com/nominal-io/instro/commit/fee81d5627af04097c92cc03cae6f464b79de740))
+
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-v1.0.1...instro-v1.1.0) (2026-07-06)
+
+
+### Features
+
+* **cli:** add --version listing installed instro packages ([#228](https://github.com/nominal-io/instro/issues/228)) ([baea5fd](https://github.com/nominal-io/instro/commit/baea5fde6e4318c25164959562ae7cee948cd170))
+* **cli:** report backend and interface coverage in discover ([#226](https://github.com/nominal-io/instro/issues/226)) ([abe1b1b](https://github.com/nominal-io/instro/commit/abe1b1be83932b2b8340b7963756ff879fe7b404))
+* **publishers:** add jsonl format and deprecate the array-JSON writer ([#227](https://github.com/nominal-io/instro/issues/227)) ([ce5a1b9](https://github.com/nominal-io/instro/commit/ce5a1b96cc58e436842dd81563828e0a4bc766cf))
+* rearrange README, add badges, and add unstable extra ([#207](https://github.com/nominal-io/instro/issues/207)) ([98c4103](https://github.com/nominal-io/instro/commit/98c4103614ec213a4353dcb1f8024fd5dc33bdb5))
+
+
+### Bug Fixes
+
+* close [#218](https://github.com/nominal-io/instro/issues/218) by simplifying scope.mdx language ([#224](https://github.com/nominal-io/instro/issues/224)) ([e85e173](https://github.com/nominal-io/instro/commit/e85e173637c24ffd013a56061d882edb1dba03b0))
+
 ## [1.0.1](https://github.com/nominal-io/instro/compare/instro-v1.0.0...instro-v1.0.1) (2026-07-02)
 
 

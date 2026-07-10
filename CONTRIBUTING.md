@@ -193,6 +193,10 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
 
+Write unit tests to cover the invariant or edge case under test with the least necessary complexity. Prefer targeted, high-signal cases overly broad redundant matrices, heavily abstracted helpers, or rewrites whose main effect is making tests look shareable. Don't add tests simply to increase line coverage or the number of executed cases. You're going to be working features/bug-fixes that have a clear reason test, so make sure that your tests are meaningfully addressing the real needs for test coverage. Shared test helpers are fine when they remove duplication without hiding what behavior each test proves. A large, complicated test suite that repeats the same assertion in different shapes is almost as unhelpful as no coverage.
+
+Bug fixes should usually add regression coverage. A PR titled `fix(...): ...` should include at least one new test that would have failed before the fix, or a convincing explanation in the PR description for why new coverage is not practical or useful.
+
 ### Documentation
 
 Docs live in this repo, so they ship in the same PR as the code change. If your change is user-visible or alters how contributors work, update the relevant files on the same branch:
@@ -200,6 +204,7 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 | Change type | Files to update |
 |------|------|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (the Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
@@ -237,6 +242,7 @@ A contrib driver must:
 - **Ship a unit test** that exercises the driver against a mocked transport.
 - **Document the model(s) it targets** in a module docstring.
 - **Be verified by the contributor against real hardware**: this is the trust we're extending. Note the model(s) and firmware version(s) you tested against in the PR description.
+- **Add an entry to the "Available drivers" section** of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release; a merged driver missing from it makes the doc wrong.
 
 It does **not** need:
 
@@ -285,9 +291,11 @@ When the maintainers acquire the device and can verify the driver directly:
 
 1. `git mv` the file from `packages/instro-contrib/instro/contrib/<cat>/drivers/<driver>.py` to `instro/<cat>/drivers/<driver>.py`.
 2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
-3. Note the graduation in `CHANGELOG.md`.
+3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
+4. Open a follow-up issue to delete the stub in the next release.
+5. Note the graduation in `CHANGELOG.md`.
 
-The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`.
+The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`. The stub is not a compatibility shim. Old code stays broken; the error just points to the new import path for one release.
 
 ### `instro-unstable`: in-development categories and abstractions
 

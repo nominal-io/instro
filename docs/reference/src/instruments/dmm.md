@@ -1,5 +1,7 @@
 # DMM (Digital Multimeter)
 
+Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+
 ## Interface
 
 ::: instro.dmm.InstroDMM

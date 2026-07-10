@@ -5,27 +5,46 @@ description: Command-line tools for working with instro
 
 `instro` ships a command-line interface for inspecting and discovering instruments on your bench.
 
-## instro discover
+## Running the CLI
 
-Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
-Run the discover CLI using 'uv'. Use the discovery command once, creating a throwaway isolated environment:
+The CLI comes with the `instro` package — see [Installation](/instrumentation/installation) for adding it to your project. In a project that has `instro` installed, run commands with `uv run`:
 
 ```bash
 uv run instro discover
 ```
 
-Or install `instro` so it lives on your PATH and you can call it from anywhere:
+To try a command once without installing anything, `uvx` runs it in a throwaway environment:
+
+```bash
+uvx instro discover
+```
+
+`uvx` can be slow when it triggers a fresh install of `instro`'s full dependency tree. For regular use, put `instro` on your PATH instead so you can call it from anywhere:
 
 ```bash
 uv tool install instro
 instro discover
 ```
 
+## instro --version
+
+Prints the installed version of the core `instro` package followed by every optional workspace package (`instro-contrib`, `instro-unstable`, `instro-ethernetip`, `instro-daq-ni`, `instro-daq-labjack`, `instro-daq-mcc`, `instro-i2c-aardvark`). Packages that are not installed are marked `not installed` with the `pip install "instro[<extra>]"` command that provides them — see [Additional Packages](/instrumentation/installation#additional-packages) for what each extra covers.
+
+```bash
+instro --version
+```
+
+The full roster is printed on purpose: attach the output to bug reports as an environment summary.
+
+## instro discover
+
+Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
+
 To force a specific VISA backend, pass `--backend`:
 
 ```bash
-uv run instro discover --backend @py
-uv run instro discover --backend @ivi
+uv run instro discover --backend=@py
+uv run instro discover --backend "@ivi"
 ```
 
 <Note>
@@ -33,6 +52,8 @@ The `@ivi` backend finds an available IVI-compliant backend on your system e.g. 
 </Note>
 
 ### Output
+
+Before scanning, the command prints which VISA backend is active (`@ivi`, or `@py` when no IVI VISA is installed). On the `@py` backend it also lists any interfaces the scan cannot cover — for example `GPIB: unavailable — gpib_ctypes is installed but could not locate the gpib library (install NI-488.2 or linux-gpib)` — so you know when an empty result reflects a missing library rather than an empty bench. These notes are informational; the scan still runs and the command exits 0.
 
 The command groups results into up to three tables.
 
@@ -42,7 +63,7 @@ The command groups results into up to three tables.
 
 **Unrecognized devices** — instruments that responded to `*IDN?` but did not match any known driver. The raw IDN response is shown so you can identify the device.
 
-If no devices are found at all, the command prints a single error panel.
+If no devices are found at all, the command prints a single error panel; on the `@py` backend the panel repeats any unavailable interfaces.
 
 ### Using a recognized device
 

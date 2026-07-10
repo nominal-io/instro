@@ -16,8 +16,9 @@
           {
             "group": "Getting started",
             "icon": "rocket",
+            "root": "getting-started",
+            "expanded": true,
             "pages": [
-              "index",
               "instrumentation/quickstart",
               "instrumentation/overview",
               "instrumentation/scope",
@@ -29,6 +30,8 @@
           {
             "group": "Concepts",
             "icon": "book-open",
+            "root": "instrumentation/concepts",
+            "expanded": true,
             "pages": [
               "instrumentation/publishers",
               "instrumentation/library",
@@ -40,9 +43,12 @@
           {
             "group": "Instruments",
             "icon": "microchip",
+            "root": "instrumentation/instruments",
+            "expanded": true,
             "pages": [
               {
                 "group": "Power Supply (PSU)",
+                "expanded": true,
                 "pages": [
                   "instrumentation/psu",
                   "instrumentation/psu-simulator"
@@ -57,10 +63,12 @@
           {
             "group": "Protocols",
             "icon": "network-wired",
+            "root": "instrumentation/protocols/overview",
+            "expanded": true,
             "pages": [
-              "instrumentation/protocols/overview",
               {
                 "group": "I2C",
+                "expanded": true,
                 "pages": [
                   "instrumentation/protocols/i2c/overview",
                   "instrumentation/protocols/i2c/system-definition"
@@ -143,7 +151,9 @@
               "instrumentation/examples/publishers/publish_buffered",
               "instrumentation/examples/publishers/publish_custom",
               "instrumentation/examples/publishers/publish_file",
-              "instrumentation/examples/publishers/publish_queued"
+              "instrumentation/examples/publishers/publish_jsonl",
+              "instrumentation/examples/publishers/publish_queued",
+              "instrumentation/examples/publishers/publish_shared"
             ]
           },
           {
@@ -206,8 +216,8 @@
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/instro-logo-solid-black.svg",
+    "dark": "/logo/instro-logo-solid-white.svg"
   },
   "navbar": {
     "links": [
@@ -246,5 +256,10 @@
   },
   "interaction": {
     "drilldown": true
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-LR7QM29GGQ"
+    }
   }
 }

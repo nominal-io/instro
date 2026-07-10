@@ -12,9 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs): ...
-
-    def close(self): ...
+    def publish(self, data: Measurement | Command, **kwargs) -> None: ...
+    def close(self) -> None: ...
 
 
 class BufferedPublisher(abc.ABC):
@@ -23,17 +22,17 @@ class BufferedPublisher(abc.ABC):
         self.buffer: list[Measurement | Command] = []
         self.buffer_size = buffer_size
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
         self.buffer.append(data)
         if len(self.buffer) >= self.buffer_size:
             self.publish_batch()
             self.buffer.clear()
 
     @abc.abstractmethod
-    def publish_batch(self):
+    def publish_batch(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         self.publish_batch()
         self.publisher.close()
 
@@ -81,3 +80,87 @@ class QueuedPublisher(Publisher):
         self._stop_event.set()
         self._thread.join()
         self.publisher.close()
+
+
+class SharedPublisher(Publisher):
+    """A publisher that can be shared between multiple instruments."""
+
+    class _ControlBlock:
+        def __init__(self, publisher: Publisher):
+            self._lock = threading.Lock()
+            self._count = 1
+            self._publisher = publisher
+
+        def increment(self) -> "SharedPublisher._ControlBlock":
+            with self._lock:
+                if self._count == 0:
+                    raise RuntimeError(
+                        "attempted to increment a shared publisher that was already closed. "
+                        "If you're seeing this, it's probably a bug. Please report it to the instro developers."
+                    )
+
+                self._count += 1
+
+            return self
+
+        def decrement(self) -> None:
+            with self._lock:
+                if self._count <= 0:
+                    raise RuntimeError(
+                        "attempted to decrement a shared publisher that was already closed. "
+                        "If you're seeing this, it's probably a bug. Please report it to the instro developers."
+                    )
+
+                self._count -= 1
+                if self._count == 0:
+                    self._close()
+
+        def publish(self, data: Measurement | Command, **kwargs) -> None:
+            with self._lock:
+                self._publisher.publish(data, **kwargs)
+
+        def _close(self) -> None:
+            self._publisher.close()
+
+        def __del__(self) -> None:
+            if self._count > 0:
+                self._close()
+
+    def __init__(self, publisher: Publisher):
+        """Initialize a shared publisher, assuming exclusive ownership of the publisher provided."""
+        self._state_lock = threading.Lock()
+        self._state: SharedPublisher._ControlBlock | None = SharedPublisher._ControlBlock(publisher)
+
+    @classmethod
+    def __from_state(cls, state: "SharedPublisher._ControlBlock") -> "SharedPublisher":
+        instance = cls.__new__(cls)
+        instance._state_lock = threading.Lock()
+        instance._state = state
+        return instance
+
+    def clone(self) -> "SharedPublisher":
+        """Clone the shared publisher for use with another instrument."""
+        with self._state_lock:
+            if (state := self._state) is None:
+                raise RuntimeError("attempted to clone a shared publisher handle that was already closed")
+            return SharedPublisher.__from_state(state.increment())
+
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
+        """Publish data to the underlying publisher being shared."""
+        with self._state_lock:
+            if (state := self._state) is None:
+                raise RuntimeError("attempted to publish to a shared publisher handle that was already closed")
+            state.publish(data, **kwargs)
+
+    def close(self) -> None:
+        """Close this instance and possibly release the underlying publisher."""
+        with self._state_lock:
+            if self._state is not None:
+                try:
+                    self._state.decrement()
+                finally:
+                    self._state = None
+
+    def __del__(self) -> None:
+        """Ensure that the shared publisher is closed when the instance is garbage collected."""
+        self.close()

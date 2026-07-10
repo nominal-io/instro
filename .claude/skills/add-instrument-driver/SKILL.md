@@ -21,19 +21,19 @@ over shared mixins/factories.
 ## Prerequisites — gather before writing code
 
 1. **The programming reference.** A path to a PDF/doc/HTML file, or a URL. If the
-   user hasn't provided one, ask for it — do not guess SCPI commands or API code 
+   user hasn't provided one, ask for it — do not guess SCPI commands or API code
    from model knowledge.
 2. **Vendor and model** (e.g. "Siglent SPD3303"). Confirm the exact model family
    the driver should cover; SCPI surfaces and APIs are often shared across a series.
-3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`. 
+3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`.
    Infer from the instrument type; confirm with the user if ambiguous.
 4. **Tracking issue + branch.** Per `AGENTS.md`, no untracked work. Confirm an
    issue exists (or create one) and branch off `main` named after it
    (e.g. `issue-142-siglent-spd-driver`).
 5. **Core vs. contrib.** Default to **core** (`instro/<category>/drivers/`) if
    the user is a maintainer, otherwise use **contrib**
-   (`packages/instro-contrib/instro/contrib/<category>/drivers/`). Some instruments 
-   only exist in **unstable** (`packages/instro-unstable/`). See `CONTRIBUTING.md` for the bar. 
+   (`packages/instro-contrib/instro/contrib/<category>/drivers/`). Some instruments
+   only exist in **unstable** (`packages/instro-unstable/`). See `CONTRIBUTING.md` for the bar.
    Ask if unclear.
 
 ## Step 1 — Extract a structured command spec from the manual
@@ -159,6 +159,13 @@ categories keep driver tests in a single top-level file (e.g. `scope` →
 to find the right file. The canonical pattern is in
 `tests/psu/test_psu_drivers.py`:
 
+- Keep tests targeted: cover each driver invariant or edge case with the least
+  necessary complexity. Do not add redundant matrices, broad helper layers, or
+  rewrites whose main effect is making tests look like candidates for shared
+  behavior. Do not add tests just to increase coverage numbers or case counts.
+  You're _almost definitely_ working on a feature or bugfix that _does_ need
+  test coverage; make sure that the tests that you write are actually testing
+  what you think they are.
 - Patch the driver's `VisaDriver` reference with `autospec=True`:
   `patch("instro.<category>.drivers.<vendor>_<model>.VisaDriver", autospec=True)`.
 - Provide fixtures for the patched class and instance; default
