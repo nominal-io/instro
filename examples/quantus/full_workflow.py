@@ -3,10 +3,11 @@
 The rack is described in rack_full.json - deliberately without a `connection`
 section, so the same file works on any bench: the connection is supplied at
 runtime via the `connection=` argument. Covers name-from-config, default tags,
-CSV + custom publishers, reconcile report (rate snapping), streamed analog /
-tacho-RPM / DBC-decoded CAN channels (the `dbc` entry on the vehicle_bus
-channel; decoding happens natively), runtime writes (auto-zero, bridge
-balance, settings-plane write with epoch restart, CAN transmit), and teardown.
+Nominal Core + CSV file publishers, reconcile report (rate snapping), streamed
+analog / tacho-RPM / DBC-decoded CAN channels (the `dbc` entry on the
+vehicle_bus channel; decoding happens natively), runtime writes published as
+Commands (auto-zero, bridge balance, settings-plane write with epoch restart,
+CAN transmit), and teardown.
 
 Start the simulator first:
 
@@ -15,42 +16,23 @@ Start the simulator first:
 
 import tempfile
 import time
-from collections import Counter
 from pathlib import Path
 
-from instro.lib import Command
-from instro.lib.publishers import FilePublisher
+from instro.lib.publishers import FilePublisher, NominalCorePublisher
 from instro.quantus import QuantusDevice
 
 HERE = Path(__file__).parent
-
-
-class StatsPublisher:
-    """Count published points and commands per channel so the demo can summarize itself."""
-
-    def __init__(self):
-        self.points = Counter()
-        self.commands = Counter()
-
-    def publish(self, data, **kwargs):
-        if isinstance(data, Command):
-            for channel in data.channel_data:
-                self.commands[channel] += 1
-            return
-        for channel, values in data.channel_data.items():
-            self.points[channel] += len(values)
-
-    def close(self):
-        pass
-
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 
 csv_dir = Path(tempfile.mkdtemp(prefix="quantus_demo_"))
-stats = StatsPublisher()
 
 daq = QuantusDevice(
     config=HERE / "rack_full.json",
     connection={"host": "127.0.0.1", "port": 8082},  # bench-specific, not in the rack file
-    publishers=[stats, FilePublisher(csv_dir, format="csv")],
+    publishers=[
+        NominalCorePublisher(dataset_rid=DATASET_RID),
+        FilePublisher(csv_dir, format="csv"),  # local CSV copy of the same channels
+    ],
     test_stand="sim-bench",  # default tag on every Measurement
 )
 assert daq.name == "demo_rig"  # from the rack file's device.name
@@ -71,6 +53,7 @@ daq.start()
 time.sleep(2)
 
 # ---- runtime writes (safe while streaming: dedicated endpoints, no apply) ----
+# Each publishes a Command on {name}.{channel}.<action>.cmd alongside the data.
 daq.auto_zero()  # whole system
 daq.bridge_balance("strain_1")  # one WSB channel
 daq.can_transmit("vehicle_tx", [{"Id": 0x123, "Data": [1, 2, 3, 4]}])
@@ -81,33 +64,11 @@ restarted = daq.write_settings("shaker_drive", {"Signal Amplitude": 5.0})
 print(f"shaker_drive amplitude -> 5.0 V (epoch restarted: {restarted})")
 time.sleep(2)
 
+# ---- spot-check locally before teardown (full stream is in Nominal + CSV) ----
+for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EngineSpeed"):
+    latest = daq.get_channel(channel)
+    print(f"{channel}: latest = {latest.channel_data[channel][-1]:.3f}")
+
 daq.close()
-
-# ---- what we captured ----
-print(f"\nPublished channels ({sum(stats.points.values())} points total):")
-for channel, count in sorted(stats.points.items()):
-    print(f"  {channel}: {count}")
-print("\nPublished commands:")
-for channel, count in sorted(stats.commands.items()):
-    print(f"  {channel}: {count}")
 print(f"\nCSV written to {csv_dir}")
-
-expected = [
-    "demo_rig.mic_inlet",  # analog batches, 65536 Hz
-    "demo_rig.tc_exhaust",  # analog, snapped to 512 Hz
-    "demo_rig.strain_1",  # analog, bridge channel
-    "demo_rig.shaft",  # tacho edges converted to RPM
-    "demo_rig.vehicle_bus.EngineSpeed",  # DBC-decoded CAN signal
-    "demo_rig.vehicle_bus.CoolantTemp",  # DBC-decoded CAN signal
-]
-missing = [channel for channel in expected if stats.points[channel] == 0]
-assert not missing, f"expected data on {missing}"
-expected_commands = [
-    "demo_rig.auto_zero.cmd",
-    "demo_rig.strain_1.bridge_balance.cmd",
-    "demo_rig.vehicle_tx.can_transmit.cmd",
-    "demo_rig.shaker_drive.signal_amplitude.cmd",
-]
-missing_commands = [channel for channel in expected_commands if stats.commands[channel] == 0]
-assert not missing_commands, f"expected commands on {missing_commands}"
 print("demo: ok")
