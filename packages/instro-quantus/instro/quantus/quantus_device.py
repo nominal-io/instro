@@ -9,11 +9,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from instro.quantus._quantus import QuantusClient, StreamReader
 
-from instro.lib import Instrument, InstrumentNotOpenError, Measurement
-from instro.lib.instrument import publish_measurement
+from instro.lib import Command, Instrument, InstrumentNotOpenError, Measurement
+from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 
 logger = logging.getLogger(__name__)
+
+
+def _setting_key(setting_name: str) -> str:
+    """QServer setting name -> command channel segment ("Voltage Range" -> "voltage_range")."""
+    return setting_name.lower().replace(" ", "_")
 
 
 class QuantusDevice(Instrument):
@@ -311,24 +316,48 @@ class QuantusDevice(Instrument):
             )
         return item_id
 
-    def write_settings(self, channel: str, values: dict[str, str | float]) -> bool:
+    def write_settings(self, channel: str, values: dict[str, str | float], **kwargs) -> bool:
         """Settings-plane write: set values on ``channel`` (alias) and apply.
 
-        Returns True when the streaming epoch restarts (expect a data gap).
+        Publishes one Command carrying every written setting on
+        ``{name}.{channel}.{setting}.cmd``. Returns True when the streaming
+        epoch restarts (expect a data gap).
         """
-        return self._require_client().write_settings(self._item_id(channel), values)
+        restarted = self._require_client().write_settings(self._item_id(channel), values)
+        if values:
+            self.publish(
+                Command(
+                    channel_data={
+                        f"{self.name}.{channel}.{_setting_key(name)}.cmd": (
+                            value if isinstance(value, str) else float(value)
+                        )
+                        for name, value in values.items()
+                    },
+                    timestamp=time.time_ns(),
+                    tags={**self.default_tags, **kwargs},
+                )
+            )
+        return restarted
 
-    def auto_zero(self, channel: str | None = None):
-        """Auto-zero one channel (alias) or the whole system."""
+    @publish_command
+    def auto_zero(self, channel: str | None = None, **kwargs) -> Command:
+        """Auto-zero one channel (alias) or the whole system; publishes the command."""
         self._require_client().auto_zero(self._item_id(channel) if channel else None)
+        descriptor = f"{channel}.auto_zero.cmd" if channel else "auto_zero.cmd"
+        return self._package_command(descriptor, 1.0, time.time_ns(), **kwargs)
 
-    def bridge_balance(self, channel: str | None = None):
-        """Balance WSB bridges on one channel (alias) or system-wide."""
+    @publish_command
+    def bridge_balance(self, channel: str | None = None, **kwargs) -> Command:
+        """Balance WSB bridges on one channel (alias) or system-wide; publishes the command."""
         self._require_client().bridge_balance(self._item_id(channel) if channel else None)
+        descriptor = f"{channel}.bridge_balance.cmd" if channel else "bridge_balance.cmd"
+        return self._package_command(descriptor, 1.0, time.time_ns(), **kwargs)
 
-    def can_transmit(self, channel: str, messages: list[dict]):
-        """Cache ``messages`` on CAN ``channel`` (alias) and transmit."""
+    @publish_command
+    def can_transmit(self, channel: str, messages: list[dict], **kwargs) -> Command:
+        """Cache ``messages`` on CAN ``channel`` (alias), transmit, and publish the command."""
         client = self._require_client()
         item_id = self._item_id(channel)
         client.put_can_message_list(item_id, {"MessageList": messages})
         client.can_transmit(item_id)
+        return self._package_command(f"{channel}.can_transmit.cmd", float(len(messages)), time.time_ns(), **kwargs)

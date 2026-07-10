@@ -259,17 +259,33 @@ def test_relative_dbc_paths_resolve_against_the_config_file(fake_quantus, tmp_pa
     assert sent["modules"][0]["channels"][0]["dbc"] == str(tmp_path / "vehicle.dbc")
 
 
-def test_write_paths_address_channels_by_alias(fake_quantus):
-    device = make_device(CapturePublisher())
+def test_write_paths_address_channels_by_alias_and_publish_commands(fake_quantus):
+    from instro.lib import Command
+
+    publisher = CapturePublisher()
+    device = make_device(publisher)
     device.reconcile()
     assert device.write_settings("mic", {"Voltage Range": "1.2 V"}) is True
     device._client.write_settings.assert_called_once_with(4, {"Voltage Range": "1.2 V"})
     device.auto_zero()
     device._client.auto_zero.assert_called_once_with(None)
-    device.can_transmit("shaft", [{"Id": 1}])
+    device.bridge_balance("mic")
+    device._client.bridge_balance.assert_called_once_with(4)
+    device.can_transmit("shaft", [{"Id": 1}, {"Id": 2}])
     device._client.can_transmit.assert_called_once_with(9)
     with pytest.raises(KeyError):
         device.write_settings("nope", {})
+
+    published: dict = {}
+    for command in publisher.items:
+        assert isinstance(command, Command)
+        published.update(command.channel_data)
+    assert published == {
+        "q.mic.voltage_range.cmd": "1.2 V",
+        "q.auto_zero.cmd": 1.0,
+        "q.mic.bridge_balance.cmd": 1.0,
+        "q.shaft.can_transmit.cmd": 2.0,
+    }
 
 
 def test_stop_closes_reader(fake_quantus):

@@ -18,6 +18,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from instro.lib import Command
 from instro.lib.publishers import FilePublisher
 from instro.quantus import QuantusDevice
 
@@ -25,12 +26,17 @@ HERE = Path(__file__).parent
 
 
 class StatsPublisher:
-    """Count published points per channel so the demo can summarize itself."""
+    """Count published points and commands per channel so the demo can summarize itself."""
 
     def __init__(self):
         self.points = Counter()
+        self.commands = Counter()
 
     def publish(self, data, **kwargs):
+        if isinstance(data, Command):
+            for channel in data.channel_data:
+                self.commands[channel] += 1
+            return
         for channel, values in data.channel_data.items():
             self.points[channel] += len(values)
 
@@ -81,6 +87,9 @@ daq.close()
 print(f"\nPublished channels ({sum(stats.points.values())} points total):")
 for channel, count in sorted(stats.points.items()):
     print(f"  {channel}: {count}")
+print("\nPublished commands:")
+for channel, count in sorted(stats.commands.items()):
+    print(f"  {channel}: {count}")
 print(f"\nCSV written to {csv_dir}")
 
 expected = [
@@ -93,4 +102,12 @@ expected = [
 ]
 missing = [channel for channel in expected if stats.points[channel] == 0]
 assert not missing, f"expected data on {missing}"
+expected_commands = [
+    "demo_rig.auto_zero.cmd",
+    "demo_rig.strain_1.bridge_balance.cmd",
+    "demo_rig.vehicle_tx.can_transmit.cmd",
+    "demo_rig.shaker_drive.signal_amplitude.cmd",
+]
+missing_commands = [channel for channel in expected_commands if stats.commands[channel] == 0]
+assert not missing_commands, f"expected commands on {missing_commands}"
 print("demo: ok")
