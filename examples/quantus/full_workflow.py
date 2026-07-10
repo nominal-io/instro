@@ -13,58 +13,38 @@ Start the simulator first:
     cargo run -p quantus-sim -- examples/quantus/sim_full.toml
 """
 
-import tempfile
 import time
 from pathlib import Path
 
-from instro.lib.publishers import FilePublisher, NominalCorePublisher
+from instro.lib.publishers import NominalCorePublisher
 from instro.quantus import QuantusDevice
 
 HERE = Path(__file__).parent
-DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
-
-csv_dir = Path(tempfile.mkdtemp(prefix="quantus_demo_"))
+DATASET_RID = "dataset_rid"  # Replace with your dataset RID.
 
 # autostart=True: open + reconcile (one declarative pass, applied atomically)
 # + start streaming, all in the constructor.
-daq = QuantusDevice(
+with QuantusDevice(
     config=HERE / "rack_full.json",
-    publishers=[
-        NominalCorePublisher(dataset_rid=DATASET_RID),
-        FilePublisher(csv_dir, format="csv"),  # local CSV copy of the same channels
-    ],
+    publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
     autostart=True,
-)
-assert daq.name == "demo_rig"  # from the rack file's device.name
+) as daq:
+    time.sleep(2)
 
-report = daq.report
-print(f"QServer {report['version']}; epoch restart on apply: {report['restart_required']}")
-for module in report["modules"]:
-    if module["requested_hz"] and module["requested_hz"] != module["achieved_hz"]:
-        print(
-            f"  NOTE {module['name']}: {module['requested_hz']} Hz not achievable, "
-            f"snapped to {module['achieved_hz']} Hz (divisor {module['divisor']})"
-        )
+    # Each publishes a Command on {name}.{channel}.<action>.cmd alongside the data.
+    daq.auto_zero()  # whole system
+    daq.bridge_balance("strain_1")  # one WSB channel
+    daq.can_transmit("vehicle_tx", [{"Id": 0x123, "Data": [1, 2, 3, 4]}])
 
-time.sleep(2)
+    # Settings-plane write: goes through PUT + apply, so it restarts the streaming
+    # epoch - expect a short data gap, which the device logs and rides through.
+    restarted = daq.write_settings("shaker_drive", {"Signal Amplitude": 5.0})
+    print(f"shaker_drive amplitude -> 5.0 V (epoch restarted: {restarted})")
+    time.sleep(2)
 
-# ---- runtime writes (safe while streaming: dedicated endpoints, no apply) ----
-# Each publishes a Command on {name}.{channel}.<action>.cmd alongside the data.
-daq.auto_zero()  # whole system
-daq.bridge_balance("strain_1")  # one WSB channel
-daq.can_transmit("vehicle_tx", [{"Id": 0x123, "Data": [1, 2, 3, 4]}])
+    # ---- spot-check locally before teardown (full stream is in Nominal + CSV) ----
+    for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EngineSpeed"):
+        latest = daq.get_channel(channel)
+        print(f"{channel}: latest = {latest.channel_data[channel][-1]:.3f}")
 
-# Settings-plane write: goes through PUT + apply, so it restarts the streaming
-# epoch - expect a short data gap, which the device logs and rides through.
-restarted = daq.write_settings("shaker_drive", {"Signal Amplitude": 5.0})
-print(f"shaker_drive amplitude -> 5.0 V (epoch restarted: {restarted})")
-time.sleep(2)
-
-# ---- spot-check locally before teardown (full stream is in Nominal + CSV) ----
-for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EngineSpeed"):
-    latest = daq.get_channel(channel)
-    print(f"{channel}: latest = {latest.channel_data[channel][-1]:.3f}")
-
-daq.close()
-print(f"\nCSV written to {csv_dir}")
-print("demo: ok")
+    daq.close()
