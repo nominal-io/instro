@@ -18,8 +18,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from instro.lib.publishers import FilePublisher
 from instro.quantus import QuantusDevice
+
+from instro.lib.publishers import FilePublisher
 
 HERE = Path(__file__).parent
 
