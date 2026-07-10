@@ -1,7 +1,12 @@
 {
   "version": 1,
   "protocol": "quantus",
-  "device": { "name": "microq_demo" },
+  "device": {
+    "name": "microq_demo",
+    "description": "Reference rack description for a customer-shaped MicroQ",
+    "manufacturer": "Mecalc",
+    "model": "MicroQ"
+  },
   "connection": { "host": "127.0.0.1", "port": 8095 },
   "system": {
     "master_sampling_rate": 131072,

@@ -1,7 +1,12 @@
 {
   "version": 1,
   "protocol": "quantus",
-  "device": { "name": "quantus_demo" },
+  "device": {
+    "name": "quantus_demo",
+    "description": "Single-channel demo rack for the simple streaming example",
+    "manufacturer": "Mecalc",
+    "model": "MicroQ"
+  },
   "connection": { "host": "127.0.0.1", "port": 8081 },
   "system": { "master_sampling_rate": 131072 },
   "modules": [

@@ -1,7 +1,12 @@
 {
   "version": 1,
   "protocol": "quantus",
-  "device": { "name": "demo_rig", "manufacturer": "Mecalc", "model": "MicroQ" },
+  "device": {
+    "name": "demo_rig",
+    "description": "Full demo rack: analog, tacho, CAN, and output modules",
+    "manufacturer": "Mecalc",
+    "model": "MicroQ"
+  },
   "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
   "modules": [
     {
