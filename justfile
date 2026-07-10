@@ -143,7 +143,7 @@ eip-live-test:
     export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
-    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    cargo test -p instro-ethernetip --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
 
 # clean build of the EtherNet/IP Python bindings (sdist + wheel)
