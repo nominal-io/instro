@@ -7,8 +7,13 @@
     "manufacturer": "Mecalc",
     "model": "MicroQ"
   },
-  "connection": { "host": "127.0.0.1", "port": 8081 },
-  "system": { "master_sampling_rate": 131072 },
+  "connection": {
+    "host": "127.0.0.1",
+    "port": 8081
+  },
+  "system": { 
+    "master_sampling_rate": 131072 
+  },
   "modules": [
     {
       "name": "ICS425",

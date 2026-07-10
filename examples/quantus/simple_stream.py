@@ -10,25 +10,12 @@ from pathlib import Path
 
 from instro.quantus import QuantusDevice
 
-HERE = Path(__file__).parent
+CONFIG_PATH = Path(__file__).parent / "rack_simple.json"
 
+daq = QuantusDevice(config=CONFIG_PATH, autostart=True)
 
-class PrintPublisher:
-    """Smallest possible publisher: print what the device emits."""
+time.sleep(10)
 
-    def publish(self, data, **kwargs):
-        for channel, values in data.channel_data.items():
-            print(f"{channel}: {len(values)} samples, first={values[0]:+.3f}")
+print(daq.get_channel("quantus_demo.accel_z", length=10))
 
-    def close(self):
-        pass
-
-
-# autostart=True: open + reconcile + start streaming, all in the constructor.
-daq = QuantusDevice(HERE / "rack_simple.json", publishers=[PrintPublisher()], autostart=True)
-
-for module in daq.report["modules"]:
-    print(f"{module['name']}: requested {module['requested_hz']} Hz -> achieved {module['achieved_hz']} Hz")
-
-time.sleep(3)
 daq.close()
