@@ -1,0 +1,68 @@
+{
+  "device": { "name": "demo_rig" },
+  "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
+  "modules": [
+    {
+      "name": "MIC42X7",
+      "sample_rate_hz": 65536.0,
+      "channels": [
+        {
+          "index": 1,
+          "alias": "mic_inlet",
+          "mode": "Microphone Input",
+          "streaming": true,
+          "settings": { "Voltage Range": "1.2 V" }
+        }
+      ]
+    },
+    {
+      "name": "THM427",
+      "sample_rate_hz": 100.0,
+      "channels": [
+        { "index": 1, "alias": "tc_exhaust", "mode": "Thermocouple Type K Input", "streaming": true },
+        { "index": 2, "alias": "tc_ambient", "mode": "Thermocouple Type K Input", "streaming": true }
+      ]
+    },
+    {
+      "name": "WSB42X2",
+      "sample_rate_hz": 512.0,
+      "channels": [
+        {
+          "index": 1,
+          "alias": "strain_1",
+          "mode": "WSB Voltage Excitation",
+          "streaming": true,
+          "settings": { "Bridge Mode": "Full Bridge", "Excitation Amplitude": 5.0 }
+        }
+      ]
+    },
+    {
+      "name": "ICT42S6",
+      "channels": [
+        { "index": 1, "alias": "shaft", "mode": "Enabled", "streaming": true }
+      ]
+    },
+    {
+      "name": "CAN42S2",
+      "channels": [
+        { "index": 1, "alias": "vehicle_bus", "mode": "Listen Only", "streaming": true },
+        { "index": 2, "alias": "vehicle_tx", "mode": "Participate" }
+      ]
+    },
+    {
+      "name": "ALO42S4",
+      "channels": [
+        {
+          "index": 1,
+          "alias": "shaker_drive",
+          "mode": "Sine",
+          "settings": {
+            "Signal Amplitude": 2.0,
+            "Signal Frequency": 100.0,
+            "Signal Connection": "Connected"
+          }
+        }
+      ]
+    }
+  ]
+}

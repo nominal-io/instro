@@ -1,0 +1,13 @@
+{
+  "connection": { "host": "127.0.0.1", "rest_port": 8081 },
+  "system": { "master_sampling_rate": 131072 },
+  "modules": [
+    {
+      "name": "ICS425",
+      "sample_rate_hz": 512.0,
+      "channels": [
+        { "index": 1, "alias": "accel_z", "mode": "Voltage Input", "streaming": true }
+      ]
+    }
+  ]
+}

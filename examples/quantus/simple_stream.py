@@ -1,13 +1,16 @@
 """Example: stream one analog channel from a (simulated) Quantus mainframe.
 
-Start the simulator first (from the quantus repo):
+The rack is described in rack_simple.json. Start the simulator first:
 
     cargo run -p quantus-sim -- examples/quantus/sim_simple.toml
 """
 
 import time
+from pathlib import Path
 
 from instro.quantus import QuantusDevice
+
+HERE = Path(__file__).parent
 
 
 class PrintPublisher:
@@ -21,21 +24,7 @@ class PrintPublisher:
         pass
 
 
-config = {
-    "connection": {"host": "127.0.0.1", "rest_port": 8081},
-    "system": {"master_sampling_rate": 131072},
-    "modules": [
-        {
-            "name": "ICS425",
-            "sample_rate_hz": 512.0,
-            "channels": [
-                {"index": 1, "alias": "accel_z", "mode": "Voltage Input", "streaming": True},
-            ],
-        }
-    ],
-}
-
-daq = QuantusDevice(config, name="quantus", publishers=[PrintPublisher()])
+daq = QuantusDevice(HERE / "rack_simple.json", publishers=[PrintPublisher()])
 daq.open()
 
 report = daq.reconcile()

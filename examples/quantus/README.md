@@ -1,6 +1,6 @@
 # QuantusDevice examples
 
-Runnable against the Quantus device **simulator** — no hardware needed. The
+Runnable against the Quantus device **simulator** â€” no hardware needed. The
 simulator is the `quantus-sim` crate in this repo (`crates/quantus-sim`); it
 impersonates a MicroQ mainframe: same REST API, same binary stream.
 
@@ -33,9 +33,9 @@ keeps the one-off run simple.)
 
 | Files | What it shows |
 |---|---|
-| `simple_stream.py` + `sim_simple.toml` | Minimum viable flow: dict config, open -> reconcile -> start, one analog channel printed by a 6-line publisher |
-| `full_workflow.py` + `sim_full.toml` + `vehicle.dbc` | Everything: name-from-config, connection override, default tags, CSV + custom publishers, rate snapping in the reconcile report, analog + tacho-RPM + DBC-decoded CAN streaming, runtime writes (auto-zero, bridge balance, CAN transmit, settings-plane write with epoch restart), teardown |
+| `simple_stream.py` + `rack_simple.json` + `sim_simple.toml` | Minimum viable flow: rack config from a JSON file, open -> reconcile -> start, one analog channel printed by a 6-line publisher |
+| `full_workflow.py` + `rack_full.json` + `sim_full.toml` + `vehicle.dbc` | Everything: rack file without a `connection` section (supplied at runtime via `connection=`), name-from-config, default tags, CSV + custom publishers, rate snapping in the reconcile report, analog + tacho-RPM + DBC-decoded CAN streaming, runtime writes (auto-zero, bridge balance, CAN transmit, settings-plane write with epoch restart), teardown |
 
-The sim TOML files also demonstrate fault-injection knobs — add a `[faults]`
+The sim TOML files also demonstrate fault-injection knobs â€” add a `[faults]`
 section (`drop_every_nth_packet`, `disconnect_after_packets`, `apply_delay_ms`)
 to watch the device ride through gaps and restarts.

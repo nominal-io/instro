@@ -1,26 +1,26 @@
 """Example: every QuantusDevice capability against a full simulated rack.
 
-Covers: config file + connection override + name-from-config, default tags,
+The rack is described in rack_full.json - deliberately without a `connection`
+section, so the same file works on any bench: the connection is supplied at
+runtime via the `connection=` argument. Covers name-from-config, default tags,
 CSV + custom publishers, reconcile report (rate snapping), streamed analog /
 tacho-RPM / DBC-decoded CAN channels, runtime writes (auto-zero, bridge
 balance, settings-plane write with epoch restart, CAN transmit), and teardown.
 
-Start the simulator first (from the quantus repo):
+Start the simulator first:
 
     cargo run -p quantus-sim -- examples/quantus/sim_full.toml
 
-Requires the `quantus` wheel and the `can` extra (cantools).
+Requires cantools (the `can` extra): uv run --with cantools python ...
 """
 
-import json
 import tempfile
 import time
 from collections import Counter
 from pathlib import Path
 
-from instro.quantus import QuantusDevice
-
 from instro.lib.publishers import FilePublisher
+from instro.quantus import QuantusDevice
 
 HERE = Path(__file__).parent
 
@@ -39,86 +39,17 @@ class StatsPublisher:
         pass
 
 
-# The rack config would normally live in its own rack.json; built inline here
-# so the example is self-contained. Note "device.name" — it becomes the
-# channel-name prefix unless overridden by the name= argument.
-rack = {
-    "device": {"name": "demo_rig"},
-    "connection": {"host": "127.0.0.1", "rest_port": 9999},  # wrong on purpose; overridden below
-    "system": {"master_sampling_rate": 131072, "streaming_format": "Processed"},
-    "modules": [
-        {
-            "name": "MIC42X7",
-            "sample_rate_hz": 65536.0,
-            "channels": [
-                {
-                    "index": 1,
-                    "alias": "mic_inlet",
-                    "mode": "Microphone Input",
-                    "streaming": True,
-                    "settings": {"Voltage Range": "1.2 V"},
-                },
-            ],
-        },
-        {
-            "name": "THM427",
-            "sample_rate_hz": 100.0,  # not achievable: snaps to 512 (MSR/256)
-            "channels": [
-                {"index": 1, "alias": "tc_exhaust", "mode": "Thermocouple Type K Input", "streaming": True},
-                {"index": 2, "alias": "tc_ambient", "mode": "Thermocouple Type K Input", "streaming": True},
-            ],
-        },
-        {
-            "name": "WSB42X2",
-            "sample_rate_hz": 512.0,
-            "channels": [
-                {
-                    "index": 1,
-                    "alias": "strain_1",
-                    "mode": "WSB Voltage Excitation",
-                    "streaming": True,
-                    "settings": {"Bridge Mode": "Full Bridge", "Excitation Amplitude": 5.0},
-                },
-            ],
-        },
-        {
-            "name": "ICT42S6",
-            "channels": [
-                {"index": 1, "alias": "shaft", "mode": "Enabled", "streaming": True},
-            ],
-        },
-        {
-            "name": "CAN42S2",
-            "channels": [
-                {"index": 1, "alias": "vehicle_bus", "mode": "Listen Only", "streaming": True},
-                {"index": 2, "alias": "vehicle_tx", "mode": "Participate"},
-            ],
-        },
-        {
-            "name": "ALO42S4",
-            "channels": [
-                {
-                    "index": 1,
-                    "alias": "shaker_drive",
-                    "mode": "Sine",
-                    "settings": {"Signal Amplitude": 2.0, "Signal Frequency": 100.0, "Signal Connection": "Connected"},
-                },
-            ],
-        },
-    ],
-}
-
 csv_dir = Path(tempfile.mkdtemp(prefix="quantus_demo_"))
 stats = StatsPublisher()
 
 daq = QuantusDevice(
-    config=rack,
-    connection={"rest_port": 8082},  # overrides the config's (wrong) port
+    config=HERE / "rack_full.json",
+    connection={"host": "127.0.0.1", "rest_port": 8082},  # bench-specific, not in the rack file
     dbc={"vehicle_bus": str(HERE / "vehicle.dbc")},  # decode this bus's frames
     publishers=[stats, FilePublisher(csv_dir, format="csv")],
     test_stand="sim-bench",  # default tag on every Measurement
 )
-assert daq.name == "demo_rig"  # from config device.name
+assert daq.name == "demo_rig"  # from the rack file's device.name
 
 # ---- configure: one declarative pass, applied atomically ----
 daq.open()
@@ -141,7 +72,7 @@ daq.bridge_balance("strain_1")  # one WSB channel
 daq.can_transmit("vehicle_tx", [{"Id": 0x123, "Data": [1, 2, 3, 4]}])
 
 # Settings-plane write: goes through PUT + apply, so it restarts the streaming
-# epoch — expect a short data gap, which the device logs and rides through.
+# epoch - expect a short data gap, which the device logs and rides through.
 restarted = daq.write_settings("shaker_drive", {"Signal Amplitude": 5.0})
 print(f"shaker_drive amplitude -> 5.0 V (epoch restarted: {restarted})")
 time.sleep(2)
@@ -164,4 +95,4 @@ expected = [
 ]
 missing = [channel for channel in expected if stats.points[channel] == 0]
 assert not missing, f"expected data on {missing}"
-print(json.dumps({"demo": "ok"}))
+print("demo: ok")
