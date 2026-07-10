@@ -123,7 +123,8 @@ def test_autostart_opens_reconciles_and_starts(fake_quantus):
     )
     try:
         assert device._is_open
-        assert device._report is not None
+        assert device.report is not None
+        assert device.report["restart_required"] is True
         assert device._reader is not None
         assert device._background_thread is not None and device._background_thread.is_alive()
     finally:

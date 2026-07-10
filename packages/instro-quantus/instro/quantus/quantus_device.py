@@ -137,6 +137,11 @@ class QuantusDevice(Instrument):
             ) from exc
         return cantools.database.load_file(path)
 
+    @property
+    def report(self) -> dict | None:
+        """The latest reconcile report (achieved rates, channel map); None before reconcile()."""
+        return self._report
+
     def reconcile(self) -> dict:
         """Write every declared setting, apply once, and return the report."""
         report = self._require_client().reconcile()

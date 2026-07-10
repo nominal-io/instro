@@ -24,13 +24,11 @@ class PrintPublisher:
         pass
 
 
-daq = QuantusDevice(HERE / "rack_simple.json", publishers=[PrintPublisher()])
-daq.open()
+# autostart=True: open + reconcile + start streaming, all in the constructor.
+daq = QuantusDevice(HERE / "rack_simple.json", publishers=[PrintPublisher()], autostart=True)
 
-report = daq.reconcile()
-for module in report["modules"]:
+for module in daq.report["modules"]:
     print(f"{module['name']}: requested {module['requested_hz']} Hz -> achieved {module['achieved_hz']} Hz")
 
-daq.start()
 time.sleep(3)
 daq.close()
