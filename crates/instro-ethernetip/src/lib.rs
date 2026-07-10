@@ -40,7 +40,7 @@
 //! Connect to a target, read a tag, write an updated value, then close the session:
 //!
 //! ```no_run
-//! use instro_ethernetip_rs::{ExplicitSession, Result, Value};
+//! use instro_ethernetip::{ExplicitSession, Result, Value};
 //!
 //! # fn main() -> Result<()> {
 //! let runtime = tokio::runtime::Runtime::new().expect("runtime should build");
@@ -59,7 +59,7 @@
 //! Convert Rust values into crate-owned PLC values without exposing backend types:
 //!
 //! ```
-//! use instro_ethernetip_rs::Value;
+//! use instro_ethernetip::Value;
 //!
 //! assert_eq!(Value::from(true), Value::Bool(true));
 //! assert_eq!(Value::from(42_i32), Value::Dint(42));
@@ -69,7 +69,7 @@
 //! Preserve a user-defined type payload as opaque bytes with [`StructuredValue`]:
 //!
 //! ```
-//! use instro_ethernetip_rs::{StructuredValue, Value};
+//! use instro_ethernetip::{StructuredValue, Value};
 //!
 //! let payload = StructuredValue {
 //!     symbol_id: Some(7),
