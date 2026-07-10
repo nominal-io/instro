@@ -1,0 +1,277 @@
+{
+  "ItemName": "ALO42S4",
+  "ItemNameIdentifier": 151,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    {
+      "Id": 1,
+      "Description": "Enabled",
+      "Settings": [
+        {
+          "Name": "Grounding",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Floating" },
+            { "Id": 1, "Description": "Grounded" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ],
+  "Channels": [
+    {
+      "ItemName": "ALO42S4",
+      "ItemNameIdentifier": 24,
+      "Count": 4,
+      "DefaultOperationMode": 0,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "DC Generator",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Signal Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -9.999, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Amplitude Change Time",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 3600.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Output Voltage Level",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "5 V" },
+                { "Id": 1, "Description": "12 V" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "Sine",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Signal Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -9.999, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Amplitude Change Time",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 3600.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Frequency",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 10000.0 },
+              "Value": 1000.0
+            },
+            {
+              "Name": "Signal Frequency Change Time",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 3600.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Offset",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -10.0, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Phase",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -360.0, "Upper": 360.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Output Voltage Level",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "5 V" },
+                { "Id": 1, "Description": "12 V" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 3,
+          "Description": "Square",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Signal Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -9.999, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Frequency",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 10000.0 },
+              "Value": 1000.0
+            },
+            {
+              "Name": "Signal Offset",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -10.0, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Phase",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -360.0, "Upper": 360.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Output Voltage Level",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "5 V" },
+                { "Id": 1, "Description": "12 V" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 4,
+          "Description": "Triangular",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Signal Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -9.999, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Frequency",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 10000.0 },
+              "Value": 1000.0
+            },
+            {
+              "Name": "Signal Offset",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -10.0, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Phase",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -360.0, "Upper": 360.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Output Voltage Level",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "5 V" },
+                { "Id": 1, "Description": "12 V" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 5,
+          "Description": "White Noise",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Signal Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -9.999, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Signal Offset",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": -10.0, "Upper": 10.0 },
+              "Value": 0.0
+            },
+            {
+              "Name": "Output Voltage Level",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "5 V" },
+                { "Id": 1, "Description": "12 V" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 6,
+          "Description": "Mirror Left Module",
+          "Settings": [
+            {
+              "Name": "Signal Connection",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Grounded" },
+                { "Id": 1, "Description": "Connected" }
+              ],
+              "Value": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

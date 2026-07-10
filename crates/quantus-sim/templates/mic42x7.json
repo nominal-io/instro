@@ -1,0 +1,146 @@
+{
+  "ItemName": "MIC42X7",
+  "ItemNameIdentifier": 180,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    {
+      "Id": 1,
+      "Description": "Enabled",
+      "Settings": [
+        {
+          "Name": "Sample Rate",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "MSR Divide by 1", "Numeric": 1 },
+            { "Id": 1, "Description": "MSR Divide by 2", "Numeric": 2 },
+            { "Id": 2, "Description": "MSR Divide by 4", "Numeric": 4 },
+            { "Id": 3, "Description": "MSR Divide by 8", "Numeric": 8 },
+            { "Id": 4, "Description": "MSR Divide by 16", "Numeric": 16 },
+            { "Id": 5, "Description": "MSR Divide by 32", "Numeric": 32 },
+            { "Id": 6, "Description": "MSR Divide by 64", "Numeric": 64 },
+            { "Id": 7, "Description": "MSR Divide by 128", "Numeric": 128 },
+            { "Id": 8, "Description": "MSR Divide by 256", "Numeric": 256 }
+          ],
+          "Value": 8
+        },
+        {
+          "Name": "Grounding",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Floating" },
+            { "Id": 1, "Description": "Grounded" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ],
+  "Channels": [
+    {
+      "ItemName": "MIC42X7",
+      "ItemNameIdentifier": 47,
+      "Count": 6,
+      "DefaultOperationMode": 1,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "Voltage Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "120 mV", "Numeric": 0.12 },
+                { "Id": 1, "Description": "1.2 V", "Numeric": 1.2 },
+                { "Id": 2, "Description": "12 V", "Numeric": 12.0 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Coupling",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "DC" },
+                { "Id": 1, "Description": "AC" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "ICP® Input",
+          "Settings": [
+            {
+              "Name": "Current Source",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "4 mA" },
+                { "Id": 1, "Description": "8 mA" },
+                { "Id": 2, "Description": "12 mA" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "120 mV", "Numeric": 0.12 },
+                { "Id": 1, "Description": "1.2 V", "Numeric": 1.2 },
+                { "Id": 2, "Description": "12 V", "Numeric": 12.0 }
+              ],
+              "Value": 2
+            }
+          ]
+        },
+        {
+          "Id": 3,
+          "Description": "Microphone Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "120 mV", "Numeric": 0.12 },
+                { "Id": 1, "Description": "1.2 V", "Numeric": 1.2 },
+                { "Id": 2, "Description": "12 V", "Numeric": 12.0 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Preamp Excitation",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Disabled" },
+                { "Id": 1, "Description": "Enabled" }
+              ],
+              "Value": 1
+            }
+          ]
+        }
+      ],
+      "Data": [
+        {
+          "Name": "Streaming State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Local Storage State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ]
+}

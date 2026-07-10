@@ -1,13 +1,12 @@
 [project]
 name = "instro-quantus"
 version = "0.1.0"
-description = "Mecalc QuantusSeries DAQ mainframe support for instro"
+description = "Mecalc QuantusSeries DAQ mainframe support for instro: config-driven rack setup with a native streaming backend"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.14"
-# `quantus` is the Rust-backed wheel from the quantus repo (crates/quantus-py);
-# not yet published — install from a local build during development.
-dependencies = ["instro", "quantus>=0.1.0"]
+dependencies = ["instro", "numpy>=1.24"]
 
 [project.optional-dependencies]
 can = ["cantools>=39.0"]
@@ -18,11 +17,13 @@ Repository = "https://github.com/nominal-io/instro"
 Issues = "https://github.com/nominal-io/instro/issues"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
 [tool.uv.sources]
 instro = { workspace = true }
 
-[tool.hatch.build.targets.wheel]
-packages = ["instro"]
+[tool.maturin]
+bindings = "pyo3"
+module-name = "instro.quantus._quantus"
+python-source = "."

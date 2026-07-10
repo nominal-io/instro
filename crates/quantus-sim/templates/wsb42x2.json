@@ -1,0 +1,210 @@
+{
+  "ItemName": "WSB42X2",
+  "ItemNameIdentifier": 227,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    {
+      "Id": 1,
+      "Description": "Enabled",
+      "Settings": [
+        {
+          "Name": "Sample Rate",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "MSR Divide by 1", "Numeric": 1 },
+            { "Id": 1, "Description": "MSR Divide by 2", "Numeric": 2 },
+            { "Id": 2, "Description": "MSR Divide by 4", "Numeric": 4 },
+            { "Id": 3, "Description": "MSR Divide by 8", "Numeric": 8 },
+            { "Id": 4, "Description": "MSR Divide by 16", "Numeric": 16 },
+            { "Id": 5, "Description": "MSR Divide by 32", "Numeric": 32 },
+            { "Id": 6, "Description": "MSR Divide by 64", "Numeric": 64 },
+            { "Id": 7, "Description": "MSR Divide by 128", "Numeric": 128 },
+            { "Id": 8, "Description": "MSR Divide by 256", "Numeric": 256 }
+          ],
+          "Value": 8
+        }
+      ]
+    }
+  ],
+  "Channels": [
+    {
+      "ItemName": "WSB42X2",
+      "ItemNameIdentifier": 30,
+      "Count": 2,
+      "DefaultOperationMode": 1,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "Voltage Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "10 mV", "Numeric": 0.01 },
+                { "Id": 1, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 2, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 3
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "ICP® Input",
+          "Settings": [
+            {
+              "Name": "Current Source",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "4 mA" }],
+              "Value": 0
+            },
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "10 mV", "Numeric": 0.01 },
+                { "Id": 1, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 2, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 3
+            }
+          ]
+        },
+        {
+          "Id": 3,
+          "Description": "WSB Voltage Excitation",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "10 mV", "Numeric": 0.01 },
+                { "Id": 1, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 2, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 1
+            },
+            {
+              "Name": "Bridge Mode",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Full Bridge" },
+                { "Id": 1, "Description": "Half Bridge" },
+                { "Id": 2, "Description": "Quarter Bridge 120 Ohm" },
+                { "Id": 3, "Description": "Quarter Bridge 350 Ohm" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Excitation Amplitude",
+              "Type": "Float",
+              "ValidationLimits": { "Lower": 0.0, "Upper": 10.0 },
+              "Value": 5.0
+            },
+            {
+              "Name": "Shunt Calibration Resistor",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "None" },
+                { "Id": 1, "Description": "4-Wire 100 kOhm" },
+                { "Id": 2, "Description": "6-Wire 100 kOhm" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 4,
+          "Description": "WSB 4-Wire Current Excitation",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "10 mV", "Numeric": 0.01 },
+                { "Id": 1, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 2, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 1
+            },
+            {
+              "Name": "Bridge Mode",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Full Bridge" },
+                { "Id": 1, "Description": "Half Bridge" },
+                { "Id": 2, "Description": "Quarter Bridge 120 Ohm" },
+                { "Id": 3, "Description": "Quarter Bridge 350 Ohm" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Excitation Amplitude",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "4 mA" },
+                { "Id": 1, "Description": "8 mA" },
+                { "Id": 2, "Description": "12 mA" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 5,
+          "Description": "WSB 2-Wire Current Excitation",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "10 mV", "Numeric": 0.01 },
+                { "Id": 1, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 2, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 1
+            },
+            {
+              "Name": "Excitation Amplitude",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "4 mA" },
+                { "Id": 1, "Description": "8 mA" },
+                { "Id": 2, "Description": "12 mA" }
+              ],
+              "Value": 0
+            }
+          ]
+        }
+      ],
+      "Data": [
+        {
+          "Name": "Streaming State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Local Storage State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ]
+}

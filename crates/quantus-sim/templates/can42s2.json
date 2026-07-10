@@ -1,0 +1,146 @@
+{
+  "ItemName": "CAN42S2",
+  "ItemNameIdentifier": 157,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    { "Id": 1, "Description": "Enabled", "Settings": [] }
+  ],
+  "Channels": [
+    {
+      "ItemName": "CAN42S2",
+      "ItemNameIdentifier": 0,
+      "Count": 2,
+      "DefaultOperationMode": 1,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "Listen Only",
+          "Settings": [
+            {
+              "Name": "Arbitration Bitrate",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "50 kHz", "Numeric": 50000 },
+                { "Id": 1, "Description": "100 kHz", "Numeric": 100000 },
+                { "Id": 2, "Description": "125 kHz", "Numeric": 125000 },
+                { "Id": 3, "Description": "200 kHz", "Numeric": 200000 },
+                { "Id": 4, "Description": "250 kHz", "Numeric": 250000 },
+                { "Id": 5, "Description": "400 kHz", "Numeric": 400000 },
+                { "Id": 6, "Description": "500 kHz", "Numeric": 500000 },
+                { "Id": 7, "Description": "800 kHz", "Numeric": 800000 },
+                { "Id": 8, "Description": "1 MHz", "Numeric": 1000000 }
+              ],
+              "Value": 6
+            },
+            {
+              "Name": "Fast Data Bitrate",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "500 kHz", "Numeric": 500000 },
+                { "Id": 1, "Description": "1 MHz", "Numeric": 1000000 },
+                { "Id": 2, "Description": "2 MHz", "Numeric": 2000000 },
+                { "Id": 3, "Description": "4 MHz", "Numeric": 4000000 },
+                { "Id": 4, "Description": "5 MHz", "Numeric": 5000000 },
+                { "Id": 5, "Description": "8 MHz", "Numeric": 8000000 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Bus Termination",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Disabled" },
+                { "Id": 1, "Description": "Enabled" }
+              ],
+              "Value": 1
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "Participate",
+          "Settings": [
+            {
+              "Name": "Arbitration Bitrate",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "50 kHz", "Numeric": 50000 },
+                { "Id": 1, "Description": "100 kHz", "Numeric": 100000 },
+                { "Id": 2, "Description": "125 kHz", "Numeric": 125000 },
+                { "Id": 3, "Description": "200 kHz", "Numeric": 200000 },
+                { "Id": 4, "Description": "250 kHz", "Numeric": 250000 },
+                { "Id": 5, "Description": "400 kHz", "Numeric": 400000 },
+                { "Id": 6, "Description": "500 kHz", "Numeric": 500000 },
+                { "Id": 7, "Description": "800 kHz", "Numeric": 800000 },
+                { "Id": 8, "Description": "1 MHz", "Numeric": 1000000 }
+              ],
+              "Value": 6
+            },
+            {
+              "Name": "Fast Data Bitrate",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "500 kHz", "Numeric": 500000 },
+                { "Id": 1, "Description": "1 MHz", "Numeric": 1000000 },
+                { "Id": 2, "Description": "2 MHz", "Numeric": 2000000 },
+                { "Id": 3, "Description": "4 MHz", "Numeric": 4000000 },
+                { "Id": 4, "Description": "5 MHz", "Numeric": 5000000 },
+                { "Id": 5, "Description": "8 MHz", "Numeric": 8000000 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Bus Termination",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Disabled" },
+                { "Id": 1, "Description": "Enabled" }
+              ],
+              "Value": 1
+            },
+            {
+              "Name": "Send At Fast Bitrate",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Disabled" },
+                { "Id": 1, "Description": "Enabled" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Receive Own Messages",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Disabled" },
+                { "Id": 1, "Description": "Enabled" }
+              ],
+              "Value": 0
+            }
+          ]
+        }
+      ],
+      "Data": [
+        {
+          "Name": "Streaming State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Local Storage State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ]
+}

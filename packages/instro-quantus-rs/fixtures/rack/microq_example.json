@@ -1,0 +1,43 @@
+{
+  "connection": { "host": "127.0.0.1", "rest_port": 8095 },
+  "device": { "name": "microq_demo" },
+  "system": {
+    "master_sampling_rate": 131072,
+    "streaming_format": "Processed"
+  },
+  "modules": [
+    {
+      "name": "MIC42X7",
+      "sample_rate_hz": 65536.0,
+      "channels": [
+        {
+          "index": 1,
+          "alias": "mic_inlet",
+          "mode": "Microphone Input",
+          "streaming": true,
+          "settings": { "Voltage Range": "1.2 V" }
+        }
+      ]
+    },
+    {
+      "name": "THM427",
+      "sample_rate_hz": 512.0,
+      "channels": [
+        { "index": 1, "alias": "tc_exhaust_a", "mode": "Thermocouple Type K Input", "streaming": true },
+        { "index": 2, "alias": "tc_exhaust_b", "mode": "Thermocouple Type K Input", "streaming": true }
+      ]
+    },
+    {
+      "name": "ICT42S6",
+      "channels": [
+        { "index": 1, "alias": "shaft_rpm", "mode": "Enabled", "streaming": true }
+      ]
+    },
+    {
+      "name": "CAN42S2",
+      "channels": [
+        { "index": 1, "alias": "vehicle_bus", "mode": "Listen Only", "streaming": true }
+      ]
+    }
+  ]
+}

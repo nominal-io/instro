@@ -1,37 +1,33 @@
 # QuantusDevice examples
 
-Runnable against the Quantus device **simulator** â€” no hardware needed. The
-simulator lives in the quantus repo (next to this one) and impersonates a
-MicroQ mainframe: same REST API, same binary stream.
+Runnable against the Quantus device **simulator** — no hardware needed. The
+simulator is the `quantus-sim` crate in this repo (`crates/quantus-sim`); it
+impersonates a MicroQ mainframe: same REST API, same binary stream.
 
 ## Setup
 
-1. Build the pieces (in the quantus repo):
+```sh
+just install quantus     # or: uv sync --extra quantus (builds the native module)
+```
 
-   ```sh
-   cd ../quantus
-   cargo build -p quantus-sim
-   uvx maturin build --release -m crates/quantus-py/Cargo.toml -o target/wheels
-   ```
+Start a simulator with the example's rack description (needs the Rust
+toolchain, same as `just test`):
 
-2. Start a simulator with the example's rack description:
+```sh
+cargo run -p quantus-sim -- examples/quantus/sim_simple.toml
+# or for the full example:
+cargo run -p quantus-sim -- examples/quantus/sim_full.toml
+```
 
-   ```sh
-   # from the quantus repo, for the simple example:
-   ./target/debug/quantus-sim ../instro/examples/quantus/sim_simple.toml
-   # or for the full example:
-   ./target/debug/quantus-sim ../instro/examples/quantus/sim_full.toml
-   ```
+Then, in another terminal:
 
-3. Run the example (from the instro repo, until the quantus wheel is published
-   and `instro-quantus` joins the workspace):
+```sh
+uv run python examples/quantus/simple_stream.py
+uv run --with cantools python examples/quantus/full_workflow.py
+```
 
-   ```sh
-   PYTHONPATH=packages/instro-quantus uv run --no-sync \
-     --with ../quantus/target/wheels/quantus-0.1.0-cp39-abi3-win_amd64.whl \
-     --with numpy --with cantools \
-     python examples/quantus/simple_stream.py
-   ```
+(`cantools` ships via the `can` extra of instro-quantus; `--with cantools`
+keeps the one-off run simple.)
 
 ## Examples
 
@@ -40,6 +36,6 @@ MicroQ mainframe: same REST API, same binary stream.
 | `simple_stream.py` + `sim_simple.toml` | Minimum viable flow: dict config, open -> reconcile -> start, one analog channel printed by a 6-line publisher |
 | `full_workflow.py` + `sim_full.toml` + `vehicle.dbc` | Everything: name-from-config, connection override, default tags, CSV + custom publishers, rate snapping in the reconcile report, analog + tacho-RPM + DBC-decoded CAN streaming, runtime writes (auto-zero, bridge balance, CAN transmit, settings-plane write with epoch restart), teardown |
 
-The sim TOML files also demonstrate fault-injection knobs â€” add a `[faults]`
+The sim TOML files also demonstrate fault-injection knobs — add a `[faults]`
 section (`drop_every_nth_packet`, `disconnect_after_packets`, `apply_delay_ms`)
 to watch the device ride through gaps and restarts.

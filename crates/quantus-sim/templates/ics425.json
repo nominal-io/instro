@@ -1,0 +1,164 @@
+{
+  "ItemName": "ICS425",
+  "ItemNameIdentifier": 217,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    {
+      "Id": 1,
+      "Description": "Enabled",
+      "Settings": [
+        {
+          "Name": "Sample Rate",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "MSR Divide by 2", "Numeric": 2 },
+            { "Id": 1, "Description": "MSR Divide by 4", "Numeric": 4 },
+            { "Id": 2, "Description": "MSR Divide by 8", "Numeric": 8 },
+            { "Id": 3, "Description": "MSR Divide by 16", "Numeric": 16 },
+            { "Id": 4, "Description": "MSR Divide by 32", "Numeric": 32 },
+            { "Id": 5, "Description": "MSR Divide by 64", "Numeric": 64 },
+            { "Id": 6, "Description": "MSR Divide by 128", "Numeric": 128 },
+            { "Id": 7, "Description": "MSR Divide by 256", "Numeric": 256 }
+          ],
+          "Value": 7
+        },
+        {
+          "Name": "Grounding",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Floating" },
+            { "Id": 1, "Description": "Grounded" }
+          ],
+          "Value": 0
+        }
+      ]
+    },
+    {
+      "Id": 2,
+      "Description": "Four Channel High Sample Rate",
+      "Settings": [
+        {
+          "Name": "Sample Rate",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "MSR Divide by 1", "Numeric": 1 }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Grounding",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Floating" },
+            { "Id": 1, "Description": "Grounded" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ],
+  "Channels": [
+    {
+      "ItemName": "ICS425",
+      "ItemNameIdentifier": 15,
+      "Count": 6,
+      "DefaultOperationMode": 1,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "Voltage Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 1, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 2, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Input Biasing",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Differential" },
+                { "Id": 1, "Description": "Single Ended" }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Coupling",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "DC" },
+                { "Id": 1, "Description": "AC" },
+                { "Id": 2, "Description": "AC with 1 Hz Filter" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "ICP® Input",
+          "Settings": [
+            {
+              "Name": "Current Source",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "4 mA" }],
+              "Value": 0
+            },
+            {
+              "Name": "Input Biasing",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "Single Ended" }],
+              "Value": 0
+            },
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 1, "Description": "1 V", "Numeric": 1.0 },
+                { "Id": 2, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 2
+            },
+            {
+              "Name": "Coupling",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "AC" },
+                { "Id": 1, "Description": "AC with 1 Hz Filter" }
+              ],
+              "Value": 0
+            }
+          ]
+        }
+      ],
+      "Data": [
+        {
+          "Name": "Streaming State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Local Storage State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ]
+}

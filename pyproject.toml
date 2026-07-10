@@ -33,6 +33,7 @@ mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
+quantus = ["instro-quantus"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 all = [
@@ -41,6 +42,7 @@ all = [
     "instro-daq-mcc",
     "instro-i2c-aardvark",
     "instro-ethernetip",
+    "instro-quantus",
     "instro-contrib",
     "instro-unstable",
 ]
@@ -72,6 +74,7 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "types-pyserial>=3.0",
     "instro-ethernetip",
+    "instro-quantus",
     "instro-unstable",
     "instro-contrib",
 ]
@@ -89,6 +92,7 @@ instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
 instro-ethernetip = { workspace = true }
+instro-quantus = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 
@@ -99,6 +103,7 @@ members = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-quantus",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
@@ -145,10 +150,11 @@ mypy_path = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-quantus",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
-packages = ["instro", "instro.ethernetip"]
+packages = ["instro", "instro.ethernetip", "instro.quantus"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

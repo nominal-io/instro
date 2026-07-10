@@ -1,0 +1,284 @@
+{
+  "ItemName": "THM427",
+  "ItemNameIdentifier": 170,
+  "DefaultOperationMode": 1,
+  "OperationModes": [
+    { "Id": 0, "Description": "Disabled", "Settings": [] },
+    {
+      "Id": 1,
+      "Description": "Enabled",
+      "Settings": [
+        {
+          "Name": "Sample Rate",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "MSR Divide by 8", "Numeric": 8 },
+            { "Id": 1, "Description": "MSR Divide by 16", "Numeric": 16 },
+            { "Id": 2, "Description": "MSR Divide by 32", "Numeric": 32 },
+            { "Id": 3, "Description": "MSR Divide by 64", "Numeric": 64 },
+            { "Id": 4, "Description": "MSR Divide by 128", "Numeric": 128 },
+            { "Id": 5, "Description": "MSR Divide by 256", "Numeric": 256 }
+          ],
+          "Value": 5
+        },
+        {
+          "Name": "Channel 1 and 2 Operation Mode",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Voltage Input" },
+            { "Id": 2, "Description": "Thermocouple Type E Input" },
+            { "Id": 3, "Description": "Thermocouple Type J Input" },
+            { "Id": 4, "Description": "Thermocouple Type K Input" },
+            { "Id": 5, "Description": "Thermocouple Type T Input" },
+            { "Id": 6, "Description": "Thermocouple Type U Input" },
+            { "Id": 7, "Description": "Thermocouple Type N Input" },
+            { "Id": 8, "Description": "PT100 Input" }
+          ],
+          "Value": 1
+        },
+        {
+          "Name": "Channel 3 and 4 Operation Mode",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Voltage Input" },
+            { "Id": 2, "Description": "Thermocouple Type E Input" },
+            { "Id": 3, "Description": "Thermocouple Type J Input" },
+            { "Id": 4, "Description": "Thermocouple Type K Input" },
+            { "Id": 5, "Description": "Thermocouple Type T Input" },
+            { "Id": 6, "Description": "Thermocouple Type U Input" },
+            { "Id": 7, "Description": "Thermocouple Type N Input" },
+            { "Id": 8, "Description": "PT100 Input" }
+          ],
+          "Value": 1
+        },
+        {
+          "Name": "Channel 5 and 6 Operation Mode",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Voltage Input" },
+            { "Id": 2, "Description": "Thermocouple Type E Input" },
+            { "Id": 3, "Description": "Thermocouple Type J Input" },
+            { "Id": 4, "Description": "Thermocouple Type K Input" },
+            { "Id": 5, "Description": "Thermocouple Type T Input" },
+            { "Id": 6, "Description": "Thermocouple Type U Input" },
+            { "Id": 7, "Description": "Thermocouple Type N Input" },
+            { "Id": 8, "Description": "PT100 Input" }
+          ],
+          "Value": 1
+        },
+        {
+          "Name": "Channel 7 and 8 Operation Mode",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Voltage Input" },
+            { "Id": 2, "Description": "Thermocouple Type E Input" },
+            { "Id": 3, "Description": "Thermocouple Type J Input" },
+            { "Id": 4, "Description": "Thermocouple Type K Input" },
+            { "Id": 5, "Description": "Thermocouple Type T Input" },
+            { "Id": 6, "Description": "Thermocouple Type U Input" },
+            { "Id": 7, "Description": "Thermocouple Type N Input" },
+            { "Id": 8, "Description": "PT100 Input" }
+          ],
+          "Value": 1
+        }
+      ]
+    }
+  ],
+  "Channels": [
+    {
+      "ItemName": "THM427",
+      "ItemNameIdentifier": 45,
+      "Count": 8,
+      "DefaultOperationMode": 1,
+      "OperationModes": [
+        { "Id": 0, "Description": "Disabled", "Settings": [] },
+        {
+          "Id": 1,
+          "Description": "Voltage Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "100 mV", "Numeric": 0.1 },
+                { "Id": 1, "Description": "10 V", "Numeric": 10.0 }
+              ],
+              "Value": 1
+            }
+          ]
+        },
+        {
+          "Id": 2,
+          "Description": "Thermocouple Type E Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 3,
+          "Description": "Thermocouple Type J Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 4,
+          "Description": "Thermocouple Type K Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 5,
+          "Description": "Thermocouple Type T Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 6,
+          "Description": "Thermocouple Type U Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 7,
+          "Description": "Thermocouple Type N Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        },
+        {
+          "Id": 8,
+          "Description": "PT100 Input",
+          "Settings": [
+            {
+              "Name": "Voltage Range",
+              "Type": "Enumeration",
+              "SupportedValues": [{ "Id": 0, "Description": "100 mV", "Numeric": 0.1 }],
+              "Value": 0
+            },
+            {
+              "Name": "Temperature SI Unit",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "Celsius" },
+                { "Id": 1, "Description": "Kelvin" }
+              ],
+              "Value": 0
+            }
+          ]
+        }
+      ],
+      "Data": [
+        {
+          "Name": "Streaming State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        },
+        {
+          "Name": "Local Storage State",
+          "Type": "Enumeration",
+          "SupportedValues": [
+            { "Id": 0, "Description": "Disabled" },
+            { "Id": 1, "Description": "Enabled" }
+          ],
+          "Value": 0
+        }
+      ]
+    }
+  ]
+}

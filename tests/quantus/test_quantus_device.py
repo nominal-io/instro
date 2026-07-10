@@ -64,9 +64,9 @@ class CapturePublisher:
 
 @pytest.fixture()
 def fake_quantus(monkeypatch):
-    module = types.ModuleType("quantus")
+    module = types.ModuleType("instro.quantus._quantus")
     module.QuantusClient = FakeClient
-    monkeypatch.setitem(sys.modules, "quantus", module)
+    monkeypatch.setitem(sys.modules, "instro.quantus._quantus", module)
     return module
 
 
@@ -143,8 +143,15 @@ def test_analog_event_becomes_measurement_with_hw_timestamps(fake_quantus):
     device = make_device(publisher)
     device.reconcile()
     device._client.events = [
-        {"type": "analog", "channel_id": 4, "timestamp_ns": 0, "integrity": 0, "min": 0.0, "max": 1.0,
-         "samples": [0.5, 0.6, 0.7]},
+        {
+            "type": "analog",
+            "channel_id": 4,
+            "timestamp_ns": 0,
+            "integrity": 0,
+            "min": 0.0,
+            "max": 1.0,
+            "samples": [0.5, 0.6, 0.7],
+        },
     ]
     device.start(background=False)
     device._reader = device._client.open_stream()

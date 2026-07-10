@@ -4,6 +4,10 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from instro.quantus._quantus import QuantusClient, StreamReader
 
 from instro.lib import Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_measurement
@@ -63,9 +67,9 @@ class QuantusDevice(Instrument):
         super().__init__(instrument_name, publishers=publishers, **kwargs)
         self._config_text = json.dumps(resolved)
         self._dbc_paths = dict(dbc or {})
-        self._dbc_databases: dict[str, object] = {}
-        self._client = None
-        self._reader = None
+        self._dbc_databases: dict[str, Any] = {}
+        self._client: QuantusClient | None = None
+        self._reader: StreamReader | None = None
         self._report: dict | None = None
         self._alias_by_item: dict[int, str] = {}
         self._rate_by_item: dict[int, float | None] = {}
@@ -97,9 +101,7 @@ class QuantusDevice(Instrument):
             try:
                 import tomllib
             except ImportError as exc:
-                raise ValueError(
-                    "TOML rack configs require Python >= 3.11; use a JSON config instead."
-                ) from exc
+                raise ValueError("TOML rack configs require Python >= 3.11; use a JSON config instead.") from exc
             return tomllib.loads(raw)
         raise ValueError(f"Unsupported config extension for {path}; use .json or .toml.")
 
@@ -107,20 +109,28 @@ class QuantusDevice(Instrument):
         if not self._is_open:
             raise InstrumentNotOpenError(f"QuantusDevice '{self.name}' is not open. Call open() first.")
 
+    def _require_client(self) -> "QuantusClient":
+        self._require_open()
+        if self._client is None:
+            raise InstrumentNotOpenError(f"QuantusDevice '{self.name}' is not open. Call open() first.")
+        return self._client
+
     def open(self):
         """Connect to the device (ping + Q2.x version check). Writes nothing."""
-        import quantus  # deferred so the native wheel is only needed at runtime
+        # Deferred: the private PyO3 module is loaded at first use, like
+        # instro.ethernetip._ethernetip.
+        import instro.quantus._quantus as _quantus
 
         logger.info("Opening QuantusDevice '%s'", self.name)
-        self._client = quantus.QuantusClient(self._config_text)
+        self._client = _quantus.QuantusClient(self._config_text)
         for alias, path in self._dbc_paths.items():
             self._dbc_databases[alias] = self._load_dbc(path)
         self._is_open = True
 
     @staticmethod
-    def _load_dbc(path: str):
+    def _load_dbc(path: str) -> Any:
         try:
-            import cantools
+            import cantools  # type: ignore[import-not-found,import-untyped]
         except ImportError as exc:
             raise RuntimeError(
                 "CAN decoding requires cantools. Install with `pip install 'instro-quantus[can]'`."
@@ -129,8 +139,7 @@ class QuantusDevice(Instrument):
 
     def reconcile(self) -> dict:
         """Write every declared setting, apply once, and return the report."""
-        self._require_open()
-        report = self._client.reconcile()
+        report = self._require_client().reconcile()
         self._report = report
         self._alias_by_item = {c["item_id"]: c["alias"] for c in report["channels"]}
         self._rate_by_item = {c["item_id"]: c["sample_rate_hz"] for c in report["channels"]}
@@ -150,10 +159,10 @@ class QuantusDevice(Instrument):
 
     def start(self, background: bool = True):
         """Connect the data stream; with ``background`` spin the publish daemon."""
-        self._require_open()
+        client = self._require_client()
         if self._report is None:
             self.reconcile()
-        self._reader = self._client.open_stream()
+        self._reader = client.open_stream()
         self._epoch_anchor_ns = None
         if background:
             already = any(m == self._pump for m, _, _ in self._background_methods)
@@ -183,6 +192,8 @@ class QuantusDevice(Instrument):
     @publish_measurement
     def _pump(self) -> Measurement | list[Measurement] | None:
         """Pull one stream event and convert it to Measurement(s)."""
+        if self._reader is None:
+            return None
         event = self._reader.next_event(timeout_ms=1000)
         if event is None:
             return None
@@ -246,7 +257,7 @@ class QuantusDevice(Instrument):
                 rpms.append(60_000.0 / (edge_ms - previous))
                 timestamps.append(anchor + int(edge_ms * 1e6))
             previous = edge_ms
-        self._last_tacho_ms[channel_id] = previous
+        self._last_tacho_ms[channel_id] = float(events_ms[-1])
         if not rpms:
             return None
         alias = self._alias(channel_id)
@@ -289,9 +300,7 @@ class QuantusDevice(Instrument):
         if unknown:
             self._unknown_can_counts[alias] = self._unknown_can_counts.get(alias, 0) + unknown
             measurements.append(
-                self._package_measurement(
-                    f"{alias}.unknown_frames", self._unknown_can_counts[alias], time.time_ns()
-                )
+                self._package_measurement(f"{alias}.unknown_frames", self._unknown_can_counts[alias], time.time_ns())
             )
         return measurements or None
 
@@ -312,20 +321,19 @@ class QuantusDevice(Instrument):
 
         Returns True when the streaming epoch restarts (expect a data gap).
         """
-        return self._client.write_settings(self._item_id(channel), values)
+        return self._require_client().write_settings(self._item_id(channel), values)
 
     def auto_zero(self, channel: str | None = None):
         """Auto-zero one channel (alias) or the whole system."""
-        self._require_open()
-        self._client.auto_zero(self._item_id(channel) if channel else None)
+        self._require_client().auto_zero(self._item_id(channel) if channel else None)
 
     def bridge_balance(self, channel: str | None = None):
         """Balance WSB bridges on one channel (alias) or system-wide."""
-        self._require_open()
-        self._client.bridge_balance(self._item_id(channel) if channel else None)
+        self._require_client().bridge_balance(self._item_id(channel) if channel else None)
 
     def can_transmit(self, channel: str, messages: list[dict]):
         """Cache ``messages`` on CAN ``channel`` (alias) and transmit."""
+        client = self._require_client()
         item_id = self._item_id(channel)
-        self._client.put_can_message_list(item_id, {"MessageList": messages})
-        self._client.can_transmit(item_id)
+        client.put_can_message_list(item_id, {"MessageList": messages})
+        client.can_transmit(item_id)

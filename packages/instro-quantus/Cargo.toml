@@ -1,0 +1,18 @@
+[package]
+name = "instro-quantus"
+version = "0.1.0"
+license = "Apache-2.0"
+edition = "2024"
+rust-version = "1.93"
+
+[lib]
+name = "_quantus"
+crate-type = ["cdylib"]
+
+[dependencies]
+instro-quantus-rs = { path = "../instro-quantus-rs" }
+# pyo3/numpy pinned together (rust-numpy tracks pyo3 versions); upgrading to
+# the repo's pyo3 0.29 means bumping both in lockstep.
+pyo3 = { version = "0.24", default-features = false, features = ["abi3-py310", "extension-module", "macros", "generate-import-lib"] }
+numpy = "0.24"
+serde_json = "1"

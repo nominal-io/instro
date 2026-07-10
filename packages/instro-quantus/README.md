@@ -1,31 +1,37 @@
 # instro-quantus
 
 Mecalc QuantusSeries DAQ mainframe support for instro: a config-driven
-`QuantusDevice` in the spirit of `EtherNetIPDevice`, backed by the Rust
-`quantus` wheel (REST configuration + binary stream engine).
+`QuantusDevice` in the spirit of `EtherNetIPDevice`, backed by the native
+`_quantus` module (PyO3 over `instro-quantus-rs`: REST configuration engine +
+binary stream engine that drains the device socket outside the GIL).
 
-**Status: draft.** Blocked on publishing the `quantus` wheel; see the quantus
-repo's PLAN.md Phase 5. Not yet registered in the uv workspace, README device
-table, or docs site — those land with the real PR.
+Structure mirrors `instro-ethernetip`:
+
+- `packages/instro-quantus-rs` — reusable pure-Rust client crate (root Cargo
+  workspace member)
+- `packages/instro-quantus` — this maturin package: `QuantusDevice` (Python) +
+  the `_quantus` PyO3 bindings (standalone crate, own Cargo.lock)
+- `crates/quantus-sim` — device simulator used by tests and
+  `examples/quantus/` (root workspace member; `cargo run -p quantus-sim`)
 
 ```python
 from instro.quantus import QuantusDevice
 
 daq = QuantusDevice(
-    config="rack.json",          # or a dict; see quantus repo fixtures/rack/
-    name="quantus",
+    config="rack.json",                   # or a dict; JSON canonical
     dbc={"vehicle_bus": "vehicle.dbc"},   # optional: decode CAN by alias
     publishers=[...],
 )
 daq.open()
-report = daq.reconcile()          # writes settings, applies once, snaps rates
-daq.start()                       # stream -> Measurements on {name}.{alias}
-...
+report = daq.reconcile()   # writes settings, applies once, snaps rates
+daq.start()                # stream -> Measurements on {name}.{alias}
 daq.close()
 ```
 
 Analog channels publish sampled batches; tacho channels publish RPM computed
 from edge intervals; CAN channels publish DBC-decoded signals as
-`{name}.{alias}.{signal}` (frames with unknown ids are counted on
-`{name}.{alias}.unknown_frames`). Stream health (gaps, buffer level) publishes
-on `{name}.stream`.
+`{name}.{alias}.{signal}` (unknown ids counted on `{name}.{alias}.unknown_frames`).
+Runnable examples against the simulator: `examples/quantus/`.
+
+Design/protocol references live with the Rust crate:
+`packages/instro-quantus-rs/{PLAN.md,docs/}`.

@@ -1,0 +1,396 @@
+//! Python bindings over quantus-client's blocking facade (PLAN.md Phase 5).
+//!
+//! Surface: `quantus.QuantusClient(config)` (path or JSON string) for
+//! configuration/writes, `client.open_stream()` for a `StreamReader` whose
+//! `next_event()` returns dicts with numpy arrays for sample data.
+
+use numpy::IntoPyArray;
+use pyo3::exceptions::{PyConnectionError, PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict, PyList};
+use instro_quantus_rs::blocking::QuantusClient as RustClient;
+use instro_quantus_rs::config::{RackConfig, SettingValue};
+use instro_quantus_rs::error::Error;
+use instro_quantus_rs::reconcile::ReconcileReport;
+use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
+use serde_json::Value;
+use std::collections::BTreeMap;
+use std::sync::Mutex;
+use std::time::Duration;
+
+fn to_py_err(error: Error) -> PyErr {
+    match error {
+        Error::Config(message) => PyValueError::new_err(message),
+        Error::Transport(message) => PyConnectionError::new_err(message),
+        other => PyRuntimeError::new_err(other.to_string()),
+    }
+}
+
+fn value_to_py(py: Python<'_>, value: &Value) -> PyResult<PyObject> {
+    Ok(match value {
+        Value::Null => py.None(),
+        Value::Bool(b) => b.into_pyobject(py)?.to_owned().unbind().into(),
+        Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                i.into_pyobject(py)?.unbind().into()
+            } else {
+                n.as_f64()
+                    .unwrap_or(f64::NAN)
+                    .into_pyobject(py)?
+                    .unbind()
+                    .into()
+            }
+        }
+        Value::String(s) => s.into_pyobject(py)?.unbind().into(),
+        Value::Array(items) => {
+            let list = PyList::empty(py);
+            for item in items {
+                list.append(value_to_py(py, item)?)?;
+            }
+            list.unbind().into()
+        }
+        Value::Object(map) => {
+            let dict = PyDict::new(py);
+            for (key, item) in map {
+                dict.set_item(key, value_to_py(py, item)?)?;
+            }
+            dict.unbind().into()
+        }
+    })
+}
+
+fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if obj.is_none() {
+        return Ok(Value::Null);
+    }
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(Value::Bool(b));
+    }
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(Value::from(i));
+    }
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(Value::from(f));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(Value::String(s));
+    }
+    if let Ok(dict) = obj.downcast::<PyDict>() {
+        let mut map = serde_json::Map::new();
+        for (key, item) in dict.iter() {
+            map.insert(key.extract::<String>()?, py_to_value(&item)?);
+        }
+        return Ok(Value::Object(map));
+    }
+    if let Ok(list) = obj.downcast::<PyList>() {
+        let mut items = Vec::new();
+        for item in list.iter() {
+            items.push(py_to_value(&item)?);
+        }
+        return Ok(Value::Array(items));
+    }
+    Err(PyValueError::new_err(format!(
+        "cannot convert {} to JSON",
+        obj.get_type().name()?
+    )))
+}
+
+fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("version", &report.version)?;
+    dict.set_item("restart_required", report.restart_required)?;
+    dict.set_item("side_effects", report.side_effects.clone())?;
+    dict.set_item("master_sampling_rate_hz", report.master_sampling_rate_hz)?;
+    let modules = PyList::empty(py);
+    for module in &report.modules {
+        let m = PyDict::new(py);
+        m.set_item("name", &module.name)?;
+        m.set_item("item_id", module.item_id)?;
+        m.set_item("requested_hz", module.requested_hz)?;
+        m.set_item("achieved_hz", module.achieved_hz)?;
+        m.set_item("divisor", module.divisor)?;
+        modules.append(m)?;
+    }
+    dict.set_item("modules", modules)?;
+    let channels = PyList::empty(py);
+    for channel in &report.channels {
+        let c = PyDict::new(py);
+        c.set_item("alias", &channel.alias)?;
+        c.set_item("item_id", channel.item_id)?;
+        c.set_item("mode", channel.mode.clone())?;
+        c.set_item("streaming", channel.streaming)?;
+        c.set_item("sample_rate_hz", channel.sample_rate_hz)?;
+        channels.append(c)?;
+    }
+    dict.set_item("channels", channels)?;
+    Ok(dict.unbind().into())
+}
+
+fn event_to_py(py: Python<'_>, event: StreamEvent) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    match event {
+        StreamEvent::Analog(batch) => {
+            dict.set_item("type", "analog")?;
+            dict.set_item("channel_id", batch.channel_id)?;
+            dict.set_item("timestamp_ns", batch.timestamp_ns)?;
+            dict.set_item("integrity", batch.integrity)?;
+            dict.set_item("min", batch.min)?;
+            dict.set_item("max", batch.max)?;
+            dict.set_item("samples", batch.samples.into_pyarray(py))?;
+        }
+        StreamEvent::Tacho {
+            channel_id,
+            events_ms,
+        } => {
+            dict.set_item("type", "tacho")?;
+            dict.set_item("channel_id", channel_id)?;
+            dict.set_item("events_ms", events_ms.into_pyarray(py))?;
+        }
+        StreamEvent::Can { channel_id, frames } => {
+            dict.set_item("type", "can")?;
+            dict.set_item("channel_id", channel_id)?;
+            let list = PyList::empty(py);
+            for frame in frames {
+                let f = PyDict::new(py);
+                f.set_item("timestamp_s", frame.timestamp_s)?;
+                f.set_item("id", frame.id)?;
+                f.set_item("frame_format", frame.frame_format)?;
+                f.set_item("frame_type", frame.frame_type)?;
+                f.set_item("data", PyBytes::new(py, &frame.data))?;
+                list.append(f)?;
+            }
+            dict.set_item("frames", list)?;
+        }
+        StreamEvent::EpochRestart { sequence } => {
+            dict.set_item("type", "epoch_restart")?;
+            dict.set_item("sequence", sequence)?;
+        }
+        StreamEvent::Gap { missing } => {
+            dict.set_item("type", "gap")?;
+            dict.set_item("missing", missing)?;
+        }
+        StreamEvent::Skipped {
+            channel_id,
+            channel_type,
+        } => {
+            dict.set_item("type", "skipped")?;
+            dict.set_item("channel_id", channel_id)?;
+            dict.set_item("channel_type", channel_type)?;
+        }
+        StreamEvent::Disconnected { reason } => {
+            dict.set_item("type", "disconnected")?;
+            dict.set_item("reason", reason)?;
+        }
+    }
+    Ok(dict.unbind().into())
+}
+
+/// Blocking client for a Quantus device: declarative configure + writes.
+#[pyclass]
+struct QuantusClient {
+    inner: RustClient,
+    host: String,
+}
+
+#[pymethods]
+impl QuantusClient {
+    /// `config` is a path to a .json/.toml rack file, or inline JSON text.
+    #[new]
+    fn new(config: &str) -> PyResult<Self> {
+        let looks_like_path = !config.trim_start().starts_with('{');
+        let rack = if looks_like_path {
+            RackConfig::from_path(config)
+        } else {
+            RackConfig::from_json_str(config)
+        }
+        .map_err(to_py_err)?;
+        let host = rack.connection.host.clone();
+        let inner = RustClient::connect(rack).map_err(to_py_err)?;
+        Ok(QuantusClient { inner, host })
+    }
+
+    /// Write every declared setting, apply once, and return the report
+    /// (achieved rates, alias -> item_id map, epoch impact).
+    fn reconcile(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let report = py
+            .allow_threads(|| self.inner.reconcile())
+            .map_err(to_py_err)?;
+        report_to_py(py, &report)
+    }
+
+    fn discover(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let tree = py
+            .allow_threads(|| self.inner.discover())
+            .map_err(to_py_err)?;
+        let modules = PyList::empty(py);
+        for module in &tree.modules {
+            let m = PyDict::new(py);
+            m.set_item("name", &module.name)?;
+            m.set_item("item_id", module.item_id)?;
+            m.set_item("channel_ids", module.channel_ids.clone())?;
+            modules.append(m)?;
+        }
+        let dict = PyDict::new(py);
+        dict.set_item("controller_id", tree.controller_id)?;
+        dict.set_item("modules", modules)?;
+        Ok(dict.unbind().into())
+    }
+
+    fn data_stream_setup(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let setup = py
+            .allow_threads(|| self.inner.data_stream_setup())
+            .map_err(to_py_err)?;
+        value_to_py(py, &setup)
+    }
+
+    /// Connect to the binary data stream and return a StreamReader.
+    fn open_stream(&self, py: Python<'_>) -> PyResult<StreamReader> {
+        let setup = py
+            .allow_threads(|| self.inner.data_stream_setup())
+            .map_err(to_py_err)?;
+        let port = setup
+            .get("TCPPort")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| PyRuntimeError::new_err("no TCPPort in dataStream/setup"))?
+            as u16;
+        let host = self.host.clone();
+        let engine = py
+            .allow_threads(|| StreamEngine::connect(&host, port))
+            .map_err(to_py_err)?;
+        Ok(StreamReader {
+            inner: Mutex::new(Some(engine)),
+        })
+    }
+
+    /// Settings-plane write (D12): set values on one item and apply. Returns
+    /// True when the streaming epoch restarts.
+    fn write_settings(
+        &self,
+        py: Python<'_>,
+        item_id: i64,
+        values: &Bound<'_, PyDict>,
+    ) -> PyResult<bool> {
+        let mut map: BTreeMap<String, SettingValue> = BTreeMap::new();
+        for (key, item) in values.iter() {
+            let name: String = key.extract()?;
+            let value = if let Ok(text) = item.extract::<String>() {
+                SettingValue::Text(text)
+            } else if let Ok(number) = item.extract::<f64>() {
+                SettingValue::Number(number)
+            } else {
+                return Err(PyValueError::new_err(format!(
+                    "setting '{name}' must be a string (enum description) or number"
+                )));
+            };
+            map.insert(name, value);
+        }
+        py.allow_threads(|| self.inner.write_settings(item_id, &map))
+            .map_err(to_py_err)
+    }
+
+    #[pyo3(signature = (item_id=None))]
+    fn auto_zero(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.auto_zero(item_id))
+            .map_err(to_py_err)
+    }
+
+    #[pyo3(signature = (item_id=None))]
+    fn bridge_balance(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.bridge_balance(item_id))
+            .map_err(to_py_err)
+    }
+
+    #[pyo3(signature = (item_id=None))]
+    fn bridge_balance_reset(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.bridge_balance_reset(item_id))
+            .map_err(to_py_err)
+    }
+
+    fn put_can_message_list(
+        &self,
+        py: Python<'_>,
+        item_id: i64,
+        messages: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let doc = py_to_value(messages)?;
+        py.allow_threads(|| self.inner.put_can_message_list(item_id, &doc))
+            .map_err(to_py_err)
+    }
+
+    fn can_transmit(&self, py: Python<'_>, item_id: i64) -> PyResult<()> {
+        py.allow_threads(|| self.inner.can_transmit(item_id))
+            .map_err(to_py_err)
+    }
+
+    fn suspend_stream(&self, py: Python<'_>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.suspend_stream())
+            .map_err(to_py_err)
+    }
+
+    fn resume_stream(&self, py: Python<'_>) -> PyResult<()> {
+        py.allow_threads(|| self.inner.resume_stream())
+            .map_err(to_py_err)
+    }
+}
+
+/// Reader over the binary data stream. `next_event()` blocks up to
+/// `timeout_ms` and returns a dict (see event `type` field) or None.
+#[pyclass]
+struct StreamReader {
+    inner: Mutex<Option<StreamEngine>>,
+}
+
+#[pymethods]
+impl StreamReader {
+    #[pyo3(signature = (timeout_ms=1000))]
+    fn next_event(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<Option<PyObject>> {
+        let received = py.allow_threads(|| {
+            let guard = self.inner.lock().unwrap();
+            guard.as_ref().map(|engine| {
+                engine
+                    .events()
+                    .recv_timeout(Duration::from_millis(timeout_ms))
+            })
+        });
+        match received {
+            None => Err(PyRuntimeError::new_err("stream is closed")),
+            Some(Ok(event)) => Ok(Some(event_to_py(py, event)?)),
+            Some(Err(std::sync::mpsc::RecvTimeoutError::Timeout)) => Ok(None),
+            Some(Err(std::sync::mpsc::RecvTimeoutError::Disconnected)) => {
+                let dict = PyDict::new(py);
+                dict.set_item("type", "disconnected")?;
+                dict.set_item("reason", "reader thread ended")?;
+                Ok(Some(dict.unbind().into()))
+            }
+        }
+    }
+
+    fn health(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let guard = self.inner.lock().unwrap();
+        let engine = guard
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("stream is closed"))?;
+        let health = engine.health();
+        let dict = PyDict::new(py);
+        dict.set_item("packets", health.packets)?;
+        dict.set_item("gaps", health.gaps)?;
+        dict.set_item("missing_packets", health.missing_packets)?;
+        dict.set_item("epoch_restarts", health.epoch_restarts)?;
+        dict.set_item("buffer_level", health.buffer_level)?;
+        Ok(dict.unbind().into())
+    }
+
+    fn close(&self) {
+        if let Some(engine) = self.inner.lock().unwrap().take() {
+            engine.stop();
+        }
+    }
+}
+
+#[pymodule]
+fn _quantus(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add_class::<QuantusClient>()?;
+    m.add_class::<StreamReader>()?;
+    Ok(())
+}
