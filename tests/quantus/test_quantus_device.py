@@ -95,12 +95,12 @@ def test_connection_override_merges_into_config(fake_quantus):
     from instro.quantus import QuantusDevice
 
     device = QuantusDevice(
-        config={"connection": {"host": "old", "rest_port": 9000}},
+        config={"connection": {"host": "old", "port": 9000}},
         connection={"host": "10.0.0.202"},
     )
     device.open()
     sent = json.loads(device._client.config)
-    assert sent["connection"] == {"host": "10.0.0.202", "rest_port": 9000}
+    assert sent["connection"] == {"host": "10.0.0.202", "port": 9000}
 
 
 def test_missing_connection_is_a_value_error(fake_quantus):

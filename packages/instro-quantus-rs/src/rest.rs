@@ -11,10 +11,10 @@ pub struct RestClient {
 }
 
 impl RestClient {
-    pub fn new(host: &str, rest_port: u16) -> Self {
+    pub fn new(host: &str, port: u16) -> Self {
         RestClient {
             http: reqwest::Client::new(),
-            base: format!("http://{host}:{rest_port}"),
+            base: format!("http://{host}:{port}"),
         }
     }
 

@@ -38,7 +38,9 @@ class QuantusDevice(Instrument):
 
         Args:
             config: Rack config as a dict, a path to a .json/.toml file, or
-                inline JSON text (see the quantus repo's fixtures/rack/).
+                inline JSON text (see ``examples/quantus/``). Top-level shape
+                matches the Modbus/EtherNet-IP configs: ``version`` /
+                ``protocol`` / ``device`` / ``connection`` + rack payload.
             connection: Overrides the config's ``connection`` section (merged
                 key-by-key, e.g. ``{"host": "10.0.0.202"}``). Required if the
                 config has no ``connection`` section.

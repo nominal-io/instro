@@ -44,7 +44,7 @@ stats = StatsPublisher()
 
 daq = QuantusDevice(
     config=HERE / "rack_full.json",
-    connection={"host": "127.0.0.1", "rest_port": 8082},  # bench-specific, not in the rack file
+    connection={"host": "127.0.0.1", "port": 8082},  # bench-specific, not in the rack file
     dbc={"vehicle_bus": str(HERE / "vehicle.dbc")},  # decode this bus's frames
     publishers=[stats, FilePublisher(csv_dir, format="csv")],
     test_stand="sim-bench",  # default tag on every Measurement

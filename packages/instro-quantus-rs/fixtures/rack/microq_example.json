@@ -1,7 +1,8 @@
 {
+  "version": 1,
   "protocol": "quantus",
-  "connection": { "host": "127.0.0.1", "rest_port": 8095 },
   "device": { "name": "microq_demo" },
+  "connection": { "host": "127.0.0.1", "port": 8095 },
   "system": {
     "master_sampling_rate": 131072,
     "streaming_format": "Processed"

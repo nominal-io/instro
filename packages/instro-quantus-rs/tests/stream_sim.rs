@@ -46,9 +46,12 @@ fn start_sim(faults: &str) -> SimServer {
 fn reconcile(sim: &SimServer) -> QuantusClient {
     let rack: RackConfig = toml::from_str(&format!(
         r#"
+        [device]
+        name = "test_rig"
+
         [connection]
         host = "127.0.0.1"
-        rest_port = {}
+        port = {}
 
         [system]
         master_sampling_rate = 131072

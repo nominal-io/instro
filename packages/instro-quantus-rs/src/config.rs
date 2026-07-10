@@ -7,41 +7,58 @@ use crate::error::{Error, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
+/// Top-level sections mirror instro's Modbus/EtherNet-IP configs:
+/// `version` / `protocol` / `device` / `connection`, then the
+/// protocol-specific payload (`system` + `modules`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct RackConfig {
-    /// Optional protocol discriminator, mirroring instro's Modbus/EtherNet-IP
-    /// configs; when present it must be "quantus".
-    #[serde(default)]
-    pub protocol: Option<String>,
+    #[serde(default = "default_version")]
+    pub version: u32,
+    /// Protocol discriminator; must be "quantus".
+    #[serde(default = "default_protocol")]
+    pub protocol: String,
+    pub device: DeviceConfig,
     /// Optional in the file so one rack description serves many benches;
     /// connecting without one is an error.
     #[serde(default)]
     pub connection: Option<ConnectionConfig>,
-    #[serde(default)]
-    pub device: DeviceConfig,
     #[serde(default)]
     pub system: SystemConfig,
     #[serde(default)]
     pub modules: Vec<ModuleConfig>,
 }
 
-/// Identity of this rack for consumers that name things after it (e.g.
-/// instro's channel-name prefix), mirroring the `device.name` section of
-/// instro's Modbus/EtherNet-IP configs.
-#[derive(Debug, Clone, Default, Deserialize)]
+fn default_version() -> u32 {
+    1
+}
+
+fn default_protocol() -> String {
+    "quantus".into()
+}
+
+/// Device metadata, mirroring instro's `DeviceInfo`: `name` is the
+/// channel-name prefix on publish (e.g. `my_rig.mic_inlet`).
+#[derive(Debug, Clone, Deserialize)]
 pub struct DeviceConfig {
-    pub name: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub manufacturer: String,
+    #[serde(default)]
+    pub model: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectionConfig {
     /// Device IP or mDNS name.
     pub host: String,
-    #[serde(default = "default_rest_port")]
-    pub rest_port: u16,
+    /// QServer REST port; the stream port is discovered via /dataStream/setup.
+    #[serde(default = "default_port")]
+    pub port: u16,
 }
 
-fn default_rest_port() -> u16 {
+fn default_port() -> u16 {
     8080
 }
 
@@ -126,11 +143,13 @@ impl RackConfig {
     }
 
     fn check_protocol(self) -> Result<Self> {
-        match self.protocol.as_deref() {
-            None | Some("quantus") => Ok(self),
-            Some(other) => Err(Error::Config(format!(
-                "config declares protocol '{other}'; this is a quantus rack config"
-            ))),
+        if self.protocol == "quantus" {
+            Ok(self)
+        } else {
+            Err(Error::Config(format!(
+                "Config has protocol '{}', expected 'quantus'.",
+                self.protocol
+            )))
         }
     }
 
@@ -160,8 +179,10 @@ mod tests {
     use super::*;
 
     const JSON: &str = r#"{
-        "connection": { "host": "10.0.0.202" },
+        "version": 1,
+        "protocol": "quantus",
         "device": { "name": "test_rack" },
+        "connection": { "host": "10.0.0.202" },
         "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
         "modules": [{
             "name": "MIC42X7",
@@ -181,6 +202,9 @@ mod tests {
         let from_json = RackConfig::from_json_str(JSON).unwrap();
         let from_toml = RackConfig::from_toml_str(
             r#"
+            [device]
+            name = "test_rack"
+
             [connection]
             host = "10.0.0.202"
 
@@ -204,9 +228,13 @@ mod tests {
         let json_conn = from_json.connection.as_ref().expect("connection in JSON");
         let toml_conn = from_toml.connection.as_ref().expect("connection in TOML");
         assert_eq!(json_conn.host, toml_conn.host);
-        assert_eq!(json_conn.rest_port, 8080); // default applied
-        assert_eq!(from_json.device.name.as_deref(), Some("test_rack"));
-        assert_eq!(from_toml.device.name, None); // optional section
+        assert_eq!(json_conn.port, 8080); // default applied
+        assert_eq!(from_json.version, 1);
+        assert_eq!(from_toml.version, 1); // default applied
+        assert_eq!(from_toml.protocol, "quantus"); // default applied
+        assert_eq!(from_json.device.name, "test_rack");
+        assert_eq!(from_toml.device.name, "test_rack");
+        assert_eq!(from_json.device.description, ""); // optional metadata
         assert_eq!(from_json.modules[0].name, from_toml.modules[0].name);
         assert_eq!(
             from_json.modules[0].channels[0].alias,
@@ -215,12 +243,17 @@ mod tests {
     }
 
     #[test]
-    fn protocol_discriminator_is_enforced_when_present() {
-        let ok = r#"{ "protocol": "quantus", "connection": { "host": "x" } }"#;
+    fn protocol_discriminator_is_enforced() {
+        let ok = r#"{ "protocol": "quantus", "device": { "name": "x" } }"#;
         assert!(RackConfig::from_json_str(ok).is_ok());
-        let wrong = r#"{ "protocol": "modbus", "connection": { "host": "x" } }"#;
+        let wrong = r#"{ "protocol": "modbus", "device": { "name": "x" } }"#;
         assert!(matches!(
             RackConfig::from_json_str(wrong),
+            Err(Error::Config(_))
+        ));
+        let missing_device = r#"{ "protocol": "quantus" }"#;
+        assert!(matches!(
+            RackConfig::from_json_str(missing_device),
             Err(Error::Config(_))
         ));
     }

@@ -39,9 +39,12 @@ fn start_sim() -> SimServer {
 fn rack_config(port: u16) -> RackConfig {
     toml::from_str(&format!(
         r#"
+        [device]
+        name = "test_rig"
+
         [connection]
         host = "127.0.0.1"
-        rest_port = {port}
+        port = {port}
 
         [system]
         master_sampling_rate = 131072

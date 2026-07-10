@@ -1,6 +1,7 @@
 {
+  "version": 1,
   "protocol": "quantus",
-  "device": { "name": "demo_rig" },
+  "device": { "name": "demo_rig", "manufacturer": "Mecalc", "model": "MicroQ" },
   "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
   "modules": [
     {

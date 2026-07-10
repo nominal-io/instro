@@ -32,9 +32,12 @@ fn start_sim(extra: &str) -> SimServer {
 fn connect_and_reconcile(sim: &SimServer, modules_toml: &str) -> QuantusClient {
     let rack: RackConfig = toml::from_str(&format!(
         r#"
+        [device]
+        name = "test_rig"
+
         [connection]
         host = "127.0.0.1"
-        rest_port = {}
+        port = {}
 
         [system]
         master_sampling_rate = 131072
@@ -161,9 +164,12 @@ fn raw_mode_streams_fixed_point_that_decodes_to_volts() {
     // streaming_format lives under [system]; splice it in via the shared helper.
     let rack: RackConfig = toml::from_str(&format!(
         r#"
+        [device]
+        name = "test_rig"
+
         [connection]
         host = "127.0.0.1"
-        rest_port = {}
+        port = {}
 
         [system]
         master_sampling_rate = 131072

@@ -27,7 +27,7 @@ impl QuantusClient {
             .enable_all()
             .build()
             .map_err(|e| Error::Transport(e.to_string()))?;
-        let engine = Engine::new(RestClient::new(&connection.host, connection.rest_port));
+        let engine = Engine::new(RestClient::new(&connection.host, connection.port));
         runtime.block_on(engine.check_connection())?;
         Ok(QuantusClient {
             runtime,
