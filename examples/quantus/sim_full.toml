@@ -1,0 +1,64 @@
+# Full simulated rack for full_workflow.py: every module family QuantusDevice
+# exercises — mics, thermocouples, strain bridges, tacho, CAN, analog output.
+# Launch (from the quantus repo): cargo run -p quantus-sim -- sim_full.toml
+[system]
+chassis = "MicroQ"
+serial = "SIM-FULL"
+master_sampling_rate = 131072
+
+[server]
+rest_port = 8082
+stream_port = 8087
+
+[[slots]]
+slot = 1
+module = "MIC42X7"
+
+[[slots.channels]]
+index = 1
+signal = { kind = "sine", frequency_hz = 1000.0, amplitude = 0.8 }
+
+[[slots]]
+slot = 2
+module = "THM427"
+
+[[slots.channels]]
+index = 1
+signal = { kind = "ramp", from = 20.0, to = 90.0, period_s = 30.0 }
+
+[[slots.channels]]
+index = 2
+signal = { kind = "constant", value = 21.5 }
+
+[[slots]]
+slot = 3
+module = "WSB42X2"
+
+[[slots.channels]]
+index = 1
+signal = { kind = "sine", frequency_hz = 5.0, amplitude = 0.02 }
+
+[[slots]]
+slot = 4
+module = "ICT42S6"
+
+[[slots.channels]]
+index = 1
+signal = { kind = "rpm", rpm = 3000.0 }
+
+[[slots]]
+slot = 5
+module = "CAN42S2"
+
+# Bus 1 "receives" periodic traffic that vehicle.dbc can decode.
+[[slots.channels]]
+index = 1
+signal = { kind = "constant", value = 0.0 }
+playback = [
+  { id = 0x0CF00400, period_ms = 20, dlc = 8 },  # EEC1 (EngineSpeed)
+  { id = 0x18FF50E5, period_ms = 10, dlc = 8 },  # VehicleData (Counter/CoolantTemp)
+]
+
+[[slots]]
+slot = 6
+module = "ALO42S4"

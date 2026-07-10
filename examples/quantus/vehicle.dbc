@@ -1,0 +1,14 @@
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: ECU
+
+BO_ 2364539904 EEC1: 8 ECU
+ SG_ EngineSpeed : 24|16@1+ (0.125,0) [0|8031.875] "rpm" Vector__XXX
+
+BO_ 2566869221 VehicleData: 8 ECU
+ SG_ Counter : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ CoolantTemp : 8|8@1+ (1,-40) [-40|215] "degC" Vector__XXX

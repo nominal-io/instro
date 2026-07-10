@@ -1,0 +1,18 @@
+# Minimal simulated rack for simple_stream.py: one ICP/voltage module.
+# Launch (from the quantus repo): cargo run -p quantus-sim -- sim_simple.toml
+[system]
+chassis = "MicroQ"
+serial = "SIM-SIMPLE"
+master_sampling_rate = 131072
+
+[server]
+rest_port = 8081
+stream_port = 8086
+
+[[slots]]
+slot = 1
+module = "ICS425"
+
+[[slots.channels]]
+index = 1
+signal = { kind = "sine", frequency_hz = 50.0, amplitude = 2.5 }
