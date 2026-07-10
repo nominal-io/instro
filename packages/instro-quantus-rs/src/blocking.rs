@@ -17,15 +17,17 @@ impl QuantusClient {
     /// Connect to the device: ping it and assert a Q2.x QServer. No settings
     /// are written until `reconcile()`.
     pub fn connect(config: RackConfig) -> Result<Self> {
+        let connection = config.connection.clone().ok_or_else(|| {
+            Error::Config(
+                "no connection section in the rack config; add one or supply it at runtime".into(),
+            )
+        })?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
             .build()
             .map_err(|e| Error::Transport(e.to_string()))?;
-        let engine = Engine::new(RestClient::new(
-            &config.connection.host,
-            config.connection.rest_port,
-        ));
+        let engine = Engine::new(RestClient::new(&connection.host, connection.rest_port));
         runtime.block_on(engine.check_connection())?;
         Ok(QuantusClient {
             runtime,

@@ -1,4 +1,5 @@
 {
+  "protocol": "quantus",
   "device": { "name": "demo_rig" },
   "system": { "master_sampling_rate": 131072, "streaming_format": "Processed" },
   "modules": [

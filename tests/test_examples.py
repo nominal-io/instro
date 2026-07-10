@@ -22,9 +22,24 @@ ETHERNETIP_MYPY_PATHS = [
     REPO_ROOT / "packages/instro-ethernetip",
 ]
 
+
+class _QuantusConfigValidator:
+    """Adapter: quantus rack configs are validated by the native schema owner."""
+
+    protocol = "quantus"
+
+    @classmethod
+    def from_json(cls, config_path: Path) -> _QuantusConfigValidator:
+        import instro.quantus._quantus as _quantus
+
+        _quantus.validate_config(str(config_path))
+        return cls()
+
+
 CONFIG_LOADERS = {
     "modbus": ModbusConfig,
     "ethernetip": EtherNetIPConfig,
+    "quantus": _QuantusConfigValidator,
 }
 
 

@@ -204,7 +204,15 @@ impl QuantusClient {
             RackConfig::from_json_str(config)
         }
         .map_err(to_py_err)?;
-        let host = rack.connection.host.clone();
+        let host = rack
+            .connection
+            .as_ref()
+            .map(|c| c.host.clone())
+            .ok_or_else(|| {
+                PyValueError::new_err(
+                    "no connection section in the rack config; pass one via the config",
+                )
+            })?;
         let inner = RustClient::connect(rack).map_err(to_py_err)?;
         Ok(QuantusClient { inner, host })
     }
@@ -387,10 +395,23 @@ impl StreamReader {
     }
 }
 
+/// Parse and validate a rack config (path or inline JSON) without connecting.
+#[pyfunction]
+fn validate_config(config: &str) -> PyResult<()> {
+    let looks_like_path = !config.trim_start().starts_with('{');
+    let result = if looks_like_path {
+        RackConfig::from_path(config)
+    } else {
+        RackConfig::from_json_str(config)
+    };
+    result.map(|_| ()).map_err(to_py_err)
+}
+
 #[pymodule]
 fn _quantus(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<QuantusClient>()?;
     m.add_class::<StreamReader>()?;
+    m.add_function(wrap_pyfunction!(validate_config, m)?)?;
     Ok(())
 }

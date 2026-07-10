@@ -9,7 +9,14 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RackConfig {
-    pub connection: ConnectionConfig,
+    /// Optional protocol discriminator, mirroring instro's Modbus/EtherNet-IP
+    /// configs; when present it must be "quantus".
+    #[serde(default)]
+    pub protocol: Option<String>,
+    /// Optional in the file so one rack description serves many benches;
+    /// connecting without one is an error.
+    #[serde(default)]
+    pub connection: Option<ConnectionConfig>,
     #[serde(default)]
     pub device: DeviceConfig,
     #[serde(default)]
@@ -106,12 +113,25 @@ impl RackConfig {
     /// Canonical config format (PLAN.md D13): JSON, matching the instro
     /// `EtherNetIPDevice` precedent and what the Python layer passes through.
     pub fn from_json_str(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(|e| Error::Config(format!("invalid JSON config: {e}")))
+        let config: Self = serde_json::from_str(json)
+            .map_err(|e| Error::Config(format!("invalid JSON config: {e}")))?;
+        config.check_protocol()
     }
 
     /// TOML kept for hand-edited rack files and parity with the simulator.
     pub fn from_toml_str(toml_str: &str) -> Result<Self> {
-        toml::from_str(toml_str).map_err(|e| Error::Config(format!("invalid TOML config: {e}")))
+        let config: Self = toml::from_str(toml_str)
+            .map_err(|e| Error::Config(format!("invalid TOML config: {e}")))?;
+        config.check_protocol()
+    }
+
+    fn check_protocol(self) -> Result<Self> {
+        match self.protocol.as_deref() {
+            None | Some("quantus") => Ok(self),
+            Some(other) => Err(Error::Config(format!(
+                "config declares protocol '{other}'; this is a quantus rack config"
+            ))),
+        }
     }
 
     /// Load from a file, dispatching on extension: `.json` or `.toml`.
@@ -181,8 +201,10 @@ mod tests {
             "#,
         )
         .unwrap();
-        assert_eq!(from_json.connection.host, from_toml.connection.host);
-        assert_eq!(from_json.connection.rest_port, 8080); // default applied
+        let json_conn = from_json.connection.as_ref().expect("connection in JSON");
+        let toml_conn = from_toml.connection.as_ref().expect("connection in TOML");
+        assert_eq!(json_conn.host, toml_conn.host);
+        assert_eq!(json_conn.rest_port, 8080); // default applied
         assert_eq!(from_json.device.name.as_deref(), Some("test_rack"));
         assert_eq!(from_toml.device.name, None); // optional section
         assert_eq!(from_json.modules[0].name, from_toml.modules[0].name);
@@ -190,6 +212,17 @@ mod tests {
             from_json.modules[0].channels[0].alias,
             from_toml.modules[0].channels[0].alias
         );
+    }
+
+    #[test]
+    fn protocol_discriminator_is_enforced_when_present() {
+        let ok = r#"{ "protocol": "quantus", "connection": { "host": "x" } }"#;
+        assert!(RackConfig::from_json_str(ok).is_ok());
+        let wrong = r#"{ "protocol": "modbus", "connection": { "host": "x" } }"#;
+        assert!(matches!(
+            RackConfig::from_json_str(wrong),
+            Err(Error::Config(_))
+        ));
     }
 
     #[test]
