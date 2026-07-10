@@ -23,9 +23,11 @@ class QuantusDevice(Instrument):
     def __init__(
         self,
         config: dict | str | Path,
-        name: str = "quantus",
+        connection: dict | None = None,
+        name: str | None = None,
         publishers: list[Publisher] | None = None,
         dbc: dict[str, str] | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize a QuantusDevice.
@@ -33,15 +35,33 @@ class QuantusDevice(Instrument):
         Args:
             config: Rack config as a dict, a path to a .json/.toml file, or
                 inline JSON text (see the quantus repo's fixtures/rack/).
-            name: Channel-name prefix for published data.
+            connection: Overrides the config's ``connection`` section (merged
+                key-by-key, e.g. ``{"host": "10.0.0.202"}``). Required if the
+                config has no ``connection`` section.
+            name: Channel-name prefix; falls back to ``config.device.name``,
+                then ``"quantus"``.
+            publishers: Publishers that receive emitted Measurement data.
             dbc: Optional map of CAN channel alias -> DBC file path; frames on
                 those channels are decoded to per-signal channels (requires
                 the ``can`` extra / cantools).
-            publishers: Publishers that receive emitted Measurement data.
+            autostart: When True, open the connection, reconcile the rack, and
+                start background streaming.
             **kwargs: Default tags applied to every emitted Measurement.
+
+        Raises:
+            ValueError: No connection (with a host) in the config or ``connection`` argument.
         """
-        super().__init__(name, publishers=publishers, **kwargs)
-        self._config_text = self._resolve_config(config)
+        resolved = self._load_config(config)
+        if connection is not None:
+            resolved["connection"] = {**resolved.get("connection", {}), **connection}
+        if not resolved.get("connection", {}).get("host"):
+            raise ValueError(
+                "No connection configuration provided. Either include a 'connection' section "
+                "in the config or pass a 'connection' argument to QuantusDevice()."
+            )
+        instrument_name = name or resolved.get("device", {}).get("name") or "quantus"
+        super().__init__(instrument_name, publishers=publishers, **kwargs)
+        self._config_text = json.dumps(resolved)
         self._dbc_paths = dict(dbc or {})
         self._dbc_databases: dict[str, object] = {}
         self._client = None
@@ -57,12 +77,31 @@ class QuantusDevice(Instrument):
         # The blocking stream read paces the daemon loop.
         self._background_config.interval = 0
 
+        if autostart:
+            self.open()
+            self.start()
+
     @staticmethod
-    def _resolve_config(config: dict | str | Path) -> str:
+    def _load_config(config: dict | str | Path) -> dict:
+        """Normalize any accepted config shape to a dict (for overrides/naming)."""
         if isinstance(config, dict):
-            return json.dumps(config)
-        # Path or path-string or inline JSON: the quantus wheel dispatches.
-        return str(config)
+            return json.loads(json.dumps(config))
+        text = str(config)
+        if text.lstrip().startswith("{"):
+            return json.loads(text)
+        path = Path(text)
+        raw = path.read_text()
+        if path.suffix.lower() == ".json":
+            return json.loads(raw)
+        if path.suffix.lower() == ".toml":
+            try:
+                import tomllib
+            except ImportError as exc:
+                raise ValueError(
+                    "TOML rack configs require Python >= 3.11; use a JSON config instead."
+                ) from exc
+            return tomllib.loads(raw)
+        raise ValueError(f"Unsupported config extension for {path}; use .json or .toml.")
 
     def _require_open(self) -> None:
         if not self._is_open:

@@ -78,6 +78,59 @@ def make_device(publisher):
     return device
 
 
+def test_name_falls_back_to_config_device_name(fake_quantus):
+    from instro.quantus import QuantusDevice
+
+    device = QuantusDevice(config={"connection": {"host": "x"}, "device": {"name": "rig7"}})
+    assert device.name == "rig7"
+    named = QuantusDevice(config={"connection": {"host": "x"}, "device": {"name": "rig7"}}, name="override")
+    assert named.name == "override"
+    bare = QuantusDevice(config={"connection": {"host": "x"}})
+    assert bare.name == "quantus"
+
+
+def test_connection_override_merges_into_config(fake_quantus):
+    import json
+
+    from instro.quantus import QuantusDevice
+
+    device = QuantusDevice(
+        config={"connection": {"host": "old", "rest_port": 9000}},
+        connection={"host": "10.0.0.202"},
+    )
+    device.open()
+    sent = json.loads(device._client.config)
+    assert sent["connection"] == {"host": "10.0.0.202", "rest_port": 9000}
+
+
+def test_missing_connection_is_a_value_error(fake_quantus):
+    from instro.quantus import QuantusDevice
+
+    with pytest.raises(ValueError, match="connection"):
+        QuantusDevice(config={"modules": []})
+    # An override alone satisfies the requirement.
+    device = QuantusDevice(config={"modules": []}, connection={"host": "10.0.0.202"})
+    assert device.name == "quantus"
+
+
+def test_autostart_opens_reconciles_and_starts(fake_quantus):
+    from instro.quantus import QuantusDevice
+
+    device = QuantusDevice(
+        config={"connection": {"host": "x"}},
+        publishers=[CapturePublisher()],
+        autostart=True,
+    )
+    try:
+        assert device._is_open
+        assert device._report is not None
+        assert device._reader is not None
+        assert device._background_thread is not None and device._background_thread.is_alive()
+    finally:
+        device.close()
+    assert not device._background_thread.is_alive()
+
+
 def test_reconcile_builds_alias_maps(fake_quantus):
     device = make_device(CapturePublisher())
     report = device.reconcile()
