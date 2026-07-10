@@ -8,6 +8,7 @@
 
 pub mod blocking;
 pub mod config;
+pub mod dbc;
 pub mod error;
 pub mod reconcile;
 pub mod rest;

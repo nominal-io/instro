@@ -18,8 +18,7 @@ Structure mirrors `instro-ethernetip`:
 from instro.quantus import QuantusDevice
 
 daq = QuantusDevice(
-    config="rack.json",                   # or a dict; JSON canonical
-    dbc={"vehicle_bus": "vehicle.dbc"},   # optional: decode CAN by alias
+    config="rack.json",  # or a dict; JSON canonical
     publishers=[...],
 )
 daq.open()
@@ -29,7 +28,8 @@ daq.close()
 ```
 
 Analog channels publish sampled batches; tacho channels publish RPM computed
-from edge intervals; CAN channels publish DBC-decoded signals as
+from edge intervals; CAN channels with a `dbc` entry in the rack config are
+decoded natively (in Rust) and publish per-signal channels as
 `{name}.{alias}.{signal}` (unknown ids counted on `{name}.{alias}.unknown_frames`).
 Runnable examples against the simulator: `examples/quantus/`.
 

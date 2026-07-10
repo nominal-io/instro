@@ -191,6 +191,74 @@ def test_gap_publishes_missing_packet_count(fake_quantus):
     assert measurement.channel_data["q.stream.missing_packets"] == [7.0]
 
 
+def test_decoded_can_signals_become_per_signal_measurements(fake_quantus):
+    publisher = CapturePublisher()
+    device = make_device(publisher)
+    device.reconcile()
+    device._client.events = [
+        {
+            "type": "can",
+            "channel_id": 9,
+            "signals": {
+                "EngineSpeed": {"timestamps_s": [0.02, 0.04], "values": [512.0, 640.0]},
+                "CoolantTemp": {"timestamps_s": [0.03], "values": [25.0]},
+            },
+            "unknown_frames": 2,
+        },
+    ]
+    device.start(background=False)
+    device._reader = device._client.open_stream()
+    measurements = device._pump()
+
+    by_channel = {channel: m for m in measurements for channel in m.channel_data}
+    assert by_channel["q.shaft.EngineSpeed"].channel_data["q.shaft.EngineSpeed"] == [512.0, 640.0]
+    assert by_channel["q.shaft.CoolantTemp"].channel_data["q.shaft.CoolantTemp"] == [25.0]
+    assert by_channel["q.shaft.unknown_frames"].channel_data["q.shaft.unknown_frames"] == [2.0]
+    speed = by_channel["q.shaft.EngineSpeed"]
+    assert speed.timestamps[1] - speed.timestamps[0] == 20_000_000  # 0.02 s apart
+
+
+def test_raw_can_frames_without_dbc_only_count_as_unknown(fake_quantus):
+    publisher = CapturePublisher()
+    device = make_device(publisher)
+    device.reconcile()
+    device._client.events = [
+        {
+            "type": "can",
+            "channel_id": 9,
+            "frames": [
+                {"timestamp_s": 0.01, "id": 0x123, "frame_format": 0, "frame_type": 0, "data": b"\x01\x02"},
+            ],
+        },
+    ]
+    device.start(background=False)
+    device._reader = device._client.open_stream()
+    measurements = device._pump()
+    assert len(measurements) == 1
+    assert measurements[0].channel_data["q.shaft.unknown_frames"] == [1.0]
+
+
+def test_relative_dbc_paths_resolve_against_the_config_file(fake_quantus, tmp_path):
+    import json
+
+    from instro.quantus import QuantusDevice
+
+    config_path = tmp_path / "rack.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "device": {"name": "rig"},
+                "connection": {"host": "x"},
+                "modules": [{"name": "CAN42S2", "channels": [{"index": 1, "alias": "bus", "dbc": "vehicle.dbc"}]}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    device = QuantusDevice(config=config_path)
+    sent = json.loads(device._config_text)
+    assert sent["modules"][0]["channels"][0]["dbc"] == str(tmp_path / "vehicle.dbc")
+
+
 def test_write_paths_address_channels_by_alias(fake_quantus):
     device = make_device(CapturePublisher())
     device.reconcile()

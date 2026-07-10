@@ -4,7 +4,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from instro.quantus._quantus import QuantusClient, StreamReader
@@ -30,7 +30,6 @@ class QuantusDevice(Instrument):
         connection: dict | None = None,
         name: str | None = None,
         publishers: list[Publisher] | None = None,
-        dbc: dict[str, str] | None = None,
         autostart: bool = False,
         **kwargs,
     ):
@@ -41,15 +40,14 @@ class QuantusDevice(Instrument):
                 inline JSON text (see ``examples/quantus/``). Top-level shape
                 matches the Modbus/EtherNet-IP configs: ``version`` /
                 ``protocol`` / ``device`` / ``connection`` + rack payload.
+                CAN channels with a ``dbc`` entry are decoded natively to
+                per-signal channels (``{name}.{alias}.{signal}``).
             connection: Overrides the config's ``connection`` section (merged
                 key-by-key, e.g. ``{"host": "10.0.0.202"}``). Required if the
                 config has no ``connection`` section.
             name: Channel-name prefix; falls back to ``config.device.name``,
                 then ``"quantus"``.
             publishers: Publishers that receive emitted Measurement data.
-            dbc: Optional map of CAN channel alias -> DBC file path; frames on
-                those channels are decoded to per-signal channels (requires
-                the ``can`` extra / cantools).
             autostart: When True, open the connection, reconcile the rack, and
                 start background streaming.
             **kwargs: Default tags applied to every emitted Measurement.
@@ -68,8 +66,6 @@ class QuantusDevice(Instrument):
         instrument_name = name or resolved.get("device", {}).get("name") or "quantus"
         super().__init__(instrument_name, publishers=publishers, **kwargs)
         self._config_text = json.dumps(resolved)
-        self._dbc_paths = dict(dbc or {})
-        self._dbc_databases: dict[str, Any] = {}
         self._client: QuantusClient | None = None
         self._reader: StreamReader | None = None
         self._report: dict | None = None
@@ -98,14 +94,26 @@ class QuantusDevice(Instrument):
         path = Path(text)
         raw = path.read_text()
         if path.suffix.lower() == ".json":
-            return json.loads(raw)
-        if path.suffix.lower() == ".toml":
+            parsed = json.loads(raw)
+        elif path.suffix.lower() == ".toml":
             try:
                 import tomllib
             except ImportError as exc:
                 raise ValueError("TOML rack configs require Python >= 3.11; use a JSON config instead.") from exc
-            return tomllib.loads(raw)
-        raise ValueError(f"Unsupported config extension for {path}; use .json or .toml.")
+            parsed = tomllib.loads(raw)
+        else:
+            raise ValueError(f"Unsupported config extension for {path}; use .json or .toml.")
+        return QuantusDevice._resolve_dbc_paths(parsed, path.parent)
+
+    @staticmethod
+    def _resolve_dbc_paths(config: dict, base: Path) -> dict:
+        """Resolve relative per-channel ``dbc`` paths against the config file's directory."""
+        for module in config.get("modules", []):
+            for channel in module.get("channels", []):
+                dbc = channel.get("dbc")
+                if dbc and not Path(dbc).is_absolute():
+                    channel["dbc"] = str(base / dbc)
+        return config
 
     def _require_open(self) -> None:
         if not self._is_open:
@@ -125,19 +133,7 @@ class QuantusDevice(Instrument):
 
         logger.info("Opening QuantusDevice '%s'", self.name)
         self._client = _quantus.QuantusClient(self._config_text)
-        for alias, path in self._dbc_paths.items():
-            self._dbc_databases[alias] = self._load_dbc(path)
         self._is_open = True
-
-    @staticmethod
-    def _load_dbc(path: str) -> Any:
-        try:
-            import cantools  # type: ignore[import-not-found,import-untyped]
-        except ImportError as exc:
-            raise RuntimeError(
-                "CAN decoding requires cantools. Install with `pip install 'instro-quantus[can]'`."
-            ) from exc
-        return cantools.database.load_file(path)
 
     @property
     def report(self) -> dict | None:
@@ -275,35 +271,27 @@ class QuantusDevice(Instrument):
         )
 
     def _can_measurements(self, event: dict) -> list[Measurement] | None:
+        """Publish natively decoded per-signal series; count what wasn't decodable.
+
+        The Rust layer decodes frames on channels with a ``dbc`` config entry
+        into ``signals``; channels without one deliver raw ``frames``, which
+        are only counted (no DBC means nothing to decode them with).
+        """
         alias = self._alias(event["channel_id"])
-        database = self._dbc_databases.get(alias)
         measurements: list[Measurement] = []
-        unknown = 0
-        for frame in event["frames"]:
-            anchor = self._anchor(int(frame["timestamp_s"] * 1e9))
-            timestamp = anchor + int(frame["timestamp_s"] * 1e9)
-            if database is None:
-                unknown += 1
+        for signal, series in event.get("signals", {}).items():
+            timestamps_s = series["timestamps_s"]
+            if len(timestamps_s) == 0:
                 continue
-            try:
-                message = database.get_message_by_frame_id(frame["id"])
-                signals = message.decode(bytes(frame["data"]))
-            except (KeyError, ValueError):
-                unknown += 1
-                continue
-            channel_data = {
-                f"{self.name}.{alias}.{signal}": [float(value)]
-                for signal, value in signals.items()
-                if isinstance(value, (int, float))
-            }
-            if channel_data:
-                measurements.append(
-                    Measurement(
-                        channel_data=channel_data,
-                        timestamps=[timestamp],
-                        tags=dict(self.default_tags),
-                    )
+            anchor = self._anchor(int(timestamps_s[0] * 1e9))
+            measurements.append(
+                Measurement(
+                    channel_data={f"{self.name}.{alias}.{signal}": [float(v) for v in series["values"]]},
+                    timestamps=[anchor + int(t * 1e9) for t in timestamps_s],
+                    tags=dict(self.default_tags),
                 )
+            )
+        unknown = event.get("unknown_frames", 0) + len(event.get("frames", []))
         if unknown:
             self._unknown_can_counts[alias] = self._unknown_can_counts.get(alias, 0) + unknown
             measurements.append(

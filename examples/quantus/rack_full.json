@@ -52,7 +52,7 @@
     {
       "name": "CAN42S2",
       "channels": [
-        { "index": 1, "alias": "vehicle_bus", "mode": "Listen Only", "streaming": true },
+        { "index": 1, "alias": "vehicle_bus", "mode": "Listen Only", "streaming": true, "dbc": "vehicle.dbc" },
         { "index": 2, "alias": "vehicle_tx", "mode": "Participate" }
       ]
     },

@@ -4,14 +4,13 @@ The rack is described in rack_full.json - deliberately without a `connection`
 section, so the same file works on any bench: the connection is supplied at
 runtime via the `connection=` argument. Covers name-from-config, default tags,
 CSV + custom publishers, reconcile report (rate snapping), streamed analog /
-tacho-RPM / DBC-decoded CAN channels, runtime writes (auto-zero, bridge
+tacho-RPM / DBC-decoded CAN channels (the `dbc` entry on the vehicle_bus
+channel; decoding happens natively), runtime writes (auto-zero, bridge
 balance, settings-plane write with epoch restart, CAN transmit), and teardown.
 
 Start the simulator first:
 
     cargo run -p quantus-sim -- examples/quantus/sim_full.toml
-
-Requires cantools (the `can` extra): uv run --with cantools python ...
 """
 
 import tempfile
@@ -45,7 +44,6 @@ stats = StatsPublisher()
 daq = QuantusDevice(
     config=HERE / "rack_full.json",
     connection={"host": "127.0.0.1", "port": 8082},  # bench-specific, not in the rack file
-    dbc={"vehicle_bus": str(HERE / "vehicle.dbc")},  # decode this bus's frames
     publishers=[stats, FilePublisher(csv_dir, format="csv")],
     test_stand="sim-bench",  # default tag on every Measurement
 )

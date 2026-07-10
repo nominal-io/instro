@@ -39,6 +39,8 @@ pub struct ChannelReport {
     /// The module's effective analog rate (Hz); None for modules without a
     /// Sample Rate setting (CAN, tacho-only, outputs).
     pub sample_rate_hz: Option<f64>,
+    /// DBC file declared for this (CAN) channel, path already resolved.
+    pub dbc: Option<String>,
 }
 
 /// A module discovered from `/item/list`: channels are the entries that follow
@@ -327,6 +329,7 @@ impl Engine {
                 mode: channel_config.mode.clone(),
                 streaming: channel_config.streaming,
                 sample_rate_hz: module_rate_hz,
+                dbc: channel_config.dbc.clone(),
             });
         }
         Ok(reports)

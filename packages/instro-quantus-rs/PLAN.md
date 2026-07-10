@@ -109,7 +109,8 @@ and mixed rates / tacho / CAN just become published channels.
 ┌────────────────────────────────────────────────────────────┐
 │ instro repo (later phase, separate PR there)               │
 │  packages/instro-quantus: QuantusDevice(Instrument)        │
-│    - Measurement packaging, publishers, cantools DBC decode│
+│    - Measurement packaging, publishers (CAN decoded in     │
+│      Rust per D14)                                         │
 │    - imperative runtime methods (zero, balance, CAN tx,    │
 │      suspend/resume, reconfigure)                          │
 └────────────────────────────────────────────────────────────┘
@@ -124,7 +125,8 @@ and mixed rates / tacho / CAN just become published channels.
 | D3 | Config schema owned by the crate (serde); consumers pass JSON/YAML through | Prevents Pydantic/serde drift; JSON Schema generated from serde types for editor/docs ergonomics |
 | D4 | Generic settings core (`serde_json::Value` read-modify-write, enum resolution by description string), typed helpers per module family layered on top | Settings schemas are dynamic (depend on operation mode; enum IDs discovered at runtime); firmware changes settings between releases |
 | D5 | Async core with a blocking facade | Future Rust consumers likely tokio services; PyO3 wraps the blocking facade |
-| D6 | DBC/CAN decode stays ABOVE the crate boundary | Crate delivers timestamped raw frames; instro uses `cantools`, Rust consumers can use `can-dbc`. Revisit as an optional cargo feature only if two consumers want identical decode |
+| D6 | ~~DBC/CAN decode stays ABOVE the crate boundary~~ Superseded by D14 | Original rationale (avoid a decode dependency) held until the Python layer needed `cantools` as an optional extra, which broke the out-of-box full example |
+| D14 | DBC/CAN decode happens IN the crate (`dbc::CanDecoder`, hand-rolled `BO_`/`SG_` subset parser, no new deps). The DBC file is declared per CAN channel in the rack config (`channels[].dbc`, relative paths resolved against the config file); the PyO3 layer decodes frames to per-signal series before they cross into Python | One decode implementation serves every consumer, the Python wheel needs no optional CAN extra, and the config file fully describes the rack including how to interpret its buses |
 | D7 | Sim's wire encoder is written independently from the client's parser | Shared serialization code would make spec-misreadings pass tests symmetrically |
 | D8 | `open()` = full declarative reconciliation (read tree, write every declared setting, apply), idempotent, regardless of device state | Settings persistence across power cycles is undocumented; REST is unauthenticated so external clients can mutate state |
 | D9 | Mid-session settings changes are an explicit `reconfigure(new_config)` that knowingly restarts the streaming epoch; runtime actions (auto-zero, bridge balance, CAN tx, suspend/resume, recording) are imperative methods | The hardware punishes incremental changes (measurement restart, sometimes device reboot); keep the mental model "immutable config + runtime actions" |
@@ -223,7 +225,7 @@ settings modeling before any client code exists.
   (per-channel `(t0, dt, f32[])`, tacho `f64[]`, CAN frame structs); config passed
   as JSON/YAML path or dict.
 - In the **instro repo**: `packages/instro-quantus` with `QuantusDevice(Instrument)` —
-  Measurement packaging (one per timebase cluster), publishers, cantools DBC decode
+  Measurement packaging (one per timebase cluster), publishers, native DBC decode per D14
   (unknown-ID counter channel + raw-frame escape hatch), imperative methods
   (both write classes per D12, published as instro `Command`s), `reconfigure()`.
   Follows instro conventions (tracking issue, docs table, README device table).

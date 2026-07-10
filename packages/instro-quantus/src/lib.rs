@@ -4,19 +4,22 @@
 //! configuration/writes, `client.open_stream()` for a `StreamReader` whose
 //! `next_event()` returns dicts with numpy arrays for sample data.
 
+use instro_quantus_rs::blocking::QuantusClient as RustClient;
+use instro_quantus_rs::config::{RackConfig, SettingValue};
+use instro_quantus_rs::dbc::CanDecoder;
+use instro_quantus_rs::error::Error;
+use instro_quantus_rs::reconcile::ReconcileReport;
+use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
 use numpy::IntoPyArray;
 use pyo3::exceptions::{PyConnectionError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
-use instro_quantus_rs::blocking::QuantusClient as RustClient;
-use instro_quantus_rs::config::{RackConfig, SettingValue};
-use instro_quantus_rs::error::Error;
-use instro_quantus_rs::reconcile::ReconcileReport;
-use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
 use serde_json::Value;
-use std::collections::BTreeMap;
-use std::sync::Mutex;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+type DecoderMap = HashMap<i64, Arc<CanDecoder>>;
 
 fn to_py_err(error: Error) -> PyErr {
     match error {
@@ -120,13 +123,14 @@ fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<PyObject> 
         c.set_item("mode", channel.mode.clone())?;
         c.set_item("streaming", channel.streaming)?;
         c.set_item("sample_rate_hz", channel.sample_rate_hz)?;
+        c.set_item("dbc", channel.dbc.clone())?;
         channels.append(c)?;
     }
     dict.set_item("channels", channels)?;
     Ok(dict.unbind().into())
 }
 
-fn event_to_py(py: Python<'_>, event: StreamEvent) -> PyResult<PyObject> {
+fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyResult<PyObject> {
     let dict = PyDict::new(py);
     match event {
         StreamEvent::Analog(batch) => {
@@ -149,17 +153,44 @@ fn event_to_py(py: Python<'_>, event: StreamEvent) -> PyResult<PyObject> {
         StreamEvent::Can { channel_id, frames } => {
             dict.set_item("type", "can")?;
             dict.set_item("channel_id", channel_id)?;
-            let list = PyList::empty(py);
-            for frame in frames {
-                let f = PyDict::new(py);
-                f.set_item("timestamp_s", frame.timestamp_s)?;
-                f.set_item("id", frame.id)?;
-                f.set_item("frame_format", frame.frame_format)?;
-                f.set_item("frame_type", frame.frame_type)?;
-                f.set_item("data", PyBytes::new(py, &frame.data))?;
-                list.append(f)?;
+            if let Some(decoder) = decoders.get(&i64::from(channel_id)) {
+                // Decoded per-signal series: {name: {"timestamps_s": ..., "values": ...}}.
+                let mut series: BTreeMap<String, (Vec<f64>, Vec<f64>)> = BTreeMap::new();
+                let mut unknown_frames: u64 = 0;
+                for frame in &frames {
+                    match decoder.decode(frame.id, &frame.data) {
+                        Some(values) => {
+                            for (name, value) in values {
+                                let (timestamps, samples) = series.entry(name).or_default();
+                                timestamps.push(frame.timestamp_s);
+                                samples.push(value);
+                            }
+                        }
+                        None => unknown_frames += 1,
+                    }
+                }
+                let signals = PyDict::new(py);
+                for (name, (timestamps, values)) in series {
+                    let s = PyDict::new(py);
+                    s.set_item("timestamps_s", timestamps.into_pyarray(py))?;
+                    s.set_item("values", values.into_pyarray(py))?;
+                    signals.set_item(name, s)?;
+                }
+                dict.set_item("signals", signals)?;
+                dict.set_item("unknown_frames", unknown_frames)?;
+            } else {
+                let list = PyList::empty(py);
+                for frame in frames {
+                    let f = PyDict::new(py);
+                    f.set_item("timestamp_s", frame.timestamp_s)?;
+                    f.set_item("id", frame.id)?;
+                    f.set_item("frame_format", frame.frame_format)?;
+                    f.set_item("frame_type", frame.frame_type)?;
+                    f.set_item("data", PyBytes::new(py, &frame.data))?;
+                    list.append(f)?;
+                }
+                dict.set_item("frames", list)?;
             }
-            dict.set_item("frames", list)?;
         }
         StreamEvent::EpochRestart { sequence } => {
             dict.set_item("type", "epoch_restart")?;
@@ -190,6 +221,9 @@ fn event_to_py(py: Python<'_>, event: StreamEvent) -> PyResult<PyObject> {
 struct QuantusClient {
     inner: RustClient,
     host: String,
+    /// CAN decoders by channel item_id, built at reconcile() from the
+    /// config's per-channel `dbc` files (D14: decoding happens in Rust).
+    decoders: Mutex<DecoderMap>,
 }
 
 #[pymethods]
@@ -214,15 +248,28 @@ impl QuantusClient {
                 )
             })?;
         let inner = RustClient::connect(rack).map_err(to_py_err)?;
-        Ok(QuantusClient { inner, host })
+        Ok(QuantusClient {
+            inner,
+            host,
+            decoders: Mutex::new(HashMap::new()),
+        })
     }
 
     /// Write every declared setting, apply once, and return the report
-    /// (achieved rates, alias -> item_id map, epoch impact).
+    /// (achieved rates, alias -> item_id map, epoch impact). Also loads the
+    /// CAN decoders declared via per-channel `dbc` config entries.
     fn reconcile(&self, py: Python<'_>) -> PyResult<PyObject> {
         let report = py
             .allow_threads(|| self.inner.reconcile())
             .map_err(to_py_err)?;
+        let mut decoders: DecoderMap = HashMap::new();
+        for channel in &report.channels {
+            if let Some(dbc) = &channel.dbc {
+                let decoder = CanDecoder::from_path(dbc).map_err(to_py_err)?;
+                decoders.insert(channel.item_id, Arc::new(decoder));
+            }
+        }
+        *self.decoders.lock().unwrap() = decoders;
         report_to_py(py, &report)
     }
 
@@ -267,6 +314,7 @@ impl QuantusClient {
             .map_err(to_py_err)?;
         Ok(StreamReader {
             inner: Mutex::new(Some(engine)),
+            decoders: self.decoders.lock().unwrap().clone(),
         })
     }
 
@@ -346,6 +394,7 @@ impl QuantusClient {
 #[pyclass]
 struct StreamReader {
     inner: Mutex<Option<StreamEngine>>,
+    decoders: DecoderMap,
 }
 
 #[pymethods]
@@ -362,7 +411,7 @@ impl StreamReader {
         });
         match received {
             None => Err(PyRuntimeError::new_err("stream is closed")),
-            Some(Ok(event)) => Ok(Some(event_to_py(py, event)?)),
+            Some(Ok(event)) => Ok(Some(event_to_py(py, event, &self.decoders)?)),
             Some(Err(std::sync::mpsc::RecvTimeoutError::Timeout)) => Ok(None),
             Some(Err(std::sync::mpsc::RecvTimeoutError::Disconnected)) => {
                 let dict = PyDict::new(py);

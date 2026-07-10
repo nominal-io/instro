@@ -107,6 +107,10 @@ pub struct ChannelConfig {
     /// Enable this channel's "Streaming State" in its Data array.
     #[serde(default)]
     pub streaming: bool,
+    /// DBC file for CAN channels: frames are decoded to per-signal values.
+    /// Relative paths resolve against the config file's directory.
+    #[serde(default)]
+    pub dbc: Option<String>,
 }
 
 /// A setting value: an enumeration description ("1 V"), or a raw number for
@@ -154,11 +158,12 @@ impl RackConfig {
     }
 
     /// Load from a file, dispatching on extension: `.json` or `.toml`.
+    /// Relative `dbc` paths are resolved against the file's directory.
     pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let path = path.as_ref();
         let raw = std::fs::read_to_string(path)
             .map_err(|e| Error::Config(format!("cannot read {}: {e}", path.display())))?;
-        match path
+        let config = match path
             .extension()
             .and_then(|e| e.to_str())
             .map(str::to_ascii_lowercase)
@@ -170,7 +175,21 @@ impl RackConfig {
                 "unsupported config extension {other:?} for {}; use .json or .toml",
                 path.display()
             ))),
+        }?;
+        Ok(config.resolve_dbc_paths(path.parent().unwrap_or(std::path::Path::new("."))))
+    }
+
+    fn resolve_dbc_paths(mut self, base: &std::path::Path) -> Self {
+        for module in &mut self.modules {
+            for channel in &mut module.channels {
+                if let Some(dbc) = &channel.dbc
+                    && std::path::Path::new(dbc).is_relative()
+                {
+                    channel.dbc = Some(base.join(dbc).to_string_lossy().into_owned());
+                }
+            }
         }
+        self
     }
 }
 
@@ -266,6 +285,38 @@ mod tests {
         );
         let config = RackConfig::from_path(example).unwrap();
         assert_eq!(config.modules.len(), 4);
+    }
+
+    #[test]
+    fn relative_dbc_paths_resolve_against_the_config_dir() {
+        let dir = std::env::temp_dir().join("quantus-dbc-path-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = dir.join("rack.json");
+        std::fs::write(
+            &config_path,
+            r#"{
+                "device": { "name": "rig" },
+                "modules": [{
+                    "name": "CAN42S2",
+                    "channels": [{ "index": 1, "alias": "bus", "dbc": "vehicle.dbc" }]
+                }]
+            }"#,
+        )
+        .unwrap();
+        let config = RackConfig::from_path(&config_path).unwrap();
+        let resolved = config.modules[0].channels[0].dbc.as_deref().unwrap();
+        assert_eq!(resolved, dir.join("vehicle.dbc").to_string_lossy());
+        // Inline JSON gets no directory context: the path passes through.
+        let inline = RackConfig::from_json_str(
+            r#"{ "device": { "name": "rig" },
+                 "modules": [{ "name": "CAN42S2",
+                               "channels": [{ "index": 1, "dbc": "vehicle.dbc" }] }] }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            inline.modules[0].channels[0].dbc.as_deref(),
+            Some("vehicle.dbc")
+        );
     }
 
     #[test]
