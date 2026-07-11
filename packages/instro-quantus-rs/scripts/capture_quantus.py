@@ -59,8 +59,7 @@ def capture_rest(base: str, out_dir: Path) -> dict:
 
 
 def capture_items(base: str, item_list, out_dir: Path):
-    """Per-item settings + operation-mode docs: the exact setting names, enum
-    descriptions, and ids the firmware really uses."""
+    """Dump each item's settings/operationMode docs (the firmware's real names, enums, ids)."""
     if not isinstance(item_list, list):
         return
     items_dir = out_dir / "items"
