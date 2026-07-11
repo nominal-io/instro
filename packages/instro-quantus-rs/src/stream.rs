@@ -18,23 +18,27 @@ pub enum StreamEvent {
     Tacho {
         channel_id: i32,
         events_ms: Vec<f64>,
+        received_unix_ns: u64,
     },
-    /// Raw timestamped CAN frames; signal decoding (DBC) happens above the
-    /// crate boundary (PLAN.md D6).
+    /// Raw timestamped CAN frames; DBC signal decoding happens in `dbc`
+    /// (PLAN.md D14) at the consumer's discretion.
     Can {
         channel_id: i32,
         frames: Vec<CanFrame>,
+        received_unix_ns: u64,
     },
     /// Sequence numbers restarted: a new streaming epoch (settings applied or
     /// device restarted). Timestamps rebase from zero.
     EpochRestart {
         sequence: u64,
+        received_unix_ns: u64,
     },
     /// The server discarded `missing` packets (buffer overrun or suspend).
     Gap {
         missing: u64,
+        received_unix_ns: u64,
     },
-    /// A channel type this engine doesn't decode yet (CAN/GPS/triggered).
+    /// A channel type this engine doesn't decode yet (GPS/triggered).
     Skipped {
         channel_id: i32,
         channel_type: u32,
@@ -66,6 +70,10 @@ pub struct AnalogBatch {
     pub min: f32,
     pub max: f32,
     pub samples: Vec<f32>,
+    /// Host wall-clock time (Unix ns) when the carrying packet was read off
+    /// the socket. Consumers anchor stream-relative timestamps from this, not
+    /// from their own (possibly backlogged) processing time.
+    pub received_unix_ns: u64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -76,6 +84,9 @@ pub struct HealthSnapshot {
     pub epoch_restarts: u64,
     /// Server-reported buffer fill (0..1) from the latest packet header.
     pub buffer_level: f32,
+    /// Device TransmitTimestamp (s) from the latest packet header; recorded so
+    /// hardware validation can measure device-to-host clock offset/latency.
+    pub transmit_timestamp_s: f64,
 }
 
 #[derive(Default)]
@@ -85,10 +96,14 @@ struct Health {
     missing: AtomicU64,
     restarts: AtomicU64,
     buffer_level_bits: AtomicU32,
+    transmit_ts_bits: AtomicU64,
 }
 
 pub struct StreamEngine {
-    events: mpsc::Receiver<StreamEvent>,
+    /// `Option` so shutdown can drop the receiver BEFORE joining the reader
+    /// thread: a reader parked in a full `tx.send` only unblocks when the
+    /// receiver goes away (socket shutdown does not reach it).
+    events: Option<mpsc::Receiver<StreamEvent>>,
     health: Arc<Health>,
     socket: TcpStream,
     handle: Option<std::thread::JoinHandle<()>>,
@@ -96,10 +111,19 @@ pub struct StreamEngine {
 
 impl StreamEngine {
     pub fn connect(host: &str, port: u16) -> Result<Self> {
+        Self::connect_with_read_timeout(host, port, Duration::from_secs(10))
+    }
+
+    /// `connect` with an explicit socket read timeout (exposed for tests that
+    /// exercise idle behavior without waiting the production 10s).
+    pub fn connect_with_read_timeout(host: &str, port: u16, timeout: Duration) -> Result<Self> {
         let socket = TcpStream::connect((host, port))
             .map_err(|e| Error::Transport(format!("stream connect: {e}")))?;
+        // The timeout exists only so a blocked read wakes periodically;
+        // read_full treats it as idle, never as disconnect (the protocol has
+        // no keepalive and quiet periods are normal).
         socket
-            .set_read_timeout(Some(Duration::from_secs(10)))
+            .set_read_timeout(Some(timeout))
             .map_err(|e| Error::Transport(e.to_string()))?;
         let reader = socket
             .try_clone()
@@ -111,7 +135,7 @@ impl StreamEngine {
         let handle = std::thread::spawn(move || read_loop(reader, tx, &thread_health));
 
         Ok(StreamEngine {
-            events: rx,
+            events: Some(rx),
             health,
             socket,
             handle: Some(handle),
@@ -120,7 +144,9 @@ impl StreamEngine {
 
     /// Blocking event receiver; disconnect is delivered as an event.
     pub fn events(&self) -> &mpsc::Receiver<StreamEvent> {
-        &self.events
+        self.events
+            .as_ref()
+            .expect("receiver taken only at shutdown")
     }
 
     pub fn health(&self) -> HealthSnapshot {
@@ -130,11 +156,21 @@ impl StreamEngine {
             missing_packets: self.health.missing.load(Ordering::Relaxed),
             epoch_restarts: self.health.restarts.load(Ordering::Relaxed),
             buffer_level: f32::from_bits(self.health.buffer_level_bits.load(Ordering::Relaxed)),
+            transmit_timestamp_s: f64::from_bits(
+                self.health.transmit_ts_bits.load(Ordering::Relaxed),
+            ),
         }
     }
 
     pub fn stop(mut self) {
+        self.shutdown();
+    }
+
+    /// Unblock the reader wherever it is parked (socket read OR full-channel
+    /// send), then join it. Order matters: drop the receiver first.
+    fn shutdown(&mut self) {
         let _ = self.socket.shutdown(std::net::Shutdown::Both);
+        drop(self.events.take());
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
@@ -143,24 +179,53 @@ impl StreamEngine {
 
 impl Drop for StreamEngine {
     fn drop(&mut self) {
-        let _ = self.socket.shutdown(std::net::Shutdown::Both);
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
+        self.shutdown();
+    }
+}
+
+fn unix_now_ns() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
+}
+
+/// `read_exact` that treats read timeouts as idle (retrying from where it left
+/// off) instead of as errors. Returns Err only on EOF or a real I/O error.
+fn read_full(socket: &mut TcpStream, buf: &mut [u8]) -> std::io::Result<()> {
+    let mut filled = 0usize;
+    while filled < buf.len() {
+        match socket.read(&mut buf[filled..]) {
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "connection closed",
+                ));
+            }
+            Ok(n) => filled += n,
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => return Err(e),
         }
     }
+    Ok(())
 }
 
 fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &Health) {
     let mut last_sequence: Option<u64> = None;
     loop {
         let mut header = [0u8; wire::PACKET_HEADER_LEN];
-        if let Err(e) = socket.read_exact(&mut header) {
+        if let Err(e) = read_full(&mut socket, &mut header) {
             let _ = tx.send(StreamEvent::Disconnected {
                 reason: e.to_string(),
             });
             return;
         }
+        let received_unix_ns = unix_now_ns();
         let sequence = u64::from_le_bytes(header[0..8].try_into().unwrap());
+        let transmit_ts = f64::from_le_bytes(header[8..16].try_into().unwrap());
         let buffer_level = f32::from_le_bytes(header[16..20].try_into().unwrap());
         let payload_size = u32::from_le_bytes(header[20..24].try_into().unwrap()) as usize;
         let marker = u32::from_le_bytes(header[24..28].try_into().unwrap());
@@ -172,9 +237,15 @@ fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &
             });
             return;
         }
+        if payload_size > wire::MAX_PAYLOAD_SIZE {
+            let _ = tx.send(StreamEvent::Disconnected {
+                reason: format!("implausible payload size {payload_size} (corrupt header)"),
+            });
+            return;
+        }
 
         let mut payload = vec![0u8; payload_size];
-        if let Err(e) = socket.read_exact(&mut payload) {
+        if let Err(e) = read_full(&mut socket, &mut payload) {
             let _ = tx.send(StreamEvent::Disconnected {
                 reason: e.to_string(),
             });
@@ -185,11 +256,20 @@ fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &
         health
             .buffer_level_bits
             .store(buffer_level.to_bits(), Ordering::Relaxed);
+        health
+            .transmit_ts_bits
+            .store(transmit_ts.to_bits(), Ordering::Relaxed);
 
         match last_sequence {
             Some(last) if sequence < last => {
                 health.restarts.fetch_add(1, Ordering::Relaxed);
-                if tx.send(StreamEvent::EpochRestart { sequence }).is_err() {
+                if tx
+                    .send(StreamEvent::EpochRestart {
+                        sequence,
+                        received_unix_ns,
+                    })
+                    .is_err()
+                {
                     return;
                 }
             }
@@ -197,7 +277,13 @@ fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &
                 let missing = sequence - last - 1;
                 health.gaps.fetch_add(1, Ordering::Relaxed);
                 health.missing.fetch_add(missing, Ordering::Relaxed);
-                if tx.send(StreamEvent::Gap { missing }).is_err() {
+                if tx
+                    .send(StreamEvent::Gap {
+                        missing,
+                        received_unix_ns,
+                    })
+                    .is_err()
+                {
                     return;
                 }
             }
@@ -208,7 +294,7 @@ fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &
         if payload_type != 0 {
             continue;
         }
-        if parse_payload(&payload, &tx).is_err() {
+        if parse_payload(&payload, received_unix_ns, &tx).is_err() {
             return; // consumer hung up
         }
     }
@@ -216,6 +302,7 @@ fn read_loop(mut socket: TcpStream, tx: mpsc::SyncSender<StreamEvent>, health: &
 
 fn parse_payload(
     payload: &[u8],
+    received_unix_ns: u64,
     tx: &mpsc::SyncSender<StreamEvent>,
 ) -> std::result::Result<(), ()> {
     let mut index = 0usize;
@@ -264,6 +351,7 @@ fn parse_payload(
                     min,
                     max,
                     samples,
+                    received_unix_ns,
                 }))
                 .map_err(|_| ())?;
             }
@@ -279,6 +367,7 @@ fn parse_payload(
                 tx.send(StreamEvent::Tacho {
                     channel_id,
                     events_ms,
+                    received_unix_ns,
                 })
                 .map_err(|_| ())?;
             }
@@ -289,11 +378,35 @@ fn parse_payload(
                 index += wire::CAN_RESERVED_HEADER_LEN;
                 let frames = parse_can_messages(&payload[index..index + data_size]);
                 index += data_size;
-                tx.send(StreamEvent::Can { channel_id, frames })
-                    .map_err(|_| ())?;
+                tx.send(StreamEvent::Can {
+                    channel_id,
+                    frames,
+                    received_unix_ns,
+                })
+                .map_err(|_| ())?;
             }
             3 => {
                 index += wire::GPS_HEADER_LEN + data_size;
+                tx.send(StreamEvent::Skipped {
+                    channel_id,
+                    channel_type,
+                })
+                .map_err(|_| ())?;
+            }
+            // Triggered data/scope blocks: known specific-header sizes, so
+            // they are cleanly skippable (a previous vendor-software session
+            // can leave such channels streaming; they must not poison the
+            // rest of the packet).
+            4 => {
+                index += wire::TRIGGERED_DATA_HEADER_LEN + data_size;
+                tx.send(StreamEvent::Skipped {
+                    channel_id,
+                    channel_type,
+                })
+                .map_err(|_| ())?;
+            }
+            5 => {
+                index += wire::TRIGGERED_SCOPE_HEADER_LEN + data_size;
                 tx.send(StreamEvent::Skipped {
                     channel_id,
                     channel_type,

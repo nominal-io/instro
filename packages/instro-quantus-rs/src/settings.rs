@@ -104,7 +104,14 @@ pub fn set_value(array: &mut Value, name: &str, value: &SettingValue) -> Result<
                     )));
                 }
             }
-            (*n).into()
+            // Integral values go on the wire as JSON integers ("3", not
+            // "3.0"): integer-typed settings on the embedded firmware may not
+            // accept a float literal (the vendor client always emits ints).
+            if n.fract() == 0.0 && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
+                (*n as i64).into()
+            } else {
+                (*n).into()
+            }
         }
         (false, SettingValue::Text(text)) => text.clone().into(),
     };

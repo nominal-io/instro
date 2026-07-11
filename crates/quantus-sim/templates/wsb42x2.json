@@ -77,7 +77,7 @@
         },
         {
           "Id": 3,
-          "Description": "WSB Voltage Excitation",
+          "Description": "WSB Input: Voltage Excitation",
           "Settings": [
             {
               "Name": "Voltage Range",
@@ -121,7 +121,7 @@
         },
         {
           "Id": 4,
-          "Description": "WSB 4-Wire Current Excitation",
+          "Description": "WSB Input: 4 Wire Current Excitation",
           "Settings": [
             {
               "Name": "Voltage Range",
@@ -159,7 +159,7 @@
         },
         {
           "Id": 5,
-          "Description": "WSB 2-Wire Current Excitation",
+          "Description": "WSB Input: 2 Wire Current Excitation",
           "Settings": [
             {
               "Name": "Voltage Range",

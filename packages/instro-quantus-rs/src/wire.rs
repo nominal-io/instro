@@ -34,6 +34,19 @@ pub const CAN_RESERVED_HEADER_LEN: usize = 24;
 /// GPS (beta) channel blocks carry a 12-byte header before ASCII NMEA data.
 pub const GPS_HEADER_LEN: usize = 12;
 
+/// Triggered-data specific header (vendor `TriggeredDataChannelHeader`):
+/// u64 BlockIndex, u64 SamplesInBlock, u64 TotalNumberOfBlocks, f32 ScalingFactor
+/// + 4 reserved bytes.
+pub const TRIGGERED_DATA_HEADER_LEN: usize = 32;
+
+/// Triggered-scope specific header (vendor `TriggeredScopeChannelHeader`):
+/// i32 TriggerStatus, f32 Min/Max/Rms/Average/StdDev.
+pub const TRIGGERED_SCOPE_HEADER_LEN: usize = 24;
+
+/// Sanity ceiling for `PayloadSize`: anything larger is a corrupt header, not
+/// a real packet (typical packets are tens of KB).
+pub const MAX_PAYLOAD_SIZE: usize = 16 * 1024 * 1024;
+
 /// Fixed-size prefix of one CAN message: f64 timestamp (s), u32 arbitration id,
 /// u8 header, u8 frame format, u8 frame type, u8 DLC; followed by 1..=64 data bytes.
 pub const CAN_MESSAGE_PREFIX_LEN: usize = 16;

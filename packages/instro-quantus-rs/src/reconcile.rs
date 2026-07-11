@@ -41,6 +41,8 @@ pub struct ChannelReport {
     pub sample_rate_hz: Option<f64>,
     /// DBC file declared for this (CAN) channel, path already resolved.
     pub dbc: Option<String>,
+    /// Tacho channels: streamed trigger events per shaft revolution.
+    pub pulses_per_rev: f64,
 }
 
 /// A module discovered from `/item/list`: channels are the entries that follow
@@ -109,6 +111,19 @@ impl Engine {
                 }),
                 Some("Channel") => {
                     if let Some(module) = modules.last_mut() {
+                        // Channels carry their module's name (vendor
+                        // convention); a mismatch means the flat-order
+                        // adjacency assumption (assumptions.md A1) does not
+                        // hold on this firmware — fail loudly rather than
+                        // configure the wrong physical channel.
+                        if name != module.name {
+                            return Err(Error::Stream(format!(
+                                "channel item {item_id} ('{name}') does not match its \
+                                 preceding module '{}': /item/list ordering violates the \
+                                 module->channel adjacency assumption (A1)",
+                                module.name
+                            )));
+                        }
                         module.channel_ids.push(item_id);
                     }
                 }
@@ -199,6 +214,28 @@ impl Engine {
         Ok(find_setting(&doc["Settings"], "Master Sampling Rate").and_then(current_enum_numeric))
     }
 
+    /// Drive the module's operation mode to `target` (GET-compare-PUT: no
+    /// write when it already matches, preserving open() idempotency).
+    async fn reconcile_module_mode(&self, module: &DeviceModule, target: &str) -> Result<()> {
+        let mut op_mode = self.rest.item_operation_mode(module.item_id).await?;
+        let setting = op_mode["Settings"]
+            .as_array()
+            .and_then(|s| s.first())
+            .cloned()
+            .ok_or_else(|| {
+                Error::Stream("module operation mode document has no Settings".into())
+            })?;
+        let target_id = resolve_enum_id(&setting, target)?;
+        let current_id = setting.get("Value").and_then(Value::as_i64);
+        if current_id != Some(target_id) {
+            op_mode["Settings"][0]["Value"] = target_id.into();
+            self.rest
+                .put_item_operation_mode(module.item_id, &op_mode)
+                .await?;
+        }
+        Ok(())
+    }
+
     /// Returns the module report plus whether channel modes were written as
     /// module-level pair settings (in which case channel op-mode PUTs are skipped).
     async fn reconcile_module(
@@ -207,6 +244,34 @@ impl Engine {
         module: &DeviceModule,
         master_rate_hz: Option<f64>,
     ) -> Result<(ModuleReport, bool)> {
+        // High-rate module modes kill channels 2 and 5 (ICS425); the wire
+        // schema for that topology is unverified, so reject the combination
+        // rather than configure ghosts.
+        if let Some(mode) = &module_config.mode
+            && mode.contains("High Sample Rate")
+            && module_config
+                .channels
+                .iter()
+                .any(|c| c.index == 2 || c.index == 5)
+        {
+            return Err(Error::Config(format!(
+                "module '{}': mode '{mode}' disables channels 2 and 5; remove them from \
+                 the config (high-rate topologies are unverified pending hardware)",
+                module.name
+            )));
+        }
+        // A Disabled module gates every other setting; drive the mode first
+        // (declared mode, else Enabled iff this config declares content).
+        let target_mode = module_config.mode.clone().or_else(|| {
+            let declares_content = module_config.sample_rate_hz.is_some()
+                || !module_config.settings.is_empty()
+                || !module_config.channels.is_empty();
+            declares_content.then(|| "Enabled".to_string())
+        });
+        if let Some(target) = &target_mode {
+            self.reconcile_module_mode(module, target).await?;
+        }
+
         let mut doc = self.rest.item_settings(module.item_id).await?;
         let mut dirty = false;
         let mut report = ModuleReport {
@@ -224,16 +289,20 @@ impl Engine {
                     module.name
                 ))
             })?;
-            let rate_setting = find_setting(&doc["Settings"], "Sample Rate").ok_or_else(|| {
-                Error::Config(format!(
-                    "module '{}' has no Sample Rate setting",
-                    module.name
-                ))
-            })?;
-            let snapped = snap_sample_rate(rate_setting, master, requested_hz)?;
+            // Substring match: high-rate module modes rename the setting
+            // (e.g. "High Sample Rate"), and the vendor's own scripts match
+            // by containment.
+            let (rate_name, rate_setting) =
+                find_rate_setting(&doc["Settings"]).ok_or_else(|| {
+                    Error::Config(format!(
+                        "module '{}' has no Sample Rate setting (is the module Disabled?)",
+                        module.name
+                    ))
+                })?;
+            let snapped = snap_sample_rate(&rate_setting, master, requested_hz)?;
             set_value(
                 &mut doc["Settings"],
-                "Sample Rate",
+                &rate_name,
                 &SettingValue::Number(snapped.enum_id as f64),
             )?;
             report.achieved_hz = Some(snapped.achieved_hz);
@@ -262,8 +331,8 @@ impl Engine {
         // per-channel timestamp math downstream).
         if report.achieved_hz.is_none()
             && let Some(master) = master_rate_hz
-            && let Some(setting) = find_setting(&doc["Settings"], "Sample Rate")
-            && let Some(divisor) = current_enum_numeric(setting)
+            && let Some((_, setting)) = find_rate_setting(&doc["Settings"])
+            && let Some(divisor) = current_enum_numeric(&setting)
         {
             report.achieved_hz = Some(master / divisor);
             report.divisor = Some(divisor);
@@ -308,18 +377,31 @@ impl Engine {
                 self.rest.put_item_operation_mode(item_id, &op_mode).await?;
             }
 
-            if !channel_config.settings.is_empty() || channel_config.streaming {
-                let mut doc = self.rest.item_settings(item_id).await?;
-                for (name, value) in &channel_config.settings {
-                    set_value(&mut doc["Settings"], name, value)?;
-                }
-                if channel_config.streaming {
+            // Streaming State is declarative (PLAN.md D8): declared channels
+            // are driven to Enabled or Disabled per the config, guarded by
+            // the entry's presence (outputs/CAN-tx may not carry one).
+            let mut doc = self.rest.item_settings(item_id).await?;
+            let mut dirty = false;
+            for (name, value) in &channel_config.settings {
+                set_value(&mut doc["Settings"], name, value)?;
+                dirty = true;
+            }
+            if find_setting(&doc["Data"], "Streaming State").is_some() {
+                let target = if channel_config.streaming {
+                    "Enabled"
+                } else {
+                    "Disabled"
+                };
+                if channel_config.streaming || streaming_state_enabled(&doc["Data"]) {
                     set_value(
                         &mut doc["Data"],
                         "Streaming State",
-                        &SettingValue::Text("Enabled".into()),
+                        &SettingValue::Text(target.into()),
                     )?;
+                    dirty = true;
                 }
+            }
+            if dirty {
                 self.rest.put_item_settings(item_id, &doc).await?;
             }
 
@@ -330,10 +412,63 @@ impl Engine {
                 streaming: channel_config.streaming,
                 sample_rate_hz: module_rate_hz,
                 dbc: channel_config.dbc.clone(),
+                pulses_per_rev: channel_config.pulses_per_rev.unwrap_or(1.0),
             });
+        }
+
+        // Undeclared channels of a DECLARED module: read-before-write disable
+        // of any leftover streaming state (settings persist across power
+        // cycles; a channel enabled by a previous session would otherwise
+        // stream unidentifiable data). Channels of undeclared modules are
+        // left untouched — instro owns only the modules it declares.
+        let declared: Vec<i64> = reports.iter().map(|r| r.item_id).collect();
+        for &item_id in &module.channel_ids {
+            if declared.contains(&item_id) {
+                continue;
+            }
+            let mut doc = self.rest.item_settings(item_id).await?;
+            if streaming_state_enabled(&doc["Data"]) {
+                set_value(
+                    &mut doc["Data"],
+                    "Streaming State",
+                    &SettingValue::Text("Disabled".into()),
+                )?;
+                self.rest.put_item_settings(item_id, &doc).await?;
+            }
         }
         Ok(reports)
     }
+}
+
+/// True when the Data array has a Streaming State entry whose current Value
+/// resolves to the "Enabled" SupportedValue.
+fn streaming_state_enabled(data_array: &Value) -> bool {
+    let Some(setting) = find_setting(data_array, "Streaming State") else {
+        return false;
+    };
+    let Some(current) = setting.get("Value").and_then(Value::as_i64) else {
+        return false;
+    };
+    setting
+        .get("SupportedValues")
+        .and_then(Value::as_array)
+        .and_then(|vs| {
+            vs.iter()
+                .find(|v| v.get("Id").and_then(Value::as_i64) == Some(current))
+        })
+        .and_then(|v| v.get("Description").and_then(Value::as_str))
+        .is_some_and(|d| d.eq_ignore_ascii_case("Enabled"))
+}
+
+/// Find the module's sample-rate setting by name containment ("Sample Rate",
+/// "High Sample Rate", ...) — vendor scripts match by substring because
+/// high-rate modes rename the setting.
+fn find_rate_setting(settings: &Value) -> Option<(String, Value)> {
+    settings.as_array()?.iter().find_map(|s| {
+        let name = s.get("Name").and_then(Value::as_str)?;
+        name.contains("Sample Rate")
+            .then(|| (name.to_string(), s.clone()))
+    })
 }
 
 fn find_module(tree: &DeviceTree, module_config: &ModuleConfig) -> Result<DeviceModule> {

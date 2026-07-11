@@ -278,7 +278,7 @@ fn write_paths_action_and_settings_plane() {
         [[modules.channels]]
         index = 1
         alias = "strain_1"
-        mode = "WSB Voltage Excitation"
+        mode = "WSB Input: Voltage Excitation"
         streaming = true
         "#,
     );
@@ -351,7 +351,7 @@ fn alo_output_configure_and_write() {
         [[modules.channels]]
         index = 1
         alias = "shaker_drive"
-        mode = "Sine"
+        mode = "Sine Wave Generator"
         settings = { "Signal Amplitude" = 2.0, "Signal Frequency" = 100.0, "Signal Connection" = "Connected" }
         "#,
     );

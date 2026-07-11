@@ -139,6 +139,9 @@ def test_reconcile_builds_alias_maps(fake_quantus):
     assert device._item_by_alias == {"mic": 4, "shaft": 9}
 
 
+RECV_NS = 1_700_000_000_000_000_000
+
+
 def test_analog_event_becomes_measurement_with_hw_timestamps(fake_quantus):
     publisher = CapturePublisher()
     device = make_device(publisher)
@@ -151,15 +154,18 @@ def test_analog_event_becomes_measurement_with_hw_timestamps(fake_quantus):
             "integrity": 0,
             "min": 0.0,
             "max": 1.0,
+            "received_ns": RECV_NS,
             "samples": [0.5, 0.6, 0.7],
         },
     ]
     device.start(background=False)
     device._reader = device._client.open_stream()
-    measurement = device._pump()
+    (measurement,) = device._pump()
 
     assert list(measurement.channel_data) == ["q.mic"]
     assert measurement.channel_data["q.mic"] == [0.5, 0.6, 0.7]
+    # Anchored from the packet's receive time, not processing time.
+    assert measurement.timestamps[0] == RECV_NS
     # 512 Hz -> ~1.95 ms between samples.
     deltas = [b - a for a, b in zip(measurement.timestamps, measurement.timestamps[1:])]
     assert all(abs(d - round(1e9 / 512)) < 2 for d in deltas)
@@ -170,25 +176,65 @@ def test_tacho_edges_become_rpm(fake_quantus):
     device = make_device(CapturePublisher())
     device.reconcile()
     device._client.events = [
-        {"type": "tacho", "channel_id": 9, "events_ms": [0.0, 20.0, 40.0]},
+        {"type": "tacho", "channel_id": 9, "events_ms": [0.0, 20.0, 40.0], "received_ns": RECV_NS},
     ]
     device.start(background=False)
     device._reader = device._client.open_stream()
-    measurement = device._pump()
+    (measurement,) = device._pump()
 
     # 20 ms/rev = 3000 rpm; first edge has no predecessor.
     assert measurement.channel_data["q.shaft"] == pytest.approx([3000.0, 3000.0])
+
+
+def test_tacho_intervals_do_not_bridge_gaps(fake_quantus):
+    device = make_device(CapturePublisher())
+    device.reconcile()
+    device._client.events = [
+        {"type": "tacho", "channel_id": 9, "events_ms": [0.0, 20.0], "received_ns": RECV_NS},
+        {"type": "gap", "missing": 3, "received_ns": RECV_NS + 1},
+        {"type": "tacho", "channel_id": 9, "events_ms": [500.0, 520.0], "received_ns": RECV_NS + 2},
+    ]
+    device.start(background=False)
+    device._reader = device._client.open_stream()
+    measurements = device._pump()
+
+    rpm_batches = [m.channel_data["q.shaft"] for m in measurements if "q.shaft" in m.channel_data]
+    # The 20->500ms interval spans the gap and must NOT become a 125-rpm sample.
+    assert rpm_batches == [pytest.approx([3000.0]), pytest.approx([3000.0])]
 
 
 def test_gap_publishes_missing_packet_count(fake_quantus):
     publisher = CapturePublisher()
     device = make_device(publisher)
     device.reconcile()
-    device._client.events = [{"type": "gap", "missing": 7}]
+    device._client.events = [{"type": "gap", "missing": 7, "received_ns": RECV_NS}]
     device.start(background=False)
     device._reader = device._client.open_stream()
-    measurement = device._pump()
+    (measurement,) = device._pump()
     assert measurement.channel_data["q.stream.missing_packets"] == [7.0]
+
+
+def test_unconfigured_channels_are_counted_not_published(fake_quantus):
+    publisher = CapturePublisher()
+    device = make_device(publisher)
+    device.reconcile()
+    device._client.events = [
+        {
+            "type": "analog",
+            "channel_id": 777,
+            "timestamp_ns": 0,
+            "integrity": 0,
+            "min": 0.0,
+            "max": 0.0,
+            "received_ns": RECV_NS,
+            "samples": [1.0, 2.0],
+        },
+    ]
+    device.start(background=False)
+    device._reader = device._client.open_stream()
+    (measurement,) = device._pump()
+    assert measurement.channel_data["q.stream.unconfigured_events"] == [1.0]
+    assert not any("777" in channel for channel in measurement.channel_data)
 
 
 def test_decoded_can_signals_become_per_signal_measurements(fake_quantus):
@@ -199,6 +245,7 @@ def test_decoded_can_signals_become_per_signal_measurements(fake_quantus):
         {
             "type": "can",
             "channel_id": 9,
+            "received_ns": RECV_NS,
             "signals": {
                 "EngineSpeed": {"timestamps_s": [0.02, 0.04], "values": [512.0, 640.0]},
                 "CoolantTemp": {"timestamps_s": [0.03], "values": [25.0]},
@@ -226,6 +273,7 @@ def test_raw_can_frames_without_dbc_only_count_as_unknown(fake_quantus):
         {
             "type": "can",
             "channel_id": 9,
+            "received_ns": RECV_NS,
             "frames": [
                 {"timestamp_s": 0.01, "id": 0x123, "frame_format": 0, "frame_type": 0, "data": b"\x01\x02"},
             ],

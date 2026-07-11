@@ -13,18 +13,49 @@ pub struct RestClient {
 impl RestClient {
     pub fn new(host: &str, port: u16) -> Self {
         RestClient {
-            http: reqwest::Client::new(),
+            // The vendor client allows the embedded server 150s per request
+            // (applies on a loaded rack are genuinely slow); without a
+            // timeout a wedged device hangs reconcile forever.
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(150))
+                .build()
+                .expect("reqwest client with static config"),
             base: format!("http://{host}:{port}"),
         }
     }
 
     async fn read_json(response: reqwest::Response) -> Result<Value> {
         let http_status = response.status().as_u16();
-        let body: Value = response
-            .json()
+        // 204 No Content is in the vendor client's success whitelist; some
+        // endpoints answer it with an empty body.
+        if http_status == 204 {
+            return Ok(Value::Null);
+        }
+        let bytes = response
+            .bytes()
             .await
             .map_err(|e| Error::Transport(e.to_string()))?;
+        if bytes.is_empty() && (200..300).contains(&http_status) {
+            return Ok(Value::Null);
+        }
+        let body: Value = serde_json::from_slice(&bytes)
+            .map_err(|e| Error::Transport(format!("HTTP {http_status}: invalid JSON body: {e}")))?;
         if (200..300).contains(&http_status) {
+            // Real firmware can signal failure inside a 200 body: if the body
+            // IS a status document, apply the vendor accept-list (Success=1,
+            // Updated=3, RequiresRestart=4, ActionHasSideEffects=14 pass).
+            if let Ok(status) = serde_json::from_value::<ApiStatus>(body.clone())
+                && body.get("StatusCode").is_some()
+                && !matches!(status.status_code, 1 | 3 | 4 | 14)
+            {
+                if status.status_code == 6 {
+                    return Err(Error::VersionMismatch(status.message));
+                }
+                return Err(Error::Api {
+                    http_status,
+                    status,
+                });
+            }
             return Ok(body);
         }
         // Non-2xx bodies are the {TypeCode, StatusCode, Message} document.

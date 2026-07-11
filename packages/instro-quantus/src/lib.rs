@@ -124,6 +124,7 @@ fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<PyObject> 
         c.set_item("streaming", channel.streaming)?;
         c.set_item("sample_rate_hz", channel.sample_rate_hz)?;
         c.set_item("dbc", channel.dbc.clone())?;
+        c.set_item("pulses_per_rev", channel.pulses_per_rev)?;
         channels.append(c)?;
     }
     dict.set_item("channels", channels)?;
@@ -140,19 +141,27 @@ fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyR
             dict.set_item("integrity", batch.integrity)?;
             dict.set_item("min", batch.min)?;
             dict.set_item("max", batch.max)?;
+            dict.set_item("received_ns", batch.received_unix_ns)?;
             dict.set_item("samples", batch.samples.into_pyarray(py))?;
         }
         StreamEvent::Tacho {
             channel_id,
             events_ms,
+            received_unix_ns,
         } => {
             dict.set_item("type", "tacho")?;
             dict.set_item("channel_id", channel_id)?;
+            dict.set_item("received_ns", received_unix_ns)?;
             dict.set_item("events_ms", events_ms.into_pyarray(py))?;
         }
-        StreamEvent::Can { channel_id, frames } => {
+        StreamEvent::Can {
+            channel_id,
+            frames,
+            received_unix_ns,
+        } => {
             dict.set_item("type", "can")?;
             dict.set_item("channel_id", channel_id)?;
+            dict.set_item("received_ns", received_unix_ns)?;
             if let Some(decoder) = decoders.get(&i64::from(channel_id)) {
                 // Decoded per-signal series: {name: {"timestamps_s": ..., "values": ...}}.
                 let mut series: BTreeMap<String, (Vec<f64>, Vec<f64>)> = BTreeMap::new();
@@ -192,13 +201,21 @@ fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyR
                 dict.set_item("frames", list)?;
             }
         }
-        StreamEvent::EpochRestart { sequence } => {
+        StreamEvent::EpochRestart {
+            sequence,
+            received_unix_ns,
+        } => {
             dict.set_item("type", "epoch_restart")?;
             dict.set_item("sequence", sequence)?;
+            dict.set_item("received_ns", received_unix_ns)?;
         }
-        StreamEvent::Gap { missing } => {
+        StreamEvent::Gap {
+            missing,
+            received_unix_ns,
+        } => {
             dict.set_item("type", "gap")?;
             dict.set_item("missing", missing)?;
+            dict.set_item("received_ns", received_unix_ns)?;
         }
         StreamEvent::Skipped {
             channel_id,
@@ -221,8 +238,11 @@ fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyR
 struct QuantusClient {
     inner: RustClient,
     host: String,
-    /// CAN decoders by channel item_id, built at reconcile() from the
-    /// config's per-channel `dbc` files (D14: decoding happens in Rust).
+    /// CAN decoders by DBC path, loaded and validated at construction —
+    /// BEFORE any hardware settings are written (a bad DBC must not leave a
+    /// half-reconciled rack behind).
+    decoders_by_path: HashMap<String, Arc<CanDecoder>>,
+    /// CAN decoders by channel item_id, mapped at reconcile() (D14).
     decoders: Mutex<DecoderMap>,
 }
 
@@ -230,7 +250,7 @@ struct QuantusClient {
 impl QuantusClient {
     /// `config` is a path to a .json/.toml rack file, or inline JSON text.
     #[new]
-    fn new(config: &str) -> PyResult<Self> {
+    fn new(py: Python<'_>, config: &str) -> PyResult<Self> {
         let looks_like_path = !config.trim_start().starts_with('{');
         let rack = if looks_like_path {
             RackConfig::from_path(config)
@@ -247,17 +267,31 @@ impl QuantusClient {
                     "no connection section in the rack config; pass one via the config",
                 )
             })?;
-        let inner = RustClient::connect(rack).map_err(to_py_err)?;
+        let mut decoders_by_path: HashMap<String, Arc<CanDecoder>> = HashMap::new();
+        for module in &rack.modules {
+            for channel in &module.channels {
+                if let Some(dbc) = &channel.dbc
+                    && !decoders_by_path.contains_key(dbc)
+                {
+                    let decoder = CanDecoder::from_path(dbc).map_err(to_py_err)?;
+                    decoders_by_path.insert(dbc.clone(), Arc::new(decoder));
+                }
+            }
+        }
+        let inner = py
+            .allow_threads(|| RustClient::connect(rack))
+            .map_err(to_py_err)?;
         Ok(QuantusClient {
             inner,
             host,
+            decoders_by_path,
             decoders: Mutex::new(HashMap::new()),
         })
     }
 
     /// Write every declared setting, apply once, and return the report
-    /// (achieved rates, alias -> item_id map, epoch impact). Also loads the
-    /// CAN decoders declared via per-channel `dbc` config entries.
+    /// (achieved rates, alias -> item_id map, epoch impact). Also maps the
+    /// construction-time CAN decoders onto the reported channel item ids.
     fn reconcile(&self, py: Python<'_>) -> PyResult<PyObject> {
         let report = py
             .allow_threads(|| self.inner.reconcile())
@@ -265,8 +299,11 @@ impl QuantusClient {
         let mut decoders: DecoderMap = HashMap::new();
         for channel in &report.channels {
             if let Some(dbc) = &channel.dbc {
-                let decoder = CanDecoder::from_path(dbc).map_err(to_py_err)?;
-                decoders.insert(channel.item_id, Arc::new(decoder));
+                let decoder = match self.decoders_by_path.get(dbc) {
+                    Some(decoder) => decoder.clone(),
+                    None => Arc::new(CanDecoder::from_path(dbc).map_err(to_py_err)?),
+                };
+                decoders.insert(channel.item_id, decoder);
             }
         }
         *self.decoders.lock().unwrap() = decoders;
@@ -434,13 +471,19 @@ impl StreamReader {
         dict.set_item("missing_packets", health.missing_packets)?;
         dict.set_item("epoch_restarts", health.epoch_restarts)?;
         dict.set_item("buffer_level", health.buffer_level)?;
+        dict.set_item("transmit_timestamp_s", health.transmit_timestamp_s)?;
         Ok(dict.unbind().into())
     }
 
-    fn close(&self) {
-        if let Some(engine) = self.inner.lock().unwrap().take() {
-            engine.stop();
-        }
+    fn close(&self, py: Python<'_>) {
+        // allow_threads: stop() joins the reader thread; holding the GIL
+        // across that join would freeze every Python thread if the join is
+        // slow (and next_event holds the same mutex for up to its timeout).
+        py.allow_threads(|| {
+            if let Some(engine) = self.inner.lock().unwrap().take() {
+                engine.stop();
+            }
+        });
     }
 }
 

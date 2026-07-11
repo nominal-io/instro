@@ -1,12 +1,12 @@
 """Example: every QuantusDevice capability against a full simulated rack.
 
 The rack is described in rack_full.json (a `connection=` argument can override
-its `connection` section for bench-specific hosts). Covers autostart,
-name-from-config, Nominal Core + CSV file publishers, reconcile report (rate
-snapping), streamed analog / tacho-RPM / DBC-decoded CAN channels (the `dbc`
-entry on the vehicle_bus channel; decoding happens natively), runtime writes
-published as Commands (auto-zero, bridge balance, settings-plane write with
-epoch restart, CAN transmit), and teardown.
+its `connection` section for bench-specific hosts). Covers autostart inside a
+context manager, name-from-config, publishing to Nominal Core, streamed analog
+/ tacho-RPM / DBC-decoded CAN channels (the `dbc` entry on the vehicle_bus
+channel; decoding happens natively), runtime writes published as Commands
+(auto-zero, bridge balance, settings-plane write with epoch restart, CAN
+transmit), and teardown via the `with` block.
 
 Start the simulator first:
 
@@ -20,7 +20,7 @@ from instro.lib.publishers import NominalCorePublisher
 from instro.quantus import QuantusDevice
 
 HERE = Path(__file__).parent
-DATASET_RID = "dataset_rid"  # Replace with your dataset RID.
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 
 # autostart=True: open + reconcile (one declarative pass, applied atomically)
 # + start streaming, all in the constructor.
@@ -42,9 +42,8 @@ with QuantusDevice(
     print(f"shaker_drive amplitude -> 5.0 V (epoch restarted: {restarted})")
     time.sleep(2)
 
-    # ---- spot-check locally before teardown (full stream is in Nominal + CSV) ----
+    # ---- spot-check locally before teardown (the full stream is in Nominal) ----
     for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EngineSpeed"):
         latest = daq.get_channel(channel)
         print(f"{channel}: latest = {latest.channel_data[channel][-1]:.3f}")
-
-    daq.close()
+# The with-block's __exit__ closes the device (daemon, stream, publishers).

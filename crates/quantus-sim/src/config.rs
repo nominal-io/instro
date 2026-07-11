@@ -48,6 +48,10 @@ pub struct SlotConfig {
     pub slot: u32,
     /// Module model name, e.g. "ICS425", "THM427", "MIC42X7", "WSB42X2".
     pub module: String,
+    /// Boot with this operation-mode id instead of the template default
+    /// (simulates state persisted by a previous session, e.g. 0 = Disabled).
+    #[serde(default)]
+    pub boot_mode: Option<i64>,
     /// Per-channel signal definitions; channels not listed default to a
     /// 100 Hz unit sine.
     #[serde(default)]
@@ -60,6 +64,10 @@ pub struct SimChannelConfig {
     pub index: usize,
     #[serde(default)]
     pub signal: SignalConfig,
+    /// Boot with Streaming State already Enabled (simulates a channel left
+    /// streaming by a previous session; settings persist across power cycles).
+    #[serde(default)]
+    pub boot_streaming: bool,
     /// CAN frame playback (CAN channels only): periodic messages this bus
     /// "receives".
     #[serde(default)]

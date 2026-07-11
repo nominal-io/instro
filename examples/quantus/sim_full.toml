@@ -1,6 +1,7 @@
 # Full simulated rack for full_workflow.py: every module family QuantusDevice
 # exercises — mics, thermocouples, strain bridges, tacho, CAN, analog output.
-# Launch (from the quantus repo): cargo run -p quantus-sim -- sim_full.toml
+# Launch (from the instro repo root):
+#   cargo run -p quantus-sim -- examples/quantus/sim_full.toml
 [system]
 chassis = "MicroQ"
 serial = "SIM-FULL"

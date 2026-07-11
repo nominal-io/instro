@@ -147,14 +147,17 @@ Frames are hardware-timestamped on the same clock as analog channels.
 ## 6. Other channel/output types
 
 - **ALO42S4 analog output** (4 ch, ±10 V) — function generator, not a DAC:
-  Operation Mode = Disabled | DC Generator | Sine | Square | Triangular | White
-  Noise | Mirror Left Module. Settings: Signal Connection, Amplitude
-  (-9.999..10 V), Amplitude/Frequency Change Time (ramps), Frequency (0–10 kHz),
-  Offset, Phase, Output Voltage Level (5|12 V aux). Every output change = settings
-  write + apply (heavyweight). No arbitrary-waveform download. `PUT
-  /alo/faultCondition` exists but is undocumented.
-- **Tacho config** (ICT426/ICT42S6/TAC221): Voltage Range 24V|5V, Input Biasing,
-  Coupling, Trigger Polarity, Trigger Level / Arming Level, Trigger On nth Edge
+  Operation Mode = "Disabled" | "DC Generator" | "Sine Wave Generator" |
+  "Square Wave Generator" | "Triangular Wave Generator" | "White Noise
+  Generator" | "Mirror Left Module" (verbatim from ALO42S4Channel.cs).
+  Settings: Signal Connection, Amplitude (-9.999..10 V), Amplitude/Frequency
+  Change Time (ramps), Frequency (0–10 kHz), Offset, Phase, Output Voltage
+  Level ("5 V Out"|"12 V Out"). Every output change = settings write + apply
+  (heavyweight). No arbitrary-waveform download. `PUT /alo/faultCondition`
+  exists but is undocumented.
+- **Tacho config** (ICT426/ICT42S6/TAC221): Voltage Range "2 V"|"12 V"|"30 V"|
+  "60 V" (ICT42S6TachoChannel.cs), Input Biasing, Coupling, Trigger Polarity
+  ("Rising Edge"|"Falling Edge"), Trigger Level / Arming Level, Trigger On nth Edge
   (1–1023).
 - **CAN FD** (CAN42S2, MicroQ built-in, XMC237): modes Disabled | Listen Only |
   Participate; Arbitration Bitrate 50 kHz–1 MHz (10/33 kHz removed), Fast Data
@@ -242,11 +245,14 @@ endpoint path carries a trailing slash.
   MIC42X7 adds Microphone Input=3; ranges 120 mV/1.2 V/12 V; Current Source
   4/8/12 mA=0/1/2. THM427 channel modes Disabled=0, Voltage=1, TC E/J/K/T/U/N=
   2..7, PT100=8; "Temperature SI Unit" Celsius=0/Kelvin=1. WSB42X2 modes
-  Disabled=0, Voltage=1, ICP=2, WSB Voltage Excitation=3, WSB 4-Wire Current=4,
-  WSB 2-Wire Current=5; Bridge Mode Full=0/Half=1/Quarter 120Ω=2/Quarter 350Ω=3.
-  CAN42S2 modes Disabled=0, Listen Only=1, Participate=2. ALO42S4 modes
-  Disabled=0, DC=1, Sine=2, Square=3, Triangular=4, White Noise=5,
-  Mirror Left Module=6.
+  (verbatim, WSB42X2Channel.cs) "Disabled"=0, "Voltage Input"=1, "ICP® Input"=2,
+  "WSB Input: Voltage Excitation"=3, "WSB Input: 4 Wire Current Excitation"=4,
+  "WSB Input: 2 Wire Current Excitation"=5; Bridge Mode Full=0/Half=1/
+  Quarter 120Ω=2/Quarter 350Ω=3. CAN42S2 modes Disabled=0, Listen Only=1,
+  Participate=2. ALO42S4 modes "Disabled"=0, "DC Generator"=1,
+  "Sine Wave Generator"=2, "Square Wave Generator"=3,
+  "Triangular Wave Generator"=4, "White Noise Generator"=5,
+  "Mirror Left Module"=6.
 - **DataIntegrity** adds Reserved=5 and AdcOverload=6 beyond the manual's list.
 
 ## 10. UNKNOWN — close against hardware or QProtocolCSharp

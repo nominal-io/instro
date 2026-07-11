@@ -27,16 +27,23 @@ parser's CAN index bug), Raw 24-bit end-to-end, D12 writes (action-plane:
 auto-zero/bridge-balance; settings-plane: `write_settings` with epoch-impact
 reporting), and the sustained-rate benchmark: 24 ch × 131 kSa/s for 3 s,
 99.4% of nominal, zero gaps. Phase 4 complete incl. ALO42S4 template + settings-plane
-output writes. Phase 5a complete: `quantus-py` wheel (PyO3/abi3, numpy arrays)
-builds via maturin and passes an end-to-end smoke test against the sim
-(reconcile + all stream event types + write_settings from Python). Phase 5b
-drafted: `QuantusDevice(Instrument)` lives on the instro repo's local
-`quantus-device-draft` branch (packages/instro-quantus + tests, 6 passing) —
-not in the uv workspace, no PR; blocked on publishing the quantus wheel.
+output writes. Phase 5 complete: everything moved into the instro repo
+(branch `quantus-device-draft`) mirroring the ethernetip layout —
+`packages/instro-quantus-rs` (root workspace member), `crates/quantus-sim`,
+and `packages/instro-quantus` (maturin, in the uv workspace, `quantus` extra);
+`QuantusDevice(Instrument)` publishes Measurements + Commands, decodes CAN
+natively from per-channel `dbc` config entries (D14), and ships runnable
+examples against the sim. An adversarial multi-agent review (2026-07)
+hardened the stack pre-hardware: idle-tolerant stream reads, deadlock-free
+shutdown, declarative Streaming State with undeclared-channel sweep, module
+op-mode recovery, receive-side timestamp anchoring, DBC CAN-FD/multiplexing
+fixes, vendor-canonical enum strings, strict configs (deny_unknown_fields).
 Config canonical format: JSON (D13). Proceeding on documented educated guesses
-— see [docs/assumptions.md](./docs/assumptions.md); protocol reference incl.
-canonical QProtocolCSharp enum IDs in [docs/api-notes.md](./docs/api-notes.md)
-§9. Next: wheel distribution decision, then Phase 6 (hardware validation).
+— see [docs/assumptions.md](./docs/assumptions.md) (A21–A29 added by the
+review); protocol reference incl. canonical QProtocolCSharp enum IDs in
+[docs/api-notes.md](./docs/api-notes.md) §9. Before a PR: AGENTS.md doc-table
+obligations (README device table, docs/guides page, CI wheel builds) and the
+pyo3 0.24→0.29 upgrade. Next: Phase 6 (hardware validation).
 
 ---
 

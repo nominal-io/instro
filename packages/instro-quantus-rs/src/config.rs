@@ -1,4 +1,4 @@
-//! Rack configuration: the declarative description of how the device should be
+﻿//! Rack configuration: the declarative description of how the device should be
 //! set up. Enum values are given as human-readable descriptions (e.g. mode
 //! "ICP® Input", setting "1 V") and resolved to integer Ids at reconcile time
 //! from the device's SupportedValues (PLAN.md D4).
@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 /// `version` / `protocol` / `device` / `connection`, then the
 /// protocol-specific payload (`system` + `modules`).
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RackConfig {
     #[serde(default = "default_version")]
     pub version: u32,
@@ -39,6 +40,7 @@ fn default_protocol() -> String {
 /// Device metadata, mirroring instro's `DeviceInfo`: `name` is the
 /// channel-name prefix on publish (e.g. `my_rig.mic_inlet`).
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DeviceConfig {
     pub name: String,
     #[serde(default)]
@@ -50,6 +52,7 @@ pub struct DeviceConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConnectionConfig {
     /// Device IP or mDNS name.
     pub host: String,
@@ -63,6 +66,7 @@ fn default_port() -> u16 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SystemConfig {
     /// Master Sampling Rate in Hz (must be one the controller supports).
     pub master_sampling_rate: Option<u32>,
@@ -72,6 +76,7 @@ pub struct SystemConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModuleConfig {
     /// Module model name as reported in the item list, e.g. "ICS425".
     pub name: String,
@@ -79,6 +84,11 @@ pub struct ModuleConfig {
     /// holds several identical modules.
     #[serde(default)]
     pub occurrence: usize,
+    /// Module operation mode description (e.g. "Enabled"). When unset, the
+    /// module is driven to "Enabled" iff this config declares anything for it
+    /// (a previously Disabled module would otherwise be unconfigurable).
+    #[serde(default)]
+    pub mode: Option<String>,
     /// Requested per-module sample rate in Hz; snapped to the nearest
     /// achievable MSR divisor and reported back in the reconcile report.
     #[serde(default)]
@@ -91,6 +101,7 @@ pub struct ModuleConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChannelConfig {
     /// 1-based channel position within the module.
     pub index: usize,
@@ -111,6 +122,13 @@ pub struct ChannelConfig {
     /// Relative paths resolve against the config file's directory.
     #[serde(default)]
     pub dbc: Option<String>,
+    /// Tacho channels: streamed trigger events per shaft revolution, as
+    /// delivered on the wire (default 1.0). Consumers divide by this when
+    /// converting edge intervals to RPM. Prefer the device's "Trigger On nth
+    /// Edge" setting for multi-tooth wheels; if both are used,
+    /// pulses_per_rev = teeth / nth.
+    #[serde(default)]
+    pub pulses_per_rev: Option<f64>,
 }
 
 /// A setting value: an enumeration description ("1 V"), or a raw number for
@@ -259,6 +277,24 @@ mod tests {
             from_json.modules[0].channels[0].alias,
             from_toml.modules[0].channels[0].alias
         );
+    }
+
+    #[test]
+    fn unknown_fields_are_rejected_not_ignored() {
+        // A typo'd field silently ignored would mean a silently unconfigured
+        // rack; the schema forbids extras like the EtherNet/IP config does.
+        let top = r#"{ "device": { "name": "x" }, "moduels": [] }"#;
+        assert!(matches!(
+            RackConfig::from_json_str(top),
+            Err(Error::Config(_))
+        ));
+        let channel = r#"{ "device": { "name": "x" },
+            "modules": [{ "name": "ICS425",
+                          "channels": [{ "index": 1, "streming": true }] }] }"#;
+        assert!(matches!(
+            RackConfig::from_json_str(channel),
+            Err(Error::Config(_))
+        ));
     }
 
     #[test]

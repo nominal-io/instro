@@ -106,6 +106,29 @@ fn parse_modes(modes_json: &Value) -> Result<Vec<OpMode>, String> {
         .collect()
 }
 
+/// Flip a Data array's "Streaming State" entry to its Enabled id.
+fn set_streaming_enabled(data: &mut Value) {
+    let Some(entries) = data.as_array_mut() else {
+        return;
+    };
+    for entry in entries {
+        if entry.get("Name").and_then(Value::as_str) != Some("Streaming State") {
+            continue;
+        }
+        let enabled_id = entry
+            .get("SupportedValues")
+            .and_then(Value::as_array)
+            .and_then(|vs| {
+                vs.iter()
+                    .find(|v| v.get("Description").and_then(Value::as_str) == Some("Enabled"))
+            })
+            .and_then(|v| v.get("Id").cloned());
+        if let Some(id) = enabled_id {
+            entry["Value"] = id;
+        }
+    }
+}
+
 fn item_from_modes(
     item_name: &str,
     item_name_identifier: i64,
@@ -210,16 +233,19 @@ pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
                     .get("OperationModes")
                     .ok_or("template missing OperationModes")?,
             )?,
-            template
-                .get("DefaultOperationMode")
-                .and_then(Value::as_i64)
-                .unwrap_or(1),
+            slot.boot_mode.unwrap_or_else(|| {
+                template
+                    .get("DefaultOperationMode")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(1)
+            }),
             json!([]),
         )?;
         let module_idx = items.len();
         items.push(module);
         items[sc_idx].children.push(module_idx);
 
+        let mut position = 0usize; // 1-based channel index within the module
         for group in template
             .get("Channels")
             .and_then(Value::as_array)
@@ -227,7 +253,8 @@ pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
         {
             let count = group.get("Count").and_then(Value::as_u64).unwrap_or(1);
             for _ in 0..count {
-                let channel = item_from_modes(
+                position += 1;
+                let mut channel = item_from_modes(
                     &slot.module,
                     channel_ident.unwrap_or_else(|| {
                         group
@@ -248,6 +275,13 @@ pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
                         .unwrap_or(1),
                     group.get("Data").cloned().unwrap_or_else(|| json!([])),
                 )?;
+                if slot
+                    .channels
+                    .iter()
+                    .any(|c| c.index == position && c.boot_streaming)
+                {
+                    set_streaming_enabled(&mut channel.data);
+                }
                 let channel_idx = items.len();
                 items.push(channel);
                 items[module_idx].children.push(channel_idx);

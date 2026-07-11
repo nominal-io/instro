@@ -22,10 +22,12 @@
               "Name": "Voltage Range",
               "Type": "Enumeration",
               "SupportedValues": [
-                { "Id": 0, "Description": "5 V", "Numeric": 5.0 },
-                { "Id": 1, "Description": "24 V", "Numeric": 24.0 }
+                { "Id": 0, "Description": "2 V", "Numeric": 2.0 },
+                { "Id": 1, "Description": "12 V", "Numeric": 12.0 },
+                { "Id": 2, "Description": "30 V", "Numeric": 30.0 },
+                { "Id": 3, "Description": "60 V", "Numeric": 60.0 }
               ],
-              "Value": 1
+              "Value": 2
             },
             {
               "Name": "Input Biasing",
@@ -49,8 +51,8 @@
               "Name": "Trigger Polarity",
               "Type": "Enumeration",
               "SupportedValues": [
-                { "Id": 0, "Description": "Rising" },
-                { "Id": 1, "Description": "Falling" }
+                { "Id": 0, "Description": "Rising Edge" },
+                { "Id": 1, "Description": "Falling Edge" }
               ],
               "Value": 0
             },

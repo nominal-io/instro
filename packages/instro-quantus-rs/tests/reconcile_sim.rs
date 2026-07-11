@@ -178,6 +178,102 @@ fn full_reconcile_against_customer_shaped_rack() {
 }
 
 #[test]
+fn reconcile_recovers_disabled_modules_and_clears_persisted_streaming() {
+    // A rack "left behind by a previous session": the module is Disabled and
+    // two channels were left streaming (settings persist across power cycles).
+    let sim_config: quantus_sim::config::SimConfig = toml::from_str(
+        r#"
+        [system]
+        chassis = "MicroQ"
+        serial = "SIM0002"
+        master_sampling_rate = 131072
+
+        [server]
+        rest_port = 0
+        stream_port = 0
+
+        [[slots]]
+        slot = 1
+        module = "ICS425"
+        boot_mode = 0
+
+        [[slots.channels]]
+        index = 2
+        boot_streaming = true
+
+        [[slots.channels]]
+        index = 4
+        boot_streaming = true
+        "#,
+    )
+    .unwrap();
+    let sim = SimServer::start(sim_config).unwrap();
+
+    let rack: RackConfig = toml::from_str(&format!(
+        r#"
+        [device]
+        name = "test_rig"
+
+        [connection]
+        host = "127.0.0.1"
+        port = {}
+
+        [system]
+        master_sampling_rate = 131072
+
+        [[modules]]
+        name = "ICS425"
+        sample_rate_hz = 512.0
+
+        [[modules.channels]]
+        index = 1
+        alias = "wanted"
+        mode = "Voltage Input"
+        streaming = true
+
+        [[modules.channels]]
+        index = 2
+        alias = "explicitly_off"
+        streaming = false
+        "#,
+        sim.rest_port()
+    ))
+    .unwrap();
+
+    let client = QuantusClient::connect(rack).unwrap();
+    let report = client.reconcile().unwrap();
+    assert_eq!(report.channels.len(), 2);
+    assert_eq!(report.channels[0].pulses_per_rev, 1.0);
+
+    let state = sim.state.lock().unwrap();
+    let module = state
+        .items
+        .iter()
+        .find(|i| i.item_name == "ICS425" && i.item_type == "Module")
+        .unwrap();
+    // The Disabled module was recovered (declared content implies Enabled).
+    assert_eq!(module.current_mode, 1);
+    let streaming_value = |offset: usize| {
+        state.items[module.children[offset]]
+            .data
+            .as_array()
+            .unwrap()[0]["Value"]
+            .clone()
+    };
+    assert_eq!(streaming_value(0), 1, "declared streaming=true -> Enabled");
+    assert_eq!(
+        streaming_value(1),
+        0,
+        "declared streaming=false -> Disabled"
+    );
+    assert_eq!(
+        streaming_value(3),
+        0,
+        "undeclared leftover swept to Disabled"
+    );
+}
+
+#[test]
 fn reconcile_is_idempotent_on_second_run() {
     let sim = start_sim();
     let client = QuantusClient::connect(rack_config(sim.rest_port())).unwrap();

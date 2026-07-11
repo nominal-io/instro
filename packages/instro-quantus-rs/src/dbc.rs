@@ -1,13 +1,24 @@
 //! Minimal DBC parser and CAN signal decoder (PLAN.md D14). Parses the
 //! `BO_`/`SG_` subset (Intel/Motorola byte order, signed/unsigned,
-//! factor/offset, simple multiplexing); everything else in the file is
-//! ignored. Physical value = raw * factor + offset.
+//! factor/offset, multiplexing incl. the extended `m<N>M` token); everything
+//! else in the file is ignored. Physical value = raw * factor + offset.
+//!
+//! Frames are matched by 29-bit id (the DBC extended flag is masked off, so a
+//! standard and an extended message with the same number collide — last one
+//! wins; the wire frame_format semantics are unverified pre-hardware).
+//! Signals whose bit span exceeds the received frame's data length are
+//! skipped, never zero-filled.
 
 use crate::error::{Error, Result};
 use std::collections::HashMap;
 
 /// Masks off the extended-frame flag (bit 31) DBC files set on 29-bit ids.
 const CAN_ID_MASK: u32 = 0x1FFF_FFFF;
+
+/// Vector tools park signals not assigned to any real message on this
+/// pseudo-message id; it must never be matched against wire frames (masked it
+/// would collide with CAN id 0).
+const VECTOR_INDEPENDENT_SIG_MSG: u32 = 0xC000_0000;
 
 #[derive(Debug, Clone, PartialEq)]
 enum Mux {
@@ -52,13 +63,21 @@ impl CanDecoder {
 
     pub fn from_dbc_str(text: &str) -> Result<Self> {
         let mut messages: HashMap<u32, MessageSpec> = HashMap::new();
-        let mut current: Option<u32> = None;
+        // None = before any BO_; Some(None) = inside an ignored message
+        // (Vector pseudo-message); Some(Some(key)) = inside a real message.
+        // Non-BO_/SG_ lines (CM_, VAL_, blanks) never end a block: signals
+        // only attach via "SG_ " and other sections are simply skipped.
+        let mut current: Option<Option<u32>> = None;
         for (line_no, line) in text.lines().enumerate() {
             let trimmed = line.trim();
             if let Some(rest) = trimmed.strip_prefix("BO_ ") {
                 let id = parse_message_id(rest).ok_or_else(|| {
                     Error::Config(format!("bad BO_ line {}: {trimmed}", line_no + 1))
                 })?;
+                if id == VECTOR_INDEPENDENT_SIG_MSG {
+                    current = Some(None);
+                    continue;
+                }
                 let key = id & CAN_ID_MASK;
                 messages.insert(
                     key,
@@ -66,13 +85,16 @@ impl CanDecoder {
                         signals: Vec::new(),
                     },
                 );
-                current = Some(key);
+                current = Some(Some(key));
             } else if let Some(rest) = trimmed.strip_prefix("SG_ ") {
-                let Some(key) = current else {
+                let Some(block) = current else {
                     return Err(Error::Config(format!(
                         "SG_ before any BO_ at line {}",
                         line_no + 1
                     )));
+                };
+                let Some(key) = block else {
+                    continue; // signal of an ignored pseudo-message
                 };
                 let signal = parse_signal(rest).ok_or_else(|| {
                     Error::Config(format!("bad SG_ line {}: {trimmed}", line_no + 1))
@@ -82,9 +104,6 @@ impl CanDecoder {
                     .expect("current message exists")
                     .signals
                     .push(signal);
-            } else if !trimmed.is_empty() {
-                // Any other section (CM_, VAL_, ...) ends the message block.
-                current = None;
             }
         }
         if messages.is_empty() {
@@ -97,6 +116,8 @@ impl CanDecoder {
 
     /// Decode one frame to (signal name, physical value) pairs. `None` means
     /// the id is not in the DBC; the caller counts it as an unknown frame.
+    /// A `Some(empty)` means the id is known but no signal fit the received
+    /// data (e.g. a truncated frame).
     pub fn decode(&self, id: u32, data: &[u8]) -> Option<Vec<(String, f64)>> {
         let message = self.messages.get(&(id & CAN_ID_MASK))?;
         let switch = message
@@ -141,7 +162,13 @@ fn parse_signal(rest: &str) -> Option<SignalSpec> {
     let mux = match head_tokens.next() {
         None => Mux::None,
         Some("M") => Mux::Switch,
-        Some(m) => Mux::Value(m.strip_prefix('m')?.parse().ok()?),
+        // "m<N>" plain multiplexed; "m<N>M" (extended multiplexing) is both a
+        // multiplexed signal and a nested switch — treated as plain m<N> here
+        // (nested selections via SG_MUL_VAL_ are not modeled).
+        Some(m) => {
+            let core = m.strip_suffix('M').unwrap_or(m);
+            Mux::Value(core.strip_prefix('m')?.parse().ok()?)
+        }
     };
 
     let mut tail_tokens = tail.split_whitespace();
@@ -180,33 +207,45 @@ fn parse_signal(rest: &str) -> Option<SignalSpec> {
     })
 }
 
-/// Extract the raw (unscaled, unsigned) bits; None when the layout doesn't
-/// fit the frame's data.
+/// Extract the raw (unscaled, unsigned) bits. Works on any frame length
+/// (classic CAN or CAN FD up to 64 bytes). None when the signal's bit span
+/// extends beyond the received data — a short/truncated frame must skip the
+/// signal, not fabricate zeros.
 fn extract_raw(signal: &SignalSpec, data: &[u8]) -> Option<u64> {
-    if data.len() > 8 {
-        return None;
-    }
-    let mut padded = [0u8; 8];
-    for (slot, byte) in padded.iter_mut().zip(data) {
-        *slot = *byte;
-    }
-    let mask = if signal.size == 64 {
-        u64::MAX
-    } else {
-        (1u64 << signal.size) - 1
-    };
+    let size = signal.size as usize;
+    let start = signal.start_bit as usize;
     if signal.little_endian {
-        let value = u64::from_le_bytes(padded);
-        if signal.start_bit + signal.size > 64 {
+        // Intel: start_bit is the LSB position; bit i lives at data[i/8] bit (i%8).
+        if start + size > data.len() * 8 {
             return None;
         }
-        Some((value >> signal.start_bit) & mask)
+        let mut raw = 0u64;
+        for k in 0..size {
+            let bit = start + k;
+            let b = (data[bit / 8] >> (bit % 8)) & 1;
+            raw |= u64::from(b) << k;
+        }
+        Some(raw)
     } else {
-        // Motorola: start_bit is the MSB position in per-byte 7..0 numbering.
-        let value = u64::from_be_bytes(padded);
-        let msb_from_top = (signal.start_bit / 8) * 8 + (7 - signal.start_bit % 8);
-        let shift = 64u32.checked_sub(msb_from_top + signal.size)?;
-        Some((value >> shift) & mask)
+        // Motorola: start_bit is the MSB position in per-byte 7..0 numbering;
+        // the signal walks toward bit 0, then into the next byte's bit 7.
+        let mut byte = start / 8;
+        let mut bit_in_byte = start % 8;
+        let mut raw = 0u64;
+        for _ in 0..size {
+            if byte >= data.len() {
+                return None;
+            }
+            let b = (data[byte] >> bit_in_byte) & 1;
+            raw = (raw << 1) | u64::from(b);
+            if bit_in_byte == 0 {
+                byte += 1;
+                bit_in_byte = 7;
+            } else {
+                bit_in_byte -= 1;
+            }
+        }
+        Some(raw)
     }
 }
 
@@ -284,9 +323,53 @@ BO_ 512 Muxed: 8 ECU
     fn unknown_ids_and_short_frames_are_handled() {
         let decoder = CanDecoder::from_dbc_str(DBC).unwrap();
         assert!(decoder.decode(0x7FF, &[0; 8]).is_none());
-        // Short frame: signals fully inside the padded region still decode (as zeros).
+        // Truncated frame: EngineSpeed spans bytes 3..5, so a 2-byte frame
+        // skips it rather than fabricating a zero reading.
         let values = decoder.decode(0x0CF00400, &[0, 0]).unwrap();
-        assert_eq!(values, vec![("EngineSpeed".to_string(), 0.0)]);
+        assert!(values.is_empty());
+        // VehicleData's byte-0/1 signals still decode from a 2-byte frame.
+        let values = decoder.decode(0x18FF50E5, &[9, 50]).unwrap();
+        assert_eq!(values[0], ("Counter".to_string(), 9.0));
+        assert_eq!(values[1], ("CoolantTemp".to_string(), 10.0));
+    }
+
+    #[test]
+    fn can_fd_frames_decode_beyond_eight_bytes() {
+        let dbc = r#"BO_ 768 FdFrame: 64 ECU
+ SG_ LateSignal : 96|16@1+ (0.01,0) [0|655.35] "" Vector__XXX
+"#;
+        let decoder = CanDecoder::from_dbc_str(dbc).unwrap();
+        let mut data = vec![0u8; 64];
+        data[12] = 0x10; // bits 96.. -> bytes 12..14 little endian
+        data[13] = 0x27; // 0x2710 = 10000 -> 100.0
+        let values = decoder.decode(768, &data).unwrap();
+        assert_eq!(values, vec![("LateSignal".to_string(), 100.0)]);
+    }
+
+    #[test]
+    fn vector_pseudo_message_is_ignored_not_id_zero() {
+        let dbc = r#"BO_ 3221225472 VECTOR__INDEPENDENT_SIG_MSG: 8 Vector__XXX
+ SG_ Orphaned : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 0 RealIdZero: 8 ECU
+ SG_ Actual : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+"#;
+        let decoder = CanDecoder::from_dbc_str(dbc).unwrap();
+        let values = decoder.decode(0, &[42, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert_eq!(values, vec![("Actual".to_string(), 42.0)]);
+    }
+
+    #[test]
+    fn extended_multiplexing_token_and_interleaved_sections_parse() {
+        // m1M (extended mux switch+value) and a CM_ line between signals must
+        // not reject the file; CRLF line endings and tabs are tolerated.
+        let dbc = "BO_ 256 Mixed: 8 ECU\r\n SG_ Sel M : 0|8@1+ (1,0) [0|3] \"\" X\r\nCM_ SG_ 256 Sel \"selector\";\r\n\tSG_ Nested m1M : 8|8@1+ (1,0) [0|255] \"\" X\r\n"
+            .to_string();
+        let decoder = CanDecoder::from_dbc_str(&dbc).unwrap();
+        let values = decoder.decode(256, &[1, 7, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert!(values.contains(&("Nested".to_string(), 7.0)));
+        let values = decoder.decode(256, &[0, 7, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert_eq!(values, vec![("Sel".to_string(), 0.0)]);
     }
 
     #[test]
