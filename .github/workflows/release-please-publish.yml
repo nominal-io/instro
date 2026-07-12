@@ -15,6 +15,7 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -22,6 +23,34 @@ jobs:
           token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
+
+  update-lockfile:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.pr != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+          token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: false
+      - name: Sync uv.lock with released versions
+        run: uv lock
+      - name: Commit and push lockfile if changed
+        run: |
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock already up to date."
+            exit 0
+          fi
+          git config user.name "nominal-bot"
+          git config user.email "nominal-bot@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: sync uv.lock with release-please version bumps"
+          git push
 
   publish-python:
     needs: release-please
