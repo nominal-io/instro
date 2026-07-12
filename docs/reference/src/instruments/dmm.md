@@ -1,5 +1,7 @@
 # DMM (Digital Multimeter)
 
+Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+
 ## Interface
 
 ::: instro.dmm.InstroDMM
@@ -23,5 +25,11 @@
 ### Agilent 34401A
 
 ::: instro.dmm.drivers.agilent_a34401a
+    options:
+      heading_level: 4
+
+### Simulated
+
+::: instro.dmm.drivers.simulated
     options:
       heading_level: 4

@@ -55,7 +55,14 @@
                 ]
               },
               "instrumentation/eload",
-              "instrumentation/dmm",
+              {
+                "group": "Multimeter (DMM)",
+                "expanded": true,
+                "pages": [
+                  "instrumentation/dmm",
+                  "instrumentation/dmm-simulator"
+                ]
+              },
               "instrumentation/daq",
               "instrumentation/oscilloscope"
             ]
@@ -152,7 +159,8 @@
               "instrumentation/examples/publishers/publish_custom",
               "instrumentation/examples/publishers/publish_file",
               "instrumentation/examples/publishers/publish_jsonl",
-              "instrumentation/examples/publishers/publish_queued"
+              "instrumentation/examples/publishers/publish_queued",
+              "instrumentation/examples/publishers/publish_shared"
             ]
           },
           {

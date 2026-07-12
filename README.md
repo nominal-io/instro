@@ -87,16 +87,18 @@ pip install "instro[nidaq,contrib]"
 
 ## Supported devices
 
+<!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
 |---|---|---|
 | Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
-| Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400, Keithley 2750 (unstable) |
+| Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400, Keithley 2750 (unstable), simulated |
 | Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
+<!-- --8<-- [end:supported-devices] -->
 
 Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.

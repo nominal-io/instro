@@ -1,5 +1,7 @@
 # Electronic Load
 
+Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+
 ## Interface
 
 ::: instro.eload.InstroELoad
