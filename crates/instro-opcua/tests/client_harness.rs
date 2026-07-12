@@ -5,13 +5,6 @@ use std::time::Duration;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::bail;
-use instro_opcua_test::FolderSpec;
-use instro_opcua_test::ParentRef;
-use instro_opcua_test::TestNodeId;
-use instro_opcua_test::TestServer;
-use instro_opcua_test::VariableSpec;
-use instro_opcua_test::server::LIFETIME_TIMEOUT;
-use instro_opcua_test::ua;
 use instro_opcua::browse::Browse as _;
 use instro_opcua::browse::BrowseAll as _;
 use instro_opcua::client::OpcUaClient;
@@ -28,6 +21,13 @@ use instro_opcua::types::OpcUaSecurityPolicy;
 use instro_opcua::types::OpcUaSubscriptionConfig;
 use instro_opcua::types::OpcUaUserToken;
 use instro_opcua::types::OpcUaValue;
+use instro_opcua_test::FolderSpec;
+use instro_opcua_test::ParentRef;
+use instro_opcua_test::TestNodeId;
+use instro_opcua_test::TestServer;
+use instro_opcua_test::VariableSpec;
+use instro_opcua_test::server::LIFETIME_TIMEOUT;
+use instro_opcua_test::ua;
 use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {

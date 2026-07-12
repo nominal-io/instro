@@ -3,14 +3,16 @@ name = "instro-opcua"
 version = "0.1.0"
 license = "Apache-2.0"
 description = "Instro OPC UA driver"
-readme = "../../README.md"
+readme = "README.md"
 edition.workspace = true
 rust-version.workspace = true
 authors = ["Carter Canedy <carter.canedy@nominal.io>"]
 keywords = ["opcua", "plc", "automation", "instrumentation", "instro"]
+categories = ["hardware-support", "network-programming"]
 homepage = "https://instro.nominal.io"
 repository = "https://github.com/nominal-io/instro"
-documentation = "https://instro.nominal.io"
+documentation = "https://docs.rs/instro-opcua"
+exclude = ["tests/client_harness.rs"]
 
 [dependencies]
 # workspace

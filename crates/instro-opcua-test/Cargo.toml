@@ -2,6 +2,7 @@
 name = "instro-opcua-test"
 version = "0.1.0"
 license = "Apache-2.0"
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 
