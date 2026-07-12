@@ -27,3 +27,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ::: instro.dmm.drivers.agilent_a34401a
     options:
       heading_level: 4
+
+### Simulated
+
+::: instro.dmm.drivers.simulated
+    options:
+      heading_level: 4

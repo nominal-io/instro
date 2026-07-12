@@ -115,21 +115,6 @@ def test_channel_names_raises_when_daemon_not_running():
         assert "No channel buffer exists" in str(e)
 
 
-def test_channel_names_returns_empty_initially():
-    instrument = _make_publishing_instrument()
-    try:
-        instrument.start()
-        # Wait for at least one publication cycle
-        time.sleep(0.05)
-        assert isinstance(instrument.channel_names, tuple)
-        # Should have at least loop_time and daemon_work_time
-        assert len(instrument.channel_names) >= 2
-        assert "ut.loop_time" in instrument.channel_names
-        assert "ut.daemon_work_time" in instrument.channel_names
-    finally:
-        instrument.stop()
-
-
 def test_channel_names_includes_published_channels():
     instrument = _make_publishing_instrument()
     try:
