@@ -20,17 +20,18 @@ If `just check` and `just test` both pass, CI will pass.
 
 ## Codebase layout
 
-`instro` is a uv workspace. The top-level package is `instro`. Workspace members live under `packages/`.
+The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python package is `instro`, with pure-Python & mixed-Rust/Python workspace members live under `packages/`. All Rust workspace members live in `crates/`. Mixed Rust/Python crates should live in `packages/`.
 
-| Path | What it is |
-|---|---|
-| `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
-| `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
-| `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
-| `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
-| `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
-| `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
-| `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Workspace | Path | What it is |
+|---|---|---|
+| Python/`uv` | `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
+| Python/`uv` | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
+| Python/`uv` | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
+| Python/`uv` | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
+| Python/`uv` | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
+| Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
+| Python/`uv` | `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Rust/`cargo` | `crates/<category>` | Pure-Rust drivers/utilities (e.g. `instro-ethernetip`). Mixed Rust/Python crates with an entrypoint exposed by the `instro` python package should not live here. |
 
 ## Conventions
 
