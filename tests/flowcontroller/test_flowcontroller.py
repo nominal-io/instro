@@ -28,9 +28,12 @@ def _stub_driver() -> MagicMock:
     driver = MagicMock(spec=FlowControllerDriverBase)
     driver.get_flow_data.return_value = mock_flow_data
     driver.set_setpoint.return_value = 50.0
+    driver.select_working_fluid.return_value = "N2"
     type(driver).setpoint = property(lambda self: mock_flow_data[SETPOINT_KEY])
     type(driver).mass_flow = property(lambda self: mock_flow_data[MASS_FLOW_KEY])
     type(driver).volumetric_flow = property(lambda self: mock_flow_data[VOLUMETRIC_FLOW_KEY])
+    type(driver).process_value = property(lambda self: mock_flow_data[MASS_FLOW_KEY])
+    type(driver).process_value_source = property(lambda self: MASS_FLOW_KEY)
     return driver
 
 
@@ -109,11 +112,11 @@ def test_set_setpoint_returns_command() -> None:
     assert cmd.channel_data["ut.setpoint.cmd"] == 50.0
 
 
-def test_select_gas_delegates() -> None:
+def test_select_working_fluid_delegates() -> None:
     driver = _stub_driver()
     fc = InstroFlowController(name="ut", driver=driver)
-    fc.select_gas("N2")
-    driver.select_gas.assert_called_once_with("N2")
+    fc.select_working_fluid("N2")
+    driver.select_working_fluid.assert_called_once_with("N2")
 
 
 def test_tare_flow_delegates() -> None:
@@ -148,3 +151,13 @@ def test_volumetric_flow_returns_measurement() -> None:
     assert m is not None
     assert list(m.channel_data.keys()) == ["ut.vol_flow"]
     assert m.channel_data["ut.vol_flow"] == [pytest.approx(16.6670)]
+
+
+def test_driver_process_value_returns_float() -> None:
+    driver = _stub_driver()
+    assert driver.process_value == pytest.approx(mock_flow_data[MASS_FLOW_KEY])
+
+
+def test_driver_process_value_source_returns_key() -> None:
+    driver = _stub_driver()
+    assert driver.process_value_source == MASS_FLOW_KEY

@@ -84,14 +84,22 @@ def test_get_flow_data_parses_response(alicat: AlicatMC, visa_mock: MagicMock) -
     assert data[SETPOINT_KEY] == pytest.approx(25.0)
 
 
+def test_process_value_returns_mass_flow(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    assert alicat.process_value == pytest.approx(15.4443)
+
+
+def test_process_value_source_is_mass_flow_key(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    assert alicat.process_value_source == MASS_FLOW_KEY
+
+
 def test_set_setpoint_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
     alicat.set_setpoint(50.0)
     visa_mock.query.assert_called_once_with("As50.0")
 
 
-def test_select_gas_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+def test_select_working_fluid_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
     alicat.known_gas_types = [GasTypeEntry(identifier=8, name="N2")]
-    alicat.select_gas("N2")
+    alicat.select_working_fluid("N2")
     visa_mock.query.assert_called_once_with("Ag8")
 
 

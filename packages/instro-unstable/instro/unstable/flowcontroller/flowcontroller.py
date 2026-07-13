@@ -40,8 +40,8 @@ class FlowControllerDriverBase(abc.ABC):
         """Command a new flow setpoint in the device's configured engineering units."""
 
     @abc.abstractmethod
-    def select_gas(self, gas_name: str) -> str:
-        """Select the active gas by name; driver resolves the device-internal number."""
+    def select_working_fluid(self, fluid_name: str) -> str:
+        """Select the active working fluid by name; driver resolves the device-internal identifier."""
 
     @abc.abstractmethod
     def tare_flow(self) -> FlowData:
@@ -61,6 +61,16 @@ class FlowControllerDriverBase(abc.ABC):
     @abc.abstractmethod
     def volumetric_flow(self) -> float:
         """Current volumetric flow reading in the device's configured engineering units."""
+
+    @property
+    @abc.abstractmethod
+    def process_value(self) -> float:
+        """Current process value (feedback measurement). For mass-flow controllers, returns mass_flow; for liquid-flow controllers, returns volumetric_flow."""
+
+    @property
+    @abc.abstractmethod
+    def process_value_source(self) -> str:
+        """Key constant (e.g. MASS_FLOW_KEY, VOLUMETRIC_FLOW_KEY) indicating which measurement from get_flow_data is used as the process value."""
 
 
 class InstroFlowController(Instrument):
@@ -132,14 +142,14 @@ class InstroFlowController(Instrument):
         return self._package_command("setpoint.cmd", setpoint, timestamp, **kwargs)
 
     @publish_command
-    def select_gas(self, gas_name: str, **kwargs) -> Command:
-        """Select the active gas by name."""
-        logger.debug("Sending FlowController select_gas to '%s'", self.name)
+    def select_working_fluid(self, fluid_name: str, **kwargs) -> Command:
+        """Select the active working fluid by name."""
+        logger.debug("Sending FlowController select_working_fluid to '%s'", self.name)
         with self._resource_lock:
-            gas_ret = self._driver.select_gas(gas_name)
+            fluid_ret = self._driver.select_working_fluid(fluid_name)
             timestamp = time.time_ns()
 
-        return self._package_command("gas.cmd", gas_ret, timestamp, **kwargs)
+        return self._package_command("fluid.cmd", fluid_ret, timestamp, **kwargs)
 
     @publish_command
     def tare_flow(self, **kwargs) -> Command:

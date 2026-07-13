@@ -58,8 +58,8 @@ fc = InstroFlowController(name="fc", driver=device, publishers=example_publisher
 
 fc.background_interval = 0.5  # poll the controller for new values every half second.
 fc.open()
-fc.select_gas("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
-fc.select_gas("air")  # Air [case insensitive]
+fc.select_working_fluid("N2")  # Nitrogen #optional for current drivers as system retains prior gas type
+fc.select_working_fluid("air")  # Air [case insensitive]
 fc.tare_flow()  # optional
 flow_data = fc.get_flow_data()  # returns a measurement which is automatically published using the example_publishers
 # it will also be available using the instrument channel buffer ONCE start is called or if you explicitly

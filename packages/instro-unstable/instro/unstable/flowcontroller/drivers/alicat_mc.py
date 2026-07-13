@@ -58,7 +58,7 @@ from pyvisa import VisaIOError
 
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 from instro.unstable.flowcontroller import FlowControllerDriverBase
-from instro.unstable.flowcontroller.types import FlowData
+from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, FlowData
 
 
 class AlicatFlowData(FlowData):
@@ -281,7 +281,7 @@ class AlicatMC(FlowControllerDriverBase):
         gas_types_list = deepcopy(self.known_gas_types)  # since we cache this, don't give users access to the real list
         return gas_types_list
 
-    def select_gas(self, gas_name: str) -> str:
+    def _select_gas(self, gas_name: str) -> str:
         """Select the active gas by name and return the confirmed gas name."""
         if not self.known_gas_types:
             self.list_gas_types()
@@ -297,6 +297,10 @@ class AlicatMC(FlowControllerDriverBase):
             )
         response = self._query_checked(f"{self.unit_id}g{gas_number}")
         return self._parse_flowdata(response).gas
+
+    def select_working_fluid(self, fluid_name: str) -> str:
+        """Select the active working fluid (gas) by name and return the confirmed fluid name."""
+        return self._select_gas(fluid_name)
 
     def define_gas_mixture(self, mix_name: str, mixture: list[GasMixEntry], gas_id: int = 0) -> GasTypeEntry:
         """Allows defining an arbitrary gas mixture of 2-5 components.
@@ -349,6 +353,16 @@ class AlicatMC(FlowControllerDriverBase):
     def volumetric_flow(self) -> float:
         """Current volumetric flow reading in the device's configured engineering units."""
         return self._get_flow_data().vol_flow
+
+    @property
+    def process_value(self) -> float:
+        """Current process value (mass flow, since this is a mass-flow controller)."""
+        return self._get_flow_data().mass_flow
+
+    @property
+    def process_value_source(self) -> str:
+        """Key constant for the process value measurement (MASS_FLOW_KEY for this mass-flow controller)."""
+        return MASS_FLOW_KEY
 
     def get_flow_sample_metadata(self, refresh=False) -> list[MeasurementHeaderEntry]:
         """Return measurement field descriptors; cached after first call unless refresh=True."""
