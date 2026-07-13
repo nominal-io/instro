@@ -38,6 +38,13 @@ _IDN_MAP = {
     ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800"),
     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303"),
     ("B&K PRECISION", "BK85"): ("eload", "BK85XXB"),
+    ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X"),
+    ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X"),
+    ("TEKTRONIX", "MSO22"): ("scope", "Tektronix2SeriesMSO"),
+    ("TEKTRONIX", "MSO24"): ("scope", "Tektronix2SeriesMSO"),
+    ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE"),
+    ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE"),
+    ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE"),
 }
 
 

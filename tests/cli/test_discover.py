@@ -118,6 +118,20 @@ def test_discover_mixed_bench():
     assert "UNRECOGNIZED" in result.output
 
 
+def test_discover_recognizes_scope():
+    mock_rm = _rm_mock(("USB0::0xF4EC::0xEE38::INSTR",))
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
+                mock_lp.comports.return_value = []
+                mock_driver_cls.return_value.query.return_value = "Siglent Technologies,SDS1104X-E,SN,1.0"
+                result = runner.invoke(app, ["discover"])
+    assert result.exit_code == 0
+    assert "RECOGNIZED" in result.output
+    assert "SiglentSDS1000XE" in result.output
+    assert "scope" in result.output
+
+
 def test_discover_failed_probe():
     mock_rm = _rm_mock(("USB0::0x1234::INSTR",))
     with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
