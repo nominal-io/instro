@@ -16,21 +16,22 @@ uv build --package <name>        # build a wheel for a workspace package
 
 If `just check` and `just test` both pass, CI will pass.
 
-`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `instro-opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
 
 ## Codebase layout
 
-`instro` is a uv workspace. The top-level package is `instro`. Workspace members live under `packages/`.
+The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python package is `instro`, with pure-Python & mixed-Rust/Python workspace members live under `packages/`. All Rust workspace members live in `crates/`. Mixed Rust/Python crates should live in `packages/`.
 
-| Path | What it is |
-|---|---|
-| `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
-| `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
-| `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
-| `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
-| `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
-| `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
-| `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Workspace | Path | What it is |
+|---|---|---|
+| Python/`uv` | `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
+| Python/`uv` | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
+| Python/`uv` | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
+| Python/`uv` | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
+| Python/`uv` | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
+| Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
+| Python/`uv` | `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Rust/`cargo` | `crates/<category>` | Pure-Rust drivers/utilities (e.g. `instro-ethernetip`). Mixed Rust/Python crates with an entrypoint exposed by the `instro` python package should not live here. |
 
 ## Conventions
 
@@ -40,7 +41,7 @@ If `just check` and `just test` both pass, CI will pass.
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
-- **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) should usually add regression coverage or explain why no new test is practical.
+- **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
@@ -85,6 +86,18 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 `CHANGELOG.md` is generated by release-please from Conventional Commits. Don't hand-edit it. Subdirectory `AGENTS.md` files (e.g. `docs/guides/AGENTS.md`) carry their own style rules for the docs they govern.
 
 `uv.lock` is generated for the entire Python workspace; don't edit it by hand. Run `uv lock` after changing project metadata and commit the result. Generated release-please PRs refresh it automatically, and CI verifies it with `uv lock --check`.
+
+## Rust crate releases
+
+Pure-Rust crates under `crates/` that are published to crates.io are independent release-please components with `release-type: rust`. Do not add them to the legacy top-level `groups` block; that block is unsupported release-please config and should not be extended.
+
+Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags. The OPC UA crate uses `instro-opcua-rs` for the same Rust-crate tag convention.
+
+For an initial stable release such as `0.1.0`, set `initial-version` in `.github/release-please-config.json` and let the generated release PR add the new path to `.github/release-please-manifest.json`. Pre-seeding the manifest with `0.1.0` tells release-please that `0.1.0` has already shipped.
+
+Crates are published from `.github/workflows/release-please-publish.yml` with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`), not a stored `CARGO_REGISTRY_TOKEN`. The crate must already exist on crates.io and have a trusted publisher configured for this repository and workflow file.
+
+If a Rust core crate backs a Python package, release coupling is manual. A release of `crates/instro-ethernetip` will not automatically cause a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when both artifacts should ship.
 
 ## Patterns and constraints
 

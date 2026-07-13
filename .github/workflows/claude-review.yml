@@ -11,11 +11,15 @@ on:
     # skip every PR opened directly in a ready-for-review state.
     types: [opened, ready_for_review]
     branches: ["main"]
+  # On-demand review when someone comments `@claude review` on a PR. The job
+  # guard below restricts this path to trusted associations and PR comments.
+  issue_comment:
+    types: [created]
 
 # Serialize reviews per PR; don't cancel in-flight runs (they may have
 # half-posted tracking comments).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -25,8 +29,13 @@ jobs:
     # anyone opening a flood of hostile PRs) live on fork head repos and never trigger
     # this job -> no API spend and no secret exposure to untrusted code.
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        startsWith(github.event.comment.body, '@claude review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +47,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          # issue_comment events check out the default branch by default, not the PR head,
+          # so pin the PR head ref explicitly for that path. The pull_request path already
+          # resolves to the PR head.
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
           # Full history so the granted git tools (git diff/log/show) can diff against the PR
           # base ref; a depth-1 shallow checkout only contains the head commit. `gh pr diff`
           # works either way (it uses the API), but local git range commands need this.
@@ -70,7 +83,7 @@ jobs:
 
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
             Review this pull request by running /code-review --comment. These checks layer on top of
             the plugin's defaults; also follow the repo's AGENTS.md and CONTRIBUTING.md conventions.

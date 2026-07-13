@@ -13,12 +13,12 @@
 //! # Example
 //!
 //! ```no_run
-//! use opcua_test::Access;
-//! use opcua_test::TestNodeId;
-//! use opcua_test::TestServer;
-//! use opcua_test::ValueSource;
-//! use opcua_test::VariableSpec;
-//! use opcua_test::ua;
+//! use instro_opcua_test::Access;
+//! use instro_opcua_test::TestNodeId;
+//! use instro_opcua_test::TestServer;
+//! use instro_opcua_test::ValueSource;
+//! use instro_opcua_test::VariableSpec;
+//! use instro_opcua_test::ua;
 //!
 //! let server = TestServer::builder()
 //!     .variable(
