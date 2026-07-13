@@ -22,5 +22,5 @@ instro = { workspace = true }
 
 [tool.maturin]
 bindings = "pyo3"
-module-name = "instro.quantus._quantus"
+module-name = "instro.unstable.quantus._quantus"
 python-source = "."

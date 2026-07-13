@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 from instro.lib.publishers import NominalCorePublisher
-from instro.quantus import QuantusDevice
+from instro.unstable.quantus import QuantusDevice
 
 HERE = Path(__file__).parent
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

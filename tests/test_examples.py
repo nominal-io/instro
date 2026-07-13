@@ -30,7 +30,7 @@ class _QuantusConfigValidator:
 
     @classmethod
     def from_json(cls, config_path: Path) -> _QuantusConfigValidator:
-        import instro.quantus._quantus as _quantus
+        import instro.unstable.quantus._quantus as _quantus
 
         _quantus.validate_config(str(config_path))
         return cls()

@@ -64,14 +64,14 @@ class CapturePublisher:
 
 @pytest.fixture()
 def fake_quantus(monkeypatch):
-    module = types.ModuleType("instro.quantus._quantus")
+    module = types.ModuleType("instro.unstable.quantus._quantus")
     module.QuantusClient = FakeClient
-    monkeypatch.setitem(sys.modules, "instro.quantus._quantus", module)
+    monkeypatch.setitem(sys.modules, "instro.unstable.quantus._quantus", module)
     return module
 
 
 def make_device(publisher):
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     device = QuantusDevice(config={"connection": {"host": "x"}}, name="q", publishers=[publisher])
     device.open()
@@ -79,7 +79,7 @@ def make_device(publisher):
 
 
 def test_name_falls_back_to_config_device_name(fake_quantus):
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     device = QuantusDevice(config={"connection": {"host": "x"}, "device": {"name": "rig7"}})
     assert device.name == "rig7"
@@ -92,7 +92,7 @@ def test_name_falls_back_to_config_device_name(fake_quantus):
 def test_connection_override_merges_into_config(fake_quantus):
     import json
 
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     device = QuantusDevice(
         config={"connection": {"host": "old", "port": 9000}},
@@ -104,7 +104,7 @@ def test_connection_override_merges_into_config(fake_quantus):
 
 
 def test_missing_connection_is_a_value_error(fake_quantus):
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     with pytest.raises(ValueError, match="connection"):
         QuantusDevice(config={"modules": []})
@@ -114,7 +114,7 @@ def test_missing_connection_is_a_value_error(fake_quantus):
 
 
 def test_autostart_opens_reconciles_and_starts(fake_quantus):
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     device = QuantusDevice(
         config={"connection": {"host": "x"}},
@@ -289,7 +289,7 @@ def test_raw_can_frames_without_dbc_only_count_as_unknown(fake_quantus):
 def test_relative_dbc_paths_resolve_against_the_config_file(fake_quantus, tmp_path):
     import json
 
-    from instro.quantus import QuantusDevice
+    from instro.unstable.quantus import QuantusDevice
 
     config_path = tmp_path / "rack.json"
     config_path.write_text(

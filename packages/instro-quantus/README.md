@@ -5,6 +5,9 @@ Mecalc QuantusSeries DAQ mainframe support for instro: a config-driven
 `_quantus` module (PyO3 over `instro-quantus-rs`: REST configuration engine +
 binary stream engine that drains the device socket outside the GIL).
 
+The API isn't settled yet, so it ships under the `instro.unstable` namespace
+(alongside `instro-unstable`); it moves to `instro.quantus` when it stabilizes.
+
 Structure mirrors `instro-ethernetip`:
 
 - `packages/instro-quantus-rs` — reusable pure-Rust client crate (root Cargo
@@ -15,7 +18,7 @@ Structure mirrors `instro-ethernetip`:
   `examples/quantus/` (root workspace member; `cargo run -p quantus-sim`)
 
 ```python
-from instro.quantus import QuantusDevice
+from instro.unstable.quantus import QuantusDevice
 
 daq = QuantusDevice(
     config="rack.json",  # or a dict; JSON canonical

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from instro.quantus._quantus import QuantusClient, StreamReader
+    from instro.unstable.quantus._quantus import QuantusClient, StreamReader
 
 from instro.lib import Command, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
@@ -157,7 +157,7 @@ class QuantusDevice(Instrument):
             return
         # Deferred: the private PyO3 module is loaded at first use, like
         # instro.ethernetip._ethernetip.
-        import instro.quantus._quantus as _quantus
+        import instro.unstable.quantus._quantus as _quantus
 
         logger.info("Opening QuantusDevice '%s'", self.name)
         self._client = _quantus.QuantusClient(self._config_text)

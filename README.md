@@ -74,7 +74,7 @@ Instro drivers that require a separate vendor sdk installation ship as separate 
 | `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc&color=419B55)](https://pypi.org/project/instro-daq-mcc/) |
 | `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark&color=419B55)](https://pypi.org/project/instro-i2c-aardvark/) |
 | `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip&color=419B55)](https://pypi.org/project/instro-ethernetip/) |
-| `instro[quantus]` | Mecalc QuantusSeries DAQ mainframes | instro-quantus (unreleased) |
+| `instro[quantus]` | Mecalc QuantusSeries DAQ mainframes (unstable, under `instro.unstable.quantus`) | instro-quantus (unreleased) |
 | `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
 | `instro[unstable]` | In-development features whose API isn't settled | [![PyPI](https://img.shields.io/pypi/v/instro-unstable.svg?label=instro-unstable&color=419B55)](https://pypi.org/project/instro-unstable/) |
 | `instro[all]` | Everything above | — |
@@ -99,7 +99,7 @@ pip install "instro[nidaq,contrib]"
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
-| Quantus | `QuantusDevice` | Mecalc QuantusSeries mainframes (MicroQ, DecaQ, PQ-series) |
+| Quantus | `QuantusDevice` | Mecalc QuantusSeries mainframes (MicroQ, DecaQ, PQ-series) (unstable) |
 <!-- --8<-- [end:supported-devices] -->
 
 Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).

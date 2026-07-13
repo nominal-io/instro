@@ -8,7 +8,7 @@ The rack is described in rack_simple.json. Start the simulator first:
 import time
 from pathlib import Path
 
-from instro.quantus import QuantusDevice
+from instro.unstable.quantus import QuantusDevice
 
 CONFIG_PATH = Path(__file__).parent / "rack_simple.json"
 
