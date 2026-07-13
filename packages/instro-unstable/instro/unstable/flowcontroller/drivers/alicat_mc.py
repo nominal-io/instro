@@ -58,7 +58,15 @@ from pyvisa import VisaIOError
 
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 from instro.unstable.flowcontroller import FlowControllerDriverBase
-from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, PRESSURE_KEY, MassFlowData
+from instro.unstable.flowcontroller.drivers.alicat_constants import (
+    _LOOP_VAR_TO_KEY,
+    LOOP_VARIABLE_ABS_PRESSURE,
+    LOOP_VARIABLE_GAUGE_PRESSURE,
+    LOOP_VARIABLE_MASS_FLOW,
+    LOOP_VARIABLE_VOL_FLOW,
+    LoopVariable,
+)
+from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, MassFlowData
 
 
 class AlicatMCFlowData(MassFlowData):
@@ -202,6 +210,8 @@ class AlicatMC(FlowControllerDriverBase):
     _visa: VisaDriver
     known_gas_types: list[GasTypeEntry]
     measurement_headings: list[MeasurementHeaderEntry]
+    _cached_loop_variable: LoopVariable | None
+    _cached_loop_variable_key: str | None
 
     def __init__(self, visa_resource: str | VisaConfig, device_id: str = "A") -> None:
         self.unit_id = device_id
@@ -210,6 +220,8 @@ class AlicatMC(FlowControllerDriverBase):
         self._visa = VisaDriver(visa_resource)
         self.known_gas_types = []
         self.measurement_headings = []
+        self._cached_loop_variable = None
+        self._cached_loop_variable_key = None
 
     def open(self) -> None:
         """Open the VISA transport."""
@@ -302,6 +314,42 @@ class AlicatMC(FlowControllerDriverBase):
         """Select the active working fluid (gas) by name and return the confirmed fluid name."""
         return self._select_gas(fluid_name)
 
+    def _query_loop_variable(self) -> None:
+        """Query the device for its current loop control variable (process value source) and cache it."""
+        response = self._query_checked(f"{self.unit_id}LR{LOOP_VARIABLE_MASS_FLOW}")
+        fields = response.split()
+        if len(fields) < 3:
+            raise RuntimeError(f"AlicatMC: short response from loop variable query {self.unit_id!r}: {response!r}")
+        try:
+            loop_var_code = int(fields[1])
+            loop_var = LoopVariable(loop_var_code)
+            self._cached_loop_variable = loop_var
+            self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_var]
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Unknown loop variable code {fields[1]}: {e}")
+
+    def set_loop_control_variable(self, loop_variable: LoopVariable) -> float:
+        """Set the loop control variable (process value source) and update the cache.
+
+        Args:
+            loop_variable: The loop variable (e.g. LoopVariable.MASS_FLOW, LoopVariable.VOLUMETRIC_FLOW).
+
+        Returns:
+            The confirmed setpoint value from the device.
+        """
+        if loop_variable not in _LOOP_VAR_TO_KEY:
+            raise ValueError(
+                f"Unknown loop variable code: {loop_variable}. Valid codes: {list(_LOOP_VAR_TO_KEY.keys())}"
+            )
+        response = self._query_checked(f"{self.unit_id}LV{loop_variable}")
+        fields = response.split()
+        if len(fields) < 3:
+            raise RuntimeError(f"AlicatMC: short response from loop variable set {self.unit_id!r}: {response!r}")
+        setpoint = float(fields[2])
+        self._cached_loop_variable = loop_variable
+        self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_variable]
+        return setpoint
+
     def define_gas_mixture(self, mix_name: str, mixture: list[GasMixEntry], gas_id: int = 0) -> GasTypeEntry:
         """Allows defining an arbitrary gas mixture of 2-5 components.
 
@@ -361,13 +409,25 @@ class AlicatMC(FlowControllerDriverBase):
 
     @property
     def process_value(self) -> float:
-        """Current process value (mass flow, since this is a mass-flow controller)."""
-        return self._get_flow_data().mass_flow
+        """Current process value. Returns the measurement corresponding to the device's loop control variable."""
+        if self._cached_loop_variable is None:
+            self._query_loop_variable()
+        sample = self._get_flow_data()
+        if self._cached_loop_variable == LOOP_VARIABLE_MASS_FLOW:
+            return sample.mass_flow
+        elif self._cached_loop_variable == LOOP_VARIABLE_VOL_FLOW:
+            return sample.vol_flow
+        elif self._cached_loop_variable in (LOOP_VARIABLE_ABS_PRESSURE, LOOP_VARIABLE_GAUGE_PRESSURE):
+            return sample.pressure
+        else:
+            return sample.mass_flow  # fallback to mass_flow if unknown
 
     @property
     def process_value_source(self) -> str:
-        """Key constant for the process value measurement (MASS_FLOW_KEY for this mass-flow controller)."""
-        return MASS_FLOW_KEY
+        """Key constant for the process value measurement. Determined by the device's loop control variable."""
+        if self._cached_loop_variable is None:
+            self._query_loop_variable()
+        return self._cached_loop_variable_key or MASS_FLOW_KEY
 
     def get_flow_sample_metadata(self, refresh=False) -> list[MeasurementHeaderEntry]:
         """Return measurement field descriptors; cached after first call unless refresh=True."""
