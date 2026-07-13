@@ -50,27 +50,32 @@ class FlowControllerDriverBase(abc.ABC):
     @property
     @abc.abstractmethod
     def setpoint(self) -> float:
-        """Current setpoint in the device's configured engineering units."""
+        """Current setpoint in the device's configured engineering units. Required for all controller types."""
 
     @property
-    @abc.abstractmethod
     def mass_flow(self) -> float:
-        """Current mass flow reading in the device's configured engineering units."""
+        """Current mass flow reading. Raises NotImplementedError if controller does not measure mass flow."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not measure mass flow")
 
     @property
-    @abc.abstractmethod
     def volumetric_flow(self) -> float:
-        """Current volumetric flow reading in the device's configured engineering units."""
+        """Current volumetric flow reading. Raises NotImplementedError if controller does not measure volumetric flow."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not measure volumetric flow")
+
+    @property
+    def pressure(self) -> float:
+        """Current pressure reading. Raises NotImplementedError if controller does not measure pressure."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not measure pressure")
 
     @property
     @abc.abstractmethod
     def process_value(self) -> float:
-        """Current process value (feedback measurement). For mass-flow controllers, returns mass_flow; for liquid-flow controllers, returns volumetric_flow."""
+        """Current process value (primary feedback measurement for control). Each controller variant returns its primary measured value."""
 
     @property
     @abc.abstractmethod
     def process_value_source(self) -> str:
-        """Key constant (e.g. MASS_FLOW_KEY, VOLUMETRIC_FLOW_KEY) indicating which measurement from get_flow_data is used as the process value."""
+        """Key constant (e.g. MASS_FLOW_KEY, VOLUMETRIC_FLOW_KEY, PRESSURE_KEY) indicating which measurement is the process value."""
 
 
 class InstroFlowController(Instrument):
@@ -196,6 +201,24 @@ class InstroFlowController(Instrument):
 
         return Measurement(
             channel_data={f"{self.name}.{VOLUMETRIC_FLOW_KEY}": [value]},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
+
+    @publish_measurement
+    def get_process_value(self, **kwargs) -> Measurement | None:
+        """Read the current process value (primary feedback measurement for control).
+
+        The key used in the channel name is determined by the driver's process_value_source property.
+        For mass-flow controllers this is mass_flow; for liquid-flow controllers, volumetric_flow; etc.
+        """
+        with self._resource_lock:
+            value = self._driver.process_value
+            key = self._driver.process_value_source
+            timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{key}": [value]},
             timestamps=[timestamp],
             tags={**self.default_tags, **kwargs},
         )

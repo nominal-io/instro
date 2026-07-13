@@ -19,11 +19,28 @@ TEMPERATURE_KEY: Final[Literal["temperature"]] = "temperature"
 
 
 class FlowData(TypedDict):
-    """Standard flow-controller measurement frame."""
+    """Base flow-controller measurement frame. All controllers measure setpoint and pressure."""
 
     setpoint: float
+    pressure: float
+
+
+class MassFlowData(FlowData):
+    """Mass-flow controller measurement frame (e.g. Alicat MC-series). Adds flow and temperature measurements."""
+
     mass_flow: float
     vol_flow: float
-    # not required
-    pressure: NotRequired[float]
     temperature: NotRequired[float]
+
+
+class LiquidFlowData(FlowData):
+    """Liquid-flow controller measurement frame. Adds volumetric flow (but not mass flow)."""
+
+    vol_flow: float
+    temperature: NotRequired[float]
+
+
+class PressureData(FlowData):
+    """Gauge-pressure controller measurement frame. Only setpoint and pressure (from base)."""
+
+    pass

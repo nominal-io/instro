@@ -58,11 +58,11 @@ from pyvisa import VisaIOError
 
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 from instro.unstable.flowcontroller import FlowControllerDriverBase
-from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, FlowData
+from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, PRESSURE_KEY, MassFlowData
 
 
-class AlicatFlowData(FlowData):
-    """FlowData extended with the Alicat-specific gas field."""
+class AlicatMCFlowData(MassFlowData):
+    """MassFlowData extended with the Alicat MC-specific gas field."""
 
     gas: str
 
@@ -175,9 +175,9 @@ class AlicatFlowSample:
     setpoint: float
     gas: str
 
-    def to_flow_data(self) -> AlicatFlowData:
-        """Serialize to the Alicat-extended FlowData dict."""
-        return AlicatFlowData(
+    def to_flow_data(self) -> AlicatMCFlowData:
+        """Serialize to the Alicat MC-extended MassFlowData dict."""
+        return AlicatMCFlowData(
             pressure=self.pressure,
             temperature=self.temperature,
             vol_flow=self.vol_flow,
@@ -227,7 +227,7 @@ class AlicatMC(FlowControllerDriverBase):
         return response
 
     ###TARE
-    def tare_flow(self) -> FlowData:
+    def tare_flow(self) -> AlicatMCFlowData:
         """Zero the flow reading; device must have zero flow and must support tare."""
         try:
             response = self._query_checked(f"{self.unit_id}v")
@@ -237,7 +237,7 @@ class AlicatMC(FlowControllerDriverBase):
             )
         return self._parse_flowdata(response).to_flow_data()
 
-    def tare_barometer(self) -> FlowData:
+    def tare_barometer(self) -> AlicatMCFlowData:  # type: ignore[override]
         """Zero the barometer reading; device must support barometer tare."""
         try:
             response = self._query_checked(f"{self.unit_id}pc")
@@ -335,7 +335,7 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(self.unit_id)
         return self._parse_flowdata(response)
 
-    def get_flow_data(self) -> AlicatFlowData:
+    def get_flow_data(self) -> AlicatMCFlowData:
         """Poll the device for a single measurement frame."""
         return self._get_flow_data().to_flow_data()
 
@@ -353,6 +353,11 @@ class AlicatMC(FlowControllerDriverBase):
     def volumetric_flow(self) -> float:
         """Current volumetric flow reading in the device's configured engineering units."""
         return self._get_flow_data().vol_flow
+
+    @property
+    def pressure(self) -> float:
+        """Current absolute pressure reading in the device's configured engineering units."""
+        return self._get_flow_data().pressure
 
     @property
     def process_value(self) -> float:
@@ -417,7 +422,7 @@ class AlicatMC(FlowControllerDriverBase):
         return self._parse_flowdata(response).setpoint
 
     ###Hold commands
-    def hold_valve_at_position(self) -> FlowData:
+    def hold_valve_at_position(self) -> AlicatMCFlowData:  # type: ignore[override]
         """Hold the valve at its current position.
 
         Use `cancel_valve_hold` to remove the hold.
@@ -425,7 +430,7 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(f"{self.unit_id}hp")
         return self._parse_flowdata(response).to_flow_data()
 
-    def hold_valve_closed(self) -> FlowData:
+    def hold_valve_closed(self) -> AlicatMCFlowData:  # type: ignore[override]
         """Hold the valve closed.
 
         Use `cancel_valve_hold` to remove the hold.
@@ -433,7 +438,7 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(f"{self.unit_id}hc")
         return self._parse_flowdata(response).to_flow_data()
 
-    def cancel_valve_hold(self) -> FlowData:
+    def cancel_valve_hold(self) -> AlicatMCFlowData:  # type: ignore[override]
         """Release any active valve hold and return to normal setpoint control."""
         response = self._query_checked(f"{self.unit_id}c")
         return self._parse_flowdata(response).to_flow_data()

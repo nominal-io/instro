@@ -161,3 +161,12 @@ def test_driver_process_value_returns_float() -> None:
 def test_driver_process_value_source_returns_key() -> None:
     driver = _stub_driver()
     assert driver.process_value_source == MASS_FLOW_KEY
+
+
+def test_get_process_value_returns_measurement() -> None:
+    driver = _stub_driver()
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_process_value()
+    assert m is not None
+    assert list(m.channel_data.keys()) == ["ut.mass_flow"]
+    assert m.channel_data["ut.mass_flow"] == [pytest.approx(15.4443)]

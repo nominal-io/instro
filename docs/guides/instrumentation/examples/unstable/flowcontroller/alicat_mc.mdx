@@ -48,11 +48,11 @@ gastypes = device.list_gas_types()
 print(f"Found {len(gastypes)}, printing first: {gastypes[:5]}")
 gas_type = "h2"
 print(f"Setting alicat to {gas_type}")
-gas_type_ret = device.select_gas(gas_type)
+gas_type_ret = device.select_working_fluid(gas_type)
 print(f"Set alicat to {gas_type_ret}")
 gas_type = "air"
 print(f"Setting alicat to {gas_type}")
-gas_type_ret = device.select_gas(gas_type)
+gas_type_ret = device.select_working_fluid(gas_type)
 print(f"Set alicat to {gas_type_ret}")
 
 gas_mix_name = "tstmix"
