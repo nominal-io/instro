@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.0.0...instro-unstable-v1.1.0) (2026-07-07)
+
+
+### Features
+
+* **dmm:** add Keithley 2750 DMM driver (unstable) ([#237](https://github.com/nominal-io/instro/issues/237)) ([ff01368](https://github.com/nominal-io/instro/commit/ff013685d879c6c8e2105d7c3048abf8d79e7121)), closes [#193](https://github.com/nominal-io/instro/issues/193)
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-unstable-v0.4.0...instro-unstable-v1.0.0) (2026-07-02)
 
 

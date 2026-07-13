@@ -335,6 +335,23 @@ class Instrument:
 
         return None
 
+    @property
+    def channel_names(self) -> tuple[str, ...]:
+        """Return an insertion-ordered snapshot of all published channel names.
+
+        Names are complete after one full daemon iteration: {name}.loop_time publishes
+        every iteration, so call get_channel("loop_time", wait_for_new_samples=True)
+        then read channel_names to ensure the complete set has arrived.
+
+        Raises:
+            RuntimeError: No background buffer; ``start()`` was not called.
+        """
+        if self._background_thread and self._background_thread.is_alive():
+            assert self._channel_buffer
+            return self._channel_buffer.channel_names
+
+        raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
+
     def _background_daemon_loop(self):
         """Daemon loop: run registered functions every ``background_interval``, publish loop timing."""
         while not self._background_stop_event.is_set():

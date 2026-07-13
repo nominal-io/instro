@@ -1,6 +1,14 @@
-# ⟢ instro
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./res/logo/instro-logo-ascii-white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./res/logo/instro-logo-ascii-black.svg">
+  <img width="512" alt="Nominal Instro SDK Logo" src="./res/logo/instro-logo-ascii-black.svg">
+</picture>
+</div>
 
-Python library for talking to test-and-measurement instruments (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
+<br>
+
+Python library for talking to test instrumentation (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
 [![Downloads](https://img.shields.io/pepy/dt/instro?color=419B55&label=downloads)](https://pypi.org/project/instro/)
@@ -14,7 +22,7 @@ Talk to a simulated PSU. No hardware required.
 
 ```bash
 # Terminal 1: start the in-process SCPI sim server:
-uv run python -m instro.psu.scpi_sim_server
+python -m instro.psu.scpi_sim_server
 ```
 
 ```python
@@ -32,7 +40,7 @@ with InstroPSU(
     print(psu.get_voltage(channel=1))
 ```
 
-That's the whole loop: construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
+That's the flow. Construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
 
 ## Installation
 
@@ -50,7 +58,8 @@ cd instro
 uv sync --extra all
 ```
 
-This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
+This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. 
+Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
 For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies that `just test` requires), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
 
@@ -78,18 +87,20 @@ pip install "instro[nidaq,contrib]"
 
 ## Supported devices
 
+<!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
 |---|---|---|
 | Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
-| Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400 |
+| Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400, Keithley 2750 (unstable), simulated |
 | Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
+<!-- --8<-- [end:supported-devices] -->
 
-Don't see your vendor? Drivers the maintainers can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
+Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
 Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing

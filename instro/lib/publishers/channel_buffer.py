@@ -183,6 +183,17 @@ class ChannelBufferPublisher(ABC):
             self._total_added_count.clear()
 
     @property
+    def channel_names(self) -> tuple[str, ...]:
+        """Return an insertion-ordered snapshot of all channel names currently in the buffer.
+
+        Names are complete after one full daemon iteration: {name}.loop_time publishes
+        every iteration, so call get_channel("loop_time", wait_for_new_samples=True)
+        then read channel_names to ensure the complete set has arrived.
+        """
+        with self._condition:
+            return tuple(self._values)
+
+    @property
     @abstractmethod
     def size_bytes(self) -> int:
         """Return the current memory in bytes."""

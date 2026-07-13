@@ -40,6 +40,7 @@ If `just check` and `just test` both pass, CI will pass.
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
+- **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) should usually add regression coverage or explain why no new test is practical.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
@@ -57,13 +58,15 @@ Use `instro/psu/drivers/bk_9115.py` as the reference. The shape is:
 3. Implement `open`, `close`, and the category-required methods.
 4. Add per-driver `_write_checked` / `_check_errors` helpers if the device supports `SYST:ERR?`. Do **not** extract these to a shared mixin (see Patterns below).
 5. Register in `instro/<category>/drivers/__init__.py` (both the import and `__all__`).
-6. Add tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands.
+6. Add targeted tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands, and avoid redundant matrices, coverage-count padding, or shared helpers that obscure the behavior under test.
 
 ## How to add a community driver
 
 Same shape as above, but in `packages/instro-contrib/instro/contrib/<category>/drivers/<vendor>_<model>.py`. Register in the corresponding contrib `drivers/__init__.py`. The smoke test at `tests/contrib/test_contrib_smoke.py` picks it up automatically: it walks every module under `instro.contrib`.
 
 The contrib bar is in [CONTRIBUTING.md](./CONTRIBUTING.md#instro-contrib--community-contributed-drivers).
+
+Add the driver to the "Available drivers" section of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
 
 ## Documentation
 
@@ -72,6 +75,7 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 | Change type | Files to update |
 |---|---|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` (reference docs) and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
