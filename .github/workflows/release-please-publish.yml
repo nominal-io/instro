@@ -84,10 +84,10 @@ jobs:
         id: crate-pkg
         run: |
           if [[ "${{ matrix.path }}" == crates/* ]]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "name=$(basename "${{ matrix.path }}")" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v4
