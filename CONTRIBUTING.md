@@ -8,7 +8,7 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-What you need depends on which command you run. **`just check` is lightweight** (just + uv). **`just test` needs a full native toolchain**: it builds a maturin/PyO3 wheel and runs `cargo test` across the whole Rust workspace, which includes the `opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
+What you need depends on which command you run. **`just check` is lightweight** (just + uv). **`just test` needs a full native toolchain**: it builds a maturin/PyO3 wheel and runs `cargo test` across the whole Rust workspace, which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
 
 | Layer | `just check` | `just test` |
 |---|:---:|:---:|
@@ -113,7 +113,7 @@ Notes:
 
 Rust tooling spans two dependency graphs:
 
-- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip-rs`, `opcua`, …).
+- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip`, `instro-opcua`, …).
 - Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
 
 **Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
@@ -129,6 +129,16 @@ CI verifies all committed lockfiles with `--locked`:
 Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
 
 **Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+
+### Rust crate releases
+
+Pure-Rust crates under `crates/` that are published to crates.io are managed by release-please with `release-type: rust`. They are versioned independently from the Python packages and from each other. The public crate names are their Cargo package names, but release-please component names may differ to avoid GitHub tag collisions with Python packages; for example, the Rust EtherNet/IP crate uses `instro-ethernetip-rs` tags while the Python wrapper keeps `instro-ethernetip` tags.
+
+Do not pre-seed a new crate path in [`.github/release-please-manifest.json`](.github/release-please-manifest.json) when the next release should be that initial version. Set `initial-version` in [`.github/release-please-config.json`](.github/release-please-config.json) and let the first generated release PR add the manifest entry.
+
+The release workflow publishes crates with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`) instead of a stored `CARGO_REGISTRY_TOKEN`. Each crate must already exist on crates.io and must have a trusted publisher configured for `nominal-io/instro` and `.github/workflows/release-please-publish.yml`.
+
+If a Rust core crate also backs a Python package, release them deliberately. release-please does not infer that a change under `crates/instro-ethernetip` requires a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when the Python wrapper should ship the Rust change.
 
 ## Issues and discussion
 
@@ -193,6 +203,10 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
 
+Write unit tests to cover the invariant or edge case under test with the least necessary complexity. Prefer targeted, high-signal cases over broad, redundant matrices, heavily abstracted helpers. Don't rewrite tests where the main effect is making tests look shareable. Don't add tests simply to increase line coverage or the number of executed cases. You're going to be working features/bug-fixes that have a clear reason test, so make sure that your tests are meaningfully addressing the real needs for test coverage. Shared test helpers are fine when they remove duplication without hiding the behavior that each test proves. A large, complicated test suite that repeats the same assertion in different shapes is almost as unhelpful as no coverage.
+
+Bug fixes should add regression coverage. Opening a PR with a title like `fix(...): ...` needs to include at least one new test that would have failed before the fix. If no such test is written, provide a convincing explantation in the PR description for why new coverage is not necessary.
+
 ### Documentation
 
 Docs live in this repo, so they ship in the same PR as the code change. If your change is user-visible or alters how contributors work, update the relevant files on the same branch:
@@ -200,6 +214,7 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 | Change type | Files to update |
 |------|------|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (the Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
@@ -237,6 +252,7 @@ A contrib driver must:
 - **Ship a unit test** that exercises the driver against a mocked transport.
 - **Document the model(s) it targets** in a module docstring.
 - **Be verified by the contributor against real hardware**: this is the trust we're extending. Note the model(s) and firmware version(s) you tested against in the PR description.
+- **Add an entry to the "Available drivers" section** of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release; a merged driver missing from it makes the doc wrong.
 
 It does **not** need:
 

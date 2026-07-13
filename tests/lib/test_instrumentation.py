@@ -104,3 +104,25 @@ def test_context_manager_closes_on_exception():
     except RuntimeError:
         pass
     assert calls == ["close"]
+
+
+def test_channel_names_raises_when_daemon_not_running():
+    instrument = Instrument(name="test")
+    try:
+        _ = instrument.channel_names
+        assert False, "Expected RuntimeError"
+    except RuntimeError as e:
+        assert "No channel buffer exists" in str(e)
+
+
+def test_channel_names_includes_published_channels():
+    instrument = _make_publishing_instrument()
+    try:
+        instrument.start()
+        # Wait for the custom channel to be published
+        instrument.get_channel("ut.v", wait_for_new_samples=True, timeout=2.0)
+        names = instrument.channel_names
+        assert "ut.v" in names
+        assert "ut.loop_time" in names
+    finally:
+        instrument.stop()

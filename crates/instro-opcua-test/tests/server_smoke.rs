@@ -4,18 +4,18 @@
 //! over TCP and exercise stored variables, access levels, folder hierarchies,
 //! and lifecycle.
 
-use opcua_test::Access;
-use opcua_test::DataSource;
-use opcua_test::DataSourceReadContext;
-use opcua_test::DataSourceResult;
-use opcua_test::MethodSpec;
-use opcua_test::ParentRef;
-use opcua_test::TestNodeId;
-use opcua_test::TestServer;
-use opcua_test::ValueSource;
-use opcua_test::VariableSpec;
-use opcua_test::server::LIFETIME_TIMEOUT;
-use opcua_test::ua;
+use instro_opcua_test::Access;
+use instro_opcua_test::DataSource;
+use instro_opcua_test::DataSourceReadContext;
+use instro_opcua_test::DataSourceResult;
+use instro_opcua_test::MethodSpec;
+use instro_opcua_test::ParentRef;
+use instro_opcua_test::TestNodeId;
+use instro_opcua_test::TestServer;
+use instro_opcua_test::ValueSource;
+use instro_opcua_test::VariableSpec;
+use instro_opcua_test::server::LIFETIME_TIMEOUT;
+use instro_opcua_test::ua;
 use open62541::AsyncClient;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -144,7 +144,7 @@ async fn read_only_variable_rejects_writes() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn folder_hierarchy_resolves_via_label() {
-    use opcua_test::FolderSpec;
+    use instro_opcua_test::FolderSpec;
 
     let server = TestServer::builder()
         .add_folder(FolderSpec::new(TestNodeId::Auto, "Sensors"))

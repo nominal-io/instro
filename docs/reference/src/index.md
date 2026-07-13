@@ -3,6 +3,9 @@
 The `instro` SDK provides a unified Python interface for controlling lab instruments,
 collecting measurements, and publishing data to [Nominal](https://nominal.io).
 
+This site is the API reference. For installation, quickstarts, and per-instrument
+guides, see the [instro documentation](https://instro.nominal.io).
+
 ## Overview
 
 The SDK is organized into several key components:
@@ -14,7 +17,7 @@ The SDK is organized into several key components:
 - **Instruments**: High-level, vendor-agnostic interfaces for common instrument types:
   [DAQ](instruments/daq.md), [DMM](instruments/dmm.md), [PSU](instruments/psu.md),
   [Electronic Load](instruments/eload.md), [Flow Controller](instruments/flowcontroller.md),
-  and [I2C](instruments/i2c.md).
+  [Scope](instruments/scope.md), and [I2C](instruments/i2c.md).
 
 - **Protocols**: Config-driven clients for direct hardware communication via standard
   wire protocols: [Modbus](protocols/modbus.md) and
@@ -32,4 +35,5 @@ The SDK is organized into several key components:
 | Section | Description |
 |---------|-------------|
 | [Library](reference/instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
+| [User guides](https://instro.nominal.io) | Installation, quickstarts, and per-instrument guides |
 | [Changelog](changelog.md) | Release history and version changes |

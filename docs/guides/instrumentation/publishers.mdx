@@ -3,9 +3,11 @@ title: Publishers
 description: How instro gets data to places
 ---
 
-Publishers are the mechanism by which `instro` handles data from instruments. They define what happens to measurements and commands - whether that's sending data to Nominal Core, streaming to Nominal Connect, writing to files, or implementing custom behavior.
+Publishers are the mechanism by which `instro` handles data from instruments. They define what happens to measurements and commands, whether that means sending data to Nominal Core, streaming to Nominal Connect, writing to files, or implementing custom behavior.
 
-Every instrument can have multiple publishers attached, and data flows automatically: **Instrument → Publishers → Destinations**.
+Every instrument can have multiple publishers attached, and data flows automatically: **Instrument -> Publishers -> Destinations**.
+
+An attached publisher is an exclusive resource owned by that instrument. Closing the instrument closes its publishers. Do not attach the same ordinary publisher instance to more than one instrument. Use [`SharedPublisher`](#sharedpublisher) when multiple instruments need to publish to one underlying destination.
 
 ## The Power of One Line
 
@@ -37,15 +39,17 @@ daq = InstroDAQ(
 # All data automatically streams to Nominal Core
 ```
 
-By adding a `NominalCorePublisher` to the `publishers` list, every measurement and command is now recorded in your Nominal Core dataset.
+By adding a `NominalCorePublisher` to the `publishers` list, every measurement and command is now recorded in your Nominal Core dataset. The `InstroDAQ` instance owns that publisher and closes it when `daq.close()` runs.
 <Note>
-**Important Note about Publishers**
+**Important note about publishers**
 
 Data is published as a direct result of an instrument method being called.
 
-For example, when you call `InstroPSU.get_voltage()`, this not only queries the instrument for the voltage but also causes all attached Publishers to publish the measurement response automatically.
+For example, when `InstroPSU.get_voltage()` runs, it queries the instrument for the voltage and causes all attached publishers to publish the measurement response automatically.
 
 This makes it easy to ensure measurements and state changes are consistently recorded or streamed without explicit publishing logic in your workflow.
+
+Treat each publisher instance as owned by one instrument. To share one file, stream, client, or other sink across instruments, wrap it in `SharedPublisher` and attach a clone to each additional instrument.
 </Note>
 
 ## Publisher Protocol
@@ -57,14 +61,16 @@ from typing import Protocol
 from instro.lib.types import Measurement, Command
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Called each time the instrument generates data"""
         ...
 
-    def close(self):
-        """Called when the instrument is closed"""
+    def close(self) -> None:
+        """Called when the owning instrument is closed"""
         ...
 ```
+
+The owning instrument calls `close()` during teardown. Implement `close()` to release resources owned by the publisher, such as files, clients, sockets, or background workers. A publisher should not assume it can be reused after `close()` has run.
 
 ### Data Types
 
@@ -214,6 +220,8 @@ If you only need a local file as a fallback for when network connectivity to Nom
 
 ## Attaching Publishers
 
+Publisher attachment transfers ownership to the instrument. Use each publisher instance with one instrument unless the instance is a `SharedPublisher` handle.
+
 ### During Creation (via publishers parameter)
 
 ```python
@@ -264,17 +272,16 @@ from typing import Protocol
 from instro.lib.types import Measurement, Command
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs): ...
+    def publish(self, data: Measurement | Command, **kwargs) -> None: ...
 
-    def close(self): ...
+    def close(self) -> None: ...
 
 
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        """Handle the data - return True on success, False on failure"""
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
         try:
             if isinstance(data, Measurement):
                 if data.channel_data.get(self.channel_name, None):
@@ -282,9 +289,11 @@ class PrintChannelPublisher:
         except Exception as e:
             print(f"Error publishing data: {e}")
 
-    def close(self):
+    def close(self) -> None:
         pass
 ```
+
+Keep custom publisher ownership simple. The instrument that receives the publisher is responsible for closing it. Put teardown logic in `close()`, and do not reuse a custom publisher instance after its owning instrument has closed.
 
 ### Publisher execution model
 
@@ -294,7 +303,43 @@ Keep custom `publish` implementations fast. When the sink is slow (network, disk
 
 ## Publisher Wrappers
 
-Publisher wrappers modify the behavior of other publishers by adding buffering or asynchronous processing. They're composable - wrap any publisher to add new capabilities.
+Publisher wrappers modify the behavior of other publishers by adding buffering, asynchronous processing, or explicit shared ownership. They are composable: wrap any publisher to add new capabilities.
+
+### SharedPublisher
+
+`SharedPublisher` coordinates shared ownership of one underlying publisher across multiple instruments. The default model is still exclusive ownership: one publisher instance belongs to one instrument. Use `SharedPublisher` only when multiple instruments must publish to the same file, stream, client, or other sink.
+
+Each instrument receives its own `SharedPublisher` handle. Closing one instrument closes only that handle. The underlying publisher closes after the last shared handle closes.
+
+**When to use:**
+- Multiple instruments should write to the same local capture file
+- Multiple instruments should publish to the same custom sink
+- The underlying publisher owns a resource that should stay open until all instruments finish
+
+**Parameters:**
+
+```python
+SharedPublisher(
+    publisher: Publisher  # The underlying publisher to share
+)
+```
+
+**Example:**
+
+```python
+from instro.lib.publishers import FilePublisher, SharedPublisher
+
+file_publisher = FilePublisher(directory="./captures", format="avro")
+shared_publisher = SharedPublisher(file_publisher)
+
+primary_psu.add_publisher(shared_publisher)
+secondary_psu.add_publisher(shared_publisher.clone())
+
+primary_psu.close()    # Leaves the underlying FilePublisher open.
+secondary_psu.close()  # Closes the underlying FilePublisher.
+```
+
+See [Publishers: publish shared](/instrumentation/examples/publishers/publish_shared) for a full example.
 
 ### BasicBufferedPublisher
 

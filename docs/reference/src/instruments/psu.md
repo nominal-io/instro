@@ -1,5 +1,7 @@
 # PSU (Power Supply Unit)
 
+Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+
 ## Interface
 
 ::: instro.psu.InstroPSU

@@ -16,21 +16,22 @@ uv build --package <name>        # build a wheel for a workspace package
 
 If `just check` and `just test` both pass, CI will pass.
 
-`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `instro-opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
 
 ## Codebase layout
 
-`instro` is a uv workspace. The top-level package is `instro`. Workspace members live under `packages/`.
+The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python package is `instro`, with pure-Python & mixed-Rust/Python workspace members live under `packages/`. All Rust workspace members live in `crates/`. Mixed Rust/Python crates should live in `packages/`.
 
-| Path | What it is |
-|---|---|
-| `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
-| `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
-| `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
-| `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
-| `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
-| `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
-| `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Workspace | Path | What it is |
+|---|---|---|
+| Python/`uv` | `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `daq`, `i2c`, `modbus`. |
+| Python/`uv` | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
+| Python/`uv` | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
+| Python/`uv` | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
+| Python/`uv` | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
+| Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
+| Python/`uv` | `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
+| Rust/`cargo` | `crates/<category>` | Pure-Rust drivers/utilities (e.g. `instro-ethernetip`). Mixed Rust/Python crates with an entrypoint exposed by the `instro` python package should not live here. |
 
 ## Conventions
 
@@ -40,6 +41,7 @@ If `just check` and `just test` both pass, CI will pass.
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
+- **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
@@ -57,13 +59,15 @@ Use `instro/psu/drivers/bk_9115.py` as the reference. The shape is:
 3. Implement `open`, `close`, and the category-required methods.
 4. Add per-driver `_write_checked` / `_check_errors` helpers if the device supports `SYST:ERR?`. Do **not** extract these to a shared mixin (see Patterns below).
 5. Register in `instro/<category>/drivers/__init__.py` (both the import and `__all__`).
-6. Add tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands.
+6. Add targeted tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands, and avoid redundant matrices, coverage-count padding, or shared helpers that obscure the behavior under test.
 
 ## How to add a community driver
 
 Same shape as above, but in `packages/instro-contrib/instro/contrib/<category>/drivers/<vendor>_<model>.py`. Register in the corresponding contrib `drivers/__init__.py`. The smoke test at `tests/contrib/test_contrib_smoke.py` picks it up automatically: it walks every module under `instro.contrib`.
 
 The contrib bar is in [CONTRIBUTING.md](./CONTRIBUTING.md#instro-contrib--community-contributed-drivers).
+
+Add the driver to the "Available drivers" section of [`docs/guides/instrumentation/contrib.mdx`](./docs/guides/instrumentation/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
 
 ## Documentation
 
@@ -72,6 +76,7 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 | Change type | Files to update |
 |---|---|
 | New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/instrumentation/` if the device introduces a new user-facing workflow |
+| New contrib driver | "Available drivers" section of `docs/guides/instrumentation/contrib.mdx` |
 | Public API change (HAL methods, signatures, return types, new category) | `docs/reference/src/` (reference docs) and any affected `docs/guides/` examples |
 | New feature, behavior change, or new install extra | `docs/guides/` (Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
@@ -79,6 +84,18 @@ Docs live in this repo and ship in the same PR as the code change. When a change
 | New or changed AI skill/subagent | Both toolchains' copies (Claude `.claude/`, Codex `.agents/` + `.codex/`) and the [Repo skills and subagents](#repo-skills-and-subagents) table |
 
 `CHANGELOG.md` is generated by release-please from Conventional Commits. Don't hand-edit it. Subdirectory `AGENTS.md` files (e.g. `docs/guides/AGENTS.md`) carry their own style rules for the docs they govern.
+
+## Rust crate releases
+
+Pure-Rust crates under `crates/` that are published to crates.io are independent release-please components with `release-type: rust`. Do not add them to the legacy top-level `groups` block; that block is unsupported release-please config and should not be extended.
+
+Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags. The OPC UA crate uses `instro-opcua-rs` for the same Rust-crate tag convention.
+
+For an initial stable release such as `0.1.0`, set `initial-version` in `.github/release-please-config.json` and let the generated release PR add the new path to `.github/release-please-manifest.json`. Pre-seeding the manifest with `0.1.0` tells release-please that `0.1.0` has already shipped.
+
+Crates are published from `.github/workflows/release-please-publish.yml` with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`), not a stored `CARGO_REGISTRY_TOKEN`. The crate must already exist on crates.io and have a trusted publisher configured for this repository and workflow file.
+
+If a Rust core crate backs a Python package, release coupling is manual. A release of `crates/instro-ethernetip` will not automatically cause a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when both artifacts should ship.
 
 ## Patterns and constraints
 

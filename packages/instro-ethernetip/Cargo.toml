@@ -1,7 +1,8 @@
 [package]
-name = "instro-ethernetip"
+name = "instro-ethernetip-py"
 version = "0.1.0"
 license = "Apache-2.0"
+publish = false
 edition = "2024"
 rust-version = "1.93"
 
@@ -10,5 +11,5 @@ name = "_ethernetip"
 crate-type = ["cdylib"]
 
 [dependencies]
-instro-ethernetip-rs = { path = "../instro-ethernetip-rs", features = ["blocking"] }
+instro-ethernetip-rs = { path = "../../crates/instro-ethernetip", features = ["blocking"], package = "instro-ethernetip" }
 pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "extension-module", "macros"] }
