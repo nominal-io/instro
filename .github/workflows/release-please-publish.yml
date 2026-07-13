@@ -64,41 +64,47 @@ jobs:
         with:
           packages-dir: dist/
 
-  publish-ethernetip-crate:
+  publish-crates:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'crates/instro-ethernetip') }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Rust
-        run: rustup show
-      - name: Authenticate to crates.io
-        uses: rust-lang/crates-io-auth-action@v1
-        id: auth
-      - name: Publish instro-ethernetip to crates.io
-        run: cargo publish --locked --package instro-ethernetip
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+    environment: crates-io-release
 
-  publish-opcua-crate:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'crates/instro-opcua') }}
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.release-please.outputs.paths_released) }}
+
     steps:
+      - name: Filter publishable crates
+        id: crate-pkg
+        run: |
+          if [[ "${{ matrix.path }}" == crates/* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "name=$(basename "${{ matrix.path }}")" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+
       - name: Install Rust
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
         run: rustup show
+
       - name: Authenticate to crates.io
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
-      - name: Publish instro-opcua to crates.io
-        run: cargo publish --locked --package instro-opcua
+
+      - name: Publish crates to crates.io
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+        run: cargo publish --locked --package "${{ steps.crate-pkg.outputs.name }}"
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
