@@ -1,5 +1,6 @@
 """Signal generator shared types and enumerations."""
 
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -13,53 +14,18 @@ class WaveformType(Enum):
     ARB = "USER"
 
 
-class ModSource(Enum):
-    INTERNAL = "INT"
-    EXTERNAL = "EXT"
-
-
-class ModWaveform(Enum):
-    SINE = "SINE"
-    SQUARE = "SQUARE"
-    RAMP = "RAMP"
-    NEG_RAMP = "NRAM"
-    TRIANGLE = "TRI"
-    NOISE = "NOISE"
-    ARB = "USER"
-
-
-class SweepSpacing(Enum):
-    LINEAR = "LIN"
-    LOGARITHMIC = "LOG"
-
-
-class TriggerSource(Enum):
-    INTERNAL = "INT"
-    EXTERNAL = "EXT"
-    MANUAL = "BUS"
-
-
-class TriggerSlope(Enum):
-    POSITIVE = "POS"
-    NEGATIVE = "NEG"
-
-
-class BurstMode(Enum):
-    TRIGGERED = "TRIG"
-    GATED = "GAT"
-
-
-class OutputPolarity(Enum):
-    NORMAL = "NORM"
-    INVERTED = "INV"
-
-
 class VoltageUnit(Enum):
     VPP = "VPP"
     VRMS = "VRMS"
     DBM = "DBM"
 
 
-class ClockSource(Enum):
-    INTERNAL = "INT"
-    EXTERNAL = "EXT"
+@dataclass
+class AWGChannelConfig:
+    """Tracks the waveform an AWG channel is currently configured for, for InstroAWG's own validation.
+
+    Attributes:
+        waveform: The waveform currently set on the channel (required).
+    """
+
+    waveform: WaveformType
