@@ -109,6 +109,10 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
+### Python workspace lockfile
+
+[`uv.lock`](uv.lock) is generated for the entire Python workspace; don't edit it by hand. Run `uv lock` after changing project metadata and commit the result. Generated release-please PRs refresh it automatically, and `uv lock --check` verifies that the committed lockfile matches every workspace package.
+
 ### Rust Cargo.lock (dual-lock policy)
 
 Rust tooling spans two dependency graphs:
