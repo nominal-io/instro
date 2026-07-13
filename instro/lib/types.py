@@ -1,6 +1,3 @@
-# This code is derived from concepts in the py-lab-hal codebase (Apache 2.0 licensed)
-# Original py-lab-hal repository: https://github.com/google/py-lab-hal
-
 """Shared types: runtime dataclasses (Measurement/Command) and cross-protocol Pydantic configs."""
 
 from __future__ import annotations

@@ -1,7 +1,9 @@
-"""File-based publishers (JSON, CSV, Avro)."""
+"""File-based publishers (JSON, JSONL, CSV, Avro)."""
 
 import csv
 import json
+import math
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -25,14 +27,14 @@ class FilePublisher:
     def __init__(
         self,
         directory: str | Path,
-        format: Literal["json", "csv", "avro"] = "avro",
+        format: Literal["json", "jsonl", "csv", "avro"] = "avro",
         custom_file_name: str | None = None,
     ):
         """Write Measurement/Command data to a file.
 
         Args:
             directory: Output directory.
-            format: ``"json"``, ``"csv"``, or ``"avro"`` (default).
+            format: ``"jsonl"``, ``"csv"``, ``"avro"`` (default), or ``"json"`` (deprecated).
             custom_file_name: Filename without extension; defaults to ``measurements-<UTC-timestamp>``.
         """
         self.directory = Path(directory)
@@ -56,7 +58,15 @@ class FilePublisher:
 
         # Initialize appropriate writer based on format
         if format == "json":
+            warnings.warn(
+                'FilePublisher format="json" rewrites the whole file on every publish and is deprecated; '
+                'use format="jsonl" instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self._writer = JsonFileWriter(self.file_path)
+        elif format == "jsonl":
+            self._writer = JsonlFileWriter(self.file_path)
         elif format == "csv":
             self._writer = CsvFileWriter(self.file_path)
         elif format == "avro":
@@ -124,39 +134,67 @@ class JsonFileWriter:
         pass
 
 
-class CsvFileWriter:
-    """Handles CSV format writing with proper file management."""
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+class JsonlFileWriter:
+    """Handles newline-delimited JSON writing with a persistent file handle."""
 
     def __init__(self, file_path: Path):
         self.file_path = file_path
-        self._headers_written = False
         self._ensure_file_exists()
+        self._file = open(self.file_path, "a")
 
     def _ensure_file_exists(self):
-        """Create directory and file if they don't exist."""
+        """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
-        # CSV file will be created when first write occurs
+
+    def write(self, data: Measurement | Command):
+        """Append data as one JSON line, mapping non-finite floats to null."""
+        self._file.write(json.dumps(_json_safe(data.__dict__), allow_nan=False) + "\n")
+        self._file.flush()
+
+    def open(self):
+        pass
+
+    def close(self):
+        """Close the file writer."""
+        self._file.close()
+
+
+class CsvFileWriter:
+    """Handles CSV format writing with a persistent file handle."""
+
+    def __init__(self, file_path: Path):
+        self.file_path = file_path
+        self._ensure_file_exists()
+        self._file = open(self.file_path, "a", newline="")
+        self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
+        if self.file_path.stat().st_size == 0:
+            self._writer.writeheader()
+            self._file.flush()
+
+    def _ensure_file_exists(self):
+        """Create directory if it doesn't exist."""
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
     def write(self, data: Measurement | Command):
         """Append data to CSV file."""
-        mode = "a" if self.file_path.exists() else "w"
+        if isinstance(data, Measurement):
+            self._write_measurement(data)
+        elif isinstance(data, Command):
+            self._write_command(data)
+        self._file.flush()
 
-        with open(self.file_path, mode, newline="") as f:
-            writer = csv.writer(f)
-
-            if isinstance(data, Measurement):
-                self._write_measurement(writer, data)
-            elif isinstance(data, Command):
-                self._write_command(writer, data)
-
-    def _write_measurement(self, writer: Any, data: Measurement):
+    def _write_measurement(self, data: Measurement):
         """Write Measurement data as individual rows."""
-        # Write headers if not already written
-        if not self._headers_written:
-            headers = ["timestamp", "channel", "value", "tags"]
-            writer.writerow(headers)
-            self._headers_written = True
-
         # Write each channel's data as separate rows
         for channel_name, values in data.channel_data.items():
             for i, value in enumerate(values):
@@ -164,28 +202,21 @@ class CsvFileWriter:
                 # but handle edge case where they don't match
                 timestamp = data.timestamps[i] if i < len(data.timestamps) else data.timestamps[-1]
                 tags = json.dumps(data.tags) if data.tags else ""
-                writer.writerow([timestamp, channel_name, value, tags])
+                self._writer.writerow({"timestamp": timestamp, "channel": channel_name, "value": value, "tags": tags})
 
-    def _write_command(self, writer: Any, data: Command):
+    def _write_command(self, data: Command):
         """Write Command data as individual rows."""
-        # Write headers if not already written
-        if not self._headers_written:
-            headers = ["timestamp", "channel", "value", "tags"]
-            writer.writerow(headers)
-            self._headers_written = True
-
         # Write each channel's data as separate rows
         for channel_name, value in data.channel_data.items():
             tags = json.dumps(data.tags) if data.tags else ""
-            writer.writerow([data.timestamp, channel_name, value, tags])
+            self._writer.writerow({"timestamp": data.timestamp, "channel": channel_name, "value": value, "tags": tags})
 
     def open(self):
-        # Stubbing out open method for when we opt to refactor this to use a file handle
         pass
 
     def close(self):
         """Close the file writer."""
-        pass
+        self._file.close()
 
 
 class AvroFileWriter:
