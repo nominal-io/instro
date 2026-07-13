@@ -13,11 +13,19 @@ Wiring / stimulus:
     known stimulus and set the matching ``EXPECTED_*`` constant below.
 
 Run:
-    uv run python tests/dmm/keysight/test_keysight_34461a_hardware.py
+    uv run python tests/dmm/keysight/test_keysight_34461a_hardware.py [--stage STAGE]
+
+Stages (wired strict-value passes; wiring per .context/34461a_hardware_validation_plan.md):
+    smoke  (default) full structural sweep, open inputs
+    dc     PSU 5.000 V / 50 mA limit on rails; 1 kOhm loop into the 3A jack
+    ac     LabJack T4 DAC0 sine 100 Hz, 2.5 V offset, 2.0 V amplitude on rails
+    ohms2  DMM HI/LO on b15/b20 (10 kOhm reference)
+    ohms4  DMM HI/LO on a25/a30, sense on b25/b30 (220 Ohm reference)
 """
 
 from __future__ import annotations
 
+import argparse
 import math
 import sys
 
@@ -39,6 +47,15 @@ EXPECTED_AC_CURRENT = None  # amperes RMS
 EXPECTED_TWO_WIRE_RESISTANCE = None  # ohms
 EXPECTED_FOUR_WIRE_RESISTANCE = None  # ohms
 VALUE_TOLERANCE = 0.05  # relative tolerance for any enabled strict check
+
+# Wired-stage expectations (.context/34461a_hardware_validation_plan.md).
+STAGE_DC_VOLTAGE = 5.0  # V, bench PSU at 5.000 V
+STAGE_DC_CURRENT = 5.0e-3  # A, 5 V through the 1 kOhm limiter into the 3A jack
+STAGE_AC_VOLTAGE = 1.414  # V rms, 2.0 Vpk DAC0 sine (AC-coupled, offset invisible)
+STAGE_TWO_WIRE_OHMS = 10_000.0  # 10 kOhm 5% reference
+STAGE_FOUR_WIRE_OHMS = 220.0  # 220 Ohm 5% reference
+STAGE_V_I_TOLERANCE = 0.05
+STAGE_OHMS_TOLERANCE = 0.10  # 5% resistors, doubled headroom
 
 # (function, expected value, valid manual range for the range sweep, NPLC support)
 _FUNCTION_SWEEP = [
@@ -80,12 +97,12 @@ def _read_value(hal: InstroDMM) -> float:
     return fvalue
 
 
-def _check_function(hal: InstroDMM, function: MeasurementFunction, expected) -> None:
+def _check_function(hal: InstroDMM, function: MeasurementFunction, expected, tolerance=VALUE_TOLERANCE) -> None:
     hal.set_measurement_function(function)
     value = _read_value(hal)
     print(f"         {function.value} read -> {value:g}")
-    if expected is not None and value != pytest.approx(expected, rel=VALUE_TOLERANCE):
-        raise AssertionError(f"{function.value}: {value:g} not within {VALUE_TOLERANCE:.0%} of {expected:g}")
+    if expected is not None and value != pytest.approx(expected, rel=tolerance):
+        raise AssertionError(f"{function.value}: {value:g} not within {tolerance:.0%} of {expected:g}")
 
 
 def _check_range(hal: InstroDMM, function: MeasurementFunction, manual_range: float) -> None:
@@ -177,6 +194,62 @@ def run_all() -> list:
     return failures
 
 
+# Per-stage strict checks: (label, function, expected value or None for structural, tolerance).
+_STAGE_CHECKS = {
+    "dc": [
+        ("measure_dc_voltage -> 5.0 V +/-5%", MeasurementFunction.DC_VOLTAGE, STAGE_DC_VOLTAGE, STAGE_V_I_TOLERANCE),
+        ("measure_dc_current -> 5.0 mA +/-5%", MeasurementFunction.DC_CURRENT, STAGE_DC_CURRENT, STAGE_V_I_TOLERANCE),
+    ],
+    "ac": [
+        (
+            "measure_ac_voltage -> 1.414 V rms +/-5%",
+            MeasurementFunction.AC_VOLTAGE,
+            STAGE_AC_VOLTAGE,
+            STAGE_V_I_TOLERANCE,
+        ),
+        ("measure_ac_current structural (no stimulus)", MeasurementFunction.AC_CURRENT, None, None),
+    ],
+    "ohms2": [
+        (
+            "measure_resistance (2-wire) -> 10 kOhm +/-10%",
+            MeasurementFunction.TWO_WIRE_RESISTANCE,
+            STAGE_TWO_WIRE_OHMS,
+            STAGE_OHMS_TOLERANCE,
+        ),
+    ],
+    "ohms4": [
+        (
+            "measure_four_wire_resistance -> 220 Ohm +/-10%",
+            MeasurementFunction.FOUR_WIRE_RESISTANCE,
+            STAGE_FOUR_WIRE_OHMS,
+            STAGE_OHMS_TOLERANCE,
+        ),
+    ],
+}
+
+
+def _restore_safe_state(hal: InstroDMM) -> None:
+    hal.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+    hal.set_range(None)
+
+
+def run_stage(stage: str) -> list:
+    hal = _make_hal()
+    failures: list = []
+    print(f"Stage '{stage}':")
+    try:
+        for label, function, expected, tolerance in _STAGE_CHECKS[stage]:
+            _run(
+                label,
+                lambda f=function, e=expected, t=tolerance: _check_function(hal, f, e, t or VALUE_TOLERANCE),
+                failures,
+            )
+        _run("restore safe state (DCV, autorange)", lambda: _restore_safe_state(hal), failures)
+    finally:
+        hal.close()
+    return failures
+
+
 @pytest.mark.hardware
 def test_keysight_34461a_hardware() -> None:
     failures = run_all()
@@ -184,7 +257,10 @@ def test_keysight_34461a_hardware() -> None:
 
 
 def main() -> int:
-    failures = run_all()
+    parser = argparse.ArgumentParser(description="Keysight 34461A hardware validation")
+    parser.add_argument("--stage", choices=("smoke", *_STAGE_CHECKS), default="smoke")
+    args = parser.parse_args()
+    failures = run_all() if args.stage == "smoke" else run_stage(args.stage)
     print(f"\n{'PASSED' if not failures else f'FAILED ({len(failures)})'}")
     return 1 if failures else 0
 
