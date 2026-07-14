@@ -17,6 +17,7 @@ can be accessed directly.
 from decimal import Decimal
 
 from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig
+from instro.unstable.flowcontroller.drivers.alicat_constants import LoopVariable
 from instro.unstable.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry
 
 VISA_RESOURCE = "ASRL7::INSTR"
@@ -40,7 +41,7 @@ print(f"Performing barometer tare command on alicat -- this is device-specific a
 try:
     print(device.tare_barometer())
 except Exception as e:
-    print(f"Barometer tare not supported")
+    print(f"Barometer tare not supported: {e}")
 print(f"Querying for gas types on alicat")
 
 ###GAS TYPES
@@ -85,11 +86,41 @@ print(f"Current flow reading = {device.get_flow_data()}")
 print(f"Setpoint        = {device.setpoint}")
 print(f"Mass flow       = {device.mass_flow}")
 print(f"Volumetric flow = {device.volumetric_flow}")
+print(f"Pressure        = {device.pressure}")
 
-print(f"Forcing valve closed on alicat")
+###Loop control variable (process value source) demonstration
+print(f"\nQuerying current loop control variable...")
+print(f"Process value (current loop var measurement) = {device.process_value}")
+print(f"Process value source key = {device.process_value_source}")
+
+print(f"\nSetting loop control variable to VOLUMETRIC_FLOW...")
+setpoint_ret = device.set_loop_control_variable(LoopVariable.VOLUMETRIC_FLOW)
+print(f"Set loop variable, device returned setpoint: {setpoint_ret}")
+print(f"Process value after change = {device.process_value}")
+print(f"Process value source after change = {device.process_value_source}")
+
+print(f"\nSetting loop control variable back to MASS_FLOW...")
+setpoint_ret = device.set_loop_control_variable(LoopVariable.MASS_FLOW)
+print(f"Set loop variable, device returned setpoint: {setpoint_ret}")
+print(f"Process value after change = {device.process_value}")
+print(f"Process value source after change = {device.process_value_source}")
+
+###Valve hold commands
+print(f"\nForcing valve to closed position on alicat")
 print(device.hold_valve_closed())
 print(f"Current flow reading = {device.get_flow_data()}")
 print(f"Un-forcing valve closed on alicat")
 print(device.cancel_valve_hold())
 print(f"Current flow reading = {device.get_flow_data()}")
+
+print(f"\nForcing valve to current position on alicat")
+print(device.hold_valve_at_position())
+print(f"Current flow reading = {device.get_flow_data()}")
+print(f"Un-forcing valve position on alicat")
+print(device.cancel_valve_hold())
+print(f"Current flow reading = {device.get_flow_data()}")
+
+###Cleanup
+print(f"\nClosing connection to alicat")
+device.close()
 ```

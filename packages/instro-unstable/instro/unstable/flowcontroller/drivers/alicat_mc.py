@@ -318,7 +318,10 @@ class AlicatMC(FlowControllerDriverBase):
         """Query the device for its current loop control variable (process value source) and cache it."""
         response = self._query_checked(f"{self.unit_id}LR{LOOP_VARIABLE_MASS_FLOW}")
         fields = response.split()
-        if len(fields) < 3:
+        # To query the current loop variable, use unit_idLR as the
+        # command. On 10v05 and above this also queries the current
+        # minimum and maximum setpoints.
+        if len(fields) < 2:
             raise RuntimeError(f"AlicatMC: short response from loop variable query {self.unit_id!r}: {response!r}")
         try:
             loop_var_code = int(fields[1])
@@ -341,11 +344,13 @@ class AlicatMC(FlowControllerDriverBase):
             raise ValueError(
                 f"Unknown loop variable code: {loop_variable}. Valid codes: {list(_LOOP_VAR_TO_KEY.keys())}"
             )
-        response = self._query_checked(f"{self.unit_id}LV{loop_variable}")
+        response = self._query_checked(f"{self.unit_id}LV {loop_variable}")
+        # Manual: Successful command response: the device responds with
+        # the unit ID and the new value of the loop variable.
         fields = response.split()
-        if len(fields) < 3:
+        if len(fields) < 2:
             raise RuntimeError(f"AlicatMC: short response from loop variable set {self.unit_id!r}: {response!r}")
-        setpoint = float(fields[2])
+        setpoint = float(fields[1])
         self._cached_loop_variable = loop_variable
         self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_variable]
         return setpoint
