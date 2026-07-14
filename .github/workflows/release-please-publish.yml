@@ -15,7 +15,7 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
-      python_pr_branch: ${{ steps.python_pr.outputs.branch }}
+      group_pr_branch: ${{ steps.group_pr.outputs.branch }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -23,8 +23,8 @@ jobs:
           token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
-      - name: Resolve Python release PR
-        id: python_pr
+      - name: Resolve grouped release PR
+        id: group_pr
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           PRS: ${{ steps.release.outputs.prs }}
@@ -40,12 +40,12 @@ jobs:
 
   update-lockfile:
     needs: release-please
-    if: ${{ needs.release-please.outputs.python_pr_branch != '' }}
+    if: ${{ needs.release-please.outputs.group_pr_branch != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.python_pr_branch }}
+          ref: ${{ needs.release-please.outputs.group_pr_branch }}
           token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -64,7 +64,7 @@ jobs:
           git config user.email "117409387+nominal-bot@users.noreply.github.com"
           git add uv.lock
           git commit -m "chore: sync uv.lock with release-please version bumps"
-          git push origin "HEAD:${{ needs.release-please.outputs.python_pr_branch }}"
+          git push origin "HEAD:${{ needs.release-please.outputs.group_pr_branch }}"
 
   publish-python:
     needs: release-please
