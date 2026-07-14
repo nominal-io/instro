@@ -339,22 +339,22 @@ dependencies = [
 name = "instro-quantus"
 version = "0.1.0"
 dependencies = [
- "instro-quantus-rs",
- "numpy",
- "pyo3",
- "serde_json",
-]
-
-[[package]]
-name = "instro-quantus-rs"
-version = "0.1.0"
-dependencies = [
  "reqwest",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "instro-quantus-py"
+version = "0.1.0"
+dependencies = [
+ "instro-quantus",
+ "numpy",
+ "pyo3",
+ "serde_json",
 ]
 
 [[package]]

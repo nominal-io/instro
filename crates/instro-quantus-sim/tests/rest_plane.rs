@@ -3,8 +3,8 @@
 //! is a strong proxy for the Phase 1 exit criterion of running the vendor
 //! script unmodified.
 
-use quantus_sim::config::SimConfig;
-use quantus_sim::rest::SimServer;
+use instro_quantus_sim::config::SimConfig;
+use instro_quantus_sim::rest::SimServer;
 use serde_json::Value;
 
 fn start_sim() -> (SimServer, String) {

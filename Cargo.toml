@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "crates/*",
     "packages/instro-ethernetip",
-    "packages/instro-quantus-rs",
 ]
 exclude = [
     "packages/instro-quantus",

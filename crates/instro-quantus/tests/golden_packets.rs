@@ -8,7 +8,7 @@
 //! internal consistency (sizes, offsets, marker placement); parser round-trip
 //! tests are added in Phase 3.
 
-use instro_quantus_rs::wire;
+use instro_quantus::wire;
 
 fn le_u32(v: u32) -> [u8; 4] {
     v.to_le_bytes()

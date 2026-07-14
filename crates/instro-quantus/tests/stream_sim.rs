@@ -1,15 +1,15 @@
 //! Stream-plane integration tests: reconcile a rack, then stream from the sim
 //! and verify batches, rates, epoch restarts, gaps, and disconnects.
 
-use instro_quantus_rs::blocking::QuantusClient;
-use instro_quantus_rs::config::RackConfig;
-use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
-use quantus_sim::rest::SimServer;
+use instro_quantus::blocking::QuantusClient;
+use instro_quantus::config::RackConfig;
+use instro_quantus::stream::{StreamEngine, StreamEvent};
+use instro_quantus_sim::rest::SimServer;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 fn start_sim(faults: &str) -> SimServer {
-    let sim_config: quantus_sim::config::SimConfig = toml::from_str(&format!(
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(&format!(
         r#"
         [system]
         chassis = "MicroQ"

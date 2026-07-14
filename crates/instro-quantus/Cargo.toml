@@ -1,13 +1,14 @@
 [package]
-name = "instro-quantus-rs"
+name = "instro-quantus"
 version = "0.1.0"
 description = "Client for Mecalc QuantusSeries DAQ mainframes (QServer Q2.x): REST configuration and binary data streaming"
 license = "Apache-2.0"
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "instro_quantus_rs"
+name = "instro_quantus"
 path = "src/lib.rs"
 
 [dependencies]
@@ -19,5 +20,5 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 toml = "0.8"
 
 [dev-dependencies]
-quantus-sim = { path = "../../crates/quantus-sim" }
+instro-quantus-sim = { path = "../instro-quantus-sim" }
 ureq = { version = "2", features = ["json"] }

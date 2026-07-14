@@ -1,7 +1,7 @@
 # QuantusDevice examples
 
 Runnable against the Quantus device **simulator** — no hardware needed. The
-simulator is the `quantus-sim` crate in this repo (`crates/quantus-sim`); it
+simulator is the `instro-quantus-sim` crate in this repo (`crates/instro-quantus-sim`); it
 impersonates a MicroQ mainframe: same REST API, same binary stream.
 
 ## Setup
@@ -14,9 +14,9 @@ Start a simulator with the example's rack description (needs the Rust
 toolchain, same as `just test`):
 
 ```sh
-cargo run -p quantus-sim -- examples/quantus/sim_simple.toml
+cargo run -p instro-quantus-sim -- examples/quantus/sim_simple.toml
 # or for the full example:
-cargo run -p quantus-sim -- examples/quantus/sim_full.toml
+cargo run -p instro-quantus-sim -- examples/quantus/sim_full.toml
 ```
 
 Then, in another terminal:

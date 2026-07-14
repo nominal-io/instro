@@ -1,6 +1,6 @@
 # Minimal simulated rack for simple_stream.py: one ICP/voltage module.
 # Launch (from the instro repo root):
-#   cargo run -p quantus-sim -- examples/quantus/sim_simple.toml
+#   cargo run -p instro-quantus-sim -- examples/quantus/sim_simple.toml
 [system]
 chassis = "MicroQ"
 serial = "SIM-SIMPLE"

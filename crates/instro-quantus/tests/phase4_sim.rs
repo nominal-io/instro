@@ -2,16 +2,16 @@
 //! fixed-point streaming, and the sustained-rate benchmark (ignored by
 //! default; run with --ignored --release).
 
-use instro_quantus_rs::blocking::QuantusClient;
-use instro_quantus_rs::config::RackConfig;
-use instro_quantus_rs::error::Error;
-use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
-use quantus_sim::rest::SimServer;
+use instro_quantus::blocking::QuantusClient;
+use instro_quantus::config::RackConfig;
+use instro_quantus::error::Error;
+use instro_quantus::stream::{StreamEngine, StreamEvent};
+use instro_quantus_sim::rest::SimServer;
 use serde_json::json;
 use std::time::{Duration, Instant};
 
 fn start_sim(extra: &str) -> SimServer {
-    let sim_config: quantus_sim::config::SimConfig = toml::from_str(&format!(
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(&format!(
         r#"
         [system]
         chassis = "MicroQ"
@@ -295,7 +295,7 @@ fn write_paths_action_and_settings_plane() {
     let mut values = std::collections::BTreeMap::new();
     values.insert(
         "Excitation Amplitude".to_string(),
-        instro_quantus_rs::config::SettingValue::Number(2.5),
+        instro_quantus::config::SettingValue::Number(2.5),
     );
     let restarted = client.write_settings(wsb_channel, &values).unwrap();
     assert!(
@@ -325,7 +325,7 @@ fn write_paths_action_and_settings_plane() {
     let mut bad = std::collections::BTreeMap::new();
     bad.insert(
         "Excitation Amplitude".to_string(),
-        instro_quantus_rs::config::SettingValue::Number(42.0),
+        instro_quantus::config::SettingValue::Number(42.0),
     );
     match client.write_settings(wsb_channel, &bad) {
         Err(Error::Config(message)) => assert!(message.contains("limits"), "{message}"),
@@ -381,7 +381,7 @@ fn alo_output_configure_and_write() {
     let mut values = std::collections::BTreeMap::new();
     values.insert(
         "Signal Amplitude".to_string(),
-        instro_quantus_rs::config::SettingValue::Number(5.0),
+        instro_quantus::config::SettingValue::Number(5.0),
     );
     let restarted = client.write_settings(alo_channel, &values).unwrap();
     assert!(restarted);
@@ -390,7 +390,7 @@ fn alo_output_configure_and_write() {
     let mut bad = std::collections::BTreeMap::new();
     bad.insert(
         "Signal Amplitude".to_string(),
-        instro_quantus_rs::config::SettingValue::Number(11.0),
+        instro_quantus::config::SettingValue::Number(11.0),
     );
     assert!(matches!(
         client.write_settings(alo_channel, &bad),

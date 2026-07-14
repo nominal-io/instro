@@ -1,14 +1,14 @@
 //! End-to-end reconcile tests: the blocking client configuring a simulated
 //! MicroQ rack shaped like the customer's (mics fast, thermocouples slow).
 
-use instro_quantus_rs::blocking::QuantusClient;
-use instro_quantus_rs::config::RackConfig;
-use instro_quantus_rs::error::Error;
-use quantus_sim::rest::SimServer;
+use instro_quantus::blocking::QuantusClient;
+use instro_quantus::config::RackConfig;
+use instro_quantus::error::Error;
+use instro_quantus_sim::rest::SimServer;
 use serde_json::Value;
 
 fn start_sim() -> SimServer {
-    let sim_config: quantus_sim::config::SimConfig = toml::from_str(
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(
         r#"
         [system]
         chassis = "MicroQ"
@@ -91,7 +91,7 @@ fn rack_config(port: u16) -> RackConfig {
     .unwrap()
 }
 
-fn setting_value(item: &quantus_sim::model::ItemState, name: &str) -> Value {
+fn setting_value(item: &instro_quantus_sim::model::ItemState, name: &str) -> Value {
     item.settings
         .as_array()
         .unwrap()
@@ -181,7 +181,7 @@ fn full_reconcile_against_customer_shaped_rack() {
 fn reconcile_recovers_disabled_modules_and_clears_persisted_streaming() {
     // A rack "left behind by a previous session": the module is Disabled and
     // two channels were left streaming (settings persist across power cycles).
-    let sim_config: quantus_sim::config::SimConfig = toml::from_str(
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(
         r#"
         [system]
         chassis = "MicroQ"
@@ -334,7 +334,7 @@ fn bad_enum_description_lists_options() {
     let mut config = rack_config(sim.rest_port());
     config.modules[0].channels[0].settings.insert(
         "Voltage Range".into(),
-        instro_quantus_rs::config::SettingValue::Text("42 V".into()),
+        instro_quantus::config::SettingValue::Text("42 V".into()),
     );
     let client = QuantusClient::connect(config).unwrap();
     match client.reconcile() {

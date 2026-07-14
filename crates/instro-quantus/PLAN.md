@@ -1,7 +1,7 @@
 # Quantus — Mecalc QuantusSeries Rust Client, Simulator, and Python Bindings
 
 > Development moved into the instro repo (branch quantus-device-draft):
-> packages/instro-quantus-rs (client crate), crates/quantus-sim (simulator),
+> crates/instro-quantus (client crate), crates/instro-quantus-sim (simulator),
 > packages/instro-quantus (maturin package). Paths below reflect the original
 > quantus-repo layout.
 
@@ -29,7 +29,7 @@ reporting), and the sustained-rate benchmark: 24 ch × 131 kSa/s for 3 s,
 99.4% of nominal, zero gaps. Phase 4 complete incl. ALO42S4 template + settings-plane
 output writes. Phase 5 complete: everything moved into the instro repo
 (branch `quantus-device-draft`) mirroring the ethernetip layout —
-`packages/instro-quantus-rs` (root workspace member), `crates/quantus-sim`,
+`crates/instro-quantus` (root workspace member), `crates/instro-quantus-sim`,
 and `packages/instro-quantus` (maturin, in the uv workspace, `quantus` extra);
 `QuantusDevice(Instrument)` publishes Measurements + Commands, decodes CAN
 natively from per-channel `dbc` config entries (D14), and ships runnable
@@ -102,7 +102,7 @@ and mixed rates / tacho / CAN just become published channels.
 │    - stream engine (reader thread, ring buffer, epochs)    │
 │    - async core (tokio/reqwest) + blocking facade          │
 │                                                            │
-│  crates/quantus-sim        config-driven device simulator  │
+│  crates/instro-quantus-sim        config-driven device simulator  │
 │    - serves REST plane + binary stream like a real device  │
 │    - INDEPENDENT wire encoder (does not reuse client types)│
 │    - fault injection                                       │
@@ -152,7 +152,7 @@ quantus/
 ├── Cargo.toml                   # workspace
 ├── crates/
 │   ├── quantus-client/
-│   ├── quantus-sim/             # lib + bin (quantus-sim binary)
+│   ├── instro-quantus-sim/             # lib + bin (instro-quantus-sim binary)
 │   └── quantus-py/              # maturin package, module name `quantus`
 ├── docs/
 │   └── api-notes.md             # extracted QServer API reference
@@ -288,7 +288,7 @@ with 3–4 if two people are on it.
   low-cost).
 - WebSocket stream framing (manual doesn't specify frame↔packet mapping; raw TCP is
   primary, WS optional later).
-- Whether `quantus-sim` also ships as a published binary for demo/customer use.
+- Whether `instro-quantus-sim` also ships as a published binary for demo/customer use.
 - Local-storage/recording endpoints: expose in crate v1 or defer (no REST download
   endpoint exists; retrieval is GUI-only).
 

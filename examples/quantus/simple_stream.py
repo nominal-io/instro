@@ -2,7 +2,7 @@
 
 The rack is described in rack_simple.json. Start the simulator first:
 
-    cargo run -p quantus-sim -- examples/quantus/sim_simple.toml
+    cargo run -p instro-quantus-sim -- examples/quantus/sim_simple.toml
 """
 
 import time

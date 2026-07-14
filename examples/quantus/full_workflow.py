@@ -10,7 +10,7 @@ transmit), and teardown via the `with` block.
 
 Start the simulator first:
 
-    cargo run -p quantus-sim -- examples/quantus/sim_full.toml
+    cargo run -p instro-quantus-sim -- examples/quantus/sim_full.toml
 """
 
 import time

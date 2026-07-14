@@ -1,7 +1,7 @@
 # Test-support crate: config-driven simulator that impersonates a Mecalc
 # QuantusSeries device (REST plane + binary stream + fault injection).
 [package]
-name = "quantus-sim"
+name = "instro-quantus-sim"
 version = "0.1.0"
 license = "Apache-2.0"
 edition.workspace = true
@@ -18,5 +18,5 @@ toml = "0.8"
 ureq = { version = "2", features = ["json"] }
 
 [[bin]]
-name = "quantus-sim"
+name = "instro-quantus-sim"
 path = "src/main.rs"

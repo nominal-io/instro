@@ -3,8 +3,8 @@
 //! outliving the read timeout, and triggered-type blocks poisoning packets.
 //! Uses a hand-rolled in-test server (not the sim) so each scenario is exact.
 
-use instro_quantus_rs::stream::{StreamEngine, StreamEvent};
-use instro_quantus_rs::wire;
+use instro_quantus::stream::{StreamEngine, StreamEvent};
+use instro_quantus::wire;
 use std::io::Write;
 use std::net::TcpListener;
 use std::time::Duration;
