@@ -564,6 +564,7 @@ pub enum NodeIdInner {
     String(String),
 }
 
+/// A browse-path segment preserving the OPC UA namespace that qualifies its name.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct QualifiedBrowseName {
     pub namespace_index: u16,
@@ -579,6 +580,7 @@ impl QualifiedBrowseName {
     }
 }
 
+/// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(try_from = "String", into = "String")]
 pub struct BrowsePath {

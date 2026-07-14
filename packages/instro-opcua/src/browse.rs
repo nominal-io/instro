@@ -182,10 +182,10 @@ fn browse_recursive<'a, B: Browse>(
                 );
             }
 
-            *visited = visited.saturating_add(1);
-            if *visited > max_nodes {
+            if *visited >= max_nodes {
                 bail!("browse exceeded maximum node count of {max_nodes}");
             }
+            *visited = visited.saturating_add(1);
 
             let segment = node
                 .browse_path
@@ -716,9 +716,14 @@ mod tests {
     }
 
     #[test]
-    fn browse_errors_when_node_ceiling_is_exceeded() {
+    fn browse_enforces_node_ceiling() {
         let (browser, root) = wide_tree(2);
 
+        let result = browser
+            .browse_with_limit(root.clone(), 2)
+            .expect("browse up to node ceiling should succeed");
+
+        assert_eq!(count_nodes(&result), 2);
         assert!(browser.browse_with_limit(root, 1).is_err());
     }
 
