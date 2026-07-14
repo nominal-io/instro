@@ -165,7 +165,7 @@ eip-sdist-smoke-test:
         echo "Expected exactly one instro-ethernetip sdist in $dist_dir" >&2
         exit 1
     fi
-    uv run python tests/check_maturin_sdist.py sdist --package packages/instro-ethernetip "${sdists[0]}"
+    uv run python tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
 
 # install the built wheel into an isolated environment and verify the private native module
 eip-wheel-smoke-test:

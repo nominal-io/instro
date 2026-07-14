@@ -140,8 +140,6 @@ The release workflow publishes crates with crates.io Trusted Publishing (`rust-l
 
 If a Rust core crate also backs a Python package, release them deliberately. release-please does not infer that a change under `crates/instro-ethernetip` requires a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when the Python wrapper should ship the Rust change.
 
-Mixed Rust/Python (maturin) wrapper packages under `packages/` opt into the multi-platform wheel/sdist build and PyPI publish by committing a `.instro-publish` marker file at the package root (contents ignored). The release workflow discovers what to build purely from that marker, so adding a new bridge package only requires dropping the file in — no workflow edit.
-
 ## Issues and discussion
 
 **Every change is tracked by a GitHub issue or ticket: no exceptions, including typos and one-line fixes.** Open a [GitHub issue](https://github.com/nominal-io/instro/issues) before starting work so scope, ownership, and history are all traceable from the issue → branch → PR chain.
