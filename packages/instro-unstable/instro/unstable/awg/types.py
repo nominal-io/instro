@@ -22,10 +22,6 @@ class VoltageUnit(Enum):
 
 @dataclass
 class AWGChannelConfig:
-    """Tracks the waveform an AWG channel is currently configured for, for InstroAWG's own validation.
-
-    Attributes:
-        waveform: The waveform currently set on the channel (required).
-    """
+    """Tracks the waveform an AWG channel is currently configured for."""
 
     waveform: WaveformType

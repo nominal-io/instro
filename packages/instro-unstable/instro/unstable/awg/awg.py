@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from enum import Enum, auto
 from typing import Callable
 
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
@@ -130,13 +131,25 @@ class AWGDriverBase(abc.ABC):
 
 _UNSET = object()
 
-_WAVEFORM_APPLICABILITY: dict[str, frozenset[WaveformType]] = {
-    "set_std_frequency": frozenset(WaveformType) - {WaveformType.NOISE, WaveformType.DC},
-    "set_std_amplitude": frozenset(WaveformType) - {WaveformType.DC},
-    "set_phase": frozenset(WaveformType) - {WaveformType.NOISE, WaveformType.DC},
-    "set_square_duty_cycle": frozenset({WaveformType.SQUARE}),
-    "set_ramp_symmetry": frozenset({WaveformType.RAMP}),
-    "set_pulse_width": frozenset({WaveformType.PULSE}),
+
+class _ValidatedMethod(Enum):
+    """Methods gated by InstroAWG._check_waveform_applicable, keyed here instead of by string name."""
+
+    SET_STD_FREQUENCY = auto()
+    SET_STD_AMPLITUDE = auto()
+    SET_PHASE = auto()
+    SET_SQUARE_DUTY_CYCLE = auto()
+    SET_RAMP_SYMMETRY = auto()
+    SET_PULSE_WIDTH = auto()
+
+
+_WAVEFORM_APPLICABILITY: dict[_ValidatedMethod, frozenset[WaveformType]] = {
+    _ValidatedMethod.SET_STD_FREQUENCY: frozenset(WaveformType) - {WaveformType.NOISE, WaveformType.DC},
+    _ValidatedMethod.SET_STD_AMPLITUDE: frozenset(WaveformType) - {WaveformType.DC},
+    _ValidatedMethod.SET_PHASE: frozenset(WaveformType) - {WaveformType.NOISE, WaveformType.DC},
+    _ValidatedMethod.SET_SQUARE_DUTY_CYCLE: frozenset({WaveformType.SQUARE}),
+    _ValidatedMethod.SET_RAMP_SYMMETRY: frozenset({WaveformType.RAMP}),
+    _ValidatedMethod.SET_PULSE_WIDTH: frozenset({WaveformType.PULSE}),
 }
 
 
@@ -151,15 +164,7 @@ class InstroAWG(Instrument):
         publishers: list[Publisher] | None = None,
         **kwargs,
     ):
-        """Initialize an InstroAWG.
-
-        Args:
-            name: Channel-name prefix for published data.
-            driver: Concrete AWG driver; owns its own transport.
-            num_channels: Number of output channels on this instrument.
-            publishers: Publishers that receive emitted Measurement/Command data.
-            **kwargs: Default tags applied to every emitted Measurement/Command.
-        """
+        """Initialize an InstroAWG."""
         super().__init__(name, publishers=publishers, **kwargs)
         self._driver = driver
         self._num_channels = num_channels
@@ -170,12 +175,14 @@ class InstroAWG(Instrument):
         if not 1 <= channel <= self._num_channels:
             raise ValueError(f"channel {channel} out of range for '{self.name}' (1-{self._num_channels})")
 
-    def _check_waveform_applicable(self, channel: int, method_name: str) -> None:
+    def _check_waveform_applicable(self, channel: int, method: _ValidatedMethod) -> None:
         self._check_channel(channel)
-        config = self._channel_config.get(channel)
+        with self._resource_lock:
+            config = self._channel_config.get(channel)
+        method_name = method.name.lower()
         if config is None:
             raise ValueError(f"set_std_waveform must be called for channel {channel} before {method_name}")
-        if config.waveform not in _WAVEFORM_APPLICABILITY[method_name]:
+        if config.waveform not in _WAVEFORM_APPLICABILITY[method]:
             raise ValueError(f"{method_name} is not valid for channel {channel} configured as {config.waveform.value}")
 
     def open(self) -> None:
@@ -205,12 +212,7 @@ class InstroAWG(Instrument):
         channel_suffix: str,
         **kwargs,
     ) -> Command:
-        """General-purpose command helper: call ``driver_method(channel, value)``, timestamp, and package.
-
-        Covers the common two-argument driver pattern ``method(channel, value)``.
-        Methods with extra parameters (e.g. ``set_std_amplitude``) handle their own
-        driver calls directly.
-        """
+        """General-purpose command helper: call ``driver_method(channel, value)``, timestamp, and package."""
         with self._resource_lock:
             driver_method(channel, value)
             timestamp = time.time_ns()
@@ -224,19 +226,19 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_std_waveform(channel=channel, waveform=waveform)
             timestamp = time.time_ns()
-        self._channel_config[channel] = AWGChannelConfig(waveform)
+            self._channel_config[channel] = AWGChannelConfig(waveform)
         descriptor = f"ch{channel}.waveform.cmd"
         return self._package_command(descriptor, waveform.value, timestamp, **kwargs)
 
     def set_std_frequency(self, channel: int, frequency_hz: float, **kwargs) -> Command:
         """Set the output frequency (Hz) on channel. Not valid for NOISE or DC."""
-        self._check_waveform_applicable(channel, "set_std_frequency")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_FREQUENCY)
         return self._execute_command(self._driver.set_std_frequency, channel, frequency_hz, "frequency", **kwargs)
 
     @publish_command
     def set_std_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit, **kwargs) -> Command:
         """Set the output amplitude on channel. Not valid for DC."""
-        self._check_waveform_applicable(channel, "set_std_amplitude")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_AMPLITUDE)
         with self._resource_lock:
             self._driver.set_std_amplitude(channel=channel, amplitude=amplitude, unit=unit)
             timestamp = time.time_ns()
@@ -318,10 +320,7 @@ class InstroAWG(Instrument):
 
     @publish_measurement
     def get_std_output_load(self, channel: int, **kwargs) -> Measurement | None:
-        """Read back the output load impedance on channel.
-
-        High-Z is published as ``float('inf')`` so the state is always visible in the data stream.
-        """
+        """Read back the output load impedance on channel; high-Z is published as ``float('inf')``."""
         self._check_channel(channel)
         with self._resource_lock:
             val = self._driver.get_std_output_load(channel=channel)
@@ -344,34 +343,18 @@ class InstroAWG(Instrument):
         phase_deg: float | None = None,
         **kwargs,
     ) -> list[Command]:
-        """Configure standard waveform parameters on channel in one call.
-
-        Note: ``frequency_hz``/``amplitude``/``unit``/``phase_deg`` are only sent when
-        ``waveform`` supports them — see ``AWGDriverBase.set_std_frequency``/
-        ``set_std_amplitude``/``set_phase`` for the exact per-waveform restrictions.
-
-        Args:
-            channel: Target output channel.
-            waveform: Waveform function to output.
-            frequency_hz: Output frequency in Hz. Ignored for NOISE/DC.
-            amplitude: Output amplitude in the given unit. Ignored for DC.
-            unit: Voltage unit for the amplitude value. Ignored for DC.
-            offset_v: DC offset in volts (default 0.0).
-            load: Output load impedance in ohms, or None for high-Z. Omit to leave unchanged.
-            enable: True to enable output, False to disable. Omit to leave unchanged.
-            phase_deg: Phase in degrees. Omit to leave unchanged. Ignored for NOISE/DC.
-        """
+        """Configure standard waveform parameters on channel in one call."""
         cmds: list[Command] = [self.set_std_waveform(channel, waveform, **kwargs)]
-        if waveform in _WAVEFORM_APPLICABILITY["set_std_frequency"]:
+        if waveform in _WAVEFORM_APPLICABILITY[_ValidatedMethod.SET_STD_FREQUENCY]:
             cmds.append(self.set_std_frequency(channel, frequency_hz, **kwargs))
-        if waveform in _WAVEFORM_APPLICABILITY["set_std_amplitude"]:
+        if waveform in _WAVEFORM_APPLICABILITY[_ValidatedMethod.SET_STD_AMPLITUDE]:
             cmds.append(self.set_std_amplitude(channel, amplitude, unit, **kwargs))
         cmds.append(self.set_std_offset(channel, offset_v, **kwargs))
         if load is not _UNSET:
             cmds.append(self.set_std_output_load(channel, load, **kwargs))
         if enable is not None:
             cmds.append(self.output_enable(channel, enable, **kwargs))
-        if phase_deg is not None and waveform in _WAVEFORM_APPLICABILITY["set_phase"]:
+        if phase_deg is not None and waveform in _WAVEFORM_APPLICABILITY[_ValidatedMethod.SET_PHASE]:
             cmds.append(self.set_phase(channel, phase_deg, **kwargs))
         return cmds
 
@@ -403,7 +386,7 @@ class InstroAWG(Instrument):
 
     def set_phase(self, channel: int, phase_deg: float, **kwargs) -> Command:
         """Set the phase (degrees) on channel. Not valid for NOISE or DC."""
-        self._check_waveform_applicable(channel, "set_phase")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_PHASE)
         return self._execute_command(self._driver.set_phase, channel, phase_deg, "phase", **kwargs)
 
     @publish_command
@@ -419,17 +402,17 @@ class InstroAWG(Instrument):
 
     def set_square_duty_cycle(self, channel: int, duty_pct: float, **kwargs) -> Command:
         """Set the duty cycle (%) for a square waveform on channel. SQUARE only."""
-        self._check_waveform_applicable(channel, "set_square_duty_cycle")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_SQUARE_DUTY_CYCLE)
         return self._execute_command(
             self._driver.set_square_duty_cycle, channel, duty_pct, "square.duty_cycle", **kwargs
         )
 
     def set_ramp_symmetry(self, channel: int, symmetry_pct: float, **kwargs) -> Command:
         """Set the symmetry (%) for a ramp waveform on channel. RAMP only."""
-        self._check_waveform_applicable(channel, "set_ramp_symmetry")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_RAMP_SYMMETRY)
         return self._execute_command(self._driver.set_ramp_symmetry, channel, symmetry_pct, "ramp.symmetry", **kwargs)
 
     def set_pulse_width(self, channel: int, width_s: float, **kwargs) -> Command:
         """Set the pulse width (seconds) on channel. PULSE only."""
-        self._check_waveform_applicable(channel, "set_pulse_width")
+        self._check_waveform_applicable(channel, _ValidatedMethod.SET_PULSE_WIDTH)
         return self._execute_command(self._driver.set_pulse_width, channel, width_s, "pulse.width", **kwargs)
