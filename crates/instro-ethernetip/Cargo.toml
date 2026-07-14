@@ -23,7 +23,7 @@ default = []
 blocking = ["dep:tokio"]
 
 [dependencies]
-rust-ethernet-ip = { version = "0.7", default-features = false }
+rust-ethernet-ip = { version = "1.2", default-features = false }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
 
