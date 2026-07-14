@@ -1,9 +1,18 @@
 [package]
-name = "opcua"
-version = "0.1.0"
+name = "instro-opcua"
+version = "1.0.0"
 license = "Apache-2.0"
+description = "Instro OPC UA driver"
+readme = "README.md"
 edition.workspace = true
 rust-version.workspace = true
+authors = ["Carter Canedy <carter.canedy@nominal.io>"]
+keywords = ["opcua", "plc", "automation", "instrumentation", "instro"]
+categories = ["hardware-support", "network-programming"]
+homepage = "https://instro.nominal.io"
+repository = "https://github.com/nominal-io/instro"
+documentation = "https://docs.rs/instro-opcua"
+exclude = ["tests/client_harness.rs"]
 
 [dependencies]
 # workspace
@@ -27,7 +36,7 @@ time = { version = "0.3.47", features = [
 zeroize = { version = "1.8", features = ["std"] }
 
 [dev-dependencies]
-opcua-test.workspace = true
+instro-opcua-test.workspace = true
 instro-test-utils.workspace = true
 
 [lints]

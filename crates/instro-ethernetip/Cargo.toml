@@ -1,0 +1,32 @@
+[package]
+name = "instro-ethernetip"
+version = "1.0.0"
+description = "Instro EtherNet/IP driver"
+license = "Apache-2.0"
+readme = "README.md"
+edition.workspace = true
+rust-version.workspace = true
+authors = ["Ben Liepert <ben.liepert@nominal.io>", "Carter Canedy <carter.canedy@nominal.io>"]
+keywords = ["ethernetip", "plc", "automation", "instrumentation", "instro"]
+categories = ["hardware-support", "network-programming"]
+homepage = "https://instro.nominal.io"
+repository = "https://github.com/nominal-io/instro"
+documentation = "https://docs.rs/instro-ethernetip"
+exclude = ["tests/explicit_session_integration.rs"]
+
+[lib]
+name = "instro_ethernetip"
+path = "src/lib.rs"
+
+[features]
+default = []
+blocking = ["dep:tokio"]
+
+[dependencies]
+rust-ethernet-ip = { version = "0.7", default-features = false }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"], optional = true }
+
+[dev-dependencies]
+# Required by the async integration test harness and #[tokio::test]-based test runtime.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
