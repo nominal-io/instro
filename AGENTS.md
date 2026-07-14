@@ -97,6 +97,8 @@ Crates are published from `.github/workflows/release-please-publish.yml` with cr
 
 If a Rust core crate backs a Python package, release coupling is manual. A release of `crates/instro-ethernetip` will not automatically cause a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when both artifacts should ship.
 
+Mixed Rust/Python (maturin) packages under `packages/` opt into the multi-platform wheel/sdist build + PyPI publish jobs by committing a `.instro-publish` marker file at the package root (contents are ignored). `release-please-publish.yml` discovers released packages solely by the presence of this marker (no directory-layout sniffing), so a new bridge package needs the marker file and nothing else in the workflow.
+
 ## Patterns and constraints
 
 This repo prefers duplicated, explicit code over premature abstraction. The constraints below trace to specific cases where a shared helper, factory, or facade was attempted and walked back. Don't propose extracting a base / mixin / wrapper unless you can name two concrete drivers that share the *exact* behavior. Even then, duplication is often still the right call.

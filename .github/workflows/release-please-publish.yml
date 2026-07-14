@@ -50,8 +50,7 @@ jobs:
           if [[ "$RELEASED_PATH" == crates/* ]]; then
             # Pure-Rust crates publish to crates.io, not PyPI.
             echo "skip=true" >> "$GITHUB_OUTPUT"
-          elif [ -f "$RELEASED_PATH/Cargo.toml" ] && [ -f "$RELEASED_PATH/pyproject.toml" ] \
-            && grep -q 'build-backend = "maturin"' "$RELEASED_PATH/pyproject.toml"; then
+          elif [ -f "$RELEASED_PATH/.instro-publish" ]; then
             # Mixed Rust/Python (maturin) packages are built and published by the maturin jobs below.
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$RELEASED_PATH" = "." ]; then
@@ -137,13 +136,7 @@ jobs:
           packages='[]'
           while IFS= read -r path; do
             [ -n "$path" ] || continue
-            case "$path" in
-              packages/*) ;;
-              *) continue ;;
-            esac
-            [ -f "$path/Cargo.toml" ] || continue
-            [ -f "$path/pyproject.toml" ] || continue
-            grep -q 'build-backend = "maturin"' "$path/pyproject.toml" || continue
+            [ -f "$path/.instro-publish" ] || continue
             name="$(basename "$path")"
             packages="$(jq -c --arg path "$path" --arg name "$name" '. + [{path: $path, name: $name}]' <<<"$packages")"
           done < <(jq -r '.[]' <<<"$PATHS_RELEASED")

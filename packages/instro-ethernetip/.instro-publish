@@ -1,0 +1,3 @@
+# Presence of this marker opts this mixed Rust/Python (maturin) package into the
+# multi-platform wheel/sdist build + PyPI publish jobs in
+# .github/workflows/release-please-publish.yml. See AGENTS.md "Rust crate releases".
