@@ -75,6 +75,13 @@ flow_data = fc.get_flow_data()  # returns a measurement which is automatically p
 # add a channel buffer to the instrument publishers.
 print(f"Initial data: {flow_data}")
 
+# Read the process value (primary feedback measurement for control)
+process_value_meas = fc.get_process_value()
+print(
+    f"Process value in use: {list(process_value_meas.channel_data.keys())[0]} = "
+    f"{list(process_value_meas.channel_data.values())[0][0]}"
+)
+
 try:
     # Launches a background daemon that polls mass flow, volumetric flow,
     # pressure, temperature, and setpoint.

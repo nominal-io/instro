@@ -11,17 +11,17 @@ from instro.unstable.flowcontroller import (
     TEMPERATURE_KEY,
     VOLUMETRIC_FLOW_KEY,
     FlowControllerDriverBase,
-    FlowData,
     InstroFlowController,
 )
+from instro.unstable.flowcontroller.types import MassFlowData
 
-mock_flow_data = FlowData(
-    pressure=13.5424,
-    temperature=24.5782,
-    vol_flow=16.6670,
-    mass_flow=15.4443,
-    setpoint=25.0,
-)
+mock_flow_data: MassFlowData = {
+    "pressure": 13.5424,
+    "temperature": 24.5782,
+    "vol_flow": 16.6670,
+    "mass_flow": 15.4443,
+    "setpoint": 25.0,
+}
 
 
 def _stub_driver() -> MagicMock:
@@ -90,11 +90,16 @@ def test_get_flow_data_publishes_all_fields() -> None:
 
 def test_get_flow_data_omits_absent_optional_fields() -> None:
     driver = _stub_driver()
-    driver.get_flow_data.return_value = FlowData(setpoint=1.0, mass_flow=2.0, vol_flow=3.0)
+    driver.get_flow_data.return_value = {
+        "setpoint": 1.0,
+        "pressure": 0.0,
+        "mass_flow": 2.0,
+        "vol_flow": 3.0,
+    }
     fc = InstroFlowController(name="ut", driver=driver)
     measurement = fc.get_flow_data()
     assert measurement is not None
-    assert set(measurement.channel_data.keys()) == {"ut.setpoint", "ut.mass_flow", "ut.vol_flow"}
+    assert set(measurement.channel_data.keys()) == {"ut.setpoint", "ut.mass_flow", "ut.vol_flow", "ut.pressure"}
 
 
 def test_set_setpoint_delegates() -> None:

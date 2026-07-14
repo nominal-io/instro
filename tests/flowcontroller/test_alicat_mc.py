@@ -14,6 +14,13 @@ from instro.unstable.flowcontroller import (
     TEMPERATURE_KEY,
     VOLUMETRIC_FLOW_KEY,
 )
+from instro.unstable.flowcontroller.drivers.alicat_constants import (
+    LOOP_VARIABLE_ABS_PRESSURE,
+    LOOP_VARIABLE_GAUGE_PRESSURE,
+    LOOP_VARIABLE_MASS_FLOW,
+    LOOP_VARIABLE_VOL_FLOW,
+    LoopVariable,
+)
 from instro.unstable.flowcontroller.drivers.alicat_mc import AlicatMC, GasMixEntry, GasTypeEntry
 
 _SAMPLE_RESPONSE = "A +13.5424 +24.5782 +16.6670 +15.4443 +25.0000 N2"
@@ -182,3 +189,92 @@ def test_define_gas_mixture_raises_when_sum_above_100(alicat: AlicatMC) -> None:
     mixture = [GasMixEntry(Decimal("50.01"), 1), GasMixEntry(Decimal("50.00"), 8)]
     with pytest.raises(ValueError, match="must sum to 100"):
         alicat.define_gas_mixture("MIX", mixture)
+
+
+# --- Loop control variable (process value source) tests ---
+
+
+def test_process_value_lazy_initializes_loop_variable(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value property triggers loop variable query on first access."""
+
+    def mock_query_response(cmd: str) -> str:
+        if "LR" in cmd:
+            return "A 37 +15.4443"  # LR response: unit loop_var setpoint
+        return _SAMPLE_RESPONSE
+
+    visa_mock.query.side_effect = mock_query_response
+    assert alicat._cached_loop_variable is None
+    value = alicat.process_value
+    assert alicat._cached_loop_variable is not None
+    assert value == pytest.approx(15.4443)
+
+
+def test_process_value_source_lazy_initializes_loop_variable(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value source property triggers loop variable query on first access."""
+
+    def mock_query_response(cmd: str) -> str:
+        if "LR" in cmd:
+            return "A 37 +15.4443"
+        return _SAMPLE_RESPONSE
+
+    visa_mock.query.side_effect = mock_query_response
+    assert alicat._cached_loop_variable is None
+    source = alicat.process_value_source
+    assert alicat._cached_loop_variable is not None
+    assert source == MASS_FLOW_KEY
+
+
+def test_process_value_returns_mass_flow_by_default(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value defaults to mass flow (MASS_FLOW loop variable)."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat._cached_loop_variable = LOOP_VARIABLE_MASS_FLOW
+    alicat._cached_loop_variable_key = MASS_FLOW_KEY
+    assert alicat.process_value == pytest.approx(15.4443)
+
+
+def test_process_value_returns_volumetric_flow_when_set(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value returns volumetric flow when loop variable is set to VOLUMETRIC_FLOW."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat._cached_loop_variable = LOOP_VARIABLE_VOL_FLOW
+    alicat._cached_loop_variable_key = VOLUMETRIC_FLOW_KEY
+    assert alicat.process_value == pytest.approx(16.6670)
+
+
+def test_process_value_returns_pressure_for_absolute_pressure(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value returns pressure when loop variable is set to ABSOLUTE_PRESSURE."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat._cached_loop_variable = LOOP_VARIABLE_ABS_PRESSURE
+    alicat._cached_loop_variable_key = PRESSURE_KEY
+    assert alicat.process_value == pytest.approx(13.5424)
+
+
+def test_process_value_returns_pressure_for_gauge_pressure(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value returns pressure when loop variable is set to GAUGE_PRESSURE."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat._cached_loop_variable = LOOP_VARIABLE_GAUGE_PRESSURE
+    alicat._cached_loop_variable_key = PRESSURE_KEY
+    assert alicat.process_value == pytest.approx(13.5424)
+
+
+def test_set_loop_control_variable_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Set loop control variable sends LV command with the loop variable code."""
+    visa_mock.query.return_value = "A +25.0000"  # LV response: unit setpoint
+    setpoint = alicat.set_loop_control_variable(LoopVariable.VOLUMETRIC_FLOW)
+    visa_mock.query.assert_called_with("ALV 36")
+    assert setpoint == pytest.approx(25.0)
+
+
+def test_set_loop_control_variable_updates_cache(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Set loop control variable updates the cached loop variable and key."""
+    visa_mock.query.return_value = "A +25.0000"
+    alicat.set_loop_control_variable(LoopVariable.VOLUMETRIC_FLOW)
+    assert alicat._cached_loop_variable == LOOP_VARIABLE_VOL_FLOW
+    assert alicat._cached_loop_variable_key == VOLUMETRIC_FLOW_KEY
+
+
+def test_set_loop_control_variable_with_absolute_pressure(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Set loop control variable with absolute pressure updates cache correctly."""
+    visa_mock.query.return_value = "A +13.5424"
+    alicat.set_loop_control_variable(LoopVariable.ABSOLUTE_PRESSURE)
+    assert alicat._cached_loop_variable == LOOP_VARIABLE_ABS_PRESSURE
+    assert alicat._cached_loop_variable_key == PRESSURE_KEY
