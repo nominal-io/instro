@@ -20,8 +20,8 @@ thiserror = "1"
 tracing = "0.1"
 tokio = { version = "1", default-features = false }
 itertools = "0.13"
-open62541 = { version = "0.10", features = ["mbedtls", "x509"] }
-open62541-sys = { version = "0.5", features = ["mbedtls"] }
+open62541 = { version = "0.12", features = ["mbedtls", "x509"] }
+open62541-sys = { version = "0.6", features = ["mbedtls"] }
 futures-util = "0.3"
 instro-opcua-test = { path = "crates/instro-opcua-test" }
 instro-test-utils = { path = "crates/instro-test-utils" }
