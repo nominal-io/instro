@@ -14,7 +14,7 @@ from instro.daq.types import (
     Direction,
     Logic,
 )
-from instro.lib import InstrumentNotOpenError
+from instro.lib import InstrumentNotOpenError, Measurement
 
 
 class _RecordingDriver(DAQDriverBase):
@@ -845,6 +845,20 @@ def test_start_background_false_read_analog_fetches_from_buffer():
     daq.read_analog()
 
     mock_driver.fetch_analog.assert_called_once()
+
+
+@pytest.mark.parametrize("measurement_count", [0, 1, 2])
+def test_fetch_analog_always_returns_measurement_list(measurement_count: int):
+    """Hardware-timed fetches preserve a list return for zero, one, or multiple measurements."""
+    daq, mock_driver = _hw_timed_daq()
+    measurements = [
+        Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
+    ]
+    mock_driver._read_to_measurements.return_value = measurements
+
+    result = daq._fetch_analog()
+
+    assert result == measurements
 
 
 def test_restart_registers_background_fetch_exactly_once():

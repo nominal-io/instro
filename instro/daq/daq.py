@@ -606,8 +606,8 @@ class InstroDAQ(Instrument):
         return measurements[0] if len(measurements) == 1 else measurements
 
     @publish_measurement
-    def _fetch_analog(self, **kwargs) -> Measurement | list[Measurement]:
-        """Fetch buffered samples from a hardware-timed acquisition; also publishes buffer depth on ``{name}.buffer``."""
+    def _fetch_analog(self, **kwargs) -> list[Measurement]:
+        """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
         if not self.ai_hw_timing_config:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
@@ -627,7 +627,7 @@ class InstroDAQ(Instrument):
         # HW-timed acquisition: also publish current buffer depth as telemetry.
         self.get_points_in_buffer()
 
-        return measurements[0] if len(measurements) == 1 else measurements
+        return measurements
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:
