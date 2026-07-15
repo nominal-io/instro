@@ -584,7 +584,8 @@ class InstroDAQ(Instrument):
         self._require_open()
         if self.ai_hw_timing_config:
             if not (self._background_thread and self._background_thread.is_alive()):
-                return self._fetch_analog(**kwargs)
+                measurements = self._fetch_analog(**kwargs)
+                return measurements[0] if len(measurements) == 1 else measurements
             # Background daemon running. The user can't pull from the buffer mid-flight.
             # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")

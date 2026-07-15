@@ -861,6 +861,21 @@ def test_fetch_analog_always_returns_measurement_list(measurement_count: int):
     assert result == measurements
 
 
+@pytest.mark.parametrize("measurement_count", [0, 1, 2])
+def test_hw_timed_read_analog_preserves_public_return_shape(measurement_count: int):
+    """Hardware-timed public reads unwrap only a single Measurement."""
+    daq, mock_driver = _hw_timed_daq()
+    measurements = [
+        Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
+    ]
+    mock_driver._read_to_measurements.return_value = measurements
+
+    result = daq.read_analog()
+
+    expected = measurements[0] if len(measurements) == 1 else measurements
+    assert result == expected
+
+
 def test_restart_registers_background_fetch_exactly_once():
     """start() after stop() must not register a second _fetch_analog daemon function."""
     daq, _ = _hw_timed_daq()
