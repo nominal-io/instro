@@ -537,11 +537,11 @@ impl OpcUaClient {
                 }
             };
 
+            metrics.finish_read(read_start, outcome);
+
             if let Some(samples) = samples {
                 on_data(Box::new(samples.into_iter()));
             }
-
-            metrics.finish_read(read_start, outcome);
         }
     }
 
