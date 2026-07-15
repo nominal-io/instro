@@ -35,7 +35,11 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "component": "instro"
+      "component": "instro",
+      "exclude-paths": [
+        "crates/instro-opcua",
+        "crates/instro-opcua-test"
+      ]
     },
     "packages/instro-daq-labjack": {
       "release-type": "python",

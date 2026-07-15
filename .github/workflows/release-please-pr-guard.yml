@@ -1,0 +1,38 @@
+name: release-please-pr-guard
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  do-not-merge:
+    if: startsWith(github.event.pull_request.head.ref, 'release-please--branches--')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merge
+        if: contains(github.event.pull_request.labels.*.name, 'do not merge')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr ready "$PR_URL" --undo || true
+          echo "::error::Remove the 'do not merge' label before merging this release PR."
+          exit 1
+      - name: Restore ready state
+        if: github.event.action == 'unlabeled' && github.event.label.name == 'do not merge'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr ready "$PR_URL"
+      - name: Allow merge
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'do not merge') }}
+        run: echo "Release PR is not blocked."
