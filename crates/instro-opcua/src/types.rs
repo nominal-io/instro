@@ -567,11 +567,14 @@ pub enum NodeIdInner {
 /// A browse-path segment preserving the OPC UA namespace that qualifies its name.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct QualifiedBrowseName {
+    /// The namespace index qualifying the browse name.
     pub namespace_index: u16,
+    /// The browse name within its namespace.
     pub name: String,
 }
 
 impl QualifiedBrowseName {
+    /// Creates a namespace-qualified browse name.
     pub fn new(namespace_index: u16, name: String) -> Self {
         Self {
             namespace_index,
@@ -588,22 +591,26 @@ pub struct BrowsePath {
 }
 
 impl BrowsePath {
+    /// Creates a browse path containing one segment.
     pub fn from_segment(segment: QualifiedBrowseName) -> Self {
         Self {
             segments: vec![segment],
         }
     }
 
+    /// Returns a new browse path with `segment` appended.
     pub fn child(&self, segment: QualifiedBrowseName) -> Self {
         let mut segments = self.segments.clone();
         segments.push(segment);
         Self { segments }
     }
 
+    /// Returns whether the browse path contains no segments.
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()
     }
 
+    /// Returns the path's namespace-qualified segments.
     pub fn segments(&self) -> &[QualifiedBrowseName] {
         &self.segments
     }
@@ -783,6 +790,7 @@ pub struct OpcUaNode {
     pub browse_name: String,
     pub display_name: String,
     pub node_class: OpcUaNodeClass,
+    /// The namespace-qualified browse path to this node.
     #[serde(default)]
     pub browse_path: BrowsePath,
     pub children: Vec<OpcUaNode>,
