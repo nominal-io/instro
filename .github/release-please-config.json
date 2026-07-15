@@ -1,5 +1,8 @@
 {
   "include-component-in-tag": true,
+  "plugins": [
+    "cargo-workspace"
+  ],
   "changelog-sections": [
     {
       "type": "feat",
@@ -61,6 +64,18 @@
     "packages/instro-contrib": {
       "release-type": "python",
       "component": "instro-contrib"
+    },
+    "crates/instro-ethernetip": {
+      "release-type": "rust",
+      "component": "instro-ethernetip-rs",
+      "initial-version": "0.1.0",
+      "bump-minor-pre-major": true
+    },
+    "crates/instro-opcua": {
+      "release-type": "rust",
+      "component": "instro-opcua-rs",
+      "initial-version": "0.1.0",
+      "bump-minor-pre-major": true
     }
   },
   "groups": [

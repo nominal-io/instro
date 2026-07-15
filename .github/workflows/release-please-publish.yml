@@ -44,7 +44,9 @@ jobs:
       - name: Resolve package name
         id: pkg
         run: |
-          if [ "${{ matrix.path }}" = "packages/instro-ethernetip" ]; then
+          if [[ "${{ matrix.path }}" == crates/* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.path }}" = "packages/instro-ethernetip" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.path }}" = "." ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -61,6 +63,50 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  publish-crates:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    environment: crates-io-release
+
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        path: ${{ fromJSON(needs.release-please.outputs.paths_released) }}
+
+    steps:
+      - name: Filter publishable crates
+        id: crate-pkg
+        run: |
+          if [[ "${{ matrix.path }}" == crates/* ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "name=$(basename "${{ matrix.path }}")" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+
+      - name: Install Rust
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+        run: rustup show
+
+      - name: Authenticate to crates.io
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      - name: Publish crates to crates.io
+        if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
+        run: cargo publish --locked --package "${{ steps.crate-pkg.outputs.name }}"
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
   build-eip-wheels:
     needs: release-please
@@ -111,7 +157,12 @@ jobs:
       - name: Verify EtherNet/IP sdist includes Rust source
         run: |
           set -euo pipefail
-          python3 tests/ethernetip/check_ethernetip_sdist.py dist
+          sdists=(dist/instro_ethernetip-*.tar.gz)
+          if [ "${#sdists[@]}" -ne 1 ] || [ ! -f "${sdists[0]}" ]; then
+            echo "Expected exactly one instro-ethernetip sdist in dist" >&2
+            exit 1
+          fi
+          python3 tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
       - name: Upload EtherNet/IP sdist
         uses: actions/upload-artifact@v4
         with:

@@ -4,10 +4,10 @@ EtherNet/IP device support for instro: the config-driven `EtherNetIPDevice` HAL 
 
 This is a dedicated, self-contained package. It owns the entire `instro.ethernetip` subpackage: the pure-Python HAL (`EtherNetIPDevice`, config, and types) and the private native module `instro.ethernetip._ethernetip` built from Rust. Install it with `pip install instro-ethernetip`, via the `instro[ethernetip]` extra, or as part of `instro[all]`.
 
-It exists separately from `instro-ethernetip-rs` on purpose:
+It exists separately from `crates/instro-ethernetip` on purpose:
 
-- `instro-ethernetip-rs` is the core Rust library and should stay usable from pure Rust code without pulling in PyO3 or Python packaging concerns.
-- `instro-ethernetip` is the optional Python-facing wrapper built with PyO3 and `maturin`.
+- `crates/instro-ethernetip` is the core Rust library and should stay usable from pure Rust code without pulling in PyO3 or Python packaging concerns.
+- `packages/instro-ethernetip` is the optional Python-facing wrapper built with PyO3 and `maturin`.
 
 That split keeps the Rust crate focused on its transport and value API while allowing Python packaging, type stubs, and extension-module details to evolve independently.
 
@@ -26,7 +26,7 @@ That split keeps the Rust crate focused on its transport and value API while all
 
 ## Relationship to the Rust crate
 
-The Python wrapper depends on `instro-ethernetip-rs` and translates between:
+The Python wrapper depends on `crates/instro-ethernetip` and translates between:
 
 - Python classes such as `EtherNetIpSession`, `PlcValue`, `PlcKind`, and `StructuredValue`
 - the Rust crate's `blocking::ExplicitSession`, `Value`, and `StructuredValue` API
@@ -114,7 +114,7 @@ The release workflow builds platform-specific wheels for:
 - Windows `x86_64`
 
 The release workflow also publishes a source distribution. The sdist includes the Rust
-source for both `instro-ethernetip` and `instro-ethernetip-rs`, plus the Cargo
+source for both `instro-ethernetip` and `crates/instro-ethernetip`, plus the Cargo
 manifests and lockfile, so source builds do not depend on unpublished repository files.
 
 Development setup:
@@ -138,4 +138,4 @@ Under the hood:
 
 - `instro.ethernetip._ethernetip` is the private native module owned by this package
 - importing `instro.ethernetip._ethernetip` loads the compiled PyO3 extension module from the installed package
-- the module initializer registers the Rust-backed Python classes, and method calls then execute in Rust against `instro-ethernetip-rs`
+- the module initializer registers the Rust-backed Python classes, and method calls then execute in Rust against `crates/instro-ethernetip`
