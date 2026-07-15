@@ -19,7 +19,7 @@ What you need depends on which command you run. **`just check` is lightweight** 
 | Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
 | C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.13) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
 
 <details>
 <summary><strong>Windows</strong></summary>
