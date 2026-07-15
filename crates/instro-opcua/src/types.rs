@@ -479,8 +479,10 @@ impl Display for OpcUaNodeId {
         match &self.inner {
             NodeIdInner::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
             NodeIdInner::String(s) => write!(f, "ns={};s={}", self.namespace, s),
-            NodeIdInner::ByteString(b) => write!(f, "ns={};b={}", self.namespace, STANDARD.encode(b)),
-            NodeIdInner::Guid(g) => write!(f, "ns={};g={}", self.namespace, g.to_string()),
+            NodeIdInner::ByteString(b) => {
+                write!(f, "ns={};b={}", self.namespace, STANDARD.encode(b))
+            }
+            NodeIdInner::Guid(g) => write!(f, "ns={};g={}", self.namespace, g),
         }
     }
 }
@@ -513,7 +515,9 @@ impl FromStr for OpcUaNodeId {
                 .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
             NodeIdInner::Guid(uuid)
         } else if let Some(byte_string) = rest.strip_prefix("b=") {
-            let bytes = STANDARD.decode(byte_string).with_context(|| format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'"))?;
+            let bytes = STANDARD.decode(byte_string).with_context(|| {
+                format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'")
+            })?;
             NodeIdInner::ByteString(bytes)
         } else {
             bail!("OpcUaNodeId '{s}': identifier must start with 'i=' or 's='");
@@ -551,11 +555,22 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
         } else if let Some((ns, string)) = node_id.as_string() {
             (ns, NodeIdInner::String(string.to_string()))
         } else if let Some((ns, binary)) = node_id.as_byte_string() {
-            let bytes = binary.as_bytes().context("invalid byte string node id")?.to_vec();
+            let bytes = binary
+                .as_bytes()
+                .context("invalid byte string node id")?
+                .to_vec();
             (ns, NodeIdInner::ByteString(bytes))
         } else if let Some((ns, guid)) = node_id.as_guid() {
-            (ns, NodeIdInner::Guid(Uuid::from_fields(guid.data1(), guid.data2(), guid.data3(), &guid.data4())))
-        }else {
+            (
+                ns,
+                NodeIdInner::Guid(Uuid::from_fields(
+                    guid.data1(),
+                    guid.data2(),
+                    guid.data3(),
+                    &guid.data4(),
+                )),
+            )
+        } else {
             bail!("node id wasn't valid: '{node_id:?}'");
         };
 
@@ -569,7 +584,7 @@ impl From<OpcUaNodeId> for NodeId {
             NodeIdInner::Numeric(n) => NodeId::numeric(other.namespace, n),
             NodeIdInner::String(ref s) => NodeId::string(other.namespace, s),
             NodeIdInner::ByteString(ref bytes) => NodeId::byte_string(other.namespace, bytes),
-            NodeIdInner::Guid(ref uuid) => NodeId::guid(other.namespace, Guid::from_uuid(uuid.clone())),
+            NodeIdInner::Guid(uuid) => NodeId::guid(other.namespace, Guid::from_uuid(uuid)),
         }
     }
 }
@@ -1132,9 +1147,7 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
     type Error = Error;
     fn try_from(variant: DataValue<ua::Variant>) -> Result<Self> {
         use open62541::VariantValue;
-        let value = variant
-            .value()
-            .ok_or_else(|| anyhow!("value is null"))?;
+        let value = variant.value().ok_or_else(|| anyhow!("value is null"))?;
 
         let scalar = match value.to_value() {
             VariantValue::Scalar(scalar) => scalar,
