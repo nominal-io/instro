@@ -11,7 +11,6 @@ class WaveformType(Enum):
     PULSE = "PULSE"
     NOISE = "NOISE"
     DC = "DC"
-    ARB = "USER"
 
 
 class VoltageUnit(Enum):
