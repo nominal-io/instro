@@ -93,8 +93,6 @@ For an initial stable release such as `0.1.0`, set `initial-version` in `.github
 
 Crates are published from `.github/workflows/release-please-publish.yml` with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`), not a stored `CARGO_REGISTRY_TOKEN`. The crate must already exist on crates.io and have a trusted publisher configured for this repository and workflow file.
 
-If a Rust core crate backs a Python package, release coupling is manual. A release of `crates/instro-ethernetip` will not automatically cause a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when both artifacts should ship.
-
 ## Patterns and constraints
 
 This repo prefers duplicated, explicit code over premature abstraction. The constraints below trace to specific cases where a shared helper, factory, or facade was attempted and walked back. Don't propose extracting a base / mixin / wrapper unless you can name two concrete drivers that share the *exact* behavior. Even then, duplication is often still the right call.
