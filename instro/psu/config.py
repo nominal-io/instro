@@ -1,47 +1,105 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from instro.lib.transports.visa import VisaConfig
+from instro.lib.types import DeviceInfo
 
 if TYPE_CHECKING:
     from instro.lib.publishers import Publisher
     from instro.psu.psu import InstroPSU, PSUDriverBase
 
+__all__ = [
+    "DeviceInfo",
+    "FilePublisherConfig",
+    "NominalCorePublisherConfig",
+    "PSUConfig",
+    "TimingConfig",
+    "VisaDriverConfig",
+]
+
 PSU_VENDOR_REGISTRY: dict[str, str] = {
-    "bk_9115": "instro.psu.drivers.bk_9115.BK9115",
-    "bk_914x": "instro.psu.drivers.bk_914x.BK914X",
-    "keysight_e36100": "instro.psu.drivers.keysight_e36100.KeysightE36100",
-    "keysight_n5700": "instro.psu.drivers.keysight_n5700.KeysightN5700",
-    "rigol_dp800": "instro.psu.drivers.rigol_dp800.RigolDP800",
-    "siglent_spd3303": "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
-    "simulated": "instro.psu.drivers.simulated.SimulatedPSU",
-    "tdk_lambda_genesys": "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
+    "BK9115": "instro.psu.drivers.bk_9115.BK9115",
+    "BK914X": "instro.psu.drivers.bk_914x.BK914X",
+    "KeysightE36100": "instro.psu.drivers.keysight_e36100.KeysightE36100",
+    "KeysightN5700": "instro.psu.drivers.keysight_n5700.KeysightN5700",
+    "RigolDP800": "instro.psu.drivers.rigol_dp800.RigolDP800",
+    "SiglentSPD3303": "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
+    "SimulatedPSU": "instro.psu.drivers.simulated.SimulatedPSU",
+    "TDKLambdaGenesys": "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
 }
+
+
+class TimingConfig(BaseModel):
+    """Timing configuration for PSU background polling."""
+
+    poll_interval: float = Field(ge=0.01, le=10.0, description="Polling interval in seconds")
+
+
+class VisaDriverConfig(BaseModel):
+    """Driver config for a VISA-connected PSU."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["visa"] = "visa"
+    name: str = Field(description="PSU vendor/model key.")
+    num_channels: int = Field(ge=1, description="Number of output channels.")
+    visa: VisaConfig
+
+    @field_validator("name")
+    @classmethod
+    def name_must_be_registered(cls, v: str) -> str:
+        if v not in PSU_VENDOR_REGISTRY:
+            raise ValueError(f"unknown driver {v!r}")
+        return v
+
+
+class NominalCorePublisherConfig(BaseModel):
+    """Publisher config for streaming to a Nominal Core dataset."""
+
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["NominalCorePublisher"] = "NominalCorePublisher"
+    dataset_rid: str = Field(description="Target Nominal Core dataset RID.")
+    batch_size: int | None = Field(default=None, description="Publish batch size override.")
+    profile: str | None = Field(
+        default=None, description="On-disk Nominal credential profile name; defaults to 'default'."
+    )
+
+
+class FilePublisherConfig(BaseModel):
+    """Publisher config for writing measurements to a local file."""
+
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["FilePublisher"] = "FilePublisher"
+    directory: str = Field(description="Output directory for the written file.")
+    format: Literal["json", "csv", "avro"] = "avro"
+    custom_file_name: str | None = Field(default=None, description="Filename without extension.")
+
+
+PublisherConfigType = Annotated[NominalCorePublisherConfig | FilePublisherConfig, Field(discriminator="type")]
 
 
 class PSUConfig(BaseModel):
     """Validated config for constructing an InstroPSU from JSON."""
 
     model_config = ConfigDict(extra="forbid")
-    name: str = Field(description="Channel-name prefix for published data.")
-    vendor: str = Field(description="PSU vendor/model key.")
-    connection: str = Field(description="VISA resource string (e.g 'USB0::...' or 'TCPIP0::...').")
-    num_channels: int = Field(ge=1, description="Number of output channels.")
-    visa_backend: str | None = Field(
-        default=None, description="pyvisa backend specifier, defaults to @ivi and falls back to @py."
-    )
-    dataset_rid: str | None = Field(default=None, description="Nominal dataset RID for auto-publishing.")
-    output_directory: str | None = Field(
-        default=None, description="Directory path for writing output data to a local file."
-    )
+    version: int = 1
+    instrument: Literal["InstroPSU"] = "InstroPSU"
+    device: DeviceInfo
+    driver: VisaDriverConfig
+    timing: TimingConfig | None = None
+    publishers: list[PublisherConfigType] = Field(default_factory=list)
 
-    @field_validator("vendor")
-    @classmethod
-    def vendor_must_be_registered(cls, v: str) -> str:
-        if v not in PSU_VENDOR_REGISTRY:
-            raise ValueError(f"unknown vendor {v!r}; valid: {sorted(PSU_VENDOR_REGISTRY)}")
-        return v
+
+def _build_publisher(config: NominalCorePublisherConfig | FilePublisherConfig) -> Publisher:
+    from instro.lib.publishers import FilePublisher, NominalCorePublisher
+
+    if isinstance(config, NominalCorePublisherConfig):
+        return NominalCorePublisher(
+            dataset_rid=config.dataset_rid, batch_size=config.batch_size, profile=config.profile
+        )
+    return FilePublisher(directory=config.directory, format=config.format, custom_file_name=config.custom_file_name)
 
 
 def build_psu_from_config(
@@ -51,27 +109,22 @@ def build_psu_from_config(
     """Construct an InstroPSU from a validated PSUConfig."""
     import importlib
 
-    from instro.lib.transports.visa import VisaConfig
     from instro.psu.psu import InstroPSU
 
-    module_path, class_name = PSU_VENDOR_REGISTRY[config.vendor].rsplit(".", 1)
+    module_path, class_name = PSU_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
     driver_cls = getattr(importlib.import_module(module_path), class_name)
 
-    visa_config = VisaConfig(visa_resource=config.connection, visa_backend=config.visa_backend)
-
-    driver: PSUDriverBase = driver_cls(visa_config)  # type: ignore[call-arg]
-
-    from instro.lib.publishers import FilePublisher, NominalCorePublisher
+    driver: PSUDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     all_publishers = list(publishers or [])
-    if config.dataset_rid is not None:
-        all_publishers.append(NominalCorePublisher(config.dataset_rid))
-    if config.output_directory is not None:
-        all_publishers.append(FilePublisher(directory=config.output_directory))
+    all_publishers.extend(_build_publisher(p) for p in config.publishers)
 
-    return InstroPSU(
-        name=config.name,
+    psu = InstroPSU(
+        name=config.device.name,
         driver=driver,
-        num_channels=config.num_channels,
+        num_channels=config.driver.num_channels,
         publishers=all_publishers or None,
     )
+    if config.timing is not None:
+        psu.background_interval = config.timing.poll_interval
+    return psu

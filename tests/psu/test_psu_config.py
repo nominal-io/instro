@@ -14,10 +14,13 @@ from instro.psu import InstroPSU, PSUConfig
 @pytest.fixture
 def valid_config() -> dict:
     return {
-        "name": "test_psu",
-        "vendor": "simulated",
-        "connection": "TCPIP0::127.0.0.1::5025::SOCKET",
-        "num_channels": 1,
+        "device": {"name": "test_psu"},
+        "driver": {
+            "name": "SimulatedPSU",
+            "num_channels": 1,
+            "connection_type": "visa",
+            "visa": {"visa_resource": "TCPIP0::127.0.0.1::5025::SOCKET"},
+        },
     }
 
 
@@ -29,19 +32,30 @@ def test_from_dict_returns_instropsu(valid_config):
     assert psu.name == "test_psu"
 
 
+def test_from_dict_with_timing_sets_background_interval(valid_config):
+    config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
+    with patch("instro.lib.transports.visa.VisaDriver"):
+        psu = InstroPSU.from_dict(config_with_timing)
+
+    assert psu.background_interval == 0.5
+
+
 def test_from_dict_missing_required_field():
     with pytest.raises(Exception):
-        InstroPSU.from_dict({"vendor": "simulated", "connection": "TCPIP0::127.0.0.1::5025::SOCKET"})
+        InstroPSU.from_dict({"driver": {"name": "SimulatedPSU", "num_channels": 1, "connection_type": "visa"}})
 
 
-def test_from_dict_unknown_vendor():
+def test_from_dict_unknown_driver_name():
     with pytest.raises(Exception):
         InstroPSU.from_dict(
             {
-                "name": "test_psu",
-                "vendor": "not_a_real_vendor",
-                "connection": "TCPIP0::127.0.0.1::5025::SOCKET",
-                "num_channels": 1,
+                "device": {"name": "test_psu"},
+                "driver": {
+                    "name": "not_a_real_driver",
+                    "num_channels": 1,
+                    "connection_type": "visa",
+                    "visa": {"visa_resource": "TCPIP0::127.0.0.1::5025::SOCKET"},
+                },
             }
         )
 
@@ -50,10 +64,13 @@ def test_from_dict_invalid_num_channels():
     with pytest.raises(Exception):
         InstroPSU.from_dict(
             {
-                "name": "test_psu",
-                "vendor": "simulated",
-                "connection": "TCPIP0::127.0.0.1::5025::SOCKET",
-                "num_channels": 0,
+                "device": {"name": "test_psu"},
+                "driver": {
+                    "name": "SimulatedPSU",
+                    "num_channels": 0,
+                    "connection_type": "visa",
+                    "visa": {"visa_resource": "TCPIP0::127.0.0.1::5025::SOCKET"},
+                },
             }
         )
 
@@ -85,10 +102,34 @@ def test_from_json_malformed_json(tmp_path):
         InstroPSU.from_json(config_file)
 
 
+def test_from_dict_with_publishers(valid_config):
+    config_with_publishers = {
+        **valid_config,
+        "publishers": [
+            {"type": "NominalCorePublisher", "dataset_rid": "test_psu"},
+            {"type": "FilePublisher", "directory": "test_psu_out", "format": "csv"},
+        ],
+    }
+    with (
+        patch("instro.lib.transports.visa.VisaDriver"),
+        patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
+        patch("instro.lib.publishers.FilePublisher") as mock_fp,
+    ):
+        psu = InstroPSU.from_dict(config_with_publishers)
+
+    mock_ncp.assert_called_once_with(dataset_rid="test_psu", batch_size=None, profile=None)
+    mock_fp.assert_called_once_with(directory="test_psu_out", format="csv", custom_file_name=None)
+    assert psu.publishers == [mock_ncp.return_value, mock_fp.return_value]
+
+
+def test_from_dict_unknown_publisher_type(valid_config):
+    with pytest.raises(Exception):
+        InstroPSU.from_dict({**valid_config, "publishers": [{"type": "NotARealPublisher"}]})
+
+
 def test_vendor_registry_complete():
     import importlib
 
-    import instro.psu.drivers as drv_pkg
     from instro.psu.config import PSU_VENDOR_REGISTRY
     from instro.psu.psu import PSUDriverBase
 
