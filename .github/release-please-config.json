@@ -39,10 +39,7 @@
       "release-type": "python",
       "component": "instro",
       "exclude-paths": [
-        "crates/instro-opcua",
-        "crates/instro-opcua-test",
-        "crates/instro-test-utils",
-        "crates/instro-ethernetip"
+        "crates"
       ]
     },
     "packages/instro-daq-labjack": {
