@@ -482,6 +482,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "instro-opcua-py"
+version = "0.1.0"
+dependencies = [
+ "instro-opcua",
+ "pyo3",
+]
+
+[[package]]
 name = "instro-opcua-test"
 version = "0.1.0"
 dependencies = [

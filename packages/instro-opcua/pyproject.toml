@@ -1,0 +1,20 @@
+[project]
+name = "instro-opcua"
+version = "0.1.0"
+description = "Python bindings for instro OPC UA"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<3.15"
+dependencies = ["instro"]
+
+[build-system]
+requires = ["maturin>=1.9.4,<2.0"]
+build-backend = "maturin"
+
+[tool.uv.sources]
+instro = { workspace = true }
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "instro.opcua._opcua"
+python-source = "."
