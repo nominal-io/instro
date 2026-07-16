@@ -98,7 +98,7 @@ def _local_path_dependencies() -> dict[str, Path]:
 def _expected_paths() -> set[ExpectedPath]:
     expected = set()
     expected.add(ExpectedPath("wrapper manifest", "Cargo.toml", _archive_path(WRAPPER_ARCHIVE_DIR, "Cargo.toml")))
-    expected.add(ExpectedPath("workspace manifest", "Cargo.toml", _archive_path(WRAPPER_ARCHIVE_DIR, "Cargo.toml")))
+    expected.add(ExpectedPath("workspace manifest", "Cargo.toml", "Cargo.toml"))
     expected.add(
         ExpectedPath("wrapper manifest", _archive_path(WRAPPER_ARCHIVE_DIR, "pyproject.toml"), "pyproject.toml")
     )
