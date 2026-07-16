@@ -115,7 +115,7 @@ The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, includin
 
 **Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-CI runs `just rust-lock-check` to verify the shared lock with `--locked`. The check is included in `just rust`, which `just test` invokes through `just eip-test`.
+CI verifies the shared lock with `--locked` via `cargo clippy --locked` in `just rust`, which `just test` invokes through `just eip-test`.
 
 ### Rust crate releases
 
