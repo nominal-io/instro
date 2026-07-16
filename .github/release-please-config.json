@@ -38,7 +38,9 @@
       "component": "instro",
       "exclude-paths": [
         "crates/instro-opcua",
-        "crates/instro-opcua-test"
+        "crates/instro-opcua-test",
+        "crates/instro-test-utils",
+        "crates/instro-ethernetip"
       ]
     },
     "packages/instro-daq-labjack": {
