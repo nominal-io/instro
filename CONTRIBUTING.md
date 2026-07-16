@@ -109,26 +109,13 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
-### Rust Cargo.lock (dual-lock policy)
+### Rust Cargo.lock
 
-Rust tooling spans two dependency graphs:
+The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, including mixed PyO3/maturin packages under `packages/`.
 
-- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip`, `instro-opcua`, …).
-- Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
+**Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
-
-- Workspace members: `cargo update` at the repo root.
-- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
-
-CI verifies all committed lockfiles with `--locked`:
-
-- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
-- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
-
-Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
-
-**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+CI runs `just rust-lock-check` to verify the shared lock with `--locked`. The check is included in `just rust`, which `just test` invokes through `just eip-test`.
 
 ### Rust crate releases
 

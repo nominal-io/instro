@@ -67,7 +67,14 @@
     },
     "packages/instro-ethernetip": {
       "release-type": "rust",
-      "component": "instro-ethernetip"
+      "component": "instro-ethernetip",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "pyproject.toml",
+          "jsonpath": "project.version"
+        }
+      ]
     },
     "packages/instro-contrib": {
       "release-type": "python",

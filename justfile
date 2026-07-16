@@ -88,12 +88,10 @@ gen-examples:
 
 # run Rust formatting, linting, and library/doc tests for the workspace
 rust:
-    just rust-lock-check
     cargo fmt --all
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
     cargo test --workspace --all-features --lib --tests
     cargo test --workspace --all-features --doc
-    just rust-standalone
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:
