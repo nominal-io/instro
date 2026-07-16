@@ -91,32 +91,32 @@ class Keysight34461A(DMMDriverBase):
         """Unsupported — AC functions integrate via filter bandwidth (``CURR:AC:BAND``), not NPLC."""
         raise NotImplementedError("Keysight 34461A AC current has no NPLC; integration is set by filter bandwidth.")
 
-    def _measure(self, function_command: str) -> float:
+    def _measure(self, function: MeasurementFunction) -> float:
         # FUNC + READ? instead of MEAS:...? — MEAS (like CONF) resets range/NPLC
         # to defaults, discarding anything the set_* methods programmed.
         with self._visa.lock():
-            self._visa.write(f'FUNC "{function_command}"')
+            self._visa.write(f'FUNC "{_FUNCTION_COMMANDS[function]}"')
             value = self._visa.query("READ?")
             self._check_errors()
             return float(value)
 
     def measure_dc_voltage(self) -> float:
-        return self._measure("VOLT")
+        return self._measure(MeasurementFunction.DC_VOLTAGE)
 
     def measure_ac_voltage(self) -> float:
-        return self._measure("VOLT:AC")
+        return self._measure(MeasurementFunction.AC_VOLTAGE)
 
     def measure_dc_current(self) -> float:
-        return self._measure("CURR")
+        return self._measure(MeasurementFunction.DC_CURRENT)
 
     def measure_ac_current(self) -> float:
-        return self._measure("CURR:AC")
+        return self._measure(MeasurementFunction.AC_CURRENT)
 
     def measure_resistance(self) -> float:
-        return self._measure("RES")
+        return self._measure(MeasurementFunction.TWO_WIRE_RESISTANCE)
 
     def measure_four_wire_resistance(self) -> float:
-        return self._measure("FRES")
+        return self._measure(MeasurementFunction.FOUR_WIRE_RESISTANCE)
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
