@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.0](https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v2.0.0) (2026-07-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **opcua:** implement browse paths ([#161](https://github.com/nominal-io/instro/issues/161))
+
+### Features
+
+* **opcua:** implement browse paths ([#161](https://github.com/nominal-io/instro/issues/161)) ([8b2ea1c](https://github.com/nominal-io/instro/commit/8b2ea1c976279ada509904255ae99d37b37d6e6b))
+
+
+### Bug Fixes
+
+* **nidaqmx:** validate digital port width ([#284](https://github.com/nominal-io/instro/issues/284)) ([980bc7d](https://github.com/nominal-io/instro/commit/980bc7dd3fe915ef338e77712ff9efaa7980f6c3))
+
 ## [1.4.0](https://github.com/nominal-io/instro/compare/instro-v1.3.0...instro-v1.4.0) (2026-07-13)
 
 
