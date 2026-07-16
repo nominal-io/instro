@@ -1,7 +1,19 @@
 {
-    "name": "bench_psu",
-    "vendor": "bk_9115",
-    "connection": "USB0::0x2A8D::0x0101::MY12345::INSTR",
-    "num_channels": 1,
-    "dataset_rid": "<dataset_rid>"
+    "device": {
+        "name": "bench_psu"
+    },
+    "driver": {
+        "name": "BK9115",
+        "num_channels": 1,
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"
+        }
+    },
+    "publishers": [
+        {
+            "type": "NominalCorePublisher",
+            "dataset_rid": "<your dataset RID>"
+        }
+    ]
 }

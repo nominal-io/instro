@@ -73,17 +73,46 @@ Where bench_psu.json contains:
 
 ```json
 {
-  "name": "bench_psu",
-  "vendor": "bk_9115",
-  "connection": "USB0::0x2A8D::0x0101::MY12345::INSTR",
-  "num_channels": 1,
-  "dataset_rid": "<your dataset RID>",
-  "output_directory": "<path to output directory>",
-  "visa_backend": "@py"
+  "device": {
+    "name": "bench_psu"
+  },
+  "driver": {
+    "name": "BK9115",
+    "num_channels": 1,
+    "connection_type": "visa",
+    "visa": {
+      "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"
+    }
+  },
+  "publishers": [
+    {
+      "type": "NominalCorePublisher",
+      "dataset_rid": "<your dataset RID>"
+    }
+  ]
 }
 ```
 
-`dataset_rid` and `output_directory` and `visa_backend` are optional. To construct from a Python dict or a raw JSON string instead:
+`driver.name` must match one of the registered vendor/model keys (e.g. `BK9115`, `BK914X`, `SiglentSPD3303`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too:
+
+```json
+"visa": {
+  "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR",
+  "visa_backend": "@py",
+  "timeout": { "recv": 5 }
+}
+```
+
+`publishers` is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`:
+
+```json
+"publishers": [
+  { "type": "NominalCorePublisher", "dataset_rid": "<your dataset RID>" },
+  { "type": "FilePublisher", "directory": "psu_data", "format": "csv" }
+]
+```
+
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. To construct from a Python dict or a raw JSON string instead:
 
 ```python
 InstroPSU.from_dict(data)
@@ -96,9 +125,7 @@ InstroPSU.from_json_str(json_string)
 - **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
 - **`num_channels`**: Number of output channels on the power supply.
 - **`publishers`**: Optional list of publishers to attach.
-- **`dataset_rid`**: Optional Nominal dataset RID. When set, automatically publishes measurements to that dataset.
-- **`output_directory`**: Optional path to a directory for writing output data to a local file.
-- **`visa_backend`**: Optional pyvisa backend specifier (e.g. `"@py"`). Defaults to `@ivi` with fallback to `@py`.
+- **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
 
 ### Choosing a Driver
 
