@@ -732,7 +732,7 @@ Each of the methods below must (a) program the device and (b) record the resulti
 
 ### Data Operations
 
-- **`read_analog() -> Any`**: Perform software-timed analog read
+- **`read_analog() -> list[Measurement]`**: Perform software-timed analog read
   - Trigger immediate conversion and return data
 
 - **`fetch_analog() -> Any`**: Fetch samples from hardware-timed acquisition buffer
