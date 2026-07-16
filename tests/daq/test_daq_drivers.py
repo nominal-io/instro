@@ -848,20 +848,6 @@ def test_start_background_false_read_analog_fetches_from_buffer():
 
 
 @pytest.mark.parametrize("measurement_count", [0, 1, 2])
-def test_fetch_analog_always_returns_measurement_list(measurement_count: int):
-    """Hardware-timed fetches preserve a list return for zero, one, or multiple measurements."""
-    daq, mock_driver = _hw_timed_daq()
-    measurements = [
-        Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
-    ]
-    mock_driver._read_to_measurements.return_value = measurements
-
-    result = daq._fetch_analog()
-
-    assert result == measurements
-
-
-@pytest.mark.parametrize("measurement_count", [0, 1, 2])
 def test_hw_timed_read_analog_always_returns_measurement_list(measurement_count: int):
     """Hardware-timed public reads return a list for every measurement count."""
     daq, mock_driver = _hw_timed_daq()
