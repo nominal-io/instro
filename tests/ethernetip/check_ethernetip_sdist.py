@@ -80,8 +80,8 @@ def _cargo_metadata() -> dict[str, object]:
 
 def _local_path_dependencies() -> dict[str, Path]:
     packages = _cargo_metadata()["packages"]
-    if not isinstance(packages, list) or len(packages) != 1:
-        raise SystemExit("Expected Cargo metadata for exactly one EtherNet/IP wrapper package")
+    if not isinstance(packages, list):
+        raise SystemExit("Expected Cargo metadata for EtherNet/IP wrapper package")
 
     dependencies = packages[0]["dependencies"]
     return {

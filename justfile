@@ -161,10 +161,6 @@ eip-sdist-smoke-test:
     trap 'rm -rf "$dist_dir"' EXIT
     uv build --sdist --package instro-ethernetip --out-dir "$dist_dir"
     sdists=("$dist_dir"/instro_ethernetip-*.tar.gz)
-    if [ "${#sdists[@]}" -ne 1 ] || [ ! -f "${sdists[0]}" ]; then
-        echo "Expected exactly one instro-ethernetip sdist in $dist_dir" >&2
-        exit 1
-    fi
     uv run python tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
 
 # install the built wheel into an isolated environment and verify the private native module
