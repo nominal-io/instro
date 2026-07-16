@@ -83,6 +83,10 @@ def _local_path_dependencies() -> dict[str, Path]:
     if not isinstance(packages, list):
         raise SystemExit("Expected Cargo metadata for EtherNet/IP wrapper package")
 
+    wrapper = next((pkg for pkg in packages if pkg.get("name") == "instro-ethernetip-py"), None)
+    if wrapper is None:
+        raise SystemExit("Could not find the instro-ethernetip-py wrapper package in Cargo metadata")
+
     dependencies = packages[0]["dependencies"]
     return {
         dependency.get("rename") or dependency["name"]: Path(dependency["path"])
