@@ -61,6 +61,6 @@ with daq:
 
     for i in range(5):
         # Take 5 measurements of each channel
-        measurement = daq.read_analog()
-        print(measurement)
+        measurements = daq.read_analog()
+        print(measurements)
         time.sleep(1)  # Software sleep. Then request daq to sample new points.

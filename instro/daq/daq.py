@@ -574,18 +574,17 @@ class InstroDAQ(Instrument):
     def read_analog(
         self,
         **kwargs,
-    ) -> Measurement | list[Measurement]:
+    ) -> list[Measurement]:
         """Dispatch a hardware-timed buffer fetch or a software-timed conversion based on configuration.
 
         Each branch publishes its own Measurements; this dispatcher does not.
         Hardware-timed with the background daemon running raises — the daemon owns the buffer.
-        Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
+        Returns one Measurement per timebase cluster.
         """
         self._require_open()
         if self.ai_hw_timing_config:
             if not (self._background_thread and self._background_thread.is_alive()):
-                measurements = self._fetch_analog(**kwargs)
-                return measurements[0] if len(measurements) == 1 else measurements
+                return self._fetch_analog(**kwargs)
             # Background daemon running. The user can't pull from the buffer mid-flight.
             # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
@@ -593,8 +592,8 @@ class InstroDAQ(Instrument):
         return self._software_timed_read(**kwargs)
 
     @publish_measurement
-    def _software_timed_read(self, **kwargs) -> Measurement | list[Measurement]:
-        """Initiate a software-timed analog conversion and return the resulting Measurement(s)."""
+    def _software_timed_read(self, **kwargs) -> list[Measurement]:
+        """Initiate a software-timed analog conversion and return the resulting Measurements."""
         response = self._driver.read_analog()
         measurements = self._driver._read_to_measurements(
             response=response,
@@ -604,7 +603,7 @@ class InstroDAQ(Instrument):
             **kwargs,
         )
         measurements = self._scale_analog_measurement(measurements)
-        return measurements[0] if len(measurements) == 1 else measurements
+        return measurements
 
     @publish_measurement
     def _fetch_analog(self, **kwargs) -> list[Measurement]:

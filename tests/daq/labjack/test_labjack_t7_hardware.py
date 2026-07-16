@@ -331,7 +331,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     vals = measurement.channel_data.get(f"{NAME}.{AI0_ALIAS}", [])
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -393,7 +393,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 daq.write_analog_value(AO1_ALIAS, 1.0)
                 time.sleep(0.05)
 
-                m = daq.read_analog()
+                m = daq.read_analog()[0]
                 ain0 = m.channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
                 ain1 = m.channel_data.get(f"{NAME}.{AI1_ALIAS}", [None])[-1]
                 self.assertTrue(
@@ -411,7 +411,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     terminal_config=TerminalConfig.DIFF,
                 )
                 time.sleep(0.05)
-                diff_reading = daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+                diff_reading = daq.read_analog()[0].channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
                 self.assertTrue(
                     diff_reading is not None and math.isfinite(diff_reading),
                     f"non-finite differential read: {diff_reading}",
@@ -458,7 +458,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write_analog_value(AO0_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+                    measured = daq.read_analog()[0].channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -491,7 +491,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 def read_ain0():
-                    return daq.read_analog().channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
+                    return daq.read_analog()[0].channel_data.get(f"{NAME}.{AI0_ALIAS}", [None])[-1]
 
                 errs = []
                 for range_min, range_max, in_v, over_v in AIN_VOLTAGE_RANGES:
@@ -664,7 +664,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
                 try:
                     # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
 
                     for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):

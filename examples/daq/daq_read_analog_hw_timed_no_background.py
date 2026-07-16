@@ -67,7 +67,7 @@ with daq:
     while True:
         try:
             # Main progam loop
-            data = daq.read_analog()
+            measurements = daq.read_analog()
         except KeyboardInterrupt:
             print("Exiting main loop")
             break

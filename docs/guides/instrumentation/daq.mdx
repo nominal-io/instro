@@ -142,7 +142,7 @@ Refer to your device's documentation for channel naming.
 
 It's common for the data being read by an analog input channel to need scaling to represent a real-world physical phenomenon. For example, a 0-5 volt sensor measuring pressure.
 
-`InstroDAQ` supports adding a `Scaler` object when you configure your analog channel. The `Measurement` published and returned by `read_analog` will contain these scaled values.
+`InstroDAQ` supports adding a `Scaler` object when you configure your analog channel. The `Measurement` objects published and returned by `read_analog` will contain these scaled values.
 
 Example of a 0-5V pressure sensor that measures 0-3000 psia.
 ```python
@@ -302,14 +302,14 @@ daq.configure_analog_channel(
 
 # Read samples on demand
 for i in range(10):
-    measurement = daq.read_analog()
+    measurement = daq.read_analog()[0]
     print(f"Value: {measurement.latest}")
     time.sleep(1)  # Wait 1 second between reads
 
 daq.close()
 ```
 
-The `read_analog()` method returns a `Measurement` object (or list of `Measurement` objects for multiple channels) containing:
+The `read_analog()` method always returns a list with one `Measurement` object per timebase cluster. Each object contains:
 - `channel_data`: Dictionary mapping channel aliases to lists of values
 - `timestamps`: List of timestamps (nanoseconds since epoch)
 - `values`: Property returning all values as a list (convenience for single-channel reads)
@@ -403,7 +403,7 @@ daq.start(background=False)
 
 # Manually fetch from buffer when ready
 for i in range(10):
-    measurement = daq.read_analog()
+    measurement = daq.read_analog()[0]
     print(f"Fetched {len(measurement.timestamps)} samples")
     time.sleep(0.1)
 
@@ -563,8 +563,8 @@ try:
 
     # Read 5 times with 1 second between reads
     for i in range(5):
-        measurement = daq.read_analog()
-        print(measurement)
+        measurements = daq.read_analog()
+        print(measurements)
         time.sleep(1)  # Software sleep until time for next sample
 
 except Exception as e:

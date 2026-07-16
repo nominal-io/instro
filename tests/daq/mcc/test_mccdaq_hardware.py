@@ -378,7 +378,7 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for _ in range(3):
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     # No AO driven here, so the loopback wire value is undefined — assert structure only.
                     self._check_ai(measurement, {"ai_0": None, "ai_1": None}, errs)
@@ -438,7 +438,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write_analog_value("ao_1", -v)
                     time.sleep(0.2)  # allow signal to settle
 
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     # ao_0 -> ai_0 carries +v, ao_1 -> ai_1 carries -v via loopback wiring.
                     self._check_ai(measurement, {"ai_0": v, "ai_1": -v}, errs)
@@ -481,7 +481,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 time.sleep(0.2)
 
                 errs: list = []
-                measurement = daq.read_analog()
+                measurement = daq.read_analog()[0]
                 self.assertIsNotNone(measurement)
                 self._check_ai(measurement, {"ai_0_narrow": 0.5}, errs)
                 self.assertFalse(errs, "; ".join(errs))
@@ -515,7 +515,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write_analog_value("ao_0", v)
                     time.sleep(0.2)
 
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     # Only ao_0 is driven here; ao_1/ai_1 is left undriven, so check ai_0 only.
                     self._check_ai(measurement, {"ai_0": v}, errs)
@@ -601,7 +601,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write_analog_value("ao_1", -4.0)
                     time.sleep(0.2)
 
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                 finally:
                     daq.stop()

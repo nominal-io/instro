@@ -302,7 +302,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq = self._create_daq()
                 try:
                     self._configure_ai(daq, physical, alias)
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement, f"{alias}: measurement is None")
                     vals = measurement.values
                     self.assertTrue(vals, f"{alias}: empty values list")
@@ -363,7 +363,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write_analog_value(AO_ALIAS_0, v)
                     time.sleep(0.05)
-                    measured = daq.read_analog().latest
+                    measured = daq.read_analog()[0].latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.6f} V | err={err:+.6f} V{flag}")
@@ -415,7 +415,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
                     # Single read_analog() captures both channels simultaneously.
                     # .latest raises with multiple channels so use channel_data.
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     ain0 = measurement.channel_data.get(f"{NAME}.{AI_ALIAS_0}", [None])[-1]
                     ain2 = measurement.channel_data.get(f"{NAME}.{AI_ALIAS_2}", [None])[-1]
 
@@ -471,7 +471,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write_analog_value(AO_ALIAS_1, v)
                     time.sleep(0.05)
-                    measured = daq.read_analog().latest
+                    measured = daq.read_analog()[0].latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
                     print(f"         DAC1={v:.3f} V | AIN2={measured:.6f} V | err={err:+.6f} V{flag}")
@@ -593,11 +593,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in [1.0, 5.0, 9.0]:
                     daq.write_analog_value(AO_ALIAS_0, v)
                     time.sleep(0.05)
-                    before = daq.read_analog().latest
+                    before = daq.read_analog()[0].latest
 
                     time.sleep(HOLD_DURATION_S)
 
-                    after = daq.read_analog().latest
+                    after = daq.read_analog()[0].latest
                     drift = abs(after - before)
                     flag = "" if drift <= HOLD_TOLERANCE_V else "  <-- DRIFT FAIL"
                     print(
@@ -651,7 +651,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.write_analog_value(AO_ALIAS_0, FINAL_V)
 
                 time.sleep(0.1)
-                measured = daq.read_analog().latest
+                measured = daq.read_analog()[0].latest
                 err = measured - FINAL_V
                 print(
                     f"         {N_WRITES} rapid writes | final={FINAL_V} V | "
@@ -780,7 +780,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
@@ -818,7 +818,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.configure_ai_sample_rate(sample_rate=HIGH_RATE_HZ, samples_per_channel=HIGH_RATE_SAMPLES)
                 daq.start(background=False)
                 try:
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(
@@ -930,7 +930,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
-                    measurement = daq.read_analog()
+                    measurement = daq.read_analog()[0]
                     self.assertIsNotNone(measurement)
 
                     errs = []

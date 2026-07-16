@@ -862,8 +862,8 @@ def test_fetch_analog_always_returns_measurement_list(measurement_count: int):
 
 
 @pytest.mark.parametrize("measurement_count", [0, 1, 2])
-def test_hw_timed_read_analog_preserves_public_return_shape(measurement_count: int):
-    """Hardware-timed public reads unwrap only a single Measurement."""
+def test_hw_timed_read_analog_always_returns_measurement_list(measurement_count: int):
+    """Hardware-timed public reads return a list for every measurement count."""
     daq, mock_driver = _hw_timed_daq()
     measurements = [
         Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
@@ -872,8 +872,24 @@ def test_hw_timed_read_analog_preserves_public_return_shape(measurement_count: i
 
     result = daq.read_analog()
 
-    expected = measurements[0] if len(measurements) == 1 else measurements
-    assert result == expected
+    assert result == measurements
+
+
+@pytest.mark.parametrize("measurement_count", [0, 1, 2])
+def test_software_timed_read_analog_always_returns_measurement_list(measurement_count: int):
+    """Software-timed public reads return a list for every measurement count."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    measurements = [
+        Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
+    ]
+    mock_driver._read_to_measurements.return_value = measurements
+
+    result = daq.read_analog()
+
+    assert result == measurements
 
 
 def test_restart_registers_background_fetch_exactly_once():
