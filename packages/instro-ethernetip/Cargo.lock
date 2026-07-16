@@ -229,17 +229,17 @@ dependencies = [
 name = "instro-ethernetip"
 version = "0.1.0"
 dependencies = [
- "instro-ethernetip-rs",
- "pyo3",
-]
-
-[[package]]
-name = "instro-ethernetip-rs"
-version = "0.1.0"
-dependencies = [
  "rust-ethernet-ip",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "instro-ethernetip-py"
+version = "0.1.0"
+dependencies = [
+ "instro-ethernetip",
+ "pyo3",
 ]
 
 [[package]]

@@ -1,0 +1,103 @@
+---
+title: DMM simulator
+description: Run and program the bundled SCPI digital-multimeter simulator
+---
+
+# DMM simulator
+
+The DMM simulator is a local SCPI server for development, tests, and demos. It listens on a TCP socket and exposes a digital-multimeter command set: function switching plus the five primary measurements (DC/AC voltage, DC/AC current, and two-wire resistance). Each function measures a configurable stimulus value returned with Gaussian noise, so repeated reads look like a real bench instrument.
+
+Unlike the [PSU simulator](/instrumentation/psu-simulator), the DMM simulator is headless: there is no terminal UI. Set stimulus values with CLI flags at startup, or through the Python API when embedding the simulator in tests.
+
+## Quickstart
+
+Start the simulator in one terminal:
+
+```bash
+python -m instro.dmm.scpi_sim_server
+```
+
+It binds to `127.0.0.1:5026` by default. If you are working from a source checkout, run the same command through `uv`:
+
+```bash
+uv run python -m instro.dmm.scpi_sim_server
+```
+
+Connect from another terminal or script with the `SimulatedDMM` driver. This small Python client opens an `InstroDMM`, switches functions, and reads measurements:
+
+```python
+from instro.dmm import InstroDMM, MeasurementFunction
+from instro.dmm.drivers import SimulatedDMM
+
+
+with InstroDMM(
+    name="bench_dmm",
+    driver=SimulatedDMM("TCPIP0::127.0.0.1::5026::SOCKET"),
+) as dmm:
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+    voltage = dmm.read()
+    print(f"V: {voltage.latest:.4f} V")
+
+    dmm.set_measurement_function(MeasurementFunction.TWO_WIRE_RESISTANCE)
+    resistance = dmm.read()
+    print(f"R: {resistance.latest:.1f} ohm")
+```
+
+Use CLI flags to change the bind address, port, or the stimulus each function measures:
+
+```bash
+python -m instro.dmm.scpi_sim_server --port 5026 --dc-voltage 3.3 --resistance 4700
+```
+
+## Stimulus model
+
+The stimulus is the simulator's stand-in for the physical quantity on the probes (the DMM analog of the PSU simulator's load model). Each measurement function has one stimulus value, and every measurement returns that value with Gaussian noise (±0.5% at 3 standard deviations).
+
+| Function | CLI flag | Default |
+| --- | --- | --- |
+| DC voltage | `--dc-voltage` | `1.25` V |
+| AC voltage | `--ac-voltage` | `0.5` V |
+| DC current | `--dc-current` | `0.1` A |
+| AC current | `--ac-current` | `0.05` A |
+| Resistance | `--resistance` | `1000` Ω |
+
+When embedding the simulator in Python (for example in tests), construct the server in-process and set stimulus values at runtime:
+
+```python
+from instro.dmm.scpi_sim_server import (
+    FUNCTION_RESISTANCE,
+    SimulatedDMM,
+    SimulatedDMMServer,
+)
+
+sim = SimulatedDMM()
+server = SimulatedDMMServer(sim, port=0)  # port 0 = pick a free port
+server.start()
+print(f"TCPIP0::127.0.0.1::{server.port}::SOCKET")
+
+sim.set_stimulus(FUNCTION_RESISTANCE, 4700.0)  # change what the "probes" see
+
+# ... drive it with SimulatedDMM / InstroDMM ...
+
+server.shutdown()
+```
+
+Stimulus values persist across `*RST`: reset returns the instrument state (active function, error queue) to defaults, but the simulated physical world stays put.
+
+## Programming guide
+
+Brackets mark optional SCPI path components. For example, `[SENSe:]FUNCtion` accepts `FUNC`, `FUNCTION`, and `SENS:FUNC`. Keywords match in short or long form, in any case.
+
+| Command | Functionality |
+| --- | --- |
+| `*IDN?` | Returns `NOMINAL,SIMULATED_DMM,000001,1.0`. |
+| `*RST` | Resets the active function to DC voltage and clears the error queue. Stimulus values are preserved. |
+| `*CLS` | Clears the error queue. |
+| `SYSTem:ERRor?` | Pops the oldest queued error, or `0,"No error"`. |
+| `[SENSe:]FUNCtion "<function>"` | Sets the active function: `VOLT:DC`, `VOLT:AC`, `CURR:DC`, `CURR:AC`, or `RES`. Bare `VOLT`/`CURR` select DC. Quotes optional. |
+| `[SENSe:]FUNCtion?` | Returns the active function, quoted (e.g. `"VOLT:DC"`). |
+| `CONFigure:VOLTage[:DC]` | Sets the active function to DC voltage. Same pattern for `:AC`, `CURRent[:DC]`, `CURRent:AC`, and `RESistance`. |
+| `MEASure:VOLTage[:DC]?` | Switches to the function and returns a noisy measurement of its stimulus. Same pattern for the other four functions. |
+| `READ?` | Returns a noisy measurement using the active function. |
+
+Unknown headers queue `-113,"Undefined header"`; an unknown function name queues `-224,"Illegal parameter value"`. The `SimulatedDMM` driver checks `SYST:ERR?` after every transaction and raises on any queued error.

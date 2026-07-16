@@ -136,7 +136,7 @@ mod support {
     use std::env;
     use std::sync::OnceLock;
 
-    use instro_ethernetip_rs::{ExplicitSession, Value};
+    use instro_ethernetip::{ExplicitSession, Value};
     use tokio::sync::{Mutex, MutexGuard};
 
     fn test_lock() -> &'static Mutex<()> {
@@ -433,7 +433,7 @@ mod support {
         use std::thread;
         use std::time::Duration;
 
-        use instro_ethernetip_rs::Value;
+        use instro_ethernetip::Value;
 
         use super::TagFixture;
 

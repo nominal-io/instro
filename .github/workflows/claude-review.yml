@@ -1,0 +1,163 @@
+name: Claude Code Review
+
+# Only run on PRs that are made against the main branch
+on:
+  pull_request:
+    # Both activity types are required for full, non-duplicated coverage:
+    #   - opened: a PR opened directly as non-draft emits ONLY `opened` (never `ready_for_review`)
+    #   - ready_for_review: fires ONLY on the draft -> ready transition
+    # The `draft == false` job guard below skips drafts that arrive via `opened`, so the two
+    # types together review every non-draft PR exactly once. Dropping `opened` would silently
+    # skip every PR opened directly in a ready-for-review state.
+    types: [opened, ready_for_review]
+    branches: ["main"]
+  # On-demand review when someone comments `@claude review` on a PR. The job
+  # guard below restricts this path to trusted associations and PR comments.
+  issue_comment:
+    types: [created]
+
+# Serialize reviews per PR; don't cancel in-flight runs (they may have
+# half-posted tracking comments).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # Skip draft PRs and PRs from forks. instro is a PUBLIC repo, so the fork guard
+    # is the load-bearing isolation control: PRs from outside contributors (including
+    # anyone opening a flood of hostile PRs) live on fork head repos and never trigger
+    # this job -> no API spend and no secret exposure to untrusted code.
+    if: |
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        startsWith(github.event.comment.body, '@claude review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write # react (👍) to prior reviewers' conversation comments via the reactions API
+      id-token: write
+      actions: read # token scope for reading CI results; paired with additional_permissions below
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # issue_comment events check out the default branch by default, not the PR head,
+          # so pin the PR head ref explicitly for that path. The pull_request path already
+          # resolves to the PR head.
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
+          # Full history so the granted git tools (git diff/log/show) can diff against the PR
+          # base ref; a depth-1 shallow checkout only contains the head commit. `gh pr diff`
+          # works either way (it uses the API), but local git range commands need this.
+          fetch-depth: 0
+
+      - name: Review with Claude
+        uses: anthropics/claude-code-action@dde2242db6af13460b916652159b6ba19a598f30 # v1.0.120
+        env:
+          # Run subagents using cheaper, faster agents while leaving higher level thinking
+          # to the higher tier model (opus 4.8)
+          CLAUDE_CODE_SUBAGENT_MODEL: claude-sonnet-4-6
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          allowed_bots: "devin-ai-integration[bot]"
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+
+          # Buffers inline comments and only posts high signal messages that have passed an internal review
+          classify_inline_comments: "true"
+
+          # Append "Fix this" links to inline review feedback so a reviewer can open Claude Code locally
+          # with the issue context pre-loaded
+          include_fix_links: "true"
+
+          # Enables Claude to read CI/Actions results. Required IN ADDITION to the job-level
+          # `actions: read` permission above — the two are complementary, not redundant.
+          additional_permissions: |
+            actions: read
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+
+            Review this pull request by running /code-review --comment. These checks layer on top of
+            the plugin's defaults; also follow the repo's AGENTS.md and CONTRIBUTING.md conventions.
+            This is ONE review. Post findings terse and inline (or in the single top-level overview),
+            never as a separate verbose report.
+
+            instro is a public HAL/driver library for lab instruments: a uv workspace of Python
+            packages plus PyO3/maturin Rust crates (EtherNet/IP, OPC UA). Toolchain is `uv` + `just`;
+            CI runs `just check` (ruff format, ruff lint, mypy --strict) and `just test`, plus clippy
+            for the Rust crates.
+
+            ## Where feedback goes
+            - Top-level overview (write ONCE, terse but thorough): judge the architecture and
+              ergonomics of the PR's public/API surface (HAL classes, driver base contracts) and how
+              well it coheres with existing repo conventions. This is the ONLY place for positive
+              notes — call out genuinely novel or well-executed design here, briefly.
+            - Inline comments: targeted, intentional, actionable — defects or convention divergences
+              only, one concern per comment.
+
+            ## What to flag (each a distinct axis)
+            - Driver conventions: new vendor drivers must subclass the category base
+              (`PSUDriverBase`, `DMMDriverBase`, …), COMPOSE `VisaDriver` rather than subclass it,
+              accept `str | VisaConfig`, register in the category `drivers/__init__.py` (import AND
+              `__all__`), and ship mocked-transport unit tests asserting wire-level commands.
+            - Premature abstraction: this repo deliberately prefers duplicated, explicit code. Do NOT
+              endorse (and do flag) newly extracted base classes, mixins, factories, wrappers, or
+              vendor-string factories unless two concrete drivers share the EXACT behavior. Per-driver
+              `_write_checked` / `_check_errors` duplication is intentional — don't suggest sharing it.
+            - Base-class scope: `<Category>DriverBase` is a contract surface (abstractmethods +
+              NotImplementedError optionals), not implementation. Flag shared helpers/state/lifecycle
+              creeping into a base (the sanctioned exception is `DAQDriverBase.__init__`).
+            - Breaking changes: any change to an existing public HAL method's signature or behavior.
+              Conventional Commits require `!` for breaking changes — flag ones that skip it.
+            - Missing tests: nudge when new driver logic ships without mocked-transport tests, or
+              nontrivial logic is untested. Don't ask for tests on trivial plumbing.
+            - Docstrings: ONE short line max — the repo did a deliberate cleanup (INSTRO-248). Flag
+              any reintroduced multi-paragraph / verbose docstrings. Public methods need type hints.
+            - Comments: only when the *why* is non-obvious; flag comments that restate the code.
+            - Docs sync: user-visible changes must update docs in the same PR (README "Supported
+              devices" table for new drivers, `docs/reference/` for public API changes,
+              `docs/guides/` + `docs.json` for new categories). Flag missing doc updates.
+            - Tooling: this project uses `uv run` and `just`; flag any bare `python`/`python -m`
+              invocation or advice that bypasses the `just` recipes.
+            - Rust crates: for PyO3/maturin crate changes, flag missing `Cargo.lock` updates
+              (`just rust-lock-check` runs `--locked`) and obvious clippy-bait, but don't restate
+              what clippy/rustfmt already catch.
+
+            ## Never (hard guardrails)
+            - Never comment to praise, agree, or say something is fine. Positive notes go in the
+              overview, once.
+            - Never flag anything a linter, formatter, or type-checker already catches (ruff, mypy,
+              clippy, rustfmt) — CI already runs them. Comment only to suggest a better type/API
+              boundary, framed as a suggestion.
+            - Never run tests, linters, type-checkers, or builds, and never edit files: this is a
+              read-only, static review. If verifying a claim would require running code, note the
+              gap in the review rather than attempting it (it will be denied and waste turns).
+            - Never restate a point a prior reviewer (human or bot) already made. Instead, add a
+              👍 reaction to their comment via the GitHub reactions API (`gh api --method POST
+              /repos/{owner}/{repo}/issues/comments/{id}/reactions -f content=+1`, or the
+              `/pulls/comments/{id}/reactions` endpoint for inline review comments) — never repeat
+              the point as a new comment.
+
+            Tone: terse and high-signal everywhere. Every comment must earn its place.
+
+          # Configurations:
+          #   - Pinning the review model explicitly (bump deliberately as newer models ship)
+          #   - max-turns is a safety ceiling, not a target (a turn = one github<->claude round trip).
+          #     Observed real runs use ~25-30 turns; 100 just prevents truncation on unusually large
+          #     PRs. The signal to watch is a run actually HITTING the cap, not the number itself.
+          #   - Setting explicit tools that may be used during the review without any further authorization
+          #   - `Bash(gh api:*)` is granted so Claude can 👍 prior reviewers' comments via the reactions
+          #     API (paired with `issues: write` above). Note it's broad: gh api can reach any endpoint
+          #     the token's scopes allow, so keep the permissions block tight.
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 100
+            --allowedTools "mcp__github_comment__update_claude_comment,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(gh api:*),mcp__github__get_pull_request_comments,mcp__github__get_pull_request_reviews,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(wc:*),WebFetch,WebSearch"

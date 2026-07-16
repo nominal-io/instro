@@ -214,6 +214,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn",
+ "unicode-xid",
+]
+
+[[package]]
 name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -418,12 +440,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "instro-ethernetip-rs"
-version = "0.1.0"
+name = "instro-ethernetip"
+version = "1.0.0"
 dependencies = [
  "rust-ethernet-ip",
  "thiserror 1.0.69",
  "tokio",
+]
+
+[[package]]
+name = "instro-opcua"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "instro-opcua-test",
+ "instro-test-utils",
+ "itertools",
+ "open62541",
+ "open62541-sys",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "tracing",
+ "zeroize",
+]
+
+[[package]]
+name = "instro-opcua-test"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "open62541",
+ "open62541-sys",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -590,41 +642,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "opcua"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures-util",
- "instro-test-utils",
- "itertools",
- "opcua-test",
- "open62541",
- "open62541-sys",
- "serde",
- "serde_json",
- "time",
- "tokio",
- "tracing",
- "zeroize",
-]
-
-[[package]]
-name = "opcua-test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "open62541",
- "open62541-sys",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "open62541"
-version = "0.10.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92575f6fb1e047929e6c836871cc721e6c43215be8e2d6290d51b984a29f3c9"
+checksum = "8df43a9e4e7c823145e2ef608a7e6849918f64f1c194db596aff7ffa1ad7babd"
 dependencies = [
+ "derive_more",
  "futures-channel",
  "futures-core",
  "log",
@@ -643,9 +666,9 @@ dependencies = [
 
 [[package]]
 name = "open62541-sys"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c391efd372284037bf63d0d43249ff118cc25e94ec07d1a8a9508844c1cc2b6a"
+checksum = "800f40fa51329133c7746f575056e9ffdd8cbc0d0bc2d0c93df4fa99f5d44a1e"
 dependencies = [
  "bindgen",
  "cc",
@@ -825,6 +848,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94300abf3f1ae2e2b8ffb7b58043de3d399c73fa6f4b73826402a5c457614dbe"
 
 [[package]]
+name = "rustc_version"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+dependencies = [
+ "semver",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -835,6 +867,12 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "serde"
@@ -1198,6 +1236,12 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "untrusted"

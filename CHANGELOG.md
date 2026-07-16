@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/nominal-io/instro/compare/instro-v1.3.0...instro-v1.4.0) (2026-07-13)
+
+
+### Features
+
+* **ci:** trigger claude review on [@claude](https://github.com/claude) review comments ([#271](https://github.com/nominal-io/instro/issues/271)) ([6a87ef9](https://github.com/nominal-io/instro/commit/6a87ef91920d58712e3f8c1ddb0480c17bc05f26))
+* **dmm:** add simulated DMM driver and sim server ([#259](https://github.com/nominal-io/instro/issues/259)) ([9da8659](https://github.com/nominal-io/instro/commit/9da86596544db05de318d843eb1dc996f810e15d))
+* **publishers:** shared publisher ([#250](https://github.com/nominal-io/instro/issues/250)) ([6c00e3e](https://github.com/nominal-io/instro/commit/6c00e3e41ae2f708f13bfbc190b82c260a047ea3))
+
+
+### Bug Fixes
+
+* **instrument:** remove flaky channel names test ([#268](https://github.com/nominal-io/instro/issues/268)) ([bb3b2e5](https://github.com/nominal-io/instro/commit/bb3b2e55204a668863f224d93fcd2b4d7dc15720))
+
 ## [1.3.0](https://github.com/nominal-io/instro/compare/instro-v1.2.0...instro-v1.3.0) (2026-07-08)
 
 

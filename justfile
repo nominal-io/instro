@@ -39,6 +39,7 @@ check-types:
 
 # check static typing across all supported python versions
 check-types-all:
+    uv run mypy --python-version 3.14
     uv run mypy --python-version 3.13
     uv run mypy --python-version 3.12
     uv run mypy --python-version 3.11
@@ -134,7 +135,7 @@ rust:
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:
-    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    cargo test -p instro-ethernetip --test explicit_session_integration
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
@@ -143,7 +144,7 @@ eip-live-test:
     export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
-    cargo test -p instro-ethernetip-rs --test explicit_session_integration
+    cargo test -p instro-ethernetip --test explicit_session_integration
     uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
 
 # clean build of the EtherNet/IP Python bindings (sdist + wheel)
@@ -160,7 +161,12 @@ eip-sdist-smoke-test:
     dist_dir="$(mktemp -d)"
     trap 'rm -rf "$dist_dir"' EXIT
     uv build --sdist --package instro-ethernetip --out-dir "$dist_dir"
-    uv run python tests/ethernetip/check_ethernetip_sdist.py "$dist_dir"
+    sdists=("$dist_dir"/instro_ethernetip-*.tar.gz)
+    if [ "${#sdists[@]}" -ne 1 ] || [ ! -f "${sdists[0]}" ]; then
+        echo "Expected exactly one instro-ethernetip sdist in $dist_dir" >&2
+        exit 1
+    fi
+    uv run python tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
 
 # install the built wheel into an isolated environment and verify the private native module
 eip-wheel-smoke-test:
