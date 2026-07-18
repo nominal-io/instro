@@ -16,5 +16,5 @@ instro = { workspace = true }
 
 [tool.maturin]
 bindings = "pyo3"
-module-name = "instro.opcua._opcua"
+module-name = "instro.unstable._opcua"
 python-source = "."
