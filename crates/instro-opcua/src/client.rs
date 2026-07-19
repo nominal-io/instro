@@ -49,6 +49,7 @@ use open62541::ClientBuilder;
 use open62541::DataType;
 use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
+use open62541::Password;
 use open62541::PrivateKey;
 use open62541::ScalarValue;
 use open62541::SubscriptionBuilder;
@@ -64,6 +65,7 @@ use tokio::time::interval;
 use super::generate_self_signed_cert;
 use super::metrics::NodeReadCounts;
 use super::metrics::PollLoopMetricsLogger;
+use super::types::OpcUaBrowseName;
 use super::types::OpcUaDataPoint;
 use super::types::OpcUaMonitoredItemConfig;
 use super::types::OpcUaNode;
@@ -74,7 +76,6 @@ use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
-use super::types::QualifiedBrowseName;
 use crate::types::OpcUaNodeId;
 
 /// Enables either borrow or move of the nodes via the default implementations, avoiding clones out-of-the-box.
@@ -304,7 +305,7 @@ impl OpcUaClient {
     pub async fn read_node_metadata(
         &self,
         node_id: &OpcUaNodeId,
-    ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
+    ) -> Result<(OpcUaBrowseName, String, OpcUaNodeClass)> {
         let ua_node_id = ua::NodeId::from(node_id.clone());
 
         let browse_name_value = self
@@ -338,7 +339,7 @@ impl OpcUaClient {
             .with_context(|| format!("node class attribute for node {node_id} was not readable"));
 
         Ok((
-            QualifiedBrowseName {
+            OpcUaBrowseName {
                 namespace_index: browse_name.namespace_index(),
                 name: browse_name.name().to_string(),
             },
@@ -752,6 +753,8 @@ impl PollTimer for IntervalPollTimer {
     }
 }
 
+const DEFAULT_SECURE_CHANNEL_LIFETIME: Duration = Duration::from_millis(u32::MAX as u64);
+
 #[derive(Debug, Default)]
 /// Builder for [`OpcUaClient`].
 ///
@@ -762,6 +765,10 @@ pub struct OpcUaClientBuilder {
     security_mode: Option<OpcUaSecurityMode>,
     security_policy: Option<OpcUaSecurityPolicy>,
     timeout: Option<Duration>,
+    secure_channel_lifetime: Option<Duration>,
+    requested_session_timeout: Option<Duration>,
+    connectivity_check_interval: Option<Option<Duration>>,
+    private_key_password: Option<Password>,
     accept_any_cert: bool,
     pki: OpcUaPki,
 }
@@ -812,15 +819,58 @@ impl OpcUaClientBuilder {
         }
     }
 
+    /// Sets the secure-channel lifetime.
+    pub fn secure_channel_lifetime(self, lifetime: Duration) -> Self {
+        Self {
+            secure_channel_lifetime: Some(lifetime),
+            ..self
+        }
+    }
+
+    /// Sets the requested session timeout.
+    pub fn requested_session_timeout(self, timeout: Duration) -> Self {
+        Self {
+            requested_session_timeout: Some(timeout),
+            ..self
+        }
+    }
+
+    /// Sets or disables the connectivity-check interval.
+    pub fn connectivity_check_interval(self, interval: Option<Duration>) -> Self {
+        Self {
+            connectivity_check_interval: Some(interval),
+            ..self
+        }
+    }
+
     /// Sets the PKI to use for the client.
     pub fn pki(self, pki: OpcUaPki) -> Self {
-        Self { pki, ..self }
+        Self {
+            pki,
+            private_key_password: None,
+            ..self
+        }
     }
 
     /// Sets the PKI to use for the client to use a provided certificate and private key.
     pub fn use_pki(self, certificate: Certificate, private_key: PrivateKey) -> Self {
         Self {
             pki: OpcUaPki::UseProvided(certificate, private_key),
+            private_key_password: None,
+            ..self
+        }
+    }
+
+    /// Sets provided PKI with a password for an encrypted private key.
+    pub fn use_pki_with_password(
+        self,
+        certificate: Certificate,
+        private_key: PrivateKey,
+        private_key_password: Password,
+    ) -> Self {
+        Self {
+            pki: OpcUaPki::UseProvided(certificate, private_key),
+            private_key_password: Some(private_key_password),
             ..self
         }
     }
@@ -829,8 +879,14 @@ impl OpcUaClientBuilder {
     pub fn generate_self_signed_pki(self) -> Self {
         Self {
             pki: OpcUaPki::GenerateSelfSigned,
+            private_key_password: None,
             ..self
         }
+    }
+
+    fn effective_secure_channel_lifetime(&self) -> Duration {
+        self.secure_channel_lifetime
+            .unwrap_or(DEFAULT_SECURE_CHANNEL_LIFETIME)
     }
 
     fn connect_app_description() -> ua::ApplicationDescription {
@@ -841,15 +897,16 @@ impl OpcUaClientBuilder {
             .with_application_uri("urn:nominal:opcua-client")
     }
 
-    /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
+    /// Consumes the builder and connects to the endpoint at the given URL.
+    ///
+    /// Unset security mode and user identity options use the endpoint's negotiated defaults.
     #[must_use = "dropping the returned client will immediately disconnect from the OPC-UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
-        let user_token = self.user_token.context("no user token provided")?;
-
+        let secure_channel_lifetime = self.effective_secure_channel_lifetime();
         let security_mode = match self.security_mode {
-            Some(mode) if !mode.is_invalid() => mode.into(),
+            Some(mode) if !mode.is_invalid() => Some(mode.into()),
             Some(_) => bail!("security mode was specified but was invalid"),
-            None => bail!("security mode was not specified"),
+            None => None,
         };
 
         let mut builder = match self.pki {
@@ -865,18 +922,36 @@ impl OpcUaClientBuilder {
             OpcUaPki::None => ClientBuilder::default(),
         };
 
-        builder = builder
-            .secure_channel_life_time(Duration::from_millis(u32::MAX as u64))
-            .user_identity_token(&user_token.try_into()?)
-            .client_description(Self::connect_app_description())
-            .security_mode(security_mode);
+        builder = builder.client_description(Self::connect_app_description());
+
+        if let Some(user_token) = self.user_token {
+            builder = builder.user_identity_token(&user_token.try_into()?);
+        }
+
+        if let Some(security_mode) = security_mode {
+            builder = builder.security_mode(security_mode);
+        }
 
         if let Some(timeout) = self.timeout {
             builder = builder.timeout(timeout);
         }
 
+        builder = builder.secure_channel_life_time(secure_channel_lifetime);
+
+        if let Some(timeout) = self.requested_session_timeout {
+            builder = builder.requested_session_timeout(timeout);
+        }
+
+        if let Some(interval) = self.connectivity_check_interval {
+            builder = builder.connectivity_check_interval(interval);
+        }
+
         if let Some(security_policy) = self.security_policy {
             builder = builder.security_policy_uri(security_policy.into());
+        }
+
+        if let Some(password) = self.private_key_password {
+            builder = builder.private_key_password_callback(move || Ok(password.clone()));
         }
 
         if self.accept_any_cert {
@@ -994,6 +1069,49 @@ impl Drop for OpcUaStreamSession {
 }
 
 #[cfg(test)]
+mod builder_tests {
+    use open62541::Certificate;
+    use open62541::Password;
+    use open62541::PrivateKey;
+
+    use super::DEFAULT_SECURE_CHANNEL_LIFETIME;
+    use super::OpcUaClientBuilder;
+    use crate::types::OpcUaPki;
+
+    #[test]
+    fn default_builder_preserves_endpoint_negotiation() {
+        let builder = OpcUaClientBuilder::new();
+
+        assert!(builder.user_token.is_none());
+        assert!(builder.security_mode.is_none());
+        assert!(builder.security_policy.is_none());
+        assert_eq!(
+            builder.effective_secure_channel_lifetime(),
+            DEFAULT_SECURE_CHANNEL_LIFETIME
+        );
+    }
+
+    #[test]
+    fn connectivity_check_can_be_explicitly_disabled() {
+        let builder = OpcUaClientBuilder::new().connectivity_check_interval(None);
+
+        assert_eq!(builder.connectivity_check_interval, Some(None));
+    }
+
+    #[test]
+    fn provided_pki_can_use_an_encrypted_private_key() {
+        let builder = OpcUaClientBuilder::new().use_pki_with_password(
+            Certificate::from_bytes(&[1]),
+            PrivateKey::from_bytes(&[2]),
+            Password::from("secret".to_owned()),
+        );
+
+        assert!(matches!(builder.pki, OpcUaPki::UseProvided(_, _)));
+        assert!(builder.private_key_password.is_some());
+    }
+}
+
+#[cfg(test)]
 mod subscription_loop_tests {
     //! Deterministic unit tests for [`OpcUaClient::subscription_loop`].
     //!
@@ -1022,15 +1140,15 @@ mod subscription_loop_tests {
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
-    use crate::types::BrowsePath;
     use crate::types::NodeIdInner;
+    use crate::types::OpcUaBrowseName;
+    use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
     use crate::types::OpcUaSample;
     use crate::types::OpcUaValue;
-    use crate::types::QualifiedBrowseName;
 
     /// Generous deadline; the deterministic loop should make progress near-instantly, so this
     /// only fires if the loop wedges (which is itself a test failure worth surfacing).
@@ -1131,7 +1249,7 @@ mod subscription_loop_tests {
             browse_name: name.to_owned(),
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(1, name.to_owned())),
             children: Vec::new(),
         }
     }

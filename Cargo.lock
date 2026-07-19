@@ -485,8 +485,12 @@ dependencies = [
 name = "instro-opcua-py"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "instro-opcua",
+ "instro-utils",
+ "open62541",
  "pyo3",
+ "tokio",
 ]
 
 [[package]]
@@ -506,6 +510,14 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "instro-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "pyo3",
 ]
 
 [[package]]

@@ -10,7 +10,8 @@ use instro_opcua::browse::BrowseAll as _;
 use instro_opcua::client::OpcUaClient;
 use instro_opcua::client::OpcUaClientBuilder;
 use instro_opcua::client::OpcUaNodeReadBatch;
-use instro_opcua::types::BrowsePath;
+use instro_opcua::types::OpcUaBrowseName;
+use instro_opcua::types::OpcUaBrowsePath;
 use instro_opcua::types::OpcUaMonitoredItemConfig;
 use instro_opcua::types::OpcUaNode;
 use instro_opcua::types::OpcUaNodeClass;
@@ -22,7 +23,6 @@ use instro_opcua::types::OpcUaSecurityPolicy;
 use instro_opcua::types::OpcUaSubscriptionConfig;
 use instro_opcua::types::OpcUaUserToken;
 use instro_opcua::types::OpcUaValue;
-use instro_opcua::types::QualifiedBrowseName;
 use instro_opcua_test::FolderSpec;
 use instro_opcua_test::ParentRef;
 use instro_opcua_test::TestNodeId;
@@ -64,7 +64,7 @@ fn opcua_node(
         browse_name: browse_name.to_owned(),
         display_name: browse_name.to_owned(),
         node_class,
-        browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
+        browse_path: OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(1, browse_name.to_owned())),
         children: Vec::new(),
     })
 }

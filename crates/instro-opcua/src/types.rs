@@ -566,14 +566,14 @@ pub enum NodeIdInner {
 
 /// A browse-path segment preserving the OPC UA namespace that qualifies its name.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QualifiedBrowseName {
+pub struct OpcUaBrowseName {
     /// The namespace index qualifying the browse name.
     pub namespace_index: u16,
     /// The browse name within its namespace.
     pub name: String,
 }
 
-impl QualifiedBrowseName {
+impl OpcUaBrowseName {
     /// Creates a namespace-qualified browse name.
     pub fn new(namespace_index: u16, name: String) -> Self {
         Self {
@@ -586,20 +586,20 @@ impl QualifiedBrowseName {
 /// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(try_from = "String", into = "String")]
-pub struct BrowsePath {
-    segments: Vec<QualifiedBrowseName>,
+pub struct OpcUaBrowsePath {
+    segments: Vec<OpcUaBrowseName>,
 }
 
-impl BrowsePath {
+impl OpcUaBrowsePath {
     /// Creates a browse path containing one segment.
-    pub fn from_segment(segment: QualifiedBrowseName) -> Self {
+    pub fn from_segment(segment: OpcUaBrowseName) -> Self {
         Self {
             segments: vec![segment],
         }
     }
 
     /// Returns a new browse path with `segment` appended.
-    pub fn child(&self, segment: QualifiedBrowseName) -> Self {
+    pub fn child(&self, segment: OpcUaBrowseName) -> Self {
         let mut segments = self.segments.clone();
         segments.push(segment);
         Self { segments }
@@ -611,12 +611,12 @@ impl BrowsePath {
     }
 
     /// Returns the path's namespace-qualified segments.
-    pub fn segments(&self) -> &[QualifiedBrowseName] {
+    pub fn segments(&self) -> &[OpcUaBrowseName] {
         &self.segments
     }
 }
 
-impl Display for BrowsePath {
+impl Display for OpcUaBrowsePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for segment in &self.segments {
             f.write_str("/")?;
@@ -630,7 +630,7 @@ impl Display for BrowsePath {
     }
 }
 
-impl FromStr for BrowsePath {
+impl FromStr for OpcUaBrowsePath {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
@@ -668,7 +668,7 @@ impl FromStr for BrowsePath {
     }
 }
 
-impl TryFrom<String> for BrowsePath {
+impl TryFrom<String> for OpcUaBrowsePath {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
@@ -676,13 +676,13 @@ impl TryFrom<String> for BrowsePath {
     }
 }
 
-impl From<BrowsePath> for String {
-    fn from(value: BrowsePath) -> Self {
+impl From<OpcUaBrowsePath> for String {
+    fn from(value: OpcUaBrowsePath) -> Self {
         value.to_string()
     }
 }
 
-fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
+fn parse_browse_path_segment(segment: &str) -> Result<OpcUaBrowseName> {
     if segment.is_empty() {
         bail!("browse path contains an empty segment");
     }
@@ -704,7 +704,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
         bail!("browse path segment name must not be empty");
     }
 
-    Ok(QualifiedBrowseName {
+    Ok(OpcUaBrowseName {
         namespace_index,
         name,
     })
@@ -792,7 +792,7 @@ pub struct OpcUaNode {
     pub node_class: OpcUaNodeClass,
     /// The namespace-qualified browse path to this node.
     #[serde(default)]
-    pub browse_path: BrowsePath,
+    pub browse_path: OpcUaBrowsePath,
     pub children: Vec<OpcUaNode>,
 }
 
@@ -1659,13 +1659,13 @@ mod tests {
     #[test]
     fn browse_path_display_and_parse_roundtrip() {
         let cases = [
-            BrowsePath::default(),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-                .child(QualifiedBrowseName::new(0, "Objects".into()))
-                .child(QualifiedBrowseName::new(0, "Temperature".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(4, "PLC1".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(
+            OpcUaBrowsePath::default(),
+            OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(0, "Root".into())),
+            OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(0, "Root".into()))
+                .child(OpcUaBrowseName::new(0, "Objects".into()))
+                .child(OpcUaBrowseName::new(0, "Temperature".into())),
+            OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(4, "PLC1".into())),
+            OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(
                 2,
                 "Name/with:reserved&chars".into(),
             )),
@@ -1673,16 +1673,16 @@ mod tests {
 
         for path in cases {
             let rendered = path.to_string();
-            let parsed: BrowsePath = rendered.parse().expect("browse path should parse");
+            let parsed: OpcUaBrowsePath = rendered.parse().expect("browse path should parse");
             assert_eq!(parsed, path);
         }
     }
 
     #[test]
     fn browse_path_renders_standard_relative_path_text() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()))
-            .child(QualifiedBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
+        let path = OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(0, "Root".into()))
+            .child(OpcUaBrowseName::new(0, "Objects".into()))
+            .child(OpcUaBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
 
         assert_eq!(
             path.to_string(),
@@ -1702,22 +1702,22 @@ mod tests {
             "/Root/Foo&",
             "/Root/Foo.Bar",
         ] {
-            let parsed: Result<BrowsePath> = malformed.parse();
+            let parsed: Result<OpcUaBrowsePath> = malformed.parse();
             assert!(parsed.is_err(), "{malformed} should fail to parse");
         }
     }
 
     #[test]
     fn browse_path_serializes_as_json_object_key() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()));
+        let path = OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(0, "Root".into()))
+            .child(OpcUaBrowseName::new(0, "Objects".into()));
         let mut map = std::collections::BTreeMap::new();
         map.insert(path.clone(), "selected".to_owned());
 
         let json = serde_json::to_value(&map).expect("serialize browse path map");
         assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
 
-        let back: std::collections::BTreeMap<BrowsePath, String> =
+        let back: std::collections::BTreeMap<OpcUaBrowsePath, String> =
             serde_json::from_value(json).expect("deserialize browse path map");
         assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
     }
@@ -1732,7 +1732,7 @@ mod tests {
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(0, "Objects".into())),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId {
                     namespace: 2,
@@ -1741,7 +1741,7 @@ mod tests {
                 browse_name: "Temperature".into(),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
-                browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
+                browse_path: OpcUaBrowsePath::from_segment(OpcUaBrowseName::new(
                     2,
                     "Temperature".into(),
                 )),

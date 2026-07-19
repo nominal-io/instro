@@ -1,0 +1,15 @@
+[package]
+name = "instro-utils"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+pyo3 = ["dep:pyo3"]
+
+[dependencies]
+anyhow = { workspace = true }
+pyo3 = { workspace = true, default-features = false, optional = true }
+
+[lints]
+workspace = true

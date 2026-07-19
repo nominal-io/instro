@@ -24,6 +24,10 @@ open62541-sys = { version = "0.6", features = ["mbedtls"] }
 futures-util = "0.3"
 instro-opcua-test = { path = "crates/instro-opcua-test" }
 instro-test-utils = { path = "crates/instro-test-utils" }
+instro-utils = { path = "crates/instro-utils" }
+
+# mixed crates
+pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "macros"] }
 
 [workspace.lints.clippy]
 unwrap_used = "warn"

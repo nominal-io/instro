@@ -11,5 +11,12 @@ name = "_opcua"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+anyhow.workspace = true
 instro-opcua = { path = "../../crates/instro-opcua" }
-pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "macros"] }
+instro-utils = { workspace = true, features = ["pyo3"] }
+open62541.workspace = true
+pyo3.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
+
+[lints]
+workspace = true
