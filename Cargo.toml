@@ -11,7 +11,7 @@ edition = "2024"
 rust-version = "1.93"
 
 [workspace.dependencies]
-base64 = "0"
+base64 = "0.22"
 uuid = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

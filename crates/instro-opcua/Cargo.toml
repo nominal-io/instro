@@ -25,17 +25,17 @@ tokio = { workspace = true, features = ["time", "macros", "rt"] }
 itertools.workspace = true
 open62541.workspace = true
 open62541-sys.workspace = true
-uuid = { workspace = true, features = ["v4"] }
+uuid.workspace = true
 futures-util.workspace = true
 
 # private
-time = { version = "0.3.47", features = [
+time = { version = "0.3", features = [
     "parsing",
     "serde",
     "serde-human-readable",
     "serde-well-known",
 ] }
-zeroize = { version = "1.8.2", features = ["std"] }
+zeroize = { version = "1.8", features = ["std"] }
 
 [dev-dependencies]
 instro-opcua-test.workspace = true
