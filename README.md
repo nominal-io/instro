@@ -48,7 +48,7 @@ That's the flow. Construct, `open()`, configure, measure, `close()`. When you wa
 pip install instro
 ```
 
-Requires [Python 3.10 to 3.13](https://www.python.org/downloads/).
+Requires [Python 3.10 to 3.14](https://www.python.org/downloads/).
 
 To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/uv/):
 
