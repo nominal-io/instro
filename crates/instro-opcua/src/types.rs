@@ -35,7 +35,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
 use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use open62541::Certificate;
 use open62541::DataType;
 use open62541::DataValue;
@@ -511,7 +511,7 @@ impl Display for OpcUaNodeId {
             NodeIdKind::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
             NodeIdKind::String(s) => write!(f, "ns={};s={}", self.namespace, s),
             NodeIdKind::ByteString(b) => {
-                write!(f, "ns={};b={}", self.namespace, STANDARD.encode(b))
+                write!(f, "ns={};b={}", self.namespace, BASE64_STANDARD.encode(b))
             }
             NodeIdKind::Guid(g) => write!(f, "ns={};g={}", self.namespace, g),
         }
@@ -546,7 +546,7 @@ impl FromStr for OpcUaNodeId {
                 .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
             NodeIdKind::Guid(uuid)
         } else if let Some(byte_string) = rest.strip_prefix("b=") {
-            let bytes = STANDARD.decode(byte_string).with_context(|| {
+            let bytes = BASE64_STANDARD.decode(byte_string).with_context(|| {
                 format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'")
             })?;
             NodeIdKind::ByteString(bytes)
