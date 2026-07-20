@@ -18,14 +18,14 @@ class TC_TYPE(enum.Enum):
     T = "T"
 
 
-class ThermocoupleScaler(Scaler):
+class ThermocoupleSensor(Scaler):
     """Thermocouple voltage → °C with cold-junction compensation.
 
-    >>> ThermocoupleScaler(TC_TYPE.K, cjc_temp=25.0)  # Type K, 25 °C reference junction
+    >>> ThermocoupleSensor(TC_TYPE.K, cjc_temp=25.0)  # Type K, 25 °C reference junction
     """
 
     def __init__(self, type: TC_TYPE, cjc_temp: float):
-        """Initialize the thermocouple scaler.
+        """Initialize the thermocouple sensor.
 
         Args:
             type: Thermocouple type (B/E/J/K/N/R/S/T).
