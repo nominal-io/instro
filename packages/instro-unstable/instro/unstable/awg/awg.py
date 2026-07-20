@@ -33,7 +33,7 @@ class AWGDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def check_errors(self) -> None:
-        """Query the instrument error queue and raise on error code."""
+        """Drain the instrument error queue; raise if any error is pending."""
 
     # --- Standard periodic waveforms ---
 
@@ -175,6 +175,8 @@ class InstroAWG(Instrument):
         **kwargs,
     ):
         """Initialize an InstroAWG."""
+        if num_channels < 1:
+            raise ValueError(f"num_channels must be at least 1, got {num_channels}")
         super().__init__(name, publishers=publishers, **kwargs)
         self._driver = driver
         self._num_channels = num_channels
@@ -205,9 +207,9 @@ class InstroAWG(Instrument):
             raise ValueError(f"channel {channel} out of range for '{self.name}' (1-{self._num_channels})")
 
     def _check_waveform_applicable(self, channel: int, method: _ValidatedMethod) -> None:
+        """Validate ``method`` against the channel's configured waveform. Caller must hold ``_resource_lock``."""
         self._check_channel(channel)
-        with self._resource_lock:
-            config = self._channel_config.get(channel)
+        config = self._channel_config.get(channel)
         method_name = method.name.lower()
         if config is None:
             raise ValueError(f"set_std_waveform must be called for channel {channel} before {method_name}")
@@ -236,10 +238,9 @@ class InstroAWG(Instrument):
         self._driver.close()
         logger.info("Closed AWG '%s'", self.name)
 
-    def check_errors(self) -> None:
-        """Query the instrument error queue and raise on error code."""
-        with self._resource_lock:
-            self._driver.check_errors()
+    def _check_errors(self) -> None:
+        """Raise if the driver's error queue holds anything. Caller must hold ``_resource_lock``."""
+        self._driver.check_errors()
 
     @publish_command
     def _execute_command(
@@ -248,53 +249,83 @@ class InstroAWG(Instrument):
         channel: int,
         value: float | bool | str,
         channel_suffix: str,
+        validate: _ValidatedMethod | None = None,
+        /,
         **kwargs,
     ) -> Command:
-        """General-purpose command helper: call ``driver_method(channel, value)``, timestamp, and package."""
+        """Validate and run ``driver_method(channel, value)``."""
         with self._resource_lock:
+            if validate is not None:
+                self._check_waveform_applicable(channel, validate)
             driver_method(channel, value)
             timestamp = time.time_ns()
-            self._driver.check_errors()
+            self._check_errors()
         descriptor = f"ch{channel}.{channel_suffix}.cmd"
         return self._package_command(descriptor, value, timestamp, **kwargs)
 
     @publish_command
     def set_std_waveform(self, channel: int, waveform: WaveformType, **kwargs) -> Command:
         """Set the waveform type on channel."""
+        if not isinstance(waveform, WaveformType):
+            raise TypeError(f"waveform must be a WaveformType, got {type(waveform).__name__}")
         self._check_channel(channel)
         with self._resource_lock:
             self._driver.set_std_waveform(channel=channel, waveform=waveform)
             timestamp = time.time_ns()
-            self._driver.check_errors()
-            self._channel_config[channel] = AWGChannelConfig(waveform)
+            self._check_errors()
+            config = self._channel_config.get(channel)
+            if config is None:
+                self._channel_config[channel] = AWGChannelConfig(waveform)
+            else:
+                config.waveform = waveform
         descriptor = f"ch{channel}.waveform.cmd"
         return self._package_command(descriptor, waveform.value, timestamp, **kwargs)
 
+    @publish_command
     def set_std_frequency(self, channel: int, frequency_hz: float, **kwargs) -> Command:
         """Set the output frequency (Hz) on channel. Not valid for NOISE or DC."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_FREQUENCY)
-        return self._execute_command(self._driver.set_std_frequency, channel, frequency_hz, "frequency", **kwargs)
+        with self._resource_lock:
+            self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_FREQUENCY)
+            self._driver.set_std_frequency(channel=channel, frequency=frequency_hz)
+            timestamp = time.time_ns()
+            self._check_errors()
+            self._channel_config[channel].frequency_hz = frequency_hz
+        descriptor = f"ch{channel}.frequency.cmd"
+        return self._package_command(descriptor, frequency_hz, timestamp, **kwargs)
 
     @publish_command
     def set_std_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit, **kwargs) -> Command:
-        """Set the output amplitude on channel. Not valid for DC."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_AMPLITUDE)
+        """Set the output amplitude on channel. Not valid for DC; the unit ships as a ``unit`` tag."""
+        if not isinstance(unit, VoltageUnit):
+            raise TypeError(f"unit must be a VoltageUnit, got {type(unit).__name__}")
         with self._resource_lock:
+            self._check_waveform_applicable(channel, _ValidatedMethod.SET_STD_AMPLITUDE)
             self._driver.set_std_amplitude(channel=channel, amplitude=amplitude, unit=unit)
             timestamp = time.time_ns()
-            self._driver.check_errors()
+            self._check_errors()
+            self._channel_config[channel].voltage_unit = unit
         descriptor = f"ch{channel}.amplitude.cmd"
-        return self._package_command(descriptor, amplitude, timestamp, **kwargs)
+        # A tag, not a second channel: NominalConnect drops any Command whose channel_data holds a string.
+        return self._package_command(descriptor, amplitude, timestamp, unit=unit.value, **kwargs)
 
     def set_std_offset(self, channel: int, offset_v: float, **kwargs) -> Command:
         """Set the DC offset (volts) on channel."""
         self._check_channel(channel)
         return self._execute_command(self._driver.set_std_offset, channel, offset_v, "offset", **kwargs)
 
+    @publish_command
     def output_enable(self, channel: int, enable: bool, **kwargs) -> Command:
         """Enable or disable the output on channel."""
         self._check_channel(channel)
-        return self._execute_command(self._driver.output_enable, channel, enable, "enabled", **kwargs)
+        with self._resource_lock:
+            self._driver.output_enable(channel=channel, enable=enable)
+            timestamp = time.time_ns()
+            self._check_errors()
+            config = self._channel_config.get(channel)
+            if config is not None:
+                config.output_enabled = enable
+        descriptor = f"ch{channel}.enabled.cmd"
+        return self._package_command(descriptor, enable, timestamp, **kwargs)
 
     @publish_command
     def set_std_output_load(self, channel: int, load: float | None, **kwargs) -> Command:
@@ -303,27 +334,26 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_std_output_load(channel=channel, load=load)
             timestamp = time.time_ns()
-            self._driver.check_errors()
+            self._check_errors()
         descriptor = f"ch{channel}.load.cmd"
-        # High-Z publishes float("inf"), matching the readback channel and keeping
-        # the channel single-typed (the Nominal streaming backend requires this).
         load_value = float("inf") if load is None else load
         return self._package_command(descriptor, load_value, timestamp, **kwargs)
-
-    # Getters do not query the error queue: the background daemon polls them and
-    # would silently drain errors a later check_errors() call is expected to see.
 
     def get_std_waveform(self, channel: int) -> WaveformType:
         """Read back the current waveform type on channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            return self._driver.get_std_waveform(channel=channel)
+            waveform = self._driver.get_std_waveform(channel=channel)
+            self._check_errors()
+        return waveform
 
     def get_std_amplitude(self, channel: int) -> tuple[float, VoltageUnit]:
         """Read back the current amplitude and voltage unit on channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            return self._driver.get_std_amplitude(channel=channel)
+            amplitude = self._driver.get_std_amplitude(channel=channel)
+            self._check_errors()
+        return amplitude
 
     @publish_measurement
     def _execute_measurement(
@@ -331,12 +361,14 @@ class InstroAWG(Instrument):
         driver_method: Callable,
         channel: int,
         channel_suffix: str,
+        /,
         **kwargs,
     ) -> Measurement | None:
-        """General-purpose readback helper: call ``driver_method(channel=channel)``, timestamp, and package."""
+        """Readback helper: call ``driver_method(channel=channel)`` and package; positional-only params avoid tag collisions."""
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
+            self._check_errors()
         descriptor = f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
@@ -367,6 +399,7 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             val = self._driver.get_std_output_load(channel=channel)
             timestamp = time.time_ns()
+            self._check_errors()
         load_float = float("inf") if val is None else val
         descriptor = f"ch{channel}.load"
         return self._package_measurement(descriptor, load_float, timestamp, **kwargs)
@@ -374,11 +407,16 @@ class InstroAWG(Instrument):
     @publish_command
     def set_voltage_unit(self, channel: int, unit: VoltageUnit, **kwargs) -> Command:
         """Set the voltage unit on channel."""
+        if not isinstance(unit, VoltageUnit):
+            raise TypeError(f"unit must be a VoltageUnit, got {type(unit).__name__}")
         self._check_channel(channel)
         with self._resource_lock:
             self._driver.set_voltage_unit(channel=channel, unit=unit)
             timestamp = time.time_ns()
-            self._driver.check_errors()
+            self._check_errors()
+            config = self._channel_config.get(channel)
+            if config is not None:
+                config.voltage_unit = unit
         descriptor = f"ch{channel}.voltage_unit.cmd"
         return self._package_command(descriptor, unit.value, timestamp, **kwargs)
 
@@ -386,22 +424,32 @@ class InstroAWG(Instrument):
         """Read back the current voltage unit on channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            return self._driver.get_voltage_unit(channel=channel)
+            unit = self._driver.get_voltage_unit(channel=channel)
+            self._check_errors()
+        return unit
 
     def set_high_level(self, channel: int, volts: float, **kwargs) -> Command:
         """Set the high voltage level (volts) on channel. Not valid for DC."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_HIGH_LEVEL)
-        return self._execute_command(self._driver.set_high_level, channel, volts, "high_level", **kwargs)
+        return self._execute_command(
+            self._driver.set_high_level,
+            channel,
+            volts,
+            "high_level",
+            _ValidatedMethod.SET_HIGH_LEVEL,
+            **kwargs,
+        )
 
     def set_low_level(self, channel: int, volts: float, **kwargs) -> Command:
         """Set the low voltage level (volts) on channel. Not valid for DC."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_LOW_LEVEL)
-        return self._execute_command(self._driver.set_low_level, channel, volts, "low_level", **kwargs)
+        return self._execute_command(
+            self._driver.set_low_level, channel, volts, "low_level", _ValidatedMethod.SET_LOW_LEVEL, **kwargs
+        )
 
     def set_phase(self, channel: int, phase_deg: float, **kwargs) -> Command:
         """Set the phase (degrees) on channel. Not valid for NOISE or DC; PULSE only if the driver supports it."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_PHASE)
-        return self._execute_command(self._driver.set_phase, channel, phase_deg, "phase", **kwargs)
+        return self._execute_command(
+            self._driver.set_phase, channel, phase_deg, "phase", _ValidatedMethod.SET_PHASE, **kwargs
+        )
 
     @publish_command
     def align_phase(self, **kwargs) -> Command:
@@ -409,7 +457,7 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.align_phase()
             timestamp = time.time_ns()
-            self._driver.check_errors()
+            self._check_errors()
         descriptor = "phase.align.cmd"
         return self._package_command(descriptor, "ALIGN", timestamp, **kwargs)
 
@@ -417,22 +465,44 @@ class InstroAWG(Instrument):
 
     def set_square_duty_cycle(self, channel: int, duty_pct: float, **kwargs) -> Command:
         """Set the duty cycle (%) for a square waveform on channel. SQUARE only."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_SQUARE_DUTY_CYCLE)
         return self._execute_command(
-            self._driver.set_square_duty_cycle, channel, duty_pct, "square.duty_cycle", **kwargs
+            self._driver.set_square_duty_cycle,
+            channel,
+            duty_pct,
+            "square.duty_cycle",
+            _ValidatedMethod.SET_SQUARE_DUTY_CYCLE,
+            **kwargs,
         )
 
     def set_ramp_symmetry(self, channel: int, symmetry_pct: float, **kwargs) -> Command:
         """Set the symmetry (%) for a ramp waveform on channel. RAMP only."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_RAMP_SYMMETRY)
-        return self._execute_command(self._driver.set_ramp_symmetry, channel, symmetry_pct, "ramp.symmetry", **kwargs)
+        return self._execute_command(
+            self._driver.set_ramp_symmetry,
+            channel,
+            symmetry_pct,
+            "ramp.symmetry",
+            _ValidatedMethod.SET_RAMP_SYMMETRY,
+            **kwargs,
+        )
 
     def set_pulse_width(self, channel: int, width_s: float, **kwargs) -> Command:
         """Set the pulse width (seconds) on channel. PULSE only."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_PULSE_WIDTH)
-        return self._execute_command(self._driver.set_pulse_width, channel, width_s, "pulse.width", **kwargs)
+        return self._execute_command(
+            self._driver.set_pulse_width,
+            channel,
+            width_s,
+            "pulse.width",
+            _ValidatedMethod.SET_PULSE_WIDTH,
+            **kwargs,
+        )
 
     def set_pulse_delay(self, channel: int, delay_s: float, **kwargs) -> Command:
         """Set the pulse lead delay (seconds) on channel. PULSE only."""
-        self._check_waveform_applicable(channel, _ValidatedMethod.SET_PULSE_DELAY)
-        return self._execute_command(self._driver.set_pulse_delay, channel, delay_s, "pulse.delay", **kwargs)
+        return self._execute_command(
+            self._driver.set_pulse_delay,
+            channel,
+            delay_s,
+            "pulse.delay",
+            _ValidatedMethod.SET_PULSE_DELAY,
+            **kwargs,
+        )

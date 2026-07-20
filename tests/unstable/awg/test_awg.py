@@ -161,6 +161,18 @@ def test_close_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> No
     mock_driver.close.assert_called_once()
 
 
+@pytest.mark.parametrize("num_channels", [0, -1])
+def test_init_raises_for_non_positive_num_channels(mock_driver: MagicMock, num_channels: int) -> None:
+    with pytest.raises(ValueError, match="num_channels must be at least 1"):
+        InstroAWG(name="test_awg", driver=mock_driver, num_channels=num_channels)
+
+
+def test_set_std_waveform_raises_for_non_enum_waveform(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="waveform must be a WaveformType, got str"):
+        awg.set_std_waveform(1, "SINE")  # type: ignore[arg-type]
+    mock_driver.set_std_waveform.assert_not_called()
+
+
 def test_start_raises_if_no_channel_configured(awg: InstroAWG) -> None:
     with pytest.raises(ValueError, match=r"set_std_waveform must be called for channel\(s\) 1, 2"):
         awg.start()
@@ -193,28 +205,51 @@ def test_background_daemon_polls_only_output_state_per_channel(awg: InstroAWG) -
     ]
 
 
-def test_check_errors_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    awg.check_errors()
-    mock_driver.check_errors.assert_called_once()
-
-
 def test_set_std_waveform_checks_errors_after_driver_call(awg: InstroAWG, mock_driver: MagicMock) -> None:
     awg.set_std_waveform(1, WaveformType.SINE)
     mock_driver.check_errors.assert_called_once()
 
 
-def test_set_std_waveform_propagates_driver_error(awg: InstroAWG, mock_driver: MagicMock) -> None:
+def test_set_std_waveform_check_errors_failure_leaves_channel_unconfigured(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    """Scope-style ordering: check_errors runs before config is recorded, so a rejected set is never cached."""
     mock_driver.check_errors.side_effect = RuntimeError("instrument error queue not empty")
     with pytest.raises(RuntimeError, match="instrument error queue not empty"):
         awg.set_std_waveform(1, WaveformType.SINE)
+    mock_driver.check_errors.side_effect = None
+    with pytest.raises(ValueError, match="set_std_waveform must be called for channel 1"):
+        awg.set_std_frequency(1, 5000.0)
 
 
-def test_getters_do_not_drain_error_queue(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    """The daemon polls getters; if they queried the error queue they would silently consume errors."""
+def test_getters_check_errors(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    """Scope precedent: a pending error surfaces at the next query instead of hanging a later blocking read."""
     awg.get_output_state(1)
     awg.get_std_offset(1)
-    awg.get_std_output_load(1)
-    mock_driver.check_errors.assert_not_called()
+    awg.get_std_waveform(1)
+    assert mock_driver.check_errors.call_count == 3
+
+
+def test_getter_check_errors_failure_propagates(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    mock_driver.check_errors.side_effect = RuntimeError("instrument error queue not empty")
+    with pytest.raises(RuntimeError, match="instrument error queue not empty"):
+        awg.get_std_offset(1)
+
+
+def test_setter_tags_may_reuse_helper_parameter_names(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    """Helper params are positional-only, so user tags named after them publish instead of colliding."""
+    cmd = awg.set_std_offset(1, 0.5, validate="pre-flight", channel_suffix="rig7", value="x")
+    assert cmd.tags["validate"] == "pre-flight"
+    assert cmd.tags["channel_suffix"] == "rig7"
+    assert cmd.tags["value"] == "x"
+    mock_driver.set_std_offset.assert_called_once_with(1, 0.5)
+
+
+def test_getter_tags_may_reuse_helper_parameter_names(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    meas = awg.get_std_offset(1, driver_method="tagged", channel_suffix="rig7")
+    assert meas is not None
+    assert meas.tags["driver_method"] == "tagged"
+    assert meas.tags["channel_suffix"] == "rig7"
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +280,7 @@ def test_set_std_waveform_ch2_uses_correct_descriptor(awg: InstroAWG, mock_drive
 def test_set_std_frequency_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
     awg.set_std_waveform(1, WaveformType.SINE)
     awg.set_std_frequency(1, 5000.0)
-    mock_driver.set_std_frequency.assert_called_once_with(1, 5000.0)
+    mock_driver.set_std_frequency.assert_called_once_with(channel=1, frequency=5000.0)
 
 
 def test_set_std_frequency_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
@@ -277,6 +312,35 @@ def test_set_std_amplitude_returns_command_with_correct_descriptor(awg: InstroAW
     assert "test_awg.ch1.amplitude.cmd" in cmd.channel_data
 
 
+def test_set_std_amplitude_ships_unit_as_tag(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    """A bare amplitude is unit-ambiguous (2.5 Vpp vs Vrms vs dBm); the unit tags the same Command."""
+    awg.set_std_waveform(1, WaveformType.SINE)
+    cmd = awg.set_std_amplitude(1, 2.5, VoltageUnit.VRMS)
+    assert cmd.channel_data["test_awg.ch1.amplitude.cmd"] == 2.5
+    assert cmd.tags["unit"] == "VRMS"
+
+
+def test_set_std_amplitude_channel_data_stays_float_only(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    """NominalConnect drops any Command whose channel_data holds a string; the unit must never be a channel."""
+    awg.set_std_waveform(1, WaveformType.SINE)
+    cmd = awg.set_std_amplitude(1, 2.5, VoltageUnit.VPP)
+    assert list(cmd.channel_data) == ["test_awg.ch1.amplitude.cmd"]
+    assert all(isinstance(v, float) for v in cmd.channel_data.values())
+
+
+def test_set_std_amplitude_raises_for_non_enum_unit(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    with pytest.raises(TypeError, match="unit must be a VoltageUnit, got str"):
+        awg.set_std_amplitude(1, 2.5, "VRMS")  # type: ignore[arg-type]
+    mock_driver.set_std_amplitude.assert_not_called()
+
+
+def test_set_voltage_unit_raises_for_non_enum_unit(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="unit must be a VoltageUnit, got str"):
+        awg.set_voltage_unit(1, "VRMS")  # type: ignore[arg-type]
+    mock_driver.set_voltage_unit.assert_not_called()
+
+
 def test_set_std_amplitude_raises_for_dc_waveform(awg: InstroAWG) -> None:
     awg.set_std_waveform(1, WaveformType.DC)
     with pytest.raises(ValueError, match="not valid for channel 1"):
@@ -301,7 +365,7 @@ def test_set_std_offset_returns_command_with_correct_descriptor(awg: InstroAWG, 
 
 def test_output_enable_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
     awg.output_enable(1, True)
-    mock_driver.output_enable.assert_called_once_with(1, True)
+    mock_driver.output_enable.assert_called_once_with(channel=1, enable=True)
 
 
 def test_output_enable_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
@@ -505,6 +569,77 @@ def test_channel_config_is_independent_per_channel(awg: InstroAWG, mock_driver: 
     awg.set_std_waveform(1, WaveformType.SQUARE)
     with pytest.raises(ValueError, match="set_std_waveform must be called for channel 2"):
         awg.set_square_duty_cycle(2, 50.0)
+
+
+# ---------------------------------------------------------------------------
+# Channel config state tracking
+# ---------------------------------------------------------------------------
+
+
+def test_channel_config_starts_with_only_waveform_set(awg: InstroAWG) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    config = awg._channel_config[1]
+    assert config.waveform is WaveformType.SINE
+    assert config.voltage_unit is None
+    assert config.output_enabled is None
+    assert config.frequency_hz is None
+
+
+def test_set_std_frequency_records_frequency_in_channel_config(awg: InstroAWG) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    awg.set_std_frequency(1, 5000.0)
+    assert awg._channel_config[1].frequency_hz == 5000.0
+
+
+def test_set_std_amplitude_records_voltage_unit_in_channel_config(awg: InstroAWG) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    awg.set_std_amplitude(1, 2.5, VoltageUnit.VRMS)
+    assert awg._channel_config[1].voltage_unit is VoltageUnit.VRMS
+
+
+def test_set_voltage_unit_records_unit_in_channel_config(awg: InstroAWG) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    awg.set_voltage_unit(1, VoltageUnit.DBM)
+    assert awg._channel_config[1].voltage_unit is VoltageUnit.DBM
+
+
+def test_output_enable_records_state_in_channel_config(awg: InstroAWG) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    awg.output_enable(1, True)
+    assert awg._channel_config[1].output_enabled is True
+    awg.output_enable(1, False)
+    assert awg._channel_config[1].output_enabled is False
+
+
+def test_output_enable_before_waveform_does_not_create_channel_config(awg: InstroAWG) -> None:
+    """Config presence gates start(); commands that don't require a waveform must not fake one."""
+    awg.output_enable(1, True)
+    awg.set_voltage_unit(1, VoltageUnit.VRMS)
+    assert 1 not in awg._channel_config
+
+
+def test_set_std_waveform_preserves_tracked_fields(awg: InstroAWG) -> None:
+    """Instruments keep frequency, unit, and output state across a function change; the config must match."""
+    awg.set_std_waveform(1, WaveformType.SINE)
+    awg.set_std_frequency(1, 5000.0)
+    awg.set_std_amplitude(1, 2.5, VoltageUnit.VRMS)
+    awg.output_enable(1, True)
+    awg.set_std_waveform(1, WaveformType.SQUARE)
+    config = awg._channel_config[1]
+    assert config.waveform is WaveformType.SQUARE
+    assert config.frequency_hz == 5000.0
+    assert config.voltage_unit is VoltageUnit.VRMS
+    assert config.output_enabled is True
+
+
+def test_set_std_frequency_check_errors_failure_leaves_frequency_unrecorded(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    awg.set_std_waveform(1, WaveformType.SINE)
+    mock_driver.check_errors.side_effect = RuntimeError("instrument error queue not empty")
+    with pytest.raises(RuntimeError, match="instrument error queue not empty"):
+        awg.set_std_frequency(1, 5000.0)
+    assert awg._channel_config[1].frequency_hz is None
 
 
 # ---------------------------------------------------------------------------

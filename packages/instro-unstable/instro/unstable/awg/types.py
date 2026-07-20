@@ -21,6 +21,9 @@ class VoltageUnit(Enum):
 
 @dataclass
 class AWGChannelConfig:
-    """Tracks the waveform an AWG channel is currently configured for."""
+    """Tracks the last-commanded configuration of an AWG channel; None means not yet commanded."""
 
     waveform: WaveformType
+    voltage_unit: VoltageUnit | None = None
+    output_enabled: bool | None = None
+    frequency_hz: float | None = None
