@@ -18,14 +18,14 @@ class TC_TYPE(enum.Enum):
     T = "T"
 
 
-class ThermocoupleSensor(Scaler):
+class ThermocoupleScaler(Scaler):
     """Thermocouple voltage → °C with cold-junction compensation.
 
-    >>> ThermocoupleSensor(TC_TYPE.K, cjc_temp=25.0)  # Type K, 25 °C reference junction
+    >>> ThermocoupleScaler(TC_TYPE.K, cjc_temp=25.0)  # Type K, 25 °C reference junction
     """
 
     def __init__(self, type: TC_TYPE, cjc_temp: float):
-        """Initialize the thermocouple sensor.
+        """Initialize the thermocouple scaler.
 
         Args:
             type: Thermocouple type (B/E/J/K/N/R/S/T).
@@ -38,6 +38,10 @@ class ThermocoupleSensor(Scaler):
     def scale(self, raw: float | int) -> float:
         """Voltage (volts or millivolts per the ``thermocouples`` library) → temperature (°C)."""
         return self._tc.volt_to_temp_with_cjc(voltage=raw, ref_temp=self._cjc)
+
+    def inverse_scale(self, temp: float) -> float:
+        """Temperature (°C) → voltage, inverse of :meth:`scale` with cold-junction compensation."""
+        return self._tc.temp_to_volt(temp) - self._tc.temp_to_volt(self._cjc)
 
     @property
     def units(self) -> str:

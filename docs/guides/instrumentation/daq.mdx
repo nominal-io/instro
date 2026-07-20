@@ -166,9 +166,9 @@ For example, a thermocouple that's fed into an amplifier and then the DAQ will r
 
  ```python
  from instro.daq.scaling import ScalerPipeline, ReverseLinearScaler
- from instro.daq.scaling.thermocouple import ThermocoupleSensor
+ from instro.daq.scaling.thermocouple import ThermocoupleScaler
 
-scaler_pipeline = ScalerPipeline(ReverseLinearScaler(gain=<amplifier gain>, offset=<voltage offset>, units="V"), ThermocoupleSensor(type = <TC_type>, cjc_temp = <cjc temp in Celsius>))
+scaler_pipeline = ScalerPipeline(ReverseLinearScaler(gain=<amplifier gain>, offset=<voltage offset>, units="V"), ThermocoupleScaler(type = <TC_type>, cjc_temp = <cjc temp in Celsius>))
  ```
 
  You can create your own scaler by subclassing `Scaler` and implementing `scale` and `units` methods.
