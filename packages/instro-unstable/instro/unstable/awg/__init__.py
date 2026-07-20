@@ -5,8 +5,27 @@ from instro.unstable.awg.awg import (
     InstroAWG,
 )
 from instro.unstable.awg.types import (
+    DC,
+    Arbitrary,
+    Noise,
+    Pulse,
+    Ramp,
+    Sine,
+    Square,
     VoltageUnit,
-    WaveformType,
+    Waveform,
 )
 
-__all__ = ["InstroAWG", "AWGDriverBase", "WaveformType", "VoltageUnit"]
+__all__ = [
+    "InstroAWG",
+    "AWGDriverBase",
+    "Waveform",
+    "Sine",
+    "Square",
+    "Ramp",
+    "Pulse",
+    "Noise",
+    "DC",
+    "Arbitrary",
+    "VoltageUnit",
+]
