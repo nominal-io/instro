@@ -102,16 +102,6 @@ class Pulse:
 
 
 @dataclass(frozen=True)
-class Noise:
-    """Noise waveform definition; bandwidth is instrument-fixed."""
-
-
-@dataclass(frozen=True)
-class DC:
-    """Constant-output definition; the level is commanded via the instrument offset."""
-
-
-@dataclass(frozen=True)
 class Arbitrary:
     """Arbitrary waveform definition; samples are normalized to [-1, 1] and scaled by amplitude/offset."""
 
@@ -128,4 +118,4 @@ class Arbitrary:
             raise ValueError("samples must be normalized to [-1.0, 1.0]")
 
 
-Waveform = Sine | Square | Sawtooth | Triangle | Pulse | Noise | DC | Arbitrary
+Waveform = Sine | Square | Sawtooth | Triangle | Pulse | Arbitrary

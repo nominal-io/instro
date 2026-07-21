@@ -5,10 +5,8 @@ from instro.unstable.awg.awg import (
     InstroAWG,
 )
 from instro.unstable.awg.types import (
-    DC,
     AmplitudeMeasurementUnit,
     Arbitrary,
-    Noise,
     Pulse,
     Sawtooth,
     Sine,
@@ -26,8 +24,6 @@ __all__ = [
     "Sawtooth",
     "Triangle",
     "Pulse",
-    "Noise",
-    "DC",
     "Arbitrary",
     "AmplitudeMeasurementUnit",
 ]

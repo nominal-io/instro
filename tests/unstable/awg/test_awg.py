@@ -8,10 +8,8 @@ import pytest
 
 from instro.unstable.awg.awg import _PUBLISHED_NAMES, AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
-    DC,
     AmplitudeMeasurementUnit,
     Arbitrary,
-    Noise,
     Pulse,
     Sawtooth,
     Sine,
@@ -349,8 +347,6 @@ def test_set_waveform_ch2_uses_correct_descriptor(awg: InstroAWG, mock_driver: M
         (Sawtooth(frequency_hz=1000.0), "SAWTOOTH"),
         (Triangle(frequency_hz=1000.0), "TRIANGLE"),
         (Pulse(frequency_hz=1000.0, width_s=0.0005), "PULSE"),
-        (Noise(), "NOISE"),
-        (DC(), "DC"),
         (Arbitrary(samples=(0.0, 1.0), sample_rate_hz=1e6), "ARBITRARY"),
     ],
 )
@@ -430,13 +426,6 @@ def test_set_waveform_publishes_both_type_and_companion_commands(mock_driver: Ma
     published = [call.args[0] for call in publisher.publish.call_args_list]
     assert len(published) == 2
     assert any(p.channel_data.get("test_awg.ch1.waveform.cmd") == "SINE" for p in published)
-
-
-@pytest.mark.parametrize("waveform", [Noise(), DC()])
-def test_set_waveform_without_shape_params_publishes_no_companion(mock_driver: MagicMock, waveform: Waveform) -> None:
-    awg, publisher = _awg_with_publisher(mock_driver)
-    awg.set_waveform(1, waveform)
-    assert publisher.publish.call_count == 1
 
 
 def test_set_waveform_arbitrary_companion_summarizes_samples(mock_driver: MagicMock) -> None:

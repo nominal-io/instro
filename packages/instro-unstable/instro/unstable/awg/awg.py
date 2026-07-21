@@ -13,10 +13,8 @@ from instro.lib.instrument import Instrument, publish_command, publish_measureme
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
 from instro.unstable.awg.types import (
-    DC,
     AmplitudeMeasurementUnit,
     Arbitrary,
-    Noise,
     Pulse,
     Sawtooth,
     Sine,
@@ -94,8 +92,6 @@ _PUBLISHED_NAMES: dict[type, str] = {
     Sawtooth: "SAWTOOTH",
     Triangle: "TRIANGLE",
     Pulse: "PULSE",
-    Noise: "NOISE",
-    DC: "DC",
     Arbitrary: "ARBITRARY",
 }
 
