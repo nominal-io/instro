@@ -1,6 +1,11 @@
 """Alicat liquid-flow controller driver.
 
 Measures volumetric flow and pressure. Independent implementation (does not subclass AlicatMC).
+
+WARNING: In contrast to the Alicat MC (mass flow controller), this is unstable, contrib-level code.
+It has not been tested against actual hardware (the alicat MC has been tested and has a similar
+but not identical interface). This driver is provided as-is and may require fixes when used with
+a real Alicat liquid-flow controller.
 """
 
 from dataclasses import dataclass

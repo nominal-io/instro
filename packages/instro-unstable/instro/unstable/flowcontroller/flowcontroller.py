@@ -43,9 +43,9 @@ class FlowControllerDriverBase(abc.ABC):
     def select_working_fluid(self, fluid_name: str) -> str:
         """Select the active working fluid by name; driver resolves the device-internal identifier."""
 
-    @abc.abstractmethod
     def tare_flow(self) -> FlowData:
-        """Zero the flow reading. Device must have zero flow when called."""
+        """Zero the flow reading. Device must have zero flow when called. Raises NotImplementedError if controller does not support taring."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not support taring")
 
     @property
     @abc.abstractmethod

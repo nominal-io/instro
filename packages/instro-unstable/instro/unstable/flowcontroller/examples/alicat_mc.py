@@ -69,7 +69,7 @@ print(f"Set alicat setpoint to {setpoint_ret}")
 print(f"Current flow reading = {device.get_flow_data()}")
 setpoint = 2.34
 print(f"setting alicat setpoint to {setpoint} using integer setpoint")
-setpoint_ret = device.set_setpoint_int(5.12, 100, 0)
+setpoint_ret = device.set_setpoint_int(setpoint, 100, 0)
 print(f"Set alicat setpoint to {setpoint_ret}")
 print(f"Current flow reading = {device.get_flow_data()}")
 
