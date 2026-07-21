@@ -6,6 +6,7 @@ import asyncio
 import struct
 import threading
 import time
+from unittest.mock import patch
 
 import pytest
 from pymodbus.datastore import (
@@ -13,6 +14,7 @@ from pymodbus.datastore import (
     ModbusSequentialDataBlock,
     ModbusServerContext,
 )
+from pymodbus.exceptions import ConnectionException
 from pymodbus.server import StartAsyncTcpServer
 
 from instro.lib.transports import ModbusDriver, RTUConnection, TCPConnection
@@ -166,6 +168,23 @@ class TestLifecycle:
     def test_del_on_unopened_is_safe(self):
         ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT)).__del__()  # no raise
 
+    def test_reconnects_after_transport_error(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        drv.open()
+        try:
+            assert drv.read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
+
+            # Force one transport error at the pymodbus client layer; _modbus_op should
+            # drop the dead socket and re-raise.
+            with patch.object(drv._client, "read_holding_registers", side_effect=ConnectionException("boom")):
+                with pytest.raises(ConnectionException):
+                    drv.read_holding_registers(100, 1)
+
+            # The next real op reconnects (pymodbus connect() rebuilds the socket) and succeeds.
+            assert drv.read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
+        finally:
+            drv.close()
+
 
 # ============ Raw Function-Code Ops ============
 
@@ -306,6 +325,20 @@ class TestCodec:
         decoded = ModbusDriver.decode_registers(encoded, "uint32", byte_swap=byte_swap, word_swap=word_swap)
         assert decoded == 0xDEADBEEF
 
+    @pytest.mark.parametrize("long_swap", [False, True])
+    @pytest.mark.parametrize("word_swap", [False, True])
+    @pytest.mark.parametrize("byte_swap", [False, True])
+    def test_swap_roundtrip_64bit(self, long_swap, word_swap, byte_swap):
+        # long_swap only applies to 64-bit types; exercise it across every swap combination.
+        value = 0x1337BEEFCAFEBABE
+        encoded = ModbusDriver.encode_value(
+            value, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap
+        )
+        decoded = ModbusDriver.decode_registers(
+            encoded, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap
+        )
+        assert decoded == value
+
     def test_encode_unknown_type_raises(self):
         with pytest.raises(ValueError, match="Unknown data type"):
             ModbusDriver.encode_value(1, "uint128")
@@ -339,3 +372,30 @@ class TestConnectionConfigs:
     def test_rtu_defaults(self):
         conn = RTUConnection(port="/dev/ttyUSB0")
         assert (conn.transport, conn.baudrate, conn.parity) == ("rtu", 9600, "N")
+
+
+class TestRTUOpen:
+    """RTU/serial open path, mocked (no serial hardware in CI)."""
+
+    def test_open_builds_serial_client_from_connection(self):
+        conn = RTUConnection(port="/dev/ttyUSB0", baudrate=19200, parity="E", stopbits=2, bytesize=7, unit_id=3)
+        with patch("pymodbus.client.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            drv = ModbusDriver(conn)
+            drv.open()
+            assert drv.is_open
+            assert drv.unit_id == 3
+            mock_cls.assert_called_once_with(
+                port="/dev/ttyUSB0", baudrate=19200, parity="E", stopbits=2, bytesize=7, timeout=conn.timeout
+            )
+            drv.close()
+            mock_cls.return_value.close.assert_called()
+
+    def test_connect_failure_raises_with_serial_port(self):
+        with patch("pymodbus.client.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = False
+            drv = ModbusDriver(RTUConnection(port="/dev/ttyUSB0"))
+            with pytest.raises(ConnectionError, match="/dev/ttyUSB0"):
+                drv.open()
+            assert not drv.is_open
+            mock_cls.return_value.close.assert_called_once()
