@@ -1,5 +1,6 @@
 """Tests for AWGDriverBase contract, waveform definitions, and InstroAWG composition."""
 
+import math
 from dataclasses import FrozenInstanceError, replace
 from typing import get_args
 from unittest.mock import MagicMock
@@ -14,8 +15,10 @@ from instro.unstable.awg.types import (
     Sawtooth,
     Sine,
     Square,
+    StaticValue,
     Triangle,
     Waveform,
+    convert_amplitude,
 )
 
 # ---------------------------------------------------------------------------
@@ -348,6 +351,7 @@ def test_set_waveform_ch2_uses_correct_descriptor(awg: InstroAWG, mock_driver: M
         (Triangle(frequency_hz=1000.0), "TRIANGLE"),
         (Pulse(frequency_hz=1000.0, width_s=0.0005), "PULSE"),
         (Arbitrary(samples=(0.0, 1.0), sample_rate_hz=1e6), "ARBITRARY"),
+        (StaticValue(value=1.5), "STATICVALUE"),
     ],
 )
 def test_set_waveform_publishes_type_name(
@@ -463,7 +467,6 @@ def test_set_amplitude_ships_unit_as_tag(awg: InstroAWG, mock_driver: MagicMock)
 
 
 def test_set_amplitude_channel_data_stays_float_only(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    """NominalConnect drops any Command whose channel_data holds a string; the unit must never be a channel."""
     cmd = awg.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VPP)
     assert list(cmd.channel_data) == ["test_awg.ch1.amplitude.cmd"]
     assert all(isinstance(v, float) for v in cmd.channel_data.values())
@@ -479,6 +482,203 @@ def test_get_amplitude_returns_tuple_not_measurement(awg: InstroAWG, mock_driver
     result = awg.get_amplitude(1)
     mock_driver.get_amplitude.assert_called_once_with(channel=1)
     assert result == (2.5, AmplitudeMeasurementUnit.VPP)
+
+
+# ---------------------------------------------------------------------------
+# convert_amplitude — pure waveform-aware unit conversion (types.py)
+# ---------------------------------------------------------------------------
+
+
+def test_convert_amplitude_identity_returns_value_unchanged() -> None:
+    value = convert_amplitude(5.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VPP, Sine(frequency_hz=1e3))
+    assert value == 5.0
+
+
+@pytest.mark.parametrize(
+    "waveform",
+    [
+        Sine(frequency_hz=1e3),
+        Square(frequency_hz=1e3, duty_cycle_pct=10.0),
+        Sawtooth(frequency_hz=1e3),
+        Triangle(frequency_hz=1e3),
+        Pulse(frequency_hz=1e3, width_s=1e-6),
+        StaticValue(value=1.0),
+        Arbitrary(samples=(0.5, -0.5, 0.25), sample_rate_hz=1e6),
+    ],
+)
+def test_convert_amplitude_vpp_vp_is_exactly_double_regardless_of_shape(waveform: Waveform) -> None:
+    vp = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VP, waveform)
+    assert vp == pytest.approx(1.0)
+    vpp = convert_amplitude(vp, AmplitudeMeasurementUnit.VP, AmplitudeMeasurementUnit.VPP, waveform)
+    assert vpp == pytest.approx(2.0)
+
+
+def test_convert_amplitude_sine_vrms_uses_root_two_crest_factor() -> None:
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, Sine(frequency_hz=1e3))
+    assert vrms == pytest.approx(1.0 / math.sqrt(2))
+
+
+@pytest.mark.parametrize("duty_cycle_pct", [10.0, 50.0, 90.0])
+def test_convert_amplitude_square_vrms_is_independent_of_duty_cycle(duty_cycle_pct: float) -> None:
+    """A bipolar two-level signal has constant magnitude, so RMS doesn't depend on duty cycle."""
+    waveform = Square(frequency_hz=1e3, duty_cycle_pct=duty_cycle_pct)
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, waveform)
+    assert vrms == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("width_s", [1e-7, 4e-4])
+def test_convert_amplitude_pulse_vrms_is_independent_of_width(width_s: float) -> None:
+    waveform = Pulse(frequency_hz=1e3, width_s=width_s)
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, waveform)
+    assert vrms == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("shape", [Sawtooth, Triangle])
+def test_convert_amplitude_ramp_shapes_use_root_three_crest_factor(shape: type) -> None:
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, shape(frequency_hz=1e3))
+    assert vrms == pytest.approx(1.0 / math.sqrt(3))
+
+
+def test_convert_amplitude_static_value_vrms_equals_vp() -> None:
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, StaticValue(value=1.0))
+    assert vrms == pytest.approx(1.0)
+
+
+def test_convert_amplitude_arbitrary_derives_crest_factor_from_samples() -> None:
+    """Two-level samples behave like Square: RMS equals the peak regardless of duty."""
+    waveform = Arbitrary(samples=(1.0, 1.0, -1.0), sample_rate_hz=1e6)
+    vrms = convert_amplitude(2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, waveform)
+    assert vrms == pytest.approx(1.0)
+
+
+def test_convert_amplitude_arbitrary_all_zero_samples_does_not_raise() -> None:
+    waveform = Arbitrary(samples=(0.0, 0.0, 0.0, 0.0), sample_rate_hz=1e6)
+    vrms = convert_amplitude(0.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS, waveform)
+    assert vrms == 0.0
+
+
+def test_convert_amplitude_dbm_matches_known_reference() -> None:
+    """1 Vrms into 50 ohms is the well-known ~13.01 dBm reference point."""
+    dbm = convert_amplitude(
+        1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM, Sine(frequency_hz=1e3), impedance_ohms=50.0
+    )
+    assert dbm == pytest.approx(10.0 * math.log10(20.0))
+
+
+def test_convert_amplitude_dbm_round_trips_back_to_vrms() -> None:
+    waveform = Sine(frequency_hz=1e3)
+    dbm = convert_amplitude(
+        1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM, waveform, impedance_ohms=50.0
+    )
+    vrms = convert_amplitude(
+        dbm, AmplitudeMeasurementUnit.DBM, AmplitudeMeasurementUnit.VRMS, waveform, impedance_ohms=50.0
+    )
+    assert vrms == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    ("from_unit", "to_unit"),
+    [
+        (AmplitudeMeasurementUnit.DBM, AmplitudeMeasurementUnit.VRMS),
+        (AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM),
+    ],
+)
+def test_convert_amplitude_dbm_requires_impedance(
+    from_unit: AmplitudeMeasurementUnit, to_unit: AmplitudeMeasurementUnit
+) -> None:
+    with pytest.raises(ValueError, match="impedance_ohms is required"):
+        convert_amplitude(1.0, from_unit, to_unit, Sine(frequency_hz=1e3))
+
+
+@pytest.mark.parametrize("impedance_ohms", [0.0, -50.0])
+def test_convert_amplitude_dbm_rejects_non_positive_impedance(impedance_ohms: float) -> None:
+    with pytest.raises(ValueError, match="impedance_ohms must be positive"):
+        convert_amplitude(
+            1.0,
+            AmplitudeMeasurementUnit.VRMS,
+            AmplitudeMeasurementUnit.DBM,
+            Sine(frequency_hz=1e3),
+            impedance_ohms=impedance_ohms,
+        )
+
+
+def test_convert_amplitude_dbm_target_rejects_zero_amplitude() -> None:
+    with pytest.raises(ValueError, match="amplitude must be positive to convert to DBM"):
+        convert_amplitude(
+            0.0,
+            AmplitudeMeasurementUnit.VPP,
+            AmplitudeMeasurementUnit.DBM,
+            Sine(frequency_hz=1e3),
+            impedance_ohms=50.0,
+        )
+
+
+def test_convert_amplitude_rejects_non_enum_from_unit() -> None:
+    with pytest.raises(TypeError, match="from_unit must be an AmplitudeMeasurementUnit, got str"):
+        convert_amplitude(1.0, "VPP", AmplitudeMeasurementUnit.VRMS, Sine(frequency_hz=1e3))  # type: ignore[arg-type]
+
+
+def test_convert_amplitude_rejects_non_enum_to_unit() -> None:
+    with pytest.raises(TypeError, match="to_unit must be an AmplitudeMeasurementUnit, got str"):
+        convert_amplitude(1.0, AmplitudeMeasurementUnit.VPP, "VRMS", Sine(frequency_hz=1e3))  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# InstroAWG.convert_amplitude — channel-aware wrapper
+# ---------------------------------------------------------------------------
+
+
+def test_instroawg_convert_amplitude_uses_channels_configured_waveform(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    vrms = awg.convert_amplitude(1, 2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS)
+    assert vrms == pytest.approx(1.0 / math.sqrt(2))
+
+
+def test_instroawg_convert_amplitude_raises_if_waveform_not_configured(awg: InstroAWG) -> None:
+    with pytest.raises(ValueError, match="channel 1 has no waveform configured"):
+        awg.convert_amplitude(1, 2.0, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS)
+
+
+def test_instroawg_convert_amplitude_dbm_uses_output_load_when_not_given(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    mock_driver.get_output_load.return_value = 50.0
+    dbm = awg.convert_amplitude(1, 1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM)
+    mock_driver.get_output_load.assert_called_once_with(channel=1)
+    assert dbm == pytest.approx(10.0 * math.log10(20.0))
+
+
+def test_instroawg_convert_amplitude_dbm_explicit_impedance_skips_output_load_lookup(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    awg.convert_amplitude(1, 1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM, impedance_ohms=75.0)
+    mock_driver.get_output_load.assert_not_called()
+
+
+def test_instroawg_convert_amplitude_dbm_raises_if_output_load_is_high_z(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    mock_driver.get_output_load.return_value = None
+    with pytest.raises(ValueError, match="channel 1 has no known output load"):
+        awg.convert_amplitude(1, 1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM)
+
+
+def test_instroawg_convert_amplitude_dbm_raises_if_driver_does_not_support_output_load(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    mock_driver.get_output_load.side_effect = NotImplementedError("get_output_load is not implemented")
+    with pytest.raises(ValueError, match="channel 1 has no known output load"):
+        awg.convert_amplitude(1, 1.0, AmplitudeMeasurementUnit.VRMS, AmplitudeMeasurementUnit.DBM)
+
+
+def test_instroawg_convert_amplitude_rejects_non_enum_unit(awg: InstroAWG) -> None:
+    awg.set_waveform(1, Sine(frequency_hz=1e3))
+    with pytest.raises(TypeError, match="from_unit must be an AmplitudeMeasurementUnit, got str"):
+        awg.convert_amplitude(1, 2.0, "VPP", AmplitudeMeasurementUnit.VRMS)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -602,6 +802,7 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("get_waveform", ()),
         ("set_amplitude", (2.5, AmplitudeMeasurementUnit.VPP)),
         ("get_amplitude", ()),
+        ("convert_amplitude", (2.5, AmplitudeMeasurementUnit.VPP, AmplitudeMeasurementUnit.VRMS)),
         ("set_offset", (0.5,)),
         ("get_offset", ()),
         ("output_enable", (True,)),

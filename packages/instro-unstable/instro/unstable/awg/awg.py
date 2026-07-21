@@ -19,8 +19,10 @@ from instro.unstable.awg.types import (
     Sawtooth,
     Sine,
     Square,
+    StaticValue,
     Triangle,
     Waveform,
+    convert_amplitude,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,7 @@ _PUBLISHED_NAMES: dict[type, str] = {
     Triangle: "TRIANGLE",
     Pulse: "PULSE",
     Arbitrary: "ARBITRARY",
+    StaticValue: "STATICVALUE",
 }
 
 
@@ -261,6 +264,39 @@ class InstroAWG(Instrument):
             amplitude = self._driver.get_amplitude(channel=channel)
             self._check_errors()
         return amplitude
+
+    def convert_amplitude(
+        self,
+        channel: int,
+        amplitude: float,
+        from_unit: AmplitudeMeasurementUnit,
+        to_unit: AmplitudeMeasurementUnit,
+        impedance_ohms: float | None = None,
+    ) -> float:
+        """Convert an amplitude value between units using channel's configured waveform.
+
+        DBM conversions need a load impedance; if ``impedance_ohms`` isn't given, channel's
+        output load is used instead. Raises ValueError if neither is available.
+        """
+        if not isinstance(from_unit, AmplitudeMeasurementUnit):
+            raise TypeError(f"from_unit must be an AmplitudeMeasurementUnit, got {type(from_unit).__name__}")
+        if not isinstance(to_unit, AmplitudeMeasurementUnit):
+            raise TypeError(f"to_unit must be an AmplitudeMeasurementUnit, got {type(to_unit).__name__}")
+        self._check_channel(channel)
+        with self._resource_lock:
+            waveform = self._channel_waveforms.get(channel)
+            if waveform is None:
+                raise ValueError(f"channel {channel} has no waveform configured; call set_waveform first")
+            if impedance_ohms is None and AmplitudeMeasurementUnit.DBM in (from_unit, to_unit):
+                try:
+                    impedance_ohms = self._driver.get_output_load(channel=channel)
+                except NotImplementedError:
+                    impedance_ohms = None
+                else:
+                    self._check_errors()
+                if impedance_ohms is None:
+                    raise ValueError(f"channel {channel} has no known output load; pass impedance_ohms explicitly")
+        return convert_amplitude(amplitude, from_unit, to_unit, waveform, impedance_ohms=impedance_ohms)
 
     def set_offset(self, channel: int, offset_v: float, **kwargs) -> Command:
         """Set the DC offset (volts) on channel."""

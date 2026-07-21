@@ -11,8 +11,10 @@ from instro.unstable.awg.types import (
     Sawtooth,
     Sine,
     Square,
+    StaticValue,
     Triangle,
     Waveform,
+    convert_amplitude,
 )
 
 __all__ = [
@@ -25,5 +27,7 @@ __all__ = [
     "Triangle",
     "Pulse",
     "Arbitrary",
+    "StaticValue",
     "AmplitudeMeasurementUnit",
+    "convert_amplitude",
 ]
