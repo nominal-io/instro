@@ -7,7 +7,18 @@ from unittest.mock import MagicMock
 import pytest
 
 from instro.unstable.awg.awg import _PUBLISHED_NAMES, AWGDriverBase, InstroAWG
-from instro.unstable.awg.types import DC, Arbitrary, Noise, Pulse, Ramp, Sine, Square, VoltageUnit, Waveform
+from instro.unstable.awg.types import (
+    DC,
+    AmplitudeMeasurementUnit,
+    Arbitrary,
+    Noise,
+    Pulse,
+    Sawtooth,
+    Sine,
+    Square,
+    Triangle,
+    Waveform,
+)
 
 # ---------------------------------------------------------------------------
 # Minimal concrete driver — implements every abstract method with no-ops
@@ -32,11 +43,11 @@ class _MinimalAWGDriver(AWGDriverBase):
     def get_waveform(self, channel: int) -> Waveform:
         return Sine(frequency_hz=1000.0)
 
-    def set_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit) -> None:
+    def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         pass
 
-    def get_amplitude(self, channel: int) -> tuple[float, VoltageUnit]:
-        return (1.0, VoltageUnit.VPP)
+    def get_amplitude(self, channel: int) -> tuple[float, AmplitudeMeasurementUnit]:
+        return (1.0, AmplitudeMeasurementUnit.VPP)
 
     def set_offset(self, channel: int, offset: float) -> None:
         pass
@@ -106,7 +117,8 @@ def test_awg_driver_base_optional_methods_raise_not_implemented(
         (lambda: Sine(frequency_hz=-1000.0), "frequency_hz must be positive"),
         (lambda: Square(frequency_hz=1000.0, duty_cycle_pct=-1.0), "duty_cycle_pct must be between 0 and 100"),
         (lambda: Square(frequency_hz=1000.0, duty_cycle_pct=101.0), "duty_cycle_pct must be between 0 and 100"),
-        (lambda: Ramp(frequency_hz=1000.0, symmetry_pct=101.0), "symmetry_pct must be between 0 and 100"),
+        (lambda: Sawtooth(frequency_hz=0.0), "frequency_hz must be positive"),
+        (lambda: Triangle(frequency_hz=0.0), "frequency_hz must be positive"),
         (lambda: Pulse(frequency_hz=1000.0, width_s=0.0), "width_s must be positive"),
         (lambda: Pulse(frequency_hz=1000.0, width_s=0.001), r"width_s \+ delay_s must fit within the period"),
         (
@@ -116,11 +128,31 @@ def test_awg_driver_base_optional_methods_raise_not_implemented(
         (lambda: Pulse(frequency_hz=1000.0, width_s=0.0005, delay_s=-0.001), "delay_s must be non-negative"),
         (lambda: Arbitrary(samples=(0.5, 1.5), sample_rate_hz=1e6), r"samples must be normalized to \[-1.0, 1.0\]"),
         (lambda: Arbitrary(samples=(0.0, 1.0), sample_rate_hz=0.0), "sample_rate_hz must be positive"),
+        (lambda: Arbitrary(samples=(), sample_rate_hz=1e6), "must contain at least 2 samples"),
+        (lambda: Arbitrary(samples=(0.5,), sample_rate_hz=1e6), "must contain at least 2 samples"),
     ],
 )
 def test_waveform_definitions_reject_invalid_parameters(factory, match: str) -> None:
     with pytest.raises(ValueError, match=match):
         factory()
+
+
+@pytest.mark.parametrize("shape", [Sine, Square, Sawtooth, Triangle])
+@pytest.mark.parametrize(
+    ("phase_in", "expected"),
+    [
+        (0.0, 0.0),
+        (90.0, 90.0),
+        (-180.0, -180.0),
+        (180.0, -180.0),
+        (270.0, -90.0),
+        (-190.0, 170.0),
+        (720.0, 0.0),
+    ],
+)
+def test_phase_deg_normalizes_at_construction(shape: type, phase_in: float, expected: float) -> None:
+    """Phase wraps into [-180, 180) at definition time; +180 canonicalizes to -180."""
+    assert shape(frequency_hz=1000.0, phase_deg=phase_in).phase_deg == expected
 
 
 def test_waveform_definitions_are_immutable() -> None:
@@ -141,17 +173,6 @@ def test_arbitrary_coerces_samples_to_tuple() -> None:
     assert wfm.samples == (0.0, 0.5, -0.5)
 
 
-def test_arbitrary_name_defaults_to_driver_default_slot() -> None:
-    """Empty name means the driver's default memory slot; slot vocabulary is vendor-specific."""
-    assert Arbitrary(samples=(0.0, 1.0), sample_rate_hz=1e6).name == ""
-
-
-def test_arbitrary_allows_empty_samples_for_readback() -> None:
-    """A driver that can't retrieve sample data reports readback as Arbitrary with empty samples."""
-    wfm = Arbitrary(samples=(), sample_rate_hz=1e6)
-    assert wfm.samples == ()
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -161,7 +182,7 @@ def test_arbitrary_allows_empty_samples_for_readback() -> None:
 def mock_driver() -> MagicMock:
     driver = MagicMock(spec=AWGDriverBase)
     driver.get_waveform.return_value = Sine(frequency_hz=1000.0)
-    driver.get_amplitude.return_value = (2.5, VoltageUnit.VPP)
+    driver.get_amplitude.return_value = (2.5, AmplitudeMeasurementUnit.VPP)
     driver.get_offset.return_value = 0.0
     driver.get_output_state.return_value = False
     driver.get_output_load.return_value = 50.0
@@ -316,7 +337,7 @@ def test_set_waveform_returns_command_with_correct_descriptor(awg: InstroAWG, mo
 
 
 def test_set_waveform_ch2_uses_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    cmd = awg.set_waveform(2, Ramp(frequency_hz=1000.0))
+    cmd = awg.set_waveform(2, Sawtooth(frequency_hz=1000.0))
     assert "test_awg.ch2.waveform.cmd" in cmd.channel_data
 
 
@@ -325,7 +346,8 @@ def test_set_waveform_ch2_uses_correct_descriptor(awg: InstroAWG, mock_driver: M
     [
         (Sine(frequency_hz=1000.0), "SINE"),
         (Square(frequency_hz=1000.0), "SQUARE"),
-        (Ramp(frequency_hz=1000.0), "RAMP"),
+        (Sawtooth(frequency_hz=1000.0), "SAWTOOTH"),
+        (Triangle(frequency_hz=1000.0), "TRIANGLE"),
         (Pulse(frequency_hz=1000.0, width_s=0.0005), "PULSE"),
         (Noise(), "NOISE"),
         (DC(), "DC"),
@@ -347,28 +369,12 @@ def test_set_waveform_ships_shape_parameters_as_tags(awg: InstroAWG, mock_driver
 
 
 def test_set_waveform_arbitrary_never_publishes_samples(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    """Sample data can be megabytes; only the summary (slot, count, rate) is published."""
-    cmd = awg.set_waveform(1, Arbitrary(samples=(0.0, 0.5, -0.5), sample_rate_hz=1e6, name="ramp3"))
-    assert cmd.tags["slot"] == "ramp3"
+    """Sample data can be megabytes; only the summary (count, rate) is published."""
+    cmd = awg.set_waveform(1, Arbitrary(samples=(0.0, 0.5, -0.5), sample_rate_hz=1e6))
     assert cmd.tags["num_samples"] == "3"
     assert cmd.tags["sample_rate_hz"] == "1000000.0"
     assert "samples" not in cmd.tags
     assert list(cmd.channel_data) == ["test_awg.ch1.waveform.cmd"]
-
-
-def test_set_waveform_arbitrary_omits_slot_tag_when_unset(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    cmd = awg.set_waveform(1, Arbitrary(samples=(0.0, 0.5), sample_rate_hz=1e6))
-    assert "slot" not in cmd.tags
-
-
-@pytest.mark.parametrize("samples", [(), (0.5,)])
-def test_set_waveform_rejects_arbitrary_with_too_few_samples(
-    awg: InstroAWG, mock_driver: MagicMock, samples: tuple[float, ...]
-) -> None:
-    """Empty samples are legal on readback only; programming requires a real waveform."""
-    with pytest.raises(ValueError, match="Arbitrary waveform must contain at least 2 samples"):
-        awg.set_waveform(1, Arbitrary(samples=samples, sample_rate_hz=1e6))
-    mock_driver.set_waveform.assert_not_called()
 
 
 def test_set_waveform_records_definition_per_channel(awg: InstroAWG, mock_driver: MagicMock) -> None:
@@ -435,7 +441,7 @@ def test_set_waveform_without_shape_params_publishes_no_companion(mock_driver: M
 
 def test_set_waveform_arbitrary_companion_summarizes_samples(mock_driver: MagicMock) -> None:
     awg, publisher = _awg_with_publisher(mock_driver)
-    awg.set_waveform(1, Arbitrary(samples=(0.0, 0.5, -0.5), sample_rate_hz=1e6, name="ramp3"))
+    awg.set_waveform(1, Arbitrary(samples=(0.0, 0.5, -0.5), sample_rate_hz=1e6))
     published = [call.args[0] for call in publisher.publish.call_args_list]
     companions = [p for p in published if "test_awg.ch1.sample_rate_hz.cmd" in p.channel_data]
     assert len(companions) == 1
@@ -443,7 +449,6 @@ def test_set_waveform_arbitrary_companion_summarizes_samples(mock_driver: MagicM
     assert companion.channel_data["test_awg.ch1.num_samples.cmd"] == 3.0
     assert "test_awg.ch1.samples.cmd" not in companion.channel_data
     assert companion.tags["waveform"] == "ARBITRARY"
-    assert companion.tags["slot"] == "ramp3"
 
 
 # ---------------------------------------------------------------------------
@@ -452,31 +457,31 @@ def test_set_waveform_arbitrary_companion_summarizes_samples(mock_driver: MagicM
 
 
 def test_set_amplitude_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    awg.set_amplitude(1, 2.5, VoltageUnit.VPP)
-    mock_driver.set_amplitude.assert_called_once_with(channel=1, amplitude=2.5, unit=VoltageUnit.VPP)
+    awg.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VPP)
+    mock_driver.set_amplitude.assert_called_once_with(channel=1, amplitude=2.5, unit=AmplitudeMeasurementUnit.VPP)
 
 
 def test_set_amplitude_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    cmd = awg.set_amplitude(1, 2.5, VoltageUnit.VPP)
+    cmd = awg.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VPP)
     assert "test_awg.ch1.amplitude.cmd" in cmd.channel_data
 
 
 def test_set_amplitude_ships_unit_as_tag(awg: InstroAWG, mock_driver: MagicMock) -> None:
     """A bare amplitude is unit-ambiguous (2.5 Vpp vs Vrms vs dBm); the unit tags the same Command."""
-    cmd = awg.set_amplitude(1, 2.5, VoltageUnit.VRMS)
+    cmd = awg.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VRMS)
     assert cmd.channel_data["test_awg.ch1.amplitude.cmd"] == 2.5
     assert cmd.tags["unit"] == "VRMS"
 
 
 def test_set_amplitude_channel_data_stays_float_only(awg: InstroAWG, mock_driver: MagicMock) -> None:
     """NominalConnect drops any Command whose channel_data holds a string; the unit must never be a channel."""
-    cmd = awg.set_amplitude(1, 2.5, VoltageUnit.VPP)
+    cmd = awg.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VPP)
     assert list(cmd.channel_data) == ["test_awg.ch1.amplitude.cmd"]
     assert all(isinstance(v, float) for v in cmd.channel_data.values())
 
 
 def test_set_amplitude_raises_for_non_enum_unit(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    with pytest.raises(TypeError, match="unit must be a VoltageUnit, got str"):
+    with pytest.raises(TypeError, match="unit must be an AmplitudeMeasurementUnit, got str"):
         awg.set_amplitude(1, 2.5, "VRMS")  # type: ignore[arg-type]
     mock_driver.set_amplitude.assert_not_called()
 
@@ -484,7 +489,7 @@ def test_set_amplitude_raises_for_non_enum_unit(awg: InstroAWG, mock_driver: Mag
 def test_get_amplitude_returns_tuple_not_measurement(awg: InstroAWG, mock_driver: MagicMock) -> None:
     result = awg.get_amplitude(1)
     mock_driver.get_amplitude.assert_called_once_with(channel=1)
-    assert result == (2.5, VoltageUnit.VPP)
+    assert result == (2.5, AmplitudeMeasurementUnit.VPP)
 
 
 # ---------------------------------------------------------------------------
@@ -606,7 +611,7 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
     [
         ("set_waveform", (Sine(frequency_hz=1000.0),)),
         ("get_waveform", ()),
-        ("set_amplitude", (2.5, VoltageUnit.VPP)),
+        ("set_amplitude", (2.5, AmplitudeMeasurementUnit.VPP)),
         ("get_amplitude", ()),
         ("set_offset", (0.5,)),
         ("get_offset", ()),

@@ -6,13 +6,14 @@ from instro.unstable.awg.awg import (
 )
 from instro.unstable.awg.types import (
     DC,
+    AmplitudeMeasurementUnit,
     Arbitrary,
     Noise,
     Pulse,
-    Ramp,
+    Sawtooth,
     Sine,
     Square,
-    VoltageUnit,
+    Triangle,
     Waveform,
 )
 
@@ -22,10 +23,11 @@ __all__ = [
     "Waveform",
     "Sine",
     "Square",
-    "Ramp",
+    "Sawtooth",
+    "Triangle",
     "Pulse",
     "Noise",
     "DC",
     "Arbitrary",
-    "VoltageUnit",
+    "AmplitudeMeasurementUnit",
 ]

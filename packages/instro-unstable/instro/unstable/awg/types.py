@@ -1,11 +1,13 @@
 """AWG shared types and waveform definitions."""
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
 
-class VoltageUnit(Enum):
+class AmplitudeMeasurementUnit(Enum):
     VPP = "VPP"
+    VP = "VP"
     VRMS = "VRMS"
     DBM = "DBM"
 
@@ -20,6 +22,11 @@ def _require_percentage(name: str, value: float) -> None:
         raise ValueError(f"{name} must be between 0 and 100, got {value}")
 
 
+def _normalize_degree(value: float) -> float:
+    """Wrap a phase angle into [-180.0, 180.0)."""
+    return value - 360.0 * math.floor((value + 180.0) / 360.0)
+
+
 @dataclass(frozen=True)
 class Sine:
     """Sine waveform definition."""
@@ -30,6 +37,7 @@ class Sine:
     def __post_init__(self) -> None:
         """Validate shape parameters at definition time."""
         _require_positive("frequency_hz", self.frequency_hz)
+        object.__setattr__(self, "phase_deg", _normalize_degree(self.phase_deg))
 
 
 @dataclass(frozen=True)
@@ -44,25 +52,38 @@ class Square:
         """Validate shape parameters at definition time."""
         _require_positive("frequency_hz", self.frequency_hz)
         _require_percentage("duty_cycle_pct", self.duty_cycle_pct)
+        object.__setattr__(self, "phase_deg", _normalize_degree(self.phase_deg))
 
 
 @dataclass(frozen=True)
-class Ramp:
-    """Ramp waveform definition."""
+class Sawtooth:
+    """Sawtooth waveform definition."""
 
     frequency_hz: float
-    symmetry_pct: float = 50.0
     phase_deg: float = 0.0
 
     def __post_init__(self) -> None:
         """Validate shape parameters at definition time."""
         _require_positive("frequency_hz", self.frequency_hz)
-        _require_percentage("symmetry_pct", self.symmetry_pct)
+        object.__setattr__(self, "phase_deg", _normalize_degree(self.phase_deg))
+
+
+@dataclass(frozen=True)
+class Triangle:
+    """Triangle waveform definition."""
+
+    frequency_hz: float
+    phase_deg: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate shape parameters at definition time."""
+        _require_positive("frequency_hz", self.frequency_hz)
+        object.__setattr__(self, "phase_deg", _normalize_degree(self.phase_deg))
 
 
 @dataclass(frozen=True)
 class Pulse:
-    """Pulse waveform definition; delay stands in for phase, which pulse hardware rarely supports."""
+    """Pulse waveform definition."""
 
     frequency_hz: float
     width_s: float
@@ -94,18 +115,17 @@ class DC:
 class Arbitrary:
     """Arbitrary waveform definition; samples are normalized to [-1, 1] and scaled by amplitude/offset."""
 
-    # Requires >= 2 samples, enforced by InstroAWG.set_waveform.
     samples: tuple[float, ...]
     sample_rate_hz: float
-    # Use driver's default memory slot.
-    name: str = ""
 
     def __post_init__(self) -> None:
         """Validate shape parameters at definition time."""
         object.__setattr__(self, "samples", tuple(self.samples))
         _require_positive("sample_rate_hz", self.sample_rate_hz)
+        if len(self.samples) < 2:
+            raise ValueError(f"Arbitrary waveform must contain at least 2 samples, got {len(self.samples)}")
         if any(not -1.0 <= s <= 1.0 for s in self.samples):
             raise ValueError("samples must be normalized to [-1.0, 1.0]")
 
 
-Waveform = Sine | Square | Ramp | Pulse | Noise | DC | Arbitrary
+Waveform = Sine | Square | Sawtooth | Triangle | Pulse | Noise | DC | Arbitrary

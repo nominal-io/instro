@@ -12,7 +12,18 @@ from typing import Callable
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
-from instro.unstable.awg.types import DC, Arbitrary, Noise, Pulse, Ramp, Sine, Square, VoltageUnit, Waveform
+from instro.unstable.awg.types import (
+    DC,
+    AmplitudeMeasurementUnit,
+    Arbitrary,
+    Noise,
+    Pulse,
+    Sawtooth,
+    Sine,
+    Square,
+    Triangle,
+    Waveform,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +52,11 @@ class AWGDriverBase(abc.ABC):
         """Get the current waveform on channel; drivers may return the last-programmed definition if not readable."""
 
     @abc.abstractmethod
-    def set_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit) -> None:
+    def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         """Set the output amplitude on channel."""
 
     @abc.abstractmethod
-    def get_amplitude(self, channel: int) -> tuple[float, VoltageUnit]:
+    def get_amplitude(self, channel: int) -> tuple[float, AmplitudeMeasurementUnit]:
         """Get the current output amplitude and voltage unit on channel."""
 
     @abc.abstractmethod
@@ -80,7 +91,8 @@ class AWGDriverBase(abc.ABC):
 _PUBLISHED_NAMES: dict[type, str] = {
     Sine: "SINE",
     Square: "SQUARE",
-    Ramp: "RAMP",
+    Sawtooth: "SAWTOOTH",
+    Triangle: "TRIANGLE",
     Pulse: "PULSE",
     Noise: "NOISE",
     DC: "DC",
@@ -91,13 +103,10 @@ _PUBLISHED_NAMES: dict[type, str] = {
 def _waveform_tags(waveform: Waveform) -> dict[str, str]:
     """Shape parameters as publish tags; Arbitrary samples are summarized, never published."""
     if isinstance(waveform, Arbitrary):
-        tags = {
+        return {
             "num_samples": str(len(waveform.samples)),
             "sample_rate_hz": str(waveform.sample_rate_hz),
         }
-        if waveform.name:
-            tags["slot"] = waveform.name
-        return tags
     return {f.name: str(getattr(waveform, f.name)) for f in fields(waveform)}
 
 
@@ -208,8 +217,6 @@ class InstroAWG(Instrument):
         if type(waveform) not in _PUBLISHED_NAMES:
             raise TypeError(f"waveform must be a Waveform definition, got {type(waveform).__name__}")
         self._check_channel(channel)
-        if isinstance(waveform, Arbitrary) and len(waveform.samples) < 2:
-            raise ValueError(f"Arbitrary waveform must contain at least 2 samples, got {len(waveform.samples)}")
         with self._resource_lock:
             self._driver.set_waveform(channel=channel, waveform=waveform)
             timestamp = time.time_ns()
@@ -219,8 +226,6 @@ class InstroAWG(Instrument):
         params = _waveform_param_channels(waveform)
         if params:
             companion_tags = {**self.default_tags, "waveform": published_name, **kwargs}
-            if isinstance(waveform, Arbitrary) and waveform.name:
-                companion_tags["slot"] = waveform.name
             self.publish(
                 Command(
                     channel_data={f"{self.name}.ch{channel}.{param}.cmd": value for param, value in params.items()},
@@ -241,10 +246,10 @@ class InstroAWG(Instrument):
         return waveform
 
     @publish_command
-    def set_amplitude(self, channel: int, amplitude: float, unit: VoltageUnit, **kwargs) -> Command:
+    def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit, **kwargs) -> Command:
         """Set the output amplitude on channel; the unit ships as a ``unit`` tag."""
-        if not isinstance(unit, VoltageUnit):
-            raise TypeError(f"unit must be a VoltageUnit, got {type(unit).__name__}")
+        if not isinstance(unit, AmplitudeMeasurementUnit):
+            raise TypeError(f"unit must be an AmplitudeMeasurementUnit, got {type(unit).__name__}")
         self._check_channel(channel)
         with self._resource_lock:
             self._driver.set_amplitude(channel=channel, amplitude=amplitude, unit=unit)
@@ -253,8 +258,8 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.amplitude.cmd"
         return self._package_command(descriptor, amplitude, timestamp, unit=unit.value, **kwargs)
 
-    def get_amplitude(self, channel: int) -> tuple[float, VoltageUnit]:
-        """Read back the current amplitude and voltage unit on channel."""
+    def get_amplitude(self, channel: int) -> tuple[float, AmplitudeMeasurementUnit]:
+        """Read back the current amplitude and its measurement unit on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             amplitude = self._driver.get_amplitude(channel=channel)
