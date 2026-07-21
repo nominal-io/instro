@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import functools
-import struct
-import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-from pymodbus.exceptions import ConnectionException as PymodbusConnectionException
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.lib.transports.modbus import ModbusDriver
 
 from .types import (
     BOOL_DATA_TYPES,
@@ -25,37 +20,6 @@ from .types import (
     RTUConnection,
     TCPConnection,
 )
-
-if TYPE_CHECKING:
-    from pymodbus.client import ModbusSerialClient, ModbusTcpClient
-
-
-def _modbus_op(fn):
-    """Acquire the lock, run the operation, and clear dead sockets on failure.
-
-    The pymodbus *sync* client does NOT auto-reconnect between operations
-    (``reconnect_delay`` is async-only). It does call ``connect()`` before
-    every operation, which creates a new socket when ``self.socket is None``.
-    So on a transport error we just close the dead socket and re-raise — the
-    next call gets a fresh connection.
-    """
-
-    @functools.wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        with self._lock:
-            if self._background_stop_event.is_set():
-                raise RuntimeError("Instrument is shutting down.")
-            if self._client is None:
-                raise RuntimeError("Modbus client not connected. Call open() first.")
-            assert self._client is not None
-            try:
-                return fn(self, *args, **kwargs)
-            except (OSError, ConnectionError, PymodbusConnectionException):
-                # Clear the dead socket so pymodbus's connect() creates a fresh one.
-                self._client.close()
-                raise
-
-    return wrapper
 
 
 class ModbusDevice(Instrument):
@@ -118,9 +82,7 @@ class ModbusDevice(Instrument):
         super().__init__(name=instrument_name, publishers=publishers, **kwargs)
 
         self._config = resolved_config
-        self._connection = resolved_connection
-        self._client: ModbusTcpClient | ModbusSerialClient | None = None
-        self._lock = threading.RLock()
+        self._modbus = ModbusDriver(resolved_connection)
 
         self._define_background_daemon()
 
@@ -150,59 +112,27 @@ class ModbusDevice(Instrument):
     @property
     def unit_id(self) -> int:
         """Modbus unit/slave ID from the active connection config."""
-        return self._connection.unit_id
+        return self._modbus.unit_id
+
+    def _require_ready_locked(self) -> None:
+        """Reject I/O during shutdown or before the transport is open. Call under ``self._modbus.lock()``."""
+        if self._background_stop_event.is_set():
+            raise RuntimeError("Instrument is shutting down.")
+        if not self._modbus.is_open:
+            raise RuntimeError("Modbus client not connected. Call open() first.")
 
     # ============ Connection Management ============
 
     def open(self) -> None:
         """Open the Modbus TCP/RTU connection."""
-        with self._lock:
-            self._background_stop_event.clear()
-            if self._client is not None:
-                return
-
-            connection = self._connection
-            if isinstance(connection, TCPConnection):
-                from pymodbus.client import ModbusTcpClient
-
-                self._client = ModbusTcpClient(
-                    host=connection.host,
-                    port=connection.port,
-                    timeout=connection.timeout,
-                )
-            elif isinstance(connection, RTUConnection):
-                from pymodbus.client import ModbusSerialClient
-
-                self._client = ModbusSerialClient(
-                    port=connection.port,
-                    baudrate=connection.baudrate,
-                    parity=connection.parity,
-                    stopbits=connection.stopbits,
-                    bytesize=connection.bytesize,
-                    timeout=connection.timeout,
-                )
-            else:
-                raise ValueError(f"Unknown connection type: {type(connection)}")
-
-            if not self._client.connect():
-                if isinstance(connection, TCPConnection):
-                    target = f"{connection.host}:{connection.port}"
-                elif isinstance(connection, RTUConnection):
-                    target = connection.port
-                else:
-                    target = str(connection)
-                self._client.close()
-                self._client = None
-                raise ConnectionError(f"Failed to connect to Modbus device at {target}")
+        self._background_stop_event.clear()
+        self._modbus.open()
 
     def close(self) -> None:
         """Close the connection and stop the daemon."""
         self._background_stop_event.set()
         super().close()
-        with self._lock:
-            if self._client is not None:
-                self._client.close()
-                self._client = None
+        self._modbus.close()
 
     # ============ Semantic Access (by alias) ============
 
@@ -210,7 +140,16 @@ class ModbusDevice(Instrument):
     def read(self, alias: str, **kwargs) -> Measurement:
         """Read the register named ``alias`` and return the scaled value."""
         reg = self._config.get_register(alias)
-        raw_value = self._read_register_raw(reg)
+        with self._modbus.lock():
+            self._require_ready_locked()
+            raw_value = self._modbus.read_typed(
+                reg.register_type,
+                reg.starting_address,
+                reg.data_type,
+                byte_swap=reg.byte_swap,
+                word_swap=reg.word_swap,
+                long_swap=reg.long_swap,
+            )
         scaled_value = self._apply_scaling(raw_value, reg)
         channel_data = self._build_register_channels(reg, raw_value, scaled_value)
         return self._package_register_measurement(channel_data, **kwargs)
@@ -229,17 +168,19 @@ class ModbusDevice(Instrument):
         else:
             total_count = (last.starting_address + last.register_count) - start_address
 
-        match first.register_type:
-            case "holding":
-                raw_regs = self._read_holding_registers(start_address, total_count)
-            case "input":
-                raw_regs = self._read_input_registers(start_address, total_count)
-            case "coil":
-                raw_bits = self._read_coils(start_address, total_count)
-            case "discrete":
-                raw_bits = self._read_discrete_inputs(start_address, total_count)
-            case _:
-                raise ValueError(f"Unknown register type: {first.register_type}")
+        with self._modbus.lock():
+            self._require_ready_locked()
+            match first.register_type:
+                case "holding":
+                    raw_regs = self._modbus.read_holding_registers(start_address, total_count)
+                case "input":
+                    raw_regs = self._modbus.read_input_registers(start_address, total_count)
+                case "coil":
+                    raw_bits = self._modbus.read_coils(start_address, total_count)
+                case "discrete":
+                    raw_bits = self._modbus.read_discrete_inputs(start_address, total_count)
+                case _:
+                    raise ValueError(f"Unknown register type: {first.register_type}")
 
         channel_data: dict[str, list[float | int]] = {}
 
@@ -250,7 +191,7 @@ class ModbusDevice(Instrument):
                 scaled_value = raw_value
             else:
                 reg_slice = raw_regs[offset : offset + reg.register_count]
-                raw_value = self._decode_registers(
+                raw_value = self._modbus.decode_registers(
                     reg_slice, reg.data_type, reg.byte_swap, reg.word_swap, reg.long_swap
                 )
                 scaled_value = self._apply_scaling(raw_value, reg)
@@ -317,7 +258,17 @@ class ModbusDevice(Instrument):
 
         raw_value = self._validate_raw_value_range(raw_value, reg, alias)
 
-        self._write_register_raw(reg, raw_value)
+        with self._modbus.lock():
+            self._require_ready_locked()
+            self._modbus.write_typed(
+                reg.register_type,
+                reg.starting_address,
+                raw_value,
+                reg.data_type,
+                byte_swap=reg.byte_swap,
+                word_swap=reg.word_swap,
+                long_swap=reg.long_swap,
+            )
         timestamp = time.time_ns()
 
         # Apply write delay
@@ -425,216 +376,6 @@ class ModbusDevice(Instrument):
                 )
 
         return raw_value
-
-    @staticmethod
-    def _format_modbus_error(operation: str, result: object) -> str:
-        """Format a Modbus error response, including the standard exception-code name (FC 0x01–0x0B)."""
-        exception_codes = {
-            1: "IllegalFunction",
-            2: "IllegalDataAddress",
-            3: "IllegalDataValue",
-            4: "SlaveDeviceFailure",
-            5: "Acknowledge",
-            6: "SlaveDeviceBusy",
-            8: "MemoryParityError",
-            10: "GatewayPathUnavailable",
-            11: "GatewayNoResponse",
-        }
-        code = getattr(result, "exception_code", 0)
-        name = exception_codes.get(code, "Unknown")
-        if code:
-            return f"Modbus error {operation}: {name} (0x{code:02X})"
-        return f"Modbus error {operation}: {result}"
-
-    @_modbus_op
-    def _read_holding_registers(self, address: int, count: int) -> list[int]:
-        """Read holding registers by address (FC03)."""
-        assert self._client is not None
-        result = self._client.read_holding_registers(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"reading holding registers at addr={address}", result))
-        return list(result.registers)
-
-    @_modbus_op
-    def _read_input_registers(self, address: int, count: int) -> list[int]:
-        """Read input registers by address (FC04)."""
-        assert self._client is not None
-        result = self._client.read_input_registers(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"reading input registers at addr={address}", result))
-        return list(result.registers)
-
-    @_modbus_op
-    def _write_holding_register(self, address: int, value: int) -> None:
-        """Write a single holding register by address (FC06)."""
-        assert self._client is not None
-        result = self._client.write_register(address, value, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"writing holding register at addr={address}", result))
-
-    @_modbus_op
-    def _write_holding_registers(self, address: int, values: list[int]) -> None:
-        """Write multiple holding registers by address (FC16)."""
-        assert self._client is not None
-        result = self._client.write_registers(address, values, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"writing holding registers at addr={address}", result))
-
-    @_modbus_op
-    def _read_coils(self, address: int, count: int) -> list[bool]:
-        """Read coils by address (FC01)."""
-        assert self._client is not None
-        result = self._client.read_coils(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"reading coils at addr={address}", result))
-        return list(result.bits[:count])
-
-    @_modbus_op
-    def _write_coil(self, address: int, value: bool) -> None:
-        """Write a single coil by address (FC05)."""
-        assert self._client is not None
-        result = self._client.write_coil(address, value, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"writing coil at addr={address}", result))
-
-    @_modbus_op
-    def _write_coils(self, address: int, values: list[bool]) -> None:
-        """Write multiple coils by address (FC15)."""
-        assert self._client is not None
-        result = self._client.write_coils(address, values, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"writing coils at addr={address}", result))
-
-    @_modbus_op
-    def _read_discrete_inputs(self, address: int, count: int) -> list[bool]:
-        """Read discrete inputs by address (FC02)."""
-        assert self._client is not None
-        result = self._client.read_discrete_inputs(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(self._format_modbus_error(f"reading discrete inputs at addr={address}", result))
-        return list(result.bits[:count])
-
-    def _read_register_raw(self, reg: RegisterDef) -> int | float:
-        """Dispatch by ``register_type`` (holding/input/coil/discrete) and decode by ``data_type``."""
-        match reg.register_type:
-            case "holding":
-                raw_regs = self._read_holding_registers(reg.starting_address, reg.register_count)
-            case "input":
-                raw_regs = self._read_input_registers(reg.starting_address, reg.register_count)
-            case "coil":
-                bits = self._read_coils(reg.starting_address, 1)
-                return int(bits[0])
-            case "discrete":
-                bits = self._read_discrete_inputs(reg.starting_address, 1)
-                return int(bits[0])
-            case _:
-                raise ValueError(f"Unknown register type: {reg.register_type}")
-
-        return self._decode_registers(raw_regs, reg.data_type, reg.byte_swap, reg.word_swap, reg.long_swap)
-
-    def _write_register_raw(self, reg: RegisterDef, value: int | float | bool) -> None:
-        """Encode ``value`` per ``data_type`` and dispatch to the matching write function code."""
-        match reg.register_type:
-            case "holding":
-                encoded = self._encode_value(value, reg.data_type, reg.byte_swap, reg.word_swap, reg.long_swap)
-                if len(encoded) == 1:
-                    self._write_holding_register(reg.starting_address, encoded[0])
-                else:
-                    self._write_holding_registers(reg.starting_address, encoded)
-            case "coil":
-                self._write_coil(reg.starting_address, bool(value))
-            case "input" | "discrete":
-                raise ValueError(f"Cannot write to read-only register type: {reg.register_type}")
-            case _:
-                raise ValueError(f"Unknown register type: {reg.register_type}")
-
-    def _decode_registers(
-        self, registers: list[int], data_type: str, byte_swap: bool, word_swap: bool, long_swap: bool
-    ) -> int | float:
-        """Decode raw 16-bit registers into a typed value, applying byte/word/long swaps as configured."""
-        raw_bytes = b"".join(reg.to_bytes(2, "big") for reg in registers)
-
-        if byte_swap:
-            raw_bytes = b"".join(raw_bytes[i : i + 2][::-1] for i in range(0, len(raw_bytes), 2))
-
-        if word_swap and len(raw_bytes) >= 4:
-            swapped = bytearray()
-            for i in range(0, len(raw_bytes), 4):
-                chunk = raw_bytes[i : i + 4]
-                if len(chunk) == 4:
-                    swapped.extend(chunk[2:4] + chunk[0:2])
-                else:
-                    swapped.extend(chunk)
-            raw_bytes = bytes(swapped)
-
-        if long_swap and len(raw_bytes) == 8:
-            raw_bytes = raw_bytes[4:8] + raw_bytes[0:4]
-
-        match data_type:
-            case "uint16":
-                return struct.unpack(">H", raw_bytes)[0]
-            case "int16":
-                return struct.unpack(">h", raw_bytes)[0]
-            case "uint32":
-                return struct.unpack(">I", raw_bytes)[0]
-            case "int32":
-                return struct.unpack(">i", raw_bytes)[0]
-            case "uint64":
-                return struct.unpack(">Q", raw_bytes)[0]
-            case "int64":
-                return struct.unpack(">q", raw_bytes)[0]
-            case "float32":
-                return float(struct.unpack(">f", raw_bytes)[0])
-            case "float64":
-                return float(struct.unpack(">d", raw_bytes)[0])
-            case "bool":
-                return int(registers[0] != 0)
-            case _:
-                raise ValueError(f"Unknown data type: {data_type}")
-
-    def _encode_value(
-        self, value: int | float | bool, data_type: str, byte_swap: bool, word_swap: bool, long_swap: bool
-    ) -> list[int]:
-        """Encode a typed value into 16-bit registers, applying byte/word/long swaps as configured."""
-        match data_type:
-            case "uint16":
-                raw_bytes = struct.pack(">H", round(value))
-            case "int16":
-                raw_bytes = struct.pack(">h", round(value))
-            case "uint32":
-                raw_bytes = struct.pack(">I", round(value))
-            case "int32":
-                raw_bytes = struct.pack(">i", round(value))
-            case "uint64":
-                raw_bytes = struct.pack(">Q", round(value))
-            case "int64":
-                raw_bytes = struct.pack(">q", round(value))
-            case "float32":
-                raw_bytes = struct.pack(">f", float(value))
-            case "float64":
-                raw_bytes = struct.pack(">d", float(value))
-            case "bool":
-                return [1 if value else 0]
-            case _:
-                raise ValueError(f"Unknown data type: {data_type}")
-
-        if long_swap and len(raw_bytes) == 8:
-            raw_bytes = raw_bytes[4:8] + raw_bytes[0:4]
-
-        if word_swap and len(raw_bytes) >= 4:
-            swapped = bytearray()
-            for i in range(0, len(raw_bytes), 4):
-                chunk = raw_bytes[i : i + 4]
-                if len(chunk) == 4:
-                    swapped.extend(chunk[2:4] + chunk[0:2])
-                else:
-                    swapped.extend(chunk)
-            raw_bytes = bytes(swapped)
-
-        if byte_swap:
-            raw_bytes = b"".join(raw_bytes[i : i + 2][::-1] for i in range(0, len(raw_bytes), 2))
-
-        return [int.from_bytes(raw_bytes[i : i + 2], "big") for i in range(0, len(raw_bytes), 2)]
 
     def _apply_scaling(self, raw_value: int | float, reg: RegisterDef) -> int | float:
         """Apply ``reg.scale`` to ``raw_value`` if scaling is configured; otherwise pass through."""
