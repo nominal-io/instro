@@ -5,11 +5,11 @@
 
 ## Interface
 
-::: instro.flowcontroller.InstroFlowController
+::: instro.unstable.flowcontroller.InstroFlowController
 
 ## Driver Interface
 
-::: instro.flowcontroller.FlowControllerDriverBase
+::: instro.unstable.flowcontroller.FlowControllerDriverBase
 
 ## Measurement keys
 
@@ -17,16 +17,16 @@
 
 | Constant | Key | Description |
 |---|---|---|
-| `SETPOINT` | `"setpoint"` | Commanded flow setpoint |
-| `MASS_FLOW` | `"mass_flow"` | Measured mass flow |
-| `VOL_FLOW` | `"vol_flow"` | Measured volumetric flow |
-| `PRESSURE` | `"pressure"` | Absolute pressure |
-| `TEMPERATURE` | `"temperature"` | Gas temperature |
+| `SETPOINT_KEY` | `"setpoint"` | Commanded flow setpoint |
+| `MASS_FLOW_KEY` | `"mass_flow"` | Measured mass flow |
+| `VOLUMETRIC_FLOW_KEY` | `"vol_flow"` | Measured volumetric flow |
+| `PRESSURE_KEY` | `"pressure"` | Absolute pressure |
+| `TEMPERATURE_KEY` | `"temperature"` | Gas temperature |
 
 ## Vendor Drivers
 
 ### Alicat MC-series
 
-::: instro.flowcontroller.drivers.AlicatMC
+::: instro.unstable.flowcontroller.drivers.AlicatMC
     options:
       heading_level: 4
