@@ -157,6 +157,15 @@ class TestLifecycle:
         with pytest.raises(RuntimeError, match="not connected"):
             drv.read_holding_registers(100, 1)
 
+    def test_del_closes_open_driver(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        drv.open()
+        drv.__del__()  # best-effort close on GC
+        assert not drv.is_open
+
+    def test_del_on_unopened_is_safe(self):
+        ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT)).__del__()  # no raise
+
 
 # ============ Raw Function-Code Ops ============
 

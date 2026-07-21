@@ -83,9 +83,16 @@ class ModbusDriver:
         self._client: ModbusTcpClient | ModbusSerialClient | None = None
         self._lock = threading.RLock()
 
+    def __del__(self) -> None:
+        """Best-effort close on garbage collection."""
+        try:
+            self.close()
+        except Exception:
+            pass
+
     @property
     def is_open(self) -> bool:
-        """Whether the underlying Modbus client is currently connected."""
+        """Whether the client has been opened and not closed. Stays ``True`` across a dropped socket, which the next op reconnects."""
         return self._client is not None
 
     @property
