@@ -246,11 +246,21 @@ class TestTypedAccess:
     def test_read_typed_holding_word_swap(self, driver):
         assert driver.read_typed("holding", 130, "uint32", word_swap=True) == TEST_DATA["holding_word_swap"]
 
-    def test_read_typed_coil(self, driver):
-        assert driver.read_typed("coil", 1, "bool") == 1
+    def test_read_typed_coil_returns_bool(self, driver):
+        result = driver.read_typed("coil", 1, "bool")
+        assert result is True
 
-    def test_read_typed_discrete(self, driver):
-        assert driver.read_typed("discrete", 1, "bool") == 0
+    def test_read_typed_discrete_returns_bool(self, driver):
+        result = driver.read_typed("discrete", 1, "bool")
+        assert result is False
+
+    def test_read_typed_coil_rejects_non_bool_dtype(self, driver):
+        with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
+            driver.read_typed("coil", 1, "uint16")
+
+    def test_read_typed_discrete_rejects_non_bool_dtype(self, driver):
+        with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
+            driver.read_typed("discrete", 1, "uint16")
 
     def test_read_typed_unknown_register_type_raises(self, driver):
         with pytest.raises(ValueError, match="Unknown register type"):
@@ -270,7 +280,16 @@ class TestTypedAccess:
 
     def test_write_typed_coil_readback(self, driver):
         driver.write_typed("coil", 8, True, "bool")
-        assert driver.read_typed("coil", 8, "bool") == 1
+        assert driver.read_typed("coil", 8, "bool") is True
+
+    def test_write_typed_coil_rejects_non_bool_dtype(self, driver):
+        with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
+            driver.write_typed("coil", 8, True, "uint16")
+
+    def test_write_typed_coil_rejects_non_bool_value(self, driver):
+        # Strict: no numeric coercion. Even 1/0 must be passed as real booleans.
+        with pytest.raises(ValueError, match="coil writes require a bool value"):
+            driver.write_typed("coil", 8, 1, "bool")
 
     def test_write_typed_read_only_raises(self, driver):
         with pytest.raises(ValueError, match="read-only"):

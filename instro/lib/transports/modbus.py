@@ -229,17 +229,24 @@ class ModbusDriver:
         byte_swap: bool = False,
         word_swap: bool = False,
         long_swap: bool = False,
-    ) -> int | float:
-        """Read ``address`` as ``data_type``, dispatching by ``register_type`` and decoding across registers."""
+    ) -> int | float | bool:
+        """Read ``address`` as ``data_type``, dispatching by ``register_type`` and decoding across registers.
+
+        Coils and discrete inputs are single-bit, so ``data_type`` must be ``"bool"`` and the read returns a ``bool``.
+        """
         match register_type:
             case "holding":
                 raw_regs = self.read_holding_registers(address, self.register_count(data_type))
             case "input":
                 raw_regs = self.read_input_registers(address, self.register_count(data_type))
             case "coil":
-                return int(self.read_coils(address, 1)[0])
+                if data_type != "bool":
+                    raise ValueError(f"coil registers are single-bit; data_type must be 'bool', got '{data_type}'")
+                return bool(self.read_coils(address, 1)[0])
             case "discrete":
-                return int(self.read_discrete_inputs(address, 1)[0])
+                if data_type != "bool":
+                    raise ValueError(f"discrete registers are single-bit; data_type must be 'bool', got '{data_type}'")
+                return bool(self.read_discrete_inputs(address, 1)[0])
             case _:
                 raise ValueError(f"Unknown register type: {register_type}")
         return self.decode_registers(raw_regs, data_type, byte_swap, word_swap, long_swap)
@@ -255,7 +262,10 @@ class ModbusDriver:
         word_swap: bool = False,
         long_swap: bool = False,
     ) -> None:
-        """Encode ``value`` as ``data_type`` and write it to ``address``, dispatching by ``register_type``."""
+        """Encode ``value`` as ``data_type`` and write it to ``address``, dispatching by ``register_type``.
+
+        Coils are single-bit, so ``data_type`` must be ``"bool"`` and ``value`` must be a ``bool`` (no numeric coercion).
+        """
         match register_type:
             case "holding":
                 encoded = self.encode_value(value, data_type, byte_swap, word_swap, long_swap)
@@ -264,7 +274,11 @@ class ModbusDriver:
                 else:
                     self.write_holding_registers(address, encoded)
             case "coil":
-                self.write_coil(address, bool(value))
+                if data_type != "bool":
+                    raise ValueError(f"coil registers are single-bit; data_type must be 'bool', got '{data_type}'")
+                if not isinstance(value, bool):
+                    raise ValueError(f"coil writes require a bool value, got {type(value).__name__} {value!r}")
+                self.write_coil(address, value)
             case "input" | "discrete":
                 raise ValueError(f"Cannot write to read-only register type: {register_type}")
             case _:

@@ -187,7 +187,7 @@ class ModbusDevice(Instrument):
         for reg in regs:
             offset = reg.starting_address - start_address
             if is_bit_type:
-                raw_value: int | float = int(raw_bits[offset])
+                raw_value: int | float | bool = bool(raw_bits[offset])
                 scaled_value = raw_value
             else:
                 reg_slice = raw_regs[offset : offset + reg.register_count]
@@ -258,12 +258,16 @@ class ModbusDevice(Instrument):
 
         raw_value = self._validate_raw_value_range(raw_value, reg, alias)
 
+        # Coils are single-bit: the transport requires a real bool. _validate_write_value has
+        # already constrained the value to bool or 0/1, so coercing here is safe.
+        wire_value = bool(raw_value) if reg.register_type == "coil" else raw_value
+
         with self._modbus.lock():
             self._require_ready_locked()
             self._modbus.write_typed(
                 reg.register_type,
                 reg.starting_address,
-                raw_value,
+                wire_value,
                 reg.data_type,
                 byte_swap=reg.byte_swap,
                 word_swap=reg.word_swap,

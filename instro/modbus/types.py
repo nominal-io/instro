@@ -277,6 +277,16 @@ class RegisterDef(BaseModel):
                     seen.add(i)
                 raise ValueError(f"Duplicate bit_index values in bitmap: {sorted(set(dupes))}")
 
+        # Coils and discrete inputs are single-bit: data_type must be bool. Coerce the default
+        # (data_type otherwise defaults to uint16) when omitted; reject an explicit non-bool.
+        # Runs last so the more specific bitmap/scale/swap errors above win when they also apply.
+        if self.register_type in ("coil", "discrete") and self.data_type != "bool":
+            if "data_type" in self.model_fields_set:
+                raise ValueError(
+                    f"{self.register_type} registers are single-bit; data_type must be 'bool', got '{self.data_type}'"
+                )
+            self.data_type = "bool"
+
         return self
 
     @property
