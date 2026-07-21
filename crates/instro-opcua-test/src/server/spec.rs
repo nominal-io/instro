@@ -32,6 +32,10 @@ pub enum TestNodeId {
     Numeric(u32),
     /// String identifier (`ns=<test>;s=<s>`).
     String(String),
+    /// GUID identifier (`ns=<test>;g=<guid>`).
+    Guid(ua::Guid),
+    /// Byte-string identifier (`ns=<test>;b=<bytes>`).
+    ByteString(Vec<u8>),
 }
 
 impl TestNodeId {
@@ -42,6 +46,8 @@ impl TestNodeId {
             Self::Auto => ua::NodeId::numeric(namespace_index, auto_id),
             Self::Numeric(n) => ua::NodeId::numeric(namespace_index, *n),
             Self::String(s) => ua::NodeId::string(namespace_index, s),
+            Self::Guid(guid) => ua::NodeId::guid(namespace_index, guid.clone()),
+            Self::ByteString(bytes) => ua::NodeId::byte_string(namespace_index, bytes),
         }
     }
 }

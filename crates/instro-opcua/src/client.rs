@@ -1023,7 +1023,6 @@ mod subscription_loop_tests {
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
     use crate::types::BrowsePath;
-    use crate::types::NodeIdInner;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
@@ -1124,10 +1123,7 @@ mod subscription_loop_tests {
 
     fn test_node(id: u32, name: &str) -> OpcUaNode {
         OpcUaNode {
-            node_id: OpcUaNodeId {
-                namespace: 1,
-                inner: NodeIdInner::Numeric(id),
-            },
+            node_id: OpcUaNodeId::numeric(1, id),
             browse_name: name.to_owned(),
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,

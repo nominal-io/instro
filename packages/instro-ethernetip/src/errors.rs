@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use instro_ethernetip_rs::{BatchReadError, Error};
+use instro_ethernetip::{BatchReadError, Error};
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyRuntimeWarning};
 use pyo3::prelude::*;

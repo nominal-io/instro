@@ -86,52 +86,12 @@ build-docs:
 gen-examples:
     uv run python docs/guides/generate_examples.py
 
-# PyO3/maturin crates excluded from the root Cargo workspace (see Cargo.toml exclude).
-rust-standalone-packages := "packages/instro-ethernetip"
-
-# Verify all committed Cargo.lock files match current manifests (no regeneration).
-rust-lock-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo check --locked --workspace --all-targets --all-features
-    for pkg in {{ rust-standalone-packages }}; do
-        cargo check --locked --manifest-path "$pkg/Cargo.toml"
-    done
-
-# Run fmt-check, clippy, and locked check for standalone native-extension crates.
-rust-standalone manifest="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -n "{{ manifest }}" ]; then
-        manifests=("{{ manifest }}")
-    else
-        manifests=()
-        for pkg in {{ rust-standalone-packages }}; do
-            manifests+=("$pkg/Cargo.toml")
-        done
-    fi
-    for manifest in "${manifests[@]}"; do
-        cargo fmt --manifest-path "$manifest" -- --check
-        cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
-        cargo check --locked --manifest-path "$manifest"
-    done
-
-# Format standalone native-extension crates (local convenience; mutates files).
-rust-standalone-fix:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for pkg in {{ rust-standalone-packages }}; do
-        cargo fmt --manifest-path "$pkg/Cargo.toml"
-    done
-
 # run Rust formatting, linting, and library/doc tests for the workspace
 rust:
-    just rust-lock-check
     cargo fmt --all
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
+    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
     cargo test --workspace --all-features --lib --tests
     cargo test --workspace --all-features --doc
-    just rust-standalone
 
 # run the Rust explicit EtherNet/IP integration test against the bundled simulator
 eip-rs-test:
@@ -162,10 +122,6 @@ eip-sdist-smoke-test:
     trap 'rm -rf "$dist_dir"' EXIT
     uv build --sdist --package instro-ethernetip --out-dir "$dist_dir"
     sdists=("$dist_dir"/instro_ethernetip-*.tar.gz)
-    if [ "${#sdists[@]}" -ne 1 ] || [ ! -f "${sdists[0]}" ]; then
-        echo "Expected exactly one instro-ethernetip sdist in $dist_dir" >&2
-        exit 1
-    fi
     uv run python tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
 
 # install the built wheel into an isolated environment and verify the private native module

@@ -239,17 +239,13 @@ mod tests {
     use super::DEFAULT_MAX_BROWSE_NODES;
     use super::browse_recursive;
     use crate::types::BrowsePath;
-    use crate::types::NodeIdInner;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
     use crate::types::QualifiedBrowseName;
 
     fn nid(n: u32) -> OpcUaNodeId {
-        OpcUaNodeId {
-            namespace: 0,
-            inner: NodeIdInner::Numeric(n),
-        }
+        OpcUaNodeId::numeric(0, n)
     }
 
     fn browse_path(namespace_index: u16, name: String) -> BrowsePath {
