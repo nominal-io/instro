@@ -25,8 +25,20 @@ fn setting_names(array: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Resolve an enumeration description to its integer Id (exact match first,
-/// then case-insensitive).
+/// Case- and symbol-insensitive form of a description: ASCII-lowercased with
+/// non-ASCII characters dropped, so a config's "ICP Input" (or a mojibake
+/// variant) matches the device's "ICP® Input" without the user typing the
+/// symbol.
+fn folded(description: &str) -> String {
+    description
+        .chars()
+        .filter(char::is_ascii)
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+/// Resolve an enumeration description to its integer Id: exact match first,
+/// then case-insensitive, then symbol-insensitive (only when unambiguous).
 pub fn resolve_enum_id(setting: &Value, description: &str) -> Result<i64> {
     let supported = setting
         .get("SupportedValues")
@@ -46,6 +58,20 @@ pub fn resolve_enum_id(setting: &Value, description: &str) -> Result<i64> {
                     .and_then(Value::as_str)
                     .is_some_and(|d| d.eq_ignore_ascii_case(description))
             })
+        })
+        .or_else(|| {
+            let target = folded(description);
+            let mut candidates = supported.iter().filter(|v| {
+                v.get("Description")
+                    .and_then(Value::as_str)
+                    .is_some_and(|d| folded(d) == target)
+            });
+            // Ambiguous folded matches fall through to the descriptive error
+            // rather than silently picking one.
+            match (candidates.next(), candidates.next()) {
+                (Some(only), None) => Some(only),
+                _ => None,
+            }
         });
     match matched {
         Some(v) => Ok(v.get("Id").and_then(Value::as_i64).unwrap_or_default()),
@@ -210,6 +236,55 @@ mod tests {
         let snapped = snap_sample_rate(&rate_setting(), 131072.0, 100.0).unwrap();
         assert_eq!(snapped.enum_id, 7);
         assert_eq!(snapped.achieved_hz, 512.0);
+    }
+
+    fn icp_mode_setting() -> Value {
+        json!({
+            "Name": "Operation Mode",
+            "Type": "Enumeration",
+            "SupportedValues": [
+                { "Id": 1, "Description": "Voltage Input" },
+                { "Id": 2, "Description": "ICP\u{00ae} Input" }
+            ],
+            "Value": 1
+        })
+    }
+
+    #[test]
+    fn resolves_description_without_trademark_symbol() {
+        assert_eq!(
+            resolve_enum_id(&icp_mode_setting(), "ICP Input").unwrap(),
+            2
+        );
+        assert_eq!(
+            resolve_enum_id(&icp_mode_setting(), "icp input").unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn resolves_mojibake_description() {
+        // UTF-8 "®" mis-decoded as Latin-1 ("Â®"), the classic copy-paste hazard.
+        let mangled = "ICP\u{00c2}\u{00ae} Input";
+        assert_eq!(resolve_enum_id(&icp_mode_setting(), mangled).unwrap(), 2);
+    }
+
+    #[test]
+    fn ambiguous_folded_match_is_an_error() {
+        let setting = json!({
+            "Name": "Range",
+            "Type": "Enumeration",
+            "SupportedValues": [
+                { "Id": 0, "Description": "5 V\u{00ae}" },
+                { "Id": 1, "Description": "5 V\u{00a9}" }
+            ],
+            "Value": 0
+        });
+        let error = resolve_enum_id(&setting, "5 V").unwrap_err().to_string();
+        assert!(
+            error.contains("not a supported value"),
+            "unexpected: {error}"
+        );
     }
 
     #[test]
