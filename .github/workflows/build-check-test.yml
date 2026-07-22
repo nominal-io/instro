@@ -54,6 +54,9 @@ jobs:
       - name: Static type check
         run: |
           just check-types
+      - name: Rust format and lint checks
+        run: |
+          just check-rust
       - name: Run unit tests
         run: |
           just test
