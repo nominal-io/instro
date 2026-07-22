@@ -6,7 +6,7 @@
 //!    of OPC-UA concepts: security configuration ([`OpcUaSecurityMode`],
 //!    [`OpcUaSecurityPolicy`]), authentication ([`OpcUaUserToken`],
 //!    [`OpcUaUserTokenType`], [`OpcUaUserTokenPolicy`]), node identity
-//!    ([`OpcUaNodeId`] (with its [`NodeIdInner`] variants), [`OpcUaNode`],
+//!    ([`OpcUaNodeId`] (with its [`NodeIdKind`] variants), [`OpcUaNode`],
 //!    [`OpcUaNodeClass`]), scalar values ([`OpcUaValue`]), timestamped sample
 //!    data ([`OpcUaDataPoint`], [`OpcUaSample`]), and server/endpoint metadata
 //!    ([`OpcUaServerDescription`], [`OpcUaEndpointInfo`]).
@@ -34,6 +34,8 @@ use anyhow::Error;
 use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use open62541::Certificate;
 use open62541::DataType;
 use open62541::DataValue;
@@ -49,6 +51,7 @@ use open62541::ua::DateTime;
 use open62541::ua::Double;
 use open62541::ua::EndpointDescription;
 use open62541::ua::Float;
+use open62541::ua::Guid;
 use open62541::ua::Int16;
 use open62541::ua::Int32;
 use open62541::ua::Int64;
@@ -67,6 +70,7 @@ use open62541_sys::UA_UserTokenType;
 use serde::Deserialize;
 use serde::Serialize;
 use time::UtcDateTime;
+use uuid::Uuid;
 use zeroize::Zeroize as _;
 
 /// Convenience function to read values from raw `open62541-sys` types.
@@ -456,25 +460,60 @@ impl OpcUaEndpointInfo {
 /// A [`NodeId`] is used to identify nodes in an OPC-UA address space. Nodes may hold a list of child nodes,
 /// which are identified by their own [`NodeId`]s.
 ///
-/// Serialized as the canonical OPC-UA string form `ns=N;i=K` (numeric) or
-/// `ns=N;s=K` (string), so it can be used as a JSON map key.
+/// Serialized in canonical OPC-UA string form, so it can be used as a JSON map key.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(into = "String", try_from = "String")]
 pub struct OpcUaNodeId {
-    /// The namespace index of the node.
-    /// See the OPC-UA specification for more details
-    pub namespace: u16,
+    namespace: u16,
+    kind: NodeIdKind,
+}
 
-    /// The inner representation of the node id.
-    /// See the OPC-UA NodeId specification.
-    pub inner: NodeIdInner,
+impl OpcUaNodeId {
+    /// Creates a node id of the provided kind.
+    pub const fn new(namespace: u16, kind: NodeIdKind) -> Self {
+        Self { namespace, kind }
+    }
+
+    /// Creates a numeric node id.
+    pub const fn numeric(namespace: u16, value: u32) -> Self {
+        Self::new(namespace, NodeIdKind::Numeric(value))
+    }
+
+    /// Creates a string node id.
+    pub const fn string(namespace: u16, value: String) -> Self {
+        Self::new(namespace, NodeIdKind::String(value))
+    }
+
+    /// Creates a byte-string node id.
+    pub const fn byte_string(namespace: u16, value: Vec<u8>) -> Self {
+        Self::new(namespace, NodeIdKind::ByteString(value))
+    }
+
+    /// Creates a GUID node id.
+    pub const fn guid(namespace: u16, value: Uuid) -> Self {
+        Self::new(namespace, NodeIdKind::Guid(value))
+    }
+
+    /// The namespace index of the node.
+    pub const fn namespace(&self) -> u16 {
+        self.namespace
+    }
+
+    /// The node id variant.
+    pub const fn kind(&self) -> &NodeIdKind {
+        &self.kind
+    }
 }
 
 impl Display for OpcUaNodeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.inner {
-            NodeIdInner::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
-            NodeIdInner::String(s) => write!(f, "ns={};s={}", self.namespace, s),
+        match &self.kind {
+            NodeIdKind::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
+            NodeIdKind::String(s) => write!(f, "ns={};s={}", self.namespace, s),
+            NodeIdKind::ByteString(b) => {
+                write!(f, "ns={};b={}", self.namespace, BASE64_STANDARD.encode(b))
+            }
+            NodeIdKind::Guid(g) => write!(f, "ns={};g={}", self.namespace, g),
         }
     }
 }
@@ -495,18 +534,27 @@ impl FromStr for OpcUaNodeId {
             .parse()
             .with_context(|| format!("OpcUaNodeId '{s}': invalid namespace '{ns_str}'"))?;
 
-        let inner = if let Some(num) = rest.strip_prefix("i=") {
-            NodeIdInner::Numeric(
+        let kind = if let Some(num) = rest.strip_prefix("i=") {
+            NodeIdKind::Numeric(
                 num.parse()
                     .with_context(|| format!("OpcUaNodeId '{s}': invalid numeric id '{num}'"))?,
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
-            NodeIdInner::String(string.to_owned())
+            NodeIdKind::String(string.to_owned())
+        } else if let Some(guid) = rest.strip_prefix("g=") {
+            let uuid = Uuid::from_str(guid)
+                .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
+            NodeIdKind::Guid(uuid)
+        } else if let Some(byte_string) = rest.strip_prefix("b=") {
+            let bytes = BASE64_STANDARD.decode(byte_string).with_context(|| {
+                format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'")
+            })?;
+            NodeIdKind::ByteString(bytes)
         } else {
-            bail!("OpcUaNodeId '{s}': identifier must start with 'i=' or 's='");
+            bail!("OpcUaNodeId '{s}': identifier must start with 'i=', 's=', 'g=', or 'b='");
         };
 
-        Ok(OpcUaNodeId { namespace, inner })
+        Ok(Self::new(namespace, kind))
     }
 }
 
@@ -533,35 +581,271 @@ impl TryFrom<NodeId> for OpcUaNodeId {
 impl TryFrom<&NodeId> for OpcUaNodeId {
     type Error = Error;
     fn try_from(node_id: &NodeId) -> Result<Self> {
-        Ok(if let Some((ns, numeric)) = node_id.as_numeric() {
-            OpcUaNodeId {
-                namespace: ns,
-                inner: NodeIdInner::Numeric(numeric),
-            }
+        let (namespace, kind) = if let Some((ns, numeric)) = node_id.as_numeric() {
+            (ns, NodeIdKind::Numeric(numeric))
         } else if let Some((ns, string)) = node_id.as_string() {
-            OpcUaNodeId {
-                namespace: ns,
-                inner: NodeIdInner::String(string.to_string()),
-            }
+            (ns, NodeIdKind::String(string.to_string()))
+        } else if let Some((ns, binary)) = node_id.as_byte_string() {
+            let bytes = binary
+                .as_bytes()
+                .context("invalid byte string node id")?
+                .to_vec();
+            (ns, NodeIdKind::ByteString(bytes))
+        } else if let Some((ns, guid)) = node_id.as_guid() {
+            (
+                ns,
+                NodeIdKind::Guid(Uuid::from_fields(
+                    guid.data1(),
+                    guid.data2(),
+                    guid.data3(),
+                    &guid.data4(),
+                )),
+            )
         } else {
             bail!("node id wasn't valid: '{node_id:?}'");
-        })
+        };
+
+        Ok(Self::new(namespace, kind))
     }
 }
 
 impl From<OpcUaNodeId> for NodeId {
     fn from(other: OpcUaNodeId) -> Self {
-        match other.inner {
-            NodeIdInner::Numeric(n) => NodeId::numeric(other.namespace, n),
-            NodeIdInner::String(ref s) => NodeId::string(other.namespace, s),
+        match other.kind {
+            NodeIdKind::Numeric(n) => NodeId::numeric(other.namespace, n),
+            NodeIdKind::String(ref s) => NodeId::string(other.namespace, s),
+            NodeIdKind::ByteString(ref bytes) => NodeId::byte_string(other.namespace, bytes),
+            NodeIdKind::Guid(uuid) => NodeId::guid(other.namespace, Guid::from_uuid(uuid)),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum NodeIdInner {
+pub enum NodeIdKind {
     Numeric(u32),
     String(String),
+    ByteString(Vec<u8>),
+    Guid(Uuid),
+}
+
+/// A browse-path segment preserving the OPC UA namespace that qualifies its name.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct QualifiedBrowseName {
+    /// The namespace index qualifying the browse name.
+    pub namespace_index: u16,
+    /// The browse name within its namespace.
+    pub name: String,
+}
+
+impl QualifiedBrowseName {
+    /// Creates a namespace-qualified browse name.
+    pub fn new(namespace_index: u16, name: String) -> Self {
+        Self {
+            namespace_index,
+            name,
+        }
+    }
+}
+
+/// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(try_from = "String", into = "String")]
+pub struct BrowsePath {
+    segments: Vec<QualifiedBrowseName>,
+}
+
+impl BrowsePath {
+    /// Creates a browse path containing one segment.
+    pub fn from_segment(segment: QualifiedBrowseName) -> Self {
+        Self {
+            segments: vec![segment],
+        }
+    }
+
+    /// Returns a new browse path with `segment` appended.
+    pub fn child(&self, segment: QualifiedBrowseName) -> Self {
+        let mut segments = self.segments.clone();
+        segments.push(segment);
+        Self { segments }
+    }
+
+    /// Returns whether the browse path contains no segments.
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    /// Returns the path's namespace-qualified segments.
+    pub fn segments(&self) -> &[QualifiedBrowseName] {
+        &self.segments
+    }
+}
+
+impl Display for BrowsePath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for segment in &self.segments {
+            f.write_str("/")?;
+            if segment.namespace_index != 0 {
+                write!(f, "{}:", segment.namespace_index)?;
+            }
+            f.write_str(&escape_browse_name(&segment.name))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl FromStr for BrowsePath {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if s.is_empty() {
+            return Ok(Self::default());
+        }
+
+        if !s.starts_with('/') {
+            bail!("browse path must start with '/' or be empty: {s}");
+        }
+
+        let mut segments = Vec::new();
+        let mut segment_start = 1;
+        let mut escaped = false;
+
+        for (i, ch) in s.char_indices().skip(1) {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+
+            match ch {
+                '&' => escaped = true,
+                '/' => {
+                    segments.push(parse_browse_path_segment(&s[segment_start..i])?);
+                    segment_start = i.saturating_add(ch.len_utf8());
+                }
+                _ => {}
+            }
+        }
+
+        segments.push(parse_browse_path_segment(&s[segment_start..])?);
+
+        Ok(Self { segments })
+    }
+}
+
+impl TryFrom<String> for BrowsePath {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        value.parse()
+    }
+}
+
+impl From<BrowsePath> for String {
+    fn from(value: BrowsePath) -> Self {
+        value.to_string()
+    }
+}
+
+fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
+    if segment.is_empty() {
+        bail!("browse path contains an empty segment");
+    }
+
+    let namespace_separator = namespace_separator(segment)?;
+    let (namespace_index, name) = match namespace_separator {
+        Some(separator) => {
+            let (namespace, rest) = segment.split_at(separator);
+            let name = rest
+                .strip_prefix(':')
+                .context("namespace separator should point at ':'")?;
+            (namespace.parse::<u16>()?, name)
+        }
+        None => (0, segment),
+    };
+
+    let name = unescape_browse_name(name)?;
+    if name.is_empty() {
+        bail!("browse path segment name must not be empty");
+    }
+
+    Ok(QualifiedBrowseName {
+        namespace_index,
+        name,
+    })
+}
+
+fn namespace_separator(segment: &str) -> Result<Option<usize>> {
+    let mut escaped = false;
+
+    for (i, ch) in segment.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+
+        if ch == '&' {
+            escaped = true;
+            continue;
+        }
+
+        if ch == ':' {
+            if i > 0 && segment[..i].chars().all(|c| c.is_ascii_digit()) {
+                return Ok(Some(i));
+            }
+
+            bail!("':' in a browse path segment must be escaped unless it separates a namespace");
+        }
+    }
+
+    Ok(None)
+}
+
+fn escape_browse_name(name: &str) -> String {
+    let mut escaped = String::with_capacity(name.len());
+
+    for ch in name.chars() {
+        if is_browse_path_reserved(ch) {
+            escaped.push('&');
+        }
+        escaped.push(ch);
+    }
+
+    escaped
+}
+
+fn unescape_browse_name(name: &str) -> Result<String> {
+    let mut unescaped = String::with_capacity(name.len());
+    let mut escaped = false;
+
+    for ch in name.chars() {
+        if escaped {
+            if !is_browse_path_reserved(ch) {
+                bail!("'&' in a browse path segment must escape a reserved character");
+            }
+
+            unescaped.push(ch);
+            escaped = false;
+            continue;
+        }
+
+        if ch == '&' {
+            escaped = true;
+        } else if is_browse_path_reserved(ch) {
+            bail!("reserved character '{ch}' in a browse path segment must be escaped");
+        } else {
+            unescaped.push(ch);
+        }
+    }
+
+    if escaped {
+        bail!("browse path segment cannot end with an escape marker");
+    }
+
+    Ok(unescaped)
+}
+
+const fn is_browse_path_reserved(ch: char) -> bool {
+    matches!(ch, '/' | '.' | '<' | '>' | ':' | '#' | '!' | '&')
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -570,6 +854,9 @@ pub struct OpcUaNode {
     pub browse_name: String,
     pub display_name: String,
     pub node_class: OpcUaNodeClass,
+    /// The namespace-qualified browse path to this node.
+    #[serde(default)]
+    pub browse_path: BrowsePath,
     pub children: Vec<OpcUaNode>,
 }
 
@@ -628,11 +915,11 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
             };
 
             match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => OpcUaNodeClass::Object,
-                ua::NodeClass::VARIABLE_U32 => OpcUaNodeClass::Variable,
-                ua::NodeClass::METHOD_U32 => OpcUaNodeClass::Method,
-                ua::NodeClass::VIEW_U32 => OpcUaNodeClass::View,
-                other => OpcUaNodeClass::Other(other),
+                ua::NodeClass::OBJECT_U32 => Self::Object,
+                ua::NodeClass::VARIABLE_U32 => Self::Variable,
+                ua::NodeClass::METHOD_U32 => Self::Method,
+                ua::NodeClass::VIEW_U32 => Self::View,
+                other => Self::Other(other),
             }
         })
     }
@@ -798,7 +1085,7 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
             .map(|ts| ts.as_unix_timestamp_nanos() as u64);
 
         Ok(Self {
-            value: variant_to_value(value)?,
+            value: value.try_into()?,
             server_timestamp,
             source_timestamp,
         })
@@ -887,39 +1174,41 @@ pub fn scalar_to_variant(scalar: ScalarValue) -> Result<ua::Variant> {
     })
 }
 
-pub fn variant_to_value(value: DataValue<ua::Variant>) -> Result<OpcUaValue> {
-    use open62541::VariantValue;
+impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
+    type Error = Error;
+    fn try_from(variant: DataValue<ua::Variant>) -> Result<Self> {
+        use open62541::VariantValue;
+        let value = variant.value().ok_or_else(|| anyhow!("value is null"))?;
 
-    value
-        .value()
-        .ok_or(anyhow!("value is null"))
-        .and_then(|variant| {
-            Ok(match variant.to_value() {
-                VariantValue::Scalar(scalar) => match scalar {
-                    ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
-                    ScalarValue::SByte(v) => OpcUaValue::Int8(v.value()),
-                    ScalarValue::Byte(v) => OpcUaValue::UInt8(v.value()),
-                    ScalarValue::Int16(v) => OpcUaValue::Int16(v.value()),
-                    ScalarValue::UInt16(v) => OpcUaValue::UInt16(v.value()),
-                    ScalarValue::Int32(v) => OpcUaValue::Int32(v.value()),
-                    ScalarValue::UInt32(v) => OpcUaValue::UInt32(v.value()),
-                    ScalarValue::Int64(v) => OpcUaValue::Int64(v.value()),
-                    ScalarValue::UInt64(v) => OpcUaValue::UInt64(v.value()),
-                    ScalarValue::Float(v) => OpcUaValue::Float(v.value()),
-                    ScalarValue::Double(v) => OpcUaValue::Double(v.value()),
-                    ScalarValue::String(v) => OpcUaValue::String(Cow::Owned(v.to_string())),
-                    ScalarValue::DateTime(dt) => {
-                        OpcUaValue::DateTime(dt.to_utc().ok_or(anyhow!("invalid date time"))?)
-                    }
+        let scalar = match value.to_value() {
+            VariantValue::Scalar(scalar) => scalar,
+            variant => bail!("unsupported OPC-UA variant value read: '{variant:?}'"),
+        };
 
-                    scalar_variant => {
-                        bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
-                    }
-                },
+        let unwrapped_value = match scalar {
+            ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
+            ScalarValue::SByte(v) => OpcUaValue::Int8(v.value()),
+            ScalarValue::Byte(v) => OpcUaValue::UInt8(v.value()),
+            ScalarValue::Int16(v) => OpcUaValue::Int16(v.value()),
+            ScalarValue::UInt16(v) => OpcUaValue::UInt16(v.value()),
+            ScalarValue::Int32(v) => OpcUaValue::Int32(v.value()),
+            ScalarValue::UInt32(v) => OpcUaValue::UInt32(v.value()),
+            ScalarValue::Int64(v) => OpcUaValue::Int64(v.value()),
+            ScalarValue::UInt64(v) => OpcUaValue::UInt64(v.value()),
+            ScalarValue::Float(v) => OpcUaValue::Float(v.value()),
+            ScalarValue::Double(v) => OpcUaValue::Double(v.value()),
+            ScalarValue::String(v) => OpcUaValue::String(Cow::Owned(v.to_string())),
+            ScalarValue::DateTime(dt) => {
+                OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
+            }
 
-                variant => bail!("unsupported OPC-UA variant value read: '{variant:?}'"),
-            })
-        })
+            scalar_variant => {
+                bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
+            }
+        };
+
+        Ok(unwrapped_value)
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1103,26 +1392,29 @@ mod tests {
     #[test]
     fn node_id_roundtrips() {
         let back = NodeId::numeric(2, 1234);
-        let numeric = OpcUaNodeId {
-            namespace: 2,
-            inner: NodeIdInner::Numeric(1234),
-        };
+        let numeric = OpcUaNodeId::numeric(2, 1234);
 
         assert_roundtrip(&back, numeric);
 
         let back = NodeId::string(3, "MyNode");
-        let string = OpcUaNodeId {
-            namespace: 3,
-            inner: NodeIdInner::String("MyNode".into()),
-        };
+        let string = OpcUaNodeId::string(3, "MyNode".into());
 
         assert_roundtrip(&back, string);
 
+        let guid_uuid =
+            Uuid::parse_str("11223344-5566-7788-99aa-bbccddeeff00").expect("valid guid");
+        let back = NodeId::guid(4, ua::Guid::from_uuid(guid_uuid));
+        let guid = OpcUaNodeId::guid(4, guid_uuid);
+
+        assert_roundtrip(&back, guid);
+
+        let back = NodeId::byte_string(5, b"bytes-node-id");
+        let byte_string = OpcUaNodeId::byte_string(5, b"bytes-node-id".to_vec());
+
+        assert_roundtrip(&back, byte_string);
+
         let back = NodeId::ns0(85);
-        let ns0 = OpcUaNodeId {
-            namespace: 0,
-            inner: NodeIdInner::Numeric(85),
-        };
+        let ns0 = OpcUaNodeId::numeric(0, 85);
 
         assert_roundtrip(&back, ns0);
     }
@@ -1387,12 +1679,38 @@ mod tests {
 
     #[test]
     fn serde_roundtrip_node() {
-        let node = OpcUaNodeId {
-            namespace: 2,
-            inner: NodeIdInner::String("Temperature".into()),
-        };
+        let node = OpcUaNodeId::string(2, "Temperature".into());
 
         assert_serde_json_roundtrip_eq(&node);
+    }
+
+    #[test]
+    fn node_id_deserializes_guid_and_byte_string_forms() {
+        let guid_uuid =
+            Uuid::parse_str("11223344-5566-7788-99aa-bbccddeeff00").expect("valid guid");
+
+        let guid: OpcUaNodeId = serde_json::from_value(serde_json::json!(
+            "ns=4;g=11223344-5566-7788-99aa-bbccddeeff00"
+        ))
+        .expect("guid node id should deserialize");
+
+        assert_eq!(guid.namespace(), 4);
+        assert_eq!(guid.kind(), &NodeIdKind::Guid(guid_uuid));
+        assert_eq!(
+            guid.to_string(),
+            "ns=4;g=11223344-5566-7788-99aa-bbccddeeff00"
+        );
+
+        let byte_string: OpcUaNodeId =
+            serde_json::from_value(serde_json::json!("ns=5;b=Ynl0ZXMtbm9kZS1pZA=="))
+                .expect("byte string node id should deserialize");
+
+        assert_eq!(byte_string.namespace(), 5);
+        assert_eq!(
+            byte_string.kind(),
+            &NodeIdKind::ByteString(b"bytes-node-id".to_vec())
+        );
+        assert_eq!(byte_string.to_string(), "ns=5;b=Ynl0ZXMtbm9kZS1pZA==");
     }
 
     #[test]
@@ -1404,8 +1722,8 @@ mod tests {
             .parse::<OpcUaNodeId>()
             .expect("string node id should parse");
 
-        assert_eq!(parsed.namespace, 4);
-        assert_eq!(parsed.inner, NodeIdInner::String(node_name_str.into()));
+        assert_eq!(parsed.namespace(), 4);
+        assert_eq!(parsed.kind(), &NodeIdKind::String(node_name_str.into()));
     }
 
     #[test]
@@ -1415,8 +1733,8 @@ mod tests {
             .parse::<OpcUaNodeId>()
             .expect("numeric node id should parse");
 
-        assert_eq!(parsed.namespace, 0);
-        assert_eq!(parsed.inner, NodeIdInner::Numeric(85));
+        assert_eq!(parsed.namespace(), 0);
+        assert_eq!(parsed.kind(), &NodeIdKind::Numeric(85));
         assert_eq!(parsed.to_string(), node_id_str);
     }
 
@@ -1434,28 +1752,107 @@ mod tests {
     }
 
     #[test]
+    fn browse_path_display_and_parse_roundtrip() {
+        let cases = [
+            BrowsePath::default(),
+            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+                .child(QualifiedBrowseName::new(0, "Objects".into()))
+                .child(QualifiedBrowseName::new(0, "Temperature".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(4, "PLC1".into())),
+            BrowsePath::from_segment(QualifiedBrowseName::new(
+                2,
+                "Name/with:reserved&chars".into(),
+            )),
+        ];
+
+        for path in cases {
+            let rendered = path.to_string();
+            let parsed: BrowsePath = rendered.parse().expect("browse path should parse");
+            assert_eq!(parsed, path);
+        }
+    }
+
+    #[test]
+    fn browse_path_renders_standard_relative_path_text() {
+        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+            .child(QualifiedBrowseName::new(0, "Objects".into()))
+            .child(QualifiedBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
+
+        assert_eq!(
+            path.to_string(),
+            "/Root/Objects/4:PLC1&/MAIN&:TEMP&&&<hot&>"
+        );
+    }
+
+    #[test]
+    fn browse_path_rejects_malformed_text() {
+        for malformed in [
+            "Root",
+            "/Root/",
+            "/Root//Objects",
+            "/Root/4:",
+            "/Root/Foo:Bar",
+            "/Root/Foo&x",
+            "/Root/Foo&",
+            "/Root/Foo.Bar",
+        ] {
+            let parsed: Result<BrowsePath> = malformed.parse();
+            assert!(parsed.is_err(), "{malformed} should fail to parse");
+        }
+    }
+
+    #[test]
+    fn browse_path_serializes_as_json_object_key() {
+        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
+            .child(QualifiedBrowseName::new(0, "Objects".into()));
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(path.clone(), "selected".to_owned());
+
+        let json = serde_json::to_value(&map).expect("serialize browse path map");
+        assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
+
+        let back: std::collections::BTreeMap<BrowsePath, String> =
+            serde_json::from_value(json).expect("deserialize browse path map");
+        assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
+    }
+
+    #[test]
     fn serde_roundtrip_browse_node() {
         let browse = OpcUaNode {
-            node_id: OpcUaNodeId {
-                namespace: 0,
-                inner: NodeIdInner::Numeric(85),
-            },
+            node_id: OpcUaNodeId::numeric(0, 85),
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
+            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
             children: vec![OpcUaNode {
-                node_id: OpcUaNodeId {
-                    namespace: 2,
-                    inner: NodeIdInner::String("Temp".into()),
-                },
+                node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
+                browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
+                    2,
+                    "Temperature".into(),
+                )),
                 children: vec![],
             }],
         };
 
         assert_serde_json_roundtrip_eq(&browse);
+    }
+
+    #[test]
+    fn opcua_node_deserializes_without_browse_path() {
+        let node: OpcUaNode = serde_json::from_value(serde_json::json!({
+            "node_id": "ns=0;i=85",
+            "browse_name": "Objects",
+            "display_name": "Objects",
+            "node_class": "Object",
+            "children": [],
+        }))
+        .expect("node without browse path should deserialize");
+
+        assert!(node.browse_path.is_empty());
     }
 
     #[test]

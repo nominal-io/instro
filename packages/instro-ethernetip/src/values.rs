@@ -1,4 +1,4 @@
-use instro_ethernetip_rs::{StructuredValue as RustStructuredValue, Value};
+use instro_ethernetip::{StructuredValue as RustStructuredValue, Value};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

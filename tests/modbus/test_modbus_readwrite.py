@@ -176,15 +176,15 @@ class TestReadInputRegisters:
 class TestReadBoolRegisters:
     def test_read_coil(self, device):
         m = device.read("coil_2")
-        assert m.latest == 1  # True -> 1
+        assert m.latest is True  # coils/discrete publish as bool, not 1/0
 
     def test_read_discrete(self, device):
         m = device.read("discrete_1")
-        assert m.latest == 1
+        assert m.latest is True
 
     def test_read_discrete_false(self, device):
         m = device.read("discrete_2")
-        assert m.latest == 0
+        assert m.latest is False
 
 
 class TestReadHoldingRegisters:

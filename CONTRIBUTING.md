@@ -19,7 +19,7 @@ What you need depends on which command you run. **`just check` is lightweight** 
 | Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
 | C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.13) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
 
 <details>
 <summary><strong>Windows</strong></summary>
@@ -109,36 +109,23 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
-### Rust Cargo.lock (dual-lock policy)
+### Rust Cargo.lock
 
-Rust tooling spans two dependency graphs:
+The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, including mixed PyO3/maturin packages under `packages/`.
 
-- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip`, `instro-opcua`, …).
-- Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
+**Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
-
-- Workspace members: `cargo update` at the repo root.
-- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
-
-CI verifies all committed lockfiles with `--locked`:
-
-- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
-- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
-
-Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
-
-**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+CI verifies the shared lock with `--locked` via `cargo clippy --locked` in `just rust`, which `just test` invokes through `just eip-test`.
 
 ### Rust crate releases
 
 Pure-Rust crates under `crates/` that are published to crates.io are managed by release-please with `release-type: rust`. They are versioned independently from the Python packages and from each other. The public crate names are their Cargo package names, but release-please component names may differ to avoid GitHub tag collisions with Python packages; for example, the Rust EtherNet/IP crate uses `instro-ethernetip-rs` tags while the Python wrapper keeps `instro-ethernetip` tags.
 
+When a Rust core crate backs a Python package, release-please's `cargo-workspace` plugin can patch-bump the wrapper automatically when the core crate releases. The wrapper dependency key must exactly match the core crate's `[package].name`; do not alias a path dependency with `package = ...`, because release-please does not resolve dependency paths when building its workspace graph.
+
 Do not pre-seed a new crate path in [`.github/release-please-manifest.json`](.github/release-please-manifest.json) when the next release should be that initial version. Set `initial-version` in [`.github/release-please-config.json`](.github/release-please-config.json) and let the first generated release PR add the manifest entry.
 
 The release workflow publishes crates with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`) instead of a stored `CARGO_REGISTRY_TOKEN`. Each crate must already exist on crates.io and must have a trusted publisher configured for `nominal-io/instro` and `.github/workflows/release-please-publish.yml`.
-
-If a Rust core crate also backs a Python package, release them deliberately. release-please does not infer that a change under `crates/instro-ethernetip` requires a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when the Python wrapper should ship the Rust change.
 
 ## Issues and discussion
 

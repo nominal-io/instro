@@ -97,7 +97,7 @@ class TestAutostart:
         )
         dev = ModbusDevice(config=config, autostart=True)
         try:
-            assert dev._client is not None  # open() ran
+            assert dev._modbus.is_open  # open() ran
         finally:
             dev.close()
 
@@ -111,6 +111,6 @@ class TestAutostart:
         )
         dev = ModbusDevice(config=config)
         try:
-            assert dev._client is None
+            assert not dev._modbus.is_open
         finally:
             dev.close()
