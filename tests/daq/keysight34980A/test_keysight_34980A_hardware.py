@@ -161,7 +161,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq)
             for _ in range(3):
-                measurement = daq.read_analog()[0]
+                measurement = daq.read_analog()
                 self.assertIsNotNone(measurement)
                 v = measurement.latest
                 self.assertTrue(math.isfinite(v), f"non-finite SW-timed read: {v}")
@@ -209,7 +209,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq, physical=AI_CHANNEL, alias=AI_ALIAS)
             self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
-            measurement = daq.read_analog()[0]
+            measurement = daq.read_analog()
             self.assertIsNotNone(measurement)
             daq.driver._check_errors()  # scan of both channels left no error queued
             print(f"         scanned channels {AI_CHANNEL}, {AI_CHANNEL_2} with no SCPI error")
@@ -233,7 +233,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.start(background=False)
             try:
                 # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                measurement = daq.read_analog()[0]
+                measurement = daq.read_analog()
                 self.assertIsNotNone(measurement)
                 vals = measurement.values
                 self.assertGreaterEqual(len(vals), SAMPLES_PER_CHANNEL)

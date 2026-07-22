@@ -848,22 +848,24 @@ def test_start_background_false_read_analog_fetches_from_buffer():
 
 
 @pytest.mark.parametrize("measurement_count", [0, 1, 2])
-def test_hw_timed_read_analog_always_returns_measurement_list(measurement_count: int):
-    """Hardware-timed public reads return a list for every measurement count."""
+def test_hw_timed_read_analog_preserves_public_return_shape(measurement_count: int):
+    """Hardware-timed helpers return lists while public reads unwrap one Measurement."""
     daq, mock_driver = _hw_timed_daq()
     measurements = [
         Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
     ]
     mock_driver._read_to_measurements.return_value = measurements
 
-    result = daq.read_analog()
+    internal_result = daq._fetch_analog()
+    public_result = daq.read_analog()
 
-    assert result == measurements
+    assert internal_result == measurements
+    assert public_result == (measurements[0] if measurement_count == 1 else measurements)
 
 
 @pytest.mark.parametrize("measurement_count", [0, 1, 2])
-def test_software_timed_read_analog_always_returns_measurement_list(measurement_count: int):
-    """Software-timed public reads return a list for every measurement count."""
+def test_software_timed_read_analog_preserves_public_return_shape(measurement_count: int):
+    """Software-timed helpers return lists while public reads unwrap one Measurement."""
     mock_driver = _make_mock_driver()
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
@@ -873,9 +875,11 @@ def test_software_timed_read_analog_always_returns_measurement_list(measurement_
     ]
     mock_driver._read_to_measurements.return_value = measurements
 
-    result = daq.read_analog()
+    internal_result = daq._software_timed_read()
+    public_result = daq.read_analog()
 
-    assert result == measurements
+    assert internal_result == measurements
+    assert public_result == (measurements[0] if measurement_count == 1 else measurements)
 
 
 def test_restart_registers_background_fetch_exactly_once():

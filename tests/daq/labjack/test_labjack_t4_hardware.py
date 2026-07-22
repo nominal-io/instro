@@ -298,7 +298,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read_analog()[0]
+                    measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -353,7 +353,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write_analog_value(AO_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read_analog()[0].latest
+                    measured = daq.read_analog().latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -470,7 +470,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
                 try:
                     # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                    measurement = daq.read_analog()[0]
+                    measurement = daq.read_analog()
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
