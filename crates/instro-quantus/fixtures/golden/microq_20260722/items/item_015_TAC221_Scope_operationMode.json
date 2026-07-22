@@ -1,0 +1,26 @@
+{
+  "ItemId": 15,
+  "ItemName": "TAC221 Scope",
+  "ItemNameIdentifier": 33,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Operation Mode",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

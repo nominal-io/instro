@@ -1,0 +1,19 @@
+{
+  "ItemId": 13,
+  "ItemName": "TAC221",
+  "ItemNameIdentifier": 222,
+  "ItemType": "Module",
+  "ItemTypeIdentifier": 2,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": []
+}

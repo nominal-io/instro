@@ -1,0 +1,7 @@
+{
+  "ItemName": "Empty",
+  "ItemNameIdentifier": 240,
+  "DefaultOperationMode": 0,
+  "OperationModes": [{ "Id": 0, "Description": "Disabled", "Settings": [] }],
+  "Channels": []
+}

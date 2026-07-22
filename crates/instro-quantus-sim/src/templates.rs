@@ -16,6 +16,9 @@ const WSB42X2: &str = include_str!("../templates/wsb42x2.json");
 const CAN42S2: &str = include_str!("../templates/can42s2.json");
 const ICT42S6: &str = include_str!("../templates/ict42s6.json");
 const ALO42S4: &str = include_str!("../templates/alo42s4.json");
+const TAC221: &str = include_str!("../templates/tac221.json");
+const XMC237: &str = include_str!("../templates/xmc237.json");
+const EMPTY: &str = include_str!("../templates/empty.json");
 
 /// (module name, template, module ItemNameIdentifier override, channel override).
 /// ICS421 shares the ICS425 template but has its own identifiers (QProtocolCSharp:
@@ -29,7 +32,18 @@ const MODULES: &[(&str, &str, Option<i64>, Option<i64>)] = &[
     ("CAN42S2", CAN42S2, None, None),
     ("ICT42S6", ICT42S6, None, None),
     ("ALO42S4", ALO42S4, None, None),
+    ("TAC221", TAC221, None, None),
+    ("XMC237", XMC237, None, None),
+    ("Empty", EMPTY, None, None),
 ];
+
+/// SC model per chassis (MicroQ capture 2026-07-22 shows an SC10).
+fn signal_conditioner(chassis: &str) -> (&'static str, i64) {
+    match chassis {
+        "MicroQ" => ("SC10", 10101),
+        _ => ("SC42", 10070),
+    }
+}
 
 fn controller_identifier(chassis: &str) -> Result<i64, String> {
     match chassis {
@@ -156,11 +170,149 @@ fn item_from_modes(
         data,
         settings_applied: true,
         children: Vec::new(),
+        slot_index: None,
+        hidden_ids_after: 0,
     })
 }
 
-/// Build the full item tree: Controller -> SC42 -> Modules -> Channels, with
-/// ItemIds assigned sequentially in depth-first order starting at 1.
+/// Instantiate a template's channel groups under `parent_idx`. Recursive: a
+/// group's "Children" groups are instantiated under each channel instance
+/// (the TAC221's Scope channel rides under each Tacho). `position` numbers
+/// channels 1-based in depth-first order — the same flat order clients see.
+fn push_channels(
+    items: &mut Vec<ItemState>,
+    parent_idx: usize,
+    groups: &[Value],
+    module_name: &str,
+    channel_ident: Option<i64>,
+    slot: &crate::config::SlotConfig,
+    position: &mut usize,
+) -> Result<(), String> {
+    for group in groups {
+        let count = group.get("Count").and_then(Value::as_u64).unwrap_or(1);
+        for _ in 0..count {
+            *position += 1;
+            let name = group
+                .get("ItemName")
+                .and_then(Value::as_str)
+                .unwrap_or(module_name);
+            let mut channel = item_from_modes(
+                name,
+                channel_ident.unwrap_or_else(|| {
+                    group
+                        .get("ItemNameIdentifier")
+                        .and_then(Value::as_i64)
+                        .unwrap_or(0)
+                }),
+                ITEM_TYPE_CHANNEL,
+                json!([]),
+                parse_modes(
+                    group
+                        .get("OperationModes")
+                        .ok_or("channel group missing OperationModes")?,
+                )?,
+                group
+                    .get("DefaultOperationMode")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(1),
+                group.get("Data").cloned().unwrap_or_else(|| json!([])),
+            )?;
+            if slot
+                .channels
+                .iter()
+                .any(|c| c.index == *position && c.boot_streaming)
+            {
+                set_streaming_enabled(&mut channel.data);
+            }
+            let channel_idx = items.len();
+            items.push(channel);
+            items[parent_idx].children.push(channel_idx);
+            if let Some(children) = group.get("Children").and_then(Value::as_array) {
+                push_channels(
+                    items,
+                    channel_idx,
+                    children,
+                    module_name,
+                    channel_ident,
+                    slot,
+                    position,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn push_slot(
+    items: &mut Vec<ItemState>,
+    parent_idx: usize,
+    slot: &crate::config::SlotConfig,
+    slot_index: usize,
+) -> Result<(), String> {
+    let (_, template_src, module_ident, channel_ident) = MODULES
+        .iter()
+        .find(|(name, ..)| *name == slot.module)
+        .ok_or_else(|| {
+            let known: Vec<&str> = MODULES.iter().map(|(n, ..)| *n).collect();
+            format!(
+                "no template for module '{}' yet (available: {})",
+                slot.module,
+                known.join(", ")
+            )
+        })?;
+    let template: Value =
+        serde_json::from_str(template_src).map_err(|e| format!("template parse: {e}"))?;
+
+    let mut module = item_from_modes(
+        &slot.module,
+        module_ident.unwrap_or_else(|| {
+            template
+                .get("ItemNameIdentifier")
+                .and_then(Value::as_i64)
+                .unwrap_or(0)
+        }),
+        ITEM_TYPE_MODULE,
+        json!([{ "Name": "SerialNumber", "Value": format!("SIM{:04}", slot.slot) }]),
+        parse_modes(
+            template
+                .get("OperationModes")
+                .ok_or("template missing OperationModes")?,
+        )?,
+        slot.boot_mode.unwrap_or_else(|| {
+            template
+                .get("DefaultOperationMode")
+                .and_then(Value::as_i64)
+                .unwrap_or(1)
+        }),
+        json!([]),
+    )?;
+    module.slot_index = Some(slot_index);
+    module.hidden_ids_after = template
+        .get("HiddenChannelIds")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let module_idx = items.len();
+    items.push(module);
+    items[parent_idx].children.push(module_idx);
+
+    let mut position = 0usize;
+    push_channels(
+        items,
+        module_idx,
+        template
+            .get("Channels")
+            .and_then(Value::as_array)
+            .ok_or("template missing Channels")?,
+        &slot.module,
+        *channel_ident,
+        slot,
+        &mut position,
+    )
+}
+
+/// Build the full item tree — Controller -> [built-in modules] -> SC ->
+/// Modules -> Channels — with ItemIds assigned in depth-first order starting
+/// at 1, skipping ids reserved for unexposed channels (HiddenChannelIds).
 pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
     let mut items: Vec<ItemState> = Vec::new();
 
@@ -186,9 +338,16 @@ pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
     )?;
     items.push(controller);
 
+    for (slot_index, slot) in config.slots.iter().enumerate() {
+        if slot.builtin {
+            push_slot(&mut items, 0, slot, slot_index)?;
+        }
+    }
+
+    let (sc_name, sc_identifier) = signal_conditioner(&config.system.chassis);
     let sc = item_from_modes(
-        "SC42",
-        10070,
+        sc_name,
+        sc_identifier,
         ITEM_TYPE_SIGNAL_CONDITIONER,
         json!([{ "Name": "SerialNumber", "Value": format!("{}-SC", config.system.serial) }]),
         vec![OpMode {
@@ -203,94 +362,16 @@ pub fn build_state(config: &SimConfig) -> Result<SimState, String> {
     items.push(sc);
     items[0].children.push(sc_idx);
 
-    for slot in &config.slots {
-        let (_, template_src, module_ident, channel_ident) = MODULES
-            .iter()
-            .find(|(name, ..)| *name == slot.module)
-            .ok_or_else(|| {
-                let known: Vec<&str> = MODULES.iter().map(|(n, ..)| *n).collect();
-                format!(
-                    "no template for module '{}' yet (available: {})",
-                    slot.module,
-                    known.join(", ")
-                )
-            })?;
-        let template: Value =
-            serde_json::from_str(template_src).map_err(|e| format!("template parse: {e}"))?;
-
-        let module = item_from_modes(
-            &slot.module,
-            module_ident.unwrap_or_else(|| {
-                template
-                    .get("ItemNameIdentifier")
-                    .and_then(Value::as_i64)
-                    .unwrap_or(0)
-            }),
-            ITEM_TYPE_MODULE,
-            json!([{ "Name": "SerialNumber", "Value": format!("SIM{:04}", slot.slot) }]),
-            parse_modes(
-                template
-                    .get("OperationModes")
-                    .ok_or("template missing OperationModes")?,
-            )?,
-            slot.boot_mode.unwrap_or_else(|| {
-                template
-                    .get("DefaultOperationMode")
-                    .and_then(Value::as_i64)
-                    .unwrap_or(1)
-            }),
-            json!([]),
-        )?;
-        let module_idx = items.len();
-        items.push(module);
-        items[sc_idx].children.push(module_idx);
-
-        let mut position = 0usize; // 1-based channel index within the module
-        for group in template
-            .get("Channels")
-            .and_then(Value::as_array)
-            .ok_or("template missing Channels")?
-        {
-            let count = group.get("Count").and_then(Value::as_u64).unwrap_or(1);
-            for _ in 0..count {
-                position += 1;
-                let mut channel = item_from_modes(
-                    &slot.module,
-                    channel_ident.unwrap_or_else(|| {
-                        group
-                            .get("ItemNameIdentifier")
-                            .and_then(Value::as_i64)
-                            .unwrap_or(0)
-                    }),
-                    ITEM_TYPE_CHANNEL,
-                    json!([]),
-                    parse_modes(
-                        group
-                            .get("OperationModes")
-                            .ok_or("channel group missing OperationModes")?,
-                    )?,
-                    group
-                        .get("DefaultOperationMode")
-                        .and_then(Value::as_i64)
-                        .unwrap_or(1),
-                    group.get("Data").cloned().unwrap_or_else(|| json!([])),
-                )?;
-                if slot
-                    .channels
-                    .iter()
-                    .any(|c| c.index == position && c.boot_streaming)
-                {
-                    set_streaming_enabled(&mut channel.data);
-                }
-                let channel_idx = items.len();
-                items.push(channel);
-                items[module_idx].children.push(channel_idx);
-            }
+    for (slot_index, slot) in config.slots.iter().enumerate() {
+        if !slot.builtin {
+            push_slot(&mut items, sc_idx, slot, slot_index)?;
         }
     }
 
-    for (i, item) in items.iter_mut().enumerate() {
-        item.item_id = (i + 1) as i64;
+    let mut next_id = 1i64;
+    for item in items.iter_mut() {
+        item.item_id = next_id;
+        next_id += 1 + item.hidden_ids_after;
     }
 
     Ok(SimState {

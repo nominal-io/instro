@@ -1,0 +1,129 @@
+{
+  "ItemId": 15,
+  "ItemName": "TAC221 Scope",
+  "ItemNameIdentifier": 33,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Sample Rate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "MSR Multiplied by 32",
+          "Numeric": 32,
+          "SIUnit": ""
+        },
+        {
+          "Id": 1,
+          "Description": "MSR Multiplied by 16",
+          "Numeric": 16,
+          "SIUnit": ""
+        },
+        {
+          "Id": 2,
+          "Description": "MSR Multiplied by 8",
+          "Numeric": 8,
+          "SIUnit": ""
+        },
+        {
+          "Id": 3,
+          "Description": "MSR Multiplied by 4",
+          "Numeric": 4,
+          "SIUnit": ""
+        },
+        {
+          "Id": 4,
+          "Description": "MSR Multiplied by 2",
+          "Numeric": 2,
+          "SIUnit": ""
+        },
+        {
+          "Id": 5,
+          "Description": "MSR Multiplied by 1",
+          "Numeric": 1,
+          "SIUnit": ""
+        },
+        {
+          "Id": 6,
+          "Description": "MSR Multiplied by 0.5",
+          "Numeric": 0.5,
+          "SIUnit": ""
+        },
+        {
+          "Id": 7,
+          "Description": "MSR Multiplied by 0.25",
+          "Numeric": 0.25,
+          "SIUnit": ""
+        },
+        {
+          "Id": 8,
+          "Description": "MSR Multiplied by 0.125",
+          "Numeric": 0.125,
+          "SIUnit": ""
+        },
+        {
+          "Id": 9,
+          "Description": "MSR Multiplied by 0.0625",
+          "Numeric": 0.0625,
+          "SIUnit": ""
+        },
+        {
+          "Id": 10,
+          "Description": "MSR Multiplied by 0.03125",
+          "Numeric": 0.03125,
+          "SIUnit": ""
+        },
+        {
+          "Id": 11,
+          "Description": "MSR Multiplied by 0.015625",
+          "Numeric": 0.015625,
+          "SIUnit": ""
+        }
+      ],
+      "Value": 6
+    },
+    {
+      "Name": "Trigger Position",
+      "Type": "Unsigned Integer",
+      "ValidationLimits": {
+        "Upper": 1023,
+        "Lower": 0
+      },
+      "Value": 0
+    },
+    {
+      "Name": "Trigger On nth Edge",
+      "Type": "Unsigned Integer",
+      "ValidationLimits": {
+        "Upper": 1024,
+        "Lower": 1
+      },
+      "Value": 1
+    }
+  ],
+  "Data": [
+    {
+      "Name": "Streaming State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

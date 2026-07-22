@@ -84,6 +84,8 @@ pub fn spawn_stream_server(
 /// (QProtocolCSharp ChannelType values; docs/api-notes.md section 9).
 const TACHO_CHANNEL_IDENTIFIERS: [i64; 3] = [16, 17, 23];
 const CAN_CHANNEL_IDENTIFIERS: [i64; 3] = [0, 34, 44];
+/// XMC237 GPS channel (identifier 36): stream format unverified, never emitted.
+const GPS_CHANNEL_IDENTIFIER: i64 = 36;
 
 /// Full scale assumed for Raw-mode scaling (A18: real per-module FS unknown).
 const RAW_FULL_SCALE: f32 = 10.0;
@@ -273,16 +275,18 @@ fn active_channels(state: &SimState, config: &SimConfig) -> Vec<ActiveChannel> {
         == Some(1);
 
     let mut channels = Vec::new();
-    for (module_position, module) in state
+    for (module_idx, module) in state
         .items
         .iter()
-        .filter(|i| i.item_type == "Module")
         .enumerate()
+        .filter(|(_, i)| i.item_type == "Module")
     {
         let divisor = enum_numeric(&module.settings, "Sample Rate").unwrap_or(256.0);
-        let rate_hz = master_rate / divisor;
-        for (channel_offset, &child_idx) in module.children.iter().enumerate() {
-            let channel = &state.items[child_idx];
+        let module_rate_hz = master_rate / divisor;
+        let slot = module.slot_index.and_then(|i| config.slots.get(i));
+        for (channel_offset, child_idx) in descendant_channels(state, module_idx).iter().enumerate()
+        {
+            let channel = &state.items[*child_idx];
             let streaming = channel
                 .data
                 .as_array()
@@ -296,10 +300,13 @@ fn active_channels(state: &SimState, config: &SimConfig) -> Vec<ActiveChannel> {
             if !streaming || channel.current_mode == 0 {
                 continue;
             }
-            let sim_channel = config
-                .slots
-                .get(module_position)
-                .and_then(|slot| slot.channels.iter().find(|c| c.index == channel_offset + 1));
+            // GPS channels (XMC237): wire format unknown — no capture with a
+            // fix exists yet, so the sim does not emit them (assumptions A30).
+            if channel.item_name_identifier == GPS_CHANNEL_IDENTIFIER {
+                continue;
+            }
+            let sim_channel =
+                slot.and_then(|slot| slot.channels.iter().find(|c| c.index == channel_offset + 1));
             let kind = if TACHO_CHANNEL_IDENTIFIERS.contains(&channel.item_name_identifier) {
                 let rpm = match sim_channel.map(|c| c.signal.clone()) {
                     Some(SignalConfig::Rpm { rpm }) => rpm,
@@ -318,13 +325,62 @@ fn active_channels(state: &SimState, config: &SimConfig) -> Vec<ActiveChannel> {
             };
             channels.push(ActiveChannel {
                 item_id: channel.item_id,
-                rate_hz,
+                rate_hz: channel_rate_hz(&channel.settings, master_rate, module_rate_hz),
                 kind,
                 emitted: 0,
             });
         }
     }
     channels
+}
+
+/// All Channel descendants of `idx` in depth-first order — the 1-based
+/// positions clients count (nested channels like TAC221 Scope included).
+fn descendant_channels(state: &SimState, idx: usize) -> Vec<usize> {
+    let mut found = Vec::new();
+    let mut stack: Vec<usize> = state.items[idx].children.iter().rev().copied().collect();
+    while let Some(child) = stack.pop() {
+        if state.items[child].item_type == "Channel" {
+            found.push(child);
+            stack.extend(state.items[child].children.iter().rev().copied());
+        }
+    }
+    found
+}
+
+/// A channel-level "Sample Rate" overrides the module rate. TAC221 Scope
+/// rates are MSR multipliers ("MSR Multiplied by 0.5"); divisor-style
+/// channel rates would divide.
+fn channel_rate_hz(channel_settings: &Value, master_rate: f64, module_rate_hz: f64) -> f64 {
+    let Some(setting) = channel_settings.as_array().and_then(|s| {
+        s.iter()
+            .find(|s| s.get("Name").and_then(Value::as_str) == Some("Sample Rate"))
+    }) else {
+        return module_rate_hz;
+    };
+    let value = setting.get("Value").and_then(Value::as_i64);
+    let Some(chosen) = setting
+        .get("SupportedValues")
+        .and_then(Value::as_array)
+        .and_then(|vs| {
+            vs.iter()
+                .find(|v| v.get("Id").and_then(Value::as_i64) == value)
+        })
+    else {
+        return module_rate_hz;
+    };
+    let Some(numeric) = chosen.get("Numeric").and_then(Value::as_f64) else {
+        return module_rate_hz;
+    };
+    let multiplied = chosen
+        .get("Description")
+        .and_then(Value::as_str)
+        .is_some_and(|d| d.contains("Multiplied"));
+    if multiplied {
+        master_rate * numeric
+    } else {
+        master_rate / numeric
+    }
 }
 
 /// `Numeric` of the currently selected SupportedValue of `name`.

@@ -1,0 +1,260 @@
+[
+  {
+    "Action": "PUT",
+    "Path": "recording/startPreRun/",
+    "QueryString": "",
+    "Info": "Starts a pre-run recording"
+  },
+  {
+    "Action": "PUT",
+    "Path": "recording/start/",
+    "QueryString": "",
+    "Info": "Starts a recording"
+  },
+  {
+    "Action": "PUT",
+    "Path": "recording/stop/",
+    "QueryString": "",
+    "Info": "Stops a recording"
+  },
+  {
+    "Action": "GET",
+    "Path": "recording/state/",
+    "QueryString": "",
+    "Info": "Gets the recording state, Stopped, Pre-run or Recording",
+    "Example URL": "http://<SystemIpAddress>:8080/recording/state/"
+  },
+  {
+    "Action": "GET",
+    "Path": "localStorage/settings/",
+    "QueryString": "",
+    "Info": "Gets the settings for local storage",
+    "Example URL": "http://<SystemIpAddress>:8080/localStorage/settings/"
+  },
+  {
+    "Action": "PUT",
+    "Path": "localStorage/settings/",
+    "QueryString": "",
+    "Info": "Sets the settings for local storage"
+  },
+  {
+    "Action": "GET",
+    "Path": "recording/stats/",
+    "QueryString": "",
+    "Info": "Gets the recording stats",
+    "Example URL": "http://<SystemIpAddress>:8080/recording/stats/"
+  },
+  {
+    "Action": "GET",
+    "Path": "localStorage/measurement/list/",
+    "QueryString": "",
+    "Info": "Gets the list of measurements stored on the local storage device",
+    "Example URL": "http://<SystemIpAddress>:8080/localStorage/measurement/list/"
+  },
+  {
+    "Action": "GET",
+    "Path": "system/settings/",
+    "QueryString": "",
+    "Info": "Returns the cached system settings",
+    "Example URL": "http://<SystemIpAddress>:8080/system/settings/"
+  },
+  {
+    "Action": "PUT",
+    "Path": "system/settings/",
+    "QueryString": "",
+    "Info": "Applies the given system settings"
+  },
+  {
+    "Action": "PUT",
+    "Path": "system/settings/apply/",
+    "QueryString": "",
+    "Info": "Applies the system settings that was set using either PUT /system/settings or PUT /item/settings"
+  },
+  {
+    "Action": "GET",
+    "Path": "item/operationMode/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the cached operation mode of the item specified by the itemId query string",
+    "Example URL": "http://<SystemIpAddress>:8080/item/operationMode/?itemId=X"
+  },
+  {
+    "Action": "PUT",
+    "Path": "item/operationMode/",
+    "QueryString": "?itemId=X",
+    "Info": "Updates the operation mode of the item specified by the itemId query string"
+  },
+  {
+    "Action": "GET",
+    "Path": "item/settings/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the cached item settings of the item specified by the itemId query string",
+    "Example URL": "http://<SystemIpAddress>:8080/item/settings/?itemId=X"
+  },
+  {
+    "Action": "PUT",
+    "Path": "item/settings/",
+    "QueryString": "?itemId=X",
+    "Info": "Updates the item settings of the item specified by the itemId query string"
+  },
+  {
+    "Action": "GET",
+    "Path": "item/settings/defaults/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the default settings of the item specified by the itemId query string",
+    "Example URL": "http://<SystemIpAddress>:8080/item/settings/defaults/?itemId=X"
+  },
+  {
+    "Action": "GET",
+    "Path": "item/list/",
+    "QueryString": "",
+    "Info": "Returns a list of all the items containing their ItemId, ItemName and ItemType",
+    "Example URL": "http://<SystemIpAddress>:8080/item/list/"
+  },
+  {
+    "Action": "GET",
+    "Path": "endpoints/",
+    "QueryString": "",
+    "Info": "Returns the list of supported endpoints",
+    "Example URL": "http://<SystemIpAddress>:8080/endpoints/"
+  },
+  {
+    "Action": "GET",
+    "Path": "version/",
+    "QueryString": "",
+    "Info": "Returns the version of QuantusSoftware",
+    "Example URL": "http://<SystemIpAddress>:8080/version/"
+  },
+  {
+    "Action": "GET",
+    "Path": "tedsInfo/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the TEDS info of item",
+    "Example URL": "http://<SystemIpAddress>:8080/tedsInfo/?itemId=X"
+  },
+  {
+    "Action": "GET",
+    "Path": "info/ping/",
+    "QueryString": "",
+    "Info": "This action can be used to check if the system is online",
+    "Example URL": "http://<SystemIpAddress>:8080/info/ping/"
+  },
+  {
+    "Action": "GET",
+    "Path": "autoZero/settings/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the AutoZero settings of the the item specified by the itemId query string",
+    "Example URL": "http://<SystemIpAddress>:8080/autoZero/settings/?itemId=X"
+  },
+  {
+    "Action": "PUT",
+    "Path": "autoZero/settings/",
+    "QueryString": "",
+    "Info": "Updates the AutoZero settings of the item specified by the itemId query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "autoZero/settings/apply/",
+    "QueryString": "Empty or ?itemId=X",
+    "Info": "Applies the AutoZero settings, system wide if no query string was provided, or to the item specified by the query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "alo/FaultCondition/",
+    "QueryString": "Empty or ?itemId=X",
+    "Info": "Triggers the fault condition system wide if no query string was provided or to the item specified by the query string, this will terminate the output on all ALO modules"
+  },
+  {
+    "Action": "GET",
+    "Path": "canfd/message/list/",
+    "QueryString": "?itemId=X",
+    "Info": "Returns the message list for the CAN FD channel specified by the query string",
+    "Example URL": "http://<SystemIpAddress>:8080/canfd/message/list/?itemId=X"
+  },
+  {
+    "Action": "PUT",
+    "Path": "canfd/message/list/",
+    "QueryString": "?itemId=X",
+    "Info": "Updates the message list for the CAN FD channel specified by the query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "canfd/message/transmit/",
+    "QueryString": "?itemId=X&MessageIndex=X",
+    "Info": "Manually trigger the send of the message specified by the message index query string, on the CAN FD channel specified by query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "canfd/message/abortTransmission/",
+    "QueryString": "?itemId=X",
+    "Info": "Aborts the transmission of CAN messages on the CAN FD channel specified by the query string"
+  },
+  {
+    "Action": "GET",
+    "Path": "canfd/bus/status/list/",
+    "QueryString": "?itemId=X",
+    "Info": "Gets the status of the CAN FD bus",
+    "Example URL": "http://<SystemIpAddress>:8080/canfd/bus/status/list/?itemId=X"
+  },
+  {
+    "Action": "DELETE",
+    "Path": "canfd/message/list/",
+    "QueryString": "?itemId=X",
+    "Info": "Clears the CAN message list, no messages will be transmitted anymore"
+  },
+  {
+    "Action": "GET",
+    "Path": "dataStream/setup/",
+    "QueryString": "",
+    "Info": "Returns the data streaming setup containing the IP addresses and port numbers for the TCP and Websocket streaming services",
+    "Example URL": "http://<SystemIpAddress>:8080/dataStream/setup/"
+  },
+  {
+    "Action": "PUT",
+    "Path": "dataStream/suspend/",
+    "QueryString": "",
+    "Info": "Suspends the data stream, discarding all data until ResumeDataStream is called"
+  },
+  {
+    "Action": "PUT",
+    "Path": "dataStream/resume/",
+    "QueryString": "",
+    "Info": "Resumes the data stream"
+  },
+  {
+    "Action": "PUT",
+    "Path": "wsb/bridgeBalance/apply/",
+    "QueryString": "Empty or ?itemId=X",
+    "Info": "Executes a bridge balance for WSB channels if operation mode is correctly set, system wide if no query string was provided, or to the item specified by the query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "wsb/bridgeBalance/reset/",
+    "QueryString": "Empty or ?itemId=X",
+    "Info": "Clears the bridge balance values for WSB channels if operation mode is correctly set, system wide if no query string was provided, or to the item specified by the query string"
+  },
+  {
+    "Action": "PUT",
+    "Path": "system/settings/resetToDefaults/",
+    "QueryString": "",
+    "Info": "Resets the system to its default state"
+  },
+  {
+    "Action": "PUT",
+    "Path": "advanced/system/restart/",
+    "QueryString": "",
+    "Info": "Restarts the system"
+  },
+  {
+    "Action": "GET",
+    "Path": "system/time/",
+    "QueryString": "",
+    "Info": "Returns the system time",
+    "Example URL": "http://<SystemIpAddress>:8080/system/time/"
+  },
+  {
+    "Action": "PUT",
+    "Path": "system/time/",
+    "QueryString": "",
+    "Info": "Sets the system time"
+  }
+]

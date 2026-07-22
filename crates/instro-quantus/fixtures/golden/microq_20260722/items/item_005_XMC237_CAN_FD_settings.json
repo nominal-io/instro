@@ -1,0 +1,136 @@
+{
+  "ItemId": 5,
+  "ItemName": "XMC237 CAN FD",
+  "ItemNameIdentifier": 34,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "OperationMode": {
+    "Description": "Listen Only",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Arbitration Bitrate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "50 KHz",
+          "Numeric": 50000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 1,
+          "Description": "83 KHz",
+          "Numeric": 83000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 2,
+          "Description": "100 KHz",
+          "Numeric": 100000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 3,
+          "Description": "125 KHz",
+          "Numeric": 125000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 4,
+          "Description": "250 KHz",
+          "Numeric": 250000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 5,
+          "Description": "500 KHz",
+          "Numeric": 500000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 6,
+          "Description": "660 KHz",
+          "Numeric": 660000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 7,
+          "Description": "800 KHz",
+          "Numeric": 800000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 8,
+          "Description": "1 MHz",
+          "Numeric": 1000000,
+          "SIUnit": "Hz"
+        }
+      ],
+      "Value": 4
+    },
+    {
+      "Name": "Fast Data Bitrate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "500 KHz",
+          "Numeric": 500000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 1,
+          "Description": "1 MHz",
+          "Numeric": 1000000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 2,
+          "Description": "2 MHz",
+          "Numeric": 2000000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 3,
+          "Description": "4 MHz",
+          "Numeric": 4000000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 4,
+          "Description": "5 MHz",
+          "Numeric": 5000000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 5,
+          "Description": "8 MHz",
+          "Numeric": 8000000,
+          "SIUnit": "Hz"
+        }
+      ],
+      "Value": 0
+    }
+  ],
+  "Data": [
+    {
+      "Name": "Streaming State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

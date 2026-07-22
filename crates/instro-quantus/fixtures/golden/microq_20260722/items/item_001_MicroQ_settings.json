@@ -1,0 +1,84 @@
+{
+  "ItemId": 1,
+  "ItemName": "MicroQ",
+  "ItemNameIdentifier": 30100,
+  "ItemType": "Controller",
+  "ItemTypeIdentifier": 0,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Master Sampling Rate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "131072 Hz",
+          "Numeric": 131072,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 1,
+          "Description": "160000 Hz",
+          "Numeric": 160000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 2,
+          "Description": "163840 Hz",
+          "Numeric": 163840,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 3,
+          "Description": "176400 Hz",
+          "Numeric": 176400,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 4,
+          "Description": "192000 Hz",
+          "Numeric": 192000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 5,
+          "Description": "200000 Hz",
+          "Numeric": 200000,
+          "SIUnit": "Hz"
+        },
+        {
+          "Id": 6,
+          "Description": "204800 Hz",
+          "Numeric": 204800,
+          "SIUnit": "Hz"
+        }
+      ],
+      "Value": 0
+    },
+    {
+      "Name": "Analog Data Streaming Format",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Processed"
+        },
+        {
+          "Id": 1,
+          "Description": "Raw"
+        }
+      ],
+      "Value": 0
+    }
+  ]
+}

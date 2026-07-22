@@ -1,0 +1,81 @@
+{
+  "ItemId": 8,
+  "ItemName": "WSB42X2",
+  "ItemNameIdentifier": 227,
+  "ItemType": "Module",
+  "ItemTypeIdentifier": 2,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Sample Rate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "MSR Divide by 1",
+          "Numeric": 1,
+          "SIUnit": ""
+        },
+        {
+          "Id": 1,
+          "Description": "MSR Divide by 2",
+          "Numeric": 2,
+          "SIUnit": ""
+        },
+        {
+          "Id": 2,
+          "Description": "MSR Divide by 4",
+          "Numeric": 4,
+          "SIUnit": ""
+        },
+        {
+          "Id": 3,
+          "Description": "MSR Divide by 8",
+          "Numeric": 8,
+          "SIUnit": ""
+        },
+        {
+          "Id": 4,
+          "Description": "MSR Divide by 16",
+          "Numeric": 16,
+          "SIUnit": ""
+        },
+        {
+          "Id": 5,
+          "Description": "MSR Divide by 32",
+          "Numeric": 32,
+          "SIUnit": ""
+        },
+        {
+          "Id": 6,
+          "Description": "MSR Divide by 64",
+          "Numeric": 64,
+          "SIUnit": ""
+        },
+        {
+          "Id": 7,
+          "Description": "MSR Divide by 128",
+          "Numeric": 128,
+          "SIUnit": ""
+        },
+        {
+          "Id": 8,
+          "Description": "MSR Divide by 256",
+          "Numeric": 256,
+          "SIUnit": ""
+        }
+      ],
+      "Value": 8
+    }
+  ]
+}

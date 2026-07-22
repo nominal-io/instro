@@ -1,0 +1,19 @@
+{
+  "IPAddresses": [
+    "192.0.2.1"
+  ],
+  "TCPPort": 8085,
+  "WebSocketPort": 8090,
+  "TCP": {
+    "IP Addresses": [
+      "192.0.2.1"
+    ],
+    "Port": 8085
+  },
+  "Websocket": {
+    "IP Addresses": [
+      "192.0.2.1"
+    ],
+    "Port": 8090
+  }
+}

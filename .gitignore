@@ -215,3 +215,6 @@ playground/
 
 # Claude Code
 settings.local.json
+
+# Raw capture_quantus.py output (unscrubbed serials/IPs; scrub into fixtures/golden instead)
+quantus_capture_*/

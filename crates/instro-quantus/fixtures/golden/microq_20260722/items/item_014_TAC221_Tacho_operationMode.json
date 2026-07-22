@@ -1,0 +1,26 @@
+{
+  "ItemId": 14,
+  "ItemName": "TAC221 Tacho",
+  "ItemNameIdentifier": 23,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Operation Mode",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

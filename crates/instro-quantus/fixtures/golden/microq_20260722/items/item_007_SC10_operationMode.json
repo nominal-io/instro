@@ -1,0 +1,14 @@
+{
+  "ItemId": 7,
+  "ItemName": "SC10",
+  "ItemNameIdentifier": 10101,
+  "ItemType": "SignalConditioner",
+  "ItemTypeIdentifier": 1,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "Operation Mode": []
+}

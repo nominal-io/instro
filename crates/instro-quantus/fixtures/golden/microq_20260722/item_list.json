@@ -1,0 +1,128 @@
+[
+  {
+    "ItemId": 1,
+    "ItemName": "MicroQ",
+    "ItemNameIdentifier": 30100,
+    "ItemType": "Controller",
+    "ItemTypeIdentifier": 0
+  },
+  {
+    "ItemId": 2,
+    "ItemName": "XMC237",
+    "ItemNameIdentifier": 20005,
+    "ItemType": "Module",
+    "ItemTypeIdentifier": 2
+  },
+  {
+    "ItemId": 4,
+    "ItemName": "XMC237 GPS",
+    "ItemNameIdentifier": 36,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 5,
+    "ItemName": "XMC237 CAN FD",
+    "ItemNameIdentifier": 34,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 6,
+    "ItemName": "XMC237 CAN FD",
+    "ItemNameIdentifier": 34,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 7,
+    "ItemName": "SC10",
+    "ItemNameIdentifier": 10101,
+    "ItemType": "SignalConditioner",
+    "ItemTypeIdentifier": 1
+  },
+  {
+    "ItemId": 8,
+    "ItemName": "WSB42X2",
+    "ItemNameIdentifier": 227,
+    "ItemType": "Module",
+    "ItemTypeIdentifier": 2
+  },
+  {
+    "ItemId": 9,
+    "ItemName": "WSB42X2",
+    "ItemNameIdentifier": 30,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 10,
+    "ItemName": "WSB42X2",
+    "ItemNameIdentifier": 30,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 11,
+    "ItemName": "WSB42X2",
+    "ItemNameIdentifier": 30,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 12,
+    "ItemName": "WSB42X2",
+    "ItemNameIdentifier": 30,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 13,
+    "ItemName": "TAC221",
+    "ItemNameIdentifier": 222,
+    "ItemType": "Module",
+    "ItemTypeIdentifier": 2
+  },
+  {
+    "ItemId": 14,
+    "ItemName": "TAC221 Tacho",
+    "ItemNameIdentifier": 23,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 15,
+    "ItemName": "TAC221 Scope",
+    "ItemNameIdentifier": 33,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 16,
+    "ItemName": "TAC221 Tacho",
+    "ItemNameIdentifier": 23,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 17,
+    "ItemName": "TAC221 Scope",
+    "ItemNameIdentifier": 33,
+    "ItemType": "Channel",
+    "ItemTypeIdentifier": 4
+  },
+  {
+    "ItemId": 18,
+    "ItemName": "Empty",
+    "ItemNameIdentifier": 240,
+    "ItemType": "Module",
+    "ItemTypeIdentifier": 2
+  },
+  {
+    "ItemId": 19,
+    "ItemName": "Empty",
+    "ItemNameIdentifier": 240,
+    "ItemType": "Module",
+    "ItemTypeIdentifier": 2
+  }
+]

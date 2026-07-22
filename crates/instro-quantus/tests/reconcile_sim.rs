@@ -352,3 +352,127 @@ fn data_stream_setup_is_reachable() {
     let setup = client.data_stream_setup().unwrap();
     assert_eq!(setup["TCPPort"], sim.stream_port());
 }
+
+/// The customer's MicroQ shape end-to-end: built-in XMC237 discovered via
+/// role-suffixed channel names, TAC221 reconciled without a module sample
+/// rate (it has no Sample Rate setting), and a clear error when a config
+/// requests one anyway.
+#[test]
+fn customer_microq_rack_reconciles() {
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(
+        r#"
+        [system]
+        chassis = "MicroQ"
+        serial = "SIM0001"
+        master_sampling_rate = 131072
+
+        [server]
+        rest_port = 0
+        stream_port = 0
+
+        [[slots]]
+        slot = 0
+        module = "XMC237"
+        builtin = true
+
+        [[slots]]
+        slot = 1
+        module = "WSB42X2"
+
+        [[slots]]
+        slot = 2
+        module = "TAC221"
+        "#,
+    )
+    .unwrap();
+    let sim = SimServer::start(sim_config).unwrap();
+
+    let config: RackConfig = toml::from_str(&format!(
+        r#"
+        [device]
+        name = "microq_rig"
+
+        [connection]
+        host = "127.0.0.1"
+        port = {port}
+
+        [[modules]]
+        name = "WSB42X2"
+        sample_rate_hz = 512.0
+
+        [[modules.channels]]
+        index = 1
+        alias = "accel_z"
+        mode = "ICP Input"
+        streaming = true
+        settings = {{ "Voltage Range" = "1 V", "Coupling" = "AC with 1 Hz Filter" }}
+
+        [[modules]]
+        name = "TAC221"
+
+        [[modules.channels]]
+        index = 1
+        alias = "shaft"
+        mode = "Enabled"
+        streaming = true
+        pulses_per_rev = 1.0
+
+        [[modules]]
+        name = "XMC237"
+
+        [[modules.channels]]
+        index = 2
+        alias = "vehicle_bus"
+        mode = "Listen Only"
+        streaming = true
+        "#,
+        port = sim.rest_port()
+    ))
+    .unwrap();
+    let client = QuantusClient::connect(config).unwrap();
+    let report = client.reconcile().unwrap();
+
+    let tac = report.modules.iter().find(|m| m.name == "TAC221").unwrap();
+    assert_eq!(tac.requested_hz, None);
+    assert_eq!(tac.achieved_hz, None);
+    let by_alias: Vec<(&str, i64)> = report
+        .channels
+        .iter()
+        .map(|c| (c.alias.as_str(), c.item_id))
+        .collect();
+    // ItemIds match the hardware capture: gap at 3, WSB ch1 = 9, Tacho#1 = 14,
+    // CAN FD #1 = 5.
+    assert_eq!(
+        by_alias,
+        vec![("accel_z", 9), ("shaft", 14), ("vehicle_bus", 5)]
+    );
+
+    // Requesting a rate on the rate-less TAC221 is a clear config error.
+    let bad: RackConfig = toml::from_str(&format!(
+        r#"
+        [device]
+        name = "microq_rig"
+
+        [connection]
+        host = "127.0.0.1"
+        port = {port}
+
+        [system]
+        master_sampling_rate = 131072
+
+        [[modules]]
+        name = "TAC221"
+        sample_rate_hz = 512.0
+        "#,
+        port = sim.rest_port()
+    ))
+    .unwrap();
+    let error = QuantusClient::connect(bad)
+        .unwrap()
+        .reconcile()
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("no Sample Rate setting"),
+        "unexpected error: {error}"
+    );
+}

@@ -1,0 +1,31 @@
+{
+  "ItemId": 2,
+  "ItemName": "XMC237",
+  "ItemNameIdentifier": 20005,
+  "ItemType": "Module",
+  "ItemTypeIdentifier": 2,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Operation Mode",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

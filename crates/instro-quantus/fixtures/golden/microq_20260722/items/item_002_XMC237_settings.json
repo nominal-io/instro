@@ -1,0 +1,45 @@
+{
+  "ItemId": 2,
+  "ItemName": "XMC237",
+  "ItemNameIdentifier": 20005,
+  "ItemType": "Module",
+  "ItemTypeIdentifier": 2,
+  "Info": [
+    {
+      "Name": "SerialNumber",
+      "Value": "REDACTED"
+    }
+  ],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "ICP Channel Sample Rate",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "MSR Divide by 1",
+          "Numeric": 1,
+          "SIUnit": ""
+        },
+        {
+          "Id": 1,
+          "Description": "MSR Divide by 2",
+          "Numeric": 2,
+          "SIUnit": ""
+        },
+        {
+          "Id": 2,
+          "Description": "MSR Divide by 4",
+          "Numeric": 4,
+          "SIUnit": ""
+        }
+      ],
+      "Value": 2
+    }
+  ]
+}

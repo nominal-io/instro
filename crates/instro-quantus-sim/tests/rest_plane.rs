@@ -179,9 +179,9 @@ fn system_settings_tree() {
     let tree = get_json(&format!("{base}/system/settings/"));
     assert_eq!(tree["ItemName"], "MicroQ");
     assert_eq!(tree["ItemType"], "Controller");
-    // Controller -> SC42 -> modules.
+    // Controller -> SC -> modules; a MicroQ carries an SC10 (capture 2026-07-22).
     let sc = &tree["Children"][0];
-    assert_eq!(sc["ItemName"], "SC42");
+    assert_eq!(sc["ItemName"], "SC10");
     let module_names: Vec<&str> = sc["Children"]
         .as_array()
         .unwrap()
@@ -246,4 +246,94 @@ fn datastream_setup_shape() {
     assert_eq!(setup["TCPPort"], server.stream_port());
     assert_eq!(setup["WebSocketPort"], 8090);
     assert!(setup["IPAddresses"].as_array().unwrap().len() == 1);
+}
+
+/// The customer's MicroQ rack (capture 2026-07-22): built-in XMC237 under the
+/// controller ahead of the SC10, role-suffixed channel names, the unexposed
+/// ICP channel's ItemId gap at 3, TAC221 Scope channels nested under Tacho,
+/// and Empty modules for vacant G2 slots.
+#[test]
+fn microq_item_list_matches_hardware_capture() {
+    let config: SimConfig = toml::from_str(
+        r#"
+        [system]
+        chassis = "MicroQ"
+        serial = "SIM0001"
+        master_sampling_rate = 131072
+
+        [server]
+        rest_port = 0
+        stream_port = 0
+
+        [[slots]]
+        slot = 0
+        module = "XMC237"
+        builtin = true
+
+        [[slots]]
+        slot = 1
+        module = "WSB42X2"
+
+        [[slots]]
+        slot = 2
+        module = "TAC221"
+
+        [[slots]]
+        slot = 3
+        module = "Empty"
+
+        [[slots]]
+        slot = 4
+        module = "Empty"
+        "#,
+    )
+    .unwrap();
+    let server = SimServer::start(config).unwrap();
+    let base = format!("http://127.0.0.1:{}", server.rest_port());
+
+    let items = get_json(&format!("{base}/item/list/"));
+    let listed: Vec<(i64, String, String)> = items
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| {
+            (
+                i["ItemId"].as_i64().unwrap(),
+                i["ItemName"].as_str().unwrap().to_string(),
+                i["ItemType"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let expected: Vec<(i64, String, String)> = [
+        (1, "MicroQ", "Controller"),
+        (2, "XMC237", "Module"),
+        (4, "XMC237 GPS", "Channel"),
+        (5, "XMC237 CAN FD", "Channel"),
+        (6, "XMC237 CAN FD", "Channel"),
+        (7, "SC10", "SignalConditioner"),
+        (8, "WSB42X2", "Module"),
+        (9, "WSB42X2", "Channel"),
+        (10, "WSB42X2", "Channel"),
+        (11, "WSB42X2", "Channel"),
+        (12, "WSB42X2", "Channel"),
+        (13, "TAC221", "Module"),
+        (14, "TAC221 Tacho", "Channel"),
+        (15, "TAC221 Scope", "Channel"),
+        (16, "TAC221 Tacho", "Channel"),
+        (17, "TAC221 Scope", "Channel"),
+        (18, "Empty", "Module"),
+        (19, "Empty", "Module"),
+    ]
+    .iter()
+    .map(|(id, name, ty)| (*id, name.to_string(), ty.to_string()))
+    .collect();
+    assert_eq!(listed, expected);
+
+    // Scope channels nest under their Tacho in the settings tree.
+    let tree = get_json(&format!("{base}/system/settings/"));
+    let tac = &tree["Children"][1]["Children"][1];
+    assert_eq!(tac["ItemName"], "TAC221");
+    let tacho = &tac["Children"][0];
+    assert_eq!(tacho["ItemName"], "TAC221 Tacho");
+    assert_eq!(tacho["Children"][0]["ItemName"], "TAC221 Scope");
 }

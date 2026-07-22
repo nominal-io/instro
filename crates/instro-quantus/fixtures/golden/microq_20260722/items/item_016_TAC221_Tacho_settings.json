@@ -1,0 +1,138 @@
+{
+  "ItemId": 16,
+  "ItemName": "TAC221 Tacho",
+  "ItemNameIdentifier": 23,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "OperationMode": {
+    "Description": "Enabled",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Voltage Range",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "5 V",
+          "Numeric": 5,
+          "SIUnit": "V"
+        },
+        {
+          "Id": 1,
+          "Description": "24 V",
+          "Numeric": 24,
+          "SIUnit": "V"
+        }
+      ],
+      "Value": 1
+    },
+    {
+      "Name": "Input Biasing",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Differential"
+        },
+        {
+          "Id": 1,
+          "Description": "Single Ended Grounded"
+        }
+      ],
+      "Value": 1
+    },
+    {
+      "Name": "Coupling",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "DC"
+        },
+        {
+          "Id": 1,
+          "Description": "AC"
+        }
+      ],
+      "Value": 1
+    },
+    {
+      "Name": "Trigger Polarity",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Rising Edge"
+        },
+        {
+          "Id": 1,
+          "Description": "Falling Edge"
+        }
+      ],
+      "Value": 0
+    },
+    {
+      "Name": "Trigger Level",
+      "Type": "Double",
+      "ValidationLimits": {
+        "Upper": 60,
+        "Lower": -60
+      },
+      "Value": 0.1
+    },
+    {
+      "Name": "Trigger Arming Level",
+      "Type": "Double",
+      "ValidationLimits": {
+        "Upper": 60,
+        "Lower": -60
+      },
+      "Value": 0
+    },
+    {
+      "Name": "Trigger On nth Edge",
+      "Type": "Unsigned Integer",
+      "ValidationLimits": {
+        "Upper": 1024,
+        "Lower": 0
+      },
+      "Value": 1
+    }
+  ],
+  "Data": [
+    {
+      "Name": "Streaming State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    },
+    {
+      "Name": "Local Storage State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 0
+    }
+  ]
+}

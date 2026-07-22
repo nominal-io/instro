@@ -39,6 +39,11 @@ pub struct ItemState {
     pub data: Value,
     pub settings_applied: bool,
     pub children: Vec<usize>,
+    /// For module items: index into `config.slots` this module came from.
+    pub slot_index: Option<usize>,
+    /// ItemIds to skip after this item (real firmware reserves ids for
+    /// channels it does not expose, e.g. the XMC237's unfitted ICP channel).
+    pub hidden_ids_after: i64,
 }
 
 impl ItemState {

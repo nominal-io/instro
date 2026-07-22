@@ -1,0 +1,30 @@
+{
+  "ItemId": 5,
+  "ItemName": "XMC237 CAN FD",
+  "ItemNameIdentifier": 34,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Operation Mode",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Listen Only"
+        },
+        {
+          "Id": 2,
+          "Description": "Participate"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

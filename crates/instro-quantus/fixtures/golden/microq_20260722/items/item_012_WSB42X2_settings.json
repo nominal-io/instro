@@ -1,0 +1,97 @@
+{
+  "ItemId": 12,
+  "ItemName": "WSB42X2",
+  "ItemNameIdentifier": 30,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "OperationMode": {
+    "Description": "Voltage Input",
+    "Id": 1
+  },
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Voltage Range",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "10 mV",
+          "Numeric": 0.01,
+          "SIUnit": "V"
+        },
+        {
+          "Id": 1,
+          "Description": "100 mV",
+          "Numeric": 0.1,
+          "SIUnit": "V"
+        },
+        {
+          "Id": 2,
+          "Description": "1 V",
+          "Numeric": 1,
+          "SIUnit": "V"
+        },
+        {
+          "Id": 3,
+          "Description": "10 V",
+          "Numeric": 10,
+          "SIUnit": "V"
+        }
+      ],
+      "Value": 3
+    },
+    {
+      "Name": "Coupling",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "DC"
+        },
+        {
+          "Id": 1,
+          "Description": "AC"
+        },
+        {
+          "Id": 2,
+          "Description": "AC with 1 Hz Filter"
+        }
+      ],
+      "Value": 0
+    }
+  ],
+  "Data": [
+    {
+      "Name": "Streaming State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 1
+    },
+    {
+      "Name": "Local Storage State",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Enabled"
+        }
+      ],
+      "Value": 0
+    }
+  ]
+}

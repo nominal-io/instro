@@ -1,0 +1,42 @@
+{
+  "ItemId": 11,
+  "ItemName": "WSB42X2",
+  "ItemNameIdentifier": 30,
+  "ItemType": "Channel",
+  "ItemTypeIdentifier": 4,
+  "Info": [],
+  "SettingsApplied": true,
+  "Settings": [
+    {
+      "Name": "Operation Mode",
+      "Type": "Enumeration",
+      "SupportedValues": [
+        {
+          "Id": 0,
+          "Description": "Disabled"
+        },
+        {
+          "Id": 1,
+          "Description": "Voltage Input"
+        },
+        {
+          "Id": 2,
+          "Description": "ICP\u00ae Input"
+        },
+        {
+          "Id": 3,
+          "Description": "WSB Input: Voltage Excitation"
+        },
+        {
+          "Id": 4,
+          "Description": "WSB Input: 4 Wire Current Excitation"
+        },
+        {
+          "Id": 5,
+          "Description": "WSB Input: 2 Wire Current Excitation"
+        }
+      ],
+      "Value": 1
+    }
+  ]
+}

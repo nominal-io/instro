@@ -31,7 +31,7 @@
     {
       "ItemName": "WSB42X2",
       "ItemNameIdentifier": 30,
-      "Count": 2,
+      "Count": 4,
       "DefaultOperationMode": 1,
       "OperationModes": [
         { "Id": 0, "Description": "Disabled", "Settings": [] },
@@ -49,6 +49,16 @@
                 { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
               ],
               "Value": 3
+            },
+            {
+              "Name": "Coupling",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "DC" },
+                { "Id": 1, "Description": "AC" },
+                { "Id": 2, "Description": "AC with 1 Hz Filter" }
+              ],
+              "Value": 0
             }
           ]
         },
@@ -56,12 +66,6 @@
           "Id": 2,
           "Description": "ICP® Input",
           "Settings": [
-            {
-              "Name": "Current Source",
-              "Type": "Enumeration",
-              "SupportedValues": [{ "Id": 0, "Description": "4 mA" }],
-              "Value": 0
-            },
             {
               "Name": "Voltage Range",
               "Type": "Enumeration",
@@ -72,6 +76,25 @@
                 { "Id": 3, "Description": "10 V", "Numeric": 10.0 }
               ],
               "Value": 3
+            },
+            {
+              "Name": "Current Source",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "4 mA", "Numeric": 0.004 },
+                { "Id": 1, "Description": "8 mA", "Numeric": 0.008 },
+                { "Id": 2, "Description": "12 mA", "Numeric": 0.012 }
+              ],
+              "Value": 0
+            },
+            {
+              "Name": "Coupling",
+              "Type": "Enumeration",
+              "SupportedValues": [
+                { "Id": 0, "Description": "AC" },
+                { "Id": 1, "Description": "AC with 1 Hz Filter" }
+              ],
+              "Value": 1
             }
           ]
         },

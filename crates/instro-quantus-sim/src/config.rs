@@ -52,6 +52,10 @@ pub struct SlotConfig {
     /// (simulates state persisted by a previous session, e.g. 0 = Disabled).
     #[serde(default)]
     pub boot_mode: Option<i64>,
+    /// Attach under the Controller instead of the SC (chassis built-ins like
+    /// the MicroQ's XMC237, which precede the SC in /item/list order).
+    #[serde(default)]
+    pub builtin: bool,
     /// Per-channel signal definitions; channels not listed default to a
     /// 100 Hz unit sine.
     #[serde(default)]
