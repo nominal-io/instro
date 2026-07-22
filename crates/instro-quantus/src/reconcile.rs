@@ -90,51 +90,7 @@ impl Engine {
         let items = list
             .as_array()
             .ok_or_else(|| Error::Stream(format!("unexpected /item/list body: {list}")))?;
-
-        let mut controller_id = None;
-        let mut modules: Vec<DeviceModule> = Vec::new();
-        for item in items {
-            let item_id = item
-                .get("ItemId")
-                .and_then(Value::as_i64)
-                .ok_or_else(|| Error::Stream("item list entry missing ItemId".into()))?;
-            let name = item
-                .get("ItemName")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            match item.get("ItemType").and_then(Value::as_str) {
-                Some("Controller") => controller_id = controller_id.or(Some(item_id)),
-                Some("Module") | Some("External Module") => modules.push(DeviceModule {
-                    item_id,
-                    name: name.to_string(),
-                    channel_ids: Vec::new(),
-                }),
-                Some("Channel") => {
-                    if let Some(module) = modules.last_mut() {
-                        // Channels carry their module's name (vendor
-                        // convention); a mismatch means the flat-order
-                        // adjacency assumption (assumptions.md A1) does not
-                        // hold on this firmware — fail loudly rather than
-                        // configure the wrong physical channel.
-                        if name != module.name {
-                            return Err(Error::Stream(format!(
-                                "channel item {item_id} ('{name}') does not match its \
-                                 preceding module '{}': /item/list ordering violates the \
-                                 module->channel adjacency assumption (A1)",
-                                module.name
-                            )));
-                        }
-                        module.channel_ids.push(item_id);
-                    }
-                }
-                _ => {}
-            }
-        }
-        Ok(DeviceTree {
-            controller_id: controller_id
-                .ok_or_else(|| Error::Stream("no Controller in item list".into()))?,
-            modules,
-        })
+        parse_device_tree(items)
     }
 
     pub async fn reconcile(&self, config: &RackConfig) -> Result<ReconcileReport> {
@@ -568,6 +524,58 @@ fn current_enum_numeric(setting: &Value) -> Option<f64> {
     })
 }
 
+/// Build the module/channel tree from the flat `/item/list` order.
+fn parse_device_tree(items: &[Value]) -> Result<DeviceTree> {
+    let mut controller_id = None;
+    let mut modules: Vec<DeviceModule> = Vec::new();
+    for item in items {
+        let item_id = item
+            .get("ItemId")
+            .and_then(Value::as_i64)
+            .ok_or_else(|| Error::Stream("item list entry missing ItemId".into()))?;
+        let name = item
+            .get("ItemName")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match item.get("ItemType").and_then(Value::as_str) {
+            Some("Controller") => controller_id = controller_id.or(Some(item_id)),
+            Some("Module") | Some("External Module") => modules.push(DeviceModule {
+                item_id,
+                name: name.to_string(),
+                channel_ids: Vec::new(),
+            }),
+            Some("Channel") => {
+                if let Some(module) = modules.last_mut() {
+                    // Channels carry their module's name, bare ("WSB42X2") or
+                    // with a role suffix ("TAC221 Tacho", "XMC237 CAN FD") —
+                    // both confirmed on a real MicroQ (Q2.4.11). Anything else
+                    // means the flat-order adjacency assumption (assumptions.md
+                    // A21) does not hold on this firmware — fail loudly rather
+                    // than configure the wrong physical channel.
+                    let carries_module_name = name
+                        .strip_prefix(module.name.as_str())
+                        .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '));
+                    if !carries_module_name {
+                        return Err(Error::Stream(format!(
+                            "channel item {item_id} ('{name}') does not carry the name of its \
+                             preceding module '{}': /item/list ordering violates the \
+                             module->channel adjacency assumption (A21)",
+                            module.name
+                        )));
+                    }
+                    module.channel_ids.push(item_id);
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(DeviceTree {
+        controller_id: controller_id
+            .ok_or_else(|| Error::Stream("no Controller in item list".into()))?,
+        modules,
+    })
+}
+
 fn parse_major(version: &str) -> Option<u32> {
     let digits: String = version
         .chars()
@@ -595,5 +603,66 @@ mod tests {
             Some([7, 8])
         );
         assert_eq!(parse_pair_setting_name("Sample Rate"), None);
+    }
+
+    fn item(id: i64, name: &str, item_type: &str) -> Value {
+        serde_json::json!({ "ItemId": id, "ItemName": name, "ItemType": item_type })
+    }
+
+    /// Item list captured from a real MicroQ (Q2.4.11, 2026-07-22): built-in
+    /// modules sit under the controller ahead of the SC, their channels carry
+    /// role suffixes, ItemId 3 does not exist, and empty G2 slots are modules.
+    #[test]
+    fn parses_microq_item_list_with_role_suffixed_channels() {
+        let items = vec![
+            item(1, "MicroQ", "Controller"),
+            item(2, "XMC237", "Module"),
+            item(4, "XMC237 GPS", "Channel"),
+            item(5, "XMC237 CAN FD", "Channel"),
+            item(6, "XMC237 CAN FD", "Channel"),
+            item(7, "SC10", "SignalConditioner"),
+            item(8, "WSB42X2", "Module"),
+            item(9, "WSB42X2", "Channel"),
+            item(10, "WSB42X2", "Channel"),
+            item(11, "WSB42X2", "Channel"),
+            item(12, "WSB42X2", "Channel"),
+            item(13, "TAC221", "Module"),
+            item(14, "TAC221 Tacho", "Channel"),
+            item(15, "TAC221 Scope", "Channel"),
+            item(16, "TAC221 Tacho", "Channel"),
+            item(17, "TAC221 Scope", "Channel"),
+            item(18, "Empty", "Module"),
+            item(19, "Empty", "Module"),
+        ];
+        let tree = parse_device_tree(&items).unwrap();
+        assert_eq!(tree.controller_id, 1);
+        let by_name: Vec<(&str, &[i64])> = tree
+            .modules
+            .iter()
+            .map(|m| (m.name.as_str(), m.channel_ids.as_slice()))
+            .collect();
+        assert_eq!(
+            by_name,
+            vec![
+                ("XMC237", &[4, 5, 6][..]),
+                ("WSB42X2", &[9, 10, 11, 12][..]),
+                ("TAC221", &[14, 15, 16, 17][..]),
+                ("Empty", &[][..]),
+                ("Empty", &[][..]),
+            ]
+        );
+    }
+
+    #[test]
+    fn rejects_channel_not_carrying_module_name() {
+        for channel_name in ["ICS425", "WSB42X25"] {
+            let items = vec![
+                item(1, "MicroQ", "Controller"),
+                item(2, "WSB42X2", "Module"),
+                item(3, channel_name, "Channel"),
+            ];
+            let error = parse_device_tree(&items).unwrap_err().to_string();
+            assert!(error.contains("A21"), "unexpected error: {error}");
+        }
     }
 }
