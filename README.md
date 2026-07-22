@@ -90,9 +90,9 @@ pip install "instro[nidaq,contrib]"
 <!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
 |---|---|---|
-| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), EA Elektro-Automatik (PSB/PSBE 9000 & 10000), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keithley 2400, Keithley 2750 (unstable), simulated |
-| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series), EA Elektro-Automatik (PSB/PSBE 9000 & 10000) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
