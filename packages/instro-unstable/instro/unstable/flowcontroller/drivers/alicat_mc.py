@@ -247,7 +247,7 @@ class AlicatMC(FlowControllerDriverBase):
         except RuntimeError as e:
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support flow rate tare-ing"
-            )
+            ) from e
         return self._parse_flowdata(response).to_flow_data()
 
     def tare_barometer(self) -> AlicatMCFlowData:  # type: ignore[override]
@@ -257,7 +257,7 @@ class AlicatMC(FlowControllerDriverBase):
         except RuntimeError as e:
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support barometer tare-ing"
-            )
+            ) from e
         return self._parse_flowdata(response).to_flow_data()
 
     ###GAS TYPES
