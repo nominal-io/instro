@@ -29,7 +29,7 @@ fn to_py_err(error: Error) -> PyErr {
     }
 }
 
-fn value_to_py(py: Python<'_>, value: &Value) -> PyResult<PyObject> {
+fn value_to_py(py: Python<'_>, value: &Value) -> PyResult<Py<PyAny>> {
     Ok(match value {
         Value::Null => py.None(),
         Value::Bool(b) => b.into_pyobject(py)?.to_owned().unbind().into(),
@@ -78,14 +78,14 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = obj.extract::<String>() {
         return Ok(Value::String(s));
     }
-    if let Ok(dict) = obj.downcast::<PyDict>() {
+    if let Ok(dict) = obj.cast::<PyDict>() {
         let mut map = serde_json::Map::new();
         for (key, item) in dict.iter() {
             map.insert(key.extract::<String>()?, py_to_value(&item)?);
         }
         return Ok(Value::Object(map));
     }
-    if let Ok(list) = obj.downcast::<PyList>() {
+    if let Ok(list) = obj.cast::<PyList>() {
         let mut items = Vec::new();
         for item in list.iter() {
             items.push(py_to_value(&item)?);
@@ -98,7 +98,7 @@ fn py_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
     )))
 }
 
-fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<PyObject> {
+fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("version", &report.version)?;
     dict.set_item("restart_required", report.restart_required)?;
@@ -131,7 +131,7 @@ fn report_to_py(py: Python<'_>, report: &ReconcileReport) -> PyResult<PyObject> 
     Ok(dict.unbind().into())
 }
 
-fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyResult<PyObject> {
+fn event_to_py(py: Python<'_>, event: StreamEvent, decoders: &DecoderMap) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     match event {
         StreamEvent::Analog(batch) => {
@@ -278,9 +278,7 @@ impl QuantusClient {
                 }
             }
         }
-        let inner = py
-            .allow_threads(|| RustClient::connect(rack))
-            .map_err(to_py_err)?;
+        let inner = py.detach(|| RustClient::connect(rack)).map_err(to_py_err)?;
         Ok(QuantusClient {
             inner,
             host,
@@ -292,10 +290,8 @@ impl QuantusClient {
     /// Write every declared setting, apply once, and return the report
     /// (achieved rates, alias -> item_id map, epoch impact). Also maps the
     /// construction-time CAN decoders onto the reported channel item ids.
-    fn reconcile(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let report = py
-            .allow_threads(|| self.inner.reconcile())
-            .map_err(to_py_err)?;
+    fn reconcile(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let report = py.detach(|| self.inner.reconcile()).map_err(to_py_err)?;
         let mut decoders: DecoderMap = HashMap::new();
         for channel in &report.channels {
             if let Some(dbc) = &channel.dbc {
@@ -310,10 +306,8 @@ impl QuantusClient {
         report_to_py(py, &report)
     }
 
-    fn discover(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let tree = py
-            .allow_threads(|| self.inner.discover())
-            .map_err(to_py_err)?;
+    fn discover(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let tree = py.detach(|| self.inner.discover()).map_err(to_py_err)?;
         let modules = PyList::empty(py);
         for module in &tree.modules {
             let m = PyDict::new(py);
@@ -328,9 +322,9 @@ impl QuantusClient {
         Ok(dict.unbind().into())
     }
 
-    fn data_stream_setup(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn data_stream_setup(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let setup = py
-            .allow_threads(|| self.inner.data_stream_setup())
+            .detach(|| self.inner.data_stream_setup())
             .map_err(to_py_err)?;
         value_to_py(py, &setup)
     }
@@ -338,7 +332,7 @@ impl QuantusClient {
     /// Connect to the binary data stream and return a StreamReader.
     fn open_stream(&self, py: Python<'_>) -> PyResult<StreamReader> {
         let setup = py
-            .allow_threads(|| self.inner.data_stream_setup())
+            .detach(|| self.inner.data_stream_setup())
             .map_err(to_py_err)?;
         let port = setup
             .get("TCPPort")
@@ -347,7 +341,7 @@ impl QuantusClient {
             as u16;
         let host = self.host.clone();
         let engine = py
-            .allow_threads(|| StreamEngine::connect(&host, port))
+            .detach(|| StreamEngine::connect(&host, port))
             .map_err(to_py_err)?;
         Ok(StreamReader {
             inner: Mutex::new(Some(engine)),
@@ -377,25 +371,25 @@ impl QuantusClient {
             };
             map.insert(name, value);
         }
-        py.allow_threads(|| self.inner.write_settings(item_id, &map))
+        py.detach(|| self.inner.write_settings(item_id, &map))
             .map_err(to_py_err)
     }
 
     #[pyo3(signature = (item_id=None))]
     fn auto_zero(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.auto_zero(item_id))
+        py.detach(|| self.inner.auto_zero(item_id))
             .map_err(to_py_err)
     }
 
     #[pyo3(signature = (item_id=None))]
     fn bridge_balance(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.bridge_balance(item_id))
+        py.detach(|| self.inner.bridge_balance(item_id))
             .map_err(to_py_err)
     }
 
     #[pyo3(signature = (item_id=None))]
     fn bridge_balance_reset(&self, py: Python<'_>, item_id: Option<i64>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.bridge_balance_reset(item_id))
+        py.detach(|| self.inner.bridge_balance_reset(item_id))
             .map_err(to_py_err)
     }
 
@@ -406,23 +400,21 @@ impl QuantusClient {
         messages: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
         let doc = py_to_value(messages)?;
-        py.allow_threads(|| self.inner.put_can_message_list(item_id, &doc))
+        py.detach(|| self.inner.put_can_message_list(item_id, &doc))
             .map_err(to_py_err)
     }
 
     fn can_transmit(&self, py: Python<'_>, item_id: i64) -> PyResult<()> {
-        py.allow_threads(|| self.inner.can_transmit(item_id))
+        py.detach(|| self.inner.can_transmit(item_id))
             .map_err(to_py_err)
     }
 
     fn suspend_stream(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.suspend_stream())
-            .map_err(to_py_err)
+        py.detach(|| self.inner.suspend_stream()).map_err(to_py_err)
     }
 
     fn resume_stream(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.resume_stream())
-            .map_err(to_py_err)
+        py.detach(|| self.inner.resume_stream()).map_err(to_py_err)
     }
 }
 
@@ -437,8 +429,8 @@ struct StreamReader {
 #[pymethods]
 impl StreamReader {
     #[pyo3(signature = (timeout_ms=1000))]
-    fn next_event(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<Option<PyObject>> {
-        let received = py.allow_threads(|| {
+    fn next_event(&self, py: Python<'_>, timeout_ms: u64) -> PyResult<Option<Py<PyAny>>> {
+        let received = py.detach(|| {
             let guard = self.inner.lock().unwrap();
             guard.as_ref().map(|engine| {
                 engine
@@ -459,7 +451,7 @@ impl StreamReader {
         }
     }
 
-    fn health(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn health(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let guard = self.inner.lock().unwrap();
         let engine = guard
             .as_ref()
@@ -476,10 +468,10 @@ impl StreamReader {
     }
 
     fn close(&self, py: Python<'_>) {
-        // allow_threads: stop() joins the reader thread; holding the GIL
+        // detach: stop() joins the reader thread; holding the GIL
         // across that join would freeze every Python thread if the join is
         // slow (and next_event holds the same mutex for up to its timeout).
-        py.allow_threads(|| {
+        py.detach(|| {
             if let Some(engine) = self.inner.lock().unwrap().take() {
                 engine.stop();
             }
