@@ -63,6 +63,7 @@ from instro.unstable.flowcontroller.drivers.alicat_constants import (
     LOOP_VARIABLE_ABS_PRESSURE,
     LOOP_VARIABLE_GAUGE_PRESSURE,
     LOOP_VARIABLE_MASS_FLOW,
+    LOOP_VARIABLE_PRESSURE_DIFF,
     LOOP_VARIABLE_VOL_FLOW,
     LoopVariable,
 )
@@ -316,7 +317,7 @@ class AlicatMC(FlowControllerDriverBase):
 
     def _query_loop_variable(self) -> None:
         """Query the device for its current loop control variable (process value source) and cache it."""
-        response = self._query_checked(f"{self.unit_id}LR")
+        response = self._query_checked(f"{self.unit_id}LR{LOOP_VARIABLE_MASS_FLOW}")
         fields = response.split()
         # To query the current loop variable, use unit_idLR as the
         # command. On 10v05 and above this also queries the current
@@ -380,6 +381,7 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(f"{self.unit_id}gm {mix_name} {gas_id} {mixture_strings}")
         response_cols = response.split()
         mixture_identifier = GasTypeEntry(int(response_cols[1]), mix_name)
+        self.known_gas_types = []
         return mixture_identifier
 
     ###Normal Operation
@@ -424,6 +426,8 @@ class AlicatMC(FlowControllerDriverBase):
             return sample.vol_flow
         elif self._cached_loop_variable in (LOOP_VARIABLE_ABS_PRESSURE, LOOP_VARIABLE_GAUGE_PRESSURE):
             return sample.pressure
+        elif self._cached_loop_variable == LOOP_VARIABLE_PRESSURE_DIFF:
+            raise NotImplementedError("Alicat MC does not support differential pressure measurement")
         else:
             return sample.mass_flow  # fallback to mass_flow if unknown
 

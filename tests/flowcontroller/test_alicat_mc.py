@@ -18,6 +18,7 @@ from instro.unstable.flowcontroller.drivers.alicat_constants import (
     LOOP_VARIABLE_ABS_PRESSURE,
     LOOP_VARIABLE_GAUGE_PRESSURE,
     LOOP_VARIABLE_MASS_FLOW,
+    LOOP_VARIABLE_PRESSURE_DIFF,
     LOOP_VARIABLE_VOL_FLOW,
     LoopVariable,
 )
@@ -256,6 +257,14 @@ def test_process_value_returns_pressure_for_gauge_pressure(alicat: AlicatMC, vis
     assert alicat.process_value == pytest.approx(13.5424)
 
 
+def test_process_value_raises_on_differential_pressure(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Process value raises NotImplementedError for differential pressure (unsupported by Alicat MC)."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat._cached_loop_variable = LOOP_VARIABLE_PRESSURE_DIFF
+    with pytest.raises(NotImplementedError, match="Alicat MC does not support differential pressure"):
+        alicat.process_value
+
+
 def test_set_loop_control_variable_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
     """Set loop control variable sends LV command with the loop variable code."""
     visa_mock.query.return_value = "A +25.0000"  # LV response: unit setpoint
@@ -278,3 +287,42 @@ def test_set_loop_control_variable_with_absolute_pressure(alicat: AlicatMC, visa
     alicat.set_loop_control_variable(LoopVariable.ABSOLUTE_PRESSURE)
     assert alicat._cached_loop_variable == LOOP_VARIABLE_ABS_PRESSURE
     assert alicat._cached_loop_variable_key == PRESSURE_KEY
+
+
+# --- define_gas_mixture cache invalidation tests ---
+
+
+def test_define_gas_mixture_invalidates_gas_type_cache(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """Define gas mixture invalidates the known_gas_types cache so next call fetches fresh list."""
+    alicat.known_gas_types = [GasTypeEntry(identifier=1, name="N2"), GasTypeEntry(identifier=8, name="O2")]
+    visa_mock.query.return_value = "A 241"
+
+    alicat.define_gas_mixture("MIX", _VALID_MIX)
+
+    assert alicat.known_gas_types == []
+
+
+def test_define_gas_mixture_then_select_new_mixture(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """After defining a mixture, select_working_fluid works once gas list is refreshed."""
+    alicat.known_gas_types = [GasTypeEntry(identifier=1, name="N2")]
+
+    def mock_query_response(cmd: str) -> str:
+        if "gm " in cmd:
+            return "A 241"
+        elif "g241" in cmd:
+            return _SAMPLE_RESPONSE
+        return _SAMPLE_RESPONSE
+
+    visa_mock.query.side_effect = mock_query_response
+
+    alicat.define_gas_mixture("MIX", _VALID_MIX, gas_id=241)
+
+    assert alicat.known_gas_types == []
+
+    alicat.known_gas_types = [
+        GasTypeEntry(identifier=1, name="N2"),
+        GasTypeEntry(identifier=241, name="MIX"),
+    ]
+    alicat.select_working_fluid("MIX")
+
+    visa_mock.query.assert_called_with("Ag241")
