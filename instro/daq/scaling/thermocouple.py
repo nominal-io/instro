@@ -1,13 +1,13 @@
 """Thermocouple scaling for DAQ: voltage → °C with cold-junction compensation."""
 
-import enum
+from enum import Enum
 
 import thermocouples as tc
 
 from instro.daq.scaling.scaling import Scaler
 
 
-class TC_TYPE(enum.Enum):
+class TC_TYPE(Enum):
     B = "B"
     E = "E"
     J = "J"
@@ -16,6 +16,13 @@ class TC_TYPE(enum.Enum):
     R = "R"
     S = "S"
     T = "T"
+
+
+class TC_UNIT(Enum):
+    CELSIUS = "CELSIUS"
+    KELVIN = "KELVIN"
+    FAHRENHEIT = "FAHRENHEIT"
+    RANKINE = "RANKINE"
 
 
 class ThermocoupleSensor(Scaler):

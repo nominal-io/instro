@@ -7,8 +7,13 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from instro.daq.scaling.scaling import Scaler
+from instro.daq.scaling.thermocouple import TC_UNIT, TC_TYPE
 from instro.daq.types import (
+    CJC_SOURCE,
     AnalogChannel,
+    AnalogCurrentChannel,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
     DigitalPortWidth,
@@ -168,6 +173,26 @@ class DAQDriverBase(abc.ABC):
     ):
         """Register an AO channel. Override if the driver supports analog output."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Register an AI voltage channel. Override if the driver supports analog voltage input."""
+        raise NotImplementedError("Analog voltage input has not been configured for this driver")
+
+    def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Register an AO voltage channel. Override if the driver supports analog voltage output."""
+        raise NotImplementedError("Analog voltage output has not been configured for this driver")
+
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        """Register an AI current channel. Override if the driver supports analog current input."""
+        raise NotImplementedError("Analog current input has not been configured for this driver")
+
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        """Register an AO current channel. Override if the driver supports analog current output."""
+        raise NotImplementedError("Analog current output has not been configured for this driver")
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Register an AI thermocouple channel. Override if the driver supports thermocouple input."""
+        raise NotImplementedError("Thermocouple input has not been configured for this driver")
 
     @abc.abstractmethod
     def configure_ai_hw_timing(
@@ -461,6 +486,171 @@ class InstroDAQ(Instrument):
         logger.info("Closed DAQ '%s'", self.name)
 
     # ========  Analog Input  ===========
+
+    def configure_voltage_input(
+        self,
+        physical_channel: str,
+        *,
+        alias: str | None = None,
+        range_min: float = -10.0,
+        range_max: float = 10.0,
+        scaler: Scaler | None = None,
+        terminal_config: TerminalConfig | None = None,
+    ):
+        """Configure an analog voltage input channel.
+
+        Args:
+            physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            alias: Friendly name; defaults to ``physical_channel``.
+            range_min: Lower voltage range (volts).
+            range_max: Upper voltage range (volts).
+            scaler: Optional ``Scaler`` applied to AI samples after read.
+            terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
+        """
+        self._require_open()
+        channel = AnalogVoltageChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.INPUT,
+            range_min=range_min,
+            range_max=range_max,
+            scaler=scaler,
+            terminal_config=terminal_config,
+        )
+        self._driver.configure_ai_voltage_channel(channel)
+        logger.info("Configured voltage input channel on DAQ '%s'", self.name)
+
+    def configure_voltage_output(
+        self,
+        physical_channel: str,
+        *,
+        alias: str | None = None,
+        range_min: float = -10.0,
+        range_max: float = 10.0,
+        scaler: Scaler | None = None,
+    ):
+        """Configure an analog voltage output channel.
+
+        Args:
+            physical_channel: Vendor-specific channel id (e.g. ``"ao0"`` or ``"Dev1/ao0"``).
+            alias: Friendly name; defaults to ``physical_channel``.
+            range_min: Lower voltage range (volts).
+            range_max: Upper voltage range (volts).
+            scaler: Optional ``Scaler`` for the channel.
+        """
+        self._require_open()
+        channel = AnalogVoltageChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.OUTPUT,
+            range_min=range_min,
+            range_max=range_max,
+            scaler=scaler,
+        )
+        self._driver.configure_ao_voltage_channel(channel)
+        logger.info("Configured voltage output channel on DAQ '%s'", self.name)
+
+    def configure_current_input(
+        self,
+        physical_channel: str,
+        *,
+        alias: str | None = None,
+        range_min: float = 0.0,
+        range_max: float = 0.02,
+        scaler: Scaler | None = None,
+    ):
+        """Configure an analog current input channel.
+
+        Args:
+            physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            alias: Friendly name; defaults to ``physical_channel``.
+            range_min: Lower current range (amps).
+            range_max: Upper current range (amps).
+            scaler: Optional ``Scaler`` applied to AI samples after read.
+        """
+        self._require_open()
+        channel = AnalogCurrentChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.INPUT,
+            range_min=range_min,
+            range_max=range_max,
+            scaler=scaler,
+        )
+        self._driver.configure_ai_current_channel(channel)
+        logger.info("Configured current input channel on DAQ '%s'", self.name)
+
+    def configure_current_output(
+        self,
+        physical_channel: str,
+        *,
+        alias: str | None = None,
+        range_min: float = 0.0,
+        range_max: float = 0.02,
+        scaler: Scaler | None = None,
+    ):
+        """Configure an analog current output channel.
+
+        Args:
+            physical_channel: Vendor-specific channel id (e.g. ``"ao0"`` or ``"Dev1/ao0"``).
+            alias: Friendly name; defaults to ``physical_channel``.
+            range_min: Lower current range (amps).
+            range_max: Upper current range (amps).
+            scaler: Optional ``Scaler`` for the channel.
+        """
+        self._require_open()
+        channel = AnalogCurrentChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.OUTPUT,
+            range_min=range_min,
+            range_max=range_max,
+            scaler=scaler,
+        )
+        self._driver.configure_ao_current_channel(channel)
+        logger.info("Configured current output channel on DAQ '%s'", self.name)
+
+    def configure_thermocouple_input(
+        self,
+        physical_channel: str,
+        tc_type: TC_TYPE,
+        *,
+        alias: str | None = None,
+        range_min: float = 0.0,
+        range_max: float = 100.0,
+        cjc_source: CJC_SOURCE = CJC_SOURCE.INTERNAL,
+        cjc_temp: float | None = None,
+        cjc_channel: str | None = None,
+        unit: TC_UNIT = TC_UNIT.CELSIUS,
+    ):
+        """Configure a thermocouple input channel.
+
+        Args:
+            physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            alias: Friendly name; defaults to ``physical_channel``.
+            range_min: Lower temperature range (in ``unit``).
+            range_max: Upper temperature range (in ``unit``).
+            tc_type: Type of thermocouple used
+            cjc_source: Cold-junction compensation source (internal / constant / channel).
+            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
+            cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
+            unit: Temperature unit for returned readings.
+        """
+        self._require_open()
+        channel = AnalogThermocoupleChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.INPUT,
+            range_min=range_min,
+            range_max=range_max,
+            tc_type=tc_type,
+            cjc_source=cjc_source,
+            cjc_temp=cjc_temp,
+            cjc_channel=cjc_channel,
+            unit=unit,
+        )
+        self._driver.configure_ai_thermocouple_channel(channel)
+        logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)
 
     def configure_analog_channel(
         self,
