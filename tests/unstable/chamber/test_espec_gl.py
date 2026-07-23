@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.lib.publishers import Publisher
+from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import Command, Measurement
 from instro.unstable.chamber.drivers import EspecGL
 
@@ -83,3 +84,20 @@ def test_open_identify_read_set_close(
     assert "TYPE?" in queries
     assert "TEMP?" in queries
     assert "TEMP,S85.0" in queries
+
+
+def test_open_close_delegate(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa_cls.assert_called_once_with("TCPIP0::1.2.3.4::10001::SOCKET")
+
+    chamber.open()
+    espec_visa.open.assert_called_once_with()
+
+    chamber.close()
+    espec_visa.close.assert_called_once_with()
+
+
+def test_init_accepts_visa_config(espec_visa_cls: MagicMock) -> None:
+    config = VisaConfig(visa_resource="ASRL/dev/ttyUSB0::INSTR")
+    EspecGL(config, name="c")
+    espec_visa_cls.assert_called_once_with(config)

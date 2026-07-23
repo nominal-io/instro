@@ -27,13 +27,15 @@ class EspecGL(Instrument):
         publishers: list[Publisher] | None = None,
         **kwargs,
     ) -> None:
-        raise NotImplementedError
+        super().__init__(name=name, publishers=publishers, **kwargs)
+        self._visa = VisaDriver(visa_resource)
 
     def open(self) -> None:
-        raise NotImplementedError
+        self._visa.open()
 
     def close(self) -> None:
-        raise NotImplementedError
+        self._visa.close()
+        super().close()
 
     def _monitor(self, command: str) -> str:
         raise NotImplementedError
