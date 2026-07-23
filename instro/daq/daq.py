@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from instro.daq.scaling.scaling import Scaler
-from instro.daq.scaling.thermocouple import TC_UNIT, TC_TYPE
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     CJC_SOURCE,
     AnalogChannel,
@@ -16,6 +16,7 @@ from instro.daq.types import (
     AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
+    DigitalLineChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -251,6 +252,14 @@ class DAQDriverBase(abc.ABC):
         """Parse, program, and register a DO port channel. Override if the driver supports port-mode digital output."""
         raise NotImplementedError("Digital Output port mode has not been configured for this driver")
 
+    def configure_di_channel(self, channel: DigitalLineChannel):
+        """Register a DI line channel. Override if the driver supports digital input."""
+        raise NotImplementedError("Digital input has not been configured for this driver")
+
+    def configure_do_channel(self, channel: DigitalLineChannel):
+        """Register a DO line channel. Override if the driver supports digital output."""
+        raise NotImplementedError("Digital output has not been configured for this driver")
+
     @abc.abstractmethod
     def start(self, **kwargs):
         """Start hardware-timed acquisition.
@@ -485,7 +494,7 @@ class InstroDAQ(Instrument):
         self._is_open = False
         logger.info("Closed DAQ '%s'", self.name)
 
-    # ========  Analog Input  ===========
+    # ========  Voltage Channels  ===========
 
     def configure_voltage_input(
         self,
@@ -550,6 +559,8 @@ class InstroDAQ(Instrument):
         self._driver.configure_ao_voltage_channel(channel)
         logger.info("Configured voltage output channel on DAQ '%s'", self.name)
 
+    # ========  Current Channels  ===========
+
     def configure_current_input(
         self,
         physical_channel: str,
@@ -610,6 +621,8 @@ class InstroDAQ(Instrument):
         self._driver.configure_ao_current_channel(channel)
         logger.info("Configured current output channel on DAQ '%s'", self.name)
 
+    # ========  Thermocouple Channels  ===========
+
     def configure_thermocouple_input(
         self,
         physical_channel: str,
@@ -651,6 +664,62 @@ class InstroDAQ(Instrument):
         )
         self._driver.configure_ai_thermocouple_channel(channel)
         logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)
+
+    # ========  Digital Channels  ===========
+
+    def configure_digital_input(
+        self,
+        physical_channel: str,
+        *,
+        logic: Logic = Logic.HIGH,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a digital input line channel.
+
+        Args:
+            physical_channel: Vendor-specific line id (e.g. ``"port0/line3"`` on NI, ``"FIO0"`` on LabJack).
+            logic: Active-``HIGH`` or active-``LOW``.
+            logic_level: Voltage threshold (volts); the driver default is used when ``None``.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        channel = DigitalLineChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.INPUT,
+            logic=logic,
+            logic_level=logic_level,
+        )
+        self._driver.configure_di_channel(channel)
+        logger.info("Configured digital input channel on DAQ '%s'", self.name)
+
+    def configure_digital_output(
+        self,
+        physical_channel: str,
+        *,
+        logic: Logic = Logic.HIGH,
+        logic_level: float | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a digital output line channel.
+
+        Args:
+            physical_channel: Vendor-specific line id (e.g. ``"port0/line3"`` on NI, ``"FIO0"`` on LabJack).
+            logic: Active-``HIGH`` or active-``LOW``.
+            logic_level: Voltage threshold (volts); the driver default is used when ``None``.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        channel = DigitalLineChannel(
+            physical_channel=physical_channel,
+            alias=alias if alias else physical_channel,
+            direction=Direction.OUTPUT,
+            logic=logic,
+            logic_level=logic_level,
+        )
+        self._driver.configure_do_channel(channel)
+        logger.info("Configured digital output channel on DAQ '%s'", self.name)
 
     def configure_analog_channel(
         self,
