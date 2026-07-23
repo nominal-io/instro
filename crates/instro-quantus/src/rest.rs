@@ -128,9 +128,18 @@ impl RestClient {
     }
 
     /// Returns the parsed apply status; StatusCodes 1/3/4 are success-class
-    /// (4 = the measurement/streaming epoch will restart).
+    /// (4 = the measurement/streaming epoch will restart). MicroQ firmware
+    /// answers the apply with an empty body (observed 2026-07-23, assumption
+    /// A3): that carries no restart information and counts as plain success.
     pub async fn apply(&self) -> Result<ApiStatus> {
         let body = self.put("/system/settings/apply/", None).await?;
+        if body.is_null() {
+            return Ok(ApiStatus {
+                type_code: 0,
+                status_code: 1,
+                message: String::new(),
+            });
+        }
         serde_json::from_value(body.clone())
             .map_err(|_| Error::Stream(format!("unexpected apply body: {body}")))
     }

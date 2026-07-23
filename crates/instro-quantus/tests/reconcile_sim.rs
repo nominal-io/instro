@@ -8,7 +8,11 @@ use instro_quantus_sim::rest::SimServer;
 use serde_json::Value;
 
 fn start_sim() -> SimServer {
-    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(
+    start_sim_with("")
+}
+
+fn start_sim_with(extra_toml: &str) -> SimServer {
+    let sim_config: instro_quantus_sim::config::SimConfig = toml::from_str(&format!(
         r#"
         [system]
         chassis = "MicroQ"
@@ -30,8 +34,10 @@ fn start_sim() -> SimServer {
         [[slots]]
         slot = 3
         module = "ICS425"
-        "#,
-    )
+
+        {extra_toml}
+        "#
+    ))
     .unwrap();
     SimServer::start(sim_config).unwrap()
 }
@@ -175,6 +181,20 @@ fn full_reconcile_against_customer_shaped_rack() {
     assert_eq!(accel.current_mode, 2);
     assert_eq!(setting_value(accel, "Voltage Range"), 1);
     assert_eq!(setting_value(accel, "Coupling"), 1);
+}
+
+#[test]
+fn reconcile_tolerates_empty_apply_body() {
+    // MicroQ firmware answers the apply PUT with 204/no body (2026-07-23):
+    // success without restart information, not a protocol violation.
+    let sim = start_sim_with("[faults]\napply_no_content = true");
+    let client = QuantusClient::connect(rack_config(sim.rest_port())).unwrap();
+    let report = client.reconcile().unwrap();
+    assert!(!report.restart_required);
+    assert_eq!(report.side_effects, None);
+
+    let state = sim.state.lock().unwrap();
+    assert!(state.items.iter().all(|i| i.settings_applied));
 }
 
 #[test]

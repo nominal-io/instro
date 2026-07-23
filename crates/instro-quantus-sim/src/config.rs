@@ -148,6 +148,9 @@ impl SignalConfig {
 pub struct FaultsConfig {
     /// Sleep this long before every `/system/settings/apply` completes.
     pub apply_delay_ms: u64,
+    /// Answer `/system/settings/apply` with HTTP 204 and no body, as MicroQ
+    /// firmware does (2026-07-23), instead of a status document.
+    pub apply_no_content: bool,
     /// Drop every Nth stream packet (sequence still advances -> visible gap).
     /// 0 disables.
     pub drop_every_nth_packet: u64,
@@ -162,6 +165,7 @@ impl Default for FaultsConfig {
     fn default() -> Self {
         Self {
             apply_delay_ms: 0,
+            apply_no_content: false,
             drop_every_nth_packet: 0,
             disconnect_after_packets: 0,
             stream_buffer_packets: 64,

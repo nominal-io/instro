@@ -48,6 +48,12 @@ impl Reply {
             body: status_body(type_code, status_code, message),
         }
     }
+    fn no_content() -> Self {
+        Reply {
+            http_status: 204,
+            body: Value::Null,
+        }
+    }
     fn invalid_id() -> Self {
         Reply::status(
             400,
@@ -161,7 +167,12 @@ fn handle_request(state: &Mutex<SimState>, ctx: &RouteCtx, mut request: tiny_htt
 
     let reply = route(state, ctx, &method, &path, item_id, &body);
 
-    let response = tiny_http::Response::from_string(reply.body.to_string())
+    let text = if reply.http_status == 204 {
+        String::new()
+    } else {
+        reply.body.to_string()
+    };
+    let response = tiny_http::Response::from_string(text)
         .with_status_code(reply.http_status)
         .with_header(
             tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
@@ -217,6 +228,7 @@ fn route(
             put_document(&mut state, item_id, body, SimState::put_item_op_mode)
         }
         ("PUT", "/system/settings/apply") => match state.apply() {
+            _ if ctx.config.faults.apply_no_content => Reply::no_content(),
             ApplyOutcome::AppliedWithRestart => Reply::status(
                 200,
                 TYPE_INFO,
