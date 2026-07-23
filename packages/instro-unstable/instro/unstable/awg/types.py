@@ -118,7 +118,7 @@ class StaticValue:
 
 @dataclass(frozen=True)
 class Square:
-    """Square waveform definition."""
+    """Continuous rectangular wave; high for duty_cycle_pct percent of each period."""
 
     frequency_hz: float
     duty_cycle_pct: float = 50.0
@@ -159,7 +159,7 @@ class Triangle:
 
 @dataclass(frozen=True)
 class Pulse:
-    """Pulse waveform definition."""
+    """Continuous rectangular wave (not single-shot); each period goes high for width_s seconds after delay_s."""
 
     frequency_hz: float
     width_s: float
