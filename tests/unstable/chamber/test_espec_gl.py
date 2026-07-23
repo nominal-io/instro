@@ -22,6 +22,7 @@ _REPLIES = {
     "TYPE?": "T,T,GL,185.0",
     "TEMP?": "23.0,85.0,105.0,-75.0",
     "TEMP,S85.0": "OK:1,temp,s85.0",
+    "MODE,CONSTANT": "OK:1,mode,constant",
 }
 
 
@@ -170,3 +171,40 @@ def test_get_operation_mode_round_trips_through_enum(
     mode = chamber.get_operation_mode()
 
     assert mode.latest == OperationMode.CONSTANT.value
+
+
+def test_set_temperature_setpoint_formats_one_decimal(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+
+    chamber.set_temperature_setpoint(85.0)
+
+    assert _queries(espec_visa)[-1] == "TEMP,S85.0"
+
+
+def test_set_humidity_setpoint_formats_integer(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = "OK:1,humi,s46"
+
+    chamber.set_humidity_setpoint(45.6)
+
+    assert _queries(espec_visa)[-1] == "HUMI,S46"
+
+
+def test_set_operation_mode_sends_mode_value(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+
+    chamber.set_operation_mode(OperationMode.CONSTANT)
+
+    assert _queries(espec_visa)[-1] == "MODE,CONSTANT"
+
+
+def test_set_temperature_setpoint_raises_on_device_range_error(
+    espec_visa_cls: MagicMock, espec_visa: MagicMock
+) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = "NA:DATA OUT OF RANGE"
+
+    with pytest.raises(RuntimeError, match="NA:DATA OUT OF RANGE"):
+        chamber.set_temperature_setpoint(9999.0)

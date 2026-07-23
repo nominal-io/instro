@@ -71,7 +71,8 @@ class EspecGL(Instrument):
 
     @publish_command
     def set_temperature_setpoint(self, celsius: float) -> Command:
-        raise NotImplementedError
+        self._command(f"TEMP,S{celsius:.1f}")
+        return self._package_command("temperature_setpoint.cmd", celsius, time.time_ns())
 
     @publish_measurement
     def get_humidity(self) -> Measurement:
@@ -80,7 +81,8 @@ class EspecGL(Instrument):
 
     @publish_command
     def set_humidity_setpoint(self, percent_rh: float) -> Command:
-        raise NotImplementedError
+        self._command(f"HUMI,S{percent_rh:.0f}")
+        return self._package_command("humidity_setpoint.cmd", percent_rh, time.time_ns())
 
     @publish_measurement
     def get_operation_mode(self) -> Measurement:
@@ -93,4 +95,6 @@ class EspecGL(Instrument):
 
     @publish_command
     def set_operation_mode(self, mode: OperationMode) -> Command:
-        raise NotImplementedError
+        """Set the chamber operation mode. ``OperationMode.RUN`` is device-rejected; not driver-blocked."""
+        self._command(f"MODE,{mode.value}")
+        return self._package_command("operation_mode.cmd", mode.value, time.time_ns())
