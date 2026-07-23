@@ -101,3 +101,33 @@ def test_init_accepts_visa_config(espec_visa_cls: MagicMock) -> None:
     config = VisaConfig(visa_resource="ASRL/dev/ttyUSB0::INSTR")
     EspecGL(config, name="c")
     espec_visa_cls.assert_called_once_with(config)
+
+
+def test_monitor_and_command_pass_through_on_success(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = "23.0,85.0,105.0,-75.0"
+    assert chamber._monitor("TEMP?") == "23.0,85.0,105.0,-75.0"
+
+    espec_visa.query.return_value = "OK:1,temp,s85.0"
+    assert chamber._command("TEMP,S85.0") == "OK:1,temp,s85.0"
+
+
+@pytest.mark.parametrize("reply", ["NA:PROTECT ON", "NA :INVLID REQ"])
+def test_monitor_raises_on_na_prefix(espec_visa_cls: MagicMock, espec_visa: MagicMock, reply: str) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = reply
+
+    with pytest.raises(RuntimeError, match=reply.replace(":", r"\:")):
+        chamber._monitor("HUMI?")
+
+
+def test_command_raises_unless_ok_prefix(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = "NA:DATA OUT OF RANGE"
+
+    with pytest.raises(RuntimeError, match="NA:DATA OUT OF RANGE"):
+        chamber._command("TEMP,S9999.0")

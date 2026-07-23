@@ -38,10 +38,16 @@ class EspecGL(Instrument):
         super().close()
 
     def _monitor(self, command: str) -> str:
-        raise NotImplementedError
+        reply = self._visa.query(command)
+        if reply.startswith("NA"):
+            raise RuntimeError(f"ESPEC GL reported error: {reply}")
+        return reply
 
     def _command(self, command: str) -> str:
-        raise NotImplementedError
+        reply = self._visa.query(command)
+        if not reply.startswith("OK"):
+            raise RuntimeError(f"ESPEC GL reported error: {reply}")
+        return reply
 
     @publish_measurement
     def identify(self) -> Measurement:
