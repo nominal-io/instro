@@ -1,4 +1,4 @@
-use instro_ethernetip_rs::blocking::ExplicitSession;
+use instro_ethernetip::blocking::ExplicitSession;
 use pyo3::exceptions::{PyResourceWarning, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::PyAny;

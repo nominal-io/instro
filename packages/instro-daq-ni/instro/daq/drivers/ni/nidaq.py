@@ -5,6 +5,7 @@ from typing import Mapping
 
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, LineGrouping
+from nidaqmx.system import PhysicalChannel
 from nidaqmx.system import System as niSystem
 
 from instro.daq import DAQDriverBase
@@ -301,6 +302,13 @@ class NIDAQDriver(DAQDriverBase):
                 f"port_width is set to {port_width} but physical_channel implies a line. "
                 "Define the physical channel as DevN/portM. ex 'Dev1/port2'. "
                 f"Received {physical_channel}."
+            )
+        port = PhysicalChannel(physical_channel)
+        actual_width = port.di_port_width if direction is Direction.INPUT else port.do_port_width
+        if int(port_width) != actual_width:
+            raise ValueError(
+                f" Declared port_width {int(port_width)} does not match the physical width of {physical_channel} "
+                f"of {actual_width} lines."
             )
         return DigitalPortChannel(
             physical_channel=physical_channel,
