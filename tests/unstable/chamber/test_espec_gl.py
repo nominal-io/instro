@@ -14,7 +14,7 @@ import pytest
 from instro.lib.publishers import Publisher
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import Command, Measurement
-from instro.unstable.chamber.drivers import EspecGL
+from instro.unstable.chamber.drivers import EspecGL, OperationMode
 
 # Canned controller replies keyed by the exact wire command (spec §5).
 _REPLIES = {
@@ -131,3 +131,42 @@ def test_command_raises_unless_ok_prefix(espec_visa_cls: MagicMock, espec_visa: 
 
     with pytest.raises(RuntimeError, match="NA:DATA OUT OF RANGE"):
         chamber._command("TEMP,S9999.0")
+
+
+def test_identify_joins_rom_and_type(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+
+    identity = chamber.identify()
+
+    assert identity.latest == "GL-ENA 3.4.0 / T,T,GL,185.0"
+    assert _queries(espec_visa)[:2] == ["ROM?", "TYPE?"]
+
+
+def test_get_temperature_setpoint_reads_second_field(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+
+    setpoint = chamber.get_temperature_setpoint()
+
+    assert setpoint.latest == pytest.approx(85.0)
+
+
+def test_get_humidity_raises_on_temp_only_chamber(espec_visa_cls: MagicMock, espec_visa: MagicMock) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = "NA:INVALID REQ"
+
+    with pytest.raises(RuntimeError, match="NA:INVALID REQ"):
+        chamber.get_humidity()
+
+
+@pytest.mark.parametrize("reply", ["CONSTANT", "constant"])
+def test_get_operation_mode_round_trips_through_enum(
+    espec_visa_cls: MagicMock, espec_visa: MagicMock, reply: str
+) -> None:
+    chamber = EspecGL("TCPIP0::1.2.3.4::10001::SOCKET", name="c")
+    espec_visa.query.side_effect = None
+    espec_visa.query.return_value = reply
+
+    mode = chamber.get_operation_mode()
+
+    assert mode.latest == OperationMode.CONSTANT.value

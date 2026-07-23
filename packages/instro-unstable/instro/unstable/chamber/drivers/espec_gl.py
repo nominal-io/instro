@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+import time
 
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -51,15 +52,22 @@ class EspecGL(Instrument):
 
     @publish_measurement
     def identify(self) -> Measurement:
-        raise NotImplementedError
+        text = f"{self._monitor('ROM?')} / {self._monitor('TYPE?')}"
+        return Measurement(
+            channel_data={f"{self.name}.identity": [text]},
+            timestamps=[time.time_ns()],
+            tags={**self.default_tags},
+        )
 
     @publish_measurement
     def get_temperature(self) -> Measurement:
-        raise NotImplementedError
+        value = float(self._monitor("TEMP?").split(",")[0])
+        return self._package_measurement("temperature", value, time.time_ns())
 
     @publish_measurement
     def get_temperature_setpoint(self) -> Measurement:
-        raise NotImplementedError
+        value = float(self._monitor("TEMP?").split(",")[1])
+        return self._package_measurement("temperature_setpoint", value, time.time_ns())
 
     @publish_command
     def set_temperature_setpoint(self, celsius: float) -> Command:
@@ -67,7 +75,8 @@ class EspecGL(Instrument):
 
     @publish_measurement
     def get_humidity(self) -> Measurement:
-        raise NotImplementedError
+        value = float(self._monitor("HUMI?").split(",")[0])
+        return self._package_measurement("humidity", value, time.time_ns())
 
     @publish_command
     def set_humidity_setpoint(self, percent_rh: float) -> Command:
@@ -75,7 +84,12 @@ class EspecGL(Instrument):
 
     @publish_measurement
     def get_operation_mode(self) -> Measurement:
-        raise NotImplementedError
+        mode = OperationMode(self._monitor("MODE?").strip().upper())
+        return Measurement(
+            channel_data={f"{self.name}.operation_mode": [mode.value]},
+            timestamps=[time.time_ns()],
+            tags={**self.default_tags},
+        )
 
     @publish_command
     def set_operation_mode(self, mode: OperationMode) -> Command:
