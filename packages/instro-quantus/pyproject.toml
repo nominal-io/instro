@@ -20,6 +20,19 @@ build-backend = "maturin"
 [tool.uv.sources]
 instro = { workspace = true }
 
+[tool.uv]
+# uv's default cache key is this pyproject.toml only; the compiled extension's
+# Rust sources (here and in the core crate outside this package dir) must be
+# keyed too, or `uv sync` serves a stale wheel after Rust-only changes.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "src/**/*.rs" },
+    { file = "../../Cargo.lock" },
+    { file = "../../crates/instro-quantus/Cargo.toml" },
+    { file = "../../crates/instro-quantus/src/**/*.rs" },
+]
+
 [tool.maturin]
 bindings = "pyo3"
 module-name = "instro.unstable.quantus._quantus"
