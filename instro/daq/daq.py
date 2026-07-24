@@ -17,6 +17,7 @@ from instro.daq.types import (
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
+    DigitalPortChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -898,6 +899,76 @@ class InstroDAQ(Instrument):
                     ]
                     measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
         return measurements
+
+    def read(
+        self,
+        channels: str | list[str] | None = None,
+        **kwargs,
+    ) -> Measurement | list[Measurement]:
+        """Read AI/DI channel(s) by alias (``None`` = all inputs); analog via ``read_analog`` projected to the requested aliases, digital per line/port."""
+        self._require_open()
+        ai, di = self.ai_channels, self.di_channels
+        if channels is None:
+            aliases = [*ai, *di]
+        else:
+            aliases = [channels] if isinstance(channels, str) else list(channels)
+            if unknown := [a for a in aliases if a not in ai and a not in di]:
+                raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
+
+        measurements: list[Measurement] = []
+        requested_ai = {f"{self.name}.{alias}" for alias in aliases if alias in ai}
+        if requested_ai:
+            # Reads all analog channels
+            analog = self.read_analog(**kwargs)
+            # Filter down to just returned the channels requested
+            for measurement in analog if isinstance(analog, list) else [analog]:
+                projected = {key: values for key, values in measurement.channel_data.items() if key in requested_ai}
+                if projected:
+                    measurements.append(Measurement(projected, measurement.timestamps, measurement.tags))
+                    # Do we want to return measurements in the same order they were passed in as (if a list of channels)
+
+        for alias in aliases:
+            if alias not in di:
+                continue
+            # NOTE: Planning on ripping out port support
+            if isinstance(di[alias], DigitalPortChannel):
+                measurements.append(self.read_digital_port(alias, **kwargs))
+                continue
+            measurements.append(self.read_digital_line(alias, **kwargs))
+
+        return measurements[0] if isinstance(channels, str) else measurements
+
+    def write(
+        self,
+        channels: str | list[str],
+        values: float | list[float],
+        **kwargs,
+    ) -> Command | list[Command]:
+        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
+        self._require_open()
+        ao, do = self.ao_channels, self.do_channels
+        channel_list = [channels] if isinstance(channels, str) else list(channels)
+        value_list = list(values) if isinstance(values, list) else [values]
+        if len(channel_list) != len(value_list):
+            raise ValueError(
+                f"write() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
+            )
+
+        commands: list[Command] = []
+        for channel, value in zip(channel_list, value_list):
+            if channel in ao:
+                commands.append(self.write_analog_value(channel, value, **kwargs))
+                continue
+            if channel in do:
+                # NOTE: Planning on ripping out port support
+                if isinstance(do[channel], DigitalPortChannel):
+                    commands.append(self.write_digital_port(channel, int(value), **kwargs))
+                    continue
+                commands.append(self.write_digital_line(channel, int(value), **kwargs))
+                continue
+            raise KeyError(f"Output channel '{channel}' is not configured. Configured output channels: {[*ao, *do]}.")
+
+        return commands[0] if isinstance(channels, str) else commands
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
