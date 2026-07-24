@@ -989,8 +989,8 @@ class InstroDAQ(Instrument):
         self,
         channels: str | list[str] | None = None,
         **kwargs,
-    ) -> Measurement | list[Measurement]:
-        """Read AI/DI channel(s) by alias (``None`` = all inputs); analog via ``read_analog`` projected to the requested aliases, digital per line/port."""
+    ) -> dict[str, Measurement]:
+        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
         if channels is None:
@@ -1000,28 +1000,28 @@ class InstroDAQ(Instrument):
             if unknown := [a for a in aliases if a not in ai and a not in di]:
                 raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
 
-        measurements: list[Measurement] = []
-        requested_ai = {f"{self.name}.{alias}" for alias in aliases if alias in ai}
-        if requested_ai:
-            # Reads all analog channels
-            analog = self.read_analog(**kwargs)
-            # Filter down to just returned the channels requested
-            for measurement in analog if isinstance(analog, list) else [analog]:
-                projected = {key: values for key, values in measurement.channel_data.items() if key in requested_ai}
-                if projected:
-                    measurements.append(Measurement(projected, measurement.timestamps, measurement.tags))
-                    # Do we want to return measurements in the same order they were passed in as (if a list of channels)
-
+        result: dict[str, Measurement] = {}
+        analog_batch: list[Measurement] | None = None
         for alias in aliases:
-            if alias not in di:
+            if alias in ai:
+                if analog_batch is None:
+                    analog = self.read_analog(**kwargs)
+                    analog_batch = analog if isinstance(analog, list) else [analog]
+                key = f"{self.name}.{alias}"
+                for measurement in analog_batch:
+                    if key in measurement.channel_data:
+                        result[alias] = Measurement(
+                            {key: measurement.channel_data[key]}, measurement.timestamps, measurement.tags
+                        )
+                        break
                 continue
             # NOTE: Planning on ripping out port support
             if isinstance(di[alias], DigitalPortChannel):
-                measurements.append(self.read_digital_port(alias, **kwargs))
+                result[alias] = self.read_digital_port(alias, **kwargs)
                 continue
-            measurements.append(self.read_digital_line(alias, **kwargs))
+            result[alias] = self.read_digital_line(alias, **kwargs)
 
-        return measurements[0] if isinstance(channels, str) else measurements
+        return result
 
     def write(
         self,

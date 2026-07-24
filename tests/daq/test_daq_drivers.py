@@ -992,7 +992,7 @@ def test_start_default_spins_daemon_and_read_analog_raises():
 
 
 def test_read_projects_analog_batch_to_requested_alias():
-    """read(str) returns only the requested analog channel, projected out of the full batch."""
+    """read(str) returns {alias: Measurement} for only the requested analog channel, projected from the batch."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = [
         Measurement(channel_data={"ut.v0": [1.0], "ut.v1": [2.0]}, timestamps=[111])
@@ -1004,12 +1004,12 @@ def test_read_projects_analog_batch_to_requested_alias():
 
     result = daq.read("v0")
 
-    assert isinstance(result, Measurement)
-    assert result.channel_data == {"ut.v0": [1.0]}
+    assert set(result) == {"v0"}
+    assert result["v0"].channel_data == {"ut.v0": [1.0]}
 
 
 def test_read_routes_digital_line_by_type():
-    """read(str) routes a digital line alias to the line read and returns its value."""
+    """read(str) routes a digital line alias to the line read, keyed by alias."""
     mock_driver = _make_mock_driver()
     mock_driver.read_digital_line.return_value = 1
     daq = InstroDAQ(name="ut", driver=mock_driver)
@@ -1018,11 +1018,11 @@ def test_read_routes_digital_line_by_type():
 
     result = daq.read("di0")
 
-    assert result.channel_data == {"ut.di0": [1.0]}
+    assert result["di0"].channel_data == {"ut.di0": [1.0]}
 
 
 def test_read_none_reads_every_configured_input():
-    """read() returns the projected analog batch (one of each analog type) plus every DI channel's value."""
+    """read() returns {alias: Measurement} for one of each analog type plus every DI channel."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = [
         Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
@@ -1037,8 +1037,10 @@ def test_read_none_reads_every_configured_input():
 
     result = daq.read()
 
-    merged = {key: values for measurement in result for key, values in measurement.channel_data.items()}
-    assert merged == {"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0], "ut.di0": [1.0]}
+    assert result["v0"].channel_data == {"ut.v0": [1.0]}
+    assert result["c0"].channel_data == {"ut.c0": [0.01]}
+    assert result["tc0"].channel_data == {"ut.tc0": [25.0]}
+    assert result["di0"].channel_data == {"ut.di0": [1.0]}
 
 
 def test_read_unconfigured_channel_raises():
