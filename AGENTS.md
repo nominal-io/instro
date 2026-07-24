@@ -9,8 +9,6 @@ uv sync --extra all              # install everything
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
 just check                       # ruff format, mypy, ruff lint
 just test                        # unit tests; no hardware required
-just rust-lock-check             # verify all Cargo.lock files (--locked)
-just rust-standalone             # fmt/clippy/check for standalone PyO3 crates
 uv build --package <name>        # build a wheel for a workspace package
 ```
 
@@ -93,11 +91,11 @@ Pure-Rust crates under `crates/` that are published to crates.io are independent
 
 Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags. The OPC UA crate uses `instro-opcua-rs` for the same Rust-crate tag convention.
 
+When a Rust core crate backs a Python package, keep the wrapper dependency key identical to the core crate's `[package].name`. release-please's `cargo-workspace` plugin matches dependency table keys rather than resolved Cargo paths, so aliases such as `instro-ethernetip-rs = { package = "instro-ethernetip", ... }` break the automatic wrapper patch bump.
+
 For an initial stable release such as `0.1.0`, set `initial-version` in `.github/release-please-config.json` and let the generated release PR add the new path to `.github/release-please-manifest.json`. Pre-seeding the manifest with `0.1.0` tells release-please that `0.1.0` has already shipped.
 
 Crates are published from `.github/workflows/release-please-publish.yml` with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`), not a stored `CARGO_REGISTRY_TOKEN`. The crate must already exist on crates.io and have a trusted publisher configured for this repository and workflow file.
-
-If a Rust core crate backs a Python package, release coupling is manual. A release of `crates/instro-ethernetip` will not automatically cause a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when both artifacts should ship.
 
 ## Patterns and constraints
 
