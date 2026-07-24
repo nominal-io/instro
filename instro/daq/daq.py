@@ -1000,20 +1000,20 @@ class InstroDAQ(Instrument):
             if unknown := [a for a in aliases if a not in ai and a not in di]:
                 raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
 
+        # Read every analog channel once, then map each channel key to the Measurement it came back in.
+        analog_source: dict[str, Measurement] = {}
+        if any(alias in ai for alias in aliases):
+            analog = self.read_analog(**kwargs)
+            for measurement in analog if isinstance(analog, list) else [analog]:
+                for key in measurement.channel_data:
+                    analog_source[key] = measurement
+
         result: dict[str, Measurement] = {}
-        analog_batch: list[Measurement] | None = None
         for alias in aliases:
             if alias in ai:
-                if analog_batch is None:
-                    analog = self.read_analog(**kwargs)
-                    analog_batch = analog if isinstance(analog, list) else [analog]
                 key = f"{self.name}.{alias}"
-                for measurement in analog_batch:
-                    if key in measurement.channel_data:
-                        result[alias] = Measurement(
-                            {key: measurement.channel_data[key]}, measurement.timestamps, measurement.tags
-                        )
-                        break
+                source = analog_source[key]
+                result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
                 continue
             # NOTE: Planning on ripping out port support
             if isinstance(di[alias], DigitalPortChannel):

@@ -546,6 +546,45 @@ print(f"Port value: {int(measurement.latest)}")
 Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels. On **NI DAQmx**, `port_width` is checked against the port's physical line count and a mismatch raises `ValueError` — pass the `DigitalPortWidth` that matches the hardware port.
 </Note>
 
+## Unified Read and Write
+
+### Reading by Alias
+
+`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
+
+```python
+daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+daq.configure_digital_input(physical_channel="DIO0", alias="limit_switch")
+
+# A single channel
+result = daq.read("v0")
+print(result["v0"].latest)
+
+# Several channels of mixed type
+result = daq.read(["v0", "limit_switch"])
+print(result["v0"].latest, result["limit_switch"].latest)
+
+# Every configured input channel
+result = daq.read()
+```
+
+### Writing by Alias
+
+`write()` writes `values[i]` to `channels[i]`, routing each to analog or digital output by channel type. Pass a single alias and value, or parallel lists to write several channels at once. It returns the resulting `Command` for a single alias, or a list of `Command` objects for a list of aliases.
+
+```python
+daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+daq.configure_digital_output(physical_channel="DIO1", alias="enable")
+
+# A single channel
+daq.write("ao0", 2.2)
+
+# Several channels, paired by index
+daq.write(["ao0", "enable"], [2.2, 1])
+```
+
+Digital values are coerced to `int`. The `channels` and `values` lists must be the same length; a mismatch raises `ValueError`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
+
 ## Complete Examples
 
 ### Example 1: Multi-Channel Software-Timed Acquisition
@@ -649,6 +688,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `write_analog_value(channel)` | `{alias}.cmd` | command |
 | `read_digital_line(channel)` / `read_digital_port(channel)` | `{alias}` | telemetry |
 | `write_digital_line(channel, data)` / `write_digital_port(channel, data)` | `{alias}.cmd` | command |
+| `read(channels)` (per channel) | `{alias}` | telemetry |
+| `write(channels, values)` (per channel) | `{alias}.cmd` | command |
 | `close_relay(channel)` | `{alias}.cmd` (value `"CLOSED"`) | command |
 | `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
 | `get_points_in_buffer()` | `buffer` | telemetry |
@@ -676,6 +717,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `start()` | Begin hardware-timed acquisition (background daemon) |
 | `stop()` | End hardware-timed acquisition |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
+| `read(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
+| `write(channels, values)` | Write value(s) to output channel(s) by alias, paired by index |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
 | `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
