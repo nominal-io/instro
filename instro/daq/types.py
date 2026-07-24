@@ -39,7 +39,7 @@ class TerminalConfig(Enum):
     RSE = "RSE"
 
 
-class CJC_SOURCE(Enum):
+class CJCSource(Enum):
     INTERNAL = "INTERNAL"
     CONSTANT = "CONSTANT"
     CHANNEL = "CHANNEL"
@@ -91,7 +91,7 @@ class AnalogThermocoupleChannel(DAQChannel):
     range_max: float
     range_min: float
     tc_type: TC_TYPE
-    cjc_source: CJC_SOURCE | None
+    cjc_source: CJCSource | None
     cjc_temp: float | None
     cjc_channel: str | None
     unit: TC_UNIT | None

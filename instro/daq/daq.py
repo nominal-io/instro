@@ -9,11 +9,11 @@ from typing import Any, Mapping
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
-    CJC_SOURCE,
     AnalogChannel,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -631,7 +631,7 @@ class InstroDAQ(Instrument):
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
-        cjc_source: CJC_SOURCE = CJC_SOURCE.INTERNAL,
+        cjc_source: CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
         unit: TC_UNIT = TC_UNIT.CELSIUS,
