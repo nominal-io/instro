@@ -907,7 +907,6 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
-        self._running = False
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
@@ -915,6 +914,7 @@ class InstroDAQ(Instrument):
             return
         channel_type = kwargs.pop("channel_type", None)
         self._driver.stop(channel_type=channel_type, **kwargs)
+        self._running = False
 
     def read_analog(
         self,
