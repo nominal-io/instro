@@ -420,6 +420,31 @@ def test_duplicate_channel_guard_is_global_across_configure_methods():
         daq.configure_current_input("ai1", alias="shared")
 
 
+def test_configure_while_running_raises():
+    """A new configure_* method refuses to configure a channel while acquisition is running (nothing recorded)."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.start(background=False)
+
+    with pytest.raises(RuntimeError, match=r"cannot configure channel 'v0' while 'ut' is running; call stop\(\)"):
+        daq.configure_voltage_input("ai0", alias="v0")
+    assert not daq.ai_channels
+
+    daq.stop()
+
+
+def test_configure_after_stop_succeeds():
+    """stop() clears the running guard so channels can be configured again."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.start(background=False)
+    daq.stop()
+
+    daq.configure_voltage_input("ai0", alias="v0")
+
+    assert "v0" in daq.ai_channels
+
+
 # ---------------------------------------------------------------------------
 # open() guard
 # ---------------------------------------------------------------------------

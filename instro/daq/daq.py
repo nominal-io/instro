@@ -437,6 +437,7 @@ class InstroDAQ(Instrument):
 
         self._driver = driver
         self._is_open = False
+        self._running = False
 
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
@@ -518,6 +519,11 @@ class InstroDAQ(Instrument):
                     f"({_channel_kind(existing)} on {existing.physical_channel}); remove it before reconfiguring."
                 )
 
+    def _verify_not_running(self, alias: str) -> None:
+        """Raise if a channel is configured while acquisition is running; the user must ``stop()`` first."""
+        if self._running:
+            raise RuntimeError(f"cannot configure channel '{alias}' while '{self.name}' is running; call stop() first.")
+
     def open(self):
         """Open the underlying driver."""
         logger.info("Opening DAQ '%s'", self.name)
@@ -559,7 +565,9 @@ class InstroDAQ(Instrument):
         if terminal_config is not None:
             terminal_config = _coerce_enum(terminal_config, TerminalConfig, "terminal_config")
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -592,7 +600,9 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -626,7 +636,9 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -658,7 +670,9 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -705,7 +719,9 @@ class InstroDAQ(Instrument):
         cjc_source = _coerce_enum(cjc_source, CJCSource, "cjc_source")
         unit = _coerce_enum(unit, TC_UNIT, "unit")
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogThermocoupleChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -743,7 +759,9 @@ class InstroDAQ(Instrument):
         self._require_open()
         logic = _coerce_enum(logic, Logic, "logic")
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -773,7 +791,9 @@ class InstroDAQ(Instrument):
         self._require_open()
         logic = _coerce_enum(logic, Logic, "logic")
         alias = alias if alias else physical_channel
+        # Channel validation
         self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
             alias=alias,
@@ -877,6 +897,7 @@ class InstroDAQ(Instrument):
         # we add other channel type capabilities that are hardware timed.
 
         self._driver.start(channel_type=channel_type)
+        self._running = True
 
         if background:
             self._define_background_daemon()
@@ -885,6 +906,7 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        self._running = False
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
