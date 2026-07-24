@@ -964,6 +964,7 @@ class InstroDAQ(Instrument):
                 if isinstance(do[channel], DigitalPortChannel):
                     commands.append(self.write_digital_port(channel, int(value), **kwargs))
                     continue
+                # Why does this function accept the data as an int? Shouldn't it only accept a bool?
                 commands.append(self.write_digital_line(channel, int(value), **kwargs))
                 continue
             raise KeyError(f"Output channel '{channel}' is not configured. Configured output channels: {[*ao, *do]}.")
