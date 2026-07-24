@@ -257,7 +257,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_voltage_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogVoltageChannel` | `configure_ao_voltage_channel` |
 | `configure_current_input(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ai_current_channel` |
 | `configure_current_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ao_current_channel` |
-| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, cjc_source, cjc_temp, cjc_channel, unit)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
+| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, unit)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
 | `configure_digital_input(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_di_channel` |
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
