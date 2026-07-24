@@ -7,7 +7,6 @@ import pytest
 
 from instro.daq import DAQDriverBase, InstroDAQ
 from instro.daq.drivers import HWTimestamper
-from instro.daq.scaling.thermocouple import TC_TYPE
 from instro.daq.types import (
     DigitalLineChannel,
     DigitalPortChannel,
@@ -361,17 +360,29 @@ def test_read_digital_port_unconfigured_channel():
 # ---------------------------------------------------------------------------
 
 
+# Enum args are passed as plain strings so these also confirm the new methods accept string enum values.
 _NEW_CONFIGURE_CALLS = [
-    ("configure_voltage_input", lambda daq, alias: daq.configure_voltage_input("ai0", alias=alias)),
+    (
+        "configure_voltage_input",
+        lambda daq, alias: daq.configure_voltage_input("ai0", alias=alias, terminal_config="RSE"),
+    ),
     ("configure_voltage_output", lambda daq, alias: daq.configure_voltage_output("ao0", alias=alias)),
     ("configure_current_input", lambda daq, alias: daq.configure_current_input("ai1", alias=alias)),
     ("configure_current_output", lambda daq, alias: daq.configure_current_output("ao1", alias=alias)),
     (
         "configure_thermocouple_input",
-        lambda daq, alias: daq.configure_thermocouple_input("ai2", TC_TYPE.K, alias=alias),
+        lambda daq, alias: daq.configure_thermocouple_input(
+            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="CELSIUS"
+        ),
     ),
-    ("configure_digital_input", lambda daq, alias: daq.configure_digital_input("port0/line0", alias=alias)),
-    ("configure_digital_output", lambda daq, alias: daq.configure_digital_output("port0/line1", alias=alias)),
+    (
+        "configure_digital_input",
+        lambda daq, alias: daq.configure_digital_input("port0/line0", alias=alias, logic="HIGH"),
+    ),
+    (
+        "configure_digital_output",
+        lambda daq, alias: daq.configure_digital_output("port0/line1", alias=alias, logic="LOW"),
+    ),
 ]
 
 
