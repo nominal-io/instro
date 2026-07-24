@@ -379,6 +379,24 @@ class DAQDriverBase(abc.ABC):
         ...
 
 
+def _channel_kind(channel: DAQChannel) -> str:
+    """Short kind label (e.g. ``voltage_input``) describing an already-configured channel for error messages."""
+    direction = channel.direction.value.lower()
+    match channel:
+        case AnalogThermocoupleChannel():
+            return "thermocouple_input"
+        case AnalogVoltageChannel():
+            return f"voltage_{direction}"
+        case AnalogCurrentChannel():
+            return f"current_{direction}"
+        case DigitalChannel():
+            return f"digital_{direction}"
+        case AnalogChannel():
+            return f"analog_{direction}"
+        case _:
+            return f"channel_{direction}"
+
+
 class InstroDAQ(Instrument):
     def __init__(
         self,
@@ -479,6 +497,15 @@ class InstroDAQ(Instrument):
         if not self._is_open:
             raise InstrumentNotOpenError(f"InstroDAQ '{self.name}' is not open. Call open() first.")
 
+    def _reject_duplicate_channel(self, alias: str) -> None:
+        """Raise if ``alias`` is already configured on the driver, so a channel can't be silently reconfigured."""
+        for existing in self._driver.channels:
+            if existing.alias == alias:
+                raise ValueError(
+                    f"channel '{alias}' is already configured "
+                    f"({_channel_kind(existing)} on {existing.physical_channel}); remove it before reconfiguring."
+                )
+
     def open(self):
         """Open the underlying driver."""
         logger.info("Opening DAQ '%s'", self.name)
@@ -517,9 +544,11 @@ class InstroDAQ(Instrument):
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -548,9 +577,11 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` for the channel.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             range_min=range_min,
             range_max=range_max,
@@ -580,9 +611,11 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -610,9 +643,11 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` for the channel.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             range_min=range_min,
             range_max=range_max,
@@ -652,9 +687,11 @@ class InstroDAQ(Instrument):
             unit: Temperature unit for returned readings.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = AnalogThermocoupleChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -687,9 +724,11 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             logic=logic,
             logic_level=logic_level,
@@ -714,9 +753,11 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        self._reject_duplicate_channel(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             logic=logic,
             logic_level=logic_level,
