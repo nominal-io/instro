@@ -90,6 +90,7 @@ class AnalogCurrentChannel(DAQChannel):
 class AnalogThermocoupleChannel(DAQChannel):
     range_max: float
     range_min: float
+    scaler: Scaler | None
     tc_type: TC_TYPE
     cjc_source: CJCSource | None
     cjc_temp: float | None

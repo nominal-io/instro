@@ -631,6 +631,7 @@ class InstroDAQ(Instrument):
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
+        scaler: Scaler | None = None,
         cjc_source: CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
@@ -643,6 +644,7 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
             range_min: Lower temperature range (in ``unit``).
             range_max: Upper temperature range (in ``unit``).
+            scaler: Optional ``Scaler`` applied to AI samples after read.
             tc_type: Type of thermocouple used
             cjc_source: Cold-junction compensation source (internal / constant / channel).
             cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
@@ -656,6 +658,7 @@ class InstroDAQ(Instrument):
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
+            scaler=scaler,
             tc_type=tc_type,
             cjc_source=cjc_source,
             cjc_temp=cjc_temp,
