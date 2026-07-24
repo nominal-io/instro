@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
@@ -19,9 +21,14 @@ from instro.unstable.awg.types import (
 # IEEE-488.2 sentinel returned by OUTP:LOAD? when the output is high-Z.
 _HIGH_Z_SENTINEL = 9.9e37
 
-# TRACe:DATA VOLATILE accepts 8 to 16384 points per download command.
+# DATA VOLATILE accepts 8 to 16384 points per download command.
 _ARB_MIN_POINTS = 8
 _ARB_MAX_POINTS = 16384
+# Queries sent while the firmware is still processing an arb command appear to
+# wedge it outright (front panel becomes unresponsive, not just a slow reply);
+# wait it out with fixed delays instead of blocking on a query.
+_ARB_DOWNLOAD_SETTLE_S = 1.0
+_ARB_MODE_SETTLE_S = 0.2
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 _TRIANGLE_SYMMETRY_PCT = 50
@@ -76,6 +83,7 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:FUNC PULS")
                 self._visa.write(f":SOUR{channel}:FREQ {waveform.frequency_hz}")
                 self._visa.write(f":SOUR{channel}:FUNC:PULS:WIDT {waveform.width_s}")
+
             elif isinstance(waveform, Arbitrary):
                 num_points = len(waveform.samples)
                 if not _ARB_MIN_POINTS <= num_points <= _ARB_MAX_POINTS:
@@ -84,9 +92,12 @@ class RigolDG1022Z(AWGDriverBase):
                         f" per download, got {num_points}"
                     )
                 data = ",".join(str(sample) for sample in waveform.samples)
-                self._visa.write(f":SOUR{channel}:TRAC:DATA VOLATILE,{data}")
+                self._visa.write(f":SOUR{channel}:DATA VOLATILE,{data}")
+                time.sleep(_ARB_DOWNLOAD_SETTLE_S)
+                self._visa.write(f":SOUR{channel}:FUNC USER")
                 self._visa.write(f":SOUR{channel}:FUNC:ARB:MODE SRAT")
                 self._visa.write(f":SOUR{channel}:FUNC:ARB:SRAT {waveform.sample_rate_hz}")
+                time.sleep(_ARB_MODE_SETTLE_S)
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
@@ -114,7 +125,8 @@ class RigolDG1022Z(AWGDriverBase):
                 width = float(self._visa.query(f":SOUR{channel}:FUNC:PULS:WIDT?"))
                 return Pulse(frequency_hz=float(fields[1]), width_s=width)
             if name == "DC":
-                return StaticValue(value=float(self._visa.query(f":SOUR{channel}:VOLT:OFFS?")))
+                # In DC mode VOLT:OFFS? always reads 0; the level is only reported in the APPL? reply.
+                return StaticValue(value=float(fields[3]))
             if name == "USER":
                 arb = self._arb_waveforms.get(channel)
                 if arb is None:
