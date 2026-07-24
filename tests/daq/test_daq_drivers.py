@@ -358,6 +358,96 @@ def test_read_digital_port_unconfigured_channel():
 
 
 # ---------------------------------------------------------------------------
+# duplicate-channel guard (new configure_* surface)
+# ---------------------------------------------------------------------------
+
+
+# Enum args are passed as plain strings so these also confirm the new methods accept string enum values.
+_NEW_CONFIGURE_CALLS = [
+    (
+        "configure_voltage_input",
+        lambda daq, alias: daq.configure_voltage_input("ai0", alias=alias, terminal_config="RSE"),
+    ),
+    ("configure_voltage_output", lambda daq, alias: daq.configure_voltage_output("ao0", alias=alias)),
+    ("configure_current_input", lambda daq, alias: daq.configure_current_input("ai1", alias=alias)),
+    ("configure_current_output", lambda daq, alias: daq.configure_current_output("ao1", alias=alias)),
+    (
+        "configure_thermocouple_input",
+        lambda daq, alias: daq.configure_thermocouple_input(
+            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="CELSIUS"
+        ),
+    ),
+    (
+        "configure_digital_input",
+        lambda daq, alias: daq.configure_digital_input("port0/line0", alias=alias, logic="HIGH"),
+    ),
+    (
+        "configure_digital_output",
+        lambda daq, alias: daq.configure_digital_output("port0/line1", alias=alias, logic="LOW"),
+    ),
+]
+
+
+@pytest.mark.parametrize("name,call", _NEW_CONFIGURE_CALLS, ids=[name for name, _ in _NEW_CONFIGURE_CALLS])
+def test_configure_same_alias_twice_raises(name, call):
+    """Every new configure_* method rejects reconfiguring an already-configured alias."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    call(daq, "dup")
+    with pytest.raises(ValueError, match="channel 'dup' is already configured"):
+        call(daq, "dup")
+
+
+def test_duplicate_channel_error_names_existing_kind_and_physical_channel():
+    """The duplicate error reports the existing channel's kind and physical channel."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_input("cDAQ1Mod1/ai0", alias="v_in")
+
+    with pytest.raises(
+        ValueError,
+        match=r"channel 'v_in' is already configured \(voltage_input on cDAQ1Mod1/ai0\); remove it before reconfiguring.",
+    ):
+        daq.configure_voltage_input("cDAQ1Mod1/ai1", alias="v_in")
+
+
+def test_duplicate_channel_guard_is_global_across_configure_methods():
+    """An alias is unique across the whole driver: a different configure_* method can't reuse it."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_input("ai0", alias="shared")
+
+    with pytest.raises(ValueError, match=r"channel 'shared' is already configured \(voltage_input on ai0\)"):
+        daq.configure_current_input("ai1", alias="shared")
+
+
+def test_configure_while_running_raises():
+    """A new configure_* method refuses to configure a channel while acquisition is running (nothing recorded)."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.start(background=False)
+
+    with pytest.raises(RuntimeError, match=r"cannot configure channel 'v0' while 'ut' is running; call stop\(\)"):
+        daq.configure_voltage_input("ai0", alias="v0")
+    assert not daq.ai_channels
+
+    daq.stop()
+
+
+def test_configure_after_stop_succeeds():
+    """stop() clears the running guard so channels can be configured again."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.start(background=False)
+    daq.stop()
+
+    daq.configure_voltage_input("ai0", alias="v0")
+
+    assert "v0" in daq.ai_channels
+
+
+# ---------------------------------------------------------------------------
 # open() guard
 # ---------------------------------------------------------------------------
 

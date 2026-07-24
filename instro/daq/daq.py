@@ -3,8 +3,9 @@
 import abc
 import logging
 import time
+from enum import Enum
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Mapping, TypeVar
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
@@ -31,6 +32,17 @@ from instro.lib.publishers import Publisher
 from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
+
+_E = TypeVar("_E", bound=Enum)
+
+
+def _coerce_enum(value: str | _E, enum_cls: type[_E], param: str) -> _E:
+    """Convert ``value`` (name or member) to an ``enum_cls`` member, raising a uniform ValueError on a bad value."""
+    try:
+        return enum_cls(value)
+    except ValueError:
+        valid = ", ".join(str(member.value) for member in enum_cls)
+        raise ValueError(f"{param} '{value}' is not valid; choose one of {valid}.") from None
 
 
 class HWTimestamper:
@@ -380,6 +392,24 @@ class DAQDriverBase(abc.ABC):
         ...
 
 
+def _channel_kind(channel: DAQChannel) -> str:
+    """Short kind label (e.g. ``voltage_input``) describing an already-configured channel for error messages."""
+    direction = channel.direction.value.lower()
+    match channel:
+        case AnalogThermocoupleChannel():
+            return "thermocouple_input"
+        case AnalogVoltageChannel():
+            return f"voltage_{direction}"
+        case AnalogCurrentChannel():
+            return f"current_{direction}"
+        case DigitalChannel():
+            return f"digital_{direction}"
+        case AnalogChannel():
+            return f"analog_{direction}"
+        case _:
+            return f"channel_{direction}"
+
+
 class InstroDAQ(Instrument):
     def __init__(
         self,
@@ -408,6 +438,7 @@ class InstroDAQ(Instrument):
 
         self._driver = driver
         self._is_open = False
+        self._running = False
 
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
@@ -480,6 +511,20 @@ class InstroDAQ(Instrument):
         if not self._is_open:
             raise InstrumentNotOpenError(f"InstroDAQ '{self.name}' is not open. Call open() first.")
 
+    def _reject_duplicate_channel(self, alias: str) -> None:
+        """Raise if ``alias`` is already configured on the driver, so a channel can't be silently reconfigured."""
+        for existing in self._driver.channels:
+            if existing.alias == alias:
+                raise ValueError(
+                    f"channel '{alias}' is already configured "
+                    f"({_channel_kind(existing)} on {existing.physical_channel}); remove it before reconfiguring."
+                )
+
+    def _verify_not_running(self, alias: str) -> None:
+        """Raise if a channel is configured while acquisition is running; the user must ``stop()`` first."""
+        if self._running:
+            raise RuntimeError(f"cannot configure channel '{alias}' while '{self.name}' is running; call stop() first.")
+
     def open(self):
         """Open the underlying driver."""
         logger.info("Opening DAQ '%s'", self.name)
@@ -505,7 +550,7 @@ class InstroDAQ(Instrument):
         range_min: float = -10.0,
         range_max: float = 10.0,
         scaler: Scaler | None = None,
-        terminal_config: TerminalConfig | None = None,
+        terminal_config: str | TerminalConfig | None = None,
     ):
         """Configure an analog voltage input channel.
 
@@ -518,9 +563,15 @@ class InstroDAQ(Instrument):
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
         self._require_open()
+        if terminal_config is not None:
+            terminal_config = _coerce_enum(terminal_config, TerminalConfig, "terminal_config")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -549,9 +600,13 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` for the channel.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogVoltageChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             range_min=range_min,
             range_max=range_max,
@@ -581,9 +636,13 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -611,9 +670,13 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` for the channel.
         """
         self._require_open()
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogCurrentChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             range_min=range_min,
             range_max=range_max,
@@ -627,16 +690,16 @@ class InstroDAQ(Instrument):
     def configure_thermocouple_input(
         self,
         physical_channel: str,
-        tc_type: TC_TYPE,
+        tc_type: str | TC_TYPE,
         *,
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
         scaler: Scaler | None = None,
-        cjc_source: CJCSource = CJCSource.INTERNAL,
+        cjc_source: str | CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
-        unit: TC_UNIT = TC_UNIT.CELSIUS,
+        unit: str | TC_UNIT = TC_UNIT.CELSIUS,
     ):
         """Configure a thermocouple input channel.
 
@@ -646,16 +709,23 @@ class InstroDAQ(Instrument):
             range_min: Lower temperature range (in ``unit``).
             range_max: Upper temperature range (in ``unit``).
             scaler: Optional ``Scaler`` applied to AI samples after read.
-            tc_type: Type of thermocouple used
+            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
             cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
             unit: Temperature unit for returned readings.
         """
         self._require_open()
+        tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
+        cjc_source = _coerce_enum(cjc_source, CJCSource, "cjc_source")
+        unit = _coerce_enum(unit, TC_UNIT, "unit")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = AnalogThermocoupleChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             range_min=range_min,
             range_max=range_max,
@@ -675,7 +745,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        logic: Logic = Logic.HIGH,
+        logic: str | Logic = Logic.HIGH,
         logic_level: float | None = None,
         alias: str | None = None,
     ):
@@ -688,9 +758,14 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
+        logic = _coerce_enum(logic, Logic, "logic")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.INPUT,
             logic=logic,
             logic_level=logic_level,
@@ -702,7 +777,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        logic: Logic = Logic.HIGH,
+        logic: str | Logic = Logic.HIGH,
         logic_level: float | None = None,
         alias: str | None = None,
     ):
@@ -715,9 +790,14 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
+        logic = _coerce_enum(logic, Logic, "logic")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
         channel = DigitalLineChannel(
             physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
+            alias=alias,
             direction=Direction.OUTPUT,
             logic=logic,
             logic_level=logic_level,
@@ -818,6 +898,7 @@ class InstroDAQ(Instrument):
         # we add other channel type capabilities that are hardware timed.
 
         self._driver.start(channel_type=channel_type)
+        self._running = True
 
         if background:
             self._define_background_daemon()
@@ -826,6 +907,7 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        self._running = False
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
