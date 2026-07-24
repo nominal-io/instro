@@ -7,6 +7,7 @@ import pytest
 
 from instro.daq import DAQDriverBase, InstroDAQ
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_TYPE
 from instro.daq.types import (
     DigitalLineChannel,
     DigitalPortChannel,
@@ -66,6 +67,27 @@ class _RecordingDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel):
         self._ao_channels[channel.alias] = channel
+
+    def configure_ai_voltage_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_voltage_channel(self, channel):
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_current_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_current_channel(self, channel):
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_di_channel(self, channel):
+        self._di_channels[channel.alias] = channel
+
+    def configure_do_channel(self, channel):
+        self._do_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
@@ -877,7 +899,6 @@ def test_start_default_spins_daemon_and_read_analog_raises():
 
 
 # --- unified read() / write() routing ---
-# TODO: Convert these to use new `configure_*` methods
 
 
 def test_read_projects_analog_batch_to_requested_alias():
@@ -888,8 +909,8 @@ def test_read_projects_analog_batch_to_requested_alias():
     ]
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="v0")
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai1", alias="v1")
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_voltage_input(physical_channel="ai1", alias="v1")
 
     result = daq.read("v0")
 
@@ -903,7 +924,7 @@ def test_read_routes_digital_line_by_type():
     mock_driver.read_digital_line.return_value = 1
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
-    daq.configure_digital_line(direction=Direction.INPUT, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
 
     result = daq.read("di0")
 
@@ -911,19 +932,23 @@ def test_read_routes_digital_line_by_type():
 
 
 def test_read_none_reads_every_configured_input():
-    """read() returns the projected analog batch plus every DI channel's value."""
+    """read() returns the projected analog batch (one of each analog type) plus every DI channel's value."""
     mock_driver = _make_mock_driver()
-    mock_driver._read_to_measurements.return_value = [Measurement(channel_data={"ut.v0": [1.0]}, timestamps=[111])]
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
+    ]
     mock_driver.read_digital_line.return_value = 1
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="v0")
-    daq.configure_digital_line(direction=Direction.INPUT, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_current_input(physical_channel="ai1", alias="c0")
+    daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0")
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
 
     result = daq.read()
 
     merged = {key: values for measurement in result for key, values in measurement.channel_data.items()}
-    assert merged == {"ut.v0": [1.0], "ut.di0": [1.0]}
+    assert merged == {"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0], "ut.di0": [1.0]}
 
 
 def test_read_unconfigured_channel_raises():
@@ -939,10 +964,8 @@ def test_write_routes_each_index_to_its_channel():
     """write(list, list) commands values[i] to channels[i], analog and digital each on their own path, in order."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_analog_channel(direction=Direction.OUTPUT, physical_channel="ao0", alias="ao0")
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
     analog_cmd, digital_cmd = daq.write(["ao0", "do0"], [2.5, 1])
 
@@ -954,7 +977,7 @@ def test_write_scalar_single_channel_returns_one_command():
     """write(str, value) returns a single Command carrying the written value."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_analog_channel(direction=Direction.OUTPUT, physical_channel="ao0", alias="ao0")
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
 
     result = daq.write("ao0", 2.5)
 
@@ -966,9 +989,7 @@ def test_write_coerces_value_to_int_for_digital():
     """Digital writes coerce the value to int; the command holds an int, not a float."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
     value = daq.write("do0", 1.0).channel_data["ut.do0.cmd"]
 
@@ -979,7 +1000,7 @@ def test_write_length_mismatch_raises():
     """Mismatched channels/values lengths raise ValueError."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_analog_channel(direction=Direction.OUTPUT, physical_channel="ao0", alias="ao0")
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
 
     with pytest.raises(ValueError, match="lengths must match"):
         daq.write(["ao0", "do0"], [2.5])
