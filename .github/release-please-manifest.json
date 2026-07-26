@@ -8,5 +8,5 @@
   "packages/instro-ethernetip": "1.0.0",
   "packages/instro-contrib": "1.0.0",
   "crates/instro-ethernetip": "1.0.0",
-  "crates/instro-opcua": "1.0.0"
+  "crates/instro-opcua": "2.0.0"
 }
