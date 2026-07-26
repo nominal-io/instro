@@ -583,14 +583,16 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         if self.ai_hw_timing_config:
-            if not (self._background_thread and self._background_thread.is_alive()):
-                measurements = self._fetch_analog(**kwargs)
-                return measurements[0] if len(measurements) == 1 else measurements
-            # Background daemon running. The user can't pull from the buffer mid-flight.
-            # TODO revisit with INSTRO-149 issue ticket.
-            raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
+            if self._background_thread and self._background_thread.is_alive():
+                # Background daemon running. The user can't pull from the buffer mid-flight.
+                # TODO revisit with INSTRO-149 issue ticket.
+                raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-        measurements = self._software_timed_read(**kwargs)
+            measurements = self._fetch_analog(**kwargs)
+
+        else:
+            measurements = self._software_timed_read(**kwargs)
+
         return measurements[0] if len(measurements) == 1 else measurements
 
     @publish_measurement
@@ -604,8 +606,8 @@ class InstroDAQ(Instrument):
             default_tags=self.default_tags,
             **kwargs,
         )
-        measurements = self._scale_analog_measurement(measurements)
-        return measurements
+
+        return self._scale_analog_measurement(measurements)
 
     @publish_measurement
     def _fetch_analog(self, **kwargs) -> list[Measurement]:
