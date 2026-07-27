@@ -87,7 +87,7 @@ fix-python: fix-format fix-imports
 
 # fixes Rust code formatting (note: mutates the code)
 fix-rust:
-    cargo fmt --all
+    cargo +nightly fmt --all
     just rust-standalone-fix
 
 # fix imports and formatting
