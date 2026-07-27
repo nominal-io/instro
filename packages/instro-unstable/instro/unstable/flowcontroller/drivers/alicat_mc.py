@@ -317,7 +317,7 @@ class AlicatMC(FlowControllerDriverBase):
 
     def _query_loop_variable(self) -> None:
         """Query the device for its current loop control variable (process value source) and cache it."""
-        response = self._query_checked(f"{self.unit_id}LR{LOOP_VARIABLE_MASS_FLOW}")
+        response = self._query_checked(f"{self.unit_id}LR")
         fields = response.split()
         # To query the current loop variable, use unit_idLR as the
         # command. On 10v05 and above this also queries the current
@@ -381,7 +381,7 @@ class AlicatMC(FlowControllerDriverBase):
         response = self._query_checked(f"{self.unit_id}gm {mix_name} {gas_id} {mixture_strings}")
         response_cols = response.split()
         mixture_identifier = GasTypeEntry(int(response_cols[1]), mix_name)
-        self.known_gas_types = []
+        self.known_gas_types = []  # invalidate cache
         return mixture_identifier
 
     ###Normal Operation
