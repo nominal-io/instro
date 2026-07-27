@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "instro-ethernetip-py"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "instro-ethernetip",
  "pyo3",
