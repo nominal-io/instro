@@ -99,6 +99,7 @@ members = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-opcua",
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
