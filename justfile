@@ -64,12 +64,9 @@ check-imports:
 # run all python static analysis checks
 check-python: check-format check-types check-imports
 
-# check Rust formatting, lints, and lockfiles | fix formatting with `just fix-rust`
-check-rust:
-    just rust-lock-check
-    cargo fmt --all --check
-    cargo clippy --workspace --all-targets --all-features -- -D warnings
-    just rust-standalone
+check-rust: rust-lock-check rust-standalone
+    cargo +nightly fmt --all --check
+    cargo clippy --all-features --all-targets --workspace -- -D warnings
 
 # run all static analysis checks
 check: check-python check-rust
