@@ -1,11 +1,7 @@
 # Changelog
 
-## [2.0.0](https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v2.0.0) (2026-07-26)
+## [1.5.0](https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v1.5.0) (2026-07-26)
 
-
-### ⚠ BREAKING CHANGES
-
-* **opcua:** implement browse paths ([#161](https://github.com/nominal-io/instro/issues/161))
 
 ### Features
 
