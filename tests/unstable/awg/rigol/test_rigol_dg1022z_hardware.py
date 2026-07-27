@@ -27,7 +27,9 @@ pytestmark = pytest.mark.hardware
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND to
 # "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
 # Outputs are only enabled briefly at low amplitude; leave them unconnected or on a scope.
-VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
+# VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
+VISA_RESOURCE = "TCPIP0::169.254.10.1::INSTR"
+
 VISA_BACKEND = "@py"
 CHANNELS = (1, 2)
 INVALID_CHANNEL = 3

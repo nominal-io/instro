@@ -146,21 +146,27 @@ def test_11_set_waveform_pulse_rejects_nonzero_delay(rigol: RigolDG1022Z, rigol_
     rigol_visa.write.assert_not_called()
 
 
-def test_12_set_waveform_arbitrary_downloads_before_mode_select(
+def test_12_set_waveform_arbitrary_writes_points_individually(
     rigol: RigolDG1022Z,
     rigol_visa: MagicMock,
 ) -> None:
-    with patch("instro.unstable.awg.drivers.rigol_dg1022z.time.sleep") as sleep_mock:
-        rigol.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0))
+    rigol_visa.query.return_value = '0,"No error"'
+
+    rigol.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0))
 
     assert rigol_visa.write.call_args_list == [
-        call(":SOUR1:DATA VOLATILE,0.0,0.5,1.0,-1.0,0.25,-0.25,0.75,-0.75"),
-        call(":SOUR1:FUNC USER"),
-        call(":SOUR1:FUNC:ARB:MODE SRAT"),
-        call(":SOUR1:FUNC:ARB:SRAT 1000000.0"),
+        call(":SOUR1:APPL:ARB 1000000.0"),
+        call(":SOUR1:TRAC:DATA:POIN VOLATILE,8"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,1,8192"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,2,12287"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,3,16383"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,4,0"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,5,10239"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,6,6144"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,7,14335"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,8,2048"),
     ]
-    rigol_visa.query.assert_not_called()
-    assert sleep_mock.call_args_list == [call(1.0), call(0.2)]
+    assert rigol_visa.query.call_count == 10
 
 
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])
@@ -266,8 +272,8 @@ def test_20_get_waveform_parses_static_value_from_apply_reply(
 
 def test_21_get_waveform_returns_cached_arbitrary(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0)
-    with patch("instro.unstable.awg.drivers.rigol_dg1022z.time.sleep"):
-        rigol.set_waveform(1, arbitrary)
+    rigol_visa.query.return_value = '0,"No error"'
+    rigol.set_waveform(1, arbitrary)
     rigol_visa.query.return_value = '"USER,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"'
 
     assert rigol.get_waveform(1) is arbitrary

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
@@ -21,14 +19,8 @@ from instro.unstable.awg.types import (
 # IEEE-488.2 sentinel returned by OUTP:LOAD? when the output is high-Z.
 _HIGH_Z_SENTINEL = 9.9e37
 
-# DATA VOLATILE accepts 8 to 16384 points per download command.
 _ARB_MIN_POINTS = 8
 _ARB_MAX_POINTS = 16384
-# Queries sent while the firmware is still processing an arb command appear to
-# wedge it outright (front panel becomes unresponsive, not just a slow reply);
-# wait it out with fixed delays instead of blocking on a query.
-_ARB_DOWNLOAD_SETTLE_S = 1.0
-_ARB_MODE_SETTLE_S = 0.2
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 _TRIANGLE_SYMMETRY_PCT = 50
@@ -91,13 +83,14 @@ class RigolDG1022Z(AWGDriverBase):
                         f"the DG1022Z accepts {_ARB_MIN_POINTS} to {_ARB_MAX_POINTS} arbitrary points"
                         f" per download, got {num_points}"
                     )
-                data = ",".join(str(sample) for sample in waveform.samples)
-                self._visa.write(f":SOUR{channel}:DATA VOLATILE,{data}")
-                time.sleep(_ARB_DOWNLOAD_SETTLE_S)
-                self._visa.write(f":SOUR{channel}:FUNC USER")
-                self._visa.write(f":SOUR{channel}:FUNC:ARB:MODE SRAT")
-                self._visa.write(f":SOUR{channel}:FUNC:ARB:SRAT {waveform.sample_rate_hz}")
-                time.sleep(_ARB_MODE_SETTLE_S)
+                self._visa.write(f":SOUR{channel}:APPL:ARB {waveform.sample_rate_hz}")
+                self.check_errors()
+                self._visa.write(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
+                self.check_errors()
+                for point, sample in enumerate(waveform.samples, start=1):
+                    decimal_value = round((sample + 1) / 2 * 16383)
+                    self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
+                    self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
