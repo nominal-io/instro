@@ -11,6 +11,7 @@ instruments. Each instrument type defines a standard API that works across multi
 | [`InstroELoad`](eload.md) | Electronic loads |
 | [`InstroScope`](scope.md) | Oscilloscopes |
 | [`I2CInterface`](i2c.md) | I2C bus communication devices |
+| [`InstroAWG`](awg.md) | Arbitrary waveform generators (unstable) |
 
 Each instrument page includes the interface, configuration types, driver base classes,
 and vendor-specific driver implementations. Errors raised by instrument methods are

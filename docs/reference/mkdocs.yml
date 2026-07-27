@@ -32,6 +32,7 @@ nav:
       - Electronic Load: instruments/eload.md
       - Scope: instruments/scope.md
       - I2C: instruments/i2c.md
+      - AWG: instruments/awg.md
   - Protocols:
       - protocols/index.md
       - Modbus: protocols/modbus.md

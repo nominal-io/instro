@@ -1,0 +1,45 @@
+---
+title: "AWG: basic waveform generation"
+---
+
+<Warning>
+  This example uses `instro-unstable`. This code is new and may change without notice.
+</Warning>
+
+```python awg_basic.py
+"""Example: AWG: basic waveform generation.
+
+Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
+
+"""
+
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.awg import AmplitudeMeasurementUnit, InstroAWG, Sine
+from instro.unstable.awg.drivers import RigolDG1022Z
+
+VISA_RESOURCE = "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=RigolDG1022Z(visa_resource=VISA_RESOURCE),
+    num_channels=2,
+)
+awg.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+with awg:
+    awg.set_waveform(channel=1, waveform=Sine(frequency_hz=1000.0))
+    awg.set_amplitude(channel=1, amplitude=2.0, unit=AmplitudeMeasurementUnit.VPP)
+    awg.set_offset(channel=1, offset_v=0.0)
+
+    awg.output_enable(channel=1, enable=True)
+
+    time.sleep(0.5)
+
+    enabled = awg.get_output_state(channel=1)
+    print(f"channel 1 enabled: {enabled.latest}")
+
+    awg.output_enable(channel=1, enable=False)
+```

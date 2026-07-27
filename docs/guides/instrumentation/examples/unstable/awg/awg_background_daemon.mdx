@@ -1,0 +1,58 @@
+---
+title: "AWG with background daemon"
+---
+
+<Warning>
+  This example uses `instro-unstable`. This code is new and may change without notice.
+</Warning>
+
+```python awg_background_daemon.py
+"""Example: AWG with background daemon.
+
+Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
+
+"""
+
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.awg import AmplitudeMeasurementUnit, InstroAWG, Square
+from instro.unstable.awg.drivers import RigolDG1022Z
+
+VISA_RESOURCE = "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
+DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=RigolDG1022Z(visa_resource=VISA_RESOURCE),
+    num_channels=2,
+)
+awg.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+awg.background_interval = 0.5  # query awg for new values every half second.
+
+with awg:
+    # set_waveform must be called for at least one channel before start().
+    awg.set_waveform(channel=1, waveform=Square(frequency_hz=500.0, duty_cycle_pct=25.0))
+    awg.set_amplitude(channel=1, amplitude=3.3, unit=AmplitudeMeasurementUnit.VPP)
+
+    # This launches a background daemon that polls the output-enabled state.
+    awg.start()
+
+    awg.output_enable(channel=1, enable=True)
+
+    while True:
+        try:
+            # Main program loop.
+            # Sit in this while loop until ctrl+c is pressed.
+            # InstroAWG will poll output state in the background and publish to the configured Publisher.
+            enabled = awg.get_channel("myAWG.ch1.enabled", 1, True)
+            print(enabled.latest)
+
+        except KeyboardInterrupt:
+            break
+
+    print("Done")
+    awg.output_enable(channel=1, enable=False)
+    awg.stop()
+```
