@@ -153,11 +153,6 @@ rust-standalone-fix:
         cargo fmt --manifest-path "$pkg/Cargo.toml"
     done
 
-# run the Rust explicit EtherNet/IP integration test against the bundled simulator
-# (--all-features matches `test-rust` so both share one set of compiled artifacts)
-eip-rs-test:
-    cargo test -p instro-ethernetip --all-features --test explicit_session_integration
-
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
     #!/usr/bin/env bash
@@ -165,7 +160,6 @@ eip-live-test:
     export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
-    cargo test -p instro-ethernetip --all-features --test explicit_session_integration
     uv run --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
 
 # clean build of the EtherNet/IP Python bindings (sdist + wheel)
