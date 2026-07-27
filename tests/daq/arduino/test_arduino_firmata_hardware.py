@@ -183,7 +183,12 @@ class TestArduinoFirmataHardware(unittest.TestCase):
         """Poll read_digital_line until it matches expected or timeout expires. Returns the last read value."""
         deadline = time.time() + timeout
         while time.time() < deadline:
-            read = int(daq.read_digital_line(alias).latest)
+            try:
+                read = int(daq.read_digital_line(alias).latest)
+            except RuntimeError:
+                # No Firmata report has arrived yet for this channel; keep polling.
+                time.sleep(0.01)
+                continue
             if read == expected:
                 return read
             time.sleep(0.01)
