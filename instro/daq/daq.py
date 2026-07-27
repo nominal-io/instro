@@ -997,6 +997,7 @@ class InstroDAQ(Instrument):
             aliases = [*ai, *di]
         else:
             aliases = [channels] if isinstance(channels, str) else list(channels)
+            # Validate up front so a bad alias can't leave earlier channels already read from hardware.
             if unknown := [a for a in aliases if a not in ai and a not in di]:
                 raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
 
@@ -1038,21 +1039,21 @@ class InstroDAQ(Instrument):
             raise ValueError(
                 f"write() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
             )
+        # Validate up front so a bad alias can't leave earlier channels already written to hardware.
+        if unknown := [c for c in channel_list if c not in ao and c not in do]:
+            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
 
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
             if channel in ao:
                 commands.append(self.write_analog_value(channel, value, **kwargs))
                 continue
-            if channel in do:
-                # NOTE: Planning on ripping out port support
-                if isinstance(do[channel], DigitalPortChannel):
-                    commands.append(self.write_digital_port(channel, int(value), **kwargs))
-                    continue
-                # Why does this function accept the data as an int? Shouldn't it only accept a bool?
-                commands.append(self.write_digital_line(channel, int(value), **kwargs))
+            # NOTE: Planning on ripping out port support
+            if isinstance(do[channel], DigitalPortChannel):
+                commands.append(self.write_digital_port(channel, int(value), **kwargs))
                 continue
-            raise KeyError(f"Output channel '{channel}' is not configured. Configured output channels: {[*ao, *do]}.")
+            # Why does this function accept the data as an int? Shouldn't it only accept a bool?
+            commands.append(self.write_digital_line(channel, int(value), **kwargs))
 
         return commands[0] if isinstance(channels, str) else commands
 

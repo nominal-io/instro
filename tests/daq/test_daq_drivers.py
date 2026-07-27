@@ -1043,13 +1043,16 @@ def test_read_none_reads_every_configured_input():
     assert result["di0"].channel_data == {"ut.di0": [1.0]}
 
 
-def test_read_unconfigured_channel_raises():
-    """read() on an unknown alias raises KeyError."""
-    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+def test_read_unconfigured_channel_raises_before_reading_anything():
+    """read() validates every alias up front, so a bad alias reads nothing from hardware."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
 
     with pytest.raises(KeyError, match=r"Input channel\(s\) \['nope'\] not configured"):
-        daq.read("nope")
+        daq.read(["v0", "nope"])
+    mock_driver.read_analog.assert_not_called()
 
 
 def test_write_routes_each_index_to_its_channel():
@@ -1098,10 +1101,13 @@ def test_write_length_mismatch_raises():
         daq.write(["ao0", "do0"], [2.5])
 
 
-def test_write_unconfigured_channel_raises():
-    """write() on an unknown alias raises KeyError."""
-    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+def test_write_unconfigured_channel_raises_before_writing_anything():
+    """write() validates every alias up front, so a bad alias leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
 
-    with pytest.raises(KeyError, match="Output channel 'nope' is not configured"):
-        daq.write("nope", 1.0)
+    with pytest.raises(KeyError, match=r"Output channel\(s\) \['nope'\] not configured"):
+        daq.write(["ao0", "nope"], [2.5, 1])
+    mock_driver.write_analog_value.assert_not_called()
