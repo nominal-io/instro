@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import dataclasses
 import warnings
+
 import pyvisa
+
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
 
 

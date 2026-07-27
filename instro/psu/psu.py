@@ -274,9 +274,12 @@ class InstroPSU(Instrument):
         cls,
         backend: str | None = None,
         timeout: int = 2,
-    ) -> "list[PSUConfig]":  # TODO - it doesn't know about this yet
+    ) -> list[PSUConfig]:
         """Scan VISA resources and return PSUConfig for each recognized PSU."""
         from instro.lib.discover import scan_visa_resources
+        from instro.lib.transports.visa import VisaConfig
+        from instro.lib.types import DeviceInfo
+        from instro.psu.config import VisaDriverConfig
 
         # TODO - how do we make this reliable though?
         # this only shows if we correctly recognized the visa, no hope elsewise..
@@ -288,10 +291,12 @@ class InstroPSU(Instrument):
             if info.category == "psu" and info.vendor_key is not None and info.num_channels is not None:
                 configs.append(
                     PSUConfig(
-                        name=info.resource,
-                        vendor=info.vendor_key,
-                        connection=info.resource,
-                        num_channels=info.num_channels,
+                        device=DeviceInfo(name=info.resource),
+                        driver=VisaDriverConfig(
+                            name=info.driver_class_name,
+                            num_channels=info.num_channels,
+                            visa=VisaConfig(visa_resource=info.resource),
+                        ),
                     )
                 )
         return configs
