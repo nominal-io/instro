@@ -219,4 +219,5 @@ eip-wheel-smoke-test:
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
 eip-test: eip-sdist-smoke-test eip-wheel-smoke-test eip-rs-test
+    cargo test --all-features --all-targets -p instro-ethernetip -p instro-ethernetip-py
     uv run --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q
