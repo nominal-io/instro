@@ -19,7 +19,7 @@ from instro.unstable.awg.types import (
     Waveform,
 )
 
-_ARB_SAMPLES = (0.0, 0.5, 1.0, -1.0, 0.25, -0.25, 0.75, -0.75)
+_ARB_SAMPLES = (0.0, 0.5, 1.0, -1.0, 0.25, -0.25, 0.75, -0.75, 0.125)
 
 
 @pytest.fixture
@@ -156,7 +156,7 @@ def test_12_set_waveform_arbitrary_writes_points_individually(
 
     assert rigol_visa.write.call_args_list == [
         call(":SOUR1:APPL:ARB 1000000.0"),
-        call(":SOUR1:TRAC:DATA:POIN VOLATILE,8"),
+        call(":SOUR1:TRAC:DATA:POIN VOLATILE,9"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,1,8192"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,2,12287"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,3,16383"),
@@ -165,8 +165,9 @@ def test_12_set_waveform_arbitrary_writes_points_individually(
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,6,6144"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,7,14335"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,8,2048"),
+        call(":SOUR1:TRAC:DATA:VAL VOLATILE,9,9215"),
     ]
-    assert rigol_visa.query.call_count == 10
+    assert rigol_visa.query.call_count == 11
 
 
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])
@@ -177,7 +178,7 @@ def test_13_set_waveform_arbitrary_rejects_bad_point_counts(
 ) -> None:
     waveform = Arbitrary(samples=(0.0,) * num_points, sample_rate_hz=1000000.0)
 
-    with pytest.raises(ValueError, match="8 to 16384 arbitrary points"):
+    with pytest.raises(ValueError, match="9 to 16384 arbitrary points"):
         rigol.set_waveform(1, waveform)
 
     rigol_visa.write.assert_not_called()

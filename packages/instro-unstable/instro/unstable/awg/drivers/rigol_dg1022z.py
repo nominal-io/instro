@@ -16,10 +16,9 @@ from instro.unstable.awg.types import (
     Waveform,
 )
 
-# IEEE-488.2 sentinel returned by OUTP:LOAD? when the output is high-Z.
 _HIGH_Z_SENTINEL = 9.9e37
 
-_ARB_MIN_POINTS = 8
+_ARB_MIN_POINTS = 9
 _ARB_MAX_POINTS = 16384
 
 _SAWTOOTH_SYMMETRY_PCT = 100
@@ -77,6 +76,7 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:FUNC:PULS:WIDT {waveform.width_s}")
 
             elif isinstance(waveform, Arbitrary):
+                # Use per-point downloads to allow both USB and Ethernet compatability and a higher download size ceiling.
                 num_points = len(waveform.samples)
                 if not _ARB_MIN_POINTS <= num_points <= _ARB_MAX_POINTS:
                     raise ValueError(
@@ -118,7 +118,6 @@ class RigolDG1022Z(AWGDriverBase):
                 width = float(self._visa.query(f":SOUR{channel}:FUNC:PULS:WIDT?"))
                 return Pulse(frequency_hz=float(fields[1]), width_s=width)
             if name == "DC":
-                # In DC mode VOLT:OFFS? always reads 0; the level is only reported in the APPL? reply.
                 return StaticValue(value=float(fields[3]))
             if name == "USER":
                 arb = self._arb_waveforms.get(channel)

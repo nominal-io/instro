@@ -27,8 +27,7 @@ pytestmark = pytest.mark.hardware
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND to
 # "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
 # Outputs are only enabled briefly at low amplitude; leave them unconnected or on a scope.
-# VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
-VISA_RESOURCE = "TCPIP0::169.254.10.1::INSTR"
+VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
 
 VISA_BACKEND = "@py"
 CHANNELS = (1, 2)
@@ -37,12 +36,14 @@ INVALID_CHANNEL = 3
 TEST_FREQUENCY_HZ = 1000.0
 TEST_AMPLITUDE_VPP = 1.0
 TEST_AMPLITUDE_VRMS = 0.25
+TEST_AMPLITUDE_DBM = 0.0
 TEST_OFFSET_V = 0.25
 FREQUENCY_TOLERANCE_REL = 1e-4
 AMPLITUDE_TOLERANCE_REL = 0.01
+AMPLITUDE_DBM_TOLERANCE_ABS = 0.1
 PHASE_TOLERANCE_DEG = 0.1
 
-_ARB_SAMPLES = (0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5)
+_ARB_SAMPLES = (0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5, 0.25)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +113,7 @@ def test_02_cycle_through_waveforms(driver: RigolDG1022Z) -> None:
         Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
         Triangle(frequency_hz=TEST_FREQUENCY_HZ),
         Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
-        # Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
         StaticValue(value=TEST_OFFSET_V),
     ]
 
@@ -181,13 +182,13 @@ def test_08_static_value_roundtrip(driver: RigolDG1022Z) -> None:
     assert readback.value == pytest.approx(TEST_OFFSET_V, rel=0.01)
 
 
-# def test_09_arbitrary_download_and_cached_readback(driver: RigolDG1022Z) -> None:
-#     arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
-#     driver.set_waveform(1, arbitrary)
-#     driver.check_errors()
+def test_09_arbitrary_download_and_cached_readback(driver: RigolDG1022Z) -> None:
+    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
+    driver.set_waveform(1, arbitrary)
+    driver.check_errors()
 
-#     readback = driver.get_waveform(1)
-#     assert readback is arbitrary
+    readback = driver.get_waveform(1)
+    assert readback is arbitrary
 
 
 @pytest.mark.parametrize("channel", CHANNELS, ids=lambda channel: f"channel_{channel}")
@@ -287,3 +288,14 @@ def test_20_check_errors_raises_after_invalid_command(driver: RigolDG1022Z) -> N
             driver.check_errors()
     finally:
         driver._visa.write("*CLS")
+
+
+def test_21_amplitude_dbm_roundtrip(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_output_load(1, 50.0)
+    driver.set_amplitude(1, TEST_AMPLITUDE_DBM, AmplitudeMeasurementUnit.DBM)
+    driver.check_errors()
+
+    amplitude, unit = driver.get_amplitude(1)
+    assert unit is AmplitudeMeasurementUnit.DBM
+    assert amplitude == pytest.approx(TEST_AMPLITUDE_DBM, abs=AMPLITUDE_DBM_TOLERANCE_ABS)
