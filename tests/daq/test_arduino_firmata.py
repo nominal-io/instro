@@ -83,6 +83,21 @@ def test_read_analog_input_none(arduino_driver, mock_board):
     assert values == {"voltage": 0.0}
 
 
+def test_read_analog_input_before_first_report_raises(arduino_driver, mock_board):
+    channel = AnalogChannel(
+        physical_channel="A0",
+        alias="voltage",
+        direction=Direction.INPUT,
+        range_min=0.0,
+        range_max=5.0,
+        scaler=None,
+    )
+    arduino_driver.configure_ai_channel(channel)
+
+    with pytest.raises(RuntimeError, match="voltage"):
+        arduino_driver.read_analog()
+
+
 def test_write_digital_line(arduino_driver, mock_board):
     arduino_driver.configure_do_line_channel(
         physical_channel="D13",
@@ -113,6 +128,18 @@ def test_read_digital_line(arduino_driver, mock_board):
     channel = arduino_driver._di_channels["button"]
     result = arduino_driver.read_digital_line(channel)
     assert result == 1
+
+
+def test_read_digital_line_before_first_report_raises(arduino_driver, mock_board):
+    arduino_driver.configure_di_line_channel(
+        physical_channel="D13",
+        logic=Logic.HIGH,
+        alias="button",
+    )
+    channel = arduino_driver._di_channels["button"]
+
+    with pytest.raises(RuntimeError, match="button"):
+        arduino_driver.read_digital_line(channel)
 
 
 def test_close(arduino_driver, mock_board):

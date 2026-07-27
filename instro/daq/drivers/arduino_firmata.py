@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import queue
 import time
 import warnings
@@ -48,7 +49,7 @@ class ArduinoFirmata(DAQDriverBase):
         elif sampling_rate_hz <= 0:
             raise ValueError(f"sampling_rate_hz must be > 0; got {sampling_rate_hz}Hz")
         else:
-            self._sampling_interval_ms = int(1000 / sampling_rate_hz)
+            self._sampling_interval_ms = max(1, round(1000 / sampling_rate_hz))
 
         if buffer_size < 1:
             raise ValueError(f"buffer_size must be >= 1; got {buffer_size}")
@@ -90,7 +91,7 @@ class ArduinoFirmata(DAQDriverBase):
 
         elif rate_hz <= 0:
             raise ValueError(f"rate_hz must be > 0; got {rate_hz}Hz")
-        self._sampling_interval_ms = int(1000 / rate_hz)
+        self._sampling_interval_ms = max(1, round(1000 / rate_hz))
         if self._board is not None:
             self._board.setSamplingInterval(self._sampling_interval_ms)
         if self._ai_hw_timing_config is not None:
@@ -159,20 +160,28 @@ class ArduinoFirmata(DAQDriverBase):
         self._pending_updates.add(alias)
         if self._expected_ai_channels and self._pending_updates >= self._expected_ai_channels:
             timestamp = time.time_ns()
-            if self._sample_queue.full():
+            try:
+                self._sample_queue.put_nowait((timestamp, dict(self._latest_values)))
+            except queue.Full:
                 warnings.warn(
                     "ArduinoFirmata sample buffer is full; dropping oldest sample. "
                     "Reduce sampling_rate_hz or increase buffer_size",
                     UserWarning,
                     stacklevel=2,
                 )
-                self._sample_queue.get_nowait()
-
-            self._sample_queue.put_nowait((timestamp, dict(self._latest_values)))
+                with contextlib.suppress(queue.Empty):
+                    self._sample_queue.get_nowait()
+                with contextlib.suppress(queue.Full):
+                    self._sample_queue.put_nowait((timestamp, dict(self._latest_values)))
             self._pending_updates.clear()
 
     def read_analog(self) -> list[tuple[int, dict[str, float]]]:
-        values = {alias: self._latest_values.get(alias, 0.0) for alias in self._ai_channels}
+        missing = [alias for alias in self._ai_channels if alias not in self._latest_values]
+        if missing:
+            raise RuntimeError(
+                f"No data received yet for analog channel(s) {missing}; the first Firmata report hasn't arrived yet."
+            )
+        values = {alias: self._latest_values[alias] for alias in self._ai_channels}
         return [(time.time_ns(), values)]
 
     def fetch_analog(self) -> list[tuple[int, dict[str, float]]]:
@@ -260,8 +269,11 @@ class ArduinoFirmata(DAQDriverBase):
             self._board.sp.flush()
 
     def read_digital_line(self, channel: DigitalChannel) -> int:
-        raw = self._latest_values.get(channel.alias, 0)
-        return int(bool(raw))
+        if channel.alias not in self._latest_values:
+            raise RuntimeError(
+                f"No data received yet for digital line '{channel.alias}'; the first Firmata report hasn't arrived yet."
+            )
+        return int(bool(self._latest_values[channel.alias]))
 
     def write_digital_port(self, channel: DigitalChannel, data: int) -> None:
         raise NotImplementedError("ArduinoFirmata does not support port-mode digital I/O")
