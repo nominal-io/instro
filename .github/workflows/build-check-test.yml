@@ -54,9 +54,31 @@ jobs:
       - name: Static type check
         run: |
           just check-types
-      - name: Rust format and lint checks
-        run: |
-          just check-rust
       - name: Run unit tests
         run: |
           just test
+
+  rust-check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    # Run every step under bash so the bash-syntax steps below work on
+    # Windows runners, which default to pwsh.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install just
+        uses: extractions/setup-just@v3
+      # `rustup` is available by default on GitHub runners
+      - name: Install Rust
+        run: rustup show
+      - name: Cache Rust build output
+        uses: Swatinem/rust-cache@v2
+      - name: Rust format and lint checks
+        run: |
+          just check-rust
