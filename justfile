@@ -35,7 +35,8 @@ test-python:
 
 # run Rust library, integration, and doc tests for the workspace
 test-rust:
-    cargo test --workspace --all-features
+    cargo test --workspace --all-features --all-targets
+    cargo test --workspace --all-features --doc
 
 # run all python and Rust tests plus EtherNet/IP packaging checks
 test: test-rust test-python eip-test
