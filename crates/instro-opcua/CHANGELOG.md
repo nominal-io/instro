@@ -1,11 +1,7 @@
 # Changelog
 
-## [2.0.0](https://github.com/nominal-io/instro/compare/instro-opcua-rs-v1.0.0...instro-opcua-rs-v2.0.0) (2026-07-26)
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-opcua-rs-v1.0.0...instro-opcua-rs-v1.1.0) (2026-07-26)
 
-
-### ⚠ BREAKING CHANGES
-
-* **opcua:** implement browse paths ([#161](https://github.com/nominal-io/instro/issues/161))
 
 ### Features
 
