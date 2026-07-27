@@ -33,6 +33,11 @@ class ArduinoFirmata(DAQDriverBase):
 
     Physical channel format: analog input "A0-A5"; digital line "D2"-"D13".
     Pin ranges depend on specific Arduino board.
+
+    Known limitation: analog and digital-line channel data share one internal
+    dict keyed by alias. Configuring an AI channel and a DI channel with the
+    same alias is unsupported and will make ``read_analog()`` misidentify the
+    DI channel's report as analog data instead of raising.
     """
 
     def __init__(self, port: str, sampling_rate_hz: float = 1000 / 19, buffer_size: int = 10_000) -> None:
@@ -54,6 +59,7 @@ class ArduinoFirmata(DAQDriverBase):
         if buffer_size < 1:
             raise ValueError(f"buffer_size must be >= 1; got {buffer_size}")
         self._board: pyfirmata2.Arduino | None = None
+        self._iterator: pyfirmata2.util.Iterator | None = None
         self._pins: dict[str, Any] = {}
         self._latest_values: dict[str, float] = {}
         self._sample_queue: queue.Queue[tuple[int, dict[str, float]]] = queue.Queue(maxsize=buffer_size)
@@ -68,16 +74,27 @@ class ArduinoFirmata(DAQDriverBase):
                 "pyfirmata2 is required for ArduinoFirmata. Install it with: uv sync --extra arduino"
             ) from e
         self._board = pyfirmata2.Arduino(self._port)
-        it = pyfirmata2.util.Iterator(self._board)
-        it.start()
+        self._iterator = pyfirmata2.util.Iterator(self._board)
+        self._iterator.start()
         time.sleep(0.1)  # allow the iterator to receive first handshake response
         self._board.samplingOn(self._sampling_interval_ms)
 
     def close(self) -> None:
+        # Stop the reader thread before tearing down the board so it can't deliver a
+        # stale callback into this instance's state after close() returns (e.g. during
+        # a close()+open() reuse of the same driver).
+        if self._iterator is not None:
+            self._iterator.stop()
+            self._iterator.join(timeout=1.0)
+            self._iterator = None
         if self._board is not None:
             self._board.exit()
             self._board = None
         self._pins.clear()
+        self._latest_values.clear()
+        self._pending_updates.clear()
+        self._expected_ai_channels = frozenset()
+        self._drain_sample_queue()
 
     def set_sampling_rate(self, rate_hz: float) -> None:
         """Set the analog sampling rate. Rates above ~100Hz may cause dropped messages at the default 57600 baud."""
@@ -149,6 +166,9 @@ class ArduinoFirmata(DAQDriverBase):
         self._ai_hw_timing_config = None
         self._pending_updates.clear()
         self._expected_ai_channels = frozenset()
+        self._drain_sample_queue()
+
+    def _drain_sample_queue(self) -> None:
         while not self._sample_queue.empty():
             try:
                 self._sample_queue.get_nowait()

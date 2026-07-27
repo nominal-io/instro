@@ -148,6 +148,43 @@ def test_close(arduino_driver, mock_board):
     assert not arduino_driver._pins
 
 
+def test_close_stops_iterator_thread(mock_board):
+    mock_pyfirmata2 = MagicMock()
+    mock_pyfirmata2.Arduino.return_value = mock_board
+    with patch.dict(sys.modules, {"pyfirmata2": mock_pyfirmata2}):
+        driver = ArduinoFirmata("/dev/ttyACM0")
+        with patch("time.sleep"):
+            driver.open()
+        mock_iterator = mock_pyfirmata2.util.Iterator.return_value
+
+        driver.close()
+
+        mock_iterator.stop.assert_called_once()
+        mock_iterator.join.assert_called_once_with(timeout=1.0)
+
+
+def test_close_resets_latest_values_so_reopen_starts_clean(arduino_driver, mock_board):
+    channel = AnalogChannel(
+        physical_channel="A0",
+        alias="voltage",
+        direction=Direction.INPUT,
+        range_min=0.0,
+        range_max=5.0,
+        scaler=None,
+    )
+    arduino_driver.configure_ai_channel(channel)
+    mock_pin = mock_board.get_pin.return_value
+    callback = mock_pin.register_callback.call_args[0][0]
+    callback(0.5)
+    arduino_driver.read_analog()  # sanity: data is present before close()
+
+    arduino_driver.close()
+
+    assert arduino_driver._latest_values == {}
+    with pytest.raises(RuntimeError):
+        arduino_driver.read_analog()
+
+
 def test_configure_ai_hw_timing_raises(arduino_driver):
     with pytest.raises(NotImplementedError):
         arduino_driver.configure_ai_hw_timing(hw_timing_config=HWTimingConfig(30.0, 1, 40))
