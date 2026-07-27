@@ -76,7 +76,7 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:FUNC:PULS:WIDT {waveform.width_s}")
 
             elif isinstance(waveform, Arbitrary):
-                # Use per-point downloads to allow both USB and Ethernet compatability and a higher download size ceiling.
+                # Use per-point downloads to allow both USB and Ethernet compatibility and a higher download size ceiling.
                 num_points = len(waveform.samples)
                 if not _ARB_MIN_POINTS <= num_points <= _ARB_MAX_POINTS:
                     raise ValueError(
