@@ -44,7 +44,7 @@ def base_only_psu_driver() -> _BaseOnlyPSUDriver:
     ("method_name", "args"),
     [
         ("get_voltage_setpoint", ()),
-        ("get_current_limit", ()),
+        ("get_current_setpoint", ()),
     ],
 )
 def test_psu_driver_base_setpoint_getters_raise_not_implemented(
@@ -119,7 +119,7 @@ def _stub_driver() -> MagicMock:
     driver.get_current.return_value = 0.5
     driver.get_output_status.return_value = True
     driver.get_voltage_setpoint.return_value = 5.0
-    driver.get_current_limit.return_value = 1.5
+    driver.get_current_setpoint.return_value = 1.5
     driver.get_overvoltage_protection_level.return_value = 15.0
     driver.get_overvoltage_protection_enabled.return_value = True
     driver.get_overvoltage_protection_delay.return_value = 0.25
@@ -197,13 +197,13 @@ def test_nominal_psu_get_voltage_setpoint_returns_measurement() -> None:
     assert measurement.channel_data["ut.ch1.voltage.setpoint"] == [5.0]
 
 
-def test_nominal_psu_get_current_limit_returns_measurement() -> None:
+def test_nominal_psu_get_current_setpoint_returns_measurement() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-    measurement = psu.get_current_limit(channel=1)
-    driver.get_current_limit.assert_called_once_with(channel=1)
+    measurement = psu.get_current_setpoint(channel=1)
+    driver.get_current_setpoint.assert_called_once_with(channel=1)
     assert measurement is not None
-    assert measurement.channel_data["ut.ch1.current.limit"] == [1.5]
+    assert measurement.channel_data["ut.ch1.current.setpoint"] == [1.5]
 
 
 def test_nominal_psu_set_current_limit_delegates() -> None:
