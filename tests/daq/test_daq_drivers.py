@@ -1,5 +1,6 @@
 """Unit tests for DAQ driver functionality."""
 
+import warnings
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
@@ -52,6 +53,8 @@ class _RecordingDriver(DAQDriverBase):
         "read_digital_line",
         "write_digital_port",
         "read_digital_port",
+        "write_digital",
+        "read_digital",
         "close_relay",
         "open_relay",
         "_read_to_measurements",
@@ -1008,32 +1011,20 @@ def test_read_projects_analog_batch_to_requested_alias():
     assert result["v0"].channel_data == {"ut.v0": [1.0]}
 
 
-def test_read_routes_digital_line_by_type():
-    """read(str) routes a digital line alias to the line read, keyed by alias."""
-    mock_driver = _make_mock_driver()
-    mock_driver.read_digital_line.return_value = 1
-    daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.open()
-    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
-
-    result = daq.read("di0")
-
-    assert result["di0"].channel_data == {"ut.di0": [1.0]}
-
-
 def test_read_none_reads_every_configured_input():
     """read() returns {alias: Measurement} for one of each analog type plus every DI channel."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = [
         Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
     ]
-    mock_driver.read_digital_line.return_value = 1
+    mock_driver.read_digital.return_value = [True, False]
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
     daq.configure_voltage_input(physical_channel="ai0", alias="v0")
     daq.configure_current_input(physical_channel="ai1", alias="c0")
     daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0")
     daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_digital_input(physical_channel="port0/line1", alias="di1", logic=Logic.HIGH)
 
     result = daq.read()
 
@@ -1041,6 +1032,9 @@ def test_read_none_reads_every_configured_input():
     assert result["c0"].channel_data == {"ut.c0": [0.01]}
     assert result["tc0"].channel_data == {"ut.tc0": [25.0]}
     assert result["di0"].channel_data == {"ut.di0": [1.0]}
+    assert result["di1"].channel_data == {"ut.di1": [0.0]}
+    # Both DI aliases came back from one driver round-trip.
+    assert mock_driver.read_digital.call_count == 1
 
 
 def test_read_unconfigured_channel_raises_before_reading_anything():
@@ -1111,3 +1105,112 @@ def test_write_unconfigured_channel_raises_before_writing_anything():
     with pytest.raises(KeyError, match=r"Output channel\(s\) \['nope'\] not configured"):
         daq.write(["ao0", "nope"], [2.5, 1])
     mock_driver.write_analog_value.assert_not_called()
+
+
+# --- batched read_digital() / write_digital() ---
+
+
+def test_write_digital_passes_whole_channel_and_bool_lists_to_driver():
+    """write_digital() hands the driver every channel in one call, with values cast to bools."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+    daq.configure_digital_output(physical_channel="port0/line1", alias="do1", logic=Logic.HIGH)
+
+    command = daq.write_digital(["do0", "do1"], [1, 0])
+
+    channels, values = mock_driver.write_digital.call_args.args
+    assert [c.alias for c in channels] == ["do0", "do1"]
+    assert values == [True, False]
+    assert command.channel_data == {"ut.do0.cmd": 1, "ut.do1.cmd": 0}
+
+
+def test_write_digital_warns_and_coerces_out_of_range_values():
+    """Values outside 0/1 still write — >0 becomes True, everything else False — but warn."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+    daq.configure_digital_output(physical_channel="port0/line1", alias="do1", logic=Logic.HIGH)
+
+    with pytest.warns(UserWarning, match=r"\[5, -2\] are not 0 or 1"):
+        command = daq.write_digital(["do0", "do1"], [5, -2])
+
+    assert mock_driver.write_digital.call_args.args[1] == [True, False]
+    assert command.channel_data == {"ut.do0.cmd": 1, "ut.do1.cmd": 0}
+
+
+def test_write_digital_in_range_values_do_not_warn():
+    """0 and 1 pass through without a warning."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        daq.write_digital(["do0"], [1])
+
+
+def test_read_digital_pairs_each_requested_channel_with_its_own_value():
+    """A non-contiguous subset comes back as one Measurement holding exactly those aliases, each with its own value."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    for line in range(5):
+        daq.configure_digital_input(physical_channel=f"port0/line{line}", alias=f"di{line}", logic=Logic.HIGH)
+    # Only di1 reads high, so a reversed or shifted pairing lands the 1 on the wrong alias.
+    mock_driver.read_digital.return_value = [True, False, False]
+
+    measurement = daq.read_digital(["di1", "di2", "di4"])
+
+    # The driver was handed exactly the requested aliases, in order, resolved to the right physical lines.
+    assert [(c.alias, c.physical_channel) for c in mock_driver.read_digital.call_args.args[0]] == [
+        ("di1", "port0/line1"),
+        ("di2", "port0/line2"),
+        ("di4", "port0/line4"),
+    ]
+    # One Measurement, one shared timestamp, and exactly three channels — di0/di3 were never read.
+    assert isinstance(measurement, Measurement)
+    assert len(measurement.timestamps) == 1
+    assert measurement.channel_data == {"ut.di1": [1.0], "ut.di2": [0.0], "ut.di4": [0.0]}
+
+
+def test_read_routes_digital_subset_without_crossing_values():
+    """read() on a mixed subset gives each alias its own Measurement holding only that channel's value."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [Measurement(channel_data={"ut.v0": [1.5]}, timestamps=[111])]
+    mock_driver.read_digital.return_value = [False, True]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    for line in range(3):
+        daq.configure_digital_input(physical_channel=f"port0/line{line}", alias=f"di{line}", logic=Logic.HIGH)
+
+    result = daq.read(["v0", "di0", "di2"])
+
+    assert [c.alias for c in mock_driver.read_digital.call_args.args[0]] == ["di0", "di2"]
+    assert set(result) == {"v0", "di0", "di2"}
+    assert result["v0"].channel_data == {"ut.v0": [1.5]}
+    assert result["di0"].channel_data == {"ut.di0": [0.0]}
+    assert result["di2"].channel_data == {"ut.di2": [1.0]}
+
+
+def test_read_digital_unconfigured_channel_raises():
+    """read_digital() on an unknown alias raises KeyError."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(KeyError, match=r"Digital input channel\(s\) \['nope'\] not configured"):
+        daq.read_digital(["nope"])
+
+
+def test_write_digital_unconfigured_channel_raises():
+    """write_digital() on an unknown alias raises KeyError before touching the driver."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+
+    with pytest.raises(KeyError, match=r"Digital output channel\(s\) \['nope'\] not configured"):
+        daq.write_digital(["nope"], [1])
+    mock_driver.write_digital.assert_not_called()
