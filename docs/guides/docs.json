@@ -200,13 +200,6 @@
               "instrumentation/examples/scope/scope_background",
               "instrumentation/examples/scope/scope_basic"
             ]
-          },
-          {
-            "group": "Awg (Unstable)",
-            "pages": [
-              "instrumentation/examples/unstable/awg/awg_background_daemon",
-              "instrumentation/examples/unstable/awg/awg_basic"
-            ]
           }
         ]
       }
