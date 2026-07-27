@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import DAQDriverBase, InstroDAQ
+from instro.daq import DAQDriverBase, HWTimingException, InstroDAQ
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     DigitalLineChannel,
@@ -899,3 +899,29 @@ def test_start_default_spins_daemon_and_read_analog_raises():
             daq.read_analog()
     finally:
         daq.stop()
+
+
+def test_hw_timed_ai_with_no_hw_timing_config_raises_before_starting():
+    """AI channel present without a sample rate: start() raises and never touches the driver or daemon."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+
+    with pytest.raises(HWTimingException, match="without a sample rate"):
+        daq.start()
+
+    mock_driver.start.assert_not_called()
+    assert daq._background_thread is None
+
+
+def test_start_without_ai_channels_does_not_require_hw_timing_config():
+    """No AI channels means no hardware timing is needed; start() proceeds."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH)
+
+    daq.start(background=False)
+
+    mock_driver.start.assert_called_once()

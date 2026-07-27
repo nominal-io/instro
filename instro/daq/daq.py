@@ -544,6 +544,14 @@ class InstroDAQ(Instrument):
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         self._require_open()
+
+        # AI hardware timed acquisition should fail if no timing is configured
+        if self.ai_channels and not self.ai_hw_timing_config:
+            raise HWTimingException(
+                "Cannot start a hardware-timed AI acquisition without a sample rate. "
+                "Call configure_ai_sample_rate() before start(), or use read_analog() for software-timed reads."
+            )
+
         # DAQmx allows starting different channel_types independently.
         channel_type = kwargs.get("channel_type", None)
 
