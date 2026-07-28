@@ -297,6 +297,7 @@ class AlicatMC(FlowControllerDriverBase):
             self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_var]
         except (ValueError, KeyError) as e:
             logger.warning(f"Unknown loop variable code {fields[1]}: {e}")
+            raise RuntimeError(f"Unknown loop variable code {fields[1]} from device {self.unit_id!r}") from e
 
     def set_loop_control_variable(self, loop_variable: LoopVariable) -> float:
         """Set the loop control variable (process value source) and update the cache.
@@ -346,6 +347,8 @@ class AlicatMC(FlowControllerDriverBase):
         )
         response = self._query_checked(f"{self.unit_id}gm {mix_name} {gas_id} {mixture_strings}")
         response_cols = response.split()
+        if len(response_cols) < 2:
+            raise RuntimeError(f"AlicatMC: malformed response from define_gas_mixture {self.unit_id!r}: {response!r}")
         mixture_identifier = GasTypeEntry(int(response_cols[1]), mix_name)
         self.known_gas_types = []  # invalidate cache
         return mixture_identifier
@@ -447,12 +450,17 @@ class AlicatMC(FlowControllerDriverBase):
         You can fetch the current units for each value  using `get_flow_sample_metadata`
         or on the front panel of the device itself.
         """
-        response = self._query_checked(f"{self.unit_id}s{setpt}")
+        response = self._query_checked(f"{self.unit_id}s {setpt:f}")
         return self._parse_flowdata(response).setpoint
 
     def set_setpoint_int(self, setpt: float, full_scale_range: float, range_minimum: float) -> float:
-        """Command a setpoint using integer encoding for the given full-scale range and minimum."""
-        setpoint_integer = int(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
+        """Command a setpoint using integer encoding for the given full-scale range and minimum.
+
+        `full_scale_range` is the span of the control range. For unidirectional controllers
+        (0 to max), use the max value. For bidirectional controllers (+/- max), use the
+        full range (2 * max).
+        """
+        setpoint_integer = round(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
         response = self._query_checked(f"{self.unit_id}{setpoint_integer}")
         return self._parse_flowdata(response).setpoint
 
