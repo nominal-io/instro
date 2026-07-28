@@ -93,16 +93,29 @@ def test_get_flow_data_parses_response(alicat: AlicatMC, visa_mock: MagicMock) -
 
 
 def test_process_value_returns_mass_flow(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    def mock_query_response(cmd: str) -> str:
+        if "LR" in cmd:
+            return "A 37 +15.4443"  # LR response: unit loop_var setpoint
+        return _SAMPLE_RESPONSE
+
+    visa_mock.query.side_effect = mock_query_response
     assert alicat.process_value == pytest.approx(15.4443)
 
 
 def test_process_value_source_is_mass_flow_key(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    def mock_query_response(cmd: str) -> str:
+        if "LR" in cmd:
+            return "A 37 +15.4443"  # LR response: unit loop_var setpoint
+        return _SAMPLE_RESPONSE
+
+    visa_mock.query.side_effect = mock_query_response
     assert alicat.process_value_source == MASS_FLOW_KEY
 
 
 def test_set_setpoint_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
-    alicat.set_setpoint(50.0)
-    visa_mock.query.assert_called_once_with("As50.0")
+    setpoint_to_apply = 50.0
+    alicat.set_setpoint(setpoint_to_apply)
+    visa_mock.query.assert_called_once_with(f"As {setpoint_to_apply:f}")
 
 
 def test_select_working_fluid_sends_command(alicat: AlicatMC, visa_mock: MagicMock) -> None:
@@ -326,3 +339,72 @@ def test_define_gas_mixture_then_select_new_mixture(alicat: AlicatMC, visa_mock:
     alicat.select_working_fluid("MIX")
 
     visa_mock.query.assert_called_with("Ag241")
+
+
+# --- Regression tests for code review findings ---
+
+
+def test_set_setpoint_int_uses_rounding(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """set_setpoint_int should round, not truncate. Vendor manual example: 7296 not 7295."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    # Example: 64000 * (15.44/20 - (-20/40)) = 64000 * (0.772 + 0.5) = 81088
+    # But from manual: 64000 * (15.44/20) = 49408 (unidirectional 0-20)
+    setpoint = alicat.set_setpoint_int(15.44, 20.0, 0.0)
+    assert setpoint == pytest.approx(25.0)
+    # The sent command should use round(), not int()
+    call_args = visa_mock.query.call_args[0][0]
+    # 64000 * 15.44/20 = 49408 (exact with rounding)
+    assert "49408" in call_args
+
+
+def test_tare_flow_catches_device_error_not_transport_error(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """tare_flow should catch AlicatDeviceError (?) but let transport errors propagate."""
+    # Simulate device error response
+    visa_mock.query.return_value = "?"
+    with pytest.raises(NotImplementedError, match="does not support flow rate tare-ing"):
+        alicat.tare_flow()
+
+    # Simulate transport error (not-open) - should NOT be caught as NotImplementedError
+    visa_mock.query.side_effect = RuntimeError("VISA not open")
+    with pytest.raises(RuntimeError, match="VISA not open"):
+        alicat.tare_flow()
+
+
+def test_query_loop_variable_raises_on_unknown_code(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """_query_loop_variable should raise RuntimeError for unknown loop variable codes."""
+    visa_mock.query.return_value = "A 99 +15.4443"  # 99 is not a valid LoopVariable
+    with pytest.raises(RuntimeError, match="Unknown loop variable code"):
+        alicat._query_loop_variable()
+    # Cache should not be set
+    assert alicat._cached_loop_variable is None
+
+
+def test_define_gas_mixture_validates_response_length(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """define_gas_mixture should raise if response is malformed."""
+    visa_mock.query.return_value = "A"  # Too short, missing gas_id
+    with pytest.raises(RuntimeError, match="malformed response"):
+        alicat.define_gas_mixture("MIX", _VALID_MIX)
+
+
+def test_sum_mixture_percentages_validates_serialized_sum() -> None:
+    """sum_mixture_percentages should validate the serialized (rounded) sum, not the raw sum."""
+    # Raw sum: 33.335 + 33.335 + 33.33 = 100.00 (exactly)
+    # Serialized: 33.34 + 33.34 + 33.33 = 100.01 (after rounding to 2 dp)
+    entries = [
+        GasMixEntry(Decimal("33.335"), 1),
+        GasMixEntry(Decimal("33.335"), 2),
+        GasMixEntry(Decimal("33.33"), 3),
+    ]
+    # The serialized sum is 100.01, so validation would catch it
+    total = GasMixEntry.sum_mixture_percentages(entries)
+    assert total == Decimal("100.01")
+
+
+def test_set_setpoint_sends_fixed_point_notation(alicat: AlicatMC, visa_mock: MagicMock) -> None:
+    """set_setpoint should send fixed-point notation, not scientific notation."""
+    visa_mock.query.return_value = _SAMPLE_RESPONSE
+    alicat.set_setpoint(0.00001)  # Very small value that could trigger scientific notation
+    call_args = visa_mock.query.call_args[0][0]
+    # f-string :f format gives 6 decimal places by default: "0.000010"
+    assert "As 0.000010" in call_args
+    assert "e-" not in call_args

@@ -32,6 +32,7 @@ def _stub_driver() -> MagicMock:
     type(driver).setpoint = property(lambda self: mock_flow_data[SETPOINT_KEY])
     type(driver).mass_flow = property(lambda self: mock_flow_data[MASS_FLOW_KEY])
     type(driver).volumetric_flow = property(lambda self: mock_flow_data[VOLUMETRIC_FLOW_KEY])
+    type(driver).pressure = property(lambda self: mock_flow_data[PRESSURE_KEY])
     type(driver).process_value = property(lambda self: mock_flow_data[MASS_FLOW_KEY])
     type(driver).process_value_source = property(lambda self: MASS_FLOW_KEY)
     return driver
@@ -175,3 +176,45 @@ def test_get_process_value_returns_measurement() -> None:
     assert m is not None
     assert list(m.channel_data.keys()) == ["ut.mass_flow"]
     assert m.channel_data["ut.mass_flow"] == [pytest.approx(15.4443)]
+
+
+# --- Regression tests for code review findings ---
+
+
+def test_get_flow_data_with_string_fields_goes_to_tags() -> None:
+    """String fields from driver (e.g., 'gas') should go to tags, not channel_data."""
+    driver = _stub_driver()
+    # Extend mock_flow_data with a string field
+    flow_data_with_gas = {**mock_flow_data, "gas": "N2"}
+    driver.get_flow_data.return_value = flow_data_with_gas
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_flow_data()
+    assert m is not None
+    # String field should NOT be in channel_data
+    assert "ut.gas" not in m.channel_data
+    # String field should be in tags
+    assert m.tags is not None
+    assert m.tags.get("gas") == "N2"
+
+
+def test_get_pressure_returns_measurement() -> None:
+    """get_pressure() should work like get_mass_flow() and get_volumetric_flow()."""
+    driver = _stub_driver()
+    fc = InstroFlowController(name="ut", driver=driver)
+    m = fc.get_pressure()
+    assert m is not None
+    assert list(m.channel_data.keys()) == ["ut.pressure"]
+    assert m.channel_data["ut.pressure"] == [pytest.approx(13.5424)]
+
+
+def test_tare_flow_publishes_actual_flow_value() -> None:
+    """tare_flow should publish the driver's returned volumetric flow, not hardcoded True."""
+    driver = _stub_driver()
+    # Override tare_flow to return actual FlowData
+    driver.tare_flow.return_value = {"setpoint": 25.0, "pressure": 13.5, "vol_flow": 0.001, "mass_flow": 0.0}
+    fc = InstroFlowController(name="ut", driver=driver)
+    cmd = fc.tare_flow()
+    assert cmd is not None
+    assert "ut.tare.cmd" in cmd.channel_data
+    # Should be the volumetric_flow value (0.001), not True
+    assert cmd.channel_data["ut.tare.cmd"] == 0.001
