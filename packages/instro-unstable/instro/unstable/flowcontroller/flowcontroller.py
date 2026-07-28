@@ -173,10 +173,17 @@ class InstroFlowController(Instrument):
         """Zero the flow reading. Device must have zero flow when called."""
         logger.debug("Sending FlowController tare_flow to '%s'", self.name)
         with self._resource_lock:
-            self._driver.tare_flow()
+            data = self._driver.tare_flow()
             timestamp = time.time_ns()
 
-        return self._package_command("tare.cmd", True, timestamp, **kwargs)
+        # tare_flow is only implemented on flow controllers (MassFlowData/LiquidFlowData),
+        # which both have VOLUMETRIC_FLOW_KEY; publish the confirmed (near-zero) flow reading.
+        flow_value = data.get(VOLUMETRIC_FLOW_KEY)
+        if flow_value is None:
+            # Fallback for drivers that only have mass_flow, though tare_flow should not
+            # be called on pressure-only controllers.
+            flow_value = data.get(MASS_FLOW_KEY, 0.0)
+        return self._package_command("tare.cmd", flow_value, timestamp, **kwargs)
 
     @publish_measurement
     def get_setpoint(self, **kwargs) -> Measurement | None:
