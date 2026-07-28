@@ -102,13 +102,13 @@ class GasMixEntry:
 
     @staticmethod
     def sum_mixture_percentages(entries: list[GasMixEntry]) -> Decimal:
-        """Sum percentages across all entries. Alicat expects 100.00."""
+        """Sum percentages across all entries using their serialized (rounded to 2 dp) values.
+
+        Alicat expects the serialized sum to equal 100.00, not the raw sum.
+        """
         sum = Decimal("0.00")
         for entry in entries:
-            if isinstance(entry.gas_percentage, Decimal):
-                sum = sum + entry.gas_percentage
-            else:
-                sum = sum + Decimal(entry.serialized_gas_percentage)
+            sum = sum + Decimal(entry.serialized_gas_percentage)
         return sum
 
 
