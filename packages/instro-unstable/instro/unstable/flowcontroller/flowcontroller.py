@@ -134,12 +134,18 @@ class InstroFlowController(Instrument):
             data = self._driver.get_flow_data()
             timestamp = time.time_ns()
 
+        channel_data = {}
+        tags = {}
+        for key, value in data.items():
+            if isinstance(value, (int, float)):
+                channel_data[f"{self.name}.{key}"] = [float(value)]
+            elif isinstance(value, str):
+                tags[key] = value
+
         return Measurement(
-            channel_data={
-                f"{self.name}.{key}": [float(value)] for key, value in data.items() if isinstance(value, (int, float))
-            },
+            channel_data=channel_data,
             timestamps=[timestamp],
-            tags={**self.default_tags, **kwargs},
+            tags={**self.default_tags, **tags, **kwargs},
         )
 
     @publish_command
