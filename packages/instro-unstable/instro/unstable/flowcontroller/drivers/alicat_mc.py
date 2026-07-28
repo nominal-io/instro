@@ -5,46 +5,6 @@ Reference: Alicat Gas Flow Controller Manual, pp. 42–50.
 https://documents.alicat.com/manuals/Gas_Flow_Controller_Manual.pdf
 """
 
-
-# Driver features expected:
-# Tare
-# [unitid]v\r
-# Barometer tare
-# [unitid]pc\r
-# collect single sample
-# [unitid]\r
-# returns:
-# UnitID AbsPressure Temp VolumetricFlow StandardMassFlow Setpoint GasTypeString
-# Units for the above are in pre-selected EU and may be diff from the display
-# Request data frame description
-# [unitid]??d*\r
-# same format as above, may also return status messages to the right of the gas column
-
-# setpoints
-# confirm that its setpoint source is set to Serial/Front Panel by selecting
-# MENU → CONTROL → ADV CONTROL → SETPT SOURCE
-# [unitid]s[setpoint as float]\r
-# ex: as15.44\r or as-15.44\r
-# can also sent as integers using equation:
-# 64000 * setpoint/full-scale
-# ex: 64000 * 15.44/20 = 49408
-# command is thus:
-# a[integer setpoint]\r
-# ex: [unitid]49408\r
-# If bidirectional, full scale includes +/-
-# so if its +/-20, 0=-20, 64000=+20
-# so -15.44 over 40, in this example is [(-15.44/40) - (-20/40)]*64000 = 64000*(20-15.44)/40
-
-# gas select
-# [unitid]g[gasnumber]\r
-# defining a gas mix is:
-# [unitid]gm [mix name - 6az] [mix number 236-255, 0=next] [gas1%2d] [gas1number] ... [2-5 gas types]\r
-# gas list info = a??g*\r
-
-# hold valve
-# at pos: [unitid]hp\r
-# at close: [unitid]hc\r
-# unhold: [unitid]c\r
 from __future__ import annotations
 
 import logging
