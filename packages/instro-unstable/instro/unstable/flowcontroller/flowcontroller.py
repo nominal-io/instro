@@ -12,7 +12,9 @@ from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.unstable.flowcontroller.types import (
     MASS_FLOW_KEY,
+    PRESSURE_KEY,
     SETPOINT_KEY,
+    TEMPERATURE_KEY,
     VOLUMETRIC_FLOW_KEY,
     FlowData,
 )
@@ -220,6 +222,19 @@ class InstroFlowController(Instrument):
 
         return Measurement(
             channel_data={f"{self.name}.{VOLUMETRIC_FLOW_KEY}": [value]},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
+
+    @publish_measurement
+    def get_pressure(self, **kwargs) -> Measurement | None:
+        """Read the current pressure. A subset of get_flow_data(); driver implementations may fetch a full frame internally."""
+        with self._resource_lock:
+            value = self._driver.pressure
+            timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{PRESSURE_KEY}": [value]},
             timestamps=[timestamp],
             tags={**self.default_tags, **kwargs},
         )
