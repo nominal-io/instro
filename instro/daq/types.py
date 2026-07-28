@@ -11,6 +11,7 @@ class DAQVendor(Enum):
     LABJACK_T_SERIES = "LabJack T-Series"
     KEYSIGHT_34980 = "KEYSIGHT_34980"
     MCC = "MCC DAQ"
+    ARDUINO_FIRMATA = "Arduino Firmata"
     # Add other vendors as needed
 
 
