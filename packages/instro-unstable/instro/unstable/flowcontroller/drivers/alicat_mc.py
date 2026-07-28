@@ -70,6 +70,12 @@ from instro.unstable.flowcontroller.drivers.alicat_constants import (
 from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, MassFlowData
 
 
+class AlicatDeviceError(RuntimeError):
+    """Exception raised when the Alicat device returns a '?' error response."""
+
+    pass
+
+
 class AlicatMCFlowData(MassFlowData):
     """MassFlowData extended with the Alicat MC-specific gas field."""
 
@@ -233,10 +239,10 @@ class AlicatMC(FlowControllerDriverBase):
         self._visa.close()
 
     def _query_checked(self, command: str) -> str:
-        """Query the device and raise RuntimeError if the response is '?'."""
+        """Query the device and raise AlicatDeviceError (type of RuntimeError) if the response is '?'."""
         response = self._visa.query(command)
         if response == "?":
-            raise RuntimeError(f"Error running command {command}, device returned ?")
+            raise AlicatDeviceError(f"Error running command {command}, device returned ?")
         return response
 
     ###TARE
@@ -244,7 +250,7 @@ class AlicatMC(FlowControllerDriverBase):
         """Zero the flow reading; device must have zero flow and must support tare."""
         try:
             response = self._query_checked(f"{self.unit_id}v")
-        except RuntimeError as e:
+        except AlicatDeviceError as e:
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support flow rate tare-ing"
             ) from e
@@ -254,7 +260,7 @@ class AlicatMC(FlowControllerDriverBase):
         """Zero the barometer reading; device must support barometer tare."""
         try:
             response = self._query_checked(f"{self.unit_id}pc")
-        except RuntimeError as e:
+        except AlicatDeviceError as e:
             raise NotImplementedError(
                 f"The currently selected device with unit ID={self.unit_id} does not support barometer tare-ing"
             ) from e
