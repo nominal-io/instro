@@ -102,6 +102,12 @@ class InstroFlowController(Instrument):
             publishers: Publishers that receive emitted Measurement/Command data.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher.
+
+        Note:
+            Direct access to driver-specific methods not in FlowControllerDriverBase
+            (e.g., AlicatMC.set_loop_control_variable, gas-mixture methods) bypasses
+            _resource_lock and is the caller's responsibility to synchronize if mixed
+            with concurrent InstroFlowController method calls.
         """
         super().__init__(name, publishers=publishers, **kwargs)
         self._driver = driver
