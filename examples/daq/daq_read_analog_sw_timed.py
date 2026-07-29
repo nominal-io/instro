@@ -19,7 +19,7 @@ match VENDOR:
 
         CHANNEL_0 = "AIN0"
         CHANNEL_1 = "AIN1"
-        driver = LabJackTSeriesDriver(device_id="440020473")  # LabJack serial number
+        driver = LabJackTSeriesDriver(device_id="440023871")  # LabJack serial number
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 

@@ -21,7 +21,7 @@ match VENDOR:
 
         CHANNEL_0 = "AIN0"
         CHANNEL_1 = "AIN1"
-        driver = LabJackTSeriesDriver(device_id="440020473")  # LabJack serial number
+        driver = LabJackTSeriesDriver(device_id="440023871")  # LabJack serial number
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
@@ -49,7 +49,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 ### Main code
 
 daq = InstroDAQ(name="myDAQ", driver=driver)
-daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+# daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
     daq.configure_analog_channel(

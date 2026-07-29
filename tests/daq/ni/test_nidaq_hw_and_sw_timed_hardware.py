@@ -164,7 +164,7 @@ class TestNIDAQHWAndSWTimedHardware(unittest.TestCase):
                 )
 
             # Request sample rate that sw timed daemon cannot support
-            daq_sw.configure_ai_sw_sample_rate(sample_rate=10)
+            daq_sw.configure_ai_sw_sample_rate(sample_rate=100)
 
             # The daemon thread raises the warning; catch_warnings patches module-global state,
             # so it lands here. "always" defeats the dedup on the message text.

@@ -26,7 +26,7 @@ HW_MODULE = f"{DEVICE}Mod1"
 SW_MODULE = f"{DEVICE}Mod2"
 
 HW_SAMPLE_RATE = 50000  # Hz, driven by the device's sample clock
-SW_SAMPLE_RATE = 10  # Hz, driven by the background daemon loop
+SW_SAMPLE_RATE = 1  # Hz, driven by the background daemon loop
 
 ### Main code
 
