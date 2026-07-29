@@ -180,5 +180,5 @@ class TestNIDAQHWAndSWTimedHardware(unittest.TestCase):
         messages = [str(warning.message) for warning in caught]
         self.assertTrue(
             any("maximum read rate" in message for message in messages),
-            f"a {SW_SAMPLE_RATE} Hz request the module cannot sustain raised no warning; caught: {messages}",
+            f"a {100} Hz request the module cannot sustain raised no warning; caught: {messages}",
         )
