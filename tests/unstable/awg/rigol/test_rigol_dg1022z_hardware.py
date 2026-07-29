@@ -12,12 +12,15 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
+    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -28,7 +31,7 @@ pytestmark = pytest.mark.hardware
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND to
 # "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
 # Outputs are only enabled briefly at low amplitude; leave them unconnected or on a scope.
-VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
+VISA_RESOURCE = "TCPIP0::169.254.10.1::INSTR"
 
 VISA_BACKEND = "@py"
 CHANNELS = (1, 2)
@@ -328,10 +331,186 @@ def test_23_modulate_pulse_shape_rejected(driver: RigolDG1022Z) -> None:
     driver.check_errors()
 
 
-def test_24_modulate_rejects_non_sine_carrier(driver: RigolDG1022Z) -> None:
-    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+@pytest.mark.parametrize(
+    "harm_type", [ht for ht in HarmonicType if ht is not HarmonicType.USER], ids=lambda ht: ht.value.lower()
+)
+def test_24_enable_harmonics_completes_without_error(driver: RigolDG1022Z, harm_type: HarmonicType) -> None:
+    """Enable, verify the carrier survives readback, reconfigure while already active, then toggle output."""
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ, phase_deg=45.0))
+    driver.enable_harmonics(1, 4, harm_type)
+    driver.check_errors()
 
-    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs Square"):
-        driver.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+    carrier = driver.get_waveform(1)
+    assert isinstance(carrier, Sine)
+    assert carrier.frequency_hz == pytest.approx(TEST_FREQUENCY_HZ, rel=FREQUENCY_TOLERANCE_REL)
+    assert carrier.phase_deg == pytest.approx(45.0, abs=PHASE_TOLERANCE_DEG)
+
+    # Changing the carrier frequency while harmonics remain enabled must still round-trip correctly.
+    driver.set_waveform(1, Sine(frequency_hz=2000.0, phase_deg=45.0))
+    driver.enable_harmonics(1, 6, harm_type)
+    driver.check_errors()
+
+    carrier = driver.get_waveform(1)
+    assert isinstance(carrier, Sine)
+    assert carrier.frequency_hz == pytest.approx(2000.0, rel=FREQUENCY_TOLERANCE_REL)
+
+    driver.set_amplitude(1, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
+    try:
+        driver.output_enable(1, True)
+        driver.check_errors()
+        assert driver.get_output_state(1) is True
+    finally:
+        driver.output_enable(1, False)
+    driver.check_errors()
+
+
+def test_25_enable_harmonics_rejects_order_out_of_range(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="order is out of range"):
+        driver.enable_harmonics(1, 9, HarmonicType.EVEN)
 
     driver.check_errors()
+
+
+def test_26_enable_harmonics_rejects_non_sine_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="can only enable harmonics on a Sine wave; channel 1 outputs Square"):
+        driver.enable_harmonics(1, 4, HarmonicType.EVEN)
+
+    driver.check_errors()
+
+
+def test_27_enable_harmonics_user_type_writes_bitmask(driver: RigolDG1022Z) -> None:
+    """Confirm the instrument stores the fixed 'X' placeholder plus the 7 caller-supplied bits."""
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.enable_harmonics(1, 4, HarmonicType.USER, user_harmonics="1010100")
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:HARM:USER?").strip() == "X1010100"
+
+
+def test_28_enable_harmonics_rejects_missing_user_harmonics(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="user_harmonics must be a 7-character string"):
+        driver.enable_harmonics(1, 4, HarmonicType.USER)
+
+    driver.check_errors()
+
+
+@pytest.mark.parametrize("burst_type", list(BurstType), ids=lambda bt: bt.value.lower())
+def test_29_burst_completes_without_error(driver: RigolDG1022Z, burst_type: BurstType) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.burst(1, burst_type)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:BURS:STAT?").strip() == "ON"
+
+
+def test_30_burst_rejects_invalid_channel(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        driver.burst(3, BurstType.NCYCLE)
+
+    driver.check_errors()
+
+
+def test_31_burst_rejects_when_harmonics_enabled(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.enable_harmonics(1, 4, HarmonicType.EVEN)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="cannot burst channel 1 while harmonics are enabled"):
+        driver.burst(1, BurstType.NCYCLE)
+
+    driver.check_errors()
+
+
+def test_32_burst_rejects_static_value_carrier(driver: RigolDG1022Z) -> None:
+    """The instrument silently leaves burst disabled for DC with no error; reject it client-side."""
+    driver.set_waveform(1, StaticValue(value=TEST_OFFSET_V))
+
+    with pytest.raises(ValueError, match="cannot burst a StaticValue \\(DC\\) waveform on channel 1"):
+        driver.burst(1, BurstType.NCYCLE)
+
+    driver.check_errors()
+
+
+@pytest.mark.parametrize("sweep_type", list(SweepType), ids=lambda st: st.value.lower())
+def test_33_sweep_completes_without_error(driver: RigolDG1022Z, sweep_type: SweepType) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.sweep(1, 100.0, 200.0, sweep_type)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:SWE:STAT?").strip() == "ON"
+    assert float(driver._visa.query(":SOUR1:FREQ:STAR?")) == pytest.approx(100.0, rel=FREQUENCY_TOLERANCE_REL)
+    assert float(driver._visa.query(":SOUR1:FREQ:STOP?")) == pytest.approx(200.0, rel=FREQUENCY_TOLERANCE_REL)
+
+
+def test_34_sweep_rejects_invalid_channel(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        driver.sweep(3, 100.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
+
+
+def test_35_sweep_rejects_non_positive_frequency(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="start_freq and stop_freq must be positive"):
+        driver.sweep(1, 0.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
+
+
+def test_36_sweep_rejects_when_harmonics_enabled(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.enable_harmonics(1, 4, HarmonicType.EVEN)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="cannot sweep channel 1 while harmonics are enabled"):
+        driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
+
+
+def test_37_sweep_rejects_pulse_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002))
+
+    with pytest.raises(ValueError, match="cannot sweep a Pulse waveform on channel 1"):
+        driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
+
+
+def test_38_sweep_rejects_static_value_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, StaticValue(value=TEST_OFFSET_V))
+
+    with pytest.raises(ValueError, match="cannot sweep a StaticValue waveform on channel 1"):
+        driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
+
+
+def test_39_set_waveform_rejects_sweep_compatible_waveform_while_sweeping(driver: RigolDG1022Z) -> None:
+    """A sweep-compatible waveform left set while sweeping would silently target a dormant register."""
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="cannot set a new waveform on channel 1 while a sweep is active"):
+        driver.set_waveform(1, Sine(frequency_hz=500.0))
+
+    driver.check_errors()
+    assert driver._visa.query(":SOUR1:SWE:STAT?").strip() == "ON"
+    assert float(driver._visa.query(":SOUR1:FREQ:STAR?")) == pytest.approx(100.0, rel=FREQUENCY_TOLERANCE_REL)
+    assert float(driver._visa.query(":SOUR1:FREQ:STOP?")) == pytest.approx(200.0, rel=FREQUENCY_TOLERANCE_REL)
+
+
+def test_40_set_waveform_pulse_auto_disables_sweep(driver: RigolDG1022Z) -> None:
+    """The instrument itself auto-disables sweep when switching to a non-sweepable waveform."""
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+    driver.check_errors()
+
+    driver.set_waveform(1, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002))
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:SWE:STAT?").strip() == "OFF"

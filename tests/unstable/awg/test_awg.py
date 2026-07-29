@@ -11,12 +11,15 @@ from instro.unstable.awg.awg import _PUBLISHED_NAMES, AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
+    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
     convert_amplitude,
@@ -97,6 +100,9 @@ def test_awg_driver_base_complete_subclass_instantiates() -> None:
         ("get_output_load", (1,)),
         ("align_phase", ()),
         ("modulate", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("enable_harmonics", (1, 4, HarmonicType.EVEN)),
+        ("burst", (1, BurstType.NCYCLE)),
+        ("sweep", (1, 100.0, 200.0, SweepType.LINEAR)),
     ],
 )
 def test_awg_driver_base_optional_methods_raise_not_implemented(
@@ -756,6 +762,78 @@ def test_modulate_returns_command_with_correct_descriptor(awg: InstroAWG, mock_d
     assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
 
 
+def test_modulate_raises_for_non_enum_mod_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="mod_type must be a ModulationType, got str"):
+        awg.modulate(1, "AM", Sine(frequency_hz=1000.0), 0.5)  # type: ignore[arg-type]
+    mock_driver.modulate.assert_not_called()
+
+
+def test_enable_harmonics_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.enable_harmonics(1, 4, HarmonicType.EVEN)
+    mock_driver.enable_harmonics.assert_called_once_with(
+        channel=1, order=4, harm_type=HarmonicType.EVEN, user_harmonics=None
+    )
+
+
+def test_enable_harmonics_forwards_user_harmonics_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.enable_harmonics(1, 4, HarmonicType.USER, user_harmonics="1010100")
+    mock_driver.enable_harmonics.assert_called_once_with(
+        channel=1, order=4, harm_type=HarmonicType.USER, user_harmonics="1010100"
+    )
+
+
+def test_enable_harmonics_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.enable_harmonics(1, 4, HarmonicType.EVEN)
+    assert "test_awg.ch1.harmonics.cmd" in cmd.channel_data
+    assert cmd.tags["harm_type"] == "EVEN"
+    assert "user_harmonics" not in cmd.tags
+
+
+def test_enable_harmonics_tags_user_harmonics_when_given(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.enable_harmonics(1, 4, HarmonicType.USER, user_harmonics="1010100")
+    assert cmd.tags["user_harmonics"] == "1010100"
+
+
+def test_enable_harmonics_raises_for_non_enum_harm_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="harm_type must be a HarmonicType, got str"):
+        awg.enable_harmonics(1, 4, "EVEN")  # type: ignore[arg-type]
+    mock_driver.enable_harmonics.assert_not_called()
+
+
+def test_burst_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.burst(1, BurstType.GATED)
+    mock_driver.burst.assert_called_once_with(channel=1, burst_type=BurstType.GATED)
+
+
+def test_burst_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.burst(1, BurstType.NCYCLE)
+    assert cmd.channel_data["test_awg.ch1.burst.cmd"] == "NCYCLE"
+
+
+def test_burst_raises_for_non_enum_burst_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="burst_type must be a BurstType, got str"):
+        awg.burst(1, "NCYCLE")  # type: ignore[arg-type]
+    mock_driver.burst.assert_not_called()
+
+
+def test_sweep_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.sweep(1, 100.0, 200.0, SweepType.LOG)
+    mock_driver.sweep.assert_called_once_with(channel=1, start_freq=100.0, stop_freq=200.0, sweep_type=SweepType.LOG)
+
+
+def test_sweep_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+    assert cmd.channel_data["test_awg.ch1.sweep.cmd"] == "LIN"
+    assert cmd.tags["start_freq"] == "100.0"
+    assert cmd.tags["stop_freq"] == "200.0"
+
+
+def test_sweep_raises_for_non_enum_sweep_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    with pytest.raises(TypeError, match="sweep_type must be a SweepType, got str"):
+        awg.sweep(1, 100.0, 200.0, "LIN")  # type: ignore[arg-type]
+    mock_driver.sweep.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Measurement getters
 # ---------------------------------------------------------------------------
@@ -823,6 +901,9 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("set_output_load", (50.0,)),
         ("get_output_load", ()),
         ("modulate", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("enable_harmonics", (4, HarmonicType.EVEN)),
+        ("burst", (BurstType.NCYCLE,)),
+        ("sweep", (100.0, 200.0, SweepType.LINEAR)),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 3])
