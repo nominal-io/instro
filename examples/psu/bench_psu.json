@@ -1,4 +1,6 @@
 {
+    "version": 1,
+    "instrument": "InstroPSU",
     "device": {
         "name": "bench_psu"
     },
