@@ -25,7 +25,7 @@ def valid_config() -> dict:
 
 
 def test_from_dict_returns_instropsu(valid_config):
-    with patch("instro.lib.transports.visa.VisaDriver"):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
         psu = InstroPSU.from_dict(valid_config)
 
     assert isinstance(psu, InstroPSU)
@@ -34,7 +34,7 @@ def test_from_dict_returns_instropsu(valid_config):
 
 def test_from_dict_with_timing_sets_background_interval(valid_config):
     config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
-    with patch("instro.lib.transports.visa.VisaDriver"):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
         psu = InstroPSU.from_dict(config_with_timing)
 
     assert psu.background_interval == 0.5
@@ -79,7 +79,7 @@ def test_from_json_happy_path(valid_config, tmp_path):
     config_file = tmp_path / "psu.json"
     config_file.write_text(json.dumps(valid_config))
 
-    with patch("instro.lib.transports.visa.VisaDriver"):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
         psu = InstroPSU.from_json(config_file)
 
     assert isinstance(psu, InstroPSU)
@@ -87,7 +87,7 @@ def test_from_json_happy_path(valid_config, tmp_path):
 
 
 def test_from_json_str_happy_path(valid_config):
-    with patch("instro.lib.transports.visa.VisaDriver"):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
         psu = InstroPSU.from_json_str(json.dumps(valid_config))
 
     assert isinstance(psu, InstroPSU)
@@ -111,7 +111,7 @@ def test_from_dict_with_publishers(valid_config):
         ],
     }
     with (
-        patch("instro.lib.transports.visa.VisaDriver"),
+        patch("instro.psu.drivers.simulated.VisaDriver"),
         patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
         patch("instro.lib.publishers.FilePublisher") as mock_fp,
     ):
