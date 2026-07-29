@@ -94,6 +94,26 @@ class TestScaleRestrictions:
         assert reg.scale is not None
 
 
+class TestCoilDiscreteDataType:
+    """Coils and discrete inputs are single-bit: data_type is pinned to bool."""
+
+    @pytest.mark.parametrize("register_type", ["coil", "discrete"])
+    def test_omitted_data_type_coerced_to_bool(self, register_type):
+        # data_type otherwise defaults to uint16; single-bit types normalize it to bool.
+        reg = RegisterDef(name="ok", starting_address=0, register_type=register_type)
+        assert reg.data_type == "bool"
+
+    @pytest.mark.parametrize("register_type", ["coil", "discrete"])
+    def test_explicit_non_bool_data_type_rejected(self, register_type):
+        with pytest.raises(ValidationError, match="single-bit; data_type must be 'bool'"):
+            RegisterDef(name="bad", starting_address=0, register_type=register_type, data_type="uint16")
+
+    @pytest.mark.parametrize("register_type", ["coil", "discrete"])
+    def test_explicit_bool_data_type_allowed(self, register_type):
+        reg = RegisterDef(name="ok", starting_address=0, register_type=register_type, data_type="bool")
+        assert reg.data_type == "bool"
+
+
 # ============ Register Overlap Detection ============
 
 

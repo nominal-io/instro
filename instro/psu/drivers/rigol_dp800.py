@@ -61,6 +61,12 @@ class RigolDP800(PSUDriverBase):
     def get_output_status(self, channel: int) -> bool:
         return self._query_checked_bool(f":OUTP? CH{channel}")
 
+    def get_voltage_setpoint(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:VOLT?")
+
+    def get_current_setpoint(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:CURR?")
+
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         if (limits := self._limits.get(channel)) is not None:
             self._validate_in_range(voltage, limits.ovp, channel, "overvoltage protection level")

@@ -526,7 +526,7 @@ print(f"Port value: {int(measurement.latest)}")
 ```
 
 <Note>
-Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels.
+Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels. On **NI DAQmx**, `port_width` is checked against the port's physical line count and a mismatch raises `ValueError` — pass the `DigitalPortWidth` that matches the hardware port.
 </Note>
 
 ## Complete Examples
