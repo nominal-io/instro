@@ -63,7 +63,9 @@ new_gas_mix = device.define_gas_mixture(
     gas_mix_name, [GasMixEntry(Decimal("74.99"), 0), GasMixEntry(Decimal("25.01"), 6)], gas_id=gas_mix_id
 )
 print(f"New gas mix defined: {new_gas_mix}")
-
+print(f"Creating a new gas mixture invalidates our cache -- requerying and looking for: {gas_mix_name}")
+gastypes = device.list_gas_types()
+print(f"Found {len(gastypes)}, printing matches: {[gastype for gastype in gastypes if gastype.name == gas_mix_name]}")
 
 ###META
 print(f"Querying for measurement metadata")
