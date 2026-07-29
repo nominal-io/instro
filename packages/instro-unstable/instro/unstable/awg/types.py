@@ -12,6 +12,14 @@ class AmplitudeMeasurementUnit(Enum):
     DBM = "DBM"
 
 
+class ModulationType(Enum):
+    AM = "AM"
+    FM = "FM"
+    PM = "PM"
+    FSK = "FSK"
+    ASK = "ASK"
+
+
 def _require_positive(name: str, value: float) -> None:
     if value <= 0:
         raise ValueError(f"{name} must be positive, got {value}")

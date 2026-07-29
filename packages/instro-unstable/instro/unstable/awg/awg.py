@@ -15,6 +15,7 @@ from instro.lib.types import Command, Measurement
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -86,6 +87,10 @@ class AWGDriverBase(abc.ABC):
     def align_phase(self) -> None:
         """Sync the phase of all channels."""
         raise NotImplementedError(f"align_phase is not implemented for {type(self).__name__}")
+
+    def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        """Modulate a channel's waveform."""
+        raise NotImplementedError(f"modulate is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -351,3 +356,14 @@ class InstroAWG(Instrument):
         load_float = float("inf") if val is None else val
         descriptor = f"ch{channel}.load"
         return self._package_measurement(descriptor, load_float, timestamp, **kwargs)
+
+    @publish_command
+    def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float, **kwargs) -> Command:
+        """Modulate a channel's waveform."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.modulate(channel=channel, mod_type=mod_type, shape=shape, magnitude=magnitude)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.modulation.cmd"
+        return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)

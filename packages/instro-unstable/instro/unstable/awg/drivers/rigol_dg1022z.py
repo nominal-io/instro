@@ -7,6 +7,7 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -23,6 +24,13 @@ _ARB_MAX_POINTS = 16384
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 _TRIANGLE_SYMMETRY_PCT = 50
+
+_MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
+    Sine: "SIN",
+    Square: "SQU",
+    Sawtooth: "RAMP",
+    Triangle: "TRI",
+}
 
 
 class RigolDG1022Z(AWGDriverBase):
@@ -180,6 +188,40 @@ class RigolDG1022Z(AWGDriverBase):
     def align_phase(self) -> None:
         self._visa.write(":SOUR1:PHAS:SYNC")
 
+    def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        _check_channel(channel)
+        if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM):
+            function = _mod_internal_function(shape)
+            frequency_hz = shape.frequency_hz
+        else:
+            function = None
+            frequency_hz = _mod_internal_frequency_hz(shape)
+
+        with self._visa.lock():
+            carrier = self.get_waveform(channel)
+            if not isinstance(carrier, Sine):
+                raise ValueError(
+                    f"the DG1022Z can only modulate a Sine carrier; channel {channel} outputs {type(carrier).__name__}"
+                )
+
+            if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM):
+                prefix = mod_type.value
+                self._visa.write(f":SOUR{channel}:{prefix}:SOUR INT")
+                self._visa.write(f":SOUR{channel}:{prefix}:INT:FUNC {function}")
+                self._visa.write(f":SOUR{channel}:{prefix}:INT:FREQ {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:{prefix} {magnitude}")
+                self._visa.write(f":SOUR{channel}:{prefix}:STAT ON")
+            elif mod_type is ModulationType.ASK:
+                self._visa.write(f":SOUR{channel}:ASK:SOUR INT")
+                self._visa.write(f":SOUR{channel}:ASK:INT {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:ASK:AMPL {magnitude}")
+                self._visa.write(f":SOUR{channel}:ASK:STAT ON")
+            else:  # mod_type is ModulationType.FSK
+                self._visa.write(f":SOUR{channel}:FSK:SOUR INT")
+                self._visa.write(f":SOUR{channel}:FSK:INT:RATE {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:FSK {magnitude}")
+                self._visa.write(f":SOUR{channel}:FSK:STAT ON")
+
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
         self._visa.write(f":SOUR{channel}:PHAS {phase_deg % 360.0}")
@@ -188,3 +230,18 @@ class RigolDG1022Z(AWGDriverBase):
 def _check_channel(channel: int) -> None:
     if channel not in (1, 2):
         raise ValueError(f"Rigol DG1022Z channel must be 1 or 2, got {channel}")
+
+
+def _mod_internal_function(shape: Waveform) -> str:
+    try:
+        return _MOD_INTERNAL_FUNCTIONS[type(shape)]
+    except KeyError:
+        raise ValueError(
+            f"the DG1022Z cannot use {type(shape).__name__} as a modulating waveform;"
+            " use Sine, Square, Sawtooth, or Triangle"
+        ) from None
+
+
+def _mod_internal_frequency_hz(shape: Waveform) -> float:
+    _mod_internal_function(shape)
+    return shape.frequency_hz

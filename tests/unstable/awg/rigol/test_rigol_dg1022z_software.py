@@ -10,6 +10,7 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -373,3 +374,108 @@ def test_31_align_phase_writes_sync(rigol: RigolDG1022Z, rigol_visa: MagicMock) 
     rigol.align_phase()
 
     rigol_visa.write.assert_called_once_with(":SOUR1:PHAS:SYNC")
+
+
+_SINE_CARRIER_RESPONSE = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
+
+
+@pytest.mark.parametrize(
+    ("mod_type", "shape", "prefix"),
+    [
+        (ModulationType.AM, Sine(frequency_hz=200.0), "AM"),
+        (ModulationType.FM, Square(frequency_hz=300.0), "FM"),
+        (ModulationType.PM, Sawtooth(frequency_hz=400.0), "PM"),
+    ],
+    ids=["am", "fm", "pm"],
+)
+def test_31_modulate_am_fm_pm_writes_internal_source_shape_and_state(
+    rigol: RigolDG1022Z,
+    rigol_visa: MagicMock,
+    mod_type: ModulationType,
+    shape: Waveform,
+    prefix: str,
+) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.modulate(1, mod_type, shape, 50.0)
+
+    expected_function = {Sine: "SIN", Square: "SQU", Sawtooth: "RAMP", Triangle: "TRI"}[type(shape)]
+    assert rigol_visa.write.call_args_list == [
+        call(f":SOUR1:{prefix}:SOUR INT"),
+        call(f":SOUR1:{prefix}:INT:FUNC {expected_function}"),
+        call(f":SOUR1:{prefix}:INT:FREQ {shape.frequency_hz}"),
+        call(f":SOUR1:{prefix} 50.0"),
+        call(f":SOUR1:{prefix}:STAT ON"),
+    ]
+
+
+def test_32_modulate_triangle_shape_maps_to_tri_function(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.modulate(2, ModulationType.AM, Triangle(frequency_hz=1000.0), 10.0)
+
+    assert call(":SOUR2:AM:INT:FUNC TRI") in rigol_visa.write.call_args_list
+
+
+def test_33_modulate_ask_writes_internal_rate_and_amplitude(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.modulate(1, ModulationType.ASK, Sine(frequency_hz=150.0), 2.5)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:ASK:SOUR INT"),
+        call(":SOUR1:ASK:INT 150.0"),
+        call(":SOUR1:ASK:AMPL 2.5"),
+        call(":SOUR1:ASK:STAT ON"),
+    ]
+
+
+def test_34_modulate_fsk_writes_internal_rate_and_hop_frequency(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.modulate(2, ModulationType.FSK, Square(frequency_hz=150.0), 5000.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:FSK:SOUR INT"),
+        call(":SOUR2:FSK:INT:RATE 150.0"),
+        call(":SOUR2:FSK 5000.0"),
+        call(":SOUR2:FSK:STAT ON"),
+    ]
+
+
+@pytest.mark.parametrize("mod_type", [ModulationType.AM, ModulationType.ASK, ModulationType.FSK])
+def test_35_modulate_rejects_unsupported_shape(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, mod_type: ModulationType
+) -> None:
+    """Shape validation is local and must run before any instrument I/O, including the carrier check."""
+    with pytest.raises(ValueError, match="cannot use Pulse as a modulating waveform"):
+        rigol.modulate(1, mod_type, Pulse(frequency_hz=1000.0, width_s=0.0002), 10.0)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_36_modulate_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.modulate(3, ModulationType.AM, Sine(frequency_hz=1000.0), 50.0)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_37_modulate_rejects_square_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Square carrier requires a second duty-cycle query; use side_effect to feed both replies."""
+    rigol_visa.query.side_effect = [
+        '"SQU,5.000000E+02,1.000000E+00,0.000000E+00,0.000000E+00"',
+        "5.000000E+01",
+    ]
+
+    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs Square"):
+        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_38_modulate_rejects_dc_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = '"DC,DEF,DEF,1.500000E+00"'
+
+    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs StaticValue"):
+        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+
+    rigol_visa.query.assert_called_once_with(":SOUR1:APPL?")
+    rigol_visa.write.assert_not_called()

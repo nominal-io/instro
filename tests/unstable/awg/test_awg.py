@@ -11,6 +11,7 @@ from instro.unstable.awg.awg import _PUBLISHED_NAMES, AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -95,6 +96,7 @@ def test_awg_driver_base_complete_subclass_instantiates() -> None:
         ("set_output_load", (1, 50.0)),
         ("get_output_load", (1,)),
         ("align_phase", ()),
+        ("modulate", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
     ],
 )
 def test_awg_driver_base_optional_methods_raise_not_implemented(
@@ -743,6 +745,17 @@ def test_align_phase_returns_command_with_correct_descriptor(awg: InstroAWG, moc
     assert "test_awg.phase.align.cmd" in cmd.channel_data
 
 
+def test_modulate_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    shape = Sine(frequency_hz=1000.0)
+    awg.modulate(1, ModulationType.AM, shape, 0.5)
+    mock_driver.modulate.assert_called_once_with(channel=1, mod_type=ModulationType.AM, shape=shape, magnitude=0.5)
+
+
+def test_modulate_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.modulate(1, ModulationType.FM, Sine(frequency_hz=1000.0), 0.5)
+    assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
+
+
 # ---------------------------------------------------------------------------
 # Measurement getters
 # ---------------------------------------------------------------------------
@@ -809,6 +822,7 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("get_output_state", ()),
         ("set_output_load", (50.0,)),
         ("get_output_load", ()),
+        ("modulate", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 3])
