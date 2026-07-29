@@ -691,25 +691,21 @@ class InstroDAQ(Instrument):
         return self._scale_analog_measurement(measurements)
 
     def _fetch_analog_sw_timed(self, **kwargs) -> list[Measurement]:
-        """Daemon-cycle software-timed read, warning when the read can't sustain the configured period."""
+        """Daemon-cycle software-timed read; warns when the read can't sustain the configured period."""
         read_start = time.perf_counter()
         measurements = self._software_timed_read(**kwargs)
-        self._warn_if_sw_rate_unsustainable(time.perf_counter() - read_start)
+        read_time = time.perf_counter() - read_start
+
+        period = self._background_config.interval
+        if self.is_sw_timing_configured and read_time > period:
+            warnings.warn(
+                f"DAQ '{self.name}' software-timed read took longer than the {period:.4f} s period "
+                f"requested by configure_ai_sw_sample_rate(); the background daemon can run at a maximum read rate "
+                f"of {1 / read_time:.1f} Hz instead.",
+                stacklevel=2,
+            )
 
         return measurements
-
-    def _warn_if_sw_rate_unsustainable(self, read_time: float):
-        """Warn when a read outlasts the configured software-timed period; the daemon keeps running."""
-        period = self._background_config.interval
-        if not self.is_sw_timing_configured or read_time <= period:
-            return
-
-        warnings.warn(
-            f"DAQ '{self.name}' software-timed read took longer than the {period:.4f} s period "
-            f"requested by configure_ai_sw_sample_rate(); the background daemon can run at a maximum read rate "
-            f"of {1 / read_time:.1f} Hz instead.",
-            stacklevel=2,
-        )
 
     @publish_measurement
     def _fetch_analog_hw_timed(self, **kwargs) -> list[Measurement]:

@@ -49,7 +49,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 ### Main code
 
 daq = InstroDAQ(name="myDAQ", driver=driver)
-# daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
     daq.configure_analog_channel(
