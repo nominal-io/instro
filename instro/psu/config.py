@@ -73,7 +73,7 @@ class FilePublisherConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     type: Literal["FilePublisher"] = "FilePublisher"
     directory: str = Field(description="Output directory for the written file.")
-    format: Literal["json", "csv", "avro"] = "avro"
+    format: Literal["json", "jsonl", "csv", "avro"] = "avro"
     custom_file_name: str | None = Field(default=None, description="Filename without extension.")
 
 
