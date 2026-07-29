@@ -167,7 +167,10 @@ def test_12_set_waveform_arbitrary_writes_points_individually(
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,8,2048"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,9,9215"),
     ]
-    assert rigol_visa.query.call_count == 11
+    # One error check after APPL:ARB, one after TRAC:DATA:POIN, and one after the whole
+    # per-point write loop (not once per sample) since draining the error queue after
+    # every single point is expensive.
+    assert rigol_visa.query.call_count == 3
 
 
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])
@@ -324,12 +327,23 @@ def test_27_offset_roundtrip_uses_offset_commands(rigol: RigolDG1022Z, rigol_vis
     rigol.set_offset(2, 0.5)
     rigol_visa.write.assert_called_once_with(":SOUR2:VOLT:OFFS 0.5")
 
-    rigol_visa.query.return_value = "5.000000E-01"
+    rigol_visa.query.side_effect = [
+        '"SIN,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"',
+        "5.000000E-01",
+    ]
     assert rigol.get_offset(2) == pytest.approx(0.5)
-    rigol_visa.query.assert_called_once_with(":SOUR2:VOLT:OFFS?")
+    assert rigol_visa.query.call_args_list == [call(":SOUR2:APPL?"), call(":SOUR2:VOLT:OFFS?")]
 
 
-def test_28_output_enable_formats_on_off_and_parses_state(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+def test_28_get_offset_dc_mode_uses_apply_reply(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    # In DC mode VOLT:OFFS? always reads 0 on the DG1000Z; only APPL? carries the level.
+    rigol_visa.query.return_value = '"DC,DEF,DEF,7.500000E-01"'
+
+    assert rigol.get_offset(1) == pytest.approx(0.75)
+    rigol_visa.query.assert_called_once_with(":SOUR1:APPL?")
+
+
+def test_29_output_enable_formats_on_off_and_parses_state(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.output_enable(1, True)
     rigol.output_enable(2, False)
     assert rigol_visa.write.call_args_list == [call(":OUTP1 ON"), call(":OUTP2 OFF")]
@@ -342,7 +356,7 @@ def test_28_output_enable_formats_on_off_and_parses_state(rigol: RigolDG1022Z, r
     assert rigol.get_output_state(1) is False
 
 
-def test_29_output_load_roundtrip_and_high_z(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+def test_30_output_load_roundtrip_and_high_z(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.set_output_load(1, 50.0)
     rigol.set_output_load(1, None)
     assert rigol_visa.write.call_args_list == [call(":OUTP1:LOAD 50"), call(":OUTP1:LOAD INF")]
@@ -355,7 +369,7 @@ def test_29_output_load_roundtrip_and_high_z(rigol: RigolDG1022Z, rigol_visa: Ma
     assert rigol.get_output_load(1) is None
 
 
-def test_30_align_phase_writes_sync(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+def test_31_align_phase_writes_sync(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.align_phase()
 
     rigol_visa.write.assert_called_once_with(":SOUR1:PHAS:SYNC")

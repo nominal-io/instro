@@ -90,7 +90,7 @@ class RigolDG1022Z(AWGDriverBase):
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
                     self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
-                    self.check_errors()
+                self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
@@ -150,7 +150,13 @@ class RigolDG1022Z(AWGDriverBase):
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)
-        return float(self._visa.query(f":SOUR{channel}:VOLT:OFFS?"))
+        with self._visa.lock():
+            resp = self._visa.query(f":SOUR{channel}:APPL?").strip().strip('"')
+            fields = resp.split(",")
+            if fields[0] == "DC":
+                # In DC mode VOLT:OFFS? always reads 0 on the DG1000Z; only APPL? carries the level.
+                return float(fields[3])
+            return float(self._visa.query(f":SOUR{channel}:VOLT:OFFS?"))
 
     def output_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
