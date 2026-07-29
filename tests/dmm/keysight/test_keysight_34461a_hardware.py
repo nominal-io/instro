@@ -15,7 +15,7 @@ Wiring / stimulus:
 Run:
     uv run python tests/dmm/keysight/test_keysight_34461a_hardware.py [--stage STAGE]
 
-Stages (wired strict-value passes; wiring per .context/34461a_hardware_validation_plan.md):
+Stages (wired strict-value passes; wiring noted per stage):
     smoke  (default) full structural sweep, open inputs
     dc     PSU 5.000 V / 50 mA limit on rails; 1 kOhm loop into the 3A jack
     ac     LabJack T4 DAC0 sine 100 Hz, 2.5 V offset, 2.0 V amplitude on rails
@@ -48,7 +48,7 @@ EXPECTED_TWO_WIRE_RESISTANCE = None  # ohms
 EXPECTED_FOUR_WIRE_RESISTANCE = None  # ohms
 VALUE_TOLERANCE = 0.05  # relative tolerance for any enabled strict check
 
-# Wired-stage expectations (.context/34461a_hardware_validation_plan.md).
+# Wired-stage expectations; wiring is described in the module docstring stages.
 STAGE_DC_VOLTAGE = 5.0  # V, bench PSU at 5.000 V
 STAGE_DC_CURRENT = 5.0e-3  # A, 5 V through the 1 kOhm limiter into the 3A jack
 STAGE_AC_VOLTAGE = 1.414  # V rms, 2.0 Vpk DAC0 sine (AC-coupled, offset invisible)
