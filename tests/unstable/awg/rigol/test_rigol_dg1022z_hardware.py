@@ -12,6 +12,7 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -299,3 +300,38 @@ def test_21_amplitude_dbm_roundtrip(driver: RigolDG1022Z) -> None:
     amplitude, unit = driver.get_amplitude(1)
     assert unit is AmplitudeMeasurementUnit.DBM
     assert amplitude == pytest.approx(TEST_AMPLITUDE_DBM, abs=AMPLITUDE_DBM_TOLERANCE_ABS)
+
+
+@pytest.mark.parametrize(
+    ("mod_type", "shape", "magnitude"),
+    [
+        (ModulationType.AM, Sine(frequency_hz=200.0), 80.0),
+        (ModulationType.FM, Square(frequency_hz=300.0), 1000.0),
+        (ModulationType.PM, Sawtooth(frequency_hz=400.0), 90.0),
+        (ModulationType.ASK, Triangle(frequency_hz=150.0), 2.0),
+        (ModulationType.FSK, Sine(frequency_hz=150.0), 5000.0),
+    ],
+    ids=["am", "fm", "pm", "ask", "fsk"],
+)
+def test_22_modulate_completes_without_error(
+    driver: RigolDG1022Z, mod_type: ModulationType, shape: Waveform, magnitude: float
+) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.modulate(1, mod_type, shape, magnitude)
+    driver.check_errors()
+
+
+def test_23_modulate_pulse_shape_rejected(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="cannot use Pulse as a modulating waveform"):
+        driver.modulate(1, ModulationType.AM, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002), 50.0)
+
+    driver.check_errors()
+
+
+def test_24_modulate_rejects_non_sine_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs Square"):
+        driver.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+
+    driver.check_errors()
