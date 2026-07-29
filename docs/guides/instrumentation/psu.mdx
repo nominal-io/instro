@@ -127,6 +127,7 @@ InstroPSU.from_json_str(json_string)
 - **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
 - **`num_channels`**: Number of output channels on the power supply.
 - **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 - **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
 
 ### Choosing a Driver
