@@ -122,6 +122,13 @@ def test_from_dict_with_publishers(valid_config):
     assert psu.publishers == [mock_ncp.return_value, mock_fp.return_value]
 
 
+def test_file_publisher_config_accepts_jsonl_format():
+    from instro.psu.config import FilePublisherConfig
+
+    config = FilePublisherConfig(directory="out", format="jsonl")
+    assert config.format == "jsonl"
+
+
 def test_from_dict_unknown_publisher_type(valid_config):
     with pytest.raises(Exception):
         InstroPSU.from_dict({**valid_config, "publishers": [{"type": "NotARealPublisher"}]})
