@@ -1,9 +1,9 @@
 ---
-title: "DAQ read analog HW timed"
+title: "DAQ read analog SW timed without a background daemon"
 ---
 
-```python daq_read_analog_hw_timed.py
-"""Example: DAQ read analog HW timed.
+```python daq_read_analog_sw_timed_no_background.py
+"""Example: DAQ read analog SW timed without a background daemon.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
@@ -26,7 +26,7 @@ match VENDOR:
 
         CHANNEL_0 = "AIN0"
         CHANNEL_1 = "AIN1"
-        driver = LabJackTSeriesDriver(device_id="440023871")  # LabJack serial number
+        driver = LabJackTSeriesDriver(device_id="440020473")  # LabJack serial number
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
@@ -64,23 +64,9 @@ with daq:
         direction=Direction.INPUT, physical_channel=CHANNEL_1, alias="ch_1", range_min=0, range_max=5
     )
 
-    daq.configure_ai_sample_rate(sample_rate=100)
-
-    # Start the acquisition.
-    # This launches a background daemon that fetches samples from the DAQ device buffer.
-    daq.start()
-
-    while True:
-        try:
-            ch_1 = daq.get_channel("myDAQ.ch_0", 1, True)  # This will block for the latest sample
-            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immediately return with 10 samples.
-            print(f"Channel 1 latest: {ch_1.latest}")
-            print(f"Channel 1 samples: {ch_1.values}")
-            print(f"Channel 2 latest: {ch_2.latest}")
-            print(f"Channel 2 samples: {ch_2.values}")
-        except KeyboardInterrupt:
-            print("Exiting main loop")
-            break
-
-    daq.stop()
+    for i in range(5):
+        # Take 5 measurements of each channel
+        measurement = daq.read_analog()
+        print(measurement)
+        time.sleep(1)  # Software sleep. Then request daq to sample new points.
 ```
