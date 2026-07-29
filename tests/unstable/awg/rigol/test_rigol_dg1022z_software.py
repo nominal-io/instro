@@ -10,12 +10,15 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
+    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -395,9 +398,10 @@ def test_31_modulate_am_fm_pm_writes_internal_source_shape_and_state(
     shape: Waveform,
     prefix: str,
 ) -> None:
-    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol_visa.query.return_value = "OFF"
     rigol.modulate(1, mod_type, shape, 50.0)
 
+    rigol_visa.query.assert_called_once_with(":SOUR1:HARM:STAT?")
     expected_function = {Sine: "SIN", Square: "SQU", Sawtooth: "RAMP", Triangle: "TRI"}[type(shape)]
     assert rigol_visa.write.call_args_list == [
         call(f":SOUR1:{prefix}:SOUR INT"),
@@ -409,14 +413,14 @@ def test_31_modulate_am_fm_pm_writes_internal_source_shape_and_state(
 
 
 def test_32_modulate_triangle_shape_maps_to_tri_function(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol_visa.query.return_value = "OFF"
     rigol.modulate(2, ModulationType.AM, Triangle(frequency_hz=1000.0), 10.0)
 
     assert call(":SOUR2:AM:INT:FUNC TRI") in rigol_visa.write.call_args_list
 
 
 def test_33_modulate_ask_writes_internal_rate_and_amplitude(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol_visa.query.return_value = "OFF"
     rigol.modulate(1, ModulationType.ASK, Sine(frequency_hz=150.0), 2.5)
 
     assert rigol_visa.write.call_args_list == [
@@ -428,7 +432,7 @@ def test_33_modulate_ask_writes_internal_rate_and_amplitude(rigol: RigolDG1022Z,
 
 
 def test_34_modulate_fsk_writes_internal_rate_and_hop_frequency(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol_visa.query.return_value = "OFF"
     rigol.modulate(2, ModulationType.FSK, Square(frequency_hz=150.0), 5000.0)
 
     assert rigol_visa.write.call_args_list == [
@@ -458,24 +462,331 @@ def test_36_modulate_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: Ma
     rigol_visa.write.assert_not_called()
 
 
-def test_37_modulate_rejects_square_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "harm_type", [ht for ht in HarmonicType if ht is not HarmonicType.USER], ids=lambda ht: ht.value.lower()
+)
+def test_39_enable_harmonics_writes_order_type_then_enables(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, harm_type: HarmonicType
+) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.enable_harmonics(1, 4, harm_type)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:HARM:ORDE 4"),
+        call(f":SOUR1:HARM:TYP {harm_type.value}"),
+        call(":SOUR1:HARM:STAT ON"),
+    ]
+
+
+@pytest.mark.parametrize("order", [1, 9], ids=["too_low", "too_high"])
+def test_40_enable_harmonics_rejects_order_out_of_range(rigol: RigolDG1022Z, rigol_visa: MagicMock, order: int) -> None:
+    """Order validation is local and must run before any instrument I/O, including the carrier check."""
+    with pytest.raises(ValueError, match="order is out of range"):
+        rigol.enable_harmonics(1, order, HarmonicType.EVEN)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_41_enable_harmonics_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.enable_harmonics(3, 4, HarmonicType.EVEN)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_42_enable_harmonics_rejects_square_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     """Square carrier requires a second duty-cycle query; use side_effect to feed both replies."""
     rigol_visa.query.side_effect = [
         '"SQU,5.000000E+02,1.000000E+00,0.000000E+00,0.000000E+00"',
         "5.000000E+01",
     ]
 
-    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs Square"):
-        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+    with pytest.raises(ValueError, match="can only enable harmonics on a Sine wave; channel 1 outputs Square"):
+        rigol.enable_harmonics(1, 4, HarmonicType.EVEN)
 
     rigol_visa.write.assert_not_called()
 
 
-def test_38_modulate_rejects_dc_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.return_value = '"DC,DEF,DEF,1.500000E+00"'
+def test_43_get_waveform_treats_harmonic_appl_reply_as_sine(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Once harmonics are enabled, APPL? reports 'HARMONIC' instead of 'SIN'; the carrier is still Sine."""
+    rigol_visa.query.return_value = '"HARMONIC,1.000000E+03,5.000000E+00,0.000000E+00,4.500000E+01"'
 
-    with pytest.raises(ValueError, match="can only modulate a Sine carrier; channel 1 outputs StaticValue"):
-        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+    waveform = rigol.get_waveform(1)
 
     rigol_visa.query.assert_called_once_with(":SOUR1:APPL?")
+    assert waveform == Sine(frequency_hz=1000.0, phase_deg=45.0)
+
+
+def test_44_enable_harmonics_reconfigures_while_already_active(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """A channel already reporting 'HARMONIC' as its carrier must still pass the Sine-carrier check."""
+    rigol_visa.query.return_value = '"HARMONIC,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
+
+    rigol.enable_harmonics(1, 6, HarmonicType.ODD)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:HARM:ORDE 6"),
+        call(":SOUR1:HARM:TYP ODD"),
+        call(":SOUR1:HARM:STAT ON"),
+    ]
+
+
+def test_45_modulate_rejects_non_enum_mod_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """A bad mod_type must not silently fall through to the FSK branch; reject before any instrument I/O."""
+    with pytest.raises(TypeError, match="mod_type must be a ModulationType, got str"):
+        rigol.modulate(1, "AM", Sine(frequency_hz=1000.0), 50.0)  # type: ignore[arg-type]
+
+    rigol_visa.query.assert_not_called()
     rigol_visa.write.assert_not_called()
+
+
+def test_46_enable_harmonics_rejects_non_enum_harm_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """A bad harm_type must be rejected before any instrument I/O, not after a partial write."""
+    with pytest.raises(TypeError, match="harm_type must be a HarmonicType, got str"):
+        rigol.enable_harmonics(1, 4, "EVEN")  # type: ignore[arg-type]
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_47_enable_harmonics_user_type_writes_bitmask(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Callers supply only the 7 real bits for harmonics 2-8; the driver adds the fixed 'X' placeholder."""
+    rigol_visa.query.return_value = _SINE_CARRIER_RESPONSE
+    rigol.enable_harmonics(1, 4, HarmonicType.USER, user_harmonics="1010100")
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:HARM:ORDE 4"),
+        call(":SOUR1:HARM:TYP USER"),
+        call(":SOUR1:HARM:USER X1010100"),
+        call(":SOUR1:HARM:STAT ON"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "user_harmonics",
+    [None, "101010", "10101001", "10101XX", "1010 00"],
+    ids=["missing", "too_short", "too_long", "non_binary", "whitespace"],
+)
+def test_48_enable_harmonics_rejects_invalid_user_harmonics(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, user_harmonics: str | None
+) -> None:
+    with pytest.raises(ValueError, match="user_harmonics must be a 7-character string"):
+        rigol.enable_harmonics(1, 4, HarmonicType.USER, user_harmonics=user_harmonics)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_49_enable_harmonics_rejects_user_harmonics_for_non_user_type(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="user_harmonics is only valid when harm_type is HarmonicType.USER"):
+        rigol.enable_harmonics(1, 4, HarmonicType.EVEN, user_harmonics="1010100")
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_50_modulate_rejects_when_harmonics_enabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "ON"
+
+    with pytest.raises(ValueError, match="cannot modulate channel 1 while harmonics are enabled"):
+        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=200.0), 50.0)
+
+    rigol_visa.query.assert_called_once_with(":SOUR1:HARM:STAT?")
+    rigol_visa.write.assert_not_called()
+
+
+def test_51_burst_ncycle_writes_mode_and_internal_trigger(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["OFF", _SINE_CARRIER_RESPONSE]
+    rigol.burst(1, BurstType.NCYCLE)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:BURS:MODE TRIG"),
+        call(":SOUR1:BURS:TRIG:SOUR INT"),
+        call(":SOUR1:BURS:STAT ON"),
+    ]
+
+
+def test_52_burst_gated_skips_explicit_trigger_source(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """:BURS:MODE GAT locks the trigger source to EXTernal; an explicit write afterward is rejected."""
+    rigol_visa.query.side_effect = ["OFF", _SINE_CARRIER_RESPONSE]
+    rigol.burst(2, BurstType.GATED)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:BURS:MODE GAT"),
+        call(":SOUR2:BURS:GATE:POL NORM"),
+        call(":SOUR2:BURS:STAT ON"),
+    ]
+
+
+def test_53_burst_infinite_writes_manual_trigger_source(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Infinite burst has no internal-trigger option; MANual is used instead."""
+    rigol_visa.query.side_effect = ["OFF", _SINE_CARRIER_RESPONSE]
+    rigol.burst(1, BurstType.INFINITE)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:BURS:MODE INF"),
+        call(":SOUR1:BURS:TRIG:SOUR MAN"),
+        call(":SOUR1:BURS:STAT ON"),
+    ]
+
+
+def test_54_burst_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.burst(3, BurstType.NCYCLE)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_55_burst_rejects_non_enum_burst_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(TypeError, match="burst_type must be a BurstType, got str"):
+        rigol.burst(1, "NCYCLE")  # type: ignore[arg-type]
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_56_burst_rejects_when_harmonics_enabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "ON"
+
+    with pytest.raises(ValueError, match="cannot burst channel 1 while harmonics are enabled"):
+        rigol.burst(1, BurstType.NCYCLE)
+
+    rigol_visa.query.assert_called_once_with(":SOUR1:HARM:STAT?")
+    rigol_visa.write.assert_not_called()
+
+
+def test_57_burst_rejects_static_value_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """The instrument silently leaves burst disabled for DC with no error; reject it client-side."""
+    rigol_visa.query.side_effect = ["OFF", '"DC,DEF,DEF,5.000000E-01"']
+
+    with pytest.raises(ValueError, match="cannot burst a StaticValue \\(DC\\) waveform on channel 1"):
+        rigol.burst(1, BurstType.NCYCLE)
+
+    rigol_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("sweep_type", "expected"),
+    [
+        (SweepType.LINEAR, "LIN"),
+        (SweepType.LOG, "LOG"),
+        (SweepType.STEP, "STEP"),
+    ],
+    ids=["linear", "log", "step"],
+)
+def test_58_sweep_writes_frequency_range_and_state(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, sweep_type: SweepType, expected: str
+) -> None:
+    rigol_visa.query.side_effect = ["OFF", _SINE_CARRIER_RESPONSE]
+    rigol.sweep(1, 100.0, 200.0, sweep_type)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:FREQ:STAR 100.0"),
+        call(":SOUR1:FREQ:STOP 200.0"),
+        call(f":SOUR1:SWE:SPAC {expected}"),
+        call(":SOUR1:SWE:TRIG:SOUR INT"),
+        call(":SOUR1:SWE:STAT ON"),
+    ]
+
+
+def test_59_sweep_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.sweep(3, 100.0, 200.0, SweepType.LINEAR)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_60_sweep_rejects_non_enum_sweep_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(TypeError, match="sweep_type must be a SweepType, got str"):
+        rigol.sweep(1, 100.0, 200.0, "LIN")  # type: ignore[arg-type]
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("start_freq", "stop_freq"),
+    [(0.0, 200.0), (100.0, 0.0), (-100.0, 200.0), (100.0, -200.0)],
+    ids=["zero_start", "zero_stop", "negative_start", "negative_stop"],
+)
+def test_61_sweep_rejects_non_positive_frequency(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, start_freq: float, stop_freq: float
+) -> None:
+    with pytest.raises(ValueError, match="start_freq and stop_freq must be positive"):
+        rigol.sweep(1, start_freq, stop_freq, SweepType.LINEAR)
+
+    rigol_visa.query.assert_not_called()
+    rigol_visa.write.assert_not_called()
+
+
+def test_62_sweep_rejects_when_harmonics_enabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "ON"
+
+    with pytest.raises(ValueError, match="cannot sweep channel 1 while harmonics are enabled"):
+        rigol.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    rigol_visa.query.assert_called_once_with(":SOUR1:HARM:STAT?")
+    rigol_visa.write.assert_not_called()
+
+
+def test_63_sweep_rejects_pulse_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = [
+        "OFF",
+        '"PULSE,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"',
+        "2.000000E-04",
+    ]
+
+    with pytest.raises(ValueError, match="cannot sweep a Pulse waveform on channel 1"):
+        rigol.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_64_sweep_rejects_static_value_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["OFF", '"DC,DEF,DEF,5.000000E-01"']
+
+    with pytest.raises(ValueError, match="cannot sweep a StaticValue waveform on channel 1"):
+        rigol.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_65_set_waveform_rejects_sweep_compatible_waveform_while_sweeping(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    """A sweep-compatible waveform left set while sweeping would silently target a dormant register."""
+    rigol_visa.query.return_value = "ON"
+
+    with pytest.raises(ValueError, match="cannot set a new waveform on channel 1 while a sweep is active"):
+        rigol.set_waveform(1, Sine(frequency_hz=500.0))
+
+    rigol_visa.query.assert_called_once_with(":SOUR1:SWE:STAT?")
+    rigol_visa.write.assert_not_called()
+
+
+def test_66_set_waveform_allows_pulse_while_sweeping(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """The instrument auto-disables an active sweep when switching to a non-sweepable waveform."""
+    rigol_visa.query.return_value = "ON"
+
+    rigol.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002))
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:FUNC PULS"),
+        call(":SOUR1:FREQ 1000.0"),
+        call(":SOUR1:FUNC:PULS:WIDT 0.0002"),
+    ]
+
+
+def test_67_set_waveform_allows_static_value_while_sweeping(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "ON"
+
+    rigol.set_waveform(1, StaticValue(value=1.5))
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:FUNC DC"),
+        call(":SOUR1:VOLT:OFFS 1.5"),
+    ]
