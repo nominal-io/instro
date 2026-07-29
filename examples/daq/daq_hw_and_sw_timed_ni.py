@@ -40,7 +40,7 @@ with daq_hw, daq_sw:
             direction=Direction.INPUT,
             physical_channel=f"{HW_MODULE}/ai{i}",
             alias=f"hw_channel{i}",
-            range_min=-5,
+            range_min=0,
             range_max=5,
         )
         daq_sw.configure_analog_channel(
@@ -65,6 +65,7 @@ with daq_hw, daq_sw:
             # Both instances buffer into their own channel buffer; read either one.
             print(f"hw_channel0 latest: {daq_hw.get_channel('hw_channel0').latest}")
             print(f"sw_channel0 latest: {daq_sw.get_channel('sw_channel0').latest}")
+            print(f"sw loop period (s): {daq_sw.get_channel('loop_time').latest}")
             time.sleep(1)
         except KeyboardInterrupt:
             print("Exiting main loop")

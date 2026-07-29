@@ -964,14 +964,14 @@ def test_sw_timed_start_requires_the_background_daemon():
 
 
 def test_sw_timed_start_registers_software_read_and_skips_device_start():
-    """SW-timed start() spins the daemon on _software_timed_read without starting a device task."""
+    """SW-timed start() spins the daemon on _fetch_analog_sw_timed without starting a device task."""
     daq, mock_driver = _sw_timed_daq()
 
     daq.start()
     try:
         assert daq._background_thread is not None
         assert daq._background_thread.is_alive()
-        assert [method for method, _, _ in daq._background_methods] == [daq._software_timed_read]
+        assert [method for method, _, _ in daq._background_methods] == [daq._fetch_analog_sw_timed]
         mock_driver.start.assert_not_called()
     finally:
         daq.stop()
@@ -1015,14 +1015,14 @@ def test_sw_timed_read_analog_raises_while_daemon_running():
 
 
 def test_sw_timed_restart_registers_background_read_exactly_once():
-    """start() after stop() must not register a second _software_timed_read daemon function."""
+    """start() after stop() must not register a second _fetch_analog_sw_timed daemon function."""
     daq, _ = _sw_timed_daq()
     try:
         daq.start()
         daq.stop()
         daq.start()
 
-        reads = [method for method, _, _ in daq._background_methods if method == daq._software_timed_read]
+        reads = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog_sw_timed]
         assert len(reads) == 1
     finally:
         daq.stop()

@@ -1,8 +1,10 @@
-"""Example: DAQ read analog SW timed.
+"""Example: DAQ read analog SW timed without a background daemon.
 
 Demonstrates publishing measurements/commands to a dataset (Nominal Core publisher).
 
 """
+
+import time
 
 from instro.daq import InstroDAQ
 from instro.daq.types import DAQVendor, Direction
@@ -57,25 +59,8 @@ with daq:
         direction=Direction.INPUT, physical_channel=CHANNEL_1, alias="ch_1", range_min=0, range_max=5
     )
 
-    # There is no device sample clock here: this rate paces the background daemon,
-    # which warns if a read takes longer than the period it asks for.
-    daq.configure_ai_sw_sample_rate(sample_rate=100)
-
-    # Start the acquisition.
-    # This launches a background daemon that polls the DAQ for a new sample every period.
-    # Software timing has no device-side clock, so background=False is not available.
-    daq.start()
-
-    while True:
-        try:
-            ch_1 = daq.get_channel("myDAQ.ch_0", 1, True)  # This will block for the latest sample
-            ch_2 = daq.get_channel("myDAQ.ch_1", 10, False)  # This will immediately return with 10 samples.
-            print(f"Channel 1 latest: {ch_1.latest}")
-            print(f"Channel 1 samples: {ch_1.values}")
-            print(f"Channel 2 latest: {ch_2.latest}")
-            print(f"Channel 2 samples: {ch_2.values}")
-        except KeyboardInterrupt:
-            print("Exiting main loop")
-            break
-
-    daq.stop()
+    for i in range(5):
+        # Take 5 measurements of each channel
+        measurement = daq.read_analog()
+        print(measurement)
+        time.sleep(1)  # Software sleep. Then request daq to sample new points.
