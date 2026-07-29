@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "instro-ethernetip-py"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "instro-ethernetip",
  "pyo3",
@@ -480,6 +480,14 @@ dependencies = [
  "tracing",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "instro-opcua-py"
+version = "0.1.0"
+dependencies = [
+ "instro-opcua",
+ "pyo3",
 ]
 
 [[package]]

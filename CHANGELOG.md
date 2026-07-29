@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.0](https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v1.5.0) (2026-07-26)
+
+
+### Features
+
+* add espec gl controller environmental chamber driver ([#299](https://github.com/nominal-io/instro/issues/299)) ([6cfb658](https://github.com/nominal-io/instro/commit/6cfb65804b549b4410a57bf2f27ce8aed6c54eae))
+* **awg:** adding AWGDriverBase and InstroAWG ([#159](https://github.com/nominal-io/instro/issues/159)) ([71baa7e](https://github.com/nominal-io/instro/commit/71baa7ed1aff6166510008500de58db8ce049f12))
+* **opcua:** implement browse paths ([#161](https://github.com/nominal-io/instro/issues/161)) ([8b2ea1c](https://github.com/nominal-io/instro/commit/8b2ea1c976279ada509904255ae99d37b37d6e6b))
+* **opcua:** support bytestring and guid node ids ([#162](https://github.com/nominal-io/instro/issues/162)) ([5365856](https://github.com/nominal-io/instro/commit/5365856f802fc587bc8cb9f49f65cc640de25a72))
+* **scaling:** add inverse thermocouple scaling ([#294](https://github.com/nominal-io/instro/issues/294)) ([3e5078c](https://github.com/nominal-io/instro/commit/3e5078ca84272a4d748aeb423efb64dbbd087b41))
+* **transports:** add composable ModbusDriver transport ([#295](https://github.com/nominal-io/instro/issues/295)) ([1eed6f6](https://github.com/nominal-io/instro/commit/1eed6f6eacf4ecbf625132fe16db283332c96ebf))
+
+
+### Bug Fixes
+
+* **daq:** standardize internal analog reads on lists ([#280](https://github.com/nominal-io/instro/issues/280)) ([efb9283](https://github.com/nominal-io/instro/commit/efb9283f4e3c92d0974b98128fbd6a08d4bc1a20))
+* **nidaqmx:** validate digital port width ([#284](https://github.com/nominal-io/instro/issues/284)) ([980bc7d](https://github.com/nominal-io/instro/commit/980bc7dd3fe915ef338e77712ff9efaa7980f6c3))
+
 ## [1.4.0](https://github.com/nominal-io/instro/compare/instro-v1.3.0...instro-v1.4.0) (2026-07-13)
 
 

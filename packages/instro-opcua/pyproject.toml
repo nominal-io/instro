@@ -1,7 +1,7 @@
 [project]
-name = "instro-ethernetip"
-version = "1.0.1"
-description = "EtherNet/IP device support for instro: config-driven Allen-Bradley PLC tag access with a native PyO3 session backend"
+name = "instro-opcua"
+version = "0.1.0"
+description = "Python bindings for instro OPC UA"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.15"
@@ -16,5 +16,5 @@ instro = { workspace = true }
 
 [tool.maturin]
 bindings = "pyo3"
-module-name = "instro.ethernetip._ethernetip"
+module-name = "instro.unstable._opcua"
 python-source = "."

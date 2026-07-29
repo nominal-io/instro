@@ -23,7 +23,7 @@ It is intentionally narrow: it opens, closes, and locks a VISA resource and expo
 | Build a **vendor- or model-specific driver** that plugs into an `Instro*` instrument type (`InstroPSU`, `InstroDMM`, `InstroELoad`, …) for a device `instro` doesn't ship | It's the same transport every built-in SCPI driver uses, so your driver composes the same way |
 | Use a **standalone client** for a SCPI instrument that doesn't fit any existing instrument type | It's usable on its own, without an `Instro*` wrapper |
 
-If you're working with a non-VISA protocol (Modbus, raw TCP without VISA framing, a vendor REST API), use the appropriate protocol module (e.g. [ModbusDevice](/instrumentation/protocols/modbus)) or a plain client library instead.
+If you're working with a non-VISA protocol (Modbus, raw TCP without VISA framing, a vendor REST API), use the appropriate transport or protocol module instead. For Modbus-attached instruments, compose [`ModbusDriver`](/instrumentation/transports/modbus) the same way, or use the config-driven [`ModbusDevice`](/instrumentation/protocols/modbus).
 
 ## Quickstart
 
