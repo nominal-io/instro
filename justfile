@@ -65,7 +65,7 @@ fix-format:
     uv run ruff format
 
 # fix imports and formatting
-fix: fix-format fix-imports
+fix: fix-format fix-imports gen-examples
 
 # run all tests and checks
 verify: install test check
