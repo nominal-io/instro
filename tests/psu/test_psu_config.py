@@ -144,3 +144,18 @@ def test_vendor_registry_complete():
         mod_path, cls_name = path.rsplit(".", 1)
         cls = getattr(importlib.import_module(mod_path), cls_name)
         assert issubclass(cls, PSUDriverBase), f"{key} does not point to a PSUDriverBase subclass"
+
+
+def test_vendor_registry_matches_drivers_package():
+    from instro.psu import drivers
+    from instro.psu.config import PSU_VENDOR_REGISTRY
+    from instro.psu.psu import PSUDriverBase
+
+    exported_drivers = {
+        name
+        for name in drivers.__all__
+        if getattr(drivers, name) is not PSUDriverBase and issubclass(getattr(drivers, name), PSUDriverBase)
+    }
+    assert set(PSU_VENDOR_REGISTRY) == exported_drivers, (
+        "PSU_VENDOR_REGISTRY and instro.psu.drivers.__all__ have drifted apart; a new driver must be added to both."
+    )
