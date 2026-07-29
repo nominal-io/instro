@@ -548,6 +548,11 @@ class InstroDAQ(Instrument):
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
         self._require_open()
+        if self.is_sw_timing_configured:
+            raise HWTimingException(
+                f"DAQ '{self.name}' is already configured for software timing. "
+                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
+            )
         if not samples_per_channel:
             samples_per_channel = max(1, int(sample_rate // 10))
 
@@ -574,23 +579,48 @@ class InstroDAQ(Instrument):
             sample_rate: Rate (Hz) at which the background daemon polls AI channels.
         """
         self._require_open()
+        if self.is_hw_timing_configured:
+            raise HWTimingException(
+                f"DAQ '{self.name}' is already configured for hardware timing. "
+                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
+            )
         if sample_rate <= 0:
             raise ValueError(f"Software-timed sample rate must be greater than 0 Hz, got {sample_rate}.")
 
         # Software timing needs a background loop period.
         self._background_config.interval = 1 / sample_rate
+
+        # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
+        self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
         logger.info("Configured AI software timing on DAQ '%s' at %s Hz", self.name, sample_rate)
 
     def start(self, background: bool = True, **kwargs):
-        """Start hardware-timed acquisition.
+        """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
 
         Args:
             background: When True (default), spin the daemon thread to continuously
                 fetch the buffer. When False, begin hardware acquisition only and
-                fetch the buffer yourself by calling ``read_analog()``.
+                fetch the buffer yourself by calling ``read_analog()``. Software-timed
+                acquisition requires True — the daemon is what does the timing.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         self._require_open()
+        if self.is_sw_timing_configured:
+            if not background:
+                raise HWTimingException(
+                    f"DAQ '{self.name}' is software-timed, which requires start(background=True): "
+                    "the background daemon is what paces the reads. Call read_analog() directly instead."
+                )
+            self._define_background_daemon()
+            super().start()
+            return
+
+        if not self.is_hw_timing_configured:
+            raise HWTimingException(
+                f"Cannot start DAQ '{self.name}' without AI timing configured. "
+                "Call configure_ai_hw_sample_rate() or configure_ai_sw_sample_rate() first."
+            )
+
         # DAQmx allows starting different channel_types independently.
         channel_type = kwargs.get("channel_type", None)
 
@@ -629,13 +659,13 @@ class InstroDAQ(Instrument):
         Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
         """
         self._require_open()
-        if self.ai_hw_timing_config:
+        if self.is_hw_timing_configured:
             if self._background_thread and self._background_thread.is_alive():
                 # Background daemon running. The user can't pull from the buffer mid-flight.
                 # TODO revisit with INSTRO-149 issue ticket.
                 raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-            measurements = self._fetch_analog(**kwargs)
+            measurements = self._fetch_analog_hw_timed(**kwargs)
 
         else:
             measurements = self._software_timed_read(**kwargs)
@@ -657,12 +687,12 @@ class InstroDAQ(Instrument):
         return self._scale_analog_measurement(measurements)
 
     @publish_measurement
-    def _fetch_analog(self, **kwargs) -> list[Measurement]:
+    def _fetch_analog_hw_timed(self, **kwargs) -> list[Measurement]:
         """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
-        if not self.ai_hw_timing_config:
+        if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
-                "Call configure_ai_sample_rate() before starting a hardware-timed acquisition."
+                "Call configure_ai_hw_sample_rate() before starting a hardware-timed acquisition."
             )
 
         response = self._driver.fetch_analog()
@@ -930,10 +960,11 @@ class InstroDAQ(Instrument):
         return self._package_command(f"{relay_channel.alias}.cmd", "OPEN", timestamp, **kwargs)
 
     def _define_background_daemon(self):
-        """Register ``_fetch_analog`` as the daemon function when AI channels exist."""
-        already_registered = any(method == self._fetch_analog for method, _, _ in self._background_methods)
+        """Register the fetch matching the configured timing mode when AI channels exist."""
+        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
+        already_registered = any(method == fetch for method, _, _ in self._background_methods)
         if self.ai_channels and not already_registered:
-            self.add_background_daemon_function(self._fetch_analog)
+            self.add_background_daemon_function(fetch)
 
     def get_actual_sample_rate(self) -> float | None:
         """Hardware's actual sample rate after ``start()``; ``None`` if unsupported or not started."""

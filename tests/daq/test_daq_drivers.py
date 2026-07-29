@@ -853,7 +853,7 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
     """Internal helpers return lists while public reads unwrap one Measurement."""
     if timing == "hardware":
         daq, mock_driver = _hw_timed_daq()
-        internal_read = daq._fetch_analog
+        internal_read = daq._fetch_analog_hw_timed
     else:
         mock_driver = _make_mock_driver()
         daq = InstroDAQ(name="ut", driver=mock_driver)
@@ -874,14 +874,14 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
 
 
 def test_restart_registers_background_fetch_exactly_once():
-    """start() after stop() must not register a second _fetch_analog daemon function."""
+    """start() after stop() must not register a second _fetch_analog_hw_timed daemon function."""
     daq, _ = _hw_timed_daq()
     try:
         daq.start()
         daq.stop()
         daq.start()
 
-        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog]
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog_hw_timed]
         assert len(fetchers) == 1
     finally:
         daq.stop()
