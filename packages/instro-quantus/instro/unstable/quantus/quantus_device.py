@@ -46,7 +46,7 @@ class QuantusDevice(Instrument):
                 matches the Modbus/EtherNet-IP configs: ``version`` /
                 ``protocol`` / ``device`` / ``connection`` + rack payload.
                 CAN channels with a ``dbc`` entry are decoded natively to
-                per-signal channels (``{name}.{alias}.{signal}``).
+                per-signal channels (``{name}.{alias}.{message}.{signal}``).
             connection: Overrides the config's ``connection`` section (merged
                 key-by-key, e.g. ``{"host": "10.0.0.202"}``). Required if the
                 config has no ``connection`` section.

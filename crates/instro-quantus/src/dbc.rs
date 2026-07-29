@@ -43,6 +43,7 @@ struct SignalSpec {
 
 #[derive(Debug, Clone)]
 struct MessageSpec {
+    name: String,
     signals: Vec<SignalSpec>,
 }
 
@@ -71,7 +72,7 @@ impl CanDecoder {
         for (line_no, line) in text.lines().enumerate() {
             let trimmed = line.trim();
             if let Some(rest) = trimmed.strip_prefix("BO_ ") {
-                let id = parse_message_id(rest).ok_or_else(|| {
+                let (id, name) = parse_message_header(rest).ok_or_else(|| {
                     Error::Config(format!("bad BO_ line {}: {trimmed}", line_no + 1))
                 })?;
                 if id == VECTOR_INDEPENDENT_SIG_MSG {
@@ -82,6 +83,7 @@ impl CanDecoder {
                 messages.insert(
                     key,
                     MessageSpec {
+                        name,
                         signals: Vec::new(),
                     },
                 );
@@ -114,10 +116,11 @@ impl CanDecoder {
         Ok(CanDecoder { messages })
     }
 
-    /// Decode one frame to (signal name, physical value) pairs. `None` means
-    /// the id is not in the DBC; the caller counts it as an unknown frame.
-    /// A `Some(empty)` means the id is known but no signal fit the received
-    /// data (e.g. a truncated frame).
+    /// Decode one frame to ("{message}.{signal}", physical value) pairs —
+    /// message-qualified because DBCs reuse signal names across messages.
+    /// `None` means the id is not in the DBC; the caller counts it as an
+    /// unknown frame. A `Some(empty)` means the id is known but no signal fit
+    /// the received data (e.g. a truncated frame).
     pub fn decode(&self, id: u32, data: &[u8]) -> Option<Vec<(String, f64)>> {
         let message = self.messages.get(&(id & CAN_ID_MASK))?;
         let switch = message
@@ -141,7 +144,7 @@ impl CanDecoder {
                 raw as f64
             };
             values.push((
-                signal.name.clone(),
+                format!("{}.{}", message.name, signal.name),
                 raw_value * signal.factor + signal.offset,
             ));
         }
@@ -149,9 +152,12 @@ impl CanDecoder {
     }
 }
 
-/// `BO_ <id> <Name>: <dlc> <sender>` -> id (extended flag bit still set).
-fn parse_message_id(rest: &str) -> Option<u32> {
-    rest.split_whitespace().next()?.parse::<u32>().ok()
+/// `BO_ <id> <Name>: <dlc> <sender>` -> (id, name); extended flag bit still set.
+fn parse_message_header(rest: &str) -> Option<(u32, String)> {
+    let mut tokens = rest.split_whitespace();
+    let id = tokens.next()?.parse::<u32>().ok()?;
+    let name = tokens.next()?.trim_end_matches(':');
+    (!name.is_empty()).then(|| (id, name.to_string()))
 }
 
 /// `<Name> [M|m<N>] : <start>|<size>@<endian><sign> (<factor>,<offset>) ...`
@@ -287,12 +293,12 @@ BO_ 512 Muxed: 8 ECU
         // EngineSpeed: bits 24..40 little endian -> bytes 3..5, raw 0x1000 = 4096 -> 512 rpm.
         let data = [0, 0, 0, 0x00, 0x10, 0, 0, 0];
         let values = decoder.decode(0x0CF00400, &data).unwrap();
-        assert_eq!(values, vec![("EngineSpeed".to_string(), 512.0)]);
+        assert_eq!(values, vec![("EEC1.EngineSpeed".to_string(), 512.0)]);
 
         let data = [7, 65, 0, 0, 0, 0, 0, 0]; // Counter=7, CoolantTemp raw 65 -> 25 degC
         let values = decoder.decode(0x18FF50E5, &data).unwrap();
-        assert_eq!(values[0], ("Counter".to_string(), 7.0));
-        assert_eq!(values[1], ("CoolantTemp".to_string(), 25.0));
+        assert_eq!(values[0], ("VehicleData.Counter".to_string(), 7.0));
+        assert_eq!(values[1], ("VehicleData.CoolantTemp".to_string(), 25.0));
     }
 
     #[test]
@@ -301,9 +307,9 @@ BO_ 512 Muxed: 8 ECU
         // BigEndian16 at start bit 7: bytes 0..2 big endian. 0x0102 = 258 -> 25.8.
         let data = [0x01, 0x02, 0, 0, 0xFE, 0, 0, 0];
         let values = decoder.decode(256, &data).unwrap();
-        assert_eq!(values[0].0, "BigEndian16");
+        assert_eq!(values[0].0, "Motorola.BigEndian16");
         assert!((values[0].1 - 25.8).abs() < 1e-9);
-        assert_eq!(values[1], ("SignedByte".to_string(), -2.0)); // 0xFE signed
+        assert_eq!(values[1], ("Motorola.SignedByte".to_string(), -2.0)); // 0xFE signed
     }
 
     #[test]
@@ -312,11 +318,11 @@ BO_ 512 Muxed: 8 ECU
         let selected = decoder
             .decode(512, &[2, 0x34, 0x12, 0, 0, 0, 0, 0])
             .unwrap();
-        assert!(selected.contains(&("OnlyWhen2".to_string(), 0x1234 as f64)));
+        assert!(selected.contains(&("Muxed.OnlyWhen2".to_string(), 0x1234 as f64)));
         let unselected = decoder
             .decode(512, &[1, 0x34, 0x12, 0, 0, 0, 0, 0])
             .unwrap();
-        assert_eq!(unselected, vec![("Selector".to_string(), 1.0)]);
+        assert_eq!(unselected, vec![("Muxed.Selector".to_string(), 1.0)]);
     }
 
     #[test]
@@ -329,8 +335,8 @@ BO_ 512 Muxed: 8 ECU
         assert!(values.is_empty());
         // VehicleData's byte-0/1 signals still decode from a 2-byte frame.
         let values = decoder.decode(0x18FF50E5, &[9, 50]).unwrap();
-        assert_eq!(values[0], ("Counter".to_string(), 9.0));
-        assert_eq!(values[1], ("CoolantTemp".to_string(), 10.0));
+        assert_eq!(values[0], ("VehicleData.Counter".to_string(), 9.0));
+        assert_eq!(values[1], ("VehicleData.CoolantTemp".to_string(), 10.0));
     }
 
     #[test]
@@ -343,7 +349,7 @@ BO_ 512 Muxed: 8 ECU
         data[12] = 0x10; // bits 96.. -> bytes 12..14 little endian
         data[13] = 0x27; // 0x2710 = 10000 -> 100.0
         let values = decoder.decode(768, &data).unwrap();
-        assert_eq!(values, vec![("LateSignal".to_string(), 100.0)]);
+        assert_eq!(values, vec![("FdFrame.LateSignal".to_string(), 100.0)]);
     }
 
     #[test]
@@ -356,7 +362,7 @@ BO_ 0 RealIdZero: 8 ECU
 "#;
         let decoder = CanDecoder::from_dbc_str(dbc).unwrap();
         let values = decoder.decode(0, &[42, 0, 0, 0, 0, 0, 0, 0]).unwrap();
-        assert_eq!(values, vec![("Actual".to_string(), 42.0)]);
+        assert_eq!(values, vec![("RealIdZero.Actual".to_string(), 42.0)]);
     }
 
     #[test]
@@ -367,9 +373,9 @@ BO_ 0 RealIdZero: 8 ECU
             .to_string();
         let decoder = CanDecoder::from_dbc_str(&dbc).unwrap();
         let values = decoder.decode(256, &[1, 7, 0, 0, 0, 0, 0, 0]).unwrap();
-        assert!(values.contains(&("Nested".to_string(), 7.0)));
+        assert!(values.contains(&("Mixed.Nested".to_string(), 7.0)));
         let values = decoder.decode(256, &[0, 7, 0, 0, 0, 0, 0, 0]).unwrap();
-        assert_eq!(values, vec![("Sel".to_string(), 0.0)]);
+        assert_eq!(values, vec![("Mixed.Sel".to_string(), 0.0)]);
     }
 
     #[test]
@@ -377,5 +383,23 @@ BO_ 0 RealIdZero: 8 ECU
         assert!(CanDecoder::from_dbc_str("").is_err());
         assert!(CanDecoder::from_dbc_str("SG_ Orphan : 0|8@1+ (1,0)").is_err());
         assert!(CanDecoder::from_dbc_str("BO_ notanid Name: 8 ECU").is_err());
+        assert!(CanDecoder::from_dbc_str("BO_ 256").is_err());
+    }
+
+    #[test]
+    fn same_signal_name_across_messages_stays_distinct() {
+        // Enviro_with_TC.dbc shape: front/middle/back sensors each define
+        // "temperature" — bare names would interleave three series into one.
+        let dbc = r#"BO_ 259 environment_front: 6 X
+ SG_ temperature : 7|16@0+ (0.01,0) [0|0] "degC" X
+
+BO_ 257 environment_back: 6 X
+ SG_ temperature : 7|16@0+ (0.01,0) [0|0] "degC" X
+"#;
+        let decoder = CanDecoder::from_dbc_str(dbc).unwrap();
+        let front = decoder.decode(259, &[0x0A, 0x3C, 0, 0, 0, 0]).unwrap();
+        let back = decoder.decode(257, &[0x0A, 0x3C, 0, 0, 0, 0]).unwrap();
+        assert_eq!(front[0].0, "environment_front.temperature");
+        assert_eq!(back[0].0, "environment_back.temperature");
     }
 }

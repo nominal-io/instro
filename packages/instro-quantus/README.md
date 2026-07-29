@@ -37,7 +37,7 @@ to the tooth count so the device triggers once per revolution; otherwise
 declare `pulses_per_rev` on the channel — if both are used, pulses_per_rev =
 teeth / nth); CAN channels with a `dbc` entry in the rack config are decoded
 natively (in Rust) and publish per-signal channels as
-`{name}.{alias}.{signal}` (undecodable ids counted per batch on
+`{name}.{alias}.{message}.{signal}` (undecodable ids counted per batch on
 `{name}.{alias}.unknown_frames`; a streaming CAN channel with no `dbc` only
 gets that counter — raw capture needs the `QuantusClient`/`StreamReader` layer).
 Runnable examples against the simulator: `examples/quantus/`.

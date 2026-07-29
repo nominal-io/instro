@@ -43,7 +43,7 @@ with QuantusDevice(
     time.sleep(2)
 
     # ---- spot-check locally before teardown (the full stream is in Nominal) ----
-    for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EngineSpeed"):
+    for channel in ("demo_rig.mic_inlet", "demo_rig.shaft", "demo_rig.vehicle_bus.EEC1.EngineSpeed"):
         latest = daq.get_channel(channel)
         print(f"{channel}: latest = {latest.channel_data[channel][-1]:.3f}")
 # The with-block's __exit__ closes the device (daemon, stream, publishers).

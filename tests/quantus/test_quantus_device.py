@@ -247,8 +247,8 @@ def test_decoded_can_signals_become_per_signal_measurements(fake_quantus):
             "channel_id": 9,
             "received_ns": RECV_NS,
             "signals": {
-                "EngineSpeed": {"timestamps_s": [0.02, 0.04], "values": [512.0, 640.0]},
-                "CoolantTemp": {"timestamps_s": [0.03], "values": [25.0]},
+                "EEC1.EngineSpeed": {"timestamps_s": [0.02, 0.04], "values": [512.0, 640.0]},
+                "VehicleData.CoolantTemp": {"timestamps_s": [0.03], "values": [25.0]},
             },
             "unknown_frames": 2,
         },
@@ -258,10 +258,10 @@ def test_decoded_can_signals_become_per_signal_measurements(fake_quantus):
     measurements = device._pump()
 
     by_channel = {channel: m for m in measurements for channel in m.channel_data}
-    assert by_channel["q.shaft.EngineSpeed"].channel_data["q.shaft.EngineSpeed"] == [512.0, 640.0]
-    assert by_channel["q.shaft.CoolantTemp"].channel_data["q.shaft.CoolantTemp"] == [25.0]
+    assert by_channel["q.shaft.EEC1.EngineSpeed"].channel_data["q.shaft.EEC1.EngineSpeed"] == [512.0, 640.0]
+    assert by_channel["q.shaft.VehicleData.CoolantTemp"].channel_data["q.shaft.VehicleData.CoolantTemp"] == [25.0]
     assert by_channel["q.shaft.unknown_frames"].channel_data["q.shaft.unknown_frames"] == [2.0]
-    speed = by_channel["q.shaft.EngineSpeed"]
+    speed = by_channel["q.shaft.EEC1.EngineSpeed"]
     assert speed.timestamps[1] - speed.timestamps[0] == 20_000_000  # 0.02 s apart
 
 
