@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.1.0...instro-unstable-v1.2.0) (2026-07-27)
+
+
+### Features
+
+* add espec gl controller environmental chamber driver ([#299](https://github.com/nominal-io/instro/issues/299)) ([6cfb658](https://github.com/nominal-io/instro/commit/6cfb65804b549b4410a57bf2f27ce8aed6c54eae))
+* **awg:** adding AWGDriverBase and InstroAWG ([#159](https://github.com/nominal-io/instro/issues/159)) ([71baa7e](https://github.com/nominal-io/instro/commit/71baa7ed1aff6166510008500de58db8ce049f12))
+
 ## [1.1.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.0.0...instro-unstable-v1.1.0) (2026-07-07)
 
 
