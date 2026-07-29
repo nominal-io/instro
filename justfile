@@ -54,7 +54,7 @@ check-imports:
     uv run ruff check
 
 # run all static analysis checks
-check: check-format check-types check-imports
+check: check-format check-types check-imports check-examples
 
 # fixes out-of-order imports (note: mutates the code)
 fix-imports:
@@ -85,6 +85,11 @@ build-docs:
 # generate Mintlify example pages and refresh docs/guides/docs.json navigation
 gen-examples:
     uv run python docs/guides/generate_examples.py
+
+# performs the gen-examples step in a temp sandbox and reports if any files don't match
+check-examples:
+    uv run python docs/guides/check_examples.py
+
 
 # run Rust formatting, linting, and library/doc tests for the workspace
 rust:
