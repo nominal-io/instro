@@ -59,6 +59,17 @@ psu = InstroPSU(
 )
 ```
 
+### Constructor Parameters
+
+These parameters apply to the direct Python constructor above, not the JSON config fields described below.
+
+- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing.
+- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
+- **`num_channels`**: Number of output channels on the power supply.
+- **`publishers`**: Optional list of publishers to attach.
+- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+- **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
+
 ### From a JSON Config File
 
 `InstroPSU` can also be constructed from a JSON config file, which removes the need to write any Python setup code: 
@@ -121,14 +132,7 @@ InstroPSU.from_dict(data)
 InstroPSU.from_json_str(json_string)
 ```
 
-### Parameters
-
-- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
-- **`num_channels`**: Number of output channels on the power supply.
-- **`publishers`**: Optional list of publishers to attach.
-- **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
-- **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
+JSON configs are validated strictly: `PSUConfig` forbids any field not listed above (`device`, `driver`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
