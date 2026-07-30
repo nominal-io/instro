@@ -36,7 +36,7 @@ class TimingConfig(BaseModel):
     """Timing configuration for PSU background polling."""
 
     model_config = ConfigDict(extra="forbid")
-    poll_interval: float = Field(ge=0.01, le=10.0, description="Polling interval in seconds")
+    poll_interval: float = Field(ge=0.01, description="Polling interval in seconds")
 
 
 class VisaDriverConfig(BaseModel):
