@@ -2,7 +2,10 @@
     "version": 1,
     "instrument": "InstroPSU",
     "device": {
-        "name": "bench_psu"
+        "name": "bench_psu",
+        "description": "Bench channel 1 supply",
+        "manufacturer": "B&K Precision",
+        "model": "9115"
     },
     "driver": {
         "name": "BK9115",
