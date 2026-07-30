@@ -65,7 +65,7 @@
               },
               "instrumentation/daq",
               "instrumentation/oscilloscope",
-              "instrumentation/awg"
+              "instrumentation/awg",
               "instrumentation/flowcontroller"
             ]
           },
