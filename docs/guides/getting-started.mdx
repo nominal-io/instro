@@ -27,48 +27,135 @@ description: "An open-source Python library for interfacing with hardware test e
 
 ## Supported instruments
 
+### Power supplies
+
+`InstroPSU`: B&K Precision, Keysight, Rigol, Siglent, and TDK Lambda.
+
 <Columns cols={2}>
-  <Card title="Power supplies" icon="bolt" href="/instrumentation/psu">
-    `InstroPSU`: B&K Precision, Keysight, Rigol, Siglent, and TDK Lambda.
+  <Card title="B&K Precision" icon="bolt" href="/instrumentation/psu">
   </Card>
 
-  <Card title="Electronic loads" icon="plug" href="/instrumentation/eload">
-    `InstroELoad`: B&K Precision 85xx series via SCPI/VISA.
+  <Card title="Keysight" icon="bolt" href="/instrumentation/psu">
   </Card>
 
-  <Card title="Digital multimeters" icon="gauge" href="/instrumentation/dmm">
-    `InstroDMM`: Agilent/HP/Keysight 34401A, Keysight 34461A, Keithley 2400, and more.
+  <Card title="Rigol" icon="bolt" href="/instrumentation/psu">
   </Card>
 
-  <Card title="Oscilloscopes" icon="wave-square" href="/instrumentation/oscilloscope">
-    `InstroScope`: Keysight 1200X, Tektronix 2-series, and Siglent SDS1000X-E.
+  <Card title="Siglent" icon="bolt" href="/instrumentation/psu">
   </Card>
 
-  <Card title="Data acquisition" icon="chart-line" href="/instrumentation/daq">
-    `InstroDAQ`: National Instruments, LabJack T-Series, Keysight 34980A.
+  <Card title="TDK Lambda" icon="bolt" href="/instrumentation/psu">
+  </Card>
+</Columns>
+
+### Electronic loads
+
+`InstroELoad`: B&K Precision 85xx series via SCPI/VISA.
+
+<Columns cols={2}>
+  <Card title="B&K Precision 85xx" icon="plug" href="/instrumentation/eload">
+    ![](/images/equipment/8550_front_lrg.png)
+  </Card>
+</Columns>
+
+### Digital multimeters
+
+`InstroDMM`: Agilent/HP/Keysight 34401A, Keysight 34461A, Keithley 2400, and more.
+
+<Columns cols={2}>
+  <Card title="Agilent/HP/Keysight 34401A" icon="gauge" href="/instrumentation/dmm">
   </Card>
 
-  <Card title="I2C" icon="microchip" href="/instrumentation/protocols/i2c/overview">
-    `I2CInterface`: Total Phase Aardvark with declarative system definitions.
-  </Card>
-  <Card
-    title="Flow Controllers"
-    icon="chart-line"
-    href="/instrumentation/flowcontroller"
-  >
-    `InstroFlowController`: Alicat MC.
+  <Card title="Keysight 34461A" icon="gauge" href="/instrumentation/dmm">
   </Card>
 
-  <Card title="Modbus" icon="network-wired" href="/instrumentation/protocols/modbus">
-    `ModbusDevice`: any Modbus TCP or RTU device.
+  <Card title="Keithley 2400" icon="gauge" href="/instrumentation/dmm">
+  </Card>
+</Columns>
+
+### Oscilloscopes
+
+`InstroScope`: Keysight 1200X, Tektronix 2-series, and Siglent SDS1000X-E.
+
+<Columns cols={2}>
+  <Card title="Keysight 1200X" icon="wave-square" href="/instrumentation/oscilloscope">
   </Card>
 
-  <Card title="EtherNet/IP" icon="network-wired" href="/instrumentation/protocols/ethernetip">
-    `EtherNetIPDevice`: Allen-Bradley and CompactLogix-class PLCs.
+  <Card title="Tektronix 2-series" icon="wave-square" href="/instrumentation/oscilloscope">
   </Card>
 
-  <Card title="Custom instruments" icon="code" href="/instrumentation/library">
-    Build a new instrument type or vendor driver against `Instrument`.
+  <Card title="Siglent SDS1000X-E" icon="wave-square" href="/instrumentation/oscilloscope">
+  </Card>
+</Columns>
+
+### Data acquisition
+
+`InstroDAQ`: National Instruments, LabJack T-Series, Keysight 34980A.
+
+<Columns cols={2}>
+  <Card title="National Instruments" icon="chart-line" href="/instrumentation/daq">
+  </Card>
+
+  <Card title="LabJack T-Series" icon="chart-line" href="/instrumentation/daq">
+  </Card>
+
+  <Card title="Keysight 34980A" icon="chart-line" href="/instrumentation/daq">
+  </Card>
+</Columns>
+
+### I2C
+
+`I2CInterface`: Total Phase Aardvark with declarative system definitions.
+
+<Columns cols={2}>
+  <Card title="Total Phase Aardvark" icon="microchip" href="/instrumentation/protocols/i2c/overview">
+  </Card>
+</Columns>
+
+### Flow Controllers
+
+`InstroFlowController`: Alicat MC.
+
+<Columns cols={2}>
+  <Card title="Alicat MC" icon="chart-line" href="/instrumentation/flowcontroller">
+  </Card>
+</Columns>
+
+### Modbus
+
+`ModbusDevice`: any Modbus TCP or RTU device.
+
+<Columns cols={2}>
+  <Card title="Modbus TCP" icon="network-wired" href="/instrumentation/protocols/modbus">
+  </Card>
+
+  <Card title="Modbus RTU" icon="network-wired" href="/instrumentation/protocols/modbus">
+  </Card>
+</Columns>
+
+### EtherNet/IP
+
+`EtherNetIPDevice`: Allen-Bradley and CompactLogix-class PLCs.
+
+<Columns cols={2}>
+  <Card title="Allen-Bradley" icon="network-wired" href="/instrumentation/protocols/ethernetip">
+  </Card>
+
+  <Card title="CompactLogix" icon="network-wired" href="/instrumentation/protocols/ethernetip">
+  </Card>
+</Columns>
+
+### Custom instruments
+
+Build a new instrument type or vendor driver against `Instrument`.
+
+<Columns cols={2}>
+  <Card title="Instrument" icon="code" href="/instrumentation/library">
+    Create your own Instrument category using the tools in Instro
+  </Card>
+
+  <Card title="Request a Driver" icon="sparkles" href="https://community.instro.nominal.io/c/driver-feature-requests/9">
+    Start a thread on our community forum
   </Card>
 </Columns>
 
