@@ -64,9 +64,10 @@ check-imports:
 # run all python static analysis checks
 check-python: check-format check-types check-imports
 
-check-rust: rust-lock-check rust-standalone
+# check Rust formatting, lints, and lockfile | fix formatting with `just fix-rust`
+check-rust:
     cargo +nightly fmt --all --check
-    cargo clippy --all-features --all-targets --workspace -- -D warnings
+    cargo clippy --locked --all-features --all-targets --workspace -- -D warnings
 
 # run all static analysis checks
 check: check-python check-rust
@@ -85,7 +86,6 @@ fix-python: fix-format fix-imports
 # fixes Rust code formatting (note: mutates the code)
 fix-rust:
     cargo +nightly fmt --all
-    just rust-standalone-fix
 
 # fix imports and formatting
 fix: fix-python fix-rust
@@ -118,44 +118,6 @@ gen-examples:
 # performs the gen-examples step in a temp sandbox and reports if any files don't match
 check-examples:
     uv run python docs/guides/check_examples.py
-
-# PyO3/maturin crates excluded from the root Cargo workspace (see Cargo.toml exclude).
-rust-standalone-packages := "packages/instro-ethernetip"
-
-# Verify all committed Cargo.lock files match current manifests (no regeneration).
-rust-lock-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo check --locked --workspace --all-targets --all-features
-    for pkg in {{ rust-standalone-packages }}; do
-        cargo check --locked --manifest-path "$pkg/Cargo.toml"
-    done
-
-# Run fmt-check, clippy, and locked check for standalone native-extension crates.
-rust-standalone manifest="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -n "{{ manifest }}" ]; then
-        manifests=("{{ manifest }}")
-    else
-        manifests=()
-        for pkg in {{ rust-standalone-packages }}; do
-            manifests+=("$pkg/Cargo.toml")
-        done
-    fi
-    for manifest in "${manifests[@]}"; do
-        cargo fmt --manifest-path "$manifest" -- --check
-        cargo clippy --manifest-path "$manifest" --all-targets -- -D warnings
-        cargo check --locked --manifest-path "$manifest"
-    done
-
-# Format standalone native-extension crates (local convenience; mutates files).
-rust-standalone-fix:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for pkg in {{ rust-standalone-packages }}; do
-        cargo fmt --manifest-path "$pkg/Cargo.toml"
-    done
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:

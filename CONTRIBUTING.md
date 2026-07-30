@@ -119,19 +119,7 @@ The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, includin
 
 **Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
-
-- Workspace members: `cargo update` at the repo root.
-- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
-
-CI verifies all committed lockfiles with `--locked`:
-
-- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
-- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
-
-Both are included in `just check-rust`, which `just check` runs and CI invokes directly in its Rust checks step.
-
-**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+CI verifies the committed lockfile with `--locked`, as part of `just check-rust` (which `just check` runs and CI invokes directly in its Rust checks step).
 
 ### Rust crate releases
 

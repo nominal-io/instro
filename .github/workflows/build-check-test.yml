@@ -77,6 +77,9 @@ jobs:
       # `rustup` is available by default on GitHub runners
       - name: Install Rust
         run: rustup show
+      # `check-rust` runs `cargo +nightly fmt`, which needs its own toolchain + component.
+      - name: Install nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@v2
       - name: Rust format and lint checks
