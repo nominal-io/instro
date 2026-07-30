@@ -48,22 +48,6 @@ _IDN_MAP = {
 }
 
 
-# _IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
-#     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None, None),
-#     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None, None),
-#     ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400", None, None),
-#     ("B&K PRECISION", "9115"): ("psu", "BK9115", "bk_9115", 1),
-#     ("B&K PRECISION", "9140"): ("psu", "BK914X", "bk_914x", 3),
-#     ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800", "rigol_dp800", 1),
-#     ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800", "rigol_dp800", 2),
-#     ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800", "rigol_dp800", 3),
-#     ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800", "rigol_dp800", 3),
-#     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", "siglent_spd3303", 3),
-#     ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys", "tdk_lambda_genesys", 1),
-#     ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None, None),
-# }
-
-
 def _degraded_interfaces(rm: pyvisa.ResourceManager) -> list[tuple[str, str]]:
     """Return (interface family, reason) for pyvisa-py interfaces that are not Available."""
     get_debug_info = getattr(rm.visalib, "get_debug_info", None)
