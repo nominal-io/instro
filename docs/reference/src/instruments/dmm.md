@@ -28,6 +28,12 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
     options:
       heading_level: 4
 
+### Keysight 34461A
+
+::: instro.dmm.drivers.keysight_34461a
+    options:
+      heading_level: 4
+
 ### Simulated
 
 ::: instro.dmm.drivers.simulated

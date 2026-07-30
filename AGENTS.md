@@ -9,6 +9,7 @@ uv sync --extra all              # install everything
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
 just check                       # ruff format, mypy, ruff lint
 just test                        # unit tests; no hardware required
+just fix                         # applies formatting and generates examples
 uv build --package <name>        # build a wheel for a workspace package
 ```
 

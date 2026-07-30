@@ -136,6 +136,20 @@ def test_rigol_get_current_uses_meas_command(rigol: RigolDP800, rigol_visa: Magi
     assert rigol_visa.query.call_args_list == [call(":MEAS:CURR? CH1"), call(":SYST:ERR?")]
 
 
+def test_rigol_get_voltage_setpoint_uses_sour_query(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["12.000", '0,"No error"']
+
+    assert rigol.get_voltage_setpoint(channel=3) == pytest.approx(12.0)
+    assert rigol_visa.query.call_args_list == [call(":SOUR3:VOLT?"), call(":SYST:ERR?")]
+
+
+def test_rigol_get_current_setpoint_uses_sour_query(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["0.500", '0,"No error"']
+
+    assert rigol.get_current_setpoint(channel=2) == pytest.approx(0.5)
+    assert rigol_visa.query.call_args_list == [call(":SOUR2:CURR?"), call(":SYST:ERR?")]
+
+
 def test_rigol_output_enable_formats_per_channel(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
     rigol.output_enable(True, channel=1)
     rigol.output_enable(False, channel=2)
