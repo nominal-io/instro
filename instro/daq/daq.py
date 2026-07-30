@@ -583,17 +583,21 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         if self.ai_hw_timing_config:
-            if not (self._background_thread and self._background_thread.is_alive()):
-                return self._fetch_analog(**kwargs)
-            # Background daemon running. The user can't pull from the buffer mid-flight.
-            # TODO revisit with INSTRO-149 issue ticket.
-            raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
+            if self._background_thread and self._background_thread.is_alive():
+                # Background daemon running. The user can't pull from the buffer mid-flight.
+                # TODO revisit with INSTRO-149 issue ticket.
+                raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-        return self._software_timed_read(**kwargs)
+            measurements = self._fetch_analog(**kwargs)
+
+        else:
+            measurements = self._software_timed_read(**kwargs)
+
+        return measurements[0] if len(measurements) == 1 else measurements
 
     @publish_measurement
-    def _software_timed_read(self, **kwargs) -> Measurement | list[Measurement]:
-        """Initiate a software-timed analog conversion and return the resulting Measurement(s)."""
+    def _software_timed_read(self, **kwargs) -> list[Measurement]:
+        """Initiate a software-timed analog conversion and return the resulting Measurements."""
         response = self._driver.read_analog()
         measurements = self._driver._read_to_measurements(
             response=response,
@@ -602,12 +606,12 @@ class InstroDAQ(Instrument):
             default_tags=self.default_tags,
             **kwargs,
         )
-        measurements = self._scale_analog_measurement(measurements)
-        return measurements[0] if len(measurements) == 1 else measurements
+
+        return self._scale_analog_measurement(measurements)
 
     @publish_measurement
-    def _fetch_analog(self, **kwargs) -> Measurement | list[Measurement]:
-        """Fetch buffered samples from a hardware-timed acquisition; also publishes buffer depth on ``{name}.buffer``."""
+    def _fetch_analog(self, **kwargs) -> list[Measurement]:
+        """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
         if not self.ai_hw_timing_config:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
@@ -627,7 +631,7 @@ class InstroDAQ(Instrument):
         # HW-timed acquisition: also publish current buffer depth as telemetry.
         self.get_points_in_buffer()
 
-        return measurements[0] if len(measurements) == 1 else measurements
+        return measurements
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:

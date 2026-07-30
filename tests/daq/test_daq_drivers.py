@@ -14,7 +14,7 @@ from instro.daq.types import (
     Direction,
     Logic,
 )
-from instro.lib import InstrumentNotOpenError
+from instro.lib import InstrumentNotOpenError, Measurement
 
 
 class _RecordingDriver(DAQDriverBase):
@@ -845,6 +845,32 @@ def test_start_background_false_read_analog_fetches_from_buffer():
     daq.read_analog()
 
     mock_driver.fetch_analog.assert_called_once()
+
+
+@pytest.mark.parametrize("timing", ["software", "hardware"], ids=["software-timed", "hardware-timed"])
+@pytest.mark.parametrize("measurement_count", [0, 1, 2])
+def test_read_analog_preserves_public_return_shape(timing: str, measurement_count: int):
+    """Internal helpers return lists while public reads unwrap one Measurement."""
+    if timing == "hardware":
+        daq, mock_driver = _hw_timed_daq()
+        internal_read = daq._fetch_analog
+    else:
+        mock_driver = _make_mock_driver()
+        daq = InstroDAQ(name="ut", driver=mock_driver)
+        daq.open()
+        daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+        internal_read = daq._software_timed_read
+
+    measurements = [
+        Measurement(channel_data={"ut.ai0": [float(index)]}, timestamps=[index]) for index in range(measurement_count)
+    ]
+    mock_driver._read_to_measurements.return_value = measurements
+
+    internal_result = internal_read()
+    public_result = daq.read_analog()
+
+    assert internal_result == measurements
+    assert public_result == (measurements[0] if measurement_count == 1 else measurements)
 
 
 def test_restart_registers_background_fetch_exactly_once():

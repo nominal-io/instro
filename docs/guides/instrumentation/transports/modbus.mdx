@@ -1,0 +1,64 @@
+---
+title: ModbusDriver
+description: Modbus transport driver for building custom register-mapped instrument drivers
+---
+
+# ModbusDriver
+
+`ModbusDriver` is the Modbus transport that register-mapped instrument drivers sit on top of. It is a public part of the library so customers can build their own drivers for Modbus-attached instruments (temperature and process controllers, meters, PLCs) without wrapping [pymodbus](https://pymodbus.readthedocs.io/) themselves.
+
+It is intentionally narrow: it opens, closes, and locks a Modbus TCP or RTU connection and exposes raw function-code I/O plus typed register encode and decode. The caller owns the register map (which address holds what).
+
+<Note>
+Modbus is a register-and-coil protocol. A driver reads and writes numbered 16-bit registers and single-bit coils by address; there is no self-describing command set. `ModbusDriver` uses pymodbus under the hood and supports both Modbus TCP and Modbus RTU (serial).
+</Note>
+
+## When to reach for it
+
+`ModbusDriver` is the right starting point when any of the following are true:
+
+| If you want to... | `ModbusDriver` is the right fit because... |
+| --- | --- |
+| Talk to a **Modbus TCP or RTU** instrument | It wraps pymodbus and owns the client lifecycle, locking, and dead-socket reconnect |
+| Build a **vendor- or model-specific driver** whose register map is fixed in code | It exposes raw function-code ops and typed codec, so the driver composes it the same way a SCPI driver composes `VisaDriver` |
+| Use a **standalone client** for a register-mapped device | It is usable on its own, addressing registers directly by number |
+
+For a config-driven device where the register map lives in a JSON file rather than driver code, use [`ModbusDevice`](/instrumentation/protocols/modbus) instead. `ModbusDevice` composes `ModbusDriver` and adds semantic access by register alias, scaling, validation, and background polling.
+
+## Quickstart
+
+The most common use of `ModbusDriver` is as a transport inside an instrument driver. Here it is on its own, talking to a Modbus TCP device directly:
+
+```python
+from instro.lib.transports import ModbusDriver, TCPConnection
+
+modbus = ModbusDriver(TCPConnection(host="192.168.1.50", port=502, unit_id=1))
+modbus.open()
+try:
+    # Raw function-code access by address.
+    setpoint_regs = modbus.read_holding_registers(0x0100, count=2)
+
+    # Typed access decodes across registers, applying byte/word/long swaps.
+    process_value = modbus.read_typed("input", 0x0000, "float32")
+    modbus.write_typed("holding", 0x0100, 72.5, "float32")
+finally:
+    modbus.close()
+```
+
+Use `RTUConnection` for serial devices:
+
+```python
+from instro.lib.transports import ModbusDriver, RTUConnection
+
+modbus = ModbusDriver(RTUConnection(port="/dev/ttyUSB0", baudrate=19200, unit_id=1))
+```
+
+## Atomic multi-step sequences
+
+`ModbusDriver` serializes every op behind an internal reentrant lock, so a background poller and user code can share one connection safely. Hold the lock across several ops to keep them atomic (for example, select a page or bank register, then read from it):
+
+```python
+with modbus.lock():
+    modbus.write_holding_register(0x00FF, page)
+    values = modbus.read_holding_registers(0x0000, count=8)
+```

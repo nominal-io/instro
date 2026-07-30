@@ -1,13 +1,20 @@
-"""Modbus configuration types (Pydantic). ``DeviceInfo``/``LinearScale``/``ScaleType`` come from ``instro.lib.types``."""
+"""Modbus configuration types (Pydantic). Connection configs and protocol vocabulary come from ``instro.lib.transports.modbus``; ``DeviceInfo``/``LinearScale``/``ScaleType`` from ``instro.lib.types``."""
 
 from __future__ import annotations
 
 from functools import cached_property
 from pathlib import Path
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from instro.lib.transports.modbus import (
+    ConnectionType,
+    DataType,
+    ModbusDriver,
+    RegisterType,
+    RTUConnection,
+    TCPConnection,
+)
 from instro.lib.types import (
     DeviceInfo,
     LinearScale,
@@ -23,6 +30,8 @@ __all__ = [
     "TimingConfig",
     "TCPConnection",
     "RTUConnection",
+    "RegisterType",
+    "DataType",
     "RegisterDef",
     "BitDef",
 ]
@@ -63,19 +72,6 @@ FLOAT_DATA_TYPES = ("float32", "float64")
 BOOL_DATA_TYPES = ("bool",)
 ALL_DATA_TYPES = INTEGER_DATA_TYPES + FLOAT_DATA_TYPES + BOOL_DATA_TYPES
 
-# Type alias for use in Literal annotations
-DataType = Literal[
-    "uint16",
-    "int16",
-    "uint32",
-    "int32",
-    "uint64",
-    "int64",
-    "float32",
-    "float64",
-    "bool",
-]
-
 
 # ============ Timing Config ============
 
@@ -85,35 +81,6 @@ class TimingConfig(BaseModel):
 
     poll_interval: float = Field(ge=0.01, le=10.0, description="Polling interval in seconds")
     write_delay_ms: int = Field(default=0, ge=0, description="Delay in milliseconds applied after every write")
-
-
-# ============ Connection Configs ============
-
-
-class TCPConnection(BaseModel):
-    """Modbus TCP connection configuration."""
-
-    transport: Literal["tcp"] = "tcp"
-    host: str
-    port: int = Field(default=502, ge=1, le=65535)
-    unit_id: int = Field(default=1, ge=0, le=255)
-    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-
-
-class RTUConnection(BaseModel):
-    """Modbus RTU (serial) connection configuration."""
-
-    transport: Literal["rtu"] = "rtu"
-    port: str  # e.g., "/dev/ttyUSB0" (Linux), "/dev/cu.usbserial-1234" (macOS), "COM3" (Windows)
-    baudrate: int = 9600
-    parity: Literal["N", "E", "O"] = "N"
-    stopbits: Literal[1, 2] = 1
-    bytesize: Literal[5, 6, 7, 8] = 8
-    unit_id: int = Field(default=1, ge=0, le=255)
-    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-
-
-ConnectionType = TCPConnection | RTUConnection
 
 
 # ============ Register Definition ============
@@ -134,7 +101,7 @@ class RegisterDef(BaseModel):
     name: str = Field(description="Unique name/alias for this register")
     description: str | None = None
     starting_address: int = Field(ge=0, le=65535)
-    register_type: Literal["holding", "input", "coil", "discrete"] = "holding"
+    register_type: RegisterType = "holding"
     data_type: DataType = "uint16"
     byte_swap: bool = False
     word_swap: bool = False
@@ -310,22 +277,22 @@ class RegisterDef(BaseModel):
                     seen.add(i)
                 raise ValueError(f"Duplicate bit_index values in bitmap: {sorted(set(dupes))}")
 
+        # Coils and discrete inputs are single-bit: data_type must be bool. Coerce the default
+        # (data_type otherwise defaults to uint16) when omitted; reject an explicit non-bool.
+        # Runs last so the more specific bitmap/scale/swap errors above win when they also apply.
+        if self.register_type in ("coil", "discrete") and self.data_type != "bool":
+            if "data_type" in self.model_fields_set:
+                raise ValueError(
+                    f"{self.register_type} registers are single-bit; data_type must be 'bool', got '{self.data_type}'"
+                )
+            self.data_type = "bool"
+
         return self
 
     @property
     def register_count(self) -> int:
         """Number of 16-bit registers this data type spans (uint16→1, uint32→2, uint64→4)."""
-        match self.data_type:
-            case "uint16" | "int16":
-                return 1
-            case "uint32" | "int32" | "float32":
-                return 2
-            case "uint64" | "int64" | "float64":
-                return 4
-            case "bool":
-                return 1
-            case _:
-                return 1
+        return ModbusDriver.register_count(self.data_type)
 
 
 # ============ Top-Level Config ============

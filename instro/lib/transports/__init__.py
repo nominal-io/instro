@@ -1,5 +1,12 @@
-"""Transport drivers (VISA today; EtherNet/IP, OPC-UA, raw socket as they graduate from ``unstable``)."""
+"""Transport drivers (VISA and Modbus today; EtherNet/IP, OPC-UA, raw socket as they graduate from ``unstable``)."""
 
+from instro.lib.transports.modbus import (
+    DataType,
+    ModbusDriver,
+    RegisterType,
+    RTUConnection,
+    TCPConnection,
+)
 from instro.lib.transports.visa import (
     ControlFlow,
     Parity,
@@ -13,9 +20,14 @@ from instro.lib.transports.visa import (
 
 __all__ = [
     "ControlFlow",
+    "DataType",
+    "ModbusDriver",
     "Parity",
+    "RTUConnection",
+    "RegisterType",
     "SerialConfig",
     "StopBits",
+    "TCPConnection",
     "TerminatorConfig",
     "TimeoutConfig",
     "VisaConfig",

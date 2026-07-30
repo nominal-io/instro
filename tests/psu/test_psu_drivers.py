@@ -43,6 +43,22 @@ def base_only_psu_driver() -> _BaseOnlyPSUDriver:
 @pytest.mark.parametrize(
     ("method_name", "args"),
     [
+        ("get_voltage_setpoint", ()),
+        ("get_current_setpoint", ()),
+    ],
+)
+def test_psu_driver_base_setpoint_getters_raise_not_implemented(
+    base_only_psu_driver: _BaseOnlyPSUDriver,
+    method_name: str,
+    args: tuple[object, ...],
+) -> None:
+    with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
+        getattr(base_only_psu_driver, method_name)(*args, channel=1)
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
         ("set_overvoltage_protection_level", (12.0,)),
         ("get_overvoltage_protection_level", ()),
         ("set_overvoltage_protection_enabled", (True,)),
@@ -102,6 +118,8 @@ def _stub_driver() -> MagicMock:
     driver.get_voltage.return_value = 12.0
     driver.get_current.return_value = 0.5
     driver.get_output_status.return_value = True
+    driver.get_voltage_setpoint.return_value = 5.0
+    driver.get_current_setpoint.return_value = 1.5
     driver.get_overvoltage_protection_level.return_value = 15.0
     driver.get_overvoltage_protection_enabled.return_value = True
     driver.get_overvoltage_protection_delay.return_value = 0.25
@@ -168,6 +186,24 @@ def test_nominal_psu_output_enable_delegates() -> None:
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
     psu.output_enable(True, channel=1)
     driver.output_enable.assert_called_once_with(True, channel=1)
+
+
+def test_nominal_psu_get_voltage_setpoint_returns_measurement() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_voltage_setpoint(channel=1)
+    driver.get_voltage_setpoint.assert_called_once_with(channel=1)
+    assert measurement is not None
+    assert measurement.channel_data["ut.ch1.voltage.setpoint"] == [5.0]
+
+
+def test_nominal_psu_get_current_setpoint_returns_measurement() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_current_setpoint(channel=1)
+    driver.get_current_setpoint.assert_called_once_with(channel=1)
+    assert measurement is not None
+    assert measurement.channel_data["ut.ch1.current.setpoint"] == [1.5]
 
 
 def test_nominal_psu_set_current_limit_delegates() -> None:
