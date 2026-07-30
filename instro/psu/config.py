@@ -103,29 +103,33 @@ def _build_publisher(config: NominalCorePublisherConfig | FilePublisherConfig) -
     return FilePublisher(directory=config.directory, format=config.format, custom_file_name=config.custom_file_name)
 
 
-def build_psu_from_config(
+def resolve_psu_from_config(
     config: PSUConfig,
     publishers: list[Publisher] | None = None,
-) -> InstroPSU:
-    """Construct an InstroPSU from a validated PSUConfig."""
+) -> tuple[str, PSUDriverBase, int, list[Publisher] | None, float | None]:
+    """Resolve a validated PSUConfig into the ``(name, driver, num_channels, publishers, poll_interval)`` InstroPSU needs."""
     import importlib
-
-    from instro.psu.psu import InstroPSU
 
     module_path, class_name = PSU_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
     driver_cls = getattr(importlib.import_module(module_path), class_name)
-
     driver: PSUDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     all_publishers = list(publishers or [])
     all_publishers.extend(_build_publisher(p) for p in config.publishers)
 
-    psu = InstroPSU(
-        name=config.device.name,
-        driver=driver,
-        num_channels=config.driver.num_channels,
-        publishers=all_publishers or None,
-    )
-    if config.timing is not None:
-        psu.background_interval = config.timing.poll_interval
+    poll_interval = config.timing.poll_interval if config.timing is not None else None
+    return config.device.name, driver, config.driver.num_channels, (all_publishers or None), poll_interval
+
+
+def build_psu_from_config(
+    config: PSUConfig,
+    publishers: list[Publisher] | None = None,
+) -> InstroPSU:
+    """Construct an InstroPSU from a validated PSUConfig."""
+    from instro.psu.psu import InstroPSU
+
+    name, driver, num_channels, resolved_publishers, poll_interval = resolve_psu_from_config(config, publishers)
+    psu = InstroPSU(name=name, driver=driver, num_channels=num_channels, publishers=resolved_publishers)
+    if poll_interval is not None:
+        psu.background_interval = poll_interval
     return psu
