@@ -374,6 +374,7 @@ class InstroDAQ(Instrument):
 
         self._driver = driver
         self._is_open = False
+        self._is_sw_timing_configured = False
 
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
@@ -438,7 +439,7 @@ class InstroDAQ(Instrument):
     @property
     def is_sw_timing_configured(self) -> bool:
         """True once ``configure_ai_sw_sample_rate()`` has set a software-timed polling rate."""
-        return self._background_config.interval > 0
+        return self._is_sw_timing_configured
 
     # Need to ensure background interval never adds a wait for hardware-timed InstroDAQ
     @property
@@ -590,6 +591,7 @@ class InstroDAQ(Instrument):
 
         # Software timing needs a background loop period.
         self._background_config.interval = 1 / sample_rate
+        self._is_sw_timing_configured = True
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
