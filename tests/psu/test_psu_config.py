@@ -108,6 +108,66 @@ def test_from_json_malformed_json(tmp_path):
         InstroPSU.from_json(config_file)
 
 
+def test_init_with_config_dict(valid_config):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=valid_config)
+
+    assert isinstance(psu, InstroPSU)
+    assert psu.name == "test_psu"
+
+
+def test_init_with_config_psuconfig_object(valid_config):
+    psu_config = PSUConfig.model_validate(valid_config)
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=psu_config)
+
+    assert psu.name == "test_psu"
+
+
+def test_init_with_config_json_string_raises_not_a_path(valid_config):
+    # A raw JSON string is always treated as a file path (matches ModbusDevice/EtherNetIPDevice),
+    # not auto-detected as JSON text. Use InstroPSU.from_json_str() for that instead.
+    with pytest.raises(OSError):
+        InstroPSU(config=json.dumps(valid_config))
+
+
+def test_init_with_config_file_path_str(valid_config, tmp_path):
+    config_file = tmp_path / "psu.json"
+    config_file.write_text(json.dumps(valid_config))
+
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=str(config_file))
+
+    assert psu.name == "test_psu"
+
+
+def test_init_with_config_file_path_object(valid_config, tmp_path):
+    config_file = tmp_path / "psu.json"
+    config_file.write_text(json.dumps(valid_config))
+
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=config_file)
+
+    assert psu.name == "test_psu"
+
+
+def test_init_with_config_name_override(valid_config):
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=valid_config, name="overridden")
+
+    assert psu.name == "overridden"
+
+
+def test_init_with_config_and_driver_raises(valid_config):
+    with pytest.raises(ValueError, match="cannot be combined"):
+        InstroPSU(config=valid_config, driver=MagicMock(), num_channels=1)
+
+
+def test_init_with_no_config_and_missing_direct_args_raises():
+    with pytest.raises(ValueError, match="requires either config"):
+        InstroPSU(name="only_name")
+
+
 def test_from_dict_with_publishers(valid_config):
     config_with_publishers = {
         **valid_config,
