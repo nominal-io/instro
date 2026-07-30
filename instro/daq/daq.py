@@ -610,7 +610,7 @@ class InstroDAQ(Instrument):
         self._require_open()
         if self.is_sw_timing_configured:
             if not background:
-                raise HWTimingException(
+                raise TimingConfigException(
                     f"DAQ '{self.name}' is software-timed, which requires start(background=True): "
                     "the background daemon is what paces the reads. Call read_analog() directly instead."
                 )
@@ -619,7 +619,7 @@ class InstroDAQ(Instrument):
             return
 
         if not self.is_hw_timing_configured:
-            raise HWTimingException(
+            raise TimingConfigException(
                 f"Cannot start DAQ '{self.name}' without AI timing configured. "
                 "Call configure_ai_hw_sample_rate() or configure_ai_sw_sample_rate() first."
             )
