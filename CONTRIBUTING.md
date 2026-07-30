@@ -8,9 +8,9 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-What you need depends on which command you run. **`just check` is lightweight** (just + uv). **`just test` needs a full native toolchain**: it builds a maturin/PyO3 wheel and runs `cargo test` across the whole Rust workspace, which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
+What you need depends on which command you run. **`just check-python` is lightweight** (just + uv). **`just check` and `just test` need a full native toolchain**: they run `cargo clippy`/`cargo test` across the whole Rust workspace (and `just test` additionally builds a maturin/PyO3 wheel), which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
 
-| Layer | `just check` | `just test` |
+| Layer | `just check-python` | `just check` / `just test` |
 |---|:---:|:---:|
 | [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
 | [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python) | ✅ | ✅ |
@@ -25,12 +25,12 @@ You do **not** need to install Python separately — `uv` downloads and manages 
 <summary><strong>Windows</strong></summary>
 
 ```powershell
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 winget install --id Casey.Just -e            # just
 winget install --id astral-sh.uv -e          # uv
 winget install --id Git.Git -e               # Git + Git Bash (the bash recipes need it)
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 winget install --id Rustlang.Rustup -e       # rustup -> installs the pinned toolchain on first use
 winget install --id Kitware.CMake -e         # cmake (open62541-sys build)
 winget install --id LLVM.LLVM -e             # libclang for bindgen
@@ -51,12 +51,12 @@ setx LIBCLANG_PATH "C:\Program Files\LLVM\bin"
 <summary><strong>macOS</strong></summary>
 
 ```bash
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 brew install just uv
 # git + the C compiler come from the Command Line Tools:
 xcode-select --install
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 brew install rustup-init && rustup-init -y   # or: brew install rustup; rustup default stable
 brew install cmake llvm                       # cmake + libclang (bindgen)
 ```
@@ -73,11 +73,11 @@ export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
 <summary><strong>Linux (Debian/Ubuntu)</strong></summary>
 
 ```bash
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 curl -LsSf https://astral.sh/uv/install.sh | sh                  # uv
 sudo apt-get install -y just git                                 # or: cargo install just
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # rustup
 sudo apt-get install -y build-essential cmake clang libclang-dev pkg-config
 ```
@@ -99,8 +99,12 @@ uv sync --extra all
 Common dev tasks (via [just](https://github.com/casey/just)):
 
 ```bash
-just check    # ruff format, mypy, ruff lint
-just test     # unit tests + Rust workspace + EtherNet/IP wheel checks (no hardware required)
+just check           # all static analysis: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy)
+just test            # all tests: python + Rust workspace + EtherNet/IP wheel checks (no hardware required)
+just check-python    # python static analysis only (no Rust toolchain needed)
+just test-python     # python unit tests only
+just check-rust      # Rust rustfmt + clippy only
+just test-rust       # Rust library/integration/doc tests only
 ```
 
 Notes:
@@ -109,36 +113,23 @@ Notes:
 - `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
-### Rust Cargo.lock (dual-lock policy)
+### Rust Cargo.lock
 
-Rust tooling spans two dependency graphs:
+The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, including mixed PyO3/maturin packages under `packages/`.
 
-- Root [`Cargo.lock`](Cargo.lock) covers workspace **members** (`instro-ethernetip`, `instro-opcua`, …).
-- Each standalone PyO3/maturin wrapper under `packages/<name>/` owns its own committed `Cargo.lock` beside its manifest (currently `packages/instro-ethernetip/`).
+**Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-**Do not regenerate locks casually.** When dependency manifests change, refresh the relevant lock in the same PR:
-
-- Workspace members: `cargo update` at the repo root.
-- Standalone wrappers: `cargo update --manifest-path packages/<name>/Cargo.toml`.
-
-CI verifies all committed lockfiles with `--locked`:
-
-- `just rust-lock-check` — fast lock-only check for the root workspace and every registered standalone package.
-- `just rust-standalone` — fmt-check, clippy, and locked `cargo check` for standalone wrappers.
-
-Both are included in `just rust`, which `just test` invokes via `just eip-test`, so CI verifies them through the workflow's `just test` step.
-
-**Adding a new standalone wrapper:** add the crate to `exclude` in root [`Cargo.toml`](Cargo.toml), add its path to `rust-standalone-packages` in the [`justfile`](justfile), and commit an initial `Cargo.lock` beside the manifest.
+CI verifies the committed lockfile with `--locked`, as part of `just check-rust` (which `just check` runs and CI invokes directly in its Rust checks step).
 
 ### Rust crate releases
 
 Pure-Rust crates under `crates/` that are published to crates.io are managed by release-please with `release-type: rust`. They are versioned independently from the Python packages and from each other. The public crate names are their Cargo package names, but release-please component names may differ to avoid GitHub tag collisions with Python packages; for example, the Rust EtherNet/IP crate uses `instro-ethernetip-rs` tags while the Python wrapper keeps `instro-ethernetip` tags.
 
+When a Rust core crate backs a Python package, release-please's `cargo-workspace` plugin can patch-bump the wrapper automatically when the core crate releases. The wrapper dependency key must exactly match the core crate's `[package].name`; do not alias a path dependency with `package = ...`, because release-please does not resolve dependency paths when building its workspace graph.
+
 Do not pre-seed a new crate path in [`.github/release-please-manifest.json`](.github/release-please-manifest.json) when the next release should be that initial version. Set `initial-version` in [`.github/release-please-config.json`](.github/release-please-config.json) and let the first generated release PR add the manifest entry.
 
 The release workflow publishes crates with crates.io Trusted Publishing (`rust-lang/crates-io-auth-action`) instead of a stored `CARGO_REGISTRY_TOKEN`. Each crate must already exist on crates.io and must have a trusted publisher configured for `nominal-io/instro` and `.github/workflows/release-please-publish.yml`.
-
-If a Rust core crate also backs a Python package, release them deliberately. release-please does not infer that a change under `crates/instro-ethernetip` requires a PyPI release of `packages/instro-ethernetip`; touch both paths or open a follow-up PR when the Python wrapper should ship the Rust change.
 
 ## Issues and discussion
 

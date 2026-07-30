@@ -80,10 +80,14 @@ def _cargo_metadata() -> dict[str, object]:
 
 def _local_path_dependencies() -> dict[str, Path]:
     packages = _cargo_metadata()["packages"]
-    if not isinstance(packages, list) or len(packages) != 1:
-        raise SystemExit("Expected Cargo metadata for exactly one EtherNet/IP wrapper package")
+    if not isinstance(packages, list):
+        raise SystemExit("Expected Cargo metadata for EtherNet/IP wrapper package")
 
-    dependencies = packages[0]["dependencies"]
+    wrapper = next((pkg for pkg in packages if pkg.get("name") == "instro-ethernetip-py"), None)
+    if wrapper is None:
+        raise SystemExit("Could not find the instro-ethernetip-py wrapper package in Cargo metadata")
+
+    dependencies = wrapper["dependencies"]
     return {
         dependency.get("rename") or dependency["name"]: Path(dependency["path"])
         for dependency in dependencies
@@ -92,14 +96,8 @@ def _local_path_dependencies() -> dict[str, Path]:
 
 
 def _expected_paths() -> set[ExpectedPath]:
-    expected = {
-        ExpectedPath(
-            "wrapper manifest",
-            _archive_path(WRAPPER_ARCHIVE_DIR, filename),
-            _archive_path(WRAPPER_ARCHIVE_DIR, filename),
-        )
-        for filename in ("Cargo.toml", "Cargo.lock")
-    }
+    expected = set()
+    expected.add(ExpectedPath("wrapper manifest", "Cargo.toml", _archive_path(WRAPPER_ARCHIVE_DIR, "Cargo.toml")))
     expected.add(ExpectedPath("workspace manifest", "Cargo.toml", "Cargo.toml"))
     expected.add(
         ExpectedPath("wrapper manifest", _archive_path(WRAPPER_ARCHIVE_DIR, "pyproject.toml"), "pyproject.toml")

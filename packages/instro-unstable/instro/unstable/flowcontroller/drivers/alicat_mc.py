@@ -1,0 +1,505 @@
+"""Alicat MC-series mass-flow controller driver.
+
+Hardware protocol: ASCII polling over RS-232 (default 19200 baud, 8N1).
+Reference: Alicat Gas Flow Controller Manual, pp. 42–50.
+https://documents.alicat.com/manuals/Gas_Flow_Controller_Manual.pdf
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from copy import deepcopy
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Final, Literal
+
+from pyvisa import VisaIOError
+
+from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.unstable.flowcontroller import FlowControllerDriverBase
+from instro.unstable.flowcontroller.drivers.alicat_constants import (
+    _LOOP_VAR_TO_KEY,
+    LOOP_VARIABLE_ABS_PRESSURE,
+    LOOP_VARIABLE_GAUGE_PRESSURE,
+    LOOP_VARIABLE_MASS_FLOW,
+    LOOP_VARIABLE_PRESSURE_DIFF,
+    LOOP_VARIABLE_VOL_FLOW,
+    LoopVariable,
+)
+from instro.unstable.flowcontroller.types import MASS_FLOW_KEY, MassFlowData
+
+
+class AlicatDeviceError(RuntimeError):
+    """Exception raised when the Alicat device returns a '?' error response."""
+
+    pass
+
+
+class AlicatMCFlowData(MassFlowData):
+    """MassFlowData extended with the Alicat MC-specific gas field."""
+
+    gas: str
+
+
+logger = logging.getLogger(__name__)
+
+
+def _default_alicat_config(visa_resource: str) -> VisaConfig:
+    """Build default VisaConfig for Alicat RS-232 at 19200 baud."""
+    return VisaConfig(
+        visa_resource=visa_resource,
+        serial_config=SerialConfig(baud_rate=19200),
+        terminator=TerminatorConfig(read="\r", write="\r"),
+    )
+
+
+@dataclass
+class GasMixEntry:
+    """One component of a custom gas mixture."""
+
+    gas_percentage: Decimal  # valid to 2 digits of precision
+    gas_number: int  # fetch using list_gas_types
+
+    @property
+    def serialized_gas_percentage(self) -> str:
+        """Gas percentage formatted to two decimal places (how alicat reads)."""
+        return f"{self.gas_percentage:.2f}"
+
+    @staticmethod
+    def sum_mixture_percentages(entries: list[GasMixEntry]) -> Decimal:
+        """Sum percentages across all entries using their serialized (rounded to 2 dp) values.
+
+        Alicat expects the serialized sum to equal 100.00, not the raw sum.
+        """
+        sum = Decimal("0.00")
+        for entry in entries:
+            sum = sum + Decimal(entry.serialized_gas_percentage)
+        return sum
+
+
+@dataclass
+class GasTypeEntry:
+    """Gas type entry from the device's gas list."""
+
+    identifier: int
+    name: str
+
+    @staticmethod
+    def parse(line: str) -> GasTypeEntry:
+        """Parse one gas type line from the device gas list response."""
+        # Format: '{unit_id} G{number} {name}', e.g. 'M G02      CH4 '
+        fields = line.split()
+        if len(fields) < 3:
+            raise RuntimeError(f"AlicatMC: unexpected gas type line: {line!r}")
+        return GasTypeEntry(identifier=int(fields[1][1:]), name=fields[2])
+
+
+@dataclass
+class MeasurementHeaderEntry:
+    """Parsed descriptor for one field in the device measurement frame."""
+
+    index: int
+    identifier: int
+    name: str
+    data_type: str
+    width: str
+    notes: str
+
+    @staticmethod
+    def parse_column_spans(header_line: str) -> tuple[int, int, int, int]:
+        """Return (name, type, width, notes) column start offsets from the D00 header line."""
+        # Header: 'M D00 ID_ NAME______ TYPE_______ WIDTH NOTES___'
+        # Tokens 0-2 are fixed prefix fields; 3-6 are the variable-width columns.
+        tokens = list(re.finditer(r"\S+", header_line))
+        if len(tokens) < 7:
+            raise RuntimeError(f"AlicatMC: cannot parse measurement column header: {header_line!r}")
+        return (tokens[3].start(), tokens[4].start(), tokens[5].start(), tokens[6].start())
+
+    @staticmethod
+    def parse(line: str, col_spans: tuple[int, int, int, int]) -> MeasurementHeaderEntry:
+        """Parse one measurement descriptor line using previously determined column spans."""
+        # Format: 'M D{nn} {id} {name...}{type...}{width...}{notes...}'
+        # Example: 'M D02 002 Abs Press        s decimal   7/2 010 02 PSIA'
+        slot = line[2:5]  # 'D01', 'D02', ...
+        raw_id = line[6:9]  # '700', '002'; 'ID_' on the D00 header row raises below
+        try:
+            index = int(slot[1:])
+            identifier = int(raw_id)
+        except ValueError as exc:
+            raise RuntimeError(f"AlicatMC: unexpected measurement header line: {line!r}") from exc
+        name_s, type_s, width_s, notes_s = col_spans
+        return MeasurementHeaderEntry(
+            index=index,
+            identifier=identifier,
+            name=line[name_s:type_s].strip(),
+            data_type=line[type_s:width_s].strip(),
+            width=line[width_s:notes_s].strip(),
+            notes=line[notes_s:].strip(),
+        )
+
+
+@dataclass
+class AlicatFlowSample:
+    """Single parsed measurement frame from one Alicat device poll."""
+
+    pressure: float
+    temperature: float
+    vol_flow: float
+    mass_flow: float
+    setpoint: float
+    gas: str
+
+    def to_flow_data(self) -> AlicatMCFlowData:
+        """Serialize to the Alicat MC-extended MassFlowData dict."""
+        return AlicatMCFlowData(
+            pressure=self.pressure,
+            temperature=self.temperature,
+            vol_flow=self.vol_flow,
+            mass_flow=self.mass_flow,
+            setpoint=self.setpoint,
+            gas=self.gas,
+        )
+
+
+class AlicatMC(FlowControllerDriverBase):
+    """Alicat MC-series mass-flow controller (MC-100SCCM and related MC models).
+
+    Communicates in RS-232 polling mode. ``device_id`` is the single-letter
+    address (A–Z) configured on the device; default is ``"A"``.
+    Default baud is 19200 with 8data-1stop-none_parity-none_flow
+    Termination is always carriage return.
+    """
+
+    GAS_KEY: Final[Literal["gas"]] = "gas"
+
+    unit_id: str
+    _visa: VisaDriver
+    known_gas_types: list[GasTypeEntry]
+    measurement_headings: list[MeasurementHeaderEntry]
+    _cached_loop_variable: LoopVariable | None
+    _cached_loop_variable_key: str | None
+
+    def __init__(self, visa_resource: str | VisaConfig, device_id: str = "A") -> None:
+        self.unit_id = device_id
+        if isinstance(visa_resource, str):
+            visa_resource = _default_alicat_config(visa_resource)
+        self._visa = VisaDriver(visa_resource)
+        self.known_gas_types = []
+        self.measurement_headings = []
+        self._cached_loop_variable = None
+        self._cached_loop_variable_key = None
+
+    def open(self) -> None:
+        """Open the VISA transport."""
+        self._visa.open()
+
+    def close(self) -> None:
+        """Close the VISA transport."""
+        self._visa.close()
+
+    def _query_checked(self, command: str) -> str:
+        """Query the device and raise AlicatDeviceError (type of RuntimeError) if the response is '?'."""
+        response = self._visa.query(command)
+        if response == "?":
+            raise AlicatDeviceError(f"Error running command {command}, device returned ?")
+        return response
+
+    ###TARE
+    def tare_flow(self) -> AlicatMCFlowData:
+        """Zero the flow reading; device must have zero flow and must support tare."""
+        try:
+            response = self._query_checked(f"{self.unit_id}v")
+        except AlicatDeviceError as e:
+            raise NotImplementedError(
+                f"The currently selected device with unit ID={self.unit_id} does not support flow rate tare-ing"
+            ) from e
+        return self._parse_flowdata(response).to_flow_data()
+
+    def tare_barometer(self) -> AlicatMCFlowData:  # type: ignore[override]
+        """Zero the barometer reading; device must support barometer tare."""
+        try:
+            response = self._query_checked(f"{self.unit_id}pc")
+        except AlicatDeviceError as e:
+            raise NotImplementedError(
+                f"The currently selected device with unit ID={self.unit_id} does not support barometer tare-ing"
+            ) from e
+        return self._parse_flowdata(response).to_flow_data()
+
+    ###GAS TYPES
+    def list_gas_types(self, refresh=False) -> list[GasTypeEntry]:
+        """Return all gas types the device supports; cached after first call unless refresh=True."""
+        if self.known_gas_types is None or len(self.known_gas_types) == 0 or refresh:
+            gas_types_list: list[GasTypeEntry] = []
+            with self._visa.temporary_timeout(
+                250
+            ):  # we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock():  # lock across the entire write+manyread op
+                    self._visa.write(f"{self.unit_id}??g*")
+                    for _ in range(256):
+                        gas_type_line = None
+                        try:
+                            gas_type_line = self._visa.read()
+                        except VisaIOError as e:  # we expect a timeout when we run out of items to read
+                            if e.abbreviation == "VI_ERROR_TMO":
+                                if len(gas_types_list) > 0:
+                                    break  # this means we've hit the last line and can exit
+                                else:
+                                    raise
+                            else:
+                                raise  # unexpected error - reraise
+                        if gas_type_line:
+                            try:
+                                gas_type = GasTypeEntry.parse(gas_type_line)
+                                if gas_type is not None:
+                                    gas_types_list.append(gas_type)
+                            except Exception as e:  # less clear why this might happen, log
+                                logger.error(f"Exception {e} occurred while parsing gas type entries", exc_info=True)
+            if gas_types_list:
+                self.known_gas_types = gas_types_list
+        gas_types_list = deepcopy(self.known_gas_types)  # since we cache this, don't give users access to the real list
+        return gas_types_list
+
+    def _select_gas(self, gas_name: str) -> str:
+        """Select the active gas by name and return the confirmed gas name."""
+        if not self.known_gas_types:
+            self.list_gas_types()
+        gas_number = None
+        for known_gas_type in self.known_gas_types:
+            if gas_name.lower() == known_gas_type.name.lower():
+                gas_number = known_gas_type.identifier
+                break
+        if gas_number is None:
+            raise ValueError(
+                f"Unable to locate {gas_name} in list of all known gas types: "
+                f"{[kgt.name for kgt in self.known_gas_types]}"
+            )
+        response = self._query_checked(f"{self.unit_id}g{gas_number}")
+        return self._parse_flowdata(response).gas
+
+    def select_working_fluid(self, fluid_name: str) -> str:
+        """Select the active working fluid (gas) by name and return the confirmed fluid name."""
+        return self._select_gas(fluid_name)
+
+    def _query_loop_variable(self) -> None:
+        """Query the device for its current loop control variable (process value source) and cache it."""
+        response = self._query_checked(f"{self.unit_id}LR")
+        fields = response.split()
+        # To query the current loop variable, use unit_idLR as the
+        # command. On 10v05 and above this also queries the current
+        # minimum and maximum setpoints.
+        if len(fields) < 2:
+            raise RuntimeError(f"AlicatMC: short response from loop variable query {self.unit_id!r}: {response!r}")
+        try:
+            loop_var_code = int(fields[1])
+            loop_var = LoopVariable(loop_var_code)
+            self._cached_loop_variable = loop_var
+            self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_var]
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Unknown loop variable code {fields[1]}: {e}")
+            raise RuntimeError(f"Unknown loop variable code {fields[1]} from device {self.unit_id!r}") from e
+
+    def set_loop_control_variable(self, loop_variable: LoopVariable) -> float:
+        """Set the loop control variable (process value source) and update the cache.
+
+        Args:
+            loop_variable: The loop variable (e.g. LoopVariable.MASS_FLOW, LoopVariable.VOLUMETRIC_FLOW).
+
+        Returns:
+            The confirmed setpoint value from the device.
+        """
+        if loop_variable not in _LOOP_VAR_TO_KEY:
+            raise ValueError(
+                f"Unknown loop variable code: {loop_variable}. Valid codes: {list(_LOOP_VAR_TO_KEY.keys())}"
+            )
+        response = self._query_checked(f"{self.unit_id}LV {loop_variable}")
+        # Manual: Successful command response: the device responds with
+        # the unit ID and the new value of the loop variable.
+        fields = response.split()
+        if len(fields) < 2:
+            raise RuntimeError(f"AlicatMC: short response from loop variable set {self.unit_id!r}: {response!r}")
+        setpoint = float(fields[1])
+        self._cached_loop_variable = loop_variable
+        self._cached_loop_variable_key = _LOOP_VAR_TO_KEY[loop_variable]
+        return setpoint
+
+    def define_gas_mixture(self, mix_name: str, mixture: list[GasMixEntry], gas_id: int = 0) -> GasTypeEntry:
+        """Allows defining an arbitrary gas mixture of 2-5 components.
+
+        `mix_name` is an alias for the mixture. Use a maximum of 6 letters (upper and/or lower case),
+        numbers and symbols (space, period or hyphen only).
+
+        `gas_id` is a number from 236-255, selecting 0 will get the next available ID
+
+        Returns selected gas_id. If `gas_id` is not 0, it should return `gas_id`.
+        If `gas_id` is 0, it should return an integer from 236-255.
+        """
+        # [unitid]gm [mix name - 6az] [mix number 236-255, 0=next] [gas1%2d] [gas1number] ... [2-5 gas types]\r
+        if mix_name is None or len(mix_name) == 0 or len(mix_name) > 6:
+            raise ValueError(f"Gas mixture name must be between 1 and 6 chars")
+        if len(mixture) < 2 or len(mixture) > 5:
+            raise ValueError(f"Gas mixture must have between 2 and 5 components")
+        sum = GasMixEntry.sum_mixture_percentages(mixture)
+        if sum != 100:
+            raise ValueError(f"Gas mixture percentages to 2 decimal places must sum to 100, instead got {sum}")
+        mixture_strings = " ".join(
+            [f"{gas_entry.serialized_gas_percentage} {gas_entry.gas_number}" for gas_entry in mixture]
+        )
+        response = self._query_checked(f"{self.unit_id}gm {mix_name} {gas_id} {mixture_strings}")
+        response_cols = response.split()
+        if len(response_cols) < 2:
+            raise RuntimeError(f"AlicatMC: malformed response from define_gas_mixture {self.unit_id!r}: {response!r}")
+        mixture_identifier = GasTypeEntry(int(response_cols[1]), mix_name)
+        self.known_gas_types = []  # invalidate cache
+        return mixture_identifier
+
+    ###Normal Operation
+    def _get_flow_data(self) -> AlicatFlowSample:
+        """Poll the device for a single measurement frame, returning alicat-specific format."""
+        response = self._query_checked(self.unit_id)
+        return self._parse_flowdata(response)
+
+    def get_flow_data(self) -> AlicatMCFlowData:
+        """Poll the device for a single measurement frame."""
+        return self._get_flow_data().to_flow_data()
+
+    @property
+    def setpoint(self) -> float:
+        """Current setpoint in the device's configured engineering units."""
+        return self._get_flow_data().setpoint
+
+    @property
+    def mass_flow(self) -> float:
+        """Current mass flow reading in the device's configured engineering units."""
+        return self._get_flow_data().mass_flow
+
+    @property
+    def volumetric_flow(self) -> float:
+        """Current volumetric flow reading in the device's configured engineering units."""
+        return self._get_flow_data().vol_flow
+
+    @property
+    def pressure(self) -> float:
+        """Current absolute pressure reading in the device's configured engineering units."""
+        return self._get_flow_data().pressure
+
+    @property
+    def process_value(self) -> float:
+        """Current process value. Returns the measurement corresponding to the device's loop control variable."""
+        if self._cached_loop_variable is None:
+            self._query_loop_variable()
+        sample = self._get_flow_data()
+        if self._cached_loop_variable == LOOP_VARIABLE_MASS_FLOW:
+            return sample.mass_flow
+        elif self._cached_loop_variable == LOOP_VARIABLE_VOL_FLOW:
+            return sample.vol_flow
+        elif self._cached_loop_variable in (LOOP_VARIABLE_ABS_PRESSURE, LOOP_VARIABLE_GAUGE_PRESSURE):
+            return sample.pressure
+        elif self._cached_loop_variable == LOOP_VARIABLE_PRESSURE_DIFF:
+            raise NotImplementedError("Alicat MC does not support differential pressure measurement")
+        else:
+            return sample.mass_flow  # fallback to mass_flow if unknown
+
+    @property
+    def process_value_source(self) -> str:
+        """Key constant for the process value measurement. Determined by the device's loop control variable."""
+        if self._cached_loop_variable is None:
+            self._query_loop_variable()
+        return self._cached_loop_variable_key or MASS_FLOW_KEY
+
+    def get_flow_sample_metadata(self, refresh=False) -> list[MeasurementHeaderEntry]:
+        """Return measurement field descriptors; cached after first call unless refresh=True."""
+        if self.measurement_headings is None or len(self.measurement_headings) == 0 or refresh:
+            headings_list: list[MeasurementHeaderEntry] = []
+            with self._visa.temporary_timeout(
+                250
+            ):  # we are reading many lines, no delimiter, so delimiter becomes "no more lines for 250 ms"
+                with self._visa.lock():  # lock across the entire write+manyread op
+                    self._visa.write(f"{self.unit_id}??d*")
+                    heading_col_widths = None
+                    for i in range(50):
+                        heading_line = None
+                        try:
+                            heading_line = self._visa.read()
+                        except VisaIOError as e:  # we expect a timeout when we run out of items to read
+                            if e.abbreviation == "VI_ERROR_TMO":
+                                break
+                            else:
+                                raise
+                        if heading_line:
+                            if heading_col_widths is None:
+                                heading_col_widths = MeasurementHeaderEntry.parse_column_spans(heading_line)
+                            else:
+                                try:
+                                    measurement_header = MeasurementHeaderEntry.parse(heading_line, heading_col_widths)
+                                    if measurement_header is not None:
+                                        headings_list.append(measurement_header)
+                                except Exception as e:  # less clear why this might happen, log
+                                    logger.error(
+                                        f"Exception {e} occurred while parsing gas type entries", exc_info=True
+                                    )
+            if headings_list is not None and len(headings_list) > 0:
+                self.measurement_headings = headings_list
+
+        headings_list = deepcopy(self.measurement_headings)
+        return headings_list
+
+    def set_setpoint(self, setpt: float) -> float:
+        """Command a float setpoint in the device's configured engineering units.
+
+        You can fetch the current units for each value  using `get_flow_sample_metadata`
+        or on the front panel of the device itself.
+        """
+        response = self._query_checked(f"{self.unit_id}s {setpt:f}")
+        return self._parse_flowdata(response).setpoint
+
+    def set_setpoint_int(self, setpt: float, full_scale_range: float, range_minimum: float) -> float:
+        """Command a setpoint using integer encoding for the given full-scale range and minimum.
+
+        `full_scale_range` is the span of the control range. For unidirectional controllers
+        (0 to max), use the max value. For bidirectional controllers (+/- max), use the
+        full range (2 * max).
+        """
+        setpoint_integer = round(64000 * ((setpt / full_scale_range) - (range_minimum / full_scale_range)))
+        response = self._query_checked(f"{self.unit_id}{setpoint_integer}")
+        return self._parse_flowdata(response).setpoint
+
+    ###Hold commands
+    def hold_valve_at_position(self) -> AlicatMCFlowData:  # type: ignore[override]
+        """Hold the valve at its current position.
+
+        Use `cancel_valve_hold` to remove the hold.
+        """
+        response = self._query_checked(f"{self.unit_id}hp")
+        return self._parse_flowdata(response).to_flow_data()
+
+    def hold_valve_closed(self) -> AlicatMCFlowData:  # type: ignore[override]
+        """Hold the valve closed.
+
+        Use `cancel_valve_hold` to remove the hold.
+        """
+        response = self._query_checked(f"{self.unit_id}hc")
+        return self._parse_flowdata(response).to_flow_data()
+
+    def cancel_valve_hold(self) -> AlicatMCFlowData:  # type: ignore[override]
+        """Release any active valve hold and return to normal setpoint control."""
+        response = self._query_checked(f"{self.unit_id}c")
+        return self._parse_flowdata(response).to_flow_data()
+
+    def _parse_flowdata(self, response: str) -> AlicatFlowSample:
+        """Parse one device ASCII response into an AlicatFlowSample."""
+        # order: Unit[0], Abs press[1], flow temp[2], volu flow[3], mass flow[4], mass flow setpt[5], gas[6], status[7+]
+        # area for improvement: use get_flow_sample_metadata to dynamically determine order
+        fields = response.split()
+        if len(fields) < 7:
+            raise RuntimeError(f"AlicatMC: short response from {self.unit_id!r}: {response!r}")
+        if fields[0].upper() != self.unit_id.upper():
+            raise RuntimeError(f"AlicatMC: response ID {fields[0]!r} does not match device ID {self.unit_id!r}")
+        return AlicatFlowSample(
+            pressure=float(fields[1]),
+            temperature=float(fields[2]),
+            vol_flow=float(fields[3]),
+            mass_flow=float(fields[4]),
+            setpoint=float(fields[5]),
+            gas=fields[6],
+        )
