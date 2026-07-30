@@ -40,6 +40,12 @@ def test_from_dict_with_timing_sets_background_interval(valid_config):
     assert psu.background_interval == 0.5
 
 
+def test_from_dict_with_timing_rejects_unknown_field(valid_config):
+    config_with_bad_timing = {**valid_config, "timing": {"poll_interval": 0.5, "pol_interval": 0.5}}
+    with pytest.raises(Exception):
+        InstroPSU.from_dict(config_with_bad_timing)
+
+
 def test_from_dict_missing_required_field():
     with pytest.raises(Exception):
         InstroPSU.from_dict({"driver": {"name": "SimulatedPSU", "num_channels": 1, "connection_type": "visa"}})
