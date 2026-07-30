@@ -19,7 +19,7 @@ from instro.daq.types import (
     RelayChannel,
     TerminalConfig,
 )
-from instro.lib import Instrument, InstrumentNotOpenError, Measurement
+from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command
@@ -551,7 +551,7 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         if self.is_sw_timing_configured:
-            raise HWTimingException(
+            raise TimingConfigException(
                 f"DAQ '{self.name}' is already configured for software timing. "
                 "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
             )
@@ -582,7 +582,7 @@ class InstroDAQ(Instrument):
         """
         self._require_open()
         if self.is_hw_timing_configured:
-            raise HWTimingException(
+            raise TimingConfigException(
                 f"DAQ '{self.name}' is already configured for hardware timing. "
                 "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
             )
@@ -1000,4 +1000,7 @@ class InstroDAQ(Instrument):
         return self._package_measurement("buffer", self._driver.points_in_buffer, time.time_ns(), **kwargs)
 
 
-class HWTimingException(Exception): ...
+class HWTimingException(InstroError): ...
+
+
+class TimingConfigException(InstroError): ...

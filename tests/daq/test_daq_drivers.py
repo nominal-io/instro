@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import DAQDriverBase, HWTimingException, InstroDAQ
+from instro.daq import DAQDriverBase, HWTimingException, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     DigitalLineChannel,
@@ -934,11 +934,11 @@ def test_hw_and_sw_timing_are_mutually_exclusive(order: str):
 
     if order == "hw-then-sw":
         daq.configure_ai_hw_sample_rate(sample_rate=100)
-        with pytest.raises(HWTimingException, match="already configured for hardware timing"):
+        with pytest.raises(TimingConfigException, match="already configured for hardware timing"):
             daq.configure_ai_sw_sample_rate(sample_rate=10)
     else:
         daq.configure_ai_sw_sample_rate(sample_rate=10)
-        with pytest.raises(HWTimingException, match="already configured for software timing"):
+        with pytest.raises(TimingConfigException, match="already configured for software timing"):
             daq.configure_ai_hw_sample_rate(sample_rate=100)
 
 
