@@ -26,6 +26,9 @@ from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
 
+# Software-timed polling rate used by start() when no AI timing was configured.
+DEFAULT_SW_SAMPLE_RATE = 1.0
+
 
 class HWTimestamper:
     """Contiguous nanosecond timestamps for hardware-timed DAQ batches.
@@ -600,6 +603,9 @@ class InstroDAQ(Instrument):
     def start(self, background: bool = True, **kwargs):
         """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
 
+        With no AI timing configured, ``background=True`` falls back to software timing at
+        ``DEFAULT_SW_SAMPLE_RATE`` Hz.
+
         Args:
             background: When True (default), spin the daemon thread to continuously
                 fetch the buffer. When False, begin hardware acquisition only and
@@ -608,8 +614,20 @@ class InstroDAQ(Instrument):
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         self._require_open()
+        if not self.is_hw_timing_configured and not self.is_sw_timing_configured:
+            if not background:
+                # Raise when trying to do sw timed with no background daemon
+                raise TimingConfigException(
+                    f"Cannot start DAQ '{self.name}' with start(background=False) without AI timing configured. "
+                    "Call configure_ai_hw_sample_rate() first, or use start(background=True) to poll at the "
+                    f"default {DEFAULT_SW_SAMPLE_RATE} Hz software-timed rate."
+                )
+            # If no timing configrued and start called, resort to sw timed daemon at defualt rate
+            self.configure_ai_sw_sample_rate(sample_rate=DEFAULT_SW_SAMPLE_RATE)
+
         if self.is_sw_timing_configured:
             if not background:
+                # Raise when trying to do sw timed with no background daemon
                 raise TimingConfigException(
                     f"DAQ '{self.name}' is software-timed, which requires start(background=True): "
                     "the background daemon is what paces the reads. Call read_analog() directly instead."
@@ -617,12 +635,6 @@ class InstroDAQ(Instrument):
             self._define_background_daemon()
             super().start()
             return
-
-        if not self.is_hw_timing_configured:
-            raise TimingConfigException(
-                f"Cannot start DAQ '{self.name}' without AI timing configured. "
-                "Call configure_ai_hw_sample_rate() or configure_ai_sw_sample_rate() first."
-            )
 
         # DAQmx allows starting different channel_types independently.
         channel_type = kwargs.get("channel_type", None)
