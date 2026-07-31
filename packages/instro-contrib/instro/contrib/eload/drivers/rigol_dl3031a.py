@@ -72,3 +72,19 @@ class RigolDL3031A(ELoadDriverBase):
 
     def get_voltage(self, channel: int) -> float:
         return self._query_checked_float("MEASure:VOLTage?")
+
+    def _write_checked(self, command: str) -> None:
+        with self._visa.lock():
+            self._visa.write(command)
+            self._check_errors()
+
+    def _query_checked_float(self, command: str) -> float:
+        with self._visa.lock():
+            value = self._visa.query(command)
+            self._check_errors()
+            return float(value)
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("SYST:ERR?")
+        if not err.startswith("0"):
+            raise RuntimeError(f"Rigol DL3031A reported error: {err}")
