@@ -2,9 +2,12 @@
 RIGOL DL3031A DC eload driver
 """
 
+from typing import Literal
 from instro.eload import ELoadDriverBase
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports.visa import VisaConfig, VisaDriver
+
+TransientCurrMode = Literal["CONT", "CONTinuous", "PULS", "PULSe", "TOGG", "TOGGle"]
 
 
 def loadmode_to_rigol(mode: LoadMode) -> str:
@@ -86,7 +89,7 @@ class RigolDL3031A(ELoadDriverBase):
         i_max: float | None = None,
         i_min: float | None = None,
         v_ocp: float | None = None,
-        t_ocp: float | None = None
+        t_ocp: float | None = None,
     ) -> None:
         """
         Write provided parameters to configure OCP test.
@@ -118,7 +121,7 @@ class RigolDL3031A(ELoadDriverBase):
         p_max: float | None = None,
         p_min: float | None = None,
         v_opp: float | None = None,
-        t_opp: float | None = None
+        t_opp: float | None = None,
     ) -> None:
         """
         Write provided parameters to configure OPP test.
@@ -138,6 +141,35 @@ class RigolDL3031A(ELoadDriverBase):
         for command, value in scpi_commands_to_params.items():
             if value is not None:
                 self._write_checked(f"OPP:{command} {value}")
+
+    def set_transient_curr_params(
+        self,
+        mode: TransientCurrMode | None = None,
+        a_level: float | None = None,
+        b_level: float | None = None,
+        a_width: float | None = None,
+        b_width: float | None = None,
+        freq: float | None = None,
+        period: float | None = None,
+        a_duty: float | None = None,
+    ) -> None:
+        """
+        Configure transient operation in CC mode.
+        """
+        scpi_commands_to_params = {
+            "MODE": mode,
+            "ALEVel": a_level,
+            "BLEVel": b_level,
+            "AWIDth": a_width,
+            "BWIDth": b_width,
+            "FREQuency": freq,
+            "PERiod": period,
+            "ADUTy": a_duty,
+        }
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"CURRent:TRANsient:{command} {value}")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
