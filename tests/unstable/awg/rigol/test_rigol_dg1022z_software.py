@@ -71,7 +71,7 @@ def test_04_check_errors_accepts_zero_codes(rigol: RigolDG1022Z, rigol_visa: Mag
 def test_05_check_errors_raises_on_nonzero_code(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol_visa.query.return_value = '-113,"Undefined header"'
 
-    with pytest.raises(RuntimeError, match="Rigol DG1022Z reported error -113: Undefined header"):
+    with pytest.raises(RuntimeError, match=r'Rigol DG1022Z reported error: -113,"Undefined header"'):
         rigol.check_errors()
 
 
@@ -167,10 +167,10 @@ def test_12_set_waveform_arbitrary_writes_points_individually(
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,8,2048"),
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,9,9215"),
     ]
-    # One error check after APPL:ARB, one after TRAC:DATA:POIN, and one after the whole
-    # per-point write loop (not once per sample) since draining the error queue after
-    # every single point is expensive.
-    assert rigol_visa.query.call_count == 3
+    # One error check after APPL:ARB, one after TRAC:DATA:POIN, and one per sample point
+    # (9 samples) since check_errors only inspects the single oldest queued error rather
+    # than draining the queue.
+    assert rigol_visa.query.call_count == 11
 
 
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])

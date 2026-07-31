@@ -39,15 +39,11 @@ class RigolDG1022Z(AWGDriverBase):
         self._visa.close()
 
     def check_errors(self) -> None:
-        """Drain ``:SYSTem:ERRor?`` and raise on the first non-zero code."""
-        while True:
-            resp = self._visa.query(":SYST:ERR?")
-            parts = resp.split(",", 1)
-            code = int(parts[0])
-            if code == 0:
-                return
-            msg = parts[1].strip().strip('"') if len(parts) > 1 else "Unknown error"
-            raise RuntimeError(f"Rigol DG1022Z reported error {code}: {msg}")
+        """Query ``:SYSTem:ERRor?`` once and raise on a non-zero code. Does not drain the queue."""
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
 
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         _check_channel(channel)
@@ -90,7 +86,10 @@ class RigolDG1022Z(AWGDriverBase):
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
                     self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
-                self.check_errors()
+                    # check_errors doesn't drain the queue (see check_errors docstring), so a batch write
+                    # here could bury an error under later ones. Checking every point catches it at the
+                    # point it occurred, at the cost of one extra query per point on the happy path.
+                    self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
