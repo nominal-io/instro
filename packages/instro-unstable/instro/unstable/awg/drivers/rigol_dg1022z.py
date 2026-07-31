@@ -7,15 +7,12 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
-    BurstType,
-    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
-    SweepType,
     Triangle,
     Waveform,
 )
@@ -33,12 +30,6 @@ _MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
     Square: "SQU",
     Sawtooth: "RAMP",
     Triangle: "TRI",
-}
-
-_BURST_MODES: dict[BurstType, str] = {
-    BurstType.NCYCLE: "TRIG",
-    BurstType.GATED: "GAT",
-    BurstType.INFINITE: "INF",
 }
 
 
@@ -205,12 +196,6 @@ class RigolDG1022Z(AWGDriverBase):
         frequency_hz = carrier.frequency_hz
 
         with self._visa.lock():
-            if self._harmonics_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot modulate channel {channel} while harmonics are enabled on it")
-            if self._burst_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot modulate channel {channel} while burst is enabled on it")
-            if self._sweep_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot modulate channel {channel} while sweep is enabled on it")
             if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM):
                 prefix = mod_type.value
                 function = _MOD_INTERNAL_FUNCTIONS[type(carrier)]
@@ -232,109 +217,6 @@ class RigolDG1022Z(AWGDriverBase):
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
 
-    def enable_harmonics(
-        self, channel: int, order: int, harm_type: HarmonicType, user_harmonics: str | None = None
-    ) -> None:
-        _check_channel(channel)
-        _check_harmonic_order(order)
-        if not isinstance(harm_type, HarmonicType):
-            raise TypeError(f"harm_type must be a HarmonicType, got {type(harm_type).__name__}")
-        if harm_type is HarmonicType.USER:
-            if user_harmonics is None or len(user_harmonics) != 7 or any(bit not in "01" for bit in user_harmonics):
-                raise ValueError(
-                    "user_harmonics must be a 7-character string of '0'/'1' (harmonics order 2-8) when"
-                    f" harm_type is HarmonicType.USER, got {user_harmonics!r}"
-                )
-        elif user_harmonics is not None:
-            raise ValueError("user_harmonics is only valid when harm_type is HarmonicType.USER")
-
-        with self._visa.lock():
-            if self._modulation_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot enable harmonics on channel {channel} while it is modulated")
-            if self._burst_enabled(channel):
-                raise ValueError(
-                    f"the DG1022Z cannot enable harmonics on channel {channel} while burst is enabled on it"
-                )
-            if self._sweep_enabled(channel):
-                raise ValueError(
-                    f"the DG1022Z cannot enable harmonics on channel {channel} while sweep is enabled on it"
-                )
-            carrier = self.get_waveform(channel)
-            if not isinstance(carrier, Sine):
-                raise ValueError(
-                    f"the DG1022Z can only enable harmonics on a Sine wave; channel {channel} outputs "
-                    f"{type(carrier).__name__}"
-                )
-            self._visa.write(f":SOUR{channel}:HARM:ORDE {order}")
-            if harm_type is HarmonicType.USER:
-                self._visa.write(f":SOUR{channel}:HARM:TYP USER")
-                self._visa.write(f":SOUR{channel}:HARM:USER X{user_harmonics}")
-            else:
-                self._visa.write(f":SOUR{channel}:HARM:TYP {harm_type.value}")
-            self._visa.write(f":SOUR{channel}:HARM:STAT ON")
-
-    def burst(self, channel: int, burst_type: BurstType) -> None:
-        _check_channel(channel)
-        if not isinstance(burst_type, BurstType):
-            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
-
-        with self._visa.lock():
-            if self._harmonics_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot burst channel {channel} while harmonics are enabled on it")
-            if self._modulation_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot burst channel {channel} while it is modulated")
-            if self._sweep_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot burst channel {channel} while sweep is enabled on it")
-            carrier = self.get_waveform(channel)
-            if isinstance(carrier, StaticValue):
-                raise ValueError(f"the DG1022Z cannot burst a StaticValue (DC) waveform on channel {channel}")
-            self._visa.write(f":SOUR{channel}:BURS:MODE {_BURST_MODES[burst_type]}")
-            if burst_type is BurstType.GATED:
-                self._visa.write(f":SOUR{channel}:BURS:GATE:POL NORM")
-            elif burst_type is BurstType.INFINITE:
-                self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR MAN")
-            else:
-                self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR INT")
-            self._visa.write(f":SOUR{channel}:BURS:STAT ON")
-
-    def sweep(self, channel: int, start_freq: float, stop_freq: float, sweep_type: SweepType) -> None:
-        _check_channel(channel)
-        if not isinstance(sweep_type, SweepType):
-            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
-        if start_freq <= 0 or stop_freq <= 0:
-            raise ValueError(f"start_freq and stop_freq must be positive, got {start_freq}, {stop_freq}")
-
-        with self._visa.lock():
-            if self._harmonics_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot sweep channel {channel} while harmonics are enabled on it")
-            if self._modulation_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot sweep channel {channel} while it is modulated")
-            if self._burst_enabled(channel):
-                raise ValueError(f"the DG1022Z cannot sweep channel {channel} while burst is enabled on it")
-            carrier = self.get_waveform(channel)
-            if isinstance(carrier, (Pulse, StaticValue)):
-                raise ValueError(f"the DG1022Z cannot sweep a {type(carrier).__name__} waveform on channel {channel}")
-            self._visa.write(f":SOUR{channel}:FREQ:STAR {start_freq}")
-            self._visa.write(f":SOUR{channel}:FREQ:STOP {stop_freq}")
-            self._visa.write(f":SOUR{channel}:SWE:SPAC {sweep_type.value}")
-            self._visa.write(f":SOUR{channel}:SWE:TRIG:SOUR INT")
-            self._visa.write(f":SOUR{channel}:SWE:STAT ON")
-
-    def _harmonics_enabled(self, channel: int) -> bool:
-        return self._visa.query(f":SOUR{channel}:HARM:STAT?").strip() == "ON"
-
-    def _sweep_enabled(self, channel: int) -> bool:
-        return self._visa.query(f":SOUR{channel}:SWE:STAT?").strip() == "ON"
-
-    def _burst_enabled(self, channel: int) -> bool:
-        return self._visa.query(f":SOUR{channel}:BURS:STAT?").strip() == "ON"
-
-    def _modulation_enabled(self, channel: int) -> bool:
-        return any(
-            self._visa.query(f":SOUR{channel}:{prefix}:STAT?").strip() == "ON"
-            for prefix in ("AM", "FM", "PM", "ASK", "FSK")
-        )
-
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
         self._visa.write(f":SOUR{channel}:PHAS {phase_deg % 360.0}")
@@ -343,13 +225,6 @@ class RigolDG1022Z(AWGDriverBase):
 def _check_channel(channel: int) -> None:
     if channel not in (1, 2):
         raise ValueError(f"Rigol DG1022Z channel must be 1 or 2, got {channel}")
-
-
-def _check_harmonic_order(order: int) -> None:
-    if not isinstance(order, int):
-        raise TypeError(f"order must be an integer, got {order}")
-    if order < 2 or order > 8:
-        raise ValueError("order is out of range, 2 <= ORDER <= 8")
 
 
 def _mod_carrier(shape: Waveform) -> Sine | Square | Sawtooth | Triangle:

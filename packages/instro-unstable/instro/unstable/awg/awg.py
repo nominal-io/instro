@@ -15,15 +15,12 @@ from instro.lib.types import Command, Measurement
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
-    BurstType,
-    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
-    SweepType,
     Triangle,
     Waveform,
     convert_amplitude,
@@ -94,20 +91,6 @@ class AWGDriverBase(abc.ABC):
     def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
         """Modulate a channel's waveform."""
         raise NotImplementedError(f"modulate is not implemented for {type(self).__name__}")
-
-    def enable_harmonics(
-        self, channel: int, order: int, harm_type: HarmonicType, user_harmonics: str | None = None
-    ) -> None:
-        """Add harmonics to a channel's Sine wave; user_harmonics is required when harm_type is USER."""
-        raise NotImplementedError(f"enable_harmonics is not implemented for {type(self).__name__}")
-
-    def burst(self, channel: int, burst_type: BurstType) -> None:
-        """Burst on a channel's waveform."""
-        raise NotImplementedError(f"burst is not implemented for {type(self).__name__}")
-
-    def sweep(self, channel: int, start_freq: float, stop_freq: float, sweep_type: SweepType) -> None:
-        """Sweep a channel's waveform frequency from start_freq to stop_freq."""
-        raise NotImplementedError(f"sweep is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -386,51 +369,3 @@ class InstroAWG(Instrument):
             self._check_errors()
         descriptor = f"ch{channel}.modulation.cmd"
         return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)
-
-    @publish_command
-    def enable_harmonics(
-        self, channel: int, order: int, harm_type: HarmonicType, user_harmonics: str | None = None, **kwargs
-    ) -> Command:
-        """Enable harmonics on a channel's Sine wave; user_harmonics is required when harm_type is USER."""
-        if not isinstance(harm_type, HarmonicType):
-            raise TypeError(f"harm_type must be a HarmonicType, got {type(harm_type).__name__}")
-        self._check_channel(channel)
-        with self._resource_lock:
-            self._driver.enable_harmonics(
-                channel=channel, order=order, harm_type=harm_type, user_harmonics=user_harmonics
-            )
-            timestamp = time.time_ns()
-            self._check_errors()
-        descriptor = f"ch{channel}.harmonics.cmd"
-        tags = {"harm_type": harm_type.value, **kwargs}
-        if user_harmonics is not None:
-            tags["user_harmonics"] = user_harmonics
-        return self._package_command(descriptor, order, timestamp, **tags)
-
-    @publish_command
-    def burst(self, channel: int, burst_type: BurstType, **kwargs) -> Command:
-        """Enable a burst mode on a channel's waveform."""
-        if not isinstance(burst_type, BurstType):
-            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
-        self._check_channel(channel)
-        with self._resource_lock:
-            self._driver.burst(channel=channel, burst_type=burst_type)
-            timestamp = time.time_ns()
-            self._check_errors()
-        descriptor = f"ch{channel}.burst.cmd"
-        return self._package_command(descriptor, burst_type.value, timestamp, **kwargs)
-
-    @publish_command
-    def sweep(self, channel: int, start_freq: float, stop_freq: float, sweep_type: SweepType, **kwargs) -> Command:
-        """Sweep a channel's waveform frequency from start_freq to stop_freq."""
-        if not isinstance(sweep_type, SweepType):
-            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
-        self._check_channel(channel)
-        with self._resource_lock:
-            self._driver.sweep(channel=channel, start_freq=start_freq, stop_freq=stop_freq, sweep_type=sweep_type)
-            timestamp = time.time_ns()
-            self._check_errors()
-        descriptor = f"ch{channel}.sweep.cmd"
-        return self._package_command(
-            descriptor, sweep_type.value, timestamp, start_freq=str(start_freq), stop_freq=str(stop_freq), **kwargs
-        )

@@ -5,10 +5,10 @@ waveform, amplitude, DC-level, and arbitrary tests, the scope's own FREQUENCY/VP
 are compared against the values programmed on the AWG. Duty cycle is instead computed directly from
 raw waveform samples (see _measured_duty_cycle_pct): the scope's built-in DUTY_CYCLE measurement
 (PDUTY) reproducibly reports zero population on this instrument/firmware, even against signals
-independently confirmed clean from those same samples. Harmonics, burst, modulation, and sweep don't
-map onto any of the scope's built-in measurement types (no THD, AM-depth, burst-count, or
-instantaneous-sweep-frequency), so those get a looser sanity check instead: confirm the output is
-genuinely live (VPP above a floor) rather than asserting an exact value.
+independently confirmed clean from those same samples. Modulation doesn't map onto any of the
+scope's built-in measurement types (no AM-depth or FM/PM-deviation measurement), so it gets a looser
+sanity check instead: confirm the output is genuinely live (VPP above a floor) rather than asserting
+an exact value.
 """
 
 from __future__ import annotations
@@ -27,15 +27,12 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
-    BurstType,
-    HarmonicType,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
-    SweepType,
     Triangle,
     Waveform,
 )
@@ -56,8 +53,6 @@ SCOPE_CHANNEL = 1  # AWG_CHANNEL's output feeds directly (BNC, no probe) into th
 
 TEST_FREQUENCY_HZ = 1000.0
 MOD_FREQUENCY_HZ = 100.0
-START_FREQ_HZ = 100.0
-STOP_FREQ_HZ = 200.0
 TEST_AMPLITUDE_VPP = 2.0
 TEST_OFFSET_V = 0.25
 
@@ -77,8 +72,6 @@ MEASUREMENT_RETRY_DELAY_S = 1.0
 
 # ~3 cycles of TEST_FREQUENCY_HZ (1 kHz) across the screen.
 STANDARD_HORIZONTAL_S_PER_DIV = 2e-4
-# ~2-4 cycles across the 100-200 Hz sweep range.
-LOW_FREQ_HORIZONTAL_S_PER_DIV = 2e-3
 
 _ARB_SAMPLES = (0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5, 0.25)
 _ARB_SAMPLE_RATE_HZ = 100_000.0
@@ -311,48 +304,6 @@ def test_07_arbitrary_waveform_signal_present(rigol: RigolDG1022Z, scope: Instro
 
 
 @pytest.mark.parametrize(
-    ("harm_type", "order", "user_harmonics"),
-    [
-        (HarmonicType.EVEN, 4, None),
-        (HarmonicType.ODD, 3, None),
-        (HarmonicType.ALL, 2, None),
-        (HarmonicType.USER, 8, "1010100"),
-    ],
-    ids=["even", "odd", "all", "user"],
-)
-def test_08_all_harmonic_types_signal_present(
-    rigol: RigolDG1022Z, scope: InstroScope, harm_type: HarmonicType, order: int, user_harmonics: str | None
-) -> None:
-    _drive_waveform(rigol, Sine(frequency_hz=TEST_FREQUENCY_HZ))
-    rigol.enable_harmonics(AWG_CHANNEL, order, harm_type, user_harmonics=user_harmonics)
-    rigol.check_errors()
-    try:
-        _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
-        measured_vpp = _measure(scope, ScopeMeasurementType.VPP)
-        assert measured_vpp > MIN_VPP_V, f"VPP {measured_vpp} V below {MIN_VPP_V} V floor — is the output live?"
-        # No frequency assertion: added harmonics introduce extra zero-crossings into the waveform,
-        # which can make the scope's FREQUENCY measurement lock onto a much higher rate than the
-        # fundamental (observed up to 30 MHz vs. the programmed 1 kHz on ALL harmonics) — that's a
-        # limitation of naive edge-counting on a harmonically-rich signal, not a driver bug.
-    finally:
-        _teardown_signal(rigol, scope)
-
-
-def test_09_burst_ncycle_signal_present(rigol: RigolDG1022Z, scope: InstroScope) -> None:
-    # NCYCLE only: GATED needs an external gate signal and INFINITE needs a manual trigger, neither
-    # of which this test drives, so their output wouldn't be live to measure against.
-    _drive_waveform(rigol, Square(frequency_hz=TEST_FREQUENCY_HZ))
-    rigol.burst(AWG_CHANNEL, BurstType.NCYCLE)
-    rigol.check_errors()
-    try:
-        _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
-        measured_vpp = _measure(scope, ScopeMeasurementType.VPP)
-        assert measured_vpp > MIN_VPP_V, f"VPP {measured_vpp} V below {MIN_VPP_V} V floor — is the output live?"
-    finally:
-        _teardown_signal(rigol, scope)
-
-
-@pytest.mark.parametrize(
     ("mod_type", "shape"),
     [
         (ModulationType.AM, Sine(frequency_hz=MOD_FREQUENCY_HZ)),
@@ -363,7 +314,7 @@ def test_09_burst_ncycle_signal_present(rigol: RigolDG1022Z, scope: InstroScope)
     ],
     ids=["am", "fm", "pm", "ask", "fsk"],
 )
-def test_10_all_modulation_types_signal_present(
+def test_08_all_modulation_types_signal_present(
     rigol: RigolDG1022Z, scope: InstroScope, mod_type: ModulationType, shape: Waveform
 ) -> None:
     _drive_waveform(rigol, Square(frequency_hz=TEST_FREQUENCY_HZ))
@@ -371,19 +322,6 @@ def test_10_all_modulation_types_signal_present(
     rigol.check_errors()
     try:
         _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
-        measured_vpp = _measure(scope, ScopeMeasurementType.VPP)
-        assert measured_vpp > MIN_VPP_V, f"VPP {measured_vpp} V below {MIN_VPP_V} V floor — is the output live?"
-    finally:
-        _teardown_signal(rigol, scope)
-
-
-@pytest.mark.parametrize("sweep_type", [SweepType.LINEAR, SweepType.LOG, SweepType.STEP], ids=["linear", "log", "step"])
-def test_11_all_sweep_types_signal_present(rigol: RigolDG1022Z, scope: InstroScope, sweep_type: SweepType) -> None:
-    _drive_waveform(rigol, Sine(frequency_hz=TEST_FREQUENCY_HZ))
-    rigol.sweep(AWG_CHANNEL, START_FREQ_HZ, STOP_FREQ_HZ, sweep_type)
-    rigol.check_errors()
-    try:
-        _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, LOW_FREQ_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
         measured_vpp = _measure(scope, ScopeMeasurementType.VPP)
         assert measured_vpp > MIN_VPP_V, f"VPP {measured_vpp} V below {MIN_VPP_V} V floor — is the output live?"
     finally:

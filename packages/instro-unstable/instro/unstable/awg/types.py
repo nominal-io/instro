@@ -12,31 +12,12 @@ class AmplitudeMeasurementUnit(Enum):
     DBM = "DBM"
 
 
-class SweepType(Enum):
-    LINEAR = "LIN"
-    LOG = "LOG"
-    STEP = "STEP"
-
-
-class BurstType(Enum):
-    NCYCLE = "NCYCLE"
-    GATED = "GATED"
-    INFINITE = "INFINITE"
-
-
 class ModulationType(Enum):
     AM = "AM"
     FM = "FM"
     PM = "PM"
     FSK = "FSK"
     ASK = "ASK"
-
-
-class HarmonicType(Enum):
-    EVEN = "EVEN"
-    ODD = "ODD"
-    ALL = "ALL"
-    USER = "USER"
 
 
 def _require_positive(name: str, value: float) -> None:
