@@ -12,11 +12,15 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
+    HarmonicType,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -299,3 +303,74 @@ def test_21_amplitude_dbm_roundtrip(driver: RigolDG1022Z) -> None:
     amplitude, unit = driver.get_amplitude(1)
     assert unit is AmplitudeMeasurementUnit.DBM
     assert amplitude == pytest.approx(TEST_AMPLITUDE_DBM, abs=AMPLITUDE_DBM_TOLERANCE_ABS)
+
+
+def test_22_modulate_am_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
+
+
+def test_23_modulate_rejects_unsupported_carrier_shape(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="cannot use Pulse"):
+        driver.modulate(1, ModulationType.AM, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002), 50.0)
+
+    driver.check_errors()
+
+
+def test_24_enable_harmonics_writes_order_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.enable_harmonics(1, 3, HarmonicType.ODD)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:HARM:STAT?").strip() == "ON"
+    assert float(driver._visa.query(":SOUR1:HARM:ORDE?")) == 3
+
+
+def test_25_enable_harmonics_rejects_non_sine_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="can only enable harmonics on a Sine wave"):
+        driver.enable_harmonics(1, 2, HarmonicType.ALL)
+
+    driver.check_errors()
+
+
+def test_26_burst_ncycle_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.burst(1, BurstType.NCYCLE)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:BURS:STAT?").strip() == "ON"
+    assert driver._visa.query(":SOUR1:BURS:TRIG:SOUR?").strip() == "INT"
+
+
+def test_27_burst_rejects_static_value_waveform(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, StaticValue(value=TEST_OFFSET_V))
+
+    with pytest.raises(ValueError, match="cannot burst a StaticValue"):
+        driver.burst(1, BurstType.NCYCLE)
+
+    driver.check_errors()
+
+
+def test_28_sweep_linear_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:SWE:STAT?").strip() == "ON"
+    assert float(driver._visa.query(":SOUR1:FREQ:STAR?")) == pytest.approx(100.0, rel=FREQUENCY_TOLERANCE_REL)
+
+
+def test_29_sweep_rejects_pulse_waveform(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002))
+
+    with pytest.raises(ValueError, match="cannot sweep a Pulse"):
+        driver.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    driver.check_errors()
