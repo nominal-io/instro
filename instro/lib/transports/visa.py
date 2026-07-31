@@ -15,6 +15,8 @@ import pyvisa
 from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
+from instro.lib.transports.ownership import OwnershipContext
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_VISA_BACKEND = "@ivi"
@@ -112,18 +114,19 @@ class VisaConfig:
     tcp_nodelay: bool = True
 
 
-class VisaDriver:
+class VisaDriver(OwnershipContext):
     """Transport for VISA-attached instruments. Composed by concrete drivers, not extended.
 
-    Thread-safe at the I/O level via an internal lock; use :meth:`lock` to keep
-    a multi-step VISA sequence atomic.
+    Supports shared ownership: multiple drivers can hold the same connection, which
+    closes only when the last owner releases it. Thread-safe at the I/O level via an
+    internal lock; use :meth:`lock` to keep a multi-step VISA sequence atomic.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         """Construct from a VISA resource string (uses defaults) or a full ``VisaConfig``."""
+        super().__init__()
         self._connection_config = _coerce_connection_config(visa_resource)
         self._inst: pyvisa.resources.MessageBasedResource | None = None
-        self._lock = threading.RLock()
 
     def __del__(self) -> None:
         """Best-effort close on garbage collection."""
@@ -173,6 +176,15 @@ class VisaDriver:
                 raise
 
             self._inst = inst
+
+    def _teardown_session(self) -> None:
+        """Tear down the VISA session."""
+        if self._inst is None:
+            return
+        try:
+            self._inst.close()
+        finally:
+            self._inst = None
 
     def close(self) -> None:
         """Close the VISA resource. Idempotent."""
@@ -265,20 +277,6 @@ class VisaDriver:
                 yield
             finally:
                 inst.timeout = original
-
-    def lock(self) -> threading.RLock:
-        """Return the reentrant resource lock for atomic multi-step VISA sequences.
-
-        Example::
-
-            with driver.lock():
-                driver.write("CONF:VOLT:DC")
-                driver.write("RANGE 10")
-                value = driver.query("READ?")
-
-        Reentrant: the holding thread can call ``write``/``query``/``read`` inside the ``with``.
-        """
-        return self._lock
 
     def _require_open_locked(self) -> pyvisa.resources.MessageBasedResource:
         if self._inst is None:

@@ -606,3 +606,48 @@ def test_transactional_lock_blocks_other_threads_until_released(mock_pyvisa):
 def test_visa_backend_package_is_installed(module: str) -> None:
     """Every pyvisa-py backend the @py fallback relies on must ship with instro (issue #102)."""
     assert importlib.util.find_spec(module) is not None
+
+
+# Shared ownership tests (Step 1: OwnershipContext with acquire)
+
+
+def test_first_acquire_opens_and_reports_first_owner(mock_pyvisa):
+    _, rm_instance, _ = mock_pyvisa
+    driver = _make_driver()
+    a, b = object(), object()
+
+    first = driver.acquire(a)
+    second = driver.acquire(b)
+
+    assert first is True
+    assert second is False
+    rm_instance.open_resource.assert_called_once()
+
+
+def test_acquire_same_holder_twice_returns_false(mock_pyvisa):
+    _, rm_instance, _ = mock_pyvisa
+    driver = _make_driver()
+    holder = object()
+
+    first = driver.acquire(holder)
+    second = driver.acquire(holder)
+
+    assert first is True
+    assert second is False
+    rm_instance.open_resource.assert_called_once()
+
+
+def test_acquire_with_open_already_called_reports_first_owner(mock_pyvisa):
+    _, _, _ = mock_pyvisa
+    driver = _make_driver()
+    holder_a, holder_b = object(), object()
+
+    # Manually open first
+    driver.open()
+
+    # Now acquire should still report first owner (is-first-owner, not did-open)
+    first = driver.acquire(holder_a)
+    second = driver.acquire(holder_b)
+
+    assert first is True  # First owner (even though session already open)
+    assert second is False  # Second owner
