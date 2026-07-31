@@ -10,11 +10,15 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
+    HarmonicType,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -373,3 +377,118 @@ def test_31_align_phase_writes_sync(rigol: RigolDG1022Z, rigol_visa: MagicMock) 
     rigol.align_phase()
 
     rigol_visa.write.assert_called_once_with(":SOUR1:PHAS:SYNC")
+
+
+def test_32_modulate_am_writes_internal_source_function_freq_and_stat(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    rigol_visa.query.return_value = "OFF"
+
+    rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    assert rigol_visa.query.call_args_list == [
+        call(":SOUR1:HARM:STAT?"),
+        call(":SOUR1:BURS:STAT?"),
+        call(":SOUR1:SWE:STAT?"),
+    ]
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:AM:SOUR INT"),
+        call(":SOUR1:AM:INT:FUNC SIN"),
+        call(":SOUR1:AM:INT:FREQ 100.0"),
+        call(":SOUR1:AM 50.0"),
+        call(":SOUR1:AM:STAT ON"),
+    ]
+
+
+def test_33_modulate_fsk_writes_rate_and_stat(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "OFF"
+
+    rigol.modulate(2, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:FSK:SOUR INT"),
+        call(":SOUR2:FSK:INT:RATE 100.0"),
+        call(":SOUR2:FSK 2000.0"),
+        call(":SOUR2:FSK:STAT ON"),
+    ]
+
+
+def test_34_enable_harmonics_all_writes_order_and_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
+
+    rigol.enable_harmonics(1, 4, HarmonicType.EVEN)
+
+    assert rigol_visa.query.call_args_list == [
+        call(":SOUR1:AM:STAT?"),
+        call(":SOUR1:FM:STAT?"),
+        call(":SOUR1:PM:STAT?"),
+        call(":SOUR1:ASK:STAT?"),
+        call(":SOUR1:FSK:STAT?"),
+        call(":SOUR1:BURS:STAT?"),
+        call(":SOUR1:SWE:STAT?"),
+        call(":SOUR1:APPL?"),
+    ]
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:HARM:ORDE 4"),
+        call(":SOUR1:HARM:TYP EVEN"),
+        call(":SOUR1:HARM:STAT ON"),
+    ]
+
+
+def test_35_enable_harmonics_user_writes_bitmask(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
+
+    rigol.enable_harmonics(1, 8, HarmonicType.USER, user_harmonics="1010100")
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:HARM:ORDE 8"),
+        call(":SOUR1:HARM:TYP USER"),
+        call(":SOUR1:HARM:USER X1010100"),
+        call(":SOUR1:HARM:STAT ON"),
+    ]
+
+
+def test_36_burst_ncycle_writes_mode_and_internal_trigger(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["OFF"] * 7 + ['"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"']
+
+    rigol.burst(1, BurstType.NCYCLE)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:BURS:MODE TRIG"),
+        call(":SOUR1:BURS:TRIG:SOUR INT"),
+        call(":SOUR1:BURS:STAT ON"),
+    ]
+
+
+def test_37_burst_gated_skips_explicit_trigger_source(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    # The DG1022Z rejects an explicit :BURS:TRIG:SOUR write (-220) once :BURS:MODE GAT is set.
+    rigol_visa.query.side_effect = ["OFF"] * 7 + ['"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"']
+
+    rigol.burst(1, BurstType.GATED)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:BURS:MODE GAT"),
+        call(":SOUR1:BURS:GATE:POL NORM"),
+        call(":SOUR1:BURS:STAT ON"),
+    ]
+
+
+def test_38_sweep_linear_writes_start_stop_and_spacing(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["OFF"] * 7 + ['"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"']
+
+    rigol.sweep(1, 100.0, 200.0, SweepType.LINEAR)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:FREQ:STAR 100.0"),
+        call(":SOUR1:FREQ:STOP 200.0"),
+        call(":SOUR1:SWE:SPAC LIN"),
+        call(":SOUR1:SWE:TRIG:SOUR INT"),
+        call(":SOUR1:SWE:STAT ON"),
+    ]
+
+
+def test_39_sweep_rejects_non_positive_frequency(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="must be positive"):
+        rigol.sweep(1, 0.0, 200.0, SweepType.LINEAR)
+
+    rigol_visa.write.assert_not_called()
