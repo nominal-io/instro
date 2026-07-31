@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum
 
 from instro.daq.scaling.scaling import Scaler
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 
 
 class DAQVendor(Enum):
@@ -38,6 +39,12 @@ class TerminalConfig(Enum):
     RSE = "RSE"
 
 
+class CJCSource(Enum):
+    INTERNAL = "INTERNAL"
+    CONSTANT = "CONSTANT"
+    CHANNEL = "CHANNEL"
+
+
 @dataclass(frozen=True)
 class HWTimingConfig:
     sample_rate: float
@@ -53,12 +60,45 @@ class DAQChannel:
     direction: Direction
 
 
+# ========  Analog Channel Types  ===========
+
+
 @dataclass(frozen=True)
 class AnalogChannel(DAQChannel):
     range_max: float
     range_min: float
     scaler: Scaler | None
     terminal_config: TerminalConfig | None = None
+
+
+@dataclass(frozen=True)
+class AnalogVoltageChannel(DAQChannel):
+    range_max: float
+    range_min: float
+    scaler: Scaler | None
+    terminal_config: TerminalConfig | None = None
+
+
+@dataclass(frozen=True)
+class AnalogCurrentChannel(DAQChannel):
+    range_max: float
+    range_min: float
+    scaler: Scaler | None
+
+
+@dataclass(frozen=True)
+class AnalogThermocoupleChannel(DAQChannel):
+    range_max: float
+    range_min: float
+    scaler: Scaler | None
+    tc_type: TC_TYPE
+    cjc_source: CJCSource | None
+    cjc_temp: float | None
+    cjc_channel: str | None
+    unit: TC_UNIT | None
+
+
+# ========  Digital Channel Types  ===========
 
 
 class DigitalPortWidth(IntEnum):

@@ -10,6 +10,7 @@ description: Using InstroDMM for SCPI-based digital multimeters
 ## Supported Vendors
 
 - **Agilent / HP / Keysight**: 34401A and compatible DMMs via SCPI/VISA (`Agilent34401A`)
+- **Keysight**: 34461A Truevolt DMM via SCPI/VISA (`Keysight34461A`)
 - **Keithley**: 2400 SourceMeter, measurement-only mode (`Keithley2400`)
 - **Simulated**: no hardware required; pairs with the bundled [DMM simulator](/instrumentation/dmm-simulator) (`SimulatedDMM`)
 
@@ -162,7 +163,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `read()` | Trigger a measurement and return a Measurement |
 
 <Note>
-`set_aperture_seconds` is part of the DMM contract but is not implemented by either bundled driver (Agilent 34401A, Keithley 2400). Calling it on those drivers raises `NotImplementedError`. Use `set_aperture_nplc` to set integration time on the shipped drivers. See [Exceptions](/instrumentation/exceptions) for the distinction between `NotImplementedError` and `FeatureNotSupportedError`.
+`set_aperture_seconds` is part of the DMM contract but is not implemented by the bundled drivers (Agilent 34401A, Keysight 34461A, Keithley 2400). Calling it on those drivers raises `NotImplementedError`. Use `set_aperture_nplc` to set integration time on the shipped drivers. See [Exceptions](/instrumentation/exceptions) for the distinction between `NotImplementedError` and `FeatureNotSupportedError`.
 </Note>
 
 ---
@@ -218,7 +219,7 @@ def measure_resistance(self) -> float: ...
 Optional overrides (raise `NotImplementedError` if not supported):
 
 - **`set_digits(n)`**: Set resolution in digits.
-- **`set_aperture_seconds(seconds)`**: Set integration time in seconds. (Not implemented by the bundled Agilent 34401A or Keithley 2400 drivers.)
+- **`set_aperture_seconds(seconds)`**: Set integration time in seconds. (Not implemented by the bundled drivers.)
 - **Per-function range setters**: `set_dc_voltage_range`, `set_ac_voltage_range`, `set_dc_current_range`, `set_ac_current_range`, `set_two_wire_resistance_range`, `set_four_wire_resistance_range`. Each takes `value: float | None` (None = auto). `InstroDMM` dispatches to the right one based on the active measurement function, so the driver never needs to know which function is active.
 - **Per-function NPLC setters**: `set_dc_voltage_nplc`, `set_ac_voltage_nplc`, `set_dc_current_nplc`, `set_ac_current_nplc`, `set_two_wire_resistance_nplc`, `set_four_wire_resistance_nplc`. Same dispatch shape as the range setters.
 - **`measure_four_wire_resistance()`**: Measure 4-wire resistance.

@@ -254,6 +254,23 @@ daq.configure_digital_port(
 ```
 Refer to your DAQ device's documentation for available physical channel names and supported features.
 
+### Typed Channel Configuration
+
+Alongside the generic `configure_analog_channel` / `configure_digital_line`, `InstroDAQ` exposes measurement-specific configuration methods. Each builds a typed channel (`AnalogVoltageChannel`, `AnalogCurrentChannel`, `AnalogThermocoupleChannel`, or a `DigitalLineChannel`) and delegates to a dedicated driver method:
+
+| Method | Channel type | Driver method |
+|--------|--------------|---------------|
+| `configure_voltage_input(physical_channel, *, alias, range_min, range_max, scaler, terminal_config)` | `AnalogVoltageChannel` | `configure_ai_voltage_channel` |
+| `configure_voltage_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogVoltageChannel` | `configure_ao_voltage_channel` |
+| `configure_current_input(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ai_current_channel` |
+| `configure_current_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ao_current_channel` |
+| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, unit)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
+| `configure_digital_input(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_di_channel` |
+| `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
+
+<Note>
+**Not yet implemented for the packaged drivers.** None of the bundled DAQ drivers (NI-DAQmx, LabJack T-Series, MCC, Keysight 34980A) implement these typed methods yet. Please use `configure_analog_channel` / `configure_digital_line`.
+</Note>
 
 ### Hardware-Timed Sample Rate
 
@@ -696,6 +713,13 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `open()` | Establish connection to the DAQ device |
 | `close()` | Disconnect from device and close publishers |
 | `configure_analog_channel(direction, physical_channel, alias, range_min, range_max)` | Configure an analog I/O channel |
+| `configure_voltage_input(physical_channel, ...)` | Configure a typed analog voltage input channel |
+| `configure_voltage_output(physical_channel, ...)` | Configure a typed analog voltage output channel |
+| `configure_current_input(physical_channel, ...)` | Configure a typed analog current input channel |
+| `configure_current_output(physical_channel, ...)` | Configure a typed analog current output channel |
+| `configure_thermocouple_input(physical_channel, tc_type, ...)` | Configure a thermocouple input channel |
+| `configure_digital_input(physical_channel, ...)` | Configure a typed digital input line |
+| `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
 | `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
@@ -768,6 +792,13 @@ Each of the methods below must (a) program the device and (b) record the resulti
 - **`configure_do_line_channel(physical_channel, logic, ...)`**: Parse, program, and register a digital output line. Record on `self._do_channels[channel.alias]`.
 - **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self._di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 - **`configure_do_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital output port. Record on `self._do_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
+
+The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). They are not yet implemented for packaged drivers.
+
+- **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
+- **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.
+- **`configure_ai_thermocouple_channel(channel)`**: Configure a thermocouple input channel from an `AnalogThermocoupleChannel` (thermocouple type plus cold-junction config); record on `self._ai_channels`.
+- **`configure_di_channel(channel)` / `configure_do_channel(channel)`**: Register a typed digital input/output line from a `DigitalLineChannel`; record on `self._di_channels` / `self._do_channels`.
 
 ### Timing Configuration
 
