@@ -82,16 +82,16 @@ class RigolDL3031A(ELoadDriverBase):
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
     def set_ocp_params(
         self,
-        range: float | None = None,
-        v_on: float | None = None,
-        v_on_delay: float | None = None,
-        i_set: float | None = None,
-        i_step: float | None = None,
-        i_delay_step: float | None = None,
-        i_max: float | None = None,
-        i_min: float | None = None,
-        v_ocp: float | None = None,
-        t_ocp: float | None = None,
+        range: float | MinMaxDef | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_on_delay: float | MinMaxDef | None = None,
+        i_set: float | MinMaxDef | None = None,
+        i_step: float | MinMaxDef | None = None,
+        i_delay_step: float | MinMaxDef | None = None,
+        i_max: float | MinMaxDef | None = None,
+        i_min: float | MinMaxDef | None = None,
+        v_ocp: float | MinMaxDef | None = None,
+        t_ocp: float | MinMaxDef | None = None,
     ) -> None:
         """
         Write provided parameters to configure OCP test.
@@ -115,15 +115,15 @@ class RigolDL3031A(ELoadDriverBase):
 
     def set_opp_params(
         self,
-        v_on: float | None = None,
-        v_on_delay: float | None = None,
-        p_set: float | None = None,
-        p_step: float | None = None,
-        p_delay_step: float | None = None,
-        p_max: float | None = None,
-        p_min: float | None = None,
-        v_opp: float | None = None,
-        t_opp: float | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_on_delay: float | MinMaxDef | None = None,
+        p_set: float | MinMaxDef | None = None,
+        p_step: float | MinMaxDef | None = None,
+        p_delay_step: float | MinMaxDef | None = None,
+        p_max: float | MinMaxDef | None = None,
+        p_min: float | MinMaxDef | None = None,
+        v_opp: float | MinMaxDef | None = None,
+        t_opp: float | MinMaxDef | None = None,
     ) -> None:
         """
         Write provided parameters to configure OPP test.
@@ -147,13 +147,13 @@ class RigolDL3031A(ELoadDriverBase):
     def set_transient_curr_params(
         self,
         mode: TransientCurrMode | None = None,
-        a_level: float | None = None,
-        b_level: float | None = None,
-        a_width: float | None = None,
-        b_width: float | None = None,
-        freq: float | None = None,
-        period: float | None = None,
-        a_duty: float | None = None,
+        a_level: float | MinMaxDef | None = None,
+        b_level: float | MinMaxDef | None = None,
+        a_width: float | MinMaxDef | None = None,
+        b_width: float | MinMaxDef | None = None,
+        freq: float | MinMaxDef | None = None,
+        period: float | MinMaxDef | None = None,
+        a_duty: float | MinMaxDef | None = None,
     ) -> None:
         """
         Configure transient operation in CC mode.
