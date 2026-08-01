@@ -732,3 +732,40 @@ def test_sole_owner_acquire_release_behaves_like_open_close(mock_pyvisa):
     driver.release(a)
     assert driver.is_open is False
     resource.close.assert_called_once()
+
+
+# Shared ownership tests (Step 3: guarded public close() and __del__ GC backstop)
+
+
+def test_direct_close_while_owned_declines_and_logs(mock_pyvisa, caplog):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.acquire(a)
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.ownership"):
+        driver.close()
+
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+    assert len(caplog.records) == 1
+
+
+def test_del_tears_down_even_with_non_empty_holders(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.acquire(a)
+
+    driver.__del__()
+
+    resource.close.assert_called_once()
+
+
+def test_del_swallows_raising_teardown(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    resource.close.side_effect = RuntimeError("close failed")
+    driver = _make_driver()
+    driver.open()
+
+    driver.__del__()  # must not raise

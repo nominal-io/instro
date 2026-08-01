@@ -128,13 +128,6 @@ class VisaDriver(OwnershipContext):
         self._connection_config = _coerce_connection_config(visa_resource)
         self._inst: pyvisa.resources.MessageBasedResource | None = None
 
-    def __del__(self) -> None:
-        """Best-effort close on garbage collection."""
-        try:
-            self.close()
-        except Exception:
-            pass
-
     @property
     def is_open(self) -> bool:
         """Whether the underlying VISA resource is currently open."""
@@ -185,11 +178,6 @@ class VisaDriver(OwnershipContext):
             self._inst.close()
         finally:
             self._inst = None
-
-    def close(self) -> None:
-        """Close the VISA resource. Idempotent."""
-        with self._lock:
-            self._teardown_session()
 
     def write(self, command: str) -> None:
         """Write ``command`` to the instrument; the configured write terminator is appended."""
