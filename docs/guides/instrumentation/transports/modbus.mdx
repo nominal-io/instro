@@ -62,3 +62,7 @@ with modbus.lock():
     modbus.write_holding_register(0x00FF, page)
     values = modbus.read_holding_registers(0x0000, count=8)
 ```
+
+## Shared ownership
+
+`ModbusDriver` shares the same `acquire()`/`release()` contract as `VisaDriver`, inherited from `OwnershipContext`: multiple drivers can hold one connection, and it closes only when the last owner releases it. See [Shared ownership](/instrumentation/transports/visa#shared-ownership) for the full explanation and a worked example.

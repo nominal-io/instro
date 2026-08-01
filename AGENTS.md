@@ -108,6 +108,9 @@ This repo prefers duplicated, explicit code over premature abstraction. The cons
 - **VISA drivers' `__init__` accepts `str | VisaConfig`.** `VisaConfig` is the canonical customization vehicle for `VisaDriver`. Don't propose dropping the union. Drivers on other transports take whatever their transport needs.
 - **No vendor-string factory** (`Instrument.create(vendor="bk", ...)`). Construct concrete drivers explicitly and pass them in: `InstroPSU(name="x", driver=BK9115(...), num_channels=1)`.
 - **No driver-side facade or back-channel.** Drivers don't hold a reference back to the category HAL. Any vendor-specific state a driver needs across calls (e.g. an `nidaqmx.Task` handle, a `VisaDriver`, a cached sample rate) lives on the driver itself.
+- **Every concrete transport calls `super().__init__()` first.** `VisaDriver` and `ModbusDriver` inherit `OwnershipContext` (`instro/lib/transports/ownership.py`), which owns the holder list and the reentrant lock. A subclass `__init__` that skips `super().__init__()` leaves both uninitialized.
+- **A driver sharing an injected connection uses `acquire`/`release` with itself as the holder, never the connection's `open`/`close` directly.** `acquire(self)` opens the connection if needed and reports whether this driver is the first owner, so one-time device setup runs exactly once no matter how many drivers share the connection; `release(self, ...)` mirrors it on the way out, tearing down only when the last owner leaves. Calling `open`/`close` directly bypasses this accounting and can strand or prematurely tear down a connection another driver still holds.
+- **A driver whose post-`acquire` device setup raises must `release(self)` before propagating.** Otherwise the driver is left in `_holders` despite failing to open, so a retried `acquire` reports not-first-owner and skips the setup it needs to redo.
 
 ## DAQ driver state tracking
 

@@ -96,7 +96,7 @@ class ModbusDriver(OwnershipContext):
         return self._connection.unit_id
 
     def open(self) -> None:
-        """Open the Modbus TCP/RTU connection."""
+        """Open the Modbus TCP/RTU connection. Idempotent."""
         with self._lock:
             if self._client is not None:
                 return

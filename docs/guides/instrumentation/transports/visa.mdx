@@ -54,9 +54,45 @@ The typical lifecycle is the same as any pyvisa session:
 | **Construct**: `VisaDriver(visa_resource)` or `VisaDriver(VisaConfig(...))` | Configuration is stored. No I/O happens yet. |
 | **`open()`** | Opens the pyvisa `ResourceManager`, opens the resource, applies terminators / timeouts / serial settings. Idempotent. |
 | **`write` / `query` / `read` / `*_raw`** | Issue commands against the open resource. |
-| **`close()`** | Closes the resource and the resource manager. Idempotent. |
+| **`close()`** | Closes the resource and the resource manager. Idempotent. Declines and logs a warning instead if another driver still holds the connection; see [Shared ownership](#shared-ownership). |
 
-`open()` and `close()` are both safe to call more than once. A best-effort `close()` also runs on garbage collection, but you should not rely on this. Close explicitly in a `try`/`finally`, or wrap the driver in the `open()`/`close()` of a higher-level instrument driver.
+`open()` and `close()` are both safe to call more than once. A best-effort teardown also runs on garbage collection, bypassing the shared-ownership guard, but you should not rely on this. Close explicitly in a `try`/`finally`, or wrap the driver in the `open()`/`close()` of a higher-level instrument driver.
+
+### Shared Ownership
+
+Some instruments expose more than one logical surface over a single connection. The EA PSB series, for example, both sources and sinks current on the same box, so it needs a PSU-shaped driver and an ELoad-shaped driver sharing one `VisaDriver`. `VisaDriver` (and `ModbusDriver`) support this through `OwnershipContext`, the base both transports inherit.
+
+A driver that wants to share a connection calls `acquire()`/`release()` with itself as the holder, instead of `open()`/`close()` directly:
+
+```python
+class SourceDriver(PSUDriverBase):
+    def __init__(self, connection: VisaDriver) -> None:
+        self._visa = connection
+
+    def open(self) -> None:
+        if self._visa.acquire(self):          # True only for the first owner
+            self._visa.write("SYST:LOCK ON")   # one-time device setup
+
+    def close(self) -> None:
+        self._visa.release(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+```
+
+`acquire()` opens the connection if needed and reports whether this call made the driver the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once no matter how many surfaces share the connection. `release()` mirrors this: the connection stays open as long as any owner remains, and only the release that empties the owner list runs `on_last_release` and tears the connection down.
+
+Construct one `VisaDriver` and hand it to both drivers to wire up the combined instrument:
+
+```python
+connection = VisaDriver("TCPIP0::10.0.0.5::5025::SOCKET")
+source = InstroPSU(name="psb_source", driver=SourceDriver(connection), num_channels=1)
+sink = InstroELoad(name="psb_sink", driver=SinkDriver(connection))  # mirrors SourceDriver
+
+source.open()
+sink.open()      # shares the session; SYST:LOCK ON already sent by source.open()
+source.close()   # sink still holds the connection, so nothing tears down yet
+sink.close()     # last release: SYST:LOCK OFF, then the socket closes
+```
+
+A driver that never calls `acquire()`/`release()` is unaffected. It is the sole owner by construction, so `open()`/`close()` behave exactly as in [Lifecycle](#lifecycle).
 
 ### Thread Safety
 
@@ -309,7 +345,9 @@ print(rm.list_resources())
 | `VisaDriver(visa_resource)` | Construct a driver from a VISA resource string or a `VisaConfig`. No I/O yet. |
 | `is_open` | Property: `True` if the underlying VISA resource is open. |
 | `open()` | Open the resource manager and resource; apply terminator/timeout/serial config. Idempotent. |
-| `close()` | Close the resource and resource manager. Idempotent. |
+| `acquire(holder)` | Admit `holder` and open the connection if needed. Returns `True` if `holder` is the first owner. See [Shared ownership](#shared-ownership). |
+| `close()` | Close the resource and resource manager. Idempotent. Declines and logs a warning if another driver still holds the connection. |
+| `release(holder, on_last_release=None)` | Remove `holder`. The release that empties the owner list runs `on_last_release`, then tears the connection down. See [Shared ownership](#shared-ownership). |
 | `write(command)` | Write a text command; the configured write terminator is appended. |
 | `read()` | Read a single response string up to (and stripping) the read terminator. |
 | `query(command)` | Write a command and read the response as text. |
