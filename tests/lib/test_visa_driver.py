@@ -651,3 +651,84 @@ def test_acquire_with_open_already_called_reports_first_owner(mock_pyvisa):
 
     assert first is True  # First owner (even though session already open)
     assert second is False  # Second owner
+
+
+# Shared ownership tests (Step 2: release() with last-release teardown ordering)
+
+
+def test_first_release_leaves_session_for_survivor_last_release_tears_down_in_order(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a, b = object(), object()
+    driver.acquire(a)
+    driver.acquire(b)
+    cb = MagicMock()
+
+    driver.release(a, on_last_release=cb)
+
+    cb.assert_not_called()
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+
+    driver.release(b, on_last_release=cb)
+
+    cb.assert_called_once()
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_release_by_non_holder_is_noop(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a, stranger = object(), object()
+    driver.acquire(a)
+    cb = MagicMock()
+
+    driver.release(stranger, on_last_release=cb)
+
+    cb.assert_not_called()
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+
+
+def test_release_on_last_release_raising_still_tears_down(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.acquire(a)
+
+    def raising_callback() -> None:
+        raise RuntimeError("callback failed")
+
+    with pytest.raises(RuntimeError, match="callback failed"):
+        driver.release(a, on_last_release=raising_callback)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_release_last_owner_with_no_callback_tears_down(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.acquire(a)
+
+    driver.release(a)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_sole_owner_acquire_release_behaves_like_open_close(mock_pyvisa):
+    rm_instance = mock_pyvisa[1]
+    resource = mock_pyvisa[2]
+    driver = _make_driver()
+    a = object()
+
+    driver.acquire(a)
+    assert driver.is_open is True
+    rm_instance.open_resource.assert_called_once()
+
+    driver.release(a)
+    assert driver.is_open is False
+    resource.close.assert_called_once()

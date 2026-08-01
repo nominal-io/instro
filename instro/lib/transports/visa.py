@@ -189,13 +189,7 @@ class VisaDriver(OwnershipContext):
     def close(self) -> None:
         """Close the VISA resource. Idempotent."""
         with self._lock:
-            if self._inst is None:
-                return
-            inst = self._inst
-            try:
-                inst.close()
-            finally:
-                self._inst = None
+            self._teardown_session()
 
     def write(self, command: str) -> None:
         """Write ``command`` to the instrument; the configured write terminator is appended."""
