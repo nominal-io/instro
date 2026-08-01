@@ -26,7 +26,7 @@ ETHERNETIP_MYPY_PATHS = [
 # Protocol-style configs (Modbus, EtherNet/IP) declare a top-level "protocol" string and
 # have their own from_json(path) classmethod. Instrument-style configs (PSU) declare
 # "instrument" instead and are validated straight from the parsed dict, since PSUConfig
-# is built via InstroPSU.from_json()/from_dict() at the HAL level, not its own from_json.
+# is built via InstroPSU(config=...) at the HAL level, not its own from_json.
 CONFIG_LOADERS = {
     "modbus": ModbusConfig,
     "ethernetip": EtherNetIPConfig,
