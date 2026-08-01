@@ -13,7 +13,7 @@ from typing import Any, Callable
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.psu.config import PSUConfig, build_psu_from_config, resolve_psu_from_config
+from instro.psu.config import PSUConfig, resolve_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,8 @@ class InstroPSU(Instrument):
             resolved_name, driver, num_channels, publishers, poll_interval = resolve_psu_from_config(
                 resolved_config, publishers
             )
-            name = name or resolved_name
+            if name is None:
+                name = resolved_name
         elif name is None or driver is None or num_channels is None:
             raise ValueError("InstroPSU requires either config=..., or name, driver, and num_channels together.")
 
@@ -189,9 +190,13 @@ class InstroPSU(Instrument):
 
     @staticmethod
     def _resolve_config(config: PSUConfig | dict | Path | str) -> PSUConfig:
-        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path."""
+        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path.
+
+        Returns a deep copy when ``config`` is already a ``PSUConfig``, so the instance stored on
+        ``self._config`` never aliases a caller-owned object that could mutate out from under it.
+        """
         if isinstance(config, PSUConfig):
-            return config
+            return config.model_copy(deep=True)
         if isinstance(config, dict):
             return PSUConfig.model_validate(config)
         with open(Path(config)) as f:
@@ -202,35 +207,30 @@ class InstroPSU(Instrument):
         cls,
         data: dict[str, Any],
         publishers: list[Publisher] | None = None,
+        autostart: bool = False,
     ) -> "InstroPSU":
         """Construct an InstroPSU from a config dict."""
-        config = PSUConfig.model_validate(data)
-        return build_psu_from_config(config, publishers=publishers)
+        return cls(config=data, publishers=publishers, autostart=autostart)
 
     @classmethod
     def from_json(
         cls,
         path: Path | str,
         publishers: list[Publisher] | None = None,
+        autostart: bool = False,
     ) -> "InstroPSU":
         """Construct an InstroPSU from a JSON config file."""
-        import json
-
-        path = Path(path)
-        with open(path) as f:
-            raw = json.load(f)
-        return cls.from_dict(raw, publishers=publishers)
+        return cls(config=path, publishers=publishers, autostart=autostart)
 
     @classmethod
     def from_json_str(
         cls,
         json_str: str,
         publishers: list[Publisher] | None = None,
+        autostart: bool = False,
     ) -> "InstroPSU":
         """Construct an InstroPSU from a JSON string."""
-        import json
-
-        return cls.from_dict(json.loads(json_str), publishers=publishers)
+        return cls(config=json.loads(json_str), publishers=publishers, autostart=autostart)
 
     @publish_command
     def _execute_command(

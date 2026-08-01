@@ -327,7 +327,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | Method | Purpose |
 |--------|---------|
 | `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
-| `InstroPSU(config, publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
+| `InstroPSU(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |

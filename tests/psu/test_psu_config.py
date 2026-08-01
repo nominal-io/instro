@@ -32,6 +32,28 @@ def test_from_dict_returns_instropsu(valid_config):
     assert psu.name == "test_psu"
 
 
+def test_from_dict_stores_resolved_config(valid_config):
+    # from_dict/from_json/from_json_str route through InstroPSU(config=...) internally, so
+    # they must populate self._config the same way the constructor does.
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU.from_dict(valid_config)
+
+    assert psu._config is not None
+    assert psu._config.driver.name == "SimulatedPSU"
+
+
+def test_from_dict_with_autostart_opens_and_starts(valid_config):
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver"),
+        patch.object(InstroPSU, "open") as mock_open,
+        patch.object(InstroPSU, "start") as mock_start,
+    ):
+        InstroPSU.from_dict(valid_config, autostart=True)
+
+    mock_open.assert_called_once()
+    mock_start.assert_called_once()
+
+
 def test_from_dict_with_timing_sets_background_interval(valid_config):
     config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
     with patch("instro.psu.drivers.simulated.VisaDriver"):
@@ -156,6 +178,26 @@ def test_init_with_config_name_override(valid_config):
         psu = InstroPSU(config=valid_config, name="overridden")
 
     assert psu.name == "overridden"
+
+
+def test_init_with_config_explicit_empty_name_is_not_overwritten(valid_config):
+    # name="" is falsy but explicitly chosen; it must win over config.device.name, not
+    # get silently replaced by it (regression test for a truthy-`or` bug).
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=valid_config, name="")
+
+    assert psu.name == ""
+
+
+def test_init_with_config_psuconfig_object_does_not_alias_caller_instance(valid_config):
+    psu_config = PSUConfig.model_validate(valid_config)
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=psu_config)
+
+    psu_config.device.name = "mutated"
+
+    assert psu._config is not psu_config
+    assert psu._config.device.name == "test_psu"
 
 
 def test_init_with_config_and_driver_raises(valid_config):

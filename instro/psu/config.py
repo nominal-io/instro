@@ -9,7 +9,7 @@ from instro.lib.types import DeviceInfo
 
 if TYPE_CHECKING:
     from instro.lib.publishers import Publisher
-    from instro.psu.psu import InstroPSU, PSUDriverBase
+    from instro.psu.psu import PSUDriverBase
 
 __all__ = [
     "DeviceInfo",
@@ -119,17 +119,3 @@ def resolve_psu_from_config(
 
     poll_interval = config.timing.poll_interval if config.timing is not None else None
     return config.device.name, driver, config.driver.num_channels, (all_publishers or None), poll_interval
-
-
-def build_psu_from_config(
-    config: PSUConfig,
-    publishers: list[Publisher] | None = None,
-) -> InstroPSU:
-    """Construct an InstroPSU from a validated PSUConfig."""
-    from instro.psu.psu import InstroPSU
-
-    name, driver, num_channels, resolved_publishers, poll_interval = resolve_psu_from_config(config, publishers)
-    psu = InstroPSU(name=name, driver=driver, num_channels=num_channels, publishers=resolved_publishers)
-    if poll_interval is not None:
-        psu.background_interval = poll_interval
-    return psu
