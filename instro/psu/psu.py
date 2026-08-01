@@ -202,36 +202,6 @@ class InstroPSU(Instrument):
         with open(Path(config)) as f:
             return PSUConfig.model_validate(json.load(f))
 
-    @classmethod
-    def from_dict(
-        cls,
-        data: dict[str, Any],
-        publishers: list[Publisher] | None = None,
-        autostart: bool = False,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a config dict."""
-        return cls(config=data, publishers=publishers, autostart=autostart)
-
-    @classmethod
-    def from_json(
-        cls,
-        path: Path | str,
-        publishers: list[Publisher] | None = None,
-        autostart: bool = False,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a JSON config file."""
-        return cls(config=path, publishers=publishers, autostart=autostart)
-
-    @classmethod
-    def from_json_str(
-        cls,
-        json_str: str,
-        publishers: list[Publisher] | None = None,
-        autostart: bool = False,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a JSON string."""
-        return cls(config=json.loads(json_str), publishers=publishers, autostart=autostart)
-
     @publish_command
     def _execute_command(
         self,
