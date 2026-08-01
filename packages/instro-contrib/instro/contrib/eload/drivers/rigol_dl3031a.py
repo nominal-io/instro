@@ -173,6 +173,22 @@ class RigolDL3031A(ELoadDriverBase):
             if value is not None:
                 self._write_checked(f"CURRent:TRANsient:{command} {value}")
 
+    def set_cc_params(
+        self,
+        range: float | MinMaxDef | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_limit: float | MinMaxDef | None = None,
+        i_limit: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Configure CC mode (except slew).
+        """
+        scpi_commands_to_params = {"RANGe": range, "VON": v_on, "VLIMt": v_limit, "ILIMt": i_limit}
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"CURRent:{command} {value}")
+
     def set_cv_params(
         self,
         range: float | MinMaxDef | None = None,
