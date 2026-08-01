@@ -8,6 +8,8 @@ from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 TransientCurrMode = Literal["CONT", "CONTinuous", "PULS", "PULSe", "TOGG", "TOGGle"]
+MinMaxDef = Literal["MIN", "MINimum", "MAX", "MAXimum", "DEF", "DEFault"]
+MinMax = Literal["MIN", "MINimum", "MAX", "MAXimum"]
 
 
 def loadmode_to_rigol(mode: LoadMode) -> str:
@@ -170,6 +172,84 @@ class RigolDL3031A(ELoadDriverBase):
         for command, value in scpi_commands_to_params.items():
             if value is not None:
                 self._write_checked(f"CURRent:TRANsient:{command} {value}")
+
+    def set_cv_params(
+        self,
+        range: float | MinMaxDef | None = None,
+        v_limit: float | MinMaxDef | None = None,
+        i_limit: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Configure CV mode.
+        """
+        scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"VOLTage:{command} {value}")
+
+    def set_cr_params(
+        self,
+        range: float | MinMaxDef | None = None,
+        v_limit: float | MinMaxDef | None = None,
+        i_limit: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Configure CR mode.
+        """
+        scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"RESistance:{command} {value}")
+
+    def set_cp_params(self, v_limit: float | MinMaxDef | None = None, i_limit: float | MinMaxDef | None = None) -> None:
+        """
+        Configure CP mode.
+        """
+        scpi_commands_to_params = {"VLIMt": v_limit, "ILIMt": i_limit}
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"POWer:{command} {value}")
+
+    def set_list_params(
+        self,
+        mode: LoadMode | None = None,
+        range: float | None = None,
+        count: int | MinMax | None = None,
+        step: int | MinMax | None = None,
+        end_state: Literal["LAST", "OFF"] | None = None,
+    ) -> None:
+        """
+        Configure list mode.
+        """
+        scpi_commands_to_params = {
+            "MODE": mode.value if mode is not None else None,
+            "RANGe": range,
+            "COUNt": count,
+            "STEP": step,
+            "END": end_state,
+        }
+        # only write user-provided fields
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"LIST:{command} {value}")
+
+    def set_list_step_params(
+        self,
+        step_num: int,
+        level: float | None = None,
+        width: float | None = None,
+        slew: float | None = None,
+    ) -> None:
+        """
+        Configure individual step within list mode.
+        """
+        scpi_commands_to_params = {"LEVel": level, "WIDth": width, "SLEW": slew}
+        for command, value in scpi_commands_to_params.items():
+            if value is not None:
+                self._write_checked(f"LIST:{command} {step_num},{value}")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
