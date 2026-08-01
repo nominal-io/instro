@@ -168,6 +168,30 @@ def test_init_with_no_config_and_missing_direct_args_raises():
         InstroPSU(name="only_name")
 
 
+def test_init_with_autostart_opens_and_starts(valid_config):
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver"),
+        patch.object(InstroPSU, "open") as mock_open,
+        patch.object(InstroPSU, "start") as mock_start,
+    ):
+        InstroPSU(config=valid_config, autostart=True)
+
+    mock_open.assert_called_once()
+    mock_start.assert_called_once()
+
+
+def test_init_without_autostart_does_not_open_or_start(valid_config):
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver"),
+        patch.object(InstroPSU, "open") as mock_open,
+        patch.object(InstroPSU, "start") as mock_start,
+    ):
+        InstroPSU(config=valid_config)
+
+    mock_open.assert_not_called()
+    mock_start.assert_not_called()
+
+
 def test_from_dict_with_publishers(valid_config):
     config_with_publishers = {
         **valid_config,

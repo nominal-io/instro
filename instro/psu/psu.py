@@ -128,6 +128,7 @@ class InstroPSU(Instrument):
         num_channels: int | None = None,
         publishers: list[Publisher] | None = None,
         config: PSUConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroPSU.
@@ -148,9 +149,8 @@ class InstroPSU(Instrument):
             num_channels: Number of output channels on this PSU.
             publishers: Publishers that receive emitted Measurement/Command data.
                 Combined with any publishers declared in ``config``.
-            config: A ``PSUConfig``, a dict, or a path to a JSON config file
-                (``str``/``Path`` is always a file path; for raw JSON text use
-                ``InstroPSU.from_json_str(json_str)`` instead).
+            config: A ``PSUConfig``, a dict, or a path to a JSON config file.
+            autostart: When True, open the connection and start background polling.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
@@ -182,6 +182,10 @@ class InstroPSU(Instrument):
 
         if poll_interval is not None:
             self.background_interval = poll_interval
+
+        if autostart:
+            self.open()
+            self.start()
 
     @staticmethod
     def _resolve_config(config: PSUConfig | dict | Path | str) -> PSUConfig:
