@@ -37,7 +37,7 @@ class RigolDL3031A(ELoadDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         # track short status since not tracked in questionable status register
-        self._short_enabled = False  # TODO: verify default state
+        self._short_enabled = False
 
     def open(self) -> None:
         self._visa.open()
@@ -48,7 +48,6 @@ class RigolDL3031A(ELoadDriverBase):
         self._visa.close()
 
     def short_output(self, enable: bool, channel: int) -> None:
-        # TODO: verify hold vs. toggle functionality of short button
         if enable != self._short_enabled:
             self._write_checked("SYSTem:KEY 33")
             self._short_enabled = enable
@@ -82,6 +81,7 @@ class RigolDL3031A(ELoadDriverBase):
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
     def set_ocp_params(
         self,
+        *,
         range: float | MinMaxDef | None = None,
         v_on: float | MinMaxDef | None = None,
         v_on_delay: float | MinMaxDef | None = None,
@@ -96,6 +96,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Write provided parameters to configure OCP test.
         """
+        cmd_root = "OCP"
         scpi_commands_to_params = {
             "RANGe": range,
             "VON": v_on,
@@ -108,13 +109,11 @@ class RigolDL3031A(ELoadDriverBase):
             "VOCP": v_ocp,
             "TOCP": t_ocp,
         }
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"OCP:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_opp_params(
         self,
+        *,
         v_on: float | MinMaxDef | None = None,
         v_on_delay: float | MinMaxDef | None = None,
         p_set: float | MinMaxDef | None = None,
@@ -128,6 +127,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Write provided parameters to configure OPP test.
         """
+        cmd_root = "OPP"
         scpi_commands_to_params = {
             "VON": v_on,
             "VONDelay": v_on_delay,
@@ -139,13 +139,11 @@ class RigolDL3031A(ELoadDriverBase):
             "VOPP": v_opp,
             "TOPP": t_opp,
         }
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"OPP:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_transient_curr_params(
         self,
+        *,
         mode: TransientCurrMode | None = None,
         a_level: float | MinMaxDef | None = None,
         b_level: float | MinMaxDef | None = None,
@@ -158,6 +156,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure transient operation in CC mode.
         """
+        cmd_root = "CURRent:TRANsient"
         scpi_commands_to_params = {
             "MODE": mode,
             "ALEVel": a_level,
@@ -168,13 +167,11 @@ class RigolDL3031A(ELoadDriverBase):
             "PERiod": period,
             "ADUTy": a_duty,
         }
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"CURRent:TRANsient:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_cc_params(
         self,
+        *,
         range: float | MinMaxDef | None = None,
         v_on: float | MinMaxDef | None = None,
         v_limit: float | MinMaxDef | None = None,
@@ -183,14 +180,13 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure CC mode (except slew).
         """
+        cmd_root = "CURRent"
         scpi_commands_to_params = {"RANGe": range, "VON": v_on, "VLIMt": v_limit, "ILIMt": i_limit}
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"CURRent:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_cv_params(
         self,
+        *,
         range: float | MinMaxDef | None = None,
         v_limit: float | MinMaxDef | None = None,
         i_limit: float | MinMaxDef | None = None,
@@ -198,14 +194,13 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure CV mode.
         """
+        cmd_root = "VOLTage"
         scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"VOLTage:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_cr_params(
         self,
+        *,
         range: float | MinMaxDef | None = None,
         v_limit: float | MinMaxDef | None = None,
         i_limit: float | MinMaxDef | None = None,
@@ -213,24 +208,23 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure CR mode.
         """
+        cmd_root = "RESistance"
         scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"RESistance:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
-    def set_cp_params(self, v_limit: float | MinMaxDef | None = None, i_limit: float | MinMaxDef | None = None) -> None:
+    def set_cp_params(
+        self, *, v_limit: float | MinMaxDef | None = None, i_limit: float | MinMaxDef | None = None
+    ) -> None:
         """
         Configure CP mode.
         """
+        cmd_root = "POWer"
         scpi_commands_to_params = {"VLIMt": v_limit, "ILIMt": i_limit}
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"POWer:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_list_params(
         self,
+        *,
         mode: LoadMode | None = None,
         range: float | None = None,
         count: int | MinMax | None = None,
@@ -240,6 +234,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure list mode.
         """
+        cmd_root = "LIST"
         scpi_commands_to_params = {
             "MODE": mode.value if mode is not None else None,
             "RANGe": range,
@@ -247,13 +242,11 @@ class RigolDL3031A(ELoadDriverBase):
             "STEP": step,
             "END": end_state,
         }
-        # only write user-provided fields
-        for command, value in scpi_commands_to_params.items():
-            if value is not None:
-                self._write_checked(f"LIST:{command} {value}")
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_list_step_params(
         self,
+        *,
         step_num: int,
         level: float | None = None,
         width: float | None = None,
@@ -266,6 +259,14 @@ class RigolDL3031A(ELoadDriverBase):
         for command, value in scpi_commands_to_params.items():
             if value is not None:
                 self._write_checked(f"LIST:{command} {step_num},{value}")
+
+    def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
+        """
+        Writes command with provided values.
+        """
+        for cmd, value in params.items():
+            if value is not None:
+                self._write_checked(f"{cmd_root}:{cmd} {value}")
 
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
