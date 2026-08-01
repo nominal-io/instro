@@ -7,6 +7,7 @@ from instro.lib.transports.modbus import (
     RTUConnection,
     TCPConnection,
 )
+from instro.lib.transports.ownership import OwnershipContext
 from instro.lib.transports.visa import (
     ControlFlow,
     Parity,
@@ -22,6 +23,7 @@ __all__ = [
     "ControlFlow",
     "DataType",
     "ModbusDriver",
+    "OwnershipContext",
     "Parity",
     "RTUConnection",
     "RegisterType",

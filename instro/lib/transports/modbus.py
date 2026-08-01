@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import functools
 import struct
-import threading
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 from pymodbus.exceptions import ConnectionException as PymodbusConnectionException
+
+from instro.lib.transports.ownership import OwnershipContext
 
 if TYPE_CHECKING:
     from pymodbus.client import ModbusSerialClient, ModbusTcpClient
@@ -68,27 +69,21 @@ def _modbus_op(fn):
     return wrapper
 
 
-class ModbusDriver:
+class ModbusDriver(OwnershipContext):
     """Transport for Modbus TCP/RTU instruments. Composed by concrete drivers, not extended.
 
-    Thread-safe at the I/O level via an internal lock; use :meth:`lock` to keep a
-    multi-step Modbus sequence atomic. Raw function-code ops return/accept the
-    16-bit register words or coil bits on the wire; :meth:`read_typed` /
-    :meth:`write_typed` add typed encode/decode across registers.
+    Supports shared ownership: multiple drivers can hold the same connection, which
+    closes only when the last owner releases it. Thread-safe at the I/O level via an
+    internal lock; use :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
+    function-code ops return/accept the 16-bit register words or coil bits on the
+    wire; :meth:`read_typed` / :meth:`write_typed` add typed encode/decode across registers.
     """
 
     def __init__(self, connection: TCPConnection | RTUConnection) -> None:
         """Construct from a ``TCPConnection`` or ``RTUConnection``."""
+        super().__init__()
         self._connection = connection
         self._client: ModbusTcpClient | ModbusSerialClient | None = None
-        self._lock = threading.RLock()
-
-    def __del__(self) -> None:
-        """Best-effort close on garbage collection."""
-        try:
-            self.close()
-        except Exception:
-            pass
 
     @property
     def is_open(self) -> bool:
@@ -138,19 +133,11 @@ class ModbusDriver:
 
             self._client = client
 
-    def close(self) -> None:
-        """Close the connection. Idempotent."""
-        with self._lock:
-            if self._client is not None:
-                self._client.close()
-                self._client = None
-
-    def lock(self) -> threading.RLock:
-        """Return the reentrant resource lock for atomic multi-step Modbus sequences.
-
-        Reentrant: the holding thread can call read/write ops inside the ``with``.
-        """
-        return self._lock
+    def _teardown_session(self) -> None:
+        """Tear down the Modbus session."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
     @_modbus_op
     def read_holding_registers(self, address: int, count: int) -> list[int]:

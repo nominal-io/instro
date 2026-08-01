@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import struct
 import threading
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from pymodbus.datastore import (
@@ -378,6 +379,66 @@ class TestLock:
 
     def test_lock_returns_same_object(self, driver):
         assert driver.lock() is driver.lock()
+
+
+# ============ Shared Ownership ============
+
+
+class TestSharedOwnership:
+    def test_two_holders_share_one_client_last_release_closes(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a, b = object(), object()
+
+        first = drv.acquire(a)
+        second = drv.acquire(b)
+
+        assert first is True
+        assert second is False
+        assert drv.is_open
+
+        drv.release(a)
+        assert drv.is_open  # b still holds it
+
+        cb = Mock()
+        drv.release(b, on_last_release=cb)
+
+        cb.assert_called_once()
+        assert not drv.is_open
+
+    def test_one_connect_across_two_acquires(self):
+        with patch("pymodbus.client.ModbusTcpClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=1))
+            a, b = object(), object()
+
+            drv.acquire(a)
+            drv.acquire(b)
+
+            mock_cls.return_value.connect.assert_called_once()
+            drv.release(a)
+            drv.release(b)
+
+    def test_release_by_non_holder_is_noop(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a, stranger = object(), object()
+        drv.acquire(a)
+
+        drv.release(stranger)
+
+        assert drv.is_open
+        drv.release(a)
+
+    def test_direct_close_while_owned_declines_and_logs(self, modbus_server, caplog):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a = object()
+        drv.acquire(a)
+
+        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.ownership"):
+            drv.close()
+
+        assert drv.is_open
+        assert len(caplog.records) == 1
+        drv.release(a)
 
 
 # ============ Connection Configs ============
