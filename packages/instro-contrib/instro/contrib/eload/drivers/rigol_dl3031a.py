@@ -4,12 +4,22 @@ RIGOL DL3031A DC eload driver
 
 from typing import Literal
 from instro.eload import ELoadDriverBase
-from instro.eload.types import LoadMode, SlewRateDirection
+from instro.eload.types import SlewRateDirection
 from instro.lib.transports.visa import VisaConfig, VisaDriver
+from enum import Enum
 
 TransientCurrMode = Literal["CONT", "CONTinuous", "PULS", "PULSe", "TOGG", "TOGGle"]
 MinMaxDef = Literal["MIN", "MINimum", "MAX", "MAXimum", "DEF", "DEFault"]
 MinMax = Literal["MIN", "MINimum", "MAX", "MAXimum"]
+EnableVal = Literal[0, 1, "ON", "OFF"]
+
+
+class LoadMode(Enum):
+    CC = "CC"
+    CR = "CR"
+    CP = "CP"
+    CV = "CV"
+    battery = "BATTary"
 
 
 def loadmode_to_rigol(mode: LoadMode) -> str:
@@ -18,6 +28,7 @@ def loadmode_to_rigol(mode: LoadMode) -> str:
         LoadMode.CV: "VOLTage",
         LoadMode.CP: "POWer",
         LoadMode.CR: "RESistance",
+        LoadMode.battery: "BATTary",
     }[mode]
 
 
@@ -269,6 +280,34 @@ class RigolDL3031A(ELoadDriverBase):
         """
         cmd_root = "LIST"
         scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
+
+    def set_battery_params(
+        self,
+        *,
+        range: float | MinMaxDef | None = None,
+        v_stop: float | MinMaxDef | None = None,
+        c_stop: float | MinMaxDef | None = None,
+        time_stop: float | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_enab_stop: EnableVal | None = None,
+        c_enab_stop: EnableVal | None = None,
+        t_enab_stop: EnableVal | None = None,
+    ) -> None:
+        """
+        Configure battery mode.
+        """
+        cmd_root = "BATTary"
+        scpi_commands_to_params = {
+            "RANGe": range,
+            "VSTop": v_stop,
+            "CSTop": c_stop,
+            "TIMestop": time_stop,
+            "VON": v_on,
+            "VENabstop": v_enab_stop,
+            "CENabstop": c_enab_stop,
+            "TENabstop": t_enab_stop,
+        }
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
