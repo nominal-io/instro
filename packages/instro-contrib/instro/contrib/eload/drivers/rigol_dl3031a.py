@@ -91,74 +91,27 @@ class RigolDL3031A(ELoadDriverBase):
         return self._query_checked_float("MEASure:VOLTage?")
 
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
-    def set_ocp_params(
-        self,
-        *,
-        range: float | MinMaxDef | None = None,
-        v_on: float | MinMaxDef | None = None,
-        v_on_delay: float | MinMaxDef | None = None,
-        i_set: float | MinMaxDef | None = None,
-        i_step: float | MinMaxDef | None = None,
-        i_delay_step: float | MinMaxDef | None = None,
-        i_max: float | MinMaxDef | None = None,
-        i_min: float | MinMaxDef | None = None,
-        v_ocp: float | MinMaxDef | None = None,
-        t_ocp: float | MinMaxDef | None = None,
-    ) -> None:
-        """
-        Write provided parameters to configure OCP test.
-        """
-        cmd_root = "OCP"
-        scpi_commands_to_params = {
-            "RANGe": range,
-            "VON": v_on,
-            "VONDelay": v_on_delay,
-            "ISET": i_set,
-            "ISTEP": i_step,
-            "IDELaystep": i_delay_step,
-            "IMAX": i_max,
-            "IMIN": i_min,
-            "VOCP": v_ocp,
-            "TOCP": t_ocp,
-        }
-        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
-
-    def set_opp_params(
-        self,
-        *,
-        v_on: float | MinMaxDef | None = None,
-        v_on_delay: float | MinMaxDef | None = None,
-        p_set: float | MinMaxDef | None = None,
-        p_step: float | MinMaxDef | None = None,
-        p_delay_step: float | MinMaxDef | None = None,
-        p_max: float | MinMaxDef | None = None,
-        p_min: float | MinMaxDef | None = None,
-        v_opp: float | MinMaxDef | None = None,
-        t_opp: float | MinMaxDef | None = None,
-    ) -> None:
-        """
-        Write provided parameters to configure OPP test.
-        """
-        cmd_root = "OPP"
-        scpi_commands_to_params = {
-            "VON": v_on,
-            "VONDelay": v_on_delay,
-            "PSET": p_set,
-            "PSTEP": p_step,
-            "PDELaystep": p_delay_step,
-            "PMAX": p_max,
-            "PMIN": p_min,
-            "VOPP": v_opp,
-            "TOPP": t_opp,
-        }
-        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
-
     def set_transient_trigger(self, state: EnableVal | None = None) -> None:
         """
         Set trigger function to be on or off.
         """
         cmd_root = "TRANsient:STATe"
         self._write_cmd_with_params(cmd_root, state)
+
+    def set_cc_params(
+        self,
+        *,
+        range: float | MinMaxDef | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_limit: float | MinMaxDef | None = None,
+        i_limit: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Configure CC mode (except slew).
+        """
+        cmd_root = "CURRent"
+        scpi_commands_to_params = {"RANGe": range, "VON": v_on, "VLIMt": v_limit, "ILIMt": i_limit}
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_transient_curr_params(
         self,
@@ -186,21 +139,6 @@ class RigolDL3031A(ELoadDriverBase):
             "PERiod": period,
             "ADUTy": a_duty,
         }
-        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
-
-    def set_cc_params(
-        self,
-        *,
-        range: float | MinMaxDef | None = None,
-        v_on: float | MinMaxDef | None = None,
-        v_limit: float | MinMaxDef | None = None,
-        i_limit: float | MinMaxDef | None = None,
-    ) -> None:
-        """
-        Configure CC mode (except slew).
-        """
-        cmd_root = "CURRent"
-        scpi_commands_to_params = {"RANGe": range, "VON": v_on, "VLIMt": v_limit, "ILIMt": i_limit}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_cv_params(
@@ -279,16 +217,6 @@ class RigolDL3031A(ELoadDriverBase):
             if value is not None:
                 self._write_checked(f"LIST:{command} {step_num},{value}")
 
-    def set_wave_params(
-        self, *, time: Literal["ADD", "SUB"] | None = None, t_step: Literal[1, 10] | None = None
-    ) -> None:
-        """
-        Configure wave mode.
-        """
-        cmd_root = "LIST"
-        scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
-        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
-
     def set_battery_params(
         self,
         *,
@@ -315,6 +243,78 @@ class RigolDL3031A(ELoadDriverBase):
             "CENabstop": c_enab_stop,
             "TENabstop": t_enab_stop,
         }
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
+
+    def set_ocp_params(
+        self,
+        *,
+        range: float | MinMaxDef | None = None,
+        v_on: float | MinMaxDef | None = None,
+        v_on_delay: float | MinMaxDef | None = None,
+        i_set: float | MinMaxDef | None = None,
+        i_step: float | MinMaxDef | None = None,
+        i_delay_step: float | MinMaxDef | None = None,
+        i_max: float | MinMaxDef | None = None,
+        i_min: float | MinMaxDef | None = None,
+        v_ocp: float | MinMaxDef | None = None,
+        t_ocp: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Write provided parameters to configure OCP test.
+        """
+        cmd_root = "OCP"
+        scpi_commands_to_params = {
+            "RANGe": range,
+            "VON": v_on,
+            "VONDelay": v_on_delay,
+            "ISET": i_set,
+            "ISTEP": i_step,
+            "IDELaystep": i_delay_step,
+            "IMAX": i_max,
+            "IMIN": i_min,
+            "VOCP": v_ocp,
+            "TOCP": t_ocp,
+        }
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
+
+    def set_opp_params(
+        self,
+        *,
+        v_on: float | MinMaxDef | None = None,
+        v_on_delay: float | MinMaxDef | None = None,
+        p_set: float | MinMaxDef | None = None,
+        p_step: float | MinMaxDef | None = None,
+        p_delay_step: float | MinMaxDef | None = None,
+        p_max: float | MinMaxDef | None = None,
+        p_min: float | MinMaxDef | None = None,
+        v_opp: float | MinMaxDef | None = None,
+        t_opp: float | MinMaxDef | None = None,
+    ) -> None:
+        """
+        Write provided parameters to configure OPP test.
+        """
+        cmd_root = "OPP"
+        scpi_commands_to_params = {
+            "VON": v_on,
+            "VONDelay": v_on_delay,
+            "PSET": p_set,
+            "PSTEP": p_step,
+            "PDELaystep": p_delay_step,
+            "PMAX": p_max,
+            "PMIN": p_min,
+            "VOPP": v_opp,
+            "TOPP": t_opp,
+        }
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
+
+    def set_wave_params(
+        self, *, time: Literal["ADD", "SUB"] | None = None, t_step: Literal[1, 10] | None = None
+    ) -> None:
+        """
+        Configure wave mode.
+        """
+        cmd_root = "LIST"
+        scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
