@@ -48,6 +48,7 @@ class RigolDL3031A(ELoadDriverBase):
         self._visa.close()
 
     def short_output(self, enable: bool, channel: int) -> None:
+        # TODO: test functionality in both hold and toggle modes
         if enable != self._short_enabled:
             self._write_checked("SYSTem:KEY 33")
             self._short_enabled = enable
@@ -259,6 +260,16 @@ class RigolDL3031A(ELoadDriverBase):
         for command, value in scpi_commands_to_params.items():
             if value is not None:
                 self._write_checked(f"LIST:{command} {step_num},{value}")
+
+    def set_wave_params(
+        self, *, time: Literal["ADD", "SUB"] | None = None, t_step: Literal[1, 10] | None = None
+    ) -> None:
+        """
+        Configure wave mode.
+        """
+        cmd_root = "LIST"
+        scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
+        self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
         """
