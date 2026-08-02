@@ -153,6 +153,13 @@ class RigolDL3031A(ELoadDriverBase):
         }
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
+    def set_transient_trigger(self, state: EnableVal | None = None) -> None:
+        """
+        Set trigger function to be on or off.
+        """
+        cmd_root = "TRANsient:STATe"
+        self._write_cmd_with_params(cmd_root, state)
+
     def set_transient_curr_params(
         self,
         *,
