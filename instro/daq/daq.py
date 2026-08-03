@@ -3,7 +3,6 @@
 import abc
 import logging
 import time
-import warnings
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping, TypeVar
@@ -1052,23 +1051,6 @@ class InstroDAQ(Instrument):
 
         return self._scale_analog_measurement(measurements)
 
-    def _fetch_analog_sw_timed(self, **kwargs) -> list[Measurement]:
-        """Daemon-cycle software-timed read; warns when the read can't sustain the configured period."""
-        read_start = time.perf_counter()
-        measurements = self._software_timed_read(**kwargs)
-        read_time = time.perf_counter() - read_start
-
-        period = self._background_config.interval
-        if self.is_sw_timing_configured and read_time > period:
-            warnings.warn(
-                f"DAQ '{self.name}' software-timed read took longer than the {period:.4f} s period "
-                f"requested by configure_ai_sw_sample_rate(); the background daemon can run at a maximum read rate "
-                f"of {1 / read_time:.1f} Hz instead.",
-                stacklevel=2,
-            )
-
-        return measurements
-
     @publish_measurement
     def _fetch_analog_hw_timed(self, **kwargs) -> list[Measurement]:
         """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
@@ -1344,7 +1326,7 @@ class InstroDAQ(Instrument):
 
     def _define_background_daemon(self):
         """Register the fetch matching the configured timing mode when AI channels exist."""
-        fetch = self._fetch_analog_sw_timed if self.is_sw_timing_configured else self._fetch_analog_hw_timed
+        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
         already_registered = any(method == fetch for method, _, _ in self._background_methods)
         if self.ai_channels and not already_registered:
             self.add_background_daemon_function(fetch)

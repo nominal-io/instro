@@ -62,8 +62,7 @@ with daq:
         direction=Direction.INPUT, physical_channel=CHANNEL_1, alias="ch_1", range_min=0, range_max=5
     )
 
-    # There is no device sample clock here: this rate paces the background daemon,
-    # which warns if a read takes longer than the period it asks for.
+    # There is no device sample clock here: this rate paces the background daemon.
     daq.configure_ai_sw_sample_rate(sample_rate=100)
 
     # Start the acquisition.

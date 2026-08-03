@@ -312,7 +312,7 @@ daq.configure_ai_sw_sample_rate(
 )
 ```
 
-The device never starts a buffered acquisition in this mode: each daemon iteration triggers an immediate conversion, timestamped when the read returns. The configured rate is a ceiling, not a guarantee. If a DAQ read takes longer than the period, the daemon runs as fast as the reads allow and emits a warning with the achievable rate.
+The device never starts a buffered acquisition in this mode: each daemon iteration triggers an immediate conversion, timestamped when the read returns. The configured rate is a ceiling, not a guarantee. If a DAQ read takes longer than the period, the daemon runs as fast as the reads allow.
 
 ## Analog Input
 

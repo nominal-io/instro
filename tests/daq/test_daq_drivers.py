@@ -1,7 +1,6 @@
 """Unit tests for DAQ driver functionality."""
 
 import logging
-import time
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
@@ -1133,15 +1132,6 @@ def test_configure_ai_sw_sample_rate_rejects_nonpositive_rate():
     with pytest.raises(ValueError, match="greater than 0 Hz"):
         daq.configure_ai_sw_sample_rate(sample_rate=0)
     assert not daq.is_sw_timing_configured
-
-
-def test_sw_timed_read_slower_than_period_warns():
-    """A conversion that outlasts the configured period warns with the achievable rate."""
-    daq, mock_driver = _sw_timed_daq()  # 100 Hz -> 0.01 s period
-    mock_driver.read_analog.side_effect = lambda: time.sleep(0.02)
-
-    with pytest.warns(UserWarning, match="maximum read rate"):
-        daq._fetch_analog_sw_timed()
 
 
 def test_sw_timed_stop_leaves_the_device_alone():
