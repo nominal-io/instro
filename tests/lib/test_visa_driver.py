@@ -719,6 +719,27 @@ def test_release_last_owner_with_no_callback_tears_down(mock_pyvisa):
     assert driver.is_open is False
 
 
+def test_on_last_release_reacquiring_leaves_teardown_to_new_holder(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a, b = object(), object()
+    driver.acquire(a)
+
+    def reacquire_as_b() -> None:
+        assert driver.acquire(b) is True  # reentrant: same thread, same RLock
+
+    driver.release(a, on_last_release=reacquire_as_b)
+
+    # b now legitimately owns the connection; release(a)'s teardown must not have run.
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+
+    driver.release(b)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
 def test_sole_owner_acquire_release_behaves_like_open_close(mock_pyvisa):
     rm_instance = mock_pyvisa[1]
     resource = mock_pyvisa[2]

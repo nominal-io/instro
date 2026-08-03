@@ -44,7 +44,10 @@ class OwnershipContext(abc.ABC):
                 if on_last_release is not None:
                     on_last_release()
             finally:
-                self._teardown_session()
+                # on_last_release may reentrantly acquire() a new holder (the RLock permits
+                # this on the same thread); if so, leave teardown to that holder's own release().
+                if not self._holders:
+                    self._teardown_session()
 
     def close(self) -> None:
         """Close and teardown. Guarded: only when no holders remain."""
@@ -55,17 +58,7 @@ class OwnershipContext(abc.ABC):
             self._teardown_session()
 
     def lock(self) -> threading.RLock:
-        """Return the reentrant resource lock for atomic multi-step sequences.
-
-        Example::
-
-            with driver.lock():
-                driver.write("CONF:VOLT:DC")
-                driver.write("RANGE 10")
-                value = driver.query("READ?")
-
-        Reentrant: the holding thread can call write/query/read inside the with.
-        """
+        """Return the reentrant resource lock for atomic multi-step sequences; the holder may write/query/read inside it."""
         return self._lock
 
     def __del__(self) -> None:

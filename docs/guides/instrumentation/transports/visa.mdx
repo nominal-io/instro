@@ -70,14 +70,20 @@ class SourceDriver(PSUDriverBase):
         self._visa = connection
 
     def open(self) -> None:
-        if self._visa.acquire(self):          # True only for the first owner
-            self._visa.write("SYST:LOCK ON")   # one-time device setup
+        if self._visa.acquire(self):              # True only for the first owner
+            try:
+                self._visa.write("SYST:LOCK ON")  # one-time device setup
+            except Exception:
+                # A stranded holder would make the retry's acquire report not-first-owner,
+                # so SYST:LOCK ON would never be re-attempted.
+                self._visa.release(self)
+                raise
 
     def close(self) -> None:
         self._visa.release(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
 ```
 
-`acquire()` opens the connection if needed and reports whether this call made the driver the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once no matter how many surfaces share the connection. `release()` mirrors this: the connection stays open as long as any owner remains, and only the release that empties the owner list runs `on_last_release` and tears the connection down.
+`acquire()` opens the connection if needed and reports whether this call made the driver the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once no matter how many surfaces share the connection. `release()` mirrors this: the connection stays open as long as any owner remains, and only the release that empties the owner list runs `on_last_release` and tears the connection down. If that one-time setup raises, the driver must `release()` itself before propagating, as above: a holder left registered by a failed `open()` makes a later `acquire()` report not-first-owner and skip the setup it still needs to run.
 
 Construct one `VisaDriver` and hand it to both drivers to wire up the combined instrument:
 
