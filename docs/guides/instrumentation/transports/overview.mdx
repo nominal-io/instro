@@ -1,0 +1,204 @@
+---
+title: Transports
+description: The connection layer instrument drivers compose, and how to implement a new one
+---
+
+# Transports
+
+A transport owns one connection to one instrument: opening it, closing it, and serializing I/O against it. It knows nothing about the instrument's command vocabulary. SCPI syntax, register maps, and error-queue polling belong to the instrument driver that composes the transport.
+
+Concrete instrument drivers compose a transport in their constructor rather than extending it. Every transport inherits `TransportBase`, so the lifecycle, locking, and shared-ownership behavior on this page is identical no matter which one a driver holds.
+
+## Available transports
+
+- **[`VisaDriver`](/instrumentation/transports/visa)**: VISA-attached instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. The transport every shipped SCPI driver sits on.
+- **[`ModbusDriver`](/instrumentation/transports/modbus)**: Modbus TCP and RTU, with raw function-code access and typed register encode and decode.
+
+For a protocol neither one covers, [implement a transport](#implementing-a-transport) by subclassing `TransportBase`.
+
+## Lifecycle
+
+Every transport follows the same four steps:
+
+| Step | What happens |
+| --- | --- |
+| **Construct** | Connection parameters are stored. No I/O happens yet. |
+| **`open()`** | Opens the connection and applies the transport's configuration. Idempotent. |
+| **I/O methods** | Issue commands against the open connection. Each transport exposes the methods its protocol needs. |
+| **`close()`** | Tears the connection down. Idempotent. Declines and logs a warning instead if another driver still holds the connection; see [Shared ownership](#shared-ownership). |
+
+`open()` and `close()` are both safe to call more than once. A best-effort teardown also runs on garbage collection, bypassing the shared-ownership guard, but you should not rely on this. Close explicitly in a `try`/`finally`, or wrap the transport in the `open()`/`close()` of a higher-level instrument driver.
+
+```python
+transport.open()
+try:
+    ...  # I/O here
+finally:
+    transport.close()
+```
+
+## Atomic multi-step sequences
+
+Every transport is thread-safe at the I/O level. Each I/O call takes an internal reentrant lock for the duration of the call, so concurrent operations against the same transport are serialized rather than interleaved on the wire. A background poller and user code can therefore share one connection safely.
+
+When several operations need to execute **atomically** (a write followed by an error-queue check, a bank-select followed by a read, or any configuration sequence that must not be interrupted by another thread), use `lock()` as a context manager:
+
+```python
+with transport.lock():
+    transport.write("CONF:VOLT:DC")
+    transport.write("RANGE 10")
+    reading = transport.query("READ?")
+```
+
+The lock is reentrant, so calling an I/O method from inside the `with` block does not deadlock the calling thread. Other threads still wait until the outer `with` exits.
+
+## Shared ownership
+
+Some instruments expose more than one logical surface over a single connection. The EA PSB series, for example, both sources and sinks current on the same box, so it needs a PSU-shaped driver and an ELoad-shaped driver sharing one connection.
+
+A driver that shares a connection calls `open()`/`close()` with itself as the holder:
+
+```python
+class SourceDriver(PSUDriverBase):
+    def __init__(self, connection: VisaDriver) -> None:
+        self._visa = connection
+
+    def open(self) -> None:
+        if self._visa.open(self):                 # True only for the first owner
+            try:
+                self._visa.write("SYST:LOCK ON")  # one-time device setup
+            except Exception:
+                # A stranded holder would make the retry's open report not-first-owner,
+                # so SYST:LOCK ON would never be re-attempted.
+                self._visa.close(self)
+                raise
+
+    def close(self) -> None:
+        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+```
+
+`open(self)` opens the connection if needed and reports whether this call made the driver the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once no matter how many surfaces share the connection. `close(self, ...)` mirrors this: the connection stays open as long as any owner remains, and only the close that empties the owner list runs `on_last_release` and tears the connection down. If that one-time setup raises, the driver must `close(self)` before propagating, as above: a holder left registered by a failed `open()` makes a later `open(self)` report not-first-owner and skip the setup it still needs to run.
+
+Construct one transport and hand it to both drivers to wire up the combined instrument:
+
+```python
+connection = VisaDriver("TCPIP0::10.0.0.5::5025::SOCKET")
+source = InstroPSU(name="psb_source", driver=SourceDriver(connection), num_channels=1)
+sink = InstroELoad(name="psb_sink", driver=SinkDriver(connection))  # mirrors SourceDriver
+
+source.open()
+sink.open()      # shares the session; SYST:LOCK ON already sent by source.open()
+source.close()   # sink still holds the connection, so nothing tears down yet
+sink.close()     # last owner leaves: SYST:LOCK OFF, then the socket closes
+```
+
+A driver that never passes a holder is unaffected. It is the sole owner by construction, so bare `open()`/`close()` behave exactly as in [Lifecycle](#lifecycle).
+
+## Implementing a transport
+
+`instro` ships `VisaDriver` and `ModbusDriver`. A protocol neither one covers (a vendor's raw TCP protocol, a USB HID device, an OPC UA session) needs its own transport. `TransportBase` is the only class a new transport subclasses: implement three members and everything above on this page comes from the base.
+
+### What `TransportBase` provides
+
+| Member | What the base provides |
+| --- | --- |
+| `open(holder=None)` | Opens the connection through `_open_session()`. Idempotent. With a holder, registers shared ownership and returns `True` only for the first owner. |
+| `close(holder=None, on_last_release=None)` | Tears the connection down through `_teardown_session()`. Bare `close()` declines and logs a warning while any holder remains. With a holder, removes that owner and tears down only when the last one leaves. |
+| `lock()` | The reentrant lock guarding this connection, for callers that need a multi-step sequence to stay atomic. |
+| `__del__` | Best-effort teardown on garbage collection, bypassing the ownership guard and swallowing errors. A backstop against a stranded socket, not something to rely on. |
+
+### The contract
+
+Subclass `TransportBase`, call `super().__init__()` first, and implement three members:
+
+| Member | Requirement |
+| --- | --- |
+| `is_open` | Abstract property. `True` while the underlying connection is live. |
+| `_open_session()` | Establish the connection. **Must be idempotent**: `open()` calls it again for every new holder, so a second owner must not open a second socket. |
+| `_teardown_session()` | Release the connection. Must tolerate being called when already closed, because both `close()` and `__del__` route through it. |
+
+`super().__init__()` initializes the holder list and the lock. Skipping it leaves both uninitialized.
+
+<Note>
+`_open_session` and `_teardown_session` are stable, supported extension points for `TransportBase` subclass authors. The leading underscore marks them as protected (implement them, do not call them), which is standard Python: callers drive the connection through the public `open()` and `close()`, and the base calls the hooks at the right moment. Both are documented on the [transports reference page](https://nominal-io.github.io/instro/reference/transports/).
+</Note>
+
+`TransportBase` is an abstract base class, so a missing member fails at construction rather than at the first I/O call:
+
+```pycon
+>>> Incomplete()
+TypeError: Can't instantiate abstract class Incomplete without an implementation for abstract method 'is_open'
+```
+
+### Walkthrough: a minimal socket transport
+
+This transport speaks newline-terminated text over a raw TCP socket, the shape a vendor protocol without VISA framing usually takes. It is complete: standard library only, no hardware.
+
+```python
+import socket
+
+from instro.lib.transports import TransportBase
+
+
+class SocketTransport(TransportBase):
+    """Line-oriented raw TCP transport."""
+
+    def __init__(self, host: str, port: int, timeout: float = 5.0) -> None:
+        super().__init__()  # required: initializes the holder list and the lock
+        self._host = host
+        self._port = port
+        self._timeout = timeout
+        self._sock: socket.socket | None = None
+
+    @property
+    def is_open(self) -> bool:
+        return self._sock is not None
+
+    def _open_session(self) -> None:
+        if self._sock is not None:  # idempotent: open() calls this again for a second holder
+            return
+        self._sock = socket.create_connection((self._host, self._port), timeout=self._timeout)
+
+    def _teardown_session(self) -> None:
+        if self._sock is None:
+            return
+        try:
+            self._sock.close()
+        finally:
+            self._sock = None
+
+    def query(self, command: str) -> str:
+        with self._lock:  # serialize the write/read pair against other threads
+            if self._sock is None:
+                raise RuntimeError("SocketTransport is not open. Call open() first.")
+            self._sock.sendall(f"{command}\n".encode())
+            return self._sock.recv(4096).decode().rstrip("\n")
+```
+
+Four things to note:
+
+- **`__init__` stores configuration and opens nothing.** Construction does no I/O, matching `VisaDriver` and `ModbusDriver`. The connection happens on `open()`.
+- **`_open_session()` returns early when already connected.** This is what makes `open()` idempotent, and it is what keeps a second holder from replacing the first holder's socket.
+- **`_teardown_session()` clears `self._sock` in a `finally`.** The attribute goes back to `None` even when the underlying `close()` raises, so `is_open` never reports a socket that is already gone.
+- **I/O methods take `self._lock` and guard on the connection.** The lock is reentrant, so calling one locked method from inside another does not deadlock the calling thread.
+
+The result behaves like a built-in transport, including shared ownership:
+
+```python
+transport = SocketTransport("10.0.0.7", 5025)
+transport.open()
+try:
+    print(transport.query("*IDN?"))
+finally:
+    transport.close()
+```
+
+A concrete instrument driver then composes this transport the same way it composes `VisaDriver`: store it in `__init__`, drive it from the driver's own `open()` and `close()`, and keep the command strings in the driver. See [Building a custom driver](/instrumentation/transports/visa#building-a-custom-driver) for that half of the pattern.
+
+### Patterns to copy
+
+- **Configuration in, I/O later.** Take connection parameters in `__init__` and do the connecting in `_open_session()`. Callers expect construction to be free of side effects.
+- **Idempotence on both hooks.** `_open_session()` runs once per new holder and `_teardown_session()` runs from both `close()` and `__del__`. Guard each on current state (`if self._sock is not None: return`) rather than assuming a single call.
+- **One lock, taken in every I/O method.** Use the base's `self._lock` rather than adding a second lock. It is the same lock `lock()` hands to callers, so a caller's atomic sequence and the transport's own methods serialize against each other instead of racing.
+- **Fail loudly when closed.** Raise a clear error naming the missing `open()` call, as `VisaDriver` and `ModbusDriver` do, instead of letting a `None` connection surface as an `AttributeError`.
+- **Keep the command vocabulary out.** A transport moves bytes and strings. SCPI syntax, register maps, and error-queue polling belong to the instrument driver composing the transport.

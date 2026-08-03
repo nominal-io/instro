@@ -88,6 +88,7 @@
           {
             "group": "Transports",
             "icon": "plug",
+            "root": "instrumentation/transports/overview",
             "pages": [
               "instrumentation/transports/visa",
               "instrumentation/transports/modbus"
