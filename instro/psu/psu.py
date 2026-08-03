@@ -289,7 +289,7 @@ class InstroPSU(Instrument):
                         driver=VisaDriverConfig(
                             name=info.driver_class_name,
                             num_channels=info.num_channels,
-                            visa=VisaConfig(visa_resource=info.resource),
+                            visa=VisaConfig(visa_resource=info.resource, visa_backend=backend),
                         ),
                     )
                 )

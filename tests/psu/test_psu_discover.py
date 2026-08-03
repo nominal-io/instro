@@ -63,3 +63,11 @@ def test_discover_passes_backend_and_timeout_through():
         InstroPSU.discover(backend="@py", timeout=5)
 
     mock_scan.assert_called_once_with(backend="@py", timeout=5)
+
+
+def test_discover_propagates_explicit_backend_to_returned_config():
+    result = VisaScanResult(instruments=[_BK9115_INFO], unrecognized=[], errors=[])
+    with patch("instro.psu.psu.scan_visa_resources", return_value=result):
+        configs = InstroPSU.discover(backend="@py")
+
+    assert configs[0].driver.visa.visa_backend == "@py"
