@@ -89,8 +89,16 @@ class AWGDriverBase(abc.ABC):
         raise NotImplementedError(f"align_phase is not implemented for {type(self).__name__}")
 
     def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-        """Modulate a channel's waveform."""
+        """Modulate channel's carrier with modulator shape.
+
+        magnitude by mod_type: AM=depth, FM=frequency deviation, PM=phase deviation, ASK=2nd
+        amplitude (shape ignored), FSK=hop frequency (shape ignored).
+        """
         raise NotImplementedError(f"modulate is not implemented for {type(self).__name__}")
+
+    def disable_modulation(self, channel: int) -> None:
+        """Disable modulation on the given channel, if enabled, and reset modulation state."""
+        raise NotImplementedError(f"disable_modulation is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -359,7 +367,11 @@ class InstroAWG(Instrument):
 
     @publish_command
     def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float, **kwargs) -> Command:
-        """Modulate a channel's waveform."""
+        """Modulate channel's carrier with modulator shape.
+
+        magnitude by mod_type: AM=depth, FM=frequency deviation, PM=phase deviation, ASK=2nd
+        amplitude (shape ignored), FSK=hop frequency (shape ignored).
+        """
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
         self._check_channel(channel)
@@ -369,3 +381,14 @@ class InstroAWG(Instrument):
             self._check_errors()
         descriptor = f"ch{channel}.modulation.cmd"
         return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)
+
+    @publish_command
+    def disable_modulation(self, channel: int, **kwargs) -> Command:
+        """Disable modulation on the given channel, if enabled, and reset modulation state."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.disable_modulation(channel=channel)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.modulation.cmd"
+        return self._package_command(descriptor, "OFF", timestamp, **kwargs)

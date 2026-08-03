@@ -97,6 +97,7 @@ def test_awg_driver_base_complete_subclass_instantiates() -> None:
         ("get_output_load", (1,)),
         ("align_phase", ()),
         ("modulate", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("disable_modulation", (1,)),
     ],
 )
 def test_awg_driver_base_optional_methods_raise_not_implemented(
@@ -762,6 +763,16 @@ def test_modulate_raises_for_non_enum_mod_type(awg: InstroAWG, mock_driver: Magi
     mock_driver.modulate.assert_not_called()
 
 
+def test_disable_modulation_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.disable_modulation(1)
+    mock_driver.disable_modulation.assert_called_once_with(channel=1)
+
+
+def test_disable_modulation_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.disable_modulation(1)
+    assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
+
+
 # ---------------------------------------------------------------------------
 # Measurement getters
 # ---------------------------------------------------------------------------
@@ -829,6 +840,7 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("set_output_load", (50.0,)),
         ("get_output_load", ()),
         ("modulate", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("disable_modulation", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 3])

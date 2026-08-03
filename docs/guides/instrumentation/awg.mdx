@@ -75,6 +75,24 @@ vrms = awg.convert_amplitude(channel=1, amplitude=5.0, from_unit=AmplitudeMeasur
 
 `VPP`/`VP`/`VRMS` conversions depend on the waveform's crest factor (shared math, not vendor-specific). Converting to or from `DBM` additionally requires the load impedance driving the output: pass `impedance_ohms` explicitly, or let it fall back to the channel's `get_output_load()` value if the driver supports it. `set_waveform` must be called for the channel before converting, since the crest factor depends on the waveform shape.
 
+### Modulation
+
+`modulate(channel, mod_type, shape, magnitude)` layers a modulating signal onto the channel's existing output. Terminology matters here: the **carrier** is the channel's own waveform, set separately via `set_waveform`. `shape` is the **modulator**: the signal that encodes onto the carrier by varying its amplitude, frequency, phase, or width.
+
+`magnitude`'s unit, and whether `shape`'s waveform type has any effect, both depend on `mod_type`:
+
+| `mod_type` | `magnitude` meaning | `shape`'s waveform type |
+|------------|---------------------|--------------------------|
+| `AM` | Depth, as a percent | Used (selects the internal modulating function) |
+| `FM` | Frequency deviation, in Hz | Used |
+| `PM` | Phase deviation, in degrees | Used |
+| `PWM` | Pulse width deviation, in seconds | Used |
+| `ASK` | Second amplitude, in Vpp | Ignored, only `shape.frequency_hz` is read |
+| `FSK` | Hop frequency, in Hz | Ignored, only `shape.frequency_hz` is read |
+| `PSK` | Phase, in degrees | Ignored, only `shape.frequency_hz` is read |
+
+Call `disable_modulation(channel)` to turn modulation back off; it's a no-op if the channel has no active modulation.
+
 ## Creating an InstroAWG Instance
 
 ```python
@@ -255,6 +273,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_output_load(channel=N)` | `ch{N}.load.cmd` | command |
 | `align_phase()` | `phase.align.cmd` | command |
 | `modulate(channel=N)` | `ch{N}.modulation.cmd` | command |
+| `disable_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
@@ -279,6 +298,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_output_load(channel)` | Read back the output load impedance on channel (high-Z publishes as `float('inf')`) |
 | `align_phase()` | Sync the phase of all channels |
 | `modulate(channel, mod_type, shape, magnitude)` | Modulate a channel's waveform (AM/FM/PM/ASK/FSK) |
+| `disable_modulation(channel)` | Disable modulation on channel, if any is active |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
 
@@ -351,7 +371,7 @@ def get_output_state(self, channel: int) -> bool:
     """Return True if the output on channel is enabled."""
 ```
 
-Three methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
+Five methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
 
 ```python
 def set_output_load(self, channel: int, load: float | None) -> None:
@@ -364,7 +384,10 @@ def align_phase(self) -> None:
     """Sync the phase of all channels."""
 
 def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-    """Modulate a channel's waveform."""
+    """Modulate channel's carrier with modulator shape; magnitude's unit and shape's effect vary by mod_type (see AWG guide)."""
+
+def disable_modulation(self, channel: int) -> None:
+    """Disable modulation on channel, if any is active."""
 ```
 
 Error checking is not part of the base contract beyond `check_errors()`: if your vendor exposes an error queue, implement `check_errors()` to drain and raise on it (see the representative driver below).

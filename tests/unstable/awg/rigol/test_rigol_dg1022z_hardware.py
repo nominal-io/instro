@@ -305,15 +305,65 @@ def test_21_amplitude_dbm_roundtrip(driver: RigolDG1022Z) -> None:
 def test_22_modulate_am_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
     driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
-    driver.check_errors()
+    try:
+        driver.check_errors()
+        assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
+    finally:
+        driver.disable_modulation(1)
 
-    assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
 
-
-def test_23_modulate_rejects_unsupported_carrier_shape(driver: RigolDG1022Z) -> None:
+def test_23_modulate_rejects_unsupported_modulator_shape(driver: RigolDG1022Z) -> None:
     driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
 
     with pytest.raises(ValueError, match="cannot use Pulse"):
         driver.modulate(1, ModulationType.AM, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002), 50.0)
 
     driver.check_errors()
+
+
+def test_24_disable_modulation_turns_off_stat(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    try:
+        driver.check_errors()
+        assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
+    finally:
+        driver.disable_modulation(1)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "OFF"
+
+
+def test_25_modulate_pwm_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002))
+    driver.modulate(1, ModulationType.PWM, Square(frequency_hz=100.0), 50e-6)
+    try:
+        driver.check_errors()
+        assert driver._visa.query(":SOUR1:PWM:STAT?").strip() == "ON"
+    finally:
+        driver.disable_modulation(1)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:PWM:STAT?").strip() == "OFF"
+
+
+def test_26_modulate_pwm_rejects_non_pulse_carrier(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+
+    with pytest.raises(ValueError, match="can only apply PWM modulation to a Pulse carrier"):
+        driver.modulate(1, ModulationType.PWM, Square(frequency_hz=100.0), 50e-6)
+
+    driver.check_errors()
+
+
+def test_27_modulate_psk_enables_and_reports_stat_on(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.modulate(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    try:
+        driver.check_errors()
+        assert driver._visa.query(":SOUR1:PSK:STAT?").strip() == "ON"
+    finally:
+        driver.disable_modulation(1)
+    driver.check_errors()
+
+    assert driver._visa.query(":SOUR1:PSK:STAT?").strip() == "OFF"

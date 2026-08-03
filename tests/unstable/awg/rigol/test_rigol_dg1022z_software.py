@@ -376,9 +376,90 @@ def test_31_align_phase_writes_sync(rigol: RigolDG1022Z, rigol_visa: MagicMock) 
     rigol_visa.write.assert_called_once_with(":SOUR1:PHAS:SYNC")
 
 
-def test_32_modulate_am_writes_internal_source_function_freq_and_stat(
-    rigol: RigolDG1022Z, rigol_visa: MagicMock
+_SINE_CARRIER_APPL_RESPONSE = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
+
+
+def _mock_carrier_query(rigol_visa: MagicMock, response: str = _SINE_CARRIER_APPL_RESPONSE) -> None:
+    """Configure rigol_visa.query so modulate()'s internal get_waveform() call reports a valid carrier."""
+    rigol_visa.query.return_value = response
+
+
+@pytest.mark.parametrize(
+    ("mod_type", "shape", "magnitude", "function_code"),
+    [
+        (ModulationType.AM, Sine(frequency_hz=100.0), 50.0, "SIN"),
+        (ModulationType.FM, Square(frequency_hz=100.0), 500.0, "SQU"),
+        (ModulationType.PM, Triangle(frequency_hz=100.0), 45.0, "TRI"),
+    ],
+    ids=["am", "fm", "pm"],
+)
+def test_32_modulate_am_fm_pm_write_internal_source_function_freq_and_stat(
+    rigol: RigolDG1022Z,
+    rigol_visa: MagicMock,
+    mod_type: ModulationType,
+    shape: Waveform,
+    magnitude: float,
+    function_code: str,
 ) -> None:
+    _mock_carrier_query(rigol_visa)
+
+    rigol.modulate(1, mod_type, shape, magnitude)
+
+    prefix = mod_type.value
+    assert rigol_visa.write.call_args_list == [
+        call(f":SOUR1:{prefix}:SOUR INT"),
+        call(f":SOUR1:{prefix}:INT:FUNC {function_code}"),
+        call(f":SOUR1:{prefix}:INT:FREQ 100.0"),
+        call(f":SOUR1:{prefix} {magnitude}"),
+        call(f":SOUR1:{prefix}:STAT ON"),
+    ]
+
+
+def test_33_modulate_fsk_writes_rate_and_stat(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+
+    rigol.modulate(2, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:FSK:SOUR INT"),
+        call(":SOUR2:FSK:INT:RATE 100.0"),
+        call(":SOUR2:FSK 2000.0"),
+        call(":SOUR2:FSK:STAT ON"),
+    ]
+
+
+def test_34_modulate_ask_writes_amplitude_and_stat(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+
+    rigol.modulate(1, ModulationType.ASK, Sine(frequency_hz=100.0), 3.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:ASK:SOUR INT"),
+        call(":SOUR1:ASK:INT 100.0"),
+        call(":SOUR1:ASK:AMPL 3.0"),
+        call(":SOUR1:ASK:STAT ON"),
+    ]
+
+
+def test_34b_modulate_rejects_pulse_carrier_for_non_pwm(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = [
+        '"PULSE,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"',
+        "2.000000E-04",
+    ]
+
+    with pytest.raises(ValueError, match="cannot apply AM modulation to a Pulse carrier"):
+        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_34c_modulate_accepts_arbitrary_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0)
+    rigol_visa.query.return_value = '0,"No error"'
+    rigol.set_waveform(1, arbitrary)
+    rigol_visa.write.reset_mock()
+    rigol_visa.query.return_value = '"USER,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"'
+
     rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
 
     assert rigol_visa.write.call_args_list == [
@@ -390,12 +471,105 @@ def test_32_modulate_am_writes_internal_source_function_freq_and_stat(
     ]
 
 
-def test_33_modulate_fsk_writes_rate_and_stat(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol.modulate(2, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+def test_34d_modulate_rejects_static_value_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa, '"DC,DEF,DEF,1.500000E+00"')
+
+    with pytest.raises(ValueError, match="cannot apply AM modulation to a StaticValue carrier"):
+        rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_34e_modulate_pwm_writes_internal_source_function_freq_and_stat(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    rigol_visa.query.side_effect = [
+        '"PULSE,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"',
+        "2.000000E-04",
+    ]
+
+    rigol.modulate(1, ModulationType.PWM, Square(frequency_hz=100.0), 50e-6)
 
     assert rigol_visa.write.call_args_list == [
-        call(":SOUR2:FSK:SOUR INT"),
-        call(":SOUR2:FSK:INT:RATE 100.0"),
-        call(":SOUR2:FSK 2000.0"),
-        call(":SOUR2:FSK:STAT ON"),
+        call(":SOUR1:PWM:SOUR INT"),
+        call(":SOUR1:PWM:INT:FUNC SQU"),
+        call(":SOUR1:PWM:INT:FREQ 100.0"),
+        call(":SOUR1:PWM 5e-05"),
+        call(":SOUR1:PWM:STAT ON"),
+    ]
+
+
+def test_34f_modulate_pwm_rejects_non_pulse_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+
+    with pytest.raises(ValueError, match="can only apply PWM modulation to a Pulse carrier, not Sine"):
+        rigol.modulate(1, ModulationType.PWM, Square(frequency_hz=100.0), 50e-6)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_34g_modulate_psk_writes_rate_phase_and_stat(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+
+    rigol.modulate(2, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:PSK:SOUR INT"),
+        call(":SOUR2:PSK:INT:RATE 100.0"),
+        call(":SOUR2:PSK:PHAS 90.0"),
+        call(":SOUR2:PSK:STAT ON"),
+    ]
+
+
+def test_35_disable_modulation_writes_stat_off_for_active_type(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+    rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    rigol_visa.write.reset_mock()
+
+    rigol.disable_modulation(1)
+
+    rigol_visa.write.assert_called_once_with(":SOUR1:AM:STAT OFF")
+
+
+def test_36_disable_modulation_uses_last_modulated_type_per_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+    rigol.modulate(2, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    rigol_visa.write.reset_mock()
+
+    rigol.disable_modulation(2)
+
+    rigol_visa.write.assert_called_once_with(":SOUR2:FSK:STAT OFF")
+
+
+def test_37_disable_modulation_is_a_noop_when_never_modulated(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.disable_modulation(1)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_38_disable_modulation_is_a_noop_when_already_disabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+    rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    rigol.disable_modulation(1)
+    rigol_visa.write.reset_mock()
+
+    rigol.disable_modulation(1)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_39_modulate_can_re_enable_after_disable(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _mock_carrier_query(rigol_visa)
+    rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    rigol.disable_modulation(1)
+    rigol_visa.write.reset_mock()
+
+    rigol.modulate(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:AM:SOUR INT"),
+        call(":SOUR1:AM:INT:FUNC SIN"),
+        call(":SOUR1:AM:INT:FREQ 100.0"),
+        call(":SOUR1:AM 50.0"),
+        call(":SOUR1:AM:STAT ON"),
     ]

@@ -18,6 +18,8 @@ class ModulationType(Enum):
     PM = "PM"
     FSK = "FSK"
     ASK = "ASK"
+    PSK = "PSK"
+    PWM = "PWM"
 
 
 def _require_positive(name: str, value: float) -> None:
