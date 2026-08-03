@@ -142,6 +142,7 @@ psu = InstroPSU(config="bench_psu.json", autostart=True)
 `config` also accepts a plain dict or an already-built `PSUConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroPSU` directly, without a JSON round-trip:
 
 ```python
+# instantiated InstroPSU with plain dict config
 psu = InstroPSU(config={
     "device": {
         "name": "bench_psu",
@@ -158,10 +159,12 @@ psu = InstroPSU(config={
     "timing": {"poll_interval": 1.0},
     "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>"}],
 })
+
+# instantiating InstroPSU with pre-built PSUConfig object
 psu = InstroPSU(config=my_psu_config)
 ```
 
-JSON configs are validated strictly: `PSUConfig` forbids any field not listed above (`device`, `driver`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
+JSON configs are validated strictly: `PSUConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
