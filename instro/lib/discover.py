@@ -42,6 +42,10 @@ class VisaScanResult:
     errors: list[VisaScanError]
 
 
+# Key: (vendor, model) substrings matched case-insensitively against the *IDN? response.
+# Value: (category, driver_class_name, vendor_key, num_channels). vendor_key/num_channels are
+# only meaningful for categories with a class-name-keyed driver registry (currently psu, scope);
+# other categories (dmm, eload) don't need them to resolve a driver, so they're left None.
 _IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None, None),
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None, None),
