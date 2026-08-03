@@ -121,6 +121,7 @@ def _enable_and_settle(
 
 def _teardown_signal(rigol: RigolDG1022Z, scope: InstroScope) -> None:
     rigol.output_enable(AWG_CHANNEL, False)
+    rigol.disable_modulation(AWG_CHANNEL)
     scope.stop_acquisition()
 
 
@@ -318,7 +319,8 @@ def test_08_all_modulation_types_signal_present(
     rigol: RigolDG1022Z, scope: InstroScope, mod_type: ModulationType, shape: Waveform
 ) -> None:
     _drive_waveform(rigol, Square(frequency_hz=TEST_FREQUENCY_HZ))
-    rigol.modulate(AWG_CHANNEL, mod_type, shape, 50.0)
+    rigol.set_modulation(AWG_CHANNEL, mod_type, shape, 50.0)
+    rigol.enable_modulation(AWG_CHANNEL)
     rigol.check_errors()
     try:
         _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)

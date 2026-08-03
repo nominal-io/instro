@@ -96,7 +96,8 @@ def test_awg_driver_base_complete_subclass_instantiates() -> None:
         ("set_output_load", (1, 50.0)),
         ("get_output_load", (1,)),
         ("align_phase", ()),
-        ("modulate", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("set_modulation", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("enable_modulation", (1,)),
         ("disable_modulation", (1,)),
     ],
 )
@@ -746,21 +747,23 @@ def test_align_phase_returns_command_with_correct_descriptor(awg: InstroAWG, moc
     assert "test_awg.phase.align.cmd" in cmd.channel_data
 
 
-def test_modulate_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+def test_set_modulation_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
     shape = Sine(frequency_hz=1000.0)
-    awg.modulate(1, ModulationType.AM, shape, 0.5)
-    mock_driver.modulate.assert_called_once_with(channel=1, mod_type=ModulationType.AM, shape=shape, magnitude=0.5)
+    awg.set_modulation(1, ModulationType.AM, shape, 0.5)
+    mock_driver.set_modulation.assert_called_once_with(
+        channel=1, mod_type=ModulationType.AM, shape=shape, magnitude=0.5
+    )
 
 
-def test_modulate_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    cmd = awg.modulate(1, ModulationType.FM, Sine(frequency_hz=1000.0), 0.5)
+def test_set_modulation_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.set_modulation(1, ModulationType.FM, Sine(frequency_hz=1000.0), 0.5)
     assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
 
 
-def test_modulate_raises_for_non_enum_mod_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
+def test_set_modulation_raises_for_non_enum_mod_type(awg: InstroAWG, mock_driver: MagicMock) -> None:
     with pytest.raises(TypeError, match="mod_type must be a ModulationType, got str"):
-        awg.modulate(1, "AM", Sine(frequency_hz=1000.0), 0.5)  # type: ignore[arg-type]
-    mock_driver.modulate.assert_not_called()
+        awg.set_modulation(1, "AM", Sine(frequency_hz=1000.0), 0.5)  # type: ignore[arg-type]
+    mock_driver.set_modulation.assert_not_called()
 
 
 def test_disable_modulation_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
@@ -839,7 +842,8 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("get_output_state", ()),
         ("set_output_load", (50.0,)),
         ("get_output_load", ()),
-        ("modulate", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("set_modulation", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
+        ("enable_modulation", ()),
         ("disable_modulation", ()),
     ],
 )

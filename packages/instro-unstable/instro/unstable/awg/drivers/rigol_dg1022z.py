@@ -199,7 +199,18 @@ class RigolDG1022Z(AWGDriverBase):
     def align_phase(self) -> None:
         self._visa.write(":SOUR1:PHAS:SYNC")
 
-    def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+    def enable_modulation(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            state = self._modulation_states[channel]
+            if state.modulation_type is None:
+                raise RuntimeError(f"channel {channel} has no modulation configured; call set_modulation() first")
+            if state.enabled:
+                return
+            self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT ON")
+            state.enabled = True
+
+    def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
@@ -219,30 +230,24 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:{prefix}:INT:FUNC {function}")
                 self._visa.write(f":SOUR{channel}:{prefix}:INT:FREQ {frequency_hz}")
                 self._visa.write(f":SOUR{channel}:{prefix} {magnitude}")
-                self._visa.write(f":SOUR{channel}:{prefix}:STAT ON")
             elif mod_type is ModulationType.ASK:
                 self._visa.write(f":SOUR{channel}:ASK:SOUR INT")
                 self._visa.write(f":SOUR{channel}:ASK:INT {frequency_hz}")
                 self._visa.write(f":SOUR{channel}:ASK:AMPL {magnitude}")
-                self._visa.write(f":SOUR{channel}:ASK:STAT ON")
             elif mod_type is ModulationType.FSK:
                 self._visa.write(f":SOUR{channel}:FSK:SOUR INT")
                 self._visa.write(f":SOUR{channel}:FSK:INT:RATE {frequency_hz}")
                 self._visa.write(f":SOUR{channel}:FSK {magnitude}")
-                self._visa.write(f":SOUR{channel}:FSK:STAT ON")
             elif mod_type is ModulationType.PSK:
                 self._visa.write(f":SOUR{channel}:PSK:SOUR INT")
                 self._visa.write(f":SOUR{channel}:PSK:INT:RATE {frequency_hz}")
                 self._visa.write(f":SOUR{channel}:PSK:PHAS {magnitude}")
-                self._visa.write(f":SOUR{channel}:PSK:STAT ON")
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
 
-            state = self._modulation_states[channel]
             state.modulation_type = mod_type
             state.modulation_shape = shape
             state.modulation_magnitude = magnitude
-            state.enabled = True
 
     def disable_modulation(self, channel: int) -> None:
         _check_channel(channel)
@@ -251,9 +256,6 @@ class RigolDG1022Z(AWGDriverBase):
             if not state.enabled:
                 return
             self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT OFF")
-            state.modulation_type = None
-            state.modulation_shape = None
-            state.modulation_magnitude = None
             state.enabled = False
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
@@ -280,7 +282,7 @@ def _validate_carrier(mod_type: ModulationType, carrier: Waveform) -> None:
 
 
 def _validate_modulator(shape: Waveform) -> Sine | Square | Sawtooth | Triangle:
-    """Validate the modulating waveform passed to ``modulate()``; not to be confused with the channel's carrier."""
+    """Validate the modulating waveform passed to ``set_modulation()``; not to be confused with the channel's carrier."""
     if not isinstance(shape, (Sine, Square, Sawtooth, Triangle)):
         raise ValueError(
             f"the DG1022Z cannot use {type(shape).__name__} as a modulating waveform;"

@@ -47,17 +47,7 @@ The typical InstroAWG workflow:
 
 Each channel is programmed with a `Waveform`, one of the frozen dataclasses in `instro.unstable.awg`:
 
-| Waveform | Parameters | Notes |
-|----------|------------|-------|
-| `Sine` | `frequency_hz`, `phase_deg` | |
-| `Square` | `frequency_hz`, `duty_cycle_pct`, `phase_deg` | |
-| `Sawtooth` | `frequency_hz`, `phase_deg` | |
-| `Triangle` | `frequency_hz`, `phase_deg` | |
-| `Pulse` | `frequency_hz`, `width_s`, `delay_s` | `width_s + delay_s` must fit within one period |
-| `Arbitrary` | `samples`, `sample_rate_hz` | `samples` are normalized to `[-1.0, 1.0]`; at least 2 samples required |
-| `StaticValue` | `value` | Constant (DC) output |
-
-Each definition validates its own parameters at construction time (raising `ValueError` for out-of-range values), so a `Waveform` is always well-formed before it reaches a driver.
+Each definition should validate its own parameters at construction time (raising `ValueError` for out-of-range values), so a `Waveform` is always well-formed before it reaches a driver.
 
 <Note>
 **Driver support varies**
@@ -77,7 +67,7 @@ vrms = awg.convert_amplitude(channel=1, amplitude=5.0, from_unit=AmplitudeMeasur
 
 ### Modulation
 
-`modulate(channel, mod_type, shape, magnitude)` layers a modulating signal onto the channel's existing output. Terminology matters here: the **carrier** is the channel's own waveform, set separately via `set_waveform`. `shape` is the **modulator**: the signal that encodes onto the carrier by varying its amplitude, frequency, phase, or width.
+`set_modulation(channel, mod_type, shape, magnitude)` configures a modulating signal for the channel's existing output, without turning it on. Terminology matters here: the **carrier** is the channel's own waveform, set separately via `set_waveform`. `shape` is the **modulator**: the signal that encodes onto the carrier by varying its amplitude, frequency, phase, or width.
 
 `magnitude`'s unit, and whether `shape`'s waveform type has any effect, both depend on `mod_type`:
 
@@ -91,7 +81,7 @@ vrms = awg.convert_amplitude(channel=1, amplitude=5.0, from_unit=AmplitudeMeasur
 | `FSK` | Hop frequency, in Hz | Ignored, only `shape.frequency_hz` is read |
 | `PSK` | Phase, in degrees | Ignored, only `shape.frequency_hz` is read |
 
-Call `disable_modulation(channel)` to turn modulation back off; it's a no-op if the channel has no active modulation.
+Call `enable_modulation(channel)` to turn on modulation with the last-configured `set_modulation()` settings, and `disable_modulation(channel)` to turn it back off. The two are independent of `set_modulation()`: once configured, a channel can be toggled on and off any number of times without reconfiguring, and `disable_modulation` keeps the configured settings rather than clearing them.
 
 ## Creating an InstroAWG Instance
 
@@ -272,7 +262,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `output_enable(channel=N)` | `ch{N}.enabled.cmd` | command |
 | `set_output_load(channel=N)` | `ch{N}.load.cmd` | command |
 | `align_phase()` | `phase.align.cmd` | command |
-| `modulate(channel=N)` | `ch{N}.modulation.cmd` | command |
+| `set_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
+| `enable_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `disable_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
@@ -297,7 +288,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_output_load(channel, load)` | Set the output load impedance (`None` means high-Z) |
 | `get_output_load(channel)` | Read back the output load impedance on channel (high-Z publishes as `float('inf')`) |
 | `align_phase()` | Sync the phase of all channels |
-| `modulate(channel, mod_type, shape, magnitude)` | Modulate a channel's waveform (AM/FM/PM/ASK/FSK) |
+| `set_modulation(channel, mod_type, shape, magnitude)` | Configure a channel's modulation (AM/FM/PM/PWM/ASK/FSK/PSK) without enabling it |
+| `enable_modulation(channel)` | Enable modulation on channel using its last-configured `set_modulation()` settings |
 | `disable_modulation(channel)` | Disable modulation on channel, if any is active |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
@@ -371,7 +363,7 @@ def get_output_state(self, channel: int) -> bool:
     """Return True if the output on channel is enabled."""
 ```
 
-Five methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
+Six methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
 
 ```python
 def set_output_load(self, channel: int, load: float | None) -> None:
@@ -383,11 +375,14 @@ def get_output_load(self, channel: int) -> float | None:
 def align_phase(self) -> None:
     """Sync the phase of all channels."""
 
-def modulate(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-    """Modulate channel's carrier with modulator shape; magnitude's unit and shape's effect vary by mod_type (see AWG guide)."""
+def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+    """Configure channel's carrier modulation with modulator shape; call enable_modulation() to activate it."""
+
+def enable_modulation(self, channel: int) -> None:
+    """Enable modulation on the given channel using its last-configured set_modulation() settings."""
 
 def disable_modulation(self, channel: int) -> None:
-    """Disable modulation on channel, if any is active."""
+    """Disable modulation on the given channel, if enabled; the configured settings are kept for re-enabling."""
 ```
 
 Error checking is not part of the base contract beyond `check_errors()`: if your vendor exposes an error queue, implement `check_errors()` to drain and raise on it (see the representative driver below).
