@@ -4,6 +4,7 @@ import functools
 import logging
 import threading
 import time
+from collections import deque
 from importlib.metadata import version
 from typing import Callable
 
@@ -98,6 +99,9 @@ class Instrument:
         self._background_thread: threading.Thread | None = None
         self._background_stop_event = threading.Event()
         self._background_methods: list[tuple[Callable, tuple, dict]] = []
+        # Used to determine whether requested interval is achievable or not
+        self._daemon_loop_times: deque[float] = deque(maxlen=10)
+        self._interval_warning_issued = False
 
         self._channel_buffer_length: int = 10
         self._channel_buffer: DequeInMemoryPublisher | None = None
@@ -234,6 +238,12 @@ class Instrument:
     @background_interval.setter
     def background_interval(self, seconds: float):
         self._background_config.interval = seconds
+        self._reset_daemon_timing()
+
+    def _reset_daemon_timing(self):
+        """Drop the timing window and re-arm the warning so cycles are judged against the current interval."""
+        self._daemon_loop_times.clear()
+        self._interval_warning_issued = False
 
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
         """Append ``method`` to the daemon's call list. Use ``define_background_daemon`` to replace instead."""
@@ -255,6 +265,8 @@ class Instrument:
             return
 
         self._setup_channel_buffer(self._channel_buffer_length)
+
+        self._reset_daemon_timing()
 
         self._background_stop_event.clear()
         self._background_thread = threading.Thread(
@@ -364,7 +376,28 @@ class Instrument:
 
             daemon_loop_stop = time.time_ns()
             daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
+            self._check_achievable_interval(daemon_loop_time_s)
             self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
+
+    def _check_achievable_interval(self, loop_time_s: float):
+        """Warn once if the averaged loop time shows the requested interval isn't being achieved."""
+        self._daemon_loop_times.append(loop_time_s)
+        if self._interval_warning_issued or len(self._daemon_loop_times) != self._daemon_loop_times.maxlen:
+            return
+
+        average_loop_time_s = sum(self._daemon_loop_times) / len(self._daemon_loop_times)
+        if average_loop_time_s <= self._background_config.interval:
+            return
+
+        self._interval_warning_issued = True
+        logger.warning(
+            "Background daemon for instrument '%s' cannot achieve the requested interval of %.6f s; "
+            "average loop time over %d cycles is %.6f s, which is the fastest achievable interval.",
+            self.name,
+            self._background_config.interval,
+            len(self._daemon_loop_times),
+            average_loop_time_s,
+        )
 
     def _background_daemon(self):
         """Invoke each registered daemon function once.
