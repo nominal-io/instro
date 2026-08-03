@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import DEFAULT_SW_SAMPLE_RATE, DAQDriverBase, InstroDAQ, TimingConfigException
+from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     DigitalLineChannel,
@@ -1022,7 +1022,7 @@ def test_untimed_start_with_background():
     daq.start()
     try:
         assert daq.is_sw_timing_configured
-        assert daq.background_interval == pytest.approx(1 / DEFAULT_SW_SAMPLE_RATE)
+        assert daq.background_interval == pytest.approx(1 / InstroDAQ.DEFAULT_SW_SAMPLE_RATE)
         assert daq._background_thread and daq._background_thread.is_alive()
         mock_driver.start.assert_not_called()
     finally:

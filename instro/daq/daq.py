@@ -6,7 +6,7 @@ import time
 import warnings
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, Mapping, TypeVar
+from typing import Any, ClassVar, Mapping, TypeVar
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
@@ -32,9 +32,6 @@ from instro.lib.publishers import Publisher
 from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
-
-# Software-timed polling rate used by start() when no AI timing was configured.
-DEFAULT_SW_SAMPLE_RATE = 1.0
 
 _E = TypeVar("_E", bound=Enum)
 
@@ -414,6 +411,9 @@ def _channel_kind(channel: DAQChannel) -> str:
 
 
 class InstroDAQ(Instrument):
+    # Software-timed polling rate used by start() when no AI timing was configured.
+    DEFAULT_SW_SAMPLE_RATE: ClassVar[float] = 1.0
+
     def __init__(
         self,
         name: str,
@@ -878,14 +878,12 @@ class InstroDAQ(Instrument):
         self.configure_ai_hw_sample_rate(
             sample_rate=sample_rate,
             samples_per_channel=samples_per_channel,
-            **kwargs,
         )
 
     def configure_ai_hw_sample_rate(
         self,
         sample_rate: float,
         samples_per_channel: int | None = None,
-        **kwargs,
     ):
         """Configure the hardware sample clock for AI channels.
 
@@ -918,7 +916,6 @@ class InstroDAQ(Instrument):
     def configure_ai_sw_sample_rate(
         self,
         sample_rate: float,
-        **kwargs,
     ):
         """Configure the software-timed polling rate for AI channels.
 
@@ -946,7 +943,7 @@ class InstroDAQ(Instrument):
         """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
 
         With no AI timing configured, ``background=True`` falls back to software timing at
-        ``DEFAULT_SW_SAMPLE_RATE`` Hz.
+        1 Hz.
 
         Args:
             background: When True (default), spin the daemon thread to continuously
@@ -962,10 +959,10 @@ class InstroDAQ(Instrument):
                 raise TimingConfigException(
                     f"Cannot start DAQ '{self.name}' with start(background=False) without AI timing configured. "
                     "Call configure_ai_hw_sample_rate() first, or use start(background=True) to poll at the "
-                    f"default {DEFAULT_SW_SAMPLE_RATE} Hz software-timed rate."
+                    f"default {self.DEFAULT_SW_SAMPLE_RATE} Hz software-timed rate."
                 )
-            # If no timing configrued and start called, resort to sw timed daemon at defualt rate
-            self.configure_ai_sw_sample_rate(sample_rate=DEFAULT_SW_SAMPLE_RATE)
+            # If no timing configured and start called, resort to sw timed daemon at default rate
+            self.configure_ai_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
 
         if self.is_sw_timing_configured:
             if not background:

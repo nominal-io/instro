@@ -8,7 +8,6 @@ from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
 from instro.daq.daq import (
-    DEFAULT_SW_SAMPLE_RATE,
     DAQDriverBase,
     HWTimestamper,
     HWTimingException,
@@ -18,7 +17,6 @@ from instro.daq.daq import (
 from instro.daq.types import ChannelType, DAQVendor, RelayChannel
 
 __all__ = [
-    "DEFAULT_SW_SAMPLE_RATE",
     "InstroDAQ",
     "DAQDriverBase",
     "HWTimestamper",
