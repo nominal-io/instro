@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field
 from pymodbus.exceptions import ConnectionException as PymodbusConnectionException
 
-from instro.lib.transports.ownership import OwnershipContext
+from instro.lib.transports.transport_base import TransportBase
 
 if TYPE_CHECKING:
     from pymodbus.client import ModbusSerialClient, ModbusTcpClient
@@ -69,12 +69,13 @@ def _modbus_op(fn):
     return wrapper
 
 
-class ModbusDriver(OwnershipContext):
+class ModbusDriver(TransportBase):
     """Transport for Modbus TCP/RTU instruments. Composed by concrete drivers, not extended.
 
-    Supports shared ownership: multiple drivers can hold the same connection, which
-    closes only when the last owner releases it. Thread-safe at the I/O level via an
-    internal lock; use :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
+    Supports shared ownership: multiple drivers can hold the same connection by passing
+    themselves as the holder to :meth:`open`/:meth:`close`, and it closes only when the
+    last owner closes it. Thread-safe at the I/O level via an internal lock; use
+    :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
     function-code ops return/accept the 16-bit register words or coil bits on the
     wire; :meth:`read_typed` / :meth:`write_typed` add typed encode/decode across registers.
     """
@@ -95,8 +96,8 @@ class ModbusDriver(OwnershipContext):
         """Modbus unit/slave ID from the connection config."""
         return self._connection.unit_id
 
-    def open(self) -> None:
-        """Open the Modbus TCP/RTU connection. Idempotent."""
+    def _open_session(self) -> None:
+        """Open the Modbus TCP/RTU connection. Idempotent. Called by open()."""
         with self._lock:
             if self._client is not None:
                 return

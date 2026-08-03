@@ -32,17 +32,17 @@ class _SharedPSUDriver(PSUDriverBase):
         self._visa = connection
 
     def open(self) -> None:
-        if self._visa.acquire(self):
+        if self._visa.open(self):
             try:
                 self._visa.write("SYST:LOCK ON")
             except Exception:
-                # Releasing here is the driver's obligation: a stranded holder would make the retry's
-                # acquire report not-first-owner, so SYST:LOCK ON would never be re-attempted.
-                self._visa.release(self)
+                # Closing here is the driver's obligation: a stranded holder would make the retry's
+                # open report not-first-owner, so SYST:LOCK ON would never be re-attempted.
+                self._visa.close(self)
                 raise
 
     def close(self) -> None:
-        self._visa.release(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
 
     def set_voltage(self, voltage: float, channel: int) -> None:
         raise NotImplementedError
@@ -70,15 +70,15 @@ class _SharedELoadDriver(ELoadDriverBase):
         self._visa = connection
 
     def open(self) -> None:
-        if self._visa.acquire(self):
+        if self._visa.open(self):
             try:
                 self._visa.write("SYST:LOCK ON")
             except Exception:
-                self._visa.release(self)
+                self._visa.close(self)
                 raise
 
     def close(self) -> None:
-        self._visa.release(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
 
     def short_output(self, enable: bool, channel: int) -> None:
         raise NotImplementedError

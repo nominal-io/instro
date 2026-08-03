@@ -15,7 +15,7 @@ import pyvisa
 from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
-from instro.lib.transports.ownership import OwnershipContext
+from instro.lib.transports.transport_base import TransportBase
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +114,13 @@ class VisaConfig:
     tcp_nodelay: bool = True
 
 
-class VisaDriver(OwnershipContext):
+class VisaDriver(TransportBase):
     """Transport for VISA-attached instruments. Composed by concrete drivers, not extended.
 
-    Supports shared ownership: multiple drivers can hold the same connection, which
-    closes only when the last owner releases it. Thread-safe at the I/O level via an
-    internal lock; use :meth:`lock` to keep a multi-step VISA sequence atomic.
+    Supports shared ownership: multiple drivers can hold the same connection by passing
+    themselves as the holder to :meth:`open`/:meth:`close`, and it closes only when the
+    last owner closes it. Thread-safe at the I/O level via an internal lock; use
+    :meth:`lock` to keep a multi-step VISA sequence atomic.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
@@ -133,8 +134,8 @@ class VisaDriver(OwnershipContext):
         """Whether the underlying VISA resource is currently open."""
         return self._inst is not None
 
-    def open(self) -> None:
-        """Open the VISA resource and apply terminator, serial, and timeout config. Idempotent."""
+    def _open_session(self) -> None:
+        """Open the VISA resource and apply terminator, serial, and timeout config. Idempotent. Called by open()."""
         with self._lock:
             if self._inst is not None:
                 return

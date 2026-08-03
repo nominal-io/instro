@@ -608,163 +608,157 @@ def test_visa_backend_package_is_installed(module: str) -> None:
     assert importlib.util.find_spec(module) is not None
 
 
-# Shared ownership tests (Step 1: OwnershipContext with acquire)
+# ============ Shared Ownership ============
 
 
-def test_first_acquire_opens_and_reports_first_owner(mock_pyvisa):
+def test_first_holder_open_opens_and_reports_first_owner(mock_pyvisa):
     _, rm_instance, _ = mock_pyvisa
     driver = _make_driver()
     a, b = object(), object()
 
-    first = driver.acquire(a)
-    second = driver.acquire(b)
+    first = driver.open(a)
+    second = driver.open(b)
 
     assert first is True
     assert second is False
     rm_instance.open_resource.assert_called_once()
 
 
-def test_acquire_same_holder_twice_returns_false(mock_pyvisa):
+def test_open_same_holder_twice_returns_false(mock_pyvisa):
     _, rm_instance, _ = mock_pyvisa
     driver = _make_driver()
     holder = object()
 
-    first = driver.acquire(holder)
-    second = driver.acquire(holder)
+    first = driver.open(holder)
+    second = driver.open(holder)
 
     assert first is True
     assert second is False
     rm_instance.open_resource.assert_called_once()
 
 
-def test_acquire_with_open_already_called_reports_first_owner(mock_pyvisa):
+def test_holder_open_after_bare_open_reports_first_owner(mock_pyvisa):
     _, _, _ = mock_pyvisa
     driver = _make_driver()
     holder_a, holder_b = object(), object()
 
-    # Manually open first
+    # Manually open first, with no holder
     driver.open()
 
-    # Now acquire should still report first owner (is-first-owner, not did-open)
-    first = driver.acquire(holder_a)
-    second = driver.acquire(holder_b)
+    # A holder open should still report first owner (is-first-owner, not did-open)
+    first = driver.open(holder_a)
+    second = driver.open(holder_b)
 
     assert first is True  # First owner (even though session already open)
     assert second is False  # Second owner
 
 
-# Shared ownership tests (Step 2: release() with last-release teardown ordering)
-
-
-def test_first_release_leaves_session_for_survivor_last_release_tears_down_in_order(mock_pyvisa):
+def test_first_close_leaves_session_for_survivor_last_close_tears_down_in_order(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a, b = object(), object()
-    driver.acquire(a)
-    driver.acquire(b)
+    driver.open(a)
+    driver.open(b)
     cb = MagicMock()
 
-    driver.release(a, on_last_release=cb)
+    driver.close(a, on_last_release=cb)
 
     cb.assert_not_called()
     resource.close.assert_not_called()
     assert driver.is_open is True
 
-    driver.release(b, on_last_release=cb)
+    driver.close(b, on_last_release=cb)
 
     cb.assert_called_once()
     resource.close.assert_called_once()
     assert driver.is_open is False
 
 
-def test_release_by_non_holder_is_noop(mock_pyvisa):
+def test_close_by_non_holder_is_noop(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a, stranger = object(), object()
-    driver.acquire(a)
+    driver.open(a)
     cb = MagicMock()
 
-    driver.release(stranger, on_last_release=cb)
+    driver.close(stranger, on_last_release=cb)
 
     cb.assert_not_called()
     resource.close.assert_not_called()
     assert driver.is_open is True
 
 
-def test_release_on_last_release_raising_still_tears_down(mock_pyvisa):
+def test_close_on_last_release_raising_still_tears_down(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a = object()
-    driver.acquire(a)
+    driver.open(a)
 
     def raising_callback() -> None:
         raise RuntimeError("callback failed")
 
     with pytest.raises(RuntimeError, match="callback failed"):
-        driver.release(a, on_last_release=raising_callback)
+        driver.close(a, on_last_release=raising_callback)
 
     resource.close.assert_called_once()
     assert driver.is_open is False
 
 
-def test_release_last_owner_with_no_callback_tears_down(mock_pyvisa):
+def test_close_last_owner_with_no_callback_tears_down(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a = object()
-    driver.acquire(a)
+    driver.open(a)
 
-    driver.release(a)
+    driver.close(a)
 
     resource.close.assert_called_once()
     assert driver.is_open is False
 
 
-def test_on_last_release_reacquiring_leaves_teardown_to_new_holder(mock_pyvisa):
+def test_on_last_release_reopening_leaves_teardown_to_new_holder(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a, b = object(), object()
-    driver.acquire(a)
+    driver.open(a)
 
-    def reacquire_as_b() -> None:
-        assert driver.acquire(b) is True  # reentrant: same thread, same RLock
+    def reopen_as_b() -> None:
+        assert driver.open(b) is True  # reentrant: same thread, same RLock
 
-    driver.release(a, on_last_release=reacquire_as_b)
+    driver.close(a, on_last_release=reopen_as_b)
 
-    # b now legitimately owns the connection; release(a)'s teardown must not have run.
+    # b now legitimately owns the connection; close(a)'s teardown must not have run.
     resource.close.assert_not_called()
     assert driver.is_open is True
 
-    driver.release(b)
+    driver.close(b)
 
     resource.close.assert_called_once()
     assert driver.is_open is False
 
 
-def test_sole_owner_acquire_release_behaves_like_open_close(mock_pyvisa):
+def test_sole_holder_open_close_behaves_like_bare_open_close(mock_pyvisa):
     rm_instance = mock_pyvisa[1]
     resource = mock_pyvisa[2]
     driver = _make_driver()
     a = object()
 
-    driver.acquire(a)
+    driver.open(a)
     assert driver.is_open is True
     rm_instance.open_resource.assert_called_once()
 
-    driver.release(a)
+    driver.close(a)
     assert driver.is_open is False
     resource.close.assert_called_once()
 
 
-# Shared ownership tests (Step 3: guarded public close() and __del__ GC backstop)
-
-
-def test_direct_close_while_owned_declines_and_logs(mock_pyvisa, caplog):
+def test_bare_close_while_owned_declines_and_logs(mock_pyvisa, caplog):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a = object()
-    driver.acquire(a)
+    driver.open(a)
 
-    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.ownership"):
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.transport_base"):
         driver.close()
 
     resource.close.assert_not_called()
@@ -776,7 +770,7 @@ def test_del_tears_down_even_with_non_empty_holders(mock_pyvisa):
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a = object()
-    driver.acquire(a)
+    driver.open(a)
 
     driver.__del__()
 

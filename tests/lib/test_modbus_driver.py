@@ -385,60 +385,60 @@ class TestLock:
 
 
 class TestSharedOwnership:
-    def test_two_holders_share_one_client_last_release_closes(self, modbus_server):
+    def test_two_holders_share_one_client_last_close_closes(self, modbus_server):
         drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
         a, b = object(), object()
 
-        first = drv.acquire(a)
-        second = drv.acquire(b)
+        first = drv.open(a)
+        second = drv.open(b)
 
         assert first is True
         assert second is False
         assert drv.is_open
 
-        drv.release(a)
+        drv.close(a)
         assert drv.is_open  # b still holds it
 
         cb = Mock()
-        drv.release(b, on_last_release=cb)
+        drv.close(b, on_last_release=cb)
 
         cb.assert_called_once()
         assert not drv.is_open
 
-    def test_one_connect_across_two_acquires(self):
+    def test_one_connect_across_two_holder_opens(self):
         with patch("pymodbus.client.ModbusTcpClient") as mock_cls:
             mock_cls.return_value.connect.return_value = True
             drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=1))
             a, b = object(), object()
 
-            drv.acquire(a)
-            drv.acquire(b)
+            drv.open(a)
+            drv.open(b)
 
             mock_cls.return_value.connect.assert_called_once()
-            drv.release(a)
-            drv.release(b)
+            drv.close(a)
+            drv.close(b)
 
-    def test_release_by_non_holder_is_noop(self, modbus_server):
+    def test_close_by_non_holder_is_noop(self, modbus_server):
         drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
         a, stranger = object(), object()
-        drv.acquire(a)
+        drv.open(a)
 
-        drv.release(stranger)
+        drv.close(stranger)
 
         assert drv.is_open
-        drv.release(a)
+        drv.close(a)
 
-    def test_direct_close_while_owned_declines_and_logs(self, modbus_server, caplog):
+    def test_bare_close_while_owned_declines_and_logs(self, modbus_server, caplog):
         drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
         a = object()
-        drv.acquire(a)
+        drv.open(a)
 
-        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.ownership"):
+        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.transport_base"):
             drv.close()
 
         assert drv.is_open
         assert len(caplog.records) == 1
-        drv.release(a)
+        drv.close(a)
 
 
 # ============ Connection Configs ============
