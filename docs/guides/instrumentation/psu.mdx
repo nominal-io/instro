@@ -68,7 +68,7 @@ psu = InstroPSU(
 - **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
 - **`autostart`**: When `True`, opens the connection and starts background polling immediately.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
-- **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
+  - **`dataset_rid`**: Optional Nominal dataset RID. When set, automatically creates and attaches a `NominalCorePublisher` for that dataset instead of becoming a default tag.
 
 ### From a JSON Config File
 
