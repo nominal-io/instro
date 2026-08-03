@@ -142,7 +142,22 @@ psu = InstroPSU(config="bench_psu.json", autostart=True)
 `config` also accepts a plain dict or an already-built `PSUConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroPSU` directly, without a JSON round-trip:
 
 ```python
-psu = InstroPSU(config={"device": {"name": "bench_psu"}, "driver": {...}})
+psu = InstroPSU(config={
+    "device": {
+        "name": "bench_psu",
+        "description": "Bench channel 1 supply",
+        "manufacturer": "B&K Precision",
+        "model": "9115",
+    },
+    "driver": {
+        "name": "BK9115",
+        "num_channels": 1,
+        "connection_type": "visa",
+        "visa": {"visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"},
+    },
+    "timing": {"poll_interval": 1.0},
+    "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>"}],
+})
 psu = InstroPSU(config=my_psu_config)
 ```
 
