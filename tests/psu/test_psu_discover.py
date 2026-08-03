@@ -21,7 +21,7 @@ _BK9115_INFO = VisaInstrumentInfo(
 
 def test_discover_returns_psuconfig_for_recognized_psu():
     result = VisaScanResult(instruments=[_BK9115_INFO], unrecognized=[], errors=[])
-    with patch("instro.lib.discover.scan_visa_resources", return_value=result) as mock_scan:
+    with patch("instro.psu.psu.scan_visa_resources", return_value=result) as mock_scan:
         configs = InstroPSU.discover()
 
     mock_scan.assert_called_once_with(backend=None, timeout=2)
@@ -39,7 +39,7 @@ def test_discover_skips_non_psu_instruments():
         _BK9115_INFO, category="dmm", driver_class_name="Keithley2400", vendor_key=None, num_channels=None
     )
     result = VisaScanResult(instruments=[dmm_info], unrecognized=[], errors=[])
-    with patch("instro.lib.discover.scan_visa_resources", return_value=result):
+    with patch("instro.psu.psu.scan_visa_resources", return_value=result):
         configs = InstroPSU.discover()
 
     assert configs == []
@@ -51,7 +51,7 @@ def test_discover_ignores_unrecognized_and_errors():
         unrecognized=[VisaUnrecognizedInstrument(resource="USB0::0xDEAD::INSTR", idn="UNKNOWN,XYZ")],
         errors=[VisaScanError(resource="USB0::0xBEEF::INSTR", message="timeout")],
     )
-    with patch("instro.lib.discover.scan_visa_resources", return_value=result):
+    with patch("instro.psu.psu.scan_visa_resources", return_value=result):
         configs = InstroPSU.discover()
 
     assert configs == []
@@ -59,7 +59,7 @@ def test_discover_ignores_unrecognized_and_errors():
 
 def test_discover_passes_backend_and_timeout_through():
     result = VisaScanResult(instruments=[], unrecognized=[], errors=[])
-    with patch("instro.lib.discover.scan_visa_resources", return_value=result) as mock_scan:
+    with patch("instro.psu.psu.scan_visa_resources", return_value=result) as mock_scan:
         InstroPSU.discover(backend="@py", timeout=5)
 
     mock_scan.assert_called_once_with(backend="@py", timeout=5)

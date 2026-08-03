@@ -11,9 +11,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.discover import scan_visa_resources
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.psu.config import PSUConfig, build_psu_from_config, resolve_psu_from_config
+from instro.lib.transports.visa import VisaConfig
+from instro.lib.types import DeviceInfo
+from instro.psu.config import PSUConfig, VisaDriverConfig, build_psu_from_config, resolve_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -276,11 +279,6 @@ class InstroPSU(Instrument):
         timeout: int = 2,
     ) -> list[PSUConfig]:
         """Scan VISA resources and return PSUConfig for each recognized PSU."""
-        from instro.lib.discover import scan_visa_resources
-        from instro.lib.transports.visa import VisaConfig
-        from instro.lib.types import DeviceInfo
-        from instro.psu.config import VisaDriverConfig
-
         result = scan_visa_resources(backend=backend, timeout=timeout)
         configs = []
         for info in result.instruments:
