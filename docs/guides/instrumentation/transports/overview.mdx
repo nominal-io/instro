@@ -96,7 +96,7 @@ A driver that never passes a holder is unaffected. It is the sole owner by const
 
 ## Implementing a transport
 
-`instro` ships `VisaDriver` and `ModbusDriver`. A protocol neither one covers (a vendor's raw TCP protocol, a USB HID device, an OPC UA session) needs its own transport. `TransportBase` is the only class a new transport subclasses: implement three members and everything above on this page comes from the base.
+`instro` ships `VisaDriver` and `ModbusDriver`, and EtherNet/IP, OPC UA, and raw socket transports are planned, so check whether one already covers your protocol before writing your own. When none does, `TransportBase` is the only class a new transport subclasses: implement three members and everything above on this page comes from the base.
 
 ### What `TransportBase` provides
 
@@ -129,76 +129,3 @@ Subclass `TransportBase`, call `super().__init__()` first, and implement three m
 >>> Incomplete()
 TypeError: Can't instantiate abstract class Incomplete without an implementation for abstract method 'is_open'
 ```
-
-### Walkthrough: a minimal socket transport
-
-This transport speaks newline-terminated text over a raw TCP socket, the shape a vendor protocol without VISA framing usually takes. It is complete: standard library only, no hardware.
-
-```python
-import socket
-
-from instro.lib.transports import TransportBase
-
-
-class SocketTransport(TransportBase):
-    """Line-oriented raw TCP transport."""
-
-    def __init__(self, host: str, port: int, timeout: float = 5.0) -> None:
-        super().__init__()  # required: initializes the holder list and the lock
-        self._host = host
-        self._port = port
-        self._timeout = timeout
-        self._sock: socket.socket | None = None
-
-    @property
-    def is_open(self) -> bool:
-        return self._sock is not None
-
-    def _open_session(self) -> None:
-        if self._sock is not None:  # idempotent: open() calls this again for a second holder
-            return
-        self._sock = socket.create_connection((self._host, self._port), timeout=self._timeout)
-
-    def _teardown_session(self) -> None:
-        if self._sock is None:
-            return
-        try:
-            self._sock.close()
-        finally:
-            self._sock = None
-
-    def query(self, command: str) -> str:
-        with self._lock:  # serialize the write/read pair against other threads
-            if self._sock is None:
-                raise RuntimeError("SocketTransport is not open. Call open() first.")
-            self._sock.sendall(f"{command}\n".encode())
-            return self._sock.recv(4096).decode().rstrip("\n")
-```
-
-Four things to note:
-
-- **`__init__` stores configuration and opens nothing.** Construction does no I/O, matching `VisaDriver` and `ModbusDriver`. The connection happens on `open()`.
-- **`_open_session()` returns early when already connected.** This is what makes `open()` idempotent, and it is what keeps a second holder from replacing the first holder's socket.
-- **`_teardown_session()` clears `self._sock` in a `finally`.** The attribute goes back to `None` even when the underlying `close()` raises, so `is_open` never reports a socket that is already gone.
-- **I/O methods take `self._lock` and guard on the connection.** The lock is reentrant, so calling one locked method from inside another does not deadlock the calling thread.
-
-The result behaves like a built-in transport, including shared ownership:
-
-```python
-transport = SocketTransport("10.0.0.7", 5025)
-transport.open()
-try:
-    print(transport.query("*IDN?"))
-finally:
-    transport.close()
-```
-
-A concrete instrument driver then composes this transport the same way it composes `VisaDriver`: store it in `__init__`, drive it from the driver's own `open()` and `close()`, and keep the command strings in the driver. See [Building a custom driver](/instrumentation/transports/visa#building-a-custom-driver) for that half of the pattern.
-
-### Patterns to copy
-
-- **Configuration in, I/O later.** Take connection parameters in `__init__` and do the connecting in `_open_session()`. Callers expect construction to be free of side effects.
-- **Idempotence on both hooks.** `_open_session()` runs once per new holder and `_teardown_session()` runs from both `close()` and `__del__`. Guard each on current state (`if self._sock is not None: return`) rather than assuming a single call.
-- **One lock, taken in every I/O method.** Use the base's `self._lock` rather than adding a second lock. It is the same lock `lock()` hands to callers, so a caller's atomic sequence and the transport's own methods serialize against each other instead of racing.
-- **Fail loudly when closed.** Raise a clear error naming the missing `open()` call, as `VisaDriver` and `ModbusDriver` do, instead of letting a `None` connection surface as an `AttributeError`.
-- **Keep the command vocabulary out.** A transport moves bytes and strings. SCPI syntax, register maps, and error-queue polling belong to the instrument driver composing the transport.
