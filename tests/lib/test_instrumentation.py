@@ -1,3 +1,4 @@
+import logging
 import time
 from importlib.metadata import version
 
@@ -126,3 +127,23 @@ def test_channel_names_includes_published_channels():
         assert "ut.loop_time" in names
     finally:
         instrument.stop()
+
+
+def test_warns_only_when_requested_interval_is_unachievable(caplog):
+    instrument = Instrument(name="ut")
+    instrument.define_background_daemon(lambda: time.sleep(0.05))
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.instrument"):
+        try:
+            instrument.background_interval = 0.1
+            instrument.start()
+            instrument.get_channel("loop_time", length=10, wait_for_new_samples=True, timeout=5.0)
+            assert not caplog.records, "warned about an interval the daemon can achieve"
+
+            instrument.background_interval = 0.001
+            instrument.get_channel("loop_time", length=10, wait_for_new_samples=True, timeout=5.0)
+        finally:
+            instrument.stop()
+
+    assert len(caplog.records) == 1
+    assert "cannot achieve the requested interval" in caplog.records[0].getMessage()
