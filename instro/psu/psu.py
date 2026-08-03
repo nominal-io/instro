@@ -281,10 +281,6 @@ class InstroPSU(Instrument):
         from instro.lib.types import DeviceInfo
         from instro.psu.config import VisaDriverConfig
 
-        # TODO - how do we make this reliable though?
-        # this only shows if we correctly recognized the visa, no hope elsewise..
-        # how do we do it in connect, also with IDN?
-        # should we do several discovery iterations, trying different terminator bits?
         result = scan_visa_resources(backend=backend, timeout=timeout)
         configs = []
         for info in result.instruments:
