@@ -131,7 +131,8 @@ def test_channel_names_includes_published_channels():
 
 def test_warns_only_when_requested_interval_is_unachievable(caplog):
     instrument = Instrument(name="ut")
-    instrument.define_background_daemon(lambda: time.sleep(0.05))
+    # Work is kept far from both intervals so scheduling jitter can't flip either assertion.
+    instrument.define_background_daemon(lambda: time.sleep(0.005))
 
     with caplog.at_level(logging.WARNING, logger="instro.lib.instrument"):
         try:
