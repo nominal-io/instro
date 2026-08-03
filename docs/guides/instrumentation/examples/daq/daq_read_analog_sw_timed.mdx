@@ -68,7 +68,7 @@ with daq:
 
     # Start the acquisition.
     # This launches a background daemon that polls the DAQ for a new sample every period.
-    # Software timing has no device-side clock, so background=False is not available.
+    # Software timing has no device-side clock, so background=False logs an error and starts nothing.
     daq.start()
 
     while True:

@@ -1,5 +1,6 @@
 """Unit tests for DAQ driver functionality."""
 
+import logging
 import time
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
@@ -1004,13 +1005,14 @@ def test_sw_timed_start_with_background():
         daq.stop()
 
 
-def test_sw_timed_start_without_background():
-    """SW timing + background=False: nothing would pace the reads, so start() raises."""
+def test_sw_timed_start_without_background(caplog):
+    """SW timing + background=False: nothing would pace the reads, so start() logs an error and starts nothing."""
     daq, mock_driver = _sw_timed_daq()
 
-    with pytest.raises(TimingConfigException, match=r"requires start\(background=True\)"):
+    with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
+    assert "requires start(background=True)" in caplog.text
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()
 
@@ -1029,13 +1031,14 @@ def test_untimed_start_with_background():
         daq.stop()
 
 
-def test_untimed_start_without_background():
-    """No timing + background=False: no clock and no daemon, so start() raises."""
+def test_untimed_start_without_background(caplog):
+    """No timing + background=False: no clock and no daemon, so start() logs an error and starts nothing."""
     daq, mock_driver = _untimed_daq()
 
-    with pytest.raises(TimingConfigException, match="without AI timing configured"):
+    with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
+    assert "without AI timing configured" in caplog.text
     assert not daq.is_sw_timing_configured
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()

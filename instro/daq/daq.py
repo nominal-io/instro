@@ -949,28 +949,36 @@ class InstroDAQ(Instrument):
             background: When True (default), spin the daemon thread to continuously
                 fetch the buffer. When False, begin hardware acquisition only and
                 fetch the buffer yourself by calling ``read_analog()``. Software-timed
-                acquisition requires True — the daemon is what does the timing.
+                acquisition requires True — the daemon is what does the timing — so False
+                logs an error and starts nothing.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         self._require_open()
         if not self.is_hw_timing_configured and not self.is_sw_timing_configured:
             if not background:
-                # Raise when trying to do sw timed with no background daemon
-                raise TimingConfigException(
-                    f"Cannot start DAQ '{self.name}' with start(background=False) without AI timing configured. "
-                    "Call configure_ai_hw_sample_rate() first, or use start(background=True) to poll at the "
-                    f"default {self.DEFAULT_SW_SAMPLE_RATE} Hz software-timed rate."
+                # Nothing would pace the reads, so start nothing
+                logger.error(
+                    "Not starting DAQ '%s': start(background=False) without AI timing configured has nothing "
+                    "to pace the reads. Call configure_ai_hw_sample_rate() first, or use start(background=True) "
+                    "to poll at the default %s Hz software-timed rate.",
+                    self.name,
+                    self.DEFAULT_SW_SAMPLE_RATE,
                 )
+                return
+
             # If no timing configured and start called, resort to sw timed daemon at default rate
             self.configure_ai_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
 
         if self.is_sw_timing_configured:
             if not background:
-                # Raise when trying to do sw timed with no background daemon
-                raise TimingConfigException(
-                    f"DAQ '{self.name}' is software-timed, which requires start(background=True): "
-                    "the background daemon is what paces the reads. Call read_analog() directly instead."
+                # The background daemon is the software clock, so start nothing
+                logger.error(
+                    "Not starting DAQ '%s': it is software-timed, which requires start(background=True) — "
+                    "the background daemon is what paces the reads. Call read_analog() directly instead.",
+                    self.name,
                 )
+                return
+
             self._define_background_daemon()
             super().start()
             self._running = True

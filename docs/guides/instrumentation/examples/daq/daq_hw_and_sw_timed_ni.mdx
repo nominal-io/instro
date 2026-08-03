@@ -61,7 +61,7 @@ with daq_hw, daq_sw:
     daq_sw.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
 
     # Each start() launches that instance's own background daemon. Software timing
-    # requires the daemon, so background=False is not available on daq_sw.
+    # requires the daemon, so background=False starts nothing on daq_sw.
     daq_hw.start()
     daq_sw.start()
 
