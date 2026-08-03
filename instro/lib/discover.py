@@ -59,7 +59,6 @@ _IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
     ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800", "rigol_dp800", 3),
     ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800", "rigol_dp800", 3),
     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", "siglent_spd3303", 3),
-    ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys", "tdk_lambda_genesys", 1),
     ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None, None),
     ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X", "keysight_1200x", 2),
     ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X", "keysight_1200x", 2),
