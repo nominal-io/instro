@@ -21,20 +21,36 @@ class BufferedPublisher(abc.ABC):
         self.publisher = publisher
         self.buffer: list[Measurement | Command] = []
         self.buffer_size = buffer_size
+        self._closed = False
+        self._lock = threading.Lock()
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
-        self.buffer.append(data)
-        if len(self.buffer) >= self.buffer_size:
-            self.publish_batch()
-            self.buffer.clear()
+        with self._lock:
+            if self._closed:
+                logger.warning(
+                    "Dropping publish request because %s is closed (publisher=%s)",
+                    self.__class__.__name__,
+                    self.publisher.__class__.__name__,
+                )
+                return
+            self.buffer.append(data)
+            if len(self.buffer) >= self.buffer_size:
+                self.publish_batch()
+                self.buffer.clear()
 
     @abc.abstractmethod
     def publish_batch(self) -> None:
         pass
 
     def close(self) -> None:
-        self.publish_batch()
-        self.publisher.close()
+        with self._lock:
+            if self._closed:
+                return
+            if self.buffer:
+                self.publish_batch()
+                self.buffer.clear()
+            self.publisher.close()
+            self._closed = True
 
 
 class BasicBufferedPublisher(BufferedPublisher):
