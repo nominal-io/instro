@@ -1012,7 +1012,7 @@ def test_sw_timed_start_without_background(caplog):
     with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
-    assert "requires start(background=True)" in caplog.text
+    assert "with SW AI timing configured is a no-op" in caplog.text
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()
 
@@ -1038,7 +1038,7 @@ def test_untimed_start_without_background(caplog):
     with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
-    assert "without AI timing configured" in caplog.text
+    assert "without AI timing configured is unnecessary" in caplog.text
     assert not daq.is_sw_timing_configured
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()

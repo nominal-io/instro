@@ -958,11 +958,8 @@ class InstroDAQ(Instrument):
             if not background:
                 # Nothing would pace the reads, so start nothing
                 logger.error(
-                    "Not starting DAQ '%s': start(background=False) without AI timing configured has nothing "
-                    "to pace the reads. Call configure_ai_hw_sample_rate() first, or use start(background=True) "
-                    "to poll at the default %s Hz software-timed rate.",
-                    self.name,
-                    self.DEFAULT_SW_SAMPLE_RATE,
+                    "Calling start(background=False) without AI timing configured is unnecessary. "
+                    "Call read_analog() directly instead."
                 )
                 return
 
@@ -973,9 +970,9 @@ class InstroDAQ(Instrument):
             if not background:
                 # The background daemon is the software clock, so start nothing
                 logger.error(
-                    "Not starting DAQ '%s': it is software-timed, which requires start(background=True) — "
-                    "the background daemon is what paces the reads. Call read_analog() directly instead.",
-                    self.name,
+                    "Calling start(background=False) with SW AI timing configured is a no-op because the "
+                    "background daemon paces software reads. Call start(background=True) to start continuous "
+                    "software-timed acquisition, or read_analog() directly instead."
                 )
                 return
 
