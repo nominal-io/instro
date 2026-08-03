@@ -9,7 +9,7 @@ import warnings
 
 import pyvisa
 
-from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver
+from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
 
 
 @dataclasses.dataclass
@@ -26,6 +26,7 @@ class VisaInstrumentInfo:
 class VisaScanError:
     resource: str
     message: str
+    hint: str | None = None
 
 
 @dataclasses.dataclass
@@ -45,6 +46,8 @@ _IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None, None),
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None, None),
     ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400", None, None),
+    ("KEYSIGHT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None, None),
+    ("AGILENT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None, None),
     ("B&K PRECISION", "9115"): ("psu", "BK9115", "bk_9115", 1),
     ("B&K PRECISION", "9140"): ("psu", "BK914X", "bk_914x", 3),
     ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800", "rigol_dp800", 1),
@@ -54,24 +57,46 @@ _IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
     ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", "siglent_spd3303", 3),
     ("GENESYS", "GEN"): ("psu", "TDKLambdaGenesys", "tdk_lambda_genesys", 1),
     ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None, None),
+    ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X", "keysight_1200x", 2),
+    ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X", "keysight_1200x", 2),
+    ("TEKTRONIX", "MSO22"): ("scope", "Tektronix2SeriesMSO", "tektronix_2series", 4),
+    ("TEKTRONIX", "MSO24"): ("scope", "Tektronix2SeriesMSO", "tektronix_2series", 4),
+    ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 4),
+    ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 2),
+    ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 4),
 }
+
+
+def _classify_error_hint(exc: Exception) -> str | None:
+    """Return an actionable hint for a known-bad scan exception, or None if there isn't one.
+
+    ``VisaScanError.message`` always stays the raw ``str(exc)`` so callers that don't want this
+    interpretation layer (e.g. a headless integration that just wants results) aren't forced
+    into it; callers that do want it (the CLI) can prefer ``hint`` when it's present.
+    """
+    if isinstance(exc, pyvisa.errors.VisaIOError) and "SYSTEM_ERROR" in str(exc):
+        return "permission denied - check udev rules"
+    err_str = str(exc)
+    if "No backend available" in err_str or "PyUSB" in err_str:
+        return "USB backend missing - install libusb"
+    return None
 
 
 def scan_visa_resources(
     backend: str | None = None,
     timeout: int = 2,
+    *,
+    rm: pyvisa.ResourceManager | None = None,
 ) -> VisaScanResult:
-    """Scan VISA resources, query each for identity, and return matched instruments."""
-    if backend is not None:
-        rm = pyvisa.ResourceManager(backend)
-        active_backend = backend
-    else:
-        try:
-            rm = pyvisa.ResourceManager("@ivi")
-            active_backend = "@ivi"
-        except Exception:
-            rm = pyvisa.ResourceManager("@py")
-            active_backend = "@py"
+    """Scan VISA resources, query each for identity, and return matched instruments.
+
+    Pass an already-open ``rm`` (e.g. one a caller opened via ``_open_resource_manager`` for its
+    own backend diagnostics) with the ``backend`` string used to open it, to reuse that resource
+    manager instead of opening a second one.
+    """
+    if rm is None:
+        rm, backend, _ = _open_resource_manager(backend)
+    active_backend = backend
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -118,9 +143,8 @@ def scan_visa_resources(
                     )
                 )
         except Exception as e:
-            errors.append(VisaScanError(resource=resource, message=str(e)))
+            errors.append(VisaScanError(resource=resource, message=str(e), hint=_classify_error_hint(e)))
         finally:
             driver.close()
 
-        # return a nice lil class that has instro, unrec, and errors, the PSU will only parse instro for now
     return VisaScanResult(instruments=instruments, unrecognized=unrecognized, errors=errors)
