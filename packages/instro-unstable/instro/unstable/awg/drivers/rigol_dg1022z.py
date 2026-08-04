@@ -199,17 +199,6 @@ class RigolDG1022Z(AWGDriverBase):
     def align_phase(self) -> None:
         self._visa.write(":SOUR1:PHAS:SYNC")
 
-    def enable_modulation(self, channel: int) -> None:
-        _check_channel(channel)
-        with self._visa.lock():
-            state = self._modulation_states[channel]
-            if state.modulation_type is None:
-                raise RuntimeError(f"channel {channel} has no modulation configured; call set_modulation() first")
-            if state.enabled:
-                return
-            self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT ON")
-            state.enabled = True
-
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
@@ -217,7 +206,9 @@ class RigolDG1022Z(AWGDriverBase):
         # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
         state = self._modulation_states[channel]
         if state.enabled:
-            raise RuntimeError(f"channel {channel} already has modulation enabled; disable_modulation() first")
+            raise RuntimeError(
+                f"channel {channel} already has modulation enabled; disable it via modulation_enable() first"
+            )
         _validate_carrier(mod_type, self.get_waveform(channel))
         modulator = _validate_modulator(shape)
         frequency_hz = modulator.frequency_hz
@@ -249,14 +240,19 @@ class RigolDG1022Z(AWGDriverBase):
             state.modulation_shape = shape
             state.modulation_magnitude = magnitude
 
-    def disable_modulation(self, channel: int) -> None:
+    def modulation_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
         with self._visa.lock():
             state = self._modulation_states[channel]
-            if not state.enabled:
+            if state.enabled == enable:
                 return
-            self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT OFF")
-            state.enabled = False
+            if enable:
+                if state.modulation_type is None:
+                    raise RuntimeError(f"channel {channel} has no modulation configured; call set_modulation() first")
+                self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT ON")
+            else:
+                self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT OFF")
+            state.enabled = enable
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")

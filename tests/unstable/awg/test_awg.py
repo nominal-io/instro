@@ -97,8 +97,7 @@ def test_awg_driver_base_complete_subclass_instantiates() -> None:
         ("get_output_load", (1,)),
         ("align_phase", ()),
         ("set_modulation", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
-        ("enable_modulation", (1,)),
-        ("disable_modulation", (1,)),
+        ("modulation_enable", (1, True)),
     ],
 )
 def test_awg_driver_base_optional_methods_raise_not_implemented(
@@ -766,14 +765,24 @@ def test_set_modulation_raises_for_non_enum_mod_type(awg: InstroAWG, mock_driver
     mock_driver.set_modulation.assert_not_called()
 
 
-def test_disable_modulation_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    awg.disable_modulation(1)
-    mock_driver.disable_modulation.assert_called_once_with(channel=1)
+def test_modulation_enable_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.modulation_enable(1, True)
+    mock_driver.modulation_enable.assert_called_once_with(channel=1, enable=True)
 
 
-def test_disable_modulation_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
-    cmd = awg.disable_modulation(1)
+def test_modulation_enable_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.modulation_enable(1, True)
     assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
+
+
+def test_modulation_enable_false_publishes_off(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.modulation_enable(1, False)
+    assert cmd.channel_data["test_awg.ch1.modulation.cmd"] == "OFF"
+
+
+def test_modulation_enable_true_publishes_on(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    cmd = awg.modulation_enable(1, True)
+    assert cmd.channel_data["test_awg.ch1.modulation.cmd"] == "ON"
 
 
 # ---------------------------------------------------------------------------
@@ -843,8 +852,7 @@ def test_get_output_load_high_z_publishes_float_inf(awg: InstroAWG, mock_driver:
         ("set_output_load", (50.0,)),
         ("get_output_load", ()),
         ("set_modulation", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
-        ("enable_modulation", ()),
-        ("disable_modulation", ()),
+        ("modulation_enable", (True,)),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 3])

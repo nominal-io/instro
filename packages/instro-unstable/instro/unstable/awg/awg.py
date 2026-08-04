@@ -88,17 +88,13 @@ class AWGDriverBase(abc.ABC):
         """Sync the phase of all channels."""
         raise NotImplementedError(f"align_phase is not implemented for {type(self).__name__}")
 
-    def enable_modulation(self, channel: int) -> None:
-        """Enable modulation on the given channel using its last-configured set_modulation() settings."""
-        raise NotImplementedError(f"enable_modulation is not implemented for {type(self).__name__}")
-
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-        """Configure channel's carrier modulation with modulator shape; call enable_modulation() to activate it."""
+        """Configure channel's carrier modulation with modulator shape; call modulation_enable() to activate it."""
         raise NotImplementedError(f"set_modulation is not implemented for {type(self).__name__}")
 
-    def disable_modulation(self, channel: int) -> None:
-        """Disable modulation on the given channel, if enabled; the configured settings are kept for re-enabling."""
-        raise NotImplementedError(f"disable_modulation is not implemented for {type(self).__name__}")
+    def modulation_enable(self, channel: int, enable: bool) -> None:
+        """Enable or disable modulation on the given channel."""
+        raise NotImplementedError(f"modulation_enable is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -366,21 +362,10 @@ class InstroAWG(Instrument):
         return self._package_measurement(descriptor, load_float, timestamp, **kwargs)
 
     @publish_command
-    def enable_modulation(self, channel: int, **kwargs) -> Command:
-        """Enable modulation on the given channel."""
-        self._check_channel(channel)
-        with self._resource_lock:
-            self._driver.enable_modulation(channel=channel)
-            timestamp = time.time_ns()
-            self._check_errors()
-        descriptor = f"ch{channel}.modulation.cmd"
-        return self._package_command(descriptor, "ON", timestamp, **kwargs)
-
-    @publish_command
     def set_modulation(
         self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float, **kwargs
     ) -> Command:
-        """Configure channel's carrier modulation with modulator shape; call enable_modulation() to activate it.
+        """Configure channel's carrier modulation with modulator shape; call modulation_enable() to activate it.
 
         magnitude by mod_type: AM=depth, FM=frequency deviation, PM=phase deviation, ASK=2nd
         amplitude (shape ignored), FSK=hop frequency (shape ignored).
@@ -396,12 +381,12 @@ class InstroAWG(Instrument):
         return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)
 
     @publish_command
-    def disable_modulation(self, channel: int, **kwargs) -> Command:
-        """Disable modulation on the given channel, if enabled; the configured settings are kept for re-enabling."""
+    def modulation_enable(self, channel: int, enable: bool, **kwargs) -> Command:
+        """Enable or disable modulation on the given channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            self._driver.disable_modulation(channel=channel)
+            self._driver.modulation_enable(channel=channel, enable=enable)
             timestamp = time.time_ns()
             self._check_errors()
         descriptor = f"ch{channel}.modulation.cmd"
-        return self._package_command(descriptor, "OFF", timestamp, **kwargs)
+        return self._package_command(descriptor, "ON" if enable else "OFF", timestamp, **kwargs)

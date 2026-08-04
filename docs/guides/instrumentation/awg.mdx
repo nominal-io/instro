@@ -81,7 +81,7 @@ vrms = awg.convert_amplitude(channel=1, amplitude=5.0, from_unit=AmplitudeMeasur
 | `FSK` | Hop frequency, in Hz | Ignored, only `shape.frequency_hz` is read |
 | `PSK` | Phase, in degrees | Ignored, only `shape.frequency_hz` is read |
 
-Call `enable_modulation(channel)` to turn on modulation with the last-configured `set_modulation()` settings, and `disable_modulation(channel)` to turn it back off. The two are independent of `set_modulation()`: once configured, a channel can be toggled on and off any number of times without reconfiguring, and `disable_modulation` keeps the configured settings rather than clearing them.
+Call `modulation_enable(channel, True)` to turn on modulation with the last-configured `set_modulation()` settings, and `modulation_enable(channel, False)` to turn it back off. It's independent of `set_modulation()`: once configured, a channel can be toggled on and off any number of times without reconfiguring, and disabling keeps the configured settings rather than clearing them.
 
 ## Creating an InstroAWG Instance
 
@@ -263,8 +263,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_output_load(channel=N)` | `ch{N}.load.cmd` | command |
 | `align_phase()` | `phase.align.cmd` | command |
 | `set_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
-| `enable_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
-| `disable_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
+| `modulation_enable(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
@@ -289,8 +288,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_output_load(channel)` | Read back the output load impedance on channel (high-Z publishes as `float('inf')`) |
 | `align_phase()` | Sync the phase of all channels |
 | `set_modulation(channel, mod_type, shape, magnitude)` | Configure a channel's modulation (AM/FM/PM/PWM/ASK/FSK/PSK) without enabling it |
-| `enable_modulation(channel)` | Enable modulation on channel using its last-configured `set_modulation()` settings |
-| `disable_modulation(channel)` | Disable modulation on channel, if any is active |
+| `modulation_enable(channel, enable)` | Enable or disable modulation on channel, using its last-configured `set_modulation()` settings |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
 
@@ -363,7 +361,7 @@ def get_output_state(self, channel: int) -> bool:
     """Return True if the output on channel is enabled."""
 ```
 
-Six methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
+Five methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
 
 ```python
 def set_output_load(self, channel: int, load: float | None) -> None:
@@ -376,13 +374,10 @@ def align_phase(self) -> None:
     """Sync the phase of all channels."""
 
 def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-    """Configure channel's carrier modulation with modulator shape; call enable_modulation() to activate it."""
+    """Configure channel's carrier modulation with modulator shape; call modulation_enable() to activate it."""
 
-def enable_modulation(self, channel: int) -> None:
-    """Enable modulation on the given channel using its last-configured set_modulation() settings."""
-
-def disable_modulation(self, channel: int) -> None:
-    """Disable modulation on the given channel, if enabled; the configured settings are kept for re-enabling."""
+def modulation_enable(self, channel: int, enable: bool) -> None:
+    """Enable or disable modulation on the given channel using its last-configured set_modulation() settings; disabling keeps the configured settings for re-enabling."""
 ```
 
 Error checking is not part of the base contract beyond `check_errors()`: if your vendor exposes an error queue, implement `check_errors()` to drain and raise on it (see the representative driver below).
