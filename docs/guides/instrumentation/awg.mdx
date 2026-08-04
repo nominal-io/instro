@@ -263,10 +263,11 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_output_load(channel=N)` | `ch{N}.load.cmd` | command |
 | `align_phase()` | `phase.align.cmd` | command |
 | `set_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
-| `modulation_enable(channel=N)` | `ch{N}.modulation.cmd` | command |
+| `modulation_enable(channel=N)` | `ch{N}.modulation_enabled.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
+| `get_modulation_state(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
 
 ## Method Reference
 
@@ -289,6 +290,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `align_phase()` | Sync the phase of all channels |
 | `set_modulation(channel, mod_type, shape, magnitude)` | Configure a channel's modulation (AM/FM/PM/PWM/ASK/FSK/PSK) without enabling it |
 | `modulation_enable(channel, enable)` | Enable or disable modulation on channel, using its last-configured `set_modulation()` settings |
+| `get_modulation_state(channel)` | Read back whether modulation is enabled on channel, queried directly from the instrument (active type ships as a `mod_type` tag) |
 | `start()` | Begin background telemetry daemon |
 | `stop()` | End background telemetry daemon |
 
@@ -361,7 +363,7 @@ def get_output_state(self, channel: int) -> bool:
     """Return True if the output on channel is enabled."""
 ```
 
-Five methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
+Six methods are optional and raise `NotImplementedError` by default, for drivers whose instrument doesn't support them:
 
 ```python
 def set_output_load(self, channel: int, load: float | None) -> None:
@@ -378,6 +380,9 @@ def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform
 
 def modulation_enable(self, channel: int, enable: bool) -> None:
     """Enable or disable modulation on the given channel using its last-configured set_modulation() settings; disabling keeps the configured settings for re-enabling."""
+
+def get_modulation_state(self, channel: int) -> tuple[ModulationType, bool]:
+    """Get the modulation type and enabled state currently active on channel, read directly from the instrument."""
 ```
 
 Error checking is not part of the base contract beyond `check_errors()`: if your vendor exposes an error queue, implement `check_errors()` to drain and raise on it (see the representative driver below).

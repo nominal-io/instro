@@ -33,23 +33,12 @@ _MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
 }
 
 
-class ModulationState:
-    """Modulation state of a single channel on the Rigol DG1022Z; All fields are None when modulation is disabled."""
-
-    def __init__(self) -> None:
-        self.modulation_type: ModulationType | None = None
-        self.modulation_shape: Waveform | None = None
-        self.modulation_magnitude: float | None = None
-        self.enabled: bool = False
-
-
 class RigolDG1022Z(AWGDriverBase):
     """SCPI driver for the Rigol DG1022Z two-channel arbitrary waveform generator."""
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self._arb_waveforms: dict[int, Arbitrary] = {}
-        self._modulation_states: dict[int, ModulationState] = {1: ModulationState(), 2: ModulationState()}
 
     def open(self) -> None:
         self._visa.open()
@@ -204,11 +193,6 @@ class RigolDG1022Z(AWGDriverBase):
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
         # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
-        state = self._modulation_states[channel]
-        if state.enabled:
-            raise RuntimeError(
-                f"channel {channel} already has modulation enabled; disable it via modulation_enable() first"
-            )
         _validate_carrier(mod_type, self.get_waveform(channel))
         modulator = _validate_modulator(shape)
         frequency_hz = modulator.frequency_hz
@@ -235,24 +219,22 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:PSK:PHAS {magnitude}")
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
-
-            state.modulation_type = mod_type
-            state.modulation_shape = shape
-            state.modulation_magnitude = magnitude
+            self._visa.write(f":SOUR{channel}:MOD:TYP {mod_type.value}")
+            self.check_errors()
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
         with self._visa.lock():
-            state = self._modulation_states[channel]
-            if state.enabled == enable:
-                return
-            if enable:
-                if state.modulation_type is None:
-                    raise RuntimeError(f"channel {channel} has no modulation configured; call set_modulation() first")
-                self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT ON")
-            else:
-                self._visa.write(f":SOUR{channel}:{state.modulation_type.value}:STAT OFF")
-            state.enabled = enable
+            self._visa.write(f":SOUR{channel}:MOD:STAT {'ON' if enable else 'OFF'}")
+            self.check_errors()
+
+    def get_modulation_state(self, channel: int) -> tuple[ModulationType, bool]:
+        """Get the modulation type and enabled state currently active on channel, read from the instrument."""
+        _check_channel(channel)
+        with self._visa.lock():
+            mod_type = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
+            enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
+        return mod_type, enabled
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")

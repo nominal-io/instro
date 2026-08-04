@@ -190,6 +190,7 @@ def mock_driver() -> MagicMock:
     driver.get_offset.return_value = 0.0
     driver.get_output_state.return_value = False
     driver.get_output_load.return_value = 50.0
+    driver.get_modulation_state.return_value = (ModulationType.AM, False)
     return driver
 
 
@@ -772,17 +773,40 @@ def test_modulation_enable_delegates_to_driver(awg: InstroAWG, mock_driver: Magi
 
 def test_modulation_enable_returns_command_with_correct_descriptor(awg: InstroAWG, mock_driver: MagicMock) -> None:
     cmd = awg.modulation_enable(1, True)
-    assert "test_awg.ch1.modulation.cmd" in cmd.channel_data
+    assert "test_awg.ch1.modulation_enabled.cmd" in cmd.channel_data
 
 
 def test_modulation_enable_false_publishes_off(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    # _package_command coerces bool to float (see InstroAWG.output_enable's identical pattern).
     cmd = awg.modulation_enable(1, False)
-    assert cmd.channel_data["test_awg.ch1.modulation.cmd"] == "OFF"
+    assert cmd.channel_data["test_awg.ch1.modulation_enabled.cmd"] == 0.0
 
 
 def test_modulation_enable_true_publishes_on(awg: InstroAWG, mock_driver: MagicMock) -> None:
     cmd = awg.modulation_enable(1, True)
-    assert cmd.channel_data["test_awg.ch1.modulation.cmd"] == "ON"
+    assert cmd.channel_data["test_awg.ch1.modulation_enabled.cmd"] == 1.0
+
+
+def test_get_modulation_state_delegates_to_driver(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    awg.get_modulation_state(1)
+    mock_driver.get_modulation_state.assert_called_once_with(channel=1)
+
+
+def test_get_modulation_state_returns_measurement_with_correct_descriptor(
+    awg: InstroAWG, mock_driver: MagicMock
+) -> None:
+    mock_driver.get_modulation_state.return_value = (ModulationType.AM, True)
+    meas = awg.get_modulation_state(1)
+    assert meas is not None
+    assert meas.channel_data["test_awg.ch1.modulation_enabled"] == [1.0]
+
+
+def test_get_modulation_state_ships_type_as_tag(awg: InstroAWG, mock_driver: MagicMock) -> None:
+    mock_driver.get_modulation_state.return_value = (ModulationType.FM, False)
+    meas = awg.get_modulation_state(1)
+    assert meas is not None
+    assert meas.channel_data["test_awg.ch1.modulation_enabled"] == [0.0]
+    assert meas.tags["mod_type"] == "FM"
 
 
 # ---------------------------------------------------------------------------

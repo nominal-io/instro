@@ -96,6 +96,10 @@ class AWGDriverBase(abc.ABC):
         """Enable or disable modulation on the given channel."""
         raise NotImplementedError(f"modulation_enable is not implemented for {type(self).__name__}")
 
+    def get_modulation_state(self, channel: int) -> tuple[ModulationType, bool]:
+        """Get the modulation type and enabled state currently active on channel, read directly from the instrument."""
+        raise NotImplementedError(f"get_modulation_state is not implemented for {type(self).__name__}")
+
 
 _PUBLISHED_NAMES: dict[type, str] = {
     Sine: "SINE",
@@ -388,5 +392,16 @@ class InstroAWG(Instrument):
             self._driver.modulation_enable(channel=channel, enable=enable)
             timestamp = time.time_ns()
             self._check_errors()
-        descriptor = f"ch{channel}.modulation.cmd"
-        return self._package_command(descriptor, "ON" if enable else "OFF", timestamp, **kwargs)
+        descriptor = f"ch{channel}.modulation_enabled.cmd"
+        return self._package_command(descriptor, enable, timestamp, **kwargs)
+
+    @publish_measurement
+    def get_modulation_state(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back whether modulation is enabled on channel, from the instrument; active type ships as a tag."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            mod_type, enabled = self._driver.get_modulation_state(channel=channel)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.modulation_enabled"
+        return self._package_measurement(descriptor, enabled, timestamp, mod_type=mod_type.value, **kwargs)
