@@ -148,3 +148,18 @@ def test_warns_only_when_requested_interval_is_unachievable(caplog):
 
     assert len(caplog.records) == 1
     assert "cannot achieve the requested interval" in caplog.records[0].getMessage()
+
+
+def test_free_running_interval_never_warns(caplog):
+    instrument = Instrument(name="ut")
+    instrument.define_background_daemon(lambda: time.sleep(0.005))
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.instrument"):
+        try:
+            instrument.background_interval = 0
+            instrument.start()
+            instrument.get_channel("loop_time", length=10, wait_for_new_samples=True, timeout=5.0)
+        finally:
+            instrument.stop()
+
+    assert not caplog.records, "warned about a free-running daemon, which has no requested rate"

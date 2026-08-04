@@ -248,6 +248,7 @@ class Instrument:
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
         """Append ``method`` to the daemon's call list. Use ``define_background_daemon`` to replace instead."""
         self._background_methods.append((method, args, kwargs))
+        self._reset_daemon_timing()
 
     def _setup_channel_buffer(self, buffer_length: int):
         # Create a channel buffer if one doesn't already exist. Add it to list of publishers.
@@ -385,6 +386,10 @@ class Instrument:
         This doesn't give timing guarantees about the background daemon rate,
         just warn when work_time > requested interval.
         """
+        # An interval of 0 asks for free-running, so there is no rate to fall short of.
+        if self._background_config.interval <= 0:
+            return
+
         self._daemon_work_times.append(work_time_s)
         if self._interval_warning_issued or len(self._daemon_work_times) != self._daemon_work_times.maxlen:
             return
@@ -395,10 +400,9 @@ class Instrument:
 
         logger.warning(
             "Background daemon for instrument '%s' cannot achieve the requested interval of %.6f s; "
-            "average work time over %d cycles is %.6f s, which is the fastest achievable interval.",
+            "set background daemon interval to value greater than %.6f, which was the average work time.",
             self.name,
             self._background_config.interval,
-            len(self._daemon_work_times),
             average_work_time_s,
         )
         self._interval_warning_issued = True
