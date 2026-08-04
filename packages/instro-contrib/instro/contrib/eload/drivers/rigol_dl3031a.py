@@ -91,6 +91,24 @@ class RigolDL3031A(ELoadDriverBase):
         return self._query_checked_float("MEASure:VOLTage?")
 
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
+    # :TRIGger commands
+    def trigger(self) -> None:
+        """
+        Initiate trigger when Bus is selected as trigger source.
+        """
+        self._write_checked(f"TRIGger:IMMediate")
+
+    def set_trigger_source(self, source: Literal["BUS", "EXTernal", "MANual"]) -> None:
+        """
+        Select trigger source.
+
+        BUS: triggers when receiving remote :TRIGger command
+        EXTernal: triggers when receiving low pulse over trigger terminal in rear panel I/O interface
+        MANual (default): triggers when pressing TRAN key on front panel
+        """
+        self._write_checked(f"TRIGger:SOURce {source}")
+
+    # [:SOURce] commands
     def set_input_state(self, enable: EnableVal) -> None:
         """
         Set eload input to be on/off.
