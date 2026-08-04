@@ -443,10 +443,6 @@ class InstroDAQ(Instrument):
         self._is_sw_timing_configured = False
         self._running = False
 
-        self._background_config.interval = (
-            0  # DAQ reads block so set this to zero because they implicitly time the loop
-        )
-
     @property
     def driver(self) -> DAQDriverBase:
         """The underlying vendor driver. Source of truth for all channel/timing state."""
@@ -907,6 +903,9 @@ class InstroDAQ(Instrument):
         )
 
         self._driver.configure_ai_hw_timing(hw_timing_config=hw_timing_config)
+        self._background_config.interval = (
+            0  # DAQ reads block so set this to zero because they implicitly time the loop
+        )
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
