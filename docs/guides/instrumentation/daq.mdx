@@ -51,12 +51,12 @@ InstroDAQ supports three acquisition modes:
 - Use case: Low-frequency monitoring, event-driven sampling
 
 **Software-Timed (Background Daemon)**
-- Configure the polling rate with `configure_ai_sw_sample_rate()`
+- Configure the polling rate with `configure_sw_sample_rate()`
 - Call `start()` to launch the background daemon, which calls `read_analog()` once per period and publishes the results
 - Use case: Low-frequency continuous monitoring without a hardware sample clock
 
 **Hardware-Timed (Buffered Acquisition)**
-- Configure sample rate with `configure_ai_hw_sample_rate()`
+- Configure sample rate with `configure_hw_sample_rate()`
 - Call `start()` to begin background acquisition
 - Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
@@ -274,10 +274,10 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 
 ### Hardware-Timed Sample Rate
 
-For continuous hardware-timed acquisition, configure the sample rate. `configure_ai_sample_rate()` is an alias for `configure_ai_hw_sample_rate()`.
+For continuous hardware-timed acquisition, configure the sample rate. `configure_ai_sample_rate()` is an alias for `configure_hw_sample_rate()`.
 
 ```python
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=1000.0,  # Hz
     samples_per_channel=500  # Optional: samples per read (defaults to sample_rate/10)
 )
@@ -307,7 +307,7 @@ A single `InstroDAQ` instance carries one analog input sample rate. To run multi
 For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` calls at `1 / sample_rate`.
 
 ```python
-daq.configure_ai_sw_sample_rate(
+daq.configure_sw_sample_rate(
     sample_rate=10.0,  # Hz, paces the background daemon loop
 )
 ```
@@ -368,7 +368,7 @@ daq.configure_analog_channel(
 )
 
 # Pace the background daemon at 10 Hz (no hardware clock is involved)
-daq.configure_ai_sw_sample_rate(sample_rate=10)
+daq.configure_sw_sample_rate(sample_rate=10)
 
 daq.start()
 
@@ -415,7 +415,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=100,  # 100 Hz
 )
 
@@ -463,7 +463,7 @@ daq.open()
 
 # Configure channels and timing (same as above)
 daq.configure_analog_channel(...)
-daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
+daq.configure_hw_sample_rate(sample_rate=100, samples_per_channel=10)
 
 # Start hardware acquisition (fills buffer) without spinning the background daemon
 daq.start(background=False)
@@ -708,7 +708,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing for 100 Hz acquisition
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=100,
     samples_per_channel=10
 )
@@ -763,8 +763,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
-| `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
-| `configure_ai_sw_sample_rate(sample_rate)` | Set the software-timed polling rate for analog input |
+| `configure_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
+| `configure_sw_sample_rate(sample_rate)` | Set the software-timed polling rate for analog input |
 | `start()` | Begin acquisition (device task, background daemon, or both) |
 | `stop()` | End acquisition and stop the background daemon |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
@@ -845,7 +845,7 @@ The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channe
 
 ### Timing Configuration
 
-- **`configure_ai_hw_timing(hw_timing_config)`**: Program hardware-timed sampling on the device, then record on `self._ai_hw_timing_config` so `start`/`fetch_analog` can read it back.
+- **`configure_hw_timing(hw_timing_config)`**: Program hardware-timed sampling on the device, then record on `self._ai_hw_timing_config` so `start`/`fetch_analog` can read it back.
 
 ### Acquisition Control
 
@@ -909,7 +909,7 @@ To keep every driver consistent, `DAQDriverBase.__init__` initializes the privat
 | `_di_channels` | `di_channels` | `dict[str, DigitalChannel]` | `configure_di_line_channel` / `configure_di_port_channel` | digital-input read paths |
 | `_do_channels` | `do_channels` | `dict[str, DigitalChannel]` | `configure_do_line_channel` / `configure_do_port_channel` | digital-output write paths |
 | `_relay_channels` | `relay_channels` | `dict[str, RelayChannel]` | `define_relay_channel` (base default already records; overrides must too) | `open_relay` / `close_relay` |
-| `_ai_hw_timing_config` | `ai_hw_timing_config` | `HWTimingConfig \| None` | `configure_ai_hw_timing` | `start`, `fetch_analog` |
+| `_ai_hw_timing_config` | `ai_hw_timing_config` | `HWTimingConfig \| None` | `configure_hw_timing` | `start`, `fetch_analog` |
 | `_ao_hw_timing_config` / `_di_hw_timing_config` / `_do_hw_timing_config` | `ao/di/do_hw_timing_config` | `HWTimingConfig \| None` | (forward-compat; unused today) | — |
 | `points_in_buffer` | `points_in_buffer` | `int` | `fetch_analog` (per-call) | `InstroDAQ.get_points_in_buffer` |
 
@@ -929,7 +929,7 @@ class MyDriver(DAQDriverBase):
         ...  # program the device
         self._ai_channels[channel.alias] = channel
 
-    def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
+    def configure_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
         ...  # program the device
         self._ai_hw_timing_config = hw_timing_config
 
@@ -971,11 +971,11 @@ End users read `daq.ai_channels` as a mapping, but it is a **frozen snapshot**: 
 
 #### Example: Vendor differences in timing
 
-Different vendors configure timing differently, but InstroDAQ users must always configure a timing mode before `start()`. Hardware timing (`configure_ai_hw_sample_rate()`) reaches the driver through `configure_ai_hw_timing()`; software timing (`configure_ai_sw_sample_rate()`) is handled entirely by `InstroDAQ`, which paces the daemon around the driver's `read_analog()`.
+Different vendors configure timing differently, but InstroDAQ users must always configure a timing mode before `start()`. Hardware timing (`configure_hw_sample_rate()`) reaches the driver through `configure_hw_timing()`; software timing (`configure_sw_sample_rate()`) is handled entirely by `InstroDAQ`, which paces the daemon around the driver's `read_analog()`.
 
-- **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver implements this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()` and then stores the config on `self._ai_hw_timing_config`.
+- **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver implements this in `configure_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()` and then stores the config on `self._ai_hw_timing_config`.
 
-- **LabJack LJM**: Sample rate is configured when `ljm.eStreamStart()` is called. The driver records the `HWTimingConfig` in `configure_ai_hw_timing()` and reads it back from `self._ai_hw_timing_config` inside `start()`.
+- **LabJack LJM**: Sample rate is configured when `ljm.eStreamStart()` is called. The driver records the `HWTimingConfig` in `configure_hw_timing()` and reads it back from `self._ai_hw_timing_config` inside `start()`.
 
 **Driver's Job**: Implement these differences so the user interface is consistent at the `InstroDAQ` level.
 

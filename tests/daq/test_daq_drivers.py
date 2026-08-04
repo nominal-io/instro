@@ -90,7 +90,7 @@ class _RecordingDriver(DAQDriverBase):
     def configure_do_channel(self, channel):
         self._do_channels[channel.alias] = channel
 
-    def configure_ai_hw_timing(self, hw_timing_config):
+    def configure_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
 
     def configure_di_line_channel(self, physical_channel, logic, logic_level=None, alias=None):
@@ -427,7 +427,7 @@ def test_configure_while_running_raises():
     """A new configure_* method refuses to configure a channel while acquisition is running (nothing recorded)."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_ai_hw_sample_rate(sample_rate=1000)
+    daq.configure_hw_sample_rate(sample_rate=1000)
     daq.start(background=False)
 
     with pytest.raises(RuntimeError, match=r"cannot configure channel 'v0' while 'ut' is running; call stop\(\)"):
@@ -441,7 +441,7 @@ def test_configure_after_stop_succeeds():
     """stop() clears the running guard so channels can be configured again."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_ai_hw_sample_rate(sample_rate=1000)
+    daq.configure_hw_sample_rate(sample_rate=1000)
     daq.start(background=False)
     daq.stop()
 
@@ -939,7 +939,7 @@ def _hw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
     daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
-    daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
+    daq.configure_hw_sample_rate(sample_rate=100, samples_per_channel=10)
     return daq, mock_driver
 
 
@@ -950,7 +950,7 @@ def _sw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
     daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
-    daq.configure_ai_sw_sample_rate(sample_rate=100)
+    daq.configure_sw_sample_rate(sample_rate=100)
     return daq, mock_driver
 
 
@@ -1225,7 +1225,7 @@ def test_write_unconfigured_channel_raises_before_writing_anything():
 # --- software-timed background daemon ---
 
 
-def test_configure_ai_sw_sample_rate_sets_loop_period_and_buffer_length():
+def test_configure_sw_sample_rate_sets_loop_period_and_buffer_length():
     """SW timing paces the daemon at 1/rate and sizes the channel buffer for ~10 s of samples."""
     daq, _ = _sw_timed_daq()
 
@@ -1242,22 +1242,22 @@ def test_hw_and_sw_timing_are_mutually_exclusive(order: str):
     daq.open()
 
     if order == "hw-then-sw":
-        daq.configure_ai_hw_sample_rate(sample_rate=100)
+        daq.configure_hw_sample_rate(sample_rate=100)
         with pytest.raises(TimingConfigException, match="already configured for hardware timing"):
-            daq.configure_ai_sw_sample_rate(sample_rate=10)
+            daq.configure_sw_sample_rate(sample_rate=10)
     else:
-        daq.configure_ai_sw_sample_rate(sample_rate=10)
+        daq.configure_sw_sample_rate(sample_rate=10)
         with pytest.raises(TimingConfigException, match="already configured for software timing"):
-            daq.configure_ai_hw_sample_rate(sample_rate=100)
+            daq.configure_hw_sample_rate(sample_rate=100)
 
 
-def test_configure_ai_sw_sample_rate_rejects_nonpositive_rate():
+def test_configure_sw_sample_rate_rejects_nonpositive_rate():
     """A 0 Hz poll rate has no period; the guard raises before it can poison the loop interval."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
 
     with pytest.raises(ValueError, match="greater than 0 Hz"):
-        daq.configure_ai_sw_sample_rate(sample_rate=0)
+        daq.configure_sw_sample_rate(sample_rate=0)
     assert not daq.is_sw_timing_configured
 
 
