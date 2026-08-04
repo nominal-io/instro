@@ -95,7 +95,7 @@ class DAQDriverBase(abc.ABC):
     same snapshots for user introspection — it does not keep its own copies.
     """
 
-    points_in_buffer: int
+    _buffer_depths: dict[str, int]
 
     _ai_channels: dict[str, AnalogChannel]
     _ao_channels: dict[str, AnalogChannel]
@@ -109,7 +109,7 @@ class DAQDriverBase(abc.ABC):
     _do_hw_timing_config: HWTimingConfig | None
 
     def __init__(self) -> None:
-        self.points_in_buffer = 0
+        self._buffer_depths = {}
 
         self._ai_channels = {}
         self._ao_channels = {}
@@ -172,6 +172,26 @@ class DAQDriverBase(abc.ABC):
     @property
     def do_hw_timing_config(self) -> HWTimingConfig | None:
         return self._do_hw_timing_config
+
+    @property
+    def buffer_depths(self) -> Mapping[str, int]:
+        """Frozen snapshot of hardware buffer backlogs, keyed by published channel suffix.
+
+        Fetch implementations record one entry per acquisition buffer the
+        hardware actually has: single shared-engine drivers set ``"buffer"``
+        (via the :attr:`points_in_buffer` alias), per-task drivers like NI
+        set one entry per task (``"ai_buffer"``, ``"di_buffer"``, …).
+        """
+        return MappingProxyType(dict(self._buffer_depths))
+
+    @property
+    def points_in_buffer(self) -> int:
+        """Depth of the single shared buffer; alias for ``buffer_depths["buffer"]``."""
+        return self._buffer_depths.get("buffer", 0)
+
+    @points_in_buffer.setter
+    def points_in_buffer(self, depth: int) -> None:
+        self._buffer_depths["buffer"] = depth
 
     @abc.abstractmethod
     def open(self):
@@ -355,10 +375,11 @@ class DAQDriverBase(abc.ABC):
     ) -> Any:
         """Block until ``samples_per_channel`` new DI samples are available, then return them.
 
-        Digital mirror of :meth:`fetch_analog`: drivers should set
-        ``self.points_in_buffer`` for buffer-depth telemetry and return ``dt``
-        (ns per sample) so the wrapper can build contiguous timestamps via
-        ``HWTimestamper``. Override if the driver supports hardware-timed digital input.
+        Digital mirror of :meth:`fetch_analog`: drivers with per-task buffers
+        should record backlog on ``self._buffer_depths`` (e.g. ``"di_buffer"``)
+        and return ``dt`` (ns per sample) so the wrapper can build contiguous
+        timestamps via ``HWTimestamper``. Override if the driver supports
+        hardware-timed digital input.
         """
         raise NotImplementedError("Hardware-timed digital input has not been configured for this driver")
 
@@ -1129,6 +1150,8 @@ class InstroDAQ(Instrument):
 
         if self.is_hw_timing_configured:
             measurements = self._fetch_analog_hw_timed(**kwargs)
+            # Manual hw-timed reads publish depth here; in daemon mode the loop publishes it instead.
+            self.get_points_in_buffer()
 
         else:
             measurements = self._software_timed_read(**kwargs)
@@ -1151,7 +1174,7 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def _fetch_analog_hw_timed(self, **kwargs) -> list[Measurement]:
-        """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
+        """Fetch buffered samples as a list."""
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
@@ -1166,12 +1189,7 @@ class InstroDAQ(Instrument):
             default_tags=self.default_tags,
             **kwargs,
         )
-        measurements = self._scale_analog_measurement(measurements)
-
-        # HW-timed acquisition: also publish current buffer depth as telemetry.
-        self.get_points_in_buffer()
-
-        return measurements
+        return self._scale_analog_measurement(measurements)
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:
@@ -1301,6 +1319,10 @@ class InstroDAQ(Instrument):
 
         if self.is_hw_timing_configured:
             measurements = self._fetch_digital_hw_timed(**kwargs)
+            # Manual hw-timed reads publish depth here; in daemon mode the loop publishes it instead.
+            # Make sure we don't publish in read_analog() and here
+            if not self.ai_channels:
+                self.get_points_in_buffer()
 
         else:
             measurements = self._software_timed_digital_read(**kwargs)
@@ -1514,7 +1536,7 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def _fetch_digital_hw_timed(self, **kwargs) -> list[Measurement]:
-        """Fetch buffered DI samples as a list; publishes buffer depth on ``{name}.buffer`` only when AI isn't."""
+        """Fetch buffered DI samples as a list."""
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch digital data without hardware timing configured. "
@@ -1522,20 +1544,13 @@ class InstroDAQ(Instrument):
             )
 
         response = self._driver.fetch_digital()
-        measurements = self._driver._read_to_measurements(
+        return self._driver._read_to_measurements(
             response=response,
             channel_list=self.di_channels,
             daq_name=self.name,
             default_tags=self.default_tags,
             **kwargs,
         )
-
-        # `points_in_buffer` is one driver-wide counter on a single channel, so the AI fetch owns
-        # publishing it whenever AI is active; DI only reports depth when it's the sole consumer.
-        if not self.ai_channels:
-            self.get_points_in_buffer()
-
-        return measurements
 
     def configure_relay_channel(
         self,
@@ -1591,6 +1606,10 @@ class InstroDAQ(Instrument):
             fetches.append(
                 self._software_timed_digital_read if self.is_sw_timing_configured else self._fetch_digital_hw_timed
             )
+        # Buffer depth is one driver-wide counter, so publish it once per loop instead of per domain fetch.
+        if fetches and self.is_hw_timing_configured:
+            fetches.append(self.get_points_in_buffer)
+
         for fetch in fetches:
             if not any(method == fetch for method, _, _ in self._background_methods):
                 self.add_background_daemon_function(fetch)
@@ -1600,10 +1619,22 @@ class InstroDAQ(Instrument):
         return self._driver.get_actual_sample_rate()
 
     @publish_measurement
-    def get_points_in_buffer(self, **kwargs) -> Measurement:
-        """Publish the current DAQ buffer depth on channel ``{name}.buffer``."""
+    def get_points_in_buffer(self, **kwargs) -> Measurement | None:
+        """Publish each hardware buffer's backlog depth on ``{name}.<key>`` (e.g. ``{name}.buffer``).
+
+        The driver owns the depth values (``driver.buffer_depths``); this method
+        reads the snapshot and publishes one channel per buffer. Returns ``None``
+        (publishing nothing) until a fetch has recorded a depth.
+        """
         self._require_open()
-        return self._package_measurement("buffer", self._driver.points_in_buffer, time.time_ns(), **kwargs)
+        if not (depths := self._driver.buffer_depths):
+            return None
+        timestamp = time.time_ns()
+        return Measurement(
+            channel_data={f"{self.name}.{key}": [float(depth)] for key, depth in depths.items()},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
 
 
 class HWTimingException(InstroError): ...

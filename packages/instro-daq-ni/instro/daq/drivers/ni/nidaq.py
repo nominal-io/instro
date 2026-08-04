@@ -401,6 +401,7 @@ class NIDAQDriver(DAQDriverBase):
         if isinstance(data[0], float):
             data = [data]
 
+        # TODO: record on _buffer_depths["ai_buffer"] once fetch_digital lands — each DAQmx task has its own buffer.
         self.points_in_buffer = task.in_stream.avail_samp_per_chan
         return DAQmxData(data=data, timestamp=timestamp, dt=self._actual_sample_period)
 
