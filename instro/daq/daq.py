@@ -219,13 +219,13 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Thermocouple input has not been configured for this driver")
 
     @abc.abstractmethod
-    def configure_ai_hw_timing(
+    def configure_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
-        """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
+        """Configure hardware-timed sampling at ``hw_timing_config.sample_rate``.
 
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
+        Called before ``start()`` whenever ``InstroDAQ.configure_hw_sample_rate()``
         is invoked. The driver should program the sample clock and any
         ``samples_per_channel`` buffer sizing the underlying SDK requires.
         """
@@ -521,23 +521,23 @@ class InstroDAQ(Instrument):
 
     @property
     def is_hw_timing_configured(self) -> bool:
-        """True once ``configure_ai_hw_sample_rate()`` has programmed the AI sample clock."""
+        """True once ``configure_hw_sample_rate()`` has programmed the sample clock."""
         return self.ai_hw_timing_config is not None
 
     @property
     def is_sw_timing_configured(self) -> bool:
-        """True once ``configure_ai_sw_sample_rate()`` has set a software-timed polling rate."""
+        """True once ``configure_sw_sample_rate()`` has set a software-timed polling rate."""
         return self._is_sw_timing_configured
 
     # Need to ensure background interval never adds a wait for hardware-timed InstroDAQ
     @property
     def background_interval(self) -> float:
-        """Daemon loop period (s); 0 unless ``configure_ai_sw_sample_rate()`` set a software-timed rate."""
+        """Daemon loop period (s); 0 unless ``configure_sw_sample_rate()`` set a software-timed rate."""
         return self._background_config.interval
 
     @background_interval.setter
     def background_interval(self, seconds: float):
-        """No-op for DAQ — set the loop period with ``configure_ai_sw_sample_rate()`` instead."""
+        """No-op for DAQ — set the loop period with ``configure_sw_sample_rate()`` instead."""
         return
 
     def _require_open(self) -> None:
@@ -895,20 +895,20 @@ class InstroDAQ(Instrument):
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
-        self.configure_ai_hw_sample_rate(
+        self.configure_hw_sample_rate(
             sample_rate=sample_rate,
             samples_per_channel=samples_per_channel,
         )
 
-    def configure_ai_hw_sample_rate(
+    def configure_hw_sample_rate(
         self,
         sample_rate: float,
         samples_per_channel: int | None = None,
     ):
-        """Configure the hardware sample clock for AI channels.
+        """Configure the hardware sample clock.
 
         Args:
-            sample_rate: Sample rate (Hz). Applies to all AI channels.
+            sample_rate: Sample rate (Hz). Applies to every configured channel.
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
@@ -927,23 +927,23 @@ class InstroDAQ(Instrument):
             samples_per_channel=samples_per_channel,
         )
 
-        self._driver.configure_ai_hw_timing(hw_timing_config=hw_timing_config)
+        self._driver.configure_hw_timing(hw_timing_config=hw_timing_config)
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
         )
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
-        logger.info("Configured AI hardware timing on DAQ '%s'", self.name)
+        logger.info("Configured hardware timing on DAQ '%s'", self.name)
 
-    def configure_ai_sw_sample_rate(
+    def configure_sw_sample_rate(
         self,
         sample_rate: float,
     ):
-        """Configure the software-timed polling rate for AI channels.
+        """Configure the software-timed polling rate.
 
         Args:
-            sample_rate: Rate (Hz) at which the background daemon polls AI channels.
+            sample_rate: Rate (Hz) at which the background daemon polls configured channels.
         """
         self._require_open()
         if self.is_hw_timing_configured:
@@ -960,7 +960,7 @@ class InstroDAQ(Instrument):
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
-        logger.info("Configured AI software timing on DAQ '%s' at %s Hz", self.name, sample_rate)
+        logger.info("Configured software timing on DAQ '%s' at %s Hz", self.name, sample_rate)
 
     def start(self, background: bool = True, **kwargs):
         """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
@@ -987,7 +987,7 @@ class InstroDAQ(Instrument):
                 return
 
             # If no timing configured and start called, resort to sw timed daemon at default rate
-            self.configure_ai_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
+            self.configure_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
 
         if self.is_sw_timing_configured:
             if not background:
@@ -1081,7 +1081,7 @@ class InstroDAQ(Instrument):
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
-                "Call configure_ai_hw_sample_rate() before starting a hardware-timed acquisition."
+                "Call configure_hw_sample_rate() before starting a hardware-timed acquisition."
             )
 
         response = self._driver.fetch_analog()
