@@ -91,6 +91,25 @@ class RigolDL3031A(ELoadDriverBase):
         return self._query_checked_float("MEASure:VOLTage?")
 
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
+    def set_input_state(self, enable: EnableVal) -> None:
+        """
+        Set eload input to be on/off.
+        """
+        self._write_checked(f"INPut:STATe {enable}")
+
+    def set_function_mode(self, mode: Literal["FIXed", "LIST", "WAVe", "BATTery", "OCP", "OPP"]) -> None:
+        """
+        Sets input regulation mode.
+
+        FIXed: controlled by FUNCtion command
+        LIST: controlled by activated list command
+        WAVe: controlled by waveform display command
+        BATTery: controlled by battery discharge command
+        OCP: controlled by OCP command
+        OPP: controlled by OPP command
+        """
+        self._write_checked(f"FUNCtion:MODE {mode}")
+
     def set_transient_trigger(self, state: EnableVal | None = None) -> None:
         """
         Set trigger function to be on or off.
@@ -316,6 +335,12 @@ class RigolDL3031A(ELoadDriverBase):
         cmd_root = "LIST"
         scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
+
+    def set_sense_state(self, enable: EnableVal) -> None:
+        """
+        Enable/disable sense function.
+        """
+        self._write_checked(f"SENSe {enable}")
 
     def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
         """
