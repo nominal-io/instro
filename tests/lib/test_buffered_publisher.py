@@ -2,7 +2,7 @@ import sys
 import threading
 
 from instro.lib import Command, Measurement
-from instro.lib.publishers import BasicBufferedPublisher, Publisher
+from instro.lib.publishers import BasicBufferedPublisher, FilePublisher, Publisher
 
 
 class RecordingPublisher(Publisher):
@@ -153,3 +153,21 @@ def test_concurrent_publish_and_close_is_thread_safe():
     assert publisher.buffer == []
     # Whatever did reach the sink got there exactly once: no double-processing.
     assert len(seen_timestamps) == len(set(seen_timestamps))
+
+
+def test_double_close_does_not_replay_buffer_into_closed_file(tmp_path):
+    # Regression test for #232: close() used to leave the drained buffer in place, so a
+    # second close() (e.g. an explicit close() followed by __exit__) replayed it into the
+    # already-closed file writer, raising "ValueError: I/O operation on closed file" for
+    # handle-based writers like jsonl/avro.
+    measurement = Measurement(channel_data={"voltage": [1.0]}, timestamps=[100])
+    publisher = BasicBufferedPublisher(
+        FilePublisher(tmp_path, format="jsonl", custom_file_name="capture"), buffer_size=1000
+    )
+
+    publisher.publish(measurement)  # buffered, below threshold
+    publisher.close()  # drains buffer, closes the file
+    publisher.close()  # must be a no-op, not a replay into the closed file
+
+    lines = (tmp_path / "capture.jsonl").read_text().splitlines()
+    assert len(lines) == 1
