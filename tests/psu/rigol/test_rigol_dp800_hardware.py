@@ -338,6 +338,24 @@ def test_get_current(driver: RigolDP800, channel_config: ChannelConfig) -> None:
 
 
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_voltage_setpoint(driver: RigolDP800, channel_config: ChannelConfig) -> None:
+    driver.set_voltage(channel_config.programmed_voltage, channel=channel_config.channel)
+
+    setpoint = driver.get_voltage_setpoint(channel=channel_config.channel)
+    _stream(f"ch{channel_config.channel}.voltage_setpoint_v", setpoint)
+    assert setpoint == pytest.approx(channel_config.programmed_voltage)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_current_setpoint(driver: RigolDP800, channel_config: ChannelConfig) -> None:
+    driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
+
+    setpoint = driver.get_current_setpoint(channel=channel_config.channel)
+    _stream(f"ch{channel_config.channel}.current_setpoint_a", setpoint)
+    assert setpoint == pytest.approx(channel_config.programmed_current_limit)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
 def test_output_enable(driver: RigolDP800, channel_config: ChannelConfig) -> None:
     driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
     driver.set_voltage(channel_config.programmed_voltage, channel=channel_config.channel)

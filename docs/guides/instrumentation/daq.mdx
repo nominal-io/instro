@@ -23,9 +23,9 @@ The typical InstroDAQ workflow follows this pattern:
 1. **`InstroDAQ(name, driver, ...)`** - Instantiate the DAQ with a vendor driver
 2. **`open()`** - Establish connection to the hardware
 3. **Configure** - Set up <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channels</Tooltip>, timing, and other settings
-4. **`start()`** - Begin hardware-timed acquisition (if using hardware timing)
+4. **`start()`** - Begin acquisition (if using hardware timing or the software-timed daemon)
 5. **Acquire data** - Read/fetch measurements
-6. **`stop()`** - End acquisition (if using hardware timing)
+6. **`stop()`** - End acquisition (if started)
 7. **`close()`** - Disconnect from hardware
 
 
@@ -43,18 +43,25 @@ Channel aliases are used as channel names when data is published to Nominal Core
 
 ### Timing Modes
 
-InstroDAQ supports two acquisition modes:
+InstroDAQ supports three acquisition modes:
 
 **Software-Timed (Manual Polling)**
 - You call `read_analog()` when you want a sample
 - No need to call `start()` or `stop()`
 - Use case: Low-frequency monitoring, event-driven sampling
 
+**Software-Timed (Background Daemon)**
+- Configure the polling rate with `configure_ai_sw_sample_rate()`
+- Call `start()` to launch the background daemon, which calls `read_analog()` once per period and publishes the results
+- Use case: Low-frequency continuous monitoring without a hardware sample clock
+
 **Hardware-Timed (Buffered Acquisition)**
-- Configure sample rate with `configure_ai_sample_rate()`
+- Configure sample rate with `configure_ai_hw_sample_rate()`
 - Call `start()` to begin background acquisition
 - Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
+
+Hardware and software timing are mutually exclusive on one instance: configuring the second mode raises `HWTimingException`. To run both against one device, build a separate `InstroDAQ` per mode with non-overlapping channels: see the [NI hardware- and software-timed example](/instrumentation/examples/daq/daq_hw_and_sw_timed_ni).
 
 ## Creating an InstroDAQ Instance
 
@@ -267,10 +274,10 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 
 ### Hardware-Timed Sample Rate
 
-For continuous hardware-timed acquisition, configure the sample rate.
+For continuous hardware-timed acquisition, configure the sample rate. `configure_ai_sample_rate()` is an alias for `configure_ai_hw_sample_rate()`.
 
 ```python
-daq.configure_ai_sample_rate(
+daq.configure_ai_hw_sample_rate(
     sample_rate=1000.0,  # Hz
     samples_per_channel=500  # Optional: samples per read (defaults to sample_rate/10)
 )
@@ -295,10 +302,21 @@ Different DAQ devices have different timing capabilities:
 A single `InstroDAQ` instance carries one analog input sample rate. To run multiple NI DAQmx tasks at different hardware sample rates, create one `InstroDAQ` instance per task: see the [NI multi-rate acquisition example](/instrumentation/examples/daq/daq_multi_rate_ni).
 </Note>
 
+### Software-Timed Sample Rate
+
+For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` calls at `1 / sample_rate`.
+
+```python
+daq.configure_ai_sw_sample_rate(
+    sample_rate=10.0,  # Hz, paces the background daemon loop
+)
+```
+
+The device never starts a buffered acquisition in this mode: each daemon iteration triggers an immediate conversion, timestamped when the read returns. The configured rate is a ceiling, not a guarantee. If a DAQ read takes longer than the period, the daemon runs as fast as the reads allow.
 
 ## Analog Input
 
-### Software-Timed Acquisition
+### Software-Timed Acquisition (Manual Polling)
 
 For manual, on-demand sampling:
 
@@ -331,6 +349,38 @@ The `read_analog()` method returns a `Measurement` object (or list of `Measureme
 - `timestamps`: List of timestamps (nanoseconds since epoch)
 - `values`: Property returning all values as a list (convenience for single-channel reads)
 - `latest`: Property returning the most recent value (convenience for single-channel reads)
+
+### Software-Timed Acquisition with the Background Daemon
+
+For continuous software-timed acquisition, configure a polling rate and `start()` the background daemon. The daemon calls `read_analog()` once per period and publishes the results.
+
+```python
+from instro.daq.types import Direction
+
+daq.open()
+
+daq.configure_analog_channel(
+    direction=Direction.INPUT,
+    physical_channel="AIN0",
+    alias="sensor_1",
+    range_min=0,
+    range_max=5
+)
+
+# Pace the background daemon at 10 Hz (no hardware clock is involved)
+daq.configure_ai_sw_sample_rate(sample_rate=10)
+
+daq.start()
+
+# Pull the latest sample from the channel buffer whenever you need it
+measurement = daq.get_channel("sensor_1", wait_for_new_samples=True)
+print(f"Value: {measurement.latest}")
+
+daq.stop()
+daq.close()
+```
+
+While the daemon is running, `read_analog()` raises: the daemon owns the reads. Use `get_channel()` to pull buffered samples instead. See the [software-timed example](/instrumentation/examples/daq/daq_read_analog_sw_timed).
 
 ### Hardware-Timed Acquisition with Background Fetching
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -365,7 +415,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing
-daq.configure_ai_sample_rate(
+daq.configure_ai_hw_sample_rate(
     sample_rate=100,  # 100 Hz
 )
 
@@ -413,7 +463,7 @@ daq.open()
 
 # Configure channels and timing (same as above)
 daq.configure_analog_channel(...)
-daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
 
 # Start hardware acquisition (fills buffer) without spinning the background daemon
 daq.start(background=False)
@@ -680,7 +730,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing for 100 Hz acquisition
-daq.configure_ai_sample_rate(
+daq.configure_ai_hw_sample_rate(
     sample_rate=100,
     samples_per_channel=10
 )
@@ -737,9 +787,10 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
-| `configure_ai_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input |
-| `start()` | Begin hardware-timed acquisition (background daemon) |
-| `stop()` | End hardware-timed acquisition |
+| `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
+| `configure_ai_sw_sample_rate(sample_rate)` | Set the software-timed polling rate for analog input |
+| `start()` | Begin acquisition (device task, background daemon, or both) |
+| `stop()` | End acquisition and stop the background daemon |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
 | `read(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
 | `write(channels, values)` | Write value(s) to output channel(s) by alias, paired by index |
@@ -787,7 +838,7 @@ A DAQ driver shall:
 1. **Hardware connection lifecycle**: Implement `open()` and `close()` for establishing and terminating hardware connections.
 2. **Channel and state tracking**: The driver is the single source of truth for what's configured. `DAQDriverBase.__init__` initializes the private dicts (`_ai_channels`, `_ao_channels`, `_di_channels`, `_do_channels`, `_relay_channels`) and the private timing-config slots (`_ai_hw_timing_config`, plus AO/DI/DO slots); concrete drivers call `super().__init__()`, then populate those privates inside their `configure_*` methods and read from them in `read_analog`, `fetch_analog`, `start`, `write_analog_value`, etc. `InstroDAQ` exposes the same state to end users via read-only `@property` accessors that hand back frozen snapshots (`daq.ai_channels`, `daq.ai_hw_timing_config`, …) — no duplication. See [Driver-owned state](#driver-owned-state) below.
 3. **Channel configuration**: Translate generic channel configurations into vendor-specific setup.
-4. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` will manage the background daemon for the hardware-timed acquisition.
+4. **Timing abstraction**: Implement both software-timed reads and hardware-timed buffered acquisition. `InstroDAQ` manages the background daemon for both timing modes; software-timed pacing never reaches the driver.
 5. **Data format conversion**: Convert vendor-specific data formats to `Measurement` objects.
 6. **Constraint validation**: Handle vendor-specific hardware constraints and raise clear exceptions when the vendor library cannot.
 
@@ -948,7 +999,7 @@ End users read `daq.ai_channels` as a mapping, but it is a **frozen snapshot**: 
 
 #### Example: Vendor differences in timing
 
-Different vendors configure timing differently, but InstroDAQ users must always call `configure_ai_sample_rate()` before `start()`.
+Different vendors configure timing differently, but InstroDAQ users must always configure a timing mode before `start()`. Hardware timing (`configure_ai_hw_sample_rate()`) reaches the driver through `configure_ai_hw_timing()`; software timing (`configure_ai_sw_sample_rate()`) is handled entirely by `InstroDAQ`, which paces the daemon around the driver's `read_analog()`.
 
 - **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver implements this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()` and then stores the config on `self._ai_hw_timing_config`.
 

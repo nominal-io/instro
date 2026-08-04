@@ -29,9 +29,17 @@ install *extras:
 python *args:
     uv run python "$@"
 
-# run unit tests plus EtherNet/IP packaging checks
-test: eip-test
+# run python unit tests
+test-python:
     uv run pytest
+
+# run Rust library, integration, and doc tests for the workspace
+test-rust:
+    cargo test --workspace --all-features --all-targets
+    cargo test --workspace --all-features --doc
+
+# run all python and Rust tests plus EtherNet/IP packaging checks
+test: test-rust test-python eip-test
 
 # check static typing
 check-types:
@@ -53,8 +61,16 @@ check-format:
 check-imports:
     uv run ruff check
 
+# run all python static analysis checks
+check-python: check-format check-types check-imports
+
+# check Rust formatting, lints, and lockfile | fix formatting with `just fix-rust`
+check-rust:
+    cargo +nightly fmt --all --check
+    cargo clippy --locked --all-features --all-targets --workspace -- -D warnings
+
 # run all static analysis checks
-check: check-format check-types check-imports
+check: check-python check-rust
 
 # fixes out-of-order imports (note: mutates the code)
 fix-imports:
@@ -64,8 +80,21 @@ fix-imports:
 fix-format:
     uv run ruff format
 
+# fix python imports and formatting
+fix-python: fix-format fix-imports
+
+# fixes Rust code formatting (note: mutates the code)
+fix-rust:
+    cargo +nightly fmt --all
+
 # fix imports and formatting
-fix: fix-format fix-imports
+fix: fix-python fix-rust
+
+# run all python tests and checks
+verify-python: install test-python check-python
+
+# run all Rust tests and checks
+verify-rust: test-rust check-rust
 
 # run all tests and checks
 verify: install test check
@@ -86,16 +115,9 @@ build-docs:
 gen-examples:
     uv run python docs/guides/generate_examples.py
 
-# run Rust formatting, linting, and library/doc tests for the workspace
-rust:
-    cargo fmt --all
-    cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-    cargo test --workspace --all-features --lib --tests
-    cargo test --workspace --all-features --doc
-
-# run the Rust explicit EtherNet/IP integration test against the bundled simulator
-eip-rs-test:
-    cargo test -p instro-ethernetip --test explicit_session_integration
+# performs the gen-examples step in a temp sandbox and reports if any files don't match
+check-examples:
+    uv run python docs/guides/check_examples.py
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
@@ -104,8 +126,7 @@ eip-live-test:
     export INSTRO_EIP_PLC_ENDPOINT=10.123.1.199:44818
     export INSTRO_EIP_ROUTE_PATH_SLOTS=0
     export INSTRO_EIP_TARGET_L32E=1
-    cargo test -p instro-ethernetip --test explicit_session_integration
-    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
+    uv run --reinstall-package instro-ethernetip --with-editable . pytest -m hardware tests/ethernetip/test_ethernetip_bindings.py -q
 
 # clean build of the EtherNet/IP Python bindings (sdist + wheel)
 # uv selects the workspace package via --package, then uses that package's
@@ -150,5 +171,6 @@ eip-wheel-smoke-test:
     INSTRO_EIP_WHEEL="$wheel" uv run "${uv_run_args[@]}" python tests/ethernetip/ethernetip_wheel_smoke.py
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
-eip-test: eip-sdist-smoke-test eip-wheel-smoke-test rust eip-rs-test
-    uv run --no-cache --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q
+eip-test: eip-sdist-smoke-test eip-wheel-smoke-test
+    cargo test --all-features --all-targets -p instro-ethernetip
+    uv run --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q

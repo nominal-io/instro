@@ -31,6 +31,7 @@ nav:
       - PSU: instruments/psu.md
       - Electronic Load: instruments/eload.md
       - Scope: instruments/scope.md
+      - Flow Controller: instruments/flowcontroller.md
       - I2C: instruments/i2c.md
   - Protocols:
       - protocols/index.md
