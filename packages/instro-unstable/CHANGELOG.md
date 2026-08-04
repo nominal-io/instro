@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.2.0...instro-unstable-v1.3.0) (2026-08-04)
+
+
+### Features
+
+* add support for alicat mc flow controller and the concept of an instro flow controller. First pass. Aimed for future compatibility for different flow control types and different vendors but expect to adapt as new vendors supported. ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* add support for alicat mc flow controller and the concept of an InstroFlowController ([#132](https://github.com/nominal-io/instro/issues/132)) ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* **awg:** add Rigol-DG1022Z driver ([#307](https://github.com/nominal-io/instro/issues/307)) ([168be78](https://github.com/nominal-io/instro/commit/168be78a092cf7847410059137f925d7cb7ea2c9))
+
 ## [1.2.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.1.0...instro-unstable-v1.2.0) (2026-07-27)
 
 
