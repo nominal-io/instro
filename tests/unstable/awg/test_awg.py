@@ -798,14 +798,14 @@ def test_get_modulation_state_returns_measurement_with_correct_descriptor(
     mock_driver.get_modulation_state.return_value = (ModulationType.AM, True)
     meas = awg.get_modulation_state(1)
     assert meas is not None
-    assert meas.channel_data["test_awg.ch1.modulation_enabled"] == [1.0]
+    assert meas.channel_data["test_awg.ch1.modulation_state"] == [1.0]
 
 
 def test_get_modulation_state_ships_type_as_tag(awg: InstroAWG, mock_driver: MagicMock) -> None:
     mock_driver.get_modulation_state.return_value = (ModulationType.FM, False)
     meas = awg.get_modulation_state(1)
     assert meas is not None
-    assert meas.channel_data["test_awg.ch1.modulation_enabled"] == [0.0]
+    assert meas.channel_data["test_awg.ch1.modulation_state"] == [0.0]
     assert meas.tags["mod_type"] == "FM"
 
 
