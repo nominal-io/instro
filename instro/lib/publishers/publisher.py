@@ -46,9 +46,8 @@ class BufferedPublisher(abc.ABC):
                 self.publisher.__class__.__name__,
             )
             return
-        if self.buffer:
-            self.publish_batch()
-            self.buffer.clear()
+        self.publish_batch()
+        self.buffer.clear()
         self.publisher.close()
         self._closed = True
 
