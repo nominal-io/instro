@@ -114,8 +114,8 @@ class TestNIDAQHWAndSWTimedHardware(unittest.TestCase):
                 )
 
             # One instance is hardware-timed, the other software-timed.
-            daq_hw.configure_ai_hw_sample_rate(sample_rate=HW_SAMPLE_RATE)
-            daq_sw.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
+            daq_hw.configure_hw_sample_rate(sample_rate=HW_SAMPLE_RATE)
+            daq_sw.configure_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
 
             # Each start() launches that instance's own background daemon.
             daq_hw.start()
@@ -164,7 +164,7 @@ class TestNIDAQHWAndSWTimedHardware(unittest.TestCase):
                 )
 
             # Request sample rate that sw timed daemon cannot support
-            daq_sw.configure_ai_sw_sample_rate(sample_rate=100)
+            daq_sw.configure_sw_sample_rate(sample_rate=100)
 
             # The daemon thread raises the warning; catch_warnings patches module-global state,
             # so it lands here. "always" defeats the dedup on the message text.

@@ -140,7 +140,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
         self._ao_channels[channel.alias] = channel
 
-    def configure_ai_hw_timing(
+    def configure_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
