@@ -114,8 +114,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Set trigger function to be on or off.
         """
-        cmd_root = "TRANsient:STATe"
-        self._write_cmd_with_params(cmd_root, state)
+        self._write_checked(f"TRANsient:STATe {state}")
 
     def set_cc_params(
         self,
