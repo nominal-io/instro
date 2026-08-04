@@ -144,7 +144,7 @@ class Keysight34980A(DAQDriverBase):
 
         self._ai_channels[channel.alias] = channel
 
-    def configure_hw_timing(
+    def configure_ai_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
