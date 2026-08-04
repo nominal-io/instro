@@ -28,7 +28,7 @@ class TransportBase(abc.ABC):
             if holder is None:
                 self._open_session()
                 return True
-            if holder in self._holders:
+            if self._holder_index(holder) is not None:
                 return False
             self._open_session()
             self._holders.append(holder)
@@ -42,9 +42,10 @@ class TransportBase(abc.ABC):
         """Close and teardown; with a holder, remove it and tear down only when the last owner leaves."""
         with self._lock:
             if holder is not None:
-                if holder not in self._holders:
+                index = self._holder_index(holder)
+                if index is None:
                     return
-                self._holders.remove(holder)
+                del self._holders[index]
                 if self._holders:
                     return
             elif self._holders:
@@ -62,6 +63,13 @@ class TransportBase(abc.ABC):
     def lock(self) -> threading.RLock:
         """Return the reentrant resource lock for atomic multi-step sequences; the holder may write/query/read inside it."""
         return self._lock
+
+    def _holder_index(self, holder: object) -> int | None:
+        """Position of ``holder`` by identity, or None; equal-but-distinct drivers must count as two owners."""
+        for index, held in enumerate(self._holders):
+            if held is holder:
+                return index
+        return None
 
     def __del__(self) -> None:
         """Teardown on GC, bypassing guards, swallowing errors."""

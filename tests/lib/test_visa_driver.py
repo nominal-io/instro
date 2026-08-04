@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import logging
 import socket
@@ -635,6 +636,38 @@ def test_open_same_holder_twice_returns_false(mock_pyvisa):
     assert first is True
     assert second is False
     rm_instance.open_resource.assert_called_once()
+
+
+def test_equal_but_distinct_holders_are_two_owners(mock_pyvisa):
+    """Holders are tracked by identity, not equality.
+
+    A driver written as a dataclass (or pydantic model) gets a field-based ``__eq__``, so two
+    separate instances configured alike compare equal. Matching holders by equality would collapse
+    them into one owner: the second driver would be told it is not the first owner and skip its
+    one-time device setup, and the first driver's close would tear the session out from under it.
+    """
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+
+    @dataclasses.dataclass
+    class _DataclassDriver:
+        channel: int
+
+    a, b = _DataclassDriver(channel=1), _DataclassDriver(channel=1)
+    assert a is not b and a == b  # the precondition that made this fail
+
+    assert driver.open(a) is True  # first owner
+    assert driver.open(b) is False  # second owner, but still registered as one
+
+    driver.close(a)
+
+    assert driver.is_open is True  # b still holds the session
+    resource.close.assert_not_called()
+
+    driver.close(b)
+
+    assert driver.is_open is False
+    resource.close.assert_called_once()
 
 
 def test_holder_open_after_bare_open_reports_first_owner(mock_pyvisa):
