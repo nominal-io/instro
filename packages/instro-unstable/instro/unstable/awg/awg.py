@@ -403,5 +403,5 @@ class InstroAWG(Instrument):
             mod_type, enabled = self._driver.get_modulation_state(channel=channel)
             timestamp = time.time_ns()
             self._check_errors()
-        descriptor = f"ch{channel}.modulation_enabled"
+        descriptor = f"ch{channel}.modulation_state"
         return self._package_measurement(descriptor, enabled, timestamp, mod_type=mod_type.value, **kwargs)
