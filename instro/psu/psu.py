@@ -11,12 +11,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from instro.lib import Command, Instrument, Measurement
-from instro.lib.discover import scan_visa_resources
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.lib.transports.visa import VisaConfig
-from instro.lib.types import DeviceInfo
-from instro.psu.config import PSUConfig, VisaDriverConfig, resolve_psu_from_config
+from instro.psu.config import PSUConfig, resolve_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -245,29 +242,6 @@ class InstroPSU(Instrument):
         else:
             descriptor = f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
-
-    @classmethod
-    def discover(
-        cls,
-        backend: str | None = None,
-        timeout: int = 2,
-    ) -> list[PSUConfig]:
-        """Scan VISA resources and return PSUConfig for each recognized PSU."""
-        result = scan_visa_resources(backend=backend, timeout=timeout)
-        configs = []
-        for info in result.instruments:
-            if info.category == "psu" and info.vendor_key is not None and info.num_channels is not None:
-                configs.append(
-                    PSUConfig(
-                        device=DeviceInfo(name=info.resource),
-                        driver=VisaDriverConfig(
-                            name=info.driver_class_name,
-                            num_channels=info.num_channels,
-                            visa=VisaConfig(visa_resource=info.resource, visa_backend=backend),
-                        ),
-                    )
-                )
-        return configs
 
     def open(self):
         """Establish connection to the device."""
