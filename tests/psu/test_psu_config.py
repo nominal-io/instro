@@ -24,37 +24,39 @@ def valid_config() -> dict:
     }
 
 
-def test_from_dict_returns_instropsu(valid_config):
+def test_init_with_config_dict(valid_config):
     with patch("instro.psu.drivers.simulated.VisaDriver"):
-        psu = InstroPSU.from_dict(valid_config)
+        psu = InstroPSU(config=valid_config)
 
     assert isinstance(psu, InstroPSU)
     assert psu.name == "test_psu"
+    assert psu._config is not None
+    assert psu._config.driver.name == "SimulatedPSU"
 
 
-def test_from_dict_with_timing_sets_background_interval(valid_config):
+def test_init_with_config_dict_and_timing_sets_background_interval(valid_config):
     config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
     with patch("instro.psu.drivers.simulated.VisaDriver"):
-        psu = InstroPSU.from_dict(config_with_timing)
+        psu = InstroPSU(config=config_with_timing)
 
     assert psu.background_interval == 0.5
 
 
-def test_from_dict_with_timing_rejects_unknown_field(valid_config):
+def test_init_with_config_dict_timing_rejects_unknown_field(valid_config):
     config_with_bad_timing = {**valid_config, "timing": {"poll_interval": 0.5, "pol_interval": 0.5}}
     with pytest.raises(Exception):
-        InstroPSU.from_dict(config_with_bad_timing)
+        InstroPSU(config=config_with_bad_timing)
 
 
-def test_from_dict_missing_required_field():
+def test_init_with_config_dict_missing_required_field():
     with pytest.raises(Exception):
-        InstroPSU.from_dict({"driver": {"name": "SimulatedPSU", "num_channels": 1, "connection_type": "visa"}})
+        InstroPSU(config={"driver": {"name": "SimulatedPSU", "num_channels": 1, "connection_type": "visa"}})
 
 
-def test_from_dict_unknown_driver_name():
+def test_init_with_config_dict_unknown_driver_name():
     with pytest.raises(Exception):
-        InstroPSU.from_dict(
-            {
+        InstroPSU(
+            config={
                 "device": {"name": "test_psu"},
                 "driver": {
                     "name": "not_a_real_driver",
@@ -66,10 +68,10 @@ def test_from_dict_unknown_driver_name():
         )
 
 
-def test_from_dict_invalid_num_channels():
+def test_init_with_config_dict_invalid_num_channels():
     with pytest.raises(Exception):
-        InstroPSU.from_dict(
-            {
+        InstroPSU(
+            config={
                 "device": {"name": "test_psu"},
                 "driver": {
                     "name": "SimulatedPSU",
@@ -81,39 +83,12 @@ def test_from_dict_invalid_num_channels():
         )
 
 
-def test_from_json_happy_path(valid_config, tmp_path):
-    config_file = tmp_path / "psu.json"
-    config_file.write_text(json.dumps(valid_config))
-
-    with patch("instro.psu.drivers.simulated.VisaDriver"):
-        psu = InstroPSU.from_json(config_file)
-
-    assert isinstance(psu, InstroPSU)
-    assert psu.name == "test_psu"
-
-
-def test_from_json_str_happy_path(valid_config):
-    with patch("instro.psu.drivers.simulated.VisaDriver"):
-        psu = InstroPSU.from_json_str(json.dumps(valid_config))
-
-    assert isinstance(psu, InstroPSU)
-    assert psu.name == "test_psu"
-
-
-def test_from_json_malformed_json(tmp_path):
+def test_init_with_config_file_path_malformed_json(tmp_path):
     config_file = tmp_path / "psu.json"
     config_file.write_text("this is not json {{{")
 
     with pytest.raises(Exception):
-        InstroPSU.from_json(config_file)
-
-
-def test_init_with_config_dict(valid_config):
-    with patch("instro.psu.drivers.simulated.VisaDriver"):
-        psu = InstroPSU(config=valid_config)
-
-    assert isinstance(psu, InstroPSU)
-    assert psu.name == "test_psu"
+        InstroPSU(config=config_file)
 
 
 def test_init_with_config_psuconfig_object(valid_config):
@@ -126,7 +101,7 @@ def test_init_with_config_psuconfig_object(valid_config):
 
 def test_init_with_config_json_string_raises_not_a_path(valid_config):
     # A raw JSON string is always treated as a file path (matches ModbusDevice/EtherNetIPDevice),
-    # not auto-detected as JSON text. Use InstroPSU.from_json_str() for that instead.
+    # not auto-detected as JSON text. Raw JSON text isn't a supported config input at all.
     with pytest.raises(OSError):
         InstroPSU(config=json.dumps(valid_config))
 
@@ -158,6 +133,26 @@ def test_init_with_config_name_override(valid_config):
     assert psu.name == "overridden"
 
 
+def test_init_with_config_explicit_empty_name_is_not_overwritten(valid_config):
+    # name="" is falsy but explicitly chosen; it must win over config.device.name, not
+    # get silently replaced by it (regression test for a truthy-`or` bug).
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=valid_config, name="")
+
+    assert psu.name == ""
+
+
+def test_init_with_config_psuconfig_object_does_not_alias_caller_instance(valid_config):
+    psu_config = PSUConfig.model_validate(valid_config)
+    with patch("instro.psu.drivers.simulated.VisaDriver"):
+        psu = InstroPSU(config=psu_config)
+
+    psu_config.device.name = "mutated"
+
+    assert psu._config is not psu_config
+    assert psu._config.device.name == "test_psu"
+
+
 def test_init_with_config_and_driver_raises(valid_config):
     with pytest.raises(ValueError, match="cannot be combined"):
         InstroPSU(config=valid_config, driver=MagicMock(), num_channels=1)
@@ -168,7 +163,31 @@ def test_init_with_no_config_and_missing_direct_args_raises():
         InstroPSU(name="only_name")
 
 
-def test_from_dict_with_publishers(valid_config):
+def test_init_with_autostart_opens_and_starts(valid_config):
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver"),
+        patch.object(InstroPSU, "open") as mock_open,
+        patch.object(InstroPSU, "start") as mock_start,
+    ):
+        InstroPSU(config=valid_config, autostart=True)
+
+    mock_open.assert_called_once()
+    mock_start.assert_called_once()
+
+
+def test_init_without_autostart_does_not_open_or_start(valid_config):
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver"),
+        patch.object(InstroPSU, "open") as mock_open,
+        patch.object(InstroPSU, "start") as mock_start,
+    ):
+        InstroPSU(config=valid_config)
+
+    mock_open.assert_not_called()
+    mock_start.assert_not_called()
+
+
+def test_init_with_config_dict_with_publishers(valid_config):
     config_with_publishers = {
         **valid_config,
         "publishers": [
@@ -181,7 +200,7 @@ def test_from_dict_with_publishers(valid_config):
         patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
         patch("instro.lib.publishers.FilePublisher") as mock_fp,
     ):
-        psu = InstroPSU.from_dict(config_with_publishers)
+        psu = InstroPSU(config=config_with_publishers)
 
     mock_ncp.assert_called_once_with(dataset_rid="test_psu", batch_size=None, profile=None)
     mock_fp.assert_called_once_with(directory="test_psu_out", format="csv", custom_file_name=None)
@@ -195,9 +214,9 @@ def test_file_publisher_config_accepts_jsonl_format():
     assert config.format == "jsonl"
 
 
-def test_from_dict_unknown_publisher_type(valid_config):
+def test_init_with_config_dict_unknown_publisher_type(valid_config):
     with pytest.raises(Exception):
-        InstroPSU.from_dict({**valid_config, "publishers": [{"type": "NotARealPublisher"}]})
+        InstroPSU(config={**valid_config, "publishers": [{"type": "NotARealPublisher"}]})
 
 
 def test_vendor_registry_complete():

@@ -61,23 +61,23 @@ psu = InstroPSU(
 
 ### Constructor Parameters
 
-These parameters apply to the direct Python constructor above, not the JSON config fields described below.
-
-- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model.
-- **`num_channels`**: Number of output channels on the power supply.
-- **`publishers`**: Optional list of publishers to attach.
+- **`name`**: A name for this PSU instance. Used as a prefix for channel names when publishing. Falls back to `config.device.name` when `config` is given.
+- **`driver`**: A concrete `PSUDriverBase` instance (e.g. `SiglentSPD3303`) configured with the connection details for that model. Mutually exclusive with `config`.
+- **`num_channels`**: Number of output channels on the power supply. Mutually exclusive with `config`.
+- **`config`**: A `PSUConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`/`num_channels`. See [From a JSON Config File](#from-a-json-config-file) below.
+- **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
-- **`dataset_rid`**: Optional Nominal dataset RID keyword argument. When set, automatically publishes measurements to that dataset.
+  - **`dataset_rid`**: Optional Nominal dataset RID. When set, automatically creates and attaches a `NominalCorePublisher` for that dataset instead of becoming a default tag.
 
 ### From a JSON Config File
 
-`InstroPSU` can also be constructed from a JSON config file, which removes the need to write any Python setup code: 
+`InstroPSU` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
 
-```python 
+```python
 from instro.psu import InstroPSU
 
-psu = InstroPSU.from_json("bench_psu.json")
+psu = InstroPSU(config="bench_psu.json")
 ```
 
 Where bench_psu.json contains:
@@ -87,7 +87,10 @@ Where bench_psu.json contains:
   "version": 1,
   "instrument": "InstroPSU",
   "device": {
-    "name": "bench_psu"
+    "name": "bench_psu",
+    "description": "Bench channel 1 supply",
+    "manufacturer": "B&K Precision",
+    "model": "9115"
   },
   "driver": {
     "name": "BK9115",
@@ -97,14 +100,19 @@ Where bench_psu.json contains:
       "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"
     }
   },
+  "timing": {
+    "poll_interval": 1.0
+  },
   "publishers": [
     {
       "type": "NominalCorePublisher",
-      "dataset_rid": "<your dataset RID>"
+      "dataset_rid": "<dataset_rid>"
     }
   ]
 }
 ```
+
+`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
 
 `driver.name` must match one of the registered vendor/model keys (e.g. `BK9115`, `BK914X`, `SiglentSPD3303`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too:
 
@@ -120,19 +128,43 @@ Where bench_psu.json contains:
 
 ```json
 "publishers": [
-  { "type": "NominalCorePublisher", "dataset_rid": "<your dataset RID>" },
+  { "type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>" },
   { "type": "FilePublisher", "directory": "psu_data", "format": "csv" }
 ]
 ```
 
-An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. To construct from a Python dict or a raw JSON string instead:
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to open the connection and start polling immediately:
 
 ```python
-InstroPSU.from_dict(data)
-InstroPSU.from_json_str(json_string)
+psu = InstroPSU(config="bench_psu.json", autostart=True)
 ```
 
-JSON configs are validated strictly: `PSUConfig` forbids any field not listed above (`device`, `driver`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
+`config` also accepts a plain dict or an already-built `PSUConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroPSU` directly, without a JSON round-trip:
+
+```python
+# instantiated InstroPSU with plain dict config
+psu = InstroPSU(config={
+    "device": {
+        "name": "bench_psu",
+        "description": "Bench channel 1 supply",
+        "manufacturer": "B&K Precision",
+        "model": "9115",
+    },
+    "driver": {
+        "name": "BK9115",
+        "num_channels": 1,
+        "connection_type": "visa",
+        "visa": {"visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"},
+    },
+    "timing": {"poll_interval": 1.0},
+    "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>"}],
+})
+
+# instantiating InstroPSU with pre-built PSUConfig object
+psu = InstroPSU(config=my_psu_config)
+```
+
+JSON configs are validated strictly: `PSUConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
@@ -313,11 +345,9 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | Method | Purpose |
 |--------|---------|
 | `InstroPSU(name, driver, num_channels, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroPSU with a vendor driver |
+| `InstroPSU(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
-| `from_json(path)` | Construct from a JSON config file |
-| `from_json_str(json_str)` | Construct from a JSON string |
-| `from_dict(data)` | Construct from a Python dict |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
 | `get_voltage(channel=N)` | Read measured output voltage in volts |
 | `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |

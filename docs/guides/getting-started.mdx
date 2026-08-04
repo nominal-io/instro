@@ -27,48 +27,269 @@ description: "An open-source Python library for interfacing with hardware test e
 
 ## Supported instruments
 
+### Power supplies
+
+`InstroPSU`: B&K Precision, Keysight, Rigol, Siglent, and TDK Lambda.
+
 <Columns cols={2}>
-  <Card title="Power supplies" icon="bolt" href="/instrumentation/psu">
-    `InstroPSU`: B&K Precision, Keysight, Rigol, Siglent, and TDK Lambda.
+  <Card title="B&K Precision 9115" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/BK-9115.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="B&K Precision 9115"
+    />
   </Card>
 
-  <Card title="Electronic loads" icon="plug" href="/instrumentation/eload">
-    `InstroELoad`: B&K Precision 85xx series via SCPI/VISA.
+  <Card title="B&K Precision 914x" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/BK-914x-series.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="B&K Precision 914x"
+    />
   </Card>
 
-  <Card title="Digital multimeters" icon="gauge" href="/instrumentation/dmm">
-    `InstroDMM`: Agilent/HP/Keysight 34401A, Keysight 34461A, Keithley 2400, and more.
+  <Card title="Keysight E36100" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/Keysight-E36100.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Keysight E36100"
+    />
   </Card>
 
-  <Card title="Oscilloscopes" icon="wave-square" href="/instrumentation/oscilloscope">
-    `InstroScope`: Keysight 1200X, Tektronix 2-series, and Siglent SDS1000X-E.
+  <Card title="Rigol DP800" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/Rigol-DP800.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Rigol DP800"
+    />
   </Card>
 
-  <Card title="Data acquisition" icon="chart-line" href="/instrumentation/daq">
-    `InstroDAQ`: National Instruments, LabJack T-Series, Keysight 34980A.
+  <Card title="Siglent SPD3303" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/Siglent-SPD3303.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Siglent SPD3303"
+    />
   </Card>
 
-  <Card title="I2C" icon="microchip" href="/instrumentation/protocols/i2c/overview">
-    `I2CInterface`: Total Phase Aardvark with declarative system definitions.
+  <Card title="TDK Lambda Genesys" horizontal href="/instrumentation/psu">
+    <img
+      src="/images/equipment/TDK-Lambda-Genesys.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="TDK Lambda Genesys"
+    />
   </Card>
-  <Card
-    title="Flow Controllers"
-    icon="chart-line"
-    href="/instrumentation/flowcontroller"
-  >
-    `InstroFlowController`: Alicat MC.
+</Columns>
+
+### Electronic loads
+
+`InstroELoad`: B&K Precision 85xx series via SCPI/VISA.
+
+<Columns cols={2}>
+  <Card title="B&K Precision 85xx" horizontal href="/instrumentation/eload">
+    <img
+      src="/images/equipment/BK-8550.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="B&K Precision 85xx"
+    />
+  </Card>
+</Columns>
+
+### Digital multimeters
+
+`InstroDMM`: Agilent/HP/Keysight 34401A, Keysight 34461A, Keithley 2400, and more.
+
+<Columns cols={2}>
+  <Card title="Agilent/HP/Keysight 34401A" horizontal href="/instrumentation/dmm">
+    <img
+      src="/images/equipment/Agilent-34401A.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Agilent/HP/Keysight 34401A"
+    />
   </Card>
 
-  <Card title="Modbus" icon="network-wired" href="/instrumentation/protocols/modbus">
-    `ModbusDevice`: any Modbus TCP or RTU device.
+  <Card title="Keysight 34461A" horizontal href="/instrumentation/dmm">
+    <img
+      src="/images/equipment/Keysight-34461A.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Keysight 34461A"
+    />
   </Card>
 
-  <Card title="EtherNet/IP" icon="network-wired" href="/instrumentation/protocols/ethernetip">
-    `EtherNetIPDevice`: Allen-Bradley and CompactLogix-class PLCs.
+  <Card title="Keithley 2400" horizontal href="/instrumentation/dmm">
+    <img
+      src="/images/equipment/Keithley-2400.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Keithley 2400"
+    />
+  </Card>
+</Columns>
+
+### Oscilloscopes
+
+`InstroScope`: Keysight 1200X, Tektronix 2-series, and Siglent SDS1000X-E.
+
+<Columns cols={2}>
+  <Card title="Keysight 1200X" horizontal href="/instrumentation/oscilloscope">
+    <img
+      src="/images/equipment/Keysight-1200X.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Keysight 1200X"
+    />
   </Card>
 
-  <Card title="Custom instruments" icon="code" href="/instrumentation/library">
-    Build a new instrument type or vendor driver against `Instrument`.
+  <Card title="Tektronix 2-series" horizontal href="/instrumentation/oscilloscope">
+    <img
+      src="/images/equipment/Tektronix-2-Series.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Tektronix 2-series"
+    />
+  </Card>
+
+  <Card title="Siglent SDS1000X-E" horizontal href="/instrumentation/oscilloscope">
+    <img
+      src="/images/equipment/Siglent-SDS1000X-E.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Siglent SDS1000X-E"
+    />
+  </Card>
+</Columns>
+
+### Data acquisition
+
+`InstroDAQ`: National Instruments, LabJack T-Series, Keysight 34980A.
+
+<Columns cols={2}>
+  <Card title="National Instruments" horizontal href="/instrumentation/daq">
+    <img
+      src="/images/equipment/NationalInstruments.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="National Instruments"
+    />
+  </Card>
+
+  <Card title="LabJack T-Series" horizontal href="/instrumentation/daq">
+    <img
+      src="/images/equipment/LabJack-T-Series.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="LabJack T-Series"
+    />
+  </Card>
+
+  <Card title="Keysight 34980A" horizontal href="/instrumentation/daq">
+    <img
+      src="/images/equipment/Keysight-34980A.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Keysight 34980A"
+    />
+  </Card>
+</Columns>
+
+### I2C
+
+`I2CInterface`: Total Phase Aardvark with declarative system definitions.
+
+<Columns cols={2}>
+  <Card title="Total Phase Aardvark" horizontal href="/instrumentation/protocols/i2c/overview">
+    <img
+      src="/images/equipment/TotalPhase-Aardvark.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Total Phase Aardvark"
+    />
+  </Card>
+</Columns>
+
+### Flow controllers
+
+`InstroFlowController`: Alicat MC.
+
+<Columns cols={2}>
+  <Card title="Alicat MC" horizontal href="/instrumentation/flowcontroller">
+    <img
+      src="/images/equipment/Alicat-MC.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Alicat MC"
+    />
+  </Card>
+</Columns>
+
+### Modbus
+
+`ModbusDevice`: any Modbus TCP or RTU device.
+
+<Columns cols={2}>
+  <Card title="Modbus TCP" horizontal href="/instrumentation/protocols/modbus">
+    <img
+      src="/images/equipment/Modbus-TCP.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Modbus TCP"
+    />
+  </Card>
+
+  <Card title="Modbus RTU" horizontal href="/instrumentation/protocols/modbus">
+    <img
+      src="/images/equipment/Modbus-RTU.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Modbus RTU"
+    />
+  </Card>
+</Columns>
+
+### EtherNet/IP
+
+`EtherNetIPDevice`: Allen-Bradley and CompactLogix-class PLCs.
+
+<Columns cols={2}>
+  <Card title="Allen-Bradley" horizontal href="/instrumentation/protocols/ethernetip">
+    <img
+      src="/images/equipment/Allen-Bradley.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="Allen-Bradley"
+    />
+  </Card>
+
+  <Card title="CompactLogix" horizontal href="/instrumentation/protocols/ethernetip">
+    <img
+      src="/images/equipment/CompactLogix.png"
+      style={{ width: "100%", height: "150px", objectFit: "contain" }}
+      noZoom
+      alt="CompactLogix"
+    />
+  </Card>
+</Columns>
+
+### Custom instruments
+
+Build a new instrument type or vendor driver against `Instrument`.
+
+<Columns cols={2}>
+  <Card title="Instrument" icon="code" href="/instrumentation/library">
+    Create your own Instrument category using the tools in `instro`
+  </Card>
+
+  <Card title="Request a driver" icon="sparkles" href="https://community.instro.nominal.io/c/driver-feature-requests/9">
+    Start a thread on our community forum
   </Card>
 </Columns>
 

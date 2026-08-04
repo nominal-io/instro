@@ -60,6 +60,27 @@ def test_scan_recognized_dmm() -> None:
     assert info.num_channels is None
 
 
+@pytest.mark.parametrize(
+    "idn,driver_class",
+    [
+        ("Keysight Technologies,EDUX1052A,SN,1.0", "Keysight1200X"),
+        ("TEKTRONIX,MSO24,C012345,CF:91.1CT FV:1.20", "Tektronix2SeriesMSO"),
+        ("Siglent Technologies,SDS1104X-E,SN,1.0", "SiglentSDS1000XE"),
+    ],
+)
+def test_scan_recognized_scope(idn: str, driver_class: str) -> None:
+    mock_rm = _rm_mock(("USB0::0x0957::0x1755::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = idn
+            result = scan_visa_resources()
+
+    assert len(result.instruments) == 1
+    info = result.instruments[0]
+    assert info.category == "scope"
+    assert info.driver_class_name == driver_class
+
+
 def test_scan_unrecognized() -> None:
     mock_rm = _rm_mock(("USB0::0xABCD::0x1234::INSTR",))
     with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):

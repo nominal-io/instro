@@ -16,7 +16,7 @@ from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
-from instro.psu.config import PSUConfig, VisaDriverConfig, build_psu_from_config, resolve_psu_from_config
+from instro.psu.config import PSUConfig, VisaDriverConfig, resolve_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,7 @@ class InstroPSU(Instrument):
         num_channels: int | None = None,
         publishers: list[Publisher] | None = None,
         config: PSUConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroPSU.
@@ -151,9 +152,8 @@ class InstroPSU(Instrument):
             num_channels: Number of output channels on this PSU.
             publishers: Publishers that receive emitted Measurement/Command data.
                 Combined with any publishers declared in ``config``.
-            config: A ``PSUConfig``, a dict, or a path to a JSON config file
-                (``str``/``Path`` is always a file path; for raw JSON text use
-                ``InstroPSU.from_json_str(json_str)`` instead).
+            config: A ``PSUConfig``, a dict, or a path to a JSON config file.
+            autostart: When True, open the connection and start background polling.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
@@ -170,7 +170,8 @@ class InstroPSU(Instrument):
             resolved_name, driver, num_channels, publishers, poll_interval = resolve_psu_from_config(
                 resolved_config, publishers
             )
-            name = name or resolved_name
+            if name is None:
+                name = resolved_name
         elif name is None or driver is None or num_channels is None:
             raise ValueError("InstroPSU requires either config=..., or name, driver, and num_channels together.")
 
@@ -186,50 +187,23 @@ class InstroPSU(Instrument):
         if poll_interval is not None:
             self.background_interval = poll_interval
 
+        if autostart:
+            self.open()
+            self.start()
+
     @staticmethod
     def _resolve_config(config: PSUConfig | dict | Path | str) -> PSUConfig:
-        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path."""
+        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path.
+
+        Returns a deep copy when ``config`` is already a ``PSUConfig``, so the instance stored on
+        ``self._config`` never aliases a caller-owned object that could mutate out from under it.
+        """
         if isinstance(config, PSUConfig):
-            return config
+            return config.model_copy(deep=True)
         if isinstance(config, dict):
             return PSUConfig.model_validate(config)
         with open(Path(config)) as f:
             return PSUConfig.model_validate(json.load(f))
-
-    @classmethod
-    def from_dict(
-        cls,
-        data: dict[str, Any],
-        publishers: list[Publisher] | None = None,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a config dict."""
-        config = PSUConfig.model_validate(data)
-        return build_psu_from_config(config, publishers=publishers)
-
-    @classmethod
-    def from_json(
-        cls,
-        path: Path | str,
-        publishers: list[Publisher] | None = None,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a JSON config file."""
-        import json
-
-        path = Path(path)
-        with open(path) as f:
-            raw = json.load(f)
-        return cls.from_dict(raw, publishers=publishers)
-
-    @classmethod
-    def from_json_str(
-        cls,
-        json_str: str,
-        publishers: list[Publisher] | None = None,
-    ) -> "InstroPSU":
-        """Construct an InstroPSU from a JSON string."""
-        import json
-
-        return cls.from_dict(json.loads(json_str), publishers=publishers)
 
     @publish_command
     def _execute_command(

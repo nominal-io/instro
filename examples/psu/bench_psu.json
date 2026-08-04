@@ -15,10 +15,13 @@
             "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"
         }
     },
+    "timing": {
+        "poll_interval": 1.0
+    },
     "publishers": [
         {
             "type": "NominalCorePublisher",
-            "dataset_rid": "<your dataset RID>"
+            "dataset_rid": "<dataset_rid>"
         }
     ]
 }
