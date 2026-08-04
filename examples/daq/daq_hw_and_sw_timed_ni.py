@@ -1,0 +1,76 @@
+"""Example: one hardware-timed and one software-timed acquisition with two InstroDAQ instances.
+
+Runs two analog input tasks on one NI CompactDAQ chassis by giving each task
+its own InstroDAQ instance: one streams from the device's hardware sample
+clock, the other polls on demand from the background daemon. Both instances
+target the same device with non-overlapping channels, and each is started and
+stopped independently.
+
+Hardware and software timing are mutually exclusive per instance. Software
+timing paces the daemon loop at 1 / sample_rate and timestamps each sample
+when the read returns, so the configured rate is a ceiling, not a guarantee:
+a conversion slower than the loop period simply slows the loop.
+"""
+
+import time
+
+from instro.daq import InstroDAQ
+from instro.daq.drivers.ni import NIDAQDriver
+from instro.daq.types import Direction
+
+# NI device name, as defined in NI MAX. Both instances share the device
+# with non-overlapping channels.
+DEVICE = "cDAQ"
+CHANNELS_PER_TASK = 3
+HW_MODULE = f"{DEVICE}Mod1"
+SW_MODULE = f"{DEVICE}Mod2"
+
+HW_SAMPLE_RATE = 50000  # Hz, driven by the device's sample clock
+SW_SAMPLE_RATE = 1  # Hz, driven by the background daemon loop
+
+### Main code
+
+daq_hw = InstroDAQ(name="daqHw", driver=NIDAQDriver(device_id=DEVICE))
+daq_sw = InstroDAQ(name="daqSw", driver=NIDAQDriver(device_id=DEVICE))
+
+with daq_hw, daq_sw:
+    # A physical channel belongs to exactly one instance; allocate without overlap.
+    for i in range(CHANNELS_PER_TASK):
+        daq_hw.configure_analog_channel(
+            direction=Direction.INPUT,
+            physical_channel=f"{HW_MODULE}/ai{i}",
+            alias=f"hw_channel{i}",
+            range_min=0,
+            range_max=5,
+        )
+        daq_sw.configure_analog_channel(
+            direction=Direction.INPUT,
+            physical_channel=f"{SW_MODULE}/ai{i}",
+            alias=f"sw_channel{i}",
+            range_min=0,
+            range_max=5,
+        )
+
+    # One instance is hardware-timed, the other software-timed.
+    daq_hw.configure_ai_hw_sample_rate(sample_rate=HW_SAMPLE_RATE)
+    daq_sw.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
+
+    # Each start() launches that instance's own background daemon. Software timing
+    # requires the daemon, so background=False starts nothing on daq_sw.
+    daq_hw.start()
+    daq_sw.start()
+
+    while True:
+        try:
+            # Both instances buffer into their own channel buffer; read either one.
+            print(f"hw_channel0 latest: {daq_hw.get_channel('hw_channel0').latest}")
+            print(f"sw_channel0 latest: {daq_sw.get_channel('sw_channel0').latest}")
+            print(f"sw loop period (s): {daq_sw.get_channel('loop_time').latest}")
+            time.sleep(1)
+        except KeyboardInterrupt:
+            print("Exiting main loop")
+            break
+
+    # The acquisitions are independent: stopping one does not affect the other.
+    daq_hw.stop()
+    daq_sw.stop()

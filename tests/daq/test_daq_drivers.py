@@ -1,11 +1,12 @@
 """Unit tests for DAQ driver functionality."""
 
+import logging
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import DAQDriverBase, InstroDAQ
+from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     DigitalLineChannel,
@@ -424,6 +425,7 @@ def test_configure_while_running_raises():
     """A new configure_* method refuses to configure a channel while acquisition is running (nothing recorded)."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
+    daq.configure_ai_hw_sample_rate(sample_rate=1000)
     daq.start(background=False)
 
     with pytest.raises(RuntimeError, match=r"cannot configure channel 'v0' while 'ut' is running; call stop\(\)"):
@@ -437,6 +439,7 @@ def test_configure_after_stop_succeeds():
     """stop() clears the running guard so channels can be configured again."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
+    daq.configure_ai_hw_sample_rate(sample_rate=1000)
     daq.start(background=False)
     daq.stop()
 
@@ -927,35 +930,117 @@ def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
 # --- start(background=...) and read_analog dispatch ---
 
 
-def _hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver]:
+def _hw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     """An InstroDAQ with one AI channel and a hardware sample rate configured."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = []
-    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
     daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
-    daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+    daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
     return daq, mock_driver
 
 
-def test_start_background_false_does_not_spin_daemon():
-    """start(background=False) begins hardware acquisition without spinning the daemon thread."""
+def _sw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and a software-timed poll rate configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name=name, driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_ai_sw_sample_rate(sample_rate=100)
+    return daq, mock_driver
+
+
+def _untimed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and no timing mode configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name=name, driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    return daq, mock_driver
+
+
+def test_hw_timed_start_with_background():
+    """HW timing + background=True: the device acquires and the daemon fetches its buffer."""
+    daq, mock_driver = _hw_timed_daq()
+
+    daq.start()
+    try:
+        daq.get_channel("loop_time", wait_for_new_samples=True, timeout=5)
+
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.start.assert_called_once()
+        mock_driver.fetch_analog.assert_called()
+    finally:
+        daq.stop()
+
+
+def test_hw_timed_start_without_background():
+    """HW timing + background=False: the device acquires and the caller fetches the buffer itself."""
     daq, mock_driver = _hw_timed_daq()
 
     daq.start(background=False)
-
-    mock_driver.start.assert_called_once()
-    assert daq._background_thread is None
-
-
-def test_start_background_false_read_analog_fetches_from_buffer():
-    """With no daemon running, read_analog() during HW-timed acquisition fetches the buffer."""
-    daq, mock_driver = _hw_timed_daq()
-    daq.start(background=False)
-
     daq.read_analog()
 
+    assert daq._background_thread is None
+    mock_driver.start.assert_called_once()
     mock_driver.fetch_analog.assert_called_once()
+
+
+def test_sw_timed_start_with_background():
+    """SW timing + background=True: the daemon paces read_analog() and the device is never started."""
+    daq, mock_driver = _sw_timed_daq()
+
+    daq.start()
+    try:
+        daq.get_channel("loop_time", wait_for_new_samples=True, timeout=5)
+
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.read_analog.assert_called()
+        mock_driver.start.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def test_sw_timed_start_without_background(caplog):
+    """SW timing + background=False: nothing would pace the reads, so start() logs an error and starts nothing."""
+    daq, mock_driver = _sw_timed_daq()
+
+    with caplog.at_level(logging.ERROR):
+        daq.start(background=False)
+
+    assert "with SW AI timing configured is a no-op" in caplog.text
+    assert daq._background_thread is None
+    mock_driver.start.assert_not_called()
+
+
+def test_untimed_start_with_background():
+    """No timing + background=True: start() falls back to a SW-timed daemon at the default rate."""
+    daq, mock_driver = _untimed_daq()
+
+    daq.start()
+    try:
+        assert daq.is_sw_timing_configured
+        assert daq.background_interval == pytest.approx(1 / InstroDAQ.DEFAULT_SW_SAMPLE_RATE)
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.start.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def test_untimed_start_without_background(caplog):
+    """No timing + background=False: no clock and no daemon, so start() logs an error and starts nothing."""
+    daq, mock_driver = _untimed_daq()
+
+    with caplog.at_level(logging.ERROR):
+        daq.start(background=False)
+
+    assert "without AI timing configured is unnecessary" in caplog.text
+    assert not daq.is_sw_timing_configured
+    assert daq._background_thread is None
+    mock_driver.start.assert_not_called()
 
 
 @pytest.mark.parametrize("timing", ["software", "hardware"], ids=["software-timed", "hardware-timed"])
@@ -964,7 +1049,7 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
     """Internal helpers return lists while public reads unwrap one Measurement."""
     if timing == "hardware":
         daq, mock_driver = _hw_timed_daq()
-        internal_read = daq._fetch_analog
+        internal_read = daq._fetch_analog_hw_timed
     else:
         mock_driver = _make_mock_driver()
         daq = InstroDAQ(name="ut", driver=mock_driver)
@@ -985,28 +1070,107 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
 
 
 def test_restart_registers_background_fetch_exactly_once():
-    """start() after stop() must not register a second _fetch_analog daemon function."""
+    """start() after stop() must not register a second _fetch_analog_hw_timed daemon function."""
     daq, _ = _hw_timed_daq()
     try:
         daq.start()
         daq.stop()
         daq.start()
 
-        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog]
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog_hw_timed]
         assert len(fetchers) == 1
     finally:
         daq.stop()
 
 
-def test_start_default_spins_daemon_and_read_analog_raises():
-    """Default start() spins the daemon, which owns the buffer; a manual read_analog() then raises."""
+def test_read_analog_raises_while_daemon_running():
+    """The daemon owns the buffer, so a manual read_analog() alongside it raises."""
     daq, _ = _hw_timed_daq()
 
     daq.start()
     try:
-        assert daq._background_thread is not None
-        assert daq._background_thread.is_alive()
         with pytest.raises(RuntimeError, match="background acquisition daemon is running"):
             daq.read_analog()
     finally:
         daq.stop()
+
+
+# --- software-timed background daemon ---
+
+
+def test_configure_ai_sw_sample_rate_sets_loop_period_and_buffer_length():
+    """SW timing paces the daemon at 1/rate and sizes the channel buffer for ~10 s of samples."""
+    daq, _ = _sw_timed_daq()
+
+    assert daq.background_interval == pytest.approx(0.01)
+    assert daq._channel_buffer_length == 1000
+    assert daq.is_sw_timing_configured
+    assert not daq.is_hw_timing_configured
+
+
+@pytest.mark.parametrize("order", ["hw-then-sw", "sw-then-hw"])
+def test_hw_and_sw_timing_are_mutually_exclusive(order: str):
+    """A DAQ is either hardware- or software-timed; configuring the second mode raises."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    if order == "hw-then-sw":
+        daq.configure_ai_hw_sample_rate(sample_rate=100)
+        with pytest.raises(TimingConfigException, match="already configured for hardware timing"):
+            daq.configure_ai_sw_sample_rate(sample_rate=10)
+    else:
+        daq.configure_ai_sw_sample_rate(sample_rate=10)
+        with pytest.raises(TimingConfigException, match="already configured for software timing"):
+            daq.configure_ai_hw_sample_rate(sample_rate=100)
+
+
+def test_configure_ai_sw_sample_rate_rejects_nonpositive_rate():
+    """A 0 Hz poll rate has no period; the guard raises before it can poison the loop interval."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="greater than 0 Hz"):
+        daq.configure_ai_sw_sample_rate(sample_rate=0)
+    assert not daq.is_sw_timing_configured
+
+
+def test_sw_timed_stop_leaves_the_device_alone():
+    """SW-timed acquisition never started the device, so stop() must not issue a device stop."""
+    daq, mock_driver = _sw_timed_daq()
+    daq.start()
+
+    daq.stop()
+
+    assert daq._background_thread is not None
+    assert not daq._background_thread.is_alive()
+    mock_driver.stop.assert_not_called()
+
+
+def test_hw_and_sw_timed_daqs_run_in_parallel():
+    """One HW-timed and one SW-timed DAQ run side by side, each on its own driver, buffer, and pacing."""
+    hw_daq, hw_driver = _hw_timed_daq(name="hw")
+    sw_daq, sw_driver = _sw_timed_daq(name="sw")
+    hw_driver._read_to_measurements.return_value = [Measurement(channel_data={"hw.ai0": [1.0]}, timestamps=[1])]
+    sw_driver._read_to_measurements.return_value = [Measurement(channel_data={"sw.ai0": [2.0]}, timestamps=[2])]
+
+    hw_daq.start()
+    sw_daq.start()
+    try:
+        assert hw_daq.get_channel("ai0", wait_for_new_samples=True, timeout=5).latest == 1.0
+        assert sw_daq.get_channel("ai0", wait_for_new_samples=True, timeout=5).latest == 2.0
+
+        # Neither daemon reaches the other's driver, and each uses only its own timing path.
+        hw_driver.fetch_analog.assert_called()
+        hw_driver.read_analog.assert_not_called()
+        sw_driver.read_analog.assert_called()
+        sw_driver.fetch_analog.assert_not_called()
+
+        # Independent pacing: the HW loop free-runs on the blocking fetch, the SW loop on its interval.
+        assert hw_daq.background_interval == 0
+        assert sw_daq.background_interval == pytest.approx(0.01)
+    finally:
+        hw_daq.stop()
+        sw_daq.stop()
+
+    hw_driver.stop.assert_called_once()
+    sw_driver.stop.assert_not_called()
