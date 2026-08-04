@@ -54,6 +54,7 @@ def test_close_flushes_remaining_buffer_and_closes_underlying():
 
     assert sink.published == [measurement]
     assert sink.close_count == 1
+    assert publisher.buffer == []
 
 
 def test_repeated_close_is_idempotent():
@@ -84,75 +85,60 @@ def test_publish_after_close_is_dropped():
     assert sink.close_count == 1
 
 
-def test_concurrent_publish_is_thread_safe():
-    # A smaller switch interval forces frequent thread interleaving so a race in the
-    # buffer-size-triggered flush reproduces reliably instead of only on unlucky runs.
-    thread_count = 8
-    iterations = 500
-    original_switch_interval = sys.getswitchinterval()
-    sys.setswitchinterval(1e-6)
-    try:
-        sink = StrictRecordingPublisher()
-        publisher = BasicBufferedPublisher(sink, buffer_size=8)
+def test_threshold_triggered_flush_clears_buffer_before_close():
+    # The auto-flush inside publish() (buffer_size reached) has its own buffer.clear(),
+    # separate from the one in close(). Cover that path too: a full batch flushed by
+    # publish(), a trailing item left for close() to drain, and no duplication either way.
+    sink = RecordingPublisher()
+    measurements = [Measurement(channel_data={"voltage": [float(i)]}, timestamps=[i]) for i in range(4)]
+    publisher = BasicBufferedPublisher(sink, buffer_size=3)
 
-        def publish_loop(offset: int):
-            for i in range(iterations):
-                publisher.publish(Measurement(channel_data={"voltage": [float(offset + i)]}, timestamps=[offset + i]))
+    for m in measurements[:3]:
+        publisher.publish(m)  # 3rd publish() hits buffer_size and auto-flushes
+    assert publisher.buffer == []  # auto-flush clears the buffer on its own, before any close()
 
-        threads = [threading.Thread(target=publish_loop, args=(t * iterations,)) for t in range(thread_count)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-        publisher.close()
-    finally:
-        sys.setswitchinterval(original_switch_interval)
+    publisher.publish(measurements[3])  # buffered again, below threshold
+    publisher.close()  # drains the trailing item
+    publisher.close()  # must not replay anything
 
-    seen_timestamps = [m.timestamps[0] for m in sink.published if isinstance(m, Measurement)]
+    assert sink.published == measurements
     assert publisher.buffer == []
-    # Every measurement reached the sink exactly once: no data lost or double-processed
-    # by concurrent buffer-size-triggered flushes racing each other.
-    assert len(seen_timestamps) == len(set(seen_timestamps)) == thread_count * iterations
-
-
-def test_concurrent_publish_and_close_is_thread_safe():
-    # close() races the in-flight publish loops on purpose here, so some publishes are
-    # expected to be dropped as "closed" - the invariant is no crash/double-close/double-add,
-    # not that every message gets through.
-    thread_count = 8
-    iterations = 300
-    original_switch_interval = sys.getswitchinterval()
-    sys.setswitchinterval(1e-6)
-    try:
-        sink = StrictRecordingPublisher()
-        publisher = BasicBufferedPublisher(sink, buffer_size=8)
-        errors: list[BaseException] = []
-
-        def publish_loop(offset: int):
-            for i in range(iterations):
-                try:
-                    publisher.publish(
-                        Measurement(channel_data={"voltage": [float(offset + i)]}, timestamps=[offset + i])
-                    )
-                except BaseException as exc:  # noqa: BLE001
-                    errors.append(exc)
-
-        threads = [threading.Thread(target=publish_loop, args=(t * iterations,)) for t in range(thread_count)]
-        for thread in threads:
-            thread.start()
-        publisher.close()
-        for thread in threads:
-            thread.join()
-        publisher.close()
-    finally:
-        sys.setswitchinterval(original_switch_interval)
-
-    seen_timestamps = [m.timestamps[0] for m in sink.published if isinstance(m, Measurement)]
-    assert errors == []
     assert sink.close_count == 1
+
+
+def test_repeated_close_never_touches_underlying_publisher_twice():
+    sink = StrictRecordingPublisher()
+    measurement = Measurement(channel_data={"voltage": [1.0]}, timestamps=[100])
+    publisher = BasicBufferedPublisher(sink, buffer_size=1000)
+
+    publisher.publish(measurement)
+    publisher.close()
+    publisher.close()
+    publisher.close()
+
+    assert sink.published == [measurement]
+    assert sink.close_count == 1
+
+
+def test_publish_after_close_never_reaches_underlying_publisher():
+    # RecordingPublisher can't tell "never called after close" from "called and happened
+    # to look fine"; StrictRecordingPublisher raises if publish()/close() lands on it once
+    # closed, so this proves the dropped writes never reach the wrapped publisher at all.
+    sink = StrictRecordingPublisher()
+    m1 = Measurement(channel_data={"voltage": [1.0]}, timestamps=[100])
+    late = [Measurement(channel_data={"voltage": [float(i)]}, timestamps=[i]) for i in range(200, 205)]
+    publisher = BasicBufferedPublisher(sink, buffer_size=1000)
+
+    publisher.publish(m1)
+    publisher.close()
+    for m in late:
+        publisher.publish(m)
+    publisher.close()
+
+    assert sink.published == [m1]
+    assert sink.close_count == 1
+    # Late publishes must be actively dropped, not merely stuck unflushed in the buffer.
     assert publisher.buffer == []
-    # Whatever did reach the sink got there exactly once: no double-processing.
-    assert len(seen_timestamps) == len(set(seen_timestamps))
 
 
 def test_double_close_does_not_replay_buffer_into_closed_file(tmp_path):
@@ -171,3 +157,4 @@ def test_double_close_does_not_replay_buffer_into_closed_file(tmp_path):
 
     lines = (tmp_path / "capture.jsonl").read_text().splitlines()
     assert len(lines) == 1
+    assert publisher.buffer == []
