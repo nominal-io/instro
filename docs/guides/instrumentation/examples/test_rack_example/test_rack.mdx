@@ -58,7 +58,7 @@ def main():
         try:
             # Configure DAQ
             daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="1010", alias="psu_v")
-            daq.configure_ai_sample_rate(sample_rate=1000)
+            daq.configure_hw_sample_rate(sample_rate=1000)
 
             # Start the DAQ to monitor the power supply/eload prior to using it
             daq.start()

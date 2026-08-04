@@ -1414,3 +1414,88 @@ def test_hw_and_sw_timed_daqs_run_in_parallel():
 
     hw_driver.stop.assert_called_once()
     sw_driver.stop.assert_not_called()
+
+
+# --- continuous digital input acquisition ---
+
+
+class _CapturePublisher:
+    """Collects every published channel key so tests can count publishes."""
+
+    def __init__(self):
+        self.keys: list[str] = []
+
+    def publish(self, data, **kwargs):
+        self.keys.extend(data.channel_data)
+
+    def close(self): ...
+
+
+def test_configure_hw_sample_rate_flows_through_generic_driver_hook():
+    """configure_hw_sample_rate() programs the driver via configure_hw_timing, which defaults to the AI hook."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    daq.configure_hw_sample_rate(sample_rate=1000)
+
+    assert daq.is_hw_timing_configured
+    assert daq.ai_hw_timing_config.sample_rate == 1000
+
+
+def test_sw_timed_daemon_polls_digital_channels():
+    """With SW timing on a DI-only DAQ, the daemon registers the digital poll and publishes DI samples."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [Measurement(channel_data={"ut.di0": [1.0]}, timestamps=[1])]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_sw_sample_rate(sample_rate=100)
+
+    daq.start()
+    try:
+        assert daq.get_channel("di0", wait_for_new_samples=True, timeout=5).latest == 1.0
+        mock_driver.read_digital.assert_called()
+        mock_driver.fetch_digital.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def _mixed_hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver, _CapturePublisher]:
+    """A hw-timed InstroDAQ with one AI and one DI channel and a capturing publisher."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.side_effect = lambda **kwargs: [
+        Measurement(channel_data={f"ut.{alias}": [1.0] for alias in kwargs["channel_list"]}, timestamps=[1])
+    ]
+    capture = _CapturePublisher()
+    daq = InstroDAQ(name="ut", driver=mock_driver, publishers=[capture])
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_hw_sample_rate(sample_rate=1000)
+    return daq, mock_driver, capture
+
+
+def test_mixed_hw_daemon_registers_each_domain_fetch_and_one_buffer_publish():
+    """A hw-timed DAQ with AI and DI channels registers one fetch per domain plus a single depth publish."""
+    daq, mock_driver, _ = _mixed_hw_timed_daq()
+
+    daq.start()
+    try:
+        registered = [method.__name__ for method, _, _ in daq._background_methods]
+        assert registered.count("_fetch_analog_hw_timed") == 1
+        assert registered.count("_fetch_digital_hw_timed") == 1
+        assert registered.count("get_points_in_buffer") == 1
+    finally:
+        daq.stop()
+
+
+def test_mixed_read_publishes_buffer_depth_once():
+    """A unified read() spanning AI and DI on a hw-timed DAQ emits exactly one buffer-depth publish."""
+    daq, mock_driver, capture = _mixed_hw_timed_daq()
+    mock_driver._buffer_depths["buffer"] = 5
+
+    result = daq.read()
+
+    assert set(result) == {"v0", "di0"}
+    assert capture.keys.count("ut.buffer") == 1

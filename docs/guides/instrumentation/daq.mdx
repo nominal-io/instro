@@ -46,22 +46,22 @@ Channel aliases are used as channel names when data is published to Nominal Core
 InstroDAQ supports three acquisition modes:
 
 **Software-Timed (Manual Polling)**
-- You call `read_analog()` when you want a sample
+- You call `read_analog()` or `read_digital()` when you want a sample
 - No need to call `start()` or `stop()`
 - Use case: Low-frequency monitoring, event-driven sampling
 
 **Software-Timed (Background Daemon)**
-- Configure the polling rate with `configure_ai_sw_sample_rate()`
-- Call `start()` to launch the background daemon, which calls `read_analog()` once per period and publishes the results
+- Configure the polling rate with `configure_sw_sample_rate()`
+- Call `start()` to launch the background daemon, which reads every configured analog and digital input channel once per period and publishes the results
 - Use case: Low-frequency continuous monitoring without a hardware sample clock
 
 **Hardware-Timed (Buffered Acquisition)**
-- Configure sample rate with `configure_ai_hw_sample_rate()`
+- Configure sample rate with `configure_hw_sample_rate()`
 - Call `start()` to begin background acquisition
-- Data automatically published via the background daemon, OR manually fetch with `read_analog()`
+- Data automatically published via the background daemon, OR manually fetch with `read_analog()` / `read_digital()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
 
-Hardware and software timing are mutually exclusive on one instance: configuring the second mode raises `HWTimingException`. To run both against one device, build a separate `InstroDAQ` per mode with non-overlapping channels: see the [NI hardware- and software-timed example](/instrumentation/examples/daq/daq_hw_and_sw_timed_ni).
+Hardware and software timing are mutually exclusive on one instance: configuring the second mode raises `TimingConfigException`. To run both against one device, build a separate `InstroDAQ` per mode with non-overlapping channels: see the [NI hardware- and software-timed example](/instrumentation/examples/daq/daq_hw_and_sw_timed_ni).
 
 ## Creating an InstroDAQ Instance
 
@@ -274,10 +274,10 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 
 ### Hardware-Timed Sample Rate
 
-For continuous hardware-timed acquisition, configure the sample rate. `configure_ai_sample_rate()` is an alias for `configure_ai_hw_sample_rate()`.
+For continuous hardware-timed acquisition, configure the sample rate with `configure_hw_sample_rate()`. It applies to every configured input channel. `configure_ai_sample_rate()` and `configure_ai_hw_sample_rate()` are aliases.
 
 ```python
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=1000.0,  # Hz
     samples_per_channel=500  # Optional: samples per read (defaults to sample_rate/10)
 )
@@ -304,10 +304,10 @@ A single `InstroDAQ` instance carries one analog input sample rate. To run multi
 
 ### Software-Timed Sample Rate
 
-For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` calls at `1 / sample_rate`.
+For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` / `read_digital()` calls at `1 / sample_rate`. `configure_ai_sw_sample_rate()` is an alias.
 
 ```python
-daq.configure_ai_sw_sample_rate(
+daq.configure_sw_sample_rate(
     sample_rate=10.0,  # Hz, paces the background daemon loop
 )
 ```
@@ -368,7 +368,7 @@ daq.configure_analog_channel(
 )
 
 # Pace the background daemon at 10 Hz (no hardware clock is involved)
-daq.configure_ai_sw_sample_rate(sample_rate=10)
+daq.configure_sw_sample_rate(sample_rate=10)
 
 daq.start()
 
@@ -415,7 +415,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=100,  # 100 Hz
 )
 
@@ -463,7 +463,7 @@ daq.open()
 
 # Configure channels and timing (same as above)
 daq.configure_analog_channel(...)
-daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
+daq.configure_hw_sample_rate(sample_rate=100, samples_per_channel=10)
 
 # Start hardware acquisition (fills buffer) without spinning the background daemon
 daq.start(background=False)
@@ -600,7 +600,7 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 ### Reading by Alias
 
-`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched `read_analog()`; digital aliases from one batched `read_digital()`.
+`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one `read_analog()` call and digital aliases from one `read_digital()` call; each reads every configured channel of its type, and `read()` projects out the requested aliases.
 
 ```python
 daq.configure_voltage_input(physical_channel="ai0", alias="v0")
@@ -637,24 +637,24 @@ Every alias is validated before anything is written, so a bad alias can't leave 
 
 ### Batched Digital I/O
 
-`read()` and `write()` route digital aliases through `read_digital()` / `write_digital()`, which take parallel lists and hand the whole set to the driver in one call. Both are usable directly:
+`read()` and `write()` route digital aliases through `read_digital()` / `write_digital()`. `read_digital()` mirrors `read_analog()`: it reads every configured digital input channel in one driver call, dispatching a software-timed sample or a hardware-timed buffer fetch based on the configured timing mode. `write_digital()` takes parallel lists and hands the whole set to the driver in one call. Both are usable directly:
 
 ```python
-# One driver round-trip for every line
-measurement = daq.read_digital(["limit_switch", "estop"])
+# One driver round-trip for every configured line
+measurement = daq.read_digital()
 print(measurement.channel_data)  # {"myDAQ.limit_switch": [1.0], "myDAQ.estop": [0.0]}
 
 command = daq.write_digital(["enable", "reset"], [1, 0])
 ```
 
-`read_digital()` returns one `Measurement` carrying every requested alias; `write_digital()` returns one `Command` carrying every written alias. Both talk to the driver in `bool`: written values are cast on the way down, and the driver's returned bools become the `0.0`/`1.0` in the `Measurement` on the way up. On a write, anything greater than 0 becomes `True`, everything else `False` — a value that wasn't already `0` or `1` still writes, but raises a `UserWarning`:
+`read_digital()` returns one `Measurement` per timebase cluster; `write_digital()` returns one `Command` carrying every written alias. Both talk to the driver in `bool`: written values are cast on the way down, and the driver's returned bools become the `0.0`/`1.0` in the `Measurement` on the way up. On a write, anything greater than 0 becomes `True`, everything else `False` — a value that wasn't already `0` or `1` still writes, but raises a `UserWarning`:
 
 ```python
 daq.write_digital(["enable"], [5])  # UserWarning: ... are not 0 or 1; coercing to bool
 ```
 
 <Note>
-These are line-only — ports are not routed through `read()`, `write()`, `read_digital()`, or `write_digital()`. Use `read_digital_port()` / `write_digital_port()` for ports. No packaged driver implements the `read_digital` / `write_digital` driver methods yet.
+These are line-only — ports are not routed through `read()`, `write()`, `read_digital()`, or `write_digital()`. Use `read_digital_port()` / `write_digital_port()` for ports. No packaged driver implements the `read_digital` / `fetch_digital` / `write_digital` driver methods yet.
 </Note>
 
 ## Complete Examples
@@ -730,7 +730,7 @@ daq.configure_analog_channel(
 )
 
 # Configure hardware timing for 100 Hz acquisition
-daq.configure_ai_hw_sample_rate(
+daq.configure_hw_sample_rate(
     sample_rate=100,
     samples_per_channel=10
 )
@@ -762,7 +762,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `write_digital_line(channel, data)` / `write_digital_port(channel, data)` | `{alias}.cmd` | command |
 | `read(channels)` (per channel) | `{alias}` | telemetry |
 | `write(channels, values)` (per channel) | `{alias}.cmd` | command |
-| `read_digital(channels)` (all channels in one Measurement) | `{alias}` | telemetry |
+| `read_digital()` (all DI channels in one Measurement) | `{alias}` | telemetry |
 | `write_digital(channels, values)` (all channels in one Command) | `{alias}.cmd` | command |
 | `close_relay(channel)` | `{alias}.cmd` (value `"CLOSED"`) | command |
 | `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
@@ -787,14 +787,14 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
-| `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
-| `configure_ai_sw_sample_rate(sample_rate)` | Set the software-timed polling rate for analog input |
+| `configure_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing (`configure_ai_sample_rate` and `configure_ai_hw_sample_rate` are aliases) |
+| `configure_sw_sample_rate(sample_rate)` | Set the software-timed polling rate (`configure_ai_sw_sample_rate` is an alias) |
 | `start()` | Begin acquisition (device task, background daemon, or both) |
 | `stop()` | End acquisition and stop the background daemon |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
 | `read(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
 | `write(channels, values)` | Write value(s) to output channel(s) by alias, paired by index |
-| `read_digital(channels)` | Read digital input lines by alias in one driver call |
+| `read_digital()` | Read digital input (SW-timed) or fetch from buffer (HW-timed) |
 | `write_digital(channels, values)` | Write 0/1 to digital output lines by alias in one driver call |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
