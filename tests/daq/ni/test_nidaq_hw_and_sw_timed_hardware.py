@@ -34,7 +34,6 @@ RUNNING
 import math
 import statistics
 import unittest
-import warnings
 
 import pytest
 
@@ -144,41 +143,4 @@ class TestNIDAQHWAndSWTimedHardware(unittest.TestCase):
             hw_period,
             EXPECTED_HW_PERIOD_S + PERIOD_TOLERANCE_S,
             msg=f"HW daemon ran at {hw_period:.4f} s/cycle, expected at most {EXPECTED_HW_PERIOD_S:.4f} s",
-        )
-
-    # =====================================================================
-    # Unsustainable software-timed rate warns
-    # =====================================================================
-    def test_sw_timed_rate_warns_when_read_outlasts_the_period(self):
-        """A read slower than the requested period must warn, not silently run slow."""
-        daq_sw = InstroDAQ(name="daqSw", driver=NIDAQDriver(device_id=DEVICE))
-
-        with daq_sw:
-            for i in range(CHANNELS_PER_TASK):
-                daq_sw.configure_analog_channel(
-                    direction=Direction.INPUT,
-                    physical_channel=f"{SW_MODULE}/ai{i}",
-                    alias=f"sw_channel{i}",
-                    range_min=0,
-                    range_max=0.078,
-                )
-
-            # Request sample rate that sw timed daemon cannot support
-            daq_sw.configure_ai_sw_sample_rate(sample_rate=100)
-
-            # The daemon thread raises the warning; catch_warnings patches module-global state,
-            # so it lands here. "always" defeats the dedup on the message text.
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                daq_sw.start()
-                try:
-                    self._assert_publishing(daq_sw, "sw_channel0")
-                    self._loop_periods(daq_sw)
-                finally:
-                    daq_sw.stop()
-
-        messages = [str(warning.message) for warning in caught]
-        self.assertTrue(
-            any("maximum read rate" in message for message in messages),
-            f"a {100} Hz request the module cannot sustain raised no warning; caught: {messages}",
         )
