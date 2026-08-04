@@ -7,14 +7,16 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ```bash
 uv sync --extra all              # install everything
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
-just check                       # ruff format, mypy, ruff lint
-just test                        # unit tests; no hardware required
+just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
+just test                        # all tests: python + Rust; no hardware required
+just check-python / check-rust   # single-language lints (check-rust includes lockfile + standalone-crate checks)
+just test-python / test-rust     # single-language tests
 uv build --package <name>        # build a wheel for a workspace package
 ```
 
 If `just check` and `just test` both pass, CI will pass.
 
-`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `instro-opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+`just check-python` needs only `just` + `uv`. `just check` and `just test` additionally need a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because they run clippy/`cargo test` across the Rust workspace — including the `instro-opcua` crate's C build of `open62541-sys` — and `just test` builds the EtherNet/IP maturin wheel. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
 
 ## Codebase layout
 

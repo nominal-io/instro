@@ -58,6 +58,14 @@ class PSUDriverBase(abc.ABC):
         """Query whether the output on `channel` is enabled."""
         raise NotImplementedError(f"get_output_status is not implemented for {type(self).__name__}")
 
+    def get_voltage_setpoint(self, channel: int) -> float:
+        """Query the configured voltage setpoint (volts) on `channel`."""
+        raise NotImplementedError(f"get_voltage_setpoint is not implemented for {type(self).__name__}")
+
+    def get_current_setpoint(self, channel: int) -> float:
+        """Query the configured current-limit setpoint (amperes) on `channel`."""
+        raise NotImplementedError(f"get_current_setpoint is not implemented for {type(self).__name__}")
+
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         """Set the overvoltage protection threshold (volts) on `channel`."""
         raise NotImplementedError(f"set_overvoltage_protection_level is not implemented for {type(self).__name__}")
@@ -250,6 +258,26 @@ class InstroPSU(Instrument):
             channel=channel,
             channel_suffix="enabled",
             legacy_suffix="en",
+            **kwargs,
+        )
+
+    def get_voltage_setpoint(self, channel: int, **kwargs) -> Measurement | None:
+        """Query the configured voltage setpoint (volts) on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_voltage_setpoint,
+            channel=channel,
+            channel_suffix="voltage.setpoint",
+            legacy_suffix="v_set",
+            **kwargs,
+        )
+
+    def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
+        """Query the configured current-limit setpoint (amperes) on ``channel``. Returns ``None`` if unavailable."""
+        return self._execute_measurement(
+            self._driver.get_current_setpoint,
+            channel=channel,
+            channel_suffix="current.setpoint",
+            legacy_suffix="i_set",
             **kwargs,
         )
 
