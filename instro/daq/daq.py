@@ -18,6 +18,7 @@ from instro.daq.types import (
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
+    DigitalPortChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -1084,6 +1085,78 @@ class InstroDAQ(Instrument):
                     ]
                     measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
         return measurements
+
+    def read(
+        self,
+        channels: str | list[str] | None = None,
+        **kwargs,
+    ) -> dict[str, Measurement]:
+        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
+        self._require_open()
+        ai, di = self.ai_channels, self.di_channels
+        if channels is None:
+            aliases = [*ai, *di]
+        else:
+            aliases = [channels] if isinstance(channels, str) else list(channels)
+            # Validate up front so a bad alias can't leave earlier channels already read from hardware.
+            if unknown := [a for a in aliases if a not in ai and a not in di]:
+                raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
+
+        # Read every analog channel once, then map each channel key to the Measurement it came back in.
+        analog_source: dict[str, Measurement] = {}
+        if any(alias in ai for alias in aliases):
+            analog = self.read_analog(**kwargs)
+            for measurement in analog if isinstance(analog, list) else [analog]:
+                for key in measurement.channel_data:
+                    analog_source[key] = measurement
+
+        result: dict[str, Measurement] = {}
+        for alias in aliases:
+            if alias in ai:
+                key = f"{self.name}.{alias}"
+                source = analog_source[key]
+                result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
+                continue
+            # NOTE: Planning on ripping out port support
+            if isinstance(di[alias], DigitalPortChannel):
+                result[alias] = self.read_digital_port(alias, **kwargs)
+                continue
+            result[alias] = self.read_digital_line(alias, **kwargs)
+
+        return result
+
+    def write(
+        self,
+        channels: str | list[str],
+        values: float | list[float],
+        **kwargs,
+    ) -> Command | list[Command]:
+        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
+        self._require_open()
+        ao, do = self.ao_channels, self.do_channels
+        channel_list = [channels] if isinstance(channels, str) else list(channels)
+        value_list = list(values) if isinstance(values, list) else [values]
+        if len(channel_list) != len(value_list):
+            raise ValueError(
+                f"write() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
+            )
+        # Validate up front so a bad alias can't leave earlier channels already written to hardware.
+        if unknown := [c for c in channel_list if c not in ao and c not in do]:
+            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
+
+        commands: list[Command] = []
+        for channel, value in zip(channel_list, value_list):
+            if channel in ao:
+                commands.append(self.write_analog_value(channel, value, **kwargs))
+                continue
+            # NOTE: Planning on ripping out port support
+            if isinstance(do[channel], DigitalPortChannel):
+                commands.append(self.write_digital_port(channel, int(value), **kwargs))
+                continue
+            # Why does this function accept the data as an int? Shouldn't it only accept a bool?
+            commands.append(self.write_digital_line(channel, int(value), **kwargs))
+
+        return commands[0] if isinstance(channels, str) else commands
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
