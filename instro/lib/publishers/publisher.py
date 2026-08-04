@@ -25,6 +25,10 @@ class BufferedPublisher(abc.ABC):
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         if self._closed:
+            logger.warning(
+                "Dropping publish request because BufferedPublisher is closed (publisher=%s)",
+                self.publisher.__class__.__name__,
+            )
             return
         self.buffer.append(data)
         if len(self.buffer) >= self.buffer_size:
@@ -37,6 +41,10 @@ class BufferedPublisher(abc.ABC):
 
     def close(self) -> None:
         if self._closed:
+            logger.warning(
+                "Dropping close request because BufferedPublisher is already closed (publisher=%s)",
+                self.publisher.__class__.__name__,
+            )
             return
         if self.buffer:
             self.publish_batch()
