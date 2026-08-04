@@ -425,6 +425,7 @@ class Keysight34980A(DAQDriverBase):
         default_tags: dict[str, str],
         **kwargs,
     ) -> list[Measurement]:
+        # TODO: parse_datastring assumes an analog scan reply, so a digital payload would need its own branch here.
         num_channels = len(channel_list)
         readings, timestamps = parse_datastring(response.data)
         scan_list = get_scanlist(list(channel_list.values()))

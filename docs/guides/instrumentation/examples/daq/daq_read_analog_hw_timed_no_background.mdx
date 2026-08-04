@@ -63,7 +63,7 @@ with daq:
     )
 
     # Set the sample rate but also the number of samples we will fetch each time daq.read_analog() is called.
-    daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=50)
+    daq.configure_hw_sample_rate(sample_rate=100, samples_per_channel=50)
 
     # Start hardware acquisition without a background daemon. We fetch the buffer
     # ourselves in the main app loop via read_analog().

@@ -60,7 +60,7 @@ with daq:
         direction=Direction.OUTPUT, physical_channel=AO_CH1, alias="ao_1", range_min=0, range_max=5
     )
 
-    daq.configure_ai_sample_rate(sample_rate=100)
+    daq.configure_hw_sample_rate(sample_rate=100)
 
     # Start the acquisition.
     # This launches a background daemon that fetches samples from the DAQ device buffer.
