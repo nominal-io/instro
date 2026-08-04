@@ -63,7 +63,7 @@ with daq:
     )
 
     # There is no device sample clock here: this rate paces the background daemon.
-    daq.configure_sw_sample_rate(sample_rate=100)
+    daq.configure_ai_sw_sample_rate(sample_rate=100)
 
     # Start the acquisition.
     # This launches a background daemon that polls the DAQ for a new sample every period.

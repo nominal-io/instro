@@ -276,7 +276,7 @@ class MCCDriver(DAQDriverBase):
 
         return valid_ranges[0][0]
 
-    def configure_hw_timing(self, hw_timing_config: HWTimingConfig):
+    def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
         """Configure hardware timing for the specified channels."""
         ai_info = self._info.get_ai_info()
         if not ai_info.supports_scan:
