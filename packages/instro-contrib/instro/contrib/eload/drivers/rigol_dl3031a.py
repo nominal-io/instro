@@ -118,7 +118,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         self._write_checked(f"FUNCtion:MODE {mode}")
 
-    def set_transient_trigger(self, state: EnableVal | None = None) -> None:
+    def set_transient_trigger(self, state: EnableVal) -> None:
         """
         Set trigger function to be on or off.
         """
