@@ -242,7 +242,8 @@ class Instrument:
 
     def _reset_daemon_timing(self):
         """Drop the timing window and re-arm the warning so cycles are judged against the current interval."""
-        self._daemon_work_times.clear()
+        # Create new deque so we don't risk clearing the queue used by the daemon for averaging
+        self._daemon_work_times = deque(maxlen=self._daemon_work_times.maxlen)
         self._interval_warning_issued = False
 
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
@@ -390,11 +391,13 @@ class Instrument:
         if self._background_config.interval <= 0:
             return
 
-        self._daemon_work_times.append(work_time_s)
-        if self._interval_warning_issued or len(self._daemon_work_times) != self._daemon_work_times.maxlen:
+        # Grab current version of work times so we don't have race condition between length check and division
+        work_times = self._daemon_work_times
+        work_times.append(work_time_s)
+        if self._interval_warning_issued or len(work_times) != work_times.maxlen:
             return
 
-        average_work_time_s = sum(self._daemon_work_times) / len(self._daemon_work_times)
+        average_work_time_s = sum(work_times) / len(work_times)
         if average_work_time_s <= self._background_config.interval:
             return
 
