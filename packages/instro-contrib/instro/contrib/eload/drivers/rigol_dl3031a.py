@@ -14,12 +14,7 @@ EnableVal = Literal[0, 1, "ON", "OFF"]
 
 
 def loadmode_to_rigol(mode: LoadMode) -> str:
-    return {
-        LoadMode.CC: "CURRent",
-        LoadMode.CV: "VOLTage",
-        LoadMode.CP: "POWer",
-        LoadMode.CR: "RESistance"
-    }[mode]
+    return {LoadMode.CC: "CURRent", LoadMode.CV: "VOLTage", LoadMode.CP: "POWer", LoadMode.CR: "RESistance"}[mode]
 
 
 def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
@@ -31,10 +26,6 @@ def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
 
 
 class RigolDL3031A(ELoadDriverBase):
-    """
-    TODO: hardware validate base functionality
-    """
-
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         # track short status since not tracked in questionable status register
@@ -43,13 +34,14 @@ class RigolDL3031A(ELoadDriverBase):
     def open(self) -> None:
         self._visa.open()
         # no explicit remote enable command
-        # TODO: verify auto-enter remote mode upon receiving any SCPI command
 
     def close(self) -> None:
         self._visa.close()
 
     def short_output(self, enable: bool, channel: int) -> None:
-        # TODO: test functionality in both hold and toggle modes
+        """
+        Verified in both Toggle/Hold modes.
+        """
         if enable != self._short_enabled:
             self._write_checked("SYSTem:KEY 33")
             self._short_enabled = enable
