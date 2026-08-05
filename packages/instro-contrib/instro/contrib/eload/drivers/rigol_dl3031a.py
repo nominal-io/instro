@@ -4,9 +4,8 @@ RIGOL DL3031A DC eload driver
 
 from typing import Literal
 from instro.eload import ELoadDriverBase
-from instro.eload.types import SlewRateDirection
+from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from enum import Enum
 
 TransientCurrMode = Literal["CONT", "CONTinuous", "PULS", "PULSe", "TOGG", "TOGGle"]
 MinMaxDef = Literal["MIN", "MINimum", "MAX", "MAXimum", "DEF", "DEFault"]
@@ -14,21 +13,12 @@ MinMax = Literal["MIN", "MINimum", "MAX", "MAXimum"]
 EnableVal = Literal[0, 1, "ON", "OFF"]
 
 
-class LoadMode(Enum):
-    CC = "CC"
-    CR = "CR"
-    CP = "CP"
-    CV = "CV"
-    battery = "BATTary"
-
-
 def loadmode_to_rigol(mode: LoadMode) -> str:
     return {
         LoadMode.CC: "CURRent",
         LoadMode.CV: "VOLTage",
         LoadMode.CP: "POWer",
-        LoadMode.CR: "RESistance",
-        LoadMode.battery: "BATTary",
+        LoadMode.CR: "RESistance"
     }[mode]
 
 
