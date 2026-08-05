@@ -2,6 +2,7 @@ import importlib
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pyvisa
 
 from instro.lib.discover import _IDN_MAP, scan_visa_resources
 
@@ -105,6 +106,32 @@ def test_scan_error() -> None:
     assert len(result.errors) == 1
     assert result.errors[0].resource == "USB0::0x1234::INSTR"
     assert "timeout" in result.errors[0].message
+    assert result.errors[0].hint is None
+
+
+def test_scan_error_classifies_permission_denied_hint() -> None:
+    mock_rm = _rm_mock(("USB0::0x1234::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.open.side_effect = pyvisa.errors.VisaIOError(
+                pyvisa.constants.StatusCode.error_system_error
+            )
+            result = scan_visa_resources()
+
+    assert len(result.errors) == 1
+    assert "SYSTEM_ERROR" in result.errors[0].message
+    assert result.errors[0].hint == "permission denied - check udev rules"
+
+
+def test_scan_error_classifies_missing_usb_backend_hint() -> None:
+    mock_rm = _rm_mock(("USB0::0x1234::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.open.side_effect = Exception("No backend available")
+            result = scan_visa_resources()
+
+    assert len(result.errors) == 1
+    assert result.errors[0].hint == "USB backend missing - install libusb"
 
 
 def test_scan_asrl_skipped() -> None:
