@@ -120,6 +120,7 @@ ANALOG_TOLERANCE_V = 0.05  # DAC ~10 mV + AIN noise/offset; 50 mV is comfortable
 
 SAMPLE_RATE_HZ = 1000.0
 SAMPLES_PER_CHANNEL = 100
+SW_SAMPLE_RATE_HZ = 1.0
 # Distinct DC levels held on DAC0/DAC1 (looped to AIN0/AIN1) during hardware-timed reads.
 HW_TIMED_DC_V0 = 2.0
 HW_TIMED_DC_V1 = 3.5
@@ -601,7 +602,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
                 daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V0)  # hold distinct DC levels before streaming
                 daq.write_analog_value(AO1_ALIAS, HW_TIMED_DC_V1)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -656,7 +657,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
                 daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V0)
                 daq.write_analog_value(AO1_ALIAS, HW_TIMED_DC_V1)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -701,16 +702,68 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Actual sample rate reporting
+    # 10. Multichannel SW-timed analog read with background daemon
     # =====================================================================
-    def test_10_actual_sample_rate(self):
+    def test_10_sw_timed_analog_read_background(self):
+        """Start multichannel SW-timed acquisition with background daemon and verify each channel's buffer."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+                daq.write_analog_value(AO0_ALIAS, HW_TIMED_DC_V0)  # hold distinct DC levels before streaming
+                daq.write_analog_value(AO1_ALIAS, HW_TIMED_DC_V1)
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+
+                try:
+                    time.sleep(1.0)  # let background daemon collect samples
+
+                    for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):
+                        ch = daq.get_channel(f"{NAME}.{ai_alias}", 50, True)
+                        self.assertIsNotNone(ch)
+                        self.assertGreaterEqual(len(ch.values), 1)
+                        self.assertTrue(
+                            all(math.isfinite(v) for v in ch.values), f"non-finite samples in {ai_alias} buffer"
+                        )
+                        mean = sum(ch.values) / len(ch.values)
+                        print(
+                            f"         background {ai_alias}: {len(ch.values)} samples, mean = {mean:.4f} V (expected {level} V)"
+                        )
+                        if LOOPBACK_WIRED:
+                            self.assertAlmostEqual(
+                                mean,
+                                level,
+                                delta=HW_TIMED_TOLERANCE_V,
+                                msg=f"{ai_alias} mean {mean:.4f} V != expected {level} V",
+                            )
+                finally:
+                    daq.stop()
+                    daq.write_analog_value(AO0_ALIAS, 0.0)
+                    daq.write_analog_value(AO1_ALIAS, 0.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "SW-timed analog read (background, multichannel)",
+            f"Start multichannel SW-timed acquisition at {SW_SAMPLE_RATE_HZ} Hz with background daemon. "
+            f"Hold DAC0 at {HW_TIMED_DC_V0} V and DAC1 at {HW_TIMED_DC_V1} V; verify AIN0 and AIN1 buffers "
+            "each track their own source via get_channel().",
+            step,
+        )
+
+    # =====================================================================
+    # 11. Actual sample rate reporting
+    # =====================================================================
+    def test_11_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -738,16 +791,16 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Buffer-depth telemetry
+    # 12. Buffer-depth telemetry
     # =====================================================================
-    def test_11_buffer_depth_telemetry(self):
+    def test_12_buffer_depth_telemetry(self):
         """Verify get_points_in_buffer reports a valid depth during background acquisition."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -771,9 +824,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 12. Clean shutdown — outputs to safe state
+    # 13. Clean shutdown — outputs to safe state
     # =====================================================================
-    def test_12_clean_shutdown(self):
+    def test_13_clean_shutdown(self):
         """Set all outputs to safe state as a final step."""
 
         def step():
@@ -794,9 +847,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 13. Channel registry introspection + immutability
+    # 14. Channel registry introspection + immutability
     # =====================================================================
-    def test_13_channel_registry(self):
+    def test_14_channel_registry(self):
         """Configured channels appear in the driver's frozen snapshots, keyed by alias, and those snapshots are read-only (MappingProxyType)."""
 
         def step():
@@ -834,9 +887,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 14. Error contract — acting on unconfigured channels
+    # 15. Error contract — acting on unconfigured channels
     # =====================================================================
-    def test_14_unconfigured_channel_errors(self):
+    def test_15_unconfigured_channel_errors(self):
         """Writing/reading an unconfigured alias raises KeyError (per the driver contract)."""
 
         def step():
@@ -861,9 +914,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 15. Lifecycle guard — operations before open()
+    # 16. Lifecycle guard — operations before open()
     # =====================================================================
-    def test_15_requires_open(self):
+    def test_16_requires_open(self):
         """Device operations before open() raise InstrumentNotOpenError."""
 
         def step():
@@ -887,13 +940,13 @@ class TestLabJackT7Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 16. Methods not implemented on the T7 — reported as skipped
+    # 17. Methods not implemented on the T7 — reported as skipped
     # =====================================================================
-    def test_16_port_width_digital_unsupported(self):
+    def test_17_port_width_digital_unsupported(self):
         """write_digital_port / read_digital_port are not implemented for the T7."""
         self.skipTest("driver raises NotImplementedError for LabJack port-width digital I/O")
 
-    def test_17_relay_control_unsupported(self):
+    def test_18_relay_control_unsupported(self):
         """Relay control is not supported by the LabJack driver."""
         self.skipTest("DAQDriverBase relays unsupported by LabJack")
 
