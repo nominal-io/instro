@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.3.0...instro-unstable-v1.4.0) (2026-08-05)
+
+
+### Features
+
+* **awg:** add modulation to AWG ([#335](https://github.com/nominal-io/instro/issues/335)) ([9ea6bbd](https://github.com/nominal-io/instro/commit/9ea6bbd3548de24b809503e5adc4d2e0d1772aab))
+
 ## [1.3.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.2.0...instro-unstable-v1.3.0) (2026-08-04)
 
 
