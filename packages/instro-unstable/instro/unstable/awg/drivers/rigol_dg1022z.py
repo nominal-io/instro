@@ -72,7 +72,6 @@ class RigolDG1022Z(AWGDriverBase):
                 self._write_frequency_and_phase(channel, waveform.frequency_hz, waveform.phase_deg)
                 self._visa.write(f":SOUR{channel}:FUNC:RAMP:SYMM {_TRIANGLE_SYMMETRY_PCT}")
             elif isinstance(waveform, Pulse):
-                # The DG1000Z command set has no pulse-delay parameter.
                 if waveform.delay_s != 0.0:
                     raise ValueError("the DG1022Z cannot program a pulse delay; Pulse.delay_s must be 0")
                 self._visa.write(f":SOUR{channel}:FUNC PULS")
@@ -94,9 +93,7 @@ class RigolDG1022Z(AWGDriverBase):
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
                     self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
-                    # check_errors doesn't drain the queue (see check_errors docstring), so a batch write
-                    # here could bury an error under later ones. Checking every point catches it at the
-                    # point it occurred, at the cost of one extra query per point on the happy path.
+                    # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
                     self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
@@ -228,13 +225,17 @@ class RigolDG1022Z(AWGDriverBase):
             self._visa.write(f":SOUR{channel}:MOD:STAT {'ON' if enable else 'OFF'}")
             self.check_errors()
 
-    def get_modulation_state(self, channel: int) -> tuple[ModulationType, bool]:
-        """Get the modulation type and enabled state currently active on channel, read from the instrument."""
+    def get_modulation_type(self, channel: int) -> ModulationType:
         _check_channel(channel)
         with self._visa.lock():
             mod_type = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
+        return mod_type
+
+    def is_modulation_enabled(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
             enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
-        return mod_type, enabled
+        return enabled
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
