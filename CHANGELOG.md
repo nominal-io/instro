@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0](https://github.com/nominal-io/instro/compare/instro-v1.6.0...instro-v1.7.0) (2026-08-05)
+
+
+### Features
+
+* **awg:** add modulation to AWG ([#335](https://github.com/nominal-io/instro/issues/335)) ([9ea6bbd](https://github.com/nominal-io/instro/commit/9ea6bbd3548de24b809503e5adc4d2e0d1772aab))
+
+
+### Bug Fixes
+
+* **publishers:** fix BufferedPublisher retains its buffer after close ([#345](https://github.com/nominal-io/instro/issues/345)) ([fe2d160](https://github.com/nominal-io/instro/commit/fe2d1605c8fe47f9bb179a3ba23a3c0ed3503584))
+
 ## [1.6.0](https://github.com/nominal-io/instro/compare/instro-v1.5.0...instro-v1.6.0) (2026-08-04)
 
 
