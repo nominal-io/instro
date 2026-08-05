@@ -339,7 +339,7 @@ class RigolDL3031A(ELoadDriverBase):
         """
         Configure wave mode.
         """
-        cmd_root = "LIST"
+        cmd_root = "WAVe"
         scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
