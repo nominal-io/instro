@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/nominal-io/instro/compare/instro-ethernetip-v1.0.0...instro-ethernetip-v1.0.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **nidaqmx:** validate digital port width ([#284](https://github.com/nominal-io/instro/issues/284)) ([980bc7d](https://github.com/nominal-io/instro/commit/980bc7dd3fe915ef338e77712ff9efaa7980f6c3))
+
 ## [1.0.1](https://github.com/nominal-io/instro/compare/instro-ethernetip-v1.0.0...instro-ethernetip-v1.0.1) (2026-07-27)
 
 
