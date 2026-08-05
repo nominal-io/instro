@@ -118,6 +118,28 @@ def test_discover_mixed_bench():
     assert "UNRECOGNIZED" in result.output
 
 
+@pytest.mark.parametrize(
+    "idn,driver_class",
+    [
+        ("Keysight Technologies,EDUX1052A,SN,1.0", "Keysight1200X"),
+        ("TEKTRONIX,MSO24,C012345,CF:91.1CT FV:1.20", "Tektronix2SeriesMSO"),
+        ("Siglent Technologies,SDS1104X-E,SN,1.0", "SiglentSDS1000XE"),
+    ],
+)
+def test_discover_recognizes_scope(idn, driver_class):
+    mock_rm = _rm_mock(("USB0::0x0957::0x1755::INSTR",))
+    with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
+        with patch("instro.cli.discover.list_ports") as mock_lp:
+            with patch("instro.cli.discover.VisaDriver") as mock_driver_cls:
+                mock_lp.comports.return_value = []
+                mock_driver_cls.return_value.query.return_value = idn
+                result = runner.invoke(app, ["discover"])
+    assert result.exit_code == 0
+    assert "RECOGNIZED" in result.output
+    assert driver_class in result.output
+    assert "scope" in result.output
+
+
 def test_discover_failed_probe():
     mock_rm = _rm_mock(("USB0::0x1234::INSTR",))
     with patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[mock_rm, Exception(), mock_rm]):
