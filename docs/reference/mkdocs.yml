@@ -23,6 +23,7 @@ nav:
       - Types: reference/types.md
       - Exceptions: reference/exceptions.md
       - Publishers: reference/publishers.md
+      - Discover: reference/discover.md
 
   - Instruments:
       - instruments/index.md

@@ -18,6 +18,9 @@ class VisaInstrumentInfo:
     idn: str
     category: str
     driver_class_name: str
+    # Not consumed by anything in this module yet -- kept for an anticipated caller that resolves
+    # a driver via a vendor-key-keyed registry (as PSU_VENDOR_REGISTRY does today) rather than by
+    # driver_class_name, once other categories (e.g. scope) grow their own such registry.
     vendor_key: str | None
     num_channels: int | None
 
