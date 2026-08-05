@@ -100,4 +100,4 @@ for error in result.errors:
     print(error.resource, error.hint or error.message)
 ```
 
-`scan_visa_resources` accepts the same `backend` and `timeout` the CLI does, and returns a `VisaScanResult` with `instruments` (`VisaInstrumentInfo`), `unrecognized` (`VisaUnrecognizedInstrument`), and `errors` (`VisaScanError`) — the same data the CLI renders into the tables above.
+`scan_visa_resources` accepts the same `backend` the CLI's `--backend` flag does, plus an optional `timeout` (seconds per instrument query, default `2`) that the CLI doesn't currently expose. It returns a `VisaScanResult` with `instruments` (`VisaInstrumentInfo`), `unrecognized` (`VisaUnrecognizedInstrument`), and `errors` (`VisaScanError`) — the same data the CLI renders into the tables above.
