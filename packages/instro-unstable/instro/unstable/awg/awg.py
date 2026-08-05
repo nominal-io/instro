@@ -42,15 +42,15 @@ class AWGDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def check_errors(self) -> None:
-        """Check the instrument error queue"""
+        """Check the instrument error queue."""
 
     @abc.abstractmethod
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
-        """Program channel with the waveform definition"""
+        """Program channel with the waveform definition."""
 
     @abc.abstractmethod
     def get_waveform(self, channel: int) -> Waveform:
-        """Get the current waveform on channel"""
+        """Get the current waveform on channel."""
 
     @abc.abstractmethod
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
@@ -89,7 +89,7 @@ class AWGDriverBase(abc.ABC):
         raise NotImplementedError(f"align_phase is not implemented for {type(self).__name__}")
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-        """Configure channel's carrier modulation with modulator shape"""
+        """Configure channel's carrier modulation with modulator shape."""
         raise NotImplementedError(f"set_modulation is not implemented for {type(self).__name__}")
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
@@ -97,11 +97,11 @@ class AWGDriverBase(abc.ABC):
         raise NotImplementedError(f"modulation_enable is not implemented for {type(self).__name__}")
 
     def get_modulation_type(self, channel: int) -> ModulationType:
-        """Get the modulation type currently active on channel"""
+        """Get the modulation type currently active on channel."""
         raise NotImplementedError(f"get_modulation_type is not implemented for {type(self).__name__}")
 
     def is_modulation_enabled(self, channel: int) -> bool:
-        """Get the modulation enabled state currently active on channel"""
+        """Get the modulation enabled state currently active on channel."""
         raise NotImplementedError(f"is_modulation_enabled is not implemented for {type(self).__name__}")
 
 
@@ -202,7 +202,7 @@ class InstroAWG(Instrument):
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
     def start(self) -> None:
-        """Start the background daemon"""
+        """Start the background daemon."""
         with self._resource_lock:
             configured = bool(self._channel_waveforms)
         if not configured:
@@ -374,10 +374,10 @@ class InstroAWG(Instrument):
         """Configure channel's carrier modulation with modulator shape.
 
         NOTE: magnitude varies by mod_type:
-        AM: depth, 
-        FM: frequency deviation, 
-        PM: phase deviation, 
-        ASK: 2nd amplitude, 
+        AM: depth,
+        FM: frequency deviation,
+        PM: phase deviation,
+        ASK: 2nd amplitude,
         FSK: hop frequency.
         """
         if not isinstance(mod_type, ModulationType):
@@ -402,7 +402,7 @@ class InstroAWG(Instrument):
         return self._package_command(descriptor, enable, timestamp, **kwargs)
 
     def get_modulation_type(self, channel: int) -> ModulationType:
-        """Read back the modulation type currently active on channel"""
+        """Read back the modulation type currently active on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             mod_type = self._driver.get_modulation_type(channel=channel)
@@ -410,6 +410,6 @@ class InstroAWG(Instrument):
         return mod_type
 
     def is_modulation_enabled(self, channel: int, **kwargs) -> Measurement | None:
-        """Read back whether modulation is enabled on channel"""
+        """Read back whether modulation is enabled on channel."""
         self._check_channel(channel)
         return self._execute_measurement(self._driver.is_modulation_enabled, channel, "modulation_enabled", **kwargs)
