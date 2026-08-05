@@ -556,7 +556,7 @@ def test_21_modulation_enable_resends_command_on_repeat_calls(rigol: RigolDG1022
     ]
 
 
-def test_22_get_modulation_type_and_is_modulation_enabled_are_independent_per_channel(
+def test_22_get_modulation_type_and_get_modulation_state_are_independent_per_channel(
     rigol: RigolDG1022Z, rigol_visa: MagicMock
 ) -> None:
     responses = {
@@ -568,9 +568,9 @@ def test_22_get_modulation_type_and_is_modulation_enabled_are_independent_per_ch
     rigol_visa.query.side_effect = lambda command: responses[command]
 
     assert rigol.get_modulation_type(1) == ModulationType.AM
-    assert rigol.is_modulation_enabled(1) is False
+    assert rigol.get_modulation_state(1) is False
     assert rigol.get_modulation_type(2) == ModulationType.FSK
-    assert rigol.is_modulation_enabled(2) is True
+    assert rigol.get_modulation_state(2) is True
 
 
 def test_23_get_modulation_type_raises_on_unexpected_instrument_response(

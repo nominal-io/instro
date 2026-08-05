@@ -100,9 +100,9 @@ class AWGDriverBase(abc.ABC):
         """Get the modulation type currently active on channel."""
         raise NotImplementedError(f"get_modulation_type is not implemented for {type(self).__name__}")
 
-    def is_modulation_enabled(self, channel: int) -> bool:
+    def get_modulation_state(self, channel: int) -> bool:
         """Get the modulation enabled state currently active on channel."""
-        raise NotImplementedError(f"is_modulation_enabled is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"get_modulation_state is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -409,7 +409,7 @@ class InstroAWG(Instrument):
             self._check_errors()
         return mod_type
 
-    def is_modulation_enabled(self, channel: int, **kwargs) -> Measurement | None:
+    def get_modulation_state(self, channel: int, **kwargs) -> Measurement | None:
         """Read back whether modulation is enabled on channel."""
         self._check_channel(channel)
-        return self._execute_measurement(self._driver.is_modulation_enabled, channel, "modulation_enabled", **kwargs)
+        return self._execute_measurement(self._driver.get_modulation_state, channel, "modulation_enabled", **kwargs)

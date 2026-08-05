@@ -152,7 +152,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
-| `is_modulation_enabled(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
+| `get_modulation_state(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
 
 <Note>
 `get_waveform()`, `get_amplitude()`, `convert_amplitude()`, and `get_modulation_type()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
@@ -180,7 +180,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_modulation(channel, mod_type, shape, magnitude)` | Configure a channel's modulation (AM/FM/PM/PWM/ASK/FSK/PSK) without enabling it |
 | `modulation_enable(channel, enable)` | Enable or disable modulation on channel |
 | `get_modulation_type(channel)` | Read back the modulation type currently active on channel |
-| `is_modulation_enabled(channel)` | Read back whether modulation is enabled on channel |
+| `get_modulation_state(channel)` | Read back whether modulation is enabled on channel |
 | `start()` | Begin background daemon |
 | `stop()` | End background daemon |
 
@@ -261,7 +261,7 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`set_modulation(channel, mod_type, shape, magnitude)`**: Configure a channel's modulation. Call `modulation_enable()` to activate it.
 - **`modulation_enable(channel, enable)`**: Enable or disable modulation on channel.
 - **`get_modulation_type(channel)`**: Read back the active modulation type from the instrument.
-- **`is_modulation_enabled(channel)`**: Read back whether modulation is enabled from the instrument.
+- **`get_modulation_state(channel)`**: Read back whether modulation is enabled from the instrument.
 
 ### Talking to the Instrument
 

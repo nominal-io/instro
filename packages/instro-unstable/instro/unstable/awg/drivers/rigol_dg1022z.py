@@ -231,7 +231,7 @@ class RigolDG1022Z(AWGDriverBase):
             mod_type = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
         return mod_type
 
-    def is_modulation_enabled(self, channel: int) -> bool:
+    def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)
         with self._visa.lock():
             enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"

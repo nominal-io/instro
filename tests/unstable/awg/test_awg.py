@@ -90,7 +90,7 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("set_modulation", (1, ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
         ("modulation_enable", (1, True)),
         ("get_modulation_type", (1,)),
-        ("is_modulation_enabled", (1,)),
+        ("get_modulation_state", (1,)),
     ],
 )
 def test_02_awg_driver_base_optional_methods_raise_not_implemented(
@@ -116,7 +116,7 @@ def mock_driver() -> MagicMock:
     driver.get_output_state.return_value = False
     driver.get_output_load.return_value = 50.0
     driver.get_modulation_type.return_value = ModulationType.AM
-    driver.is_modulation_enabled.return_value = False
+    driver.get_modulation_state.return_value = False
     return driver
 
 
@@ -211,7 +211,7 @@ def test_04_check_errors_called_propagates_and_helper_tags_avoid_collision(
         ("set_modulation", (ModulationType.AM, Sine(frequency_hz=1000.0), 0.5)),
         ("modulation_enable", (True,)),
         ("get_modulation_type", ()),
-        ("is_modulation_enabled", ()),
+        ("get_modulation_state", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 1, 2, 3])
