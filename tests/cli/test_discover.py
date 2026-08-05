@@ -120,7 +120,6 @@ def test_discover_mixed_bench():
                 idn="KEITHLEY INSTRUMENTS,2400,12345,C30",
                 category="dmm",
                 driver_class_name="Keithley2400",
-                vendor_key=None,
                 num_channels=None,
             )
         ],
@@ -185,7 +184,6 @@ def test_discover_two_supported_one_unsupported_one_serial(_no_serial_devices):
                 idn="KEITHLEY INSTRUMENTS,2400,12345,C30",
                 category="dmm",
                 driver_class_name="Keithley2400",
-                vendor_key=None,
                 num_channels=None,
             ),
             VisaInstrumentInfo(
@@ -193,7 +191,6 @@ def test_discover_two_supported_one_unsupported_one_serial(_no_serial_devices):
                 idn="AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
                 category="dmm",
                 driver_class_name="Agilent34401A",
-                vendor_key=None,
                 num_channels=None,
             ),
         ],

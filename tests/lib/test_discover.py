@@ -41,7 +41,6 @@ def test_scan_recognized_psu() -> None:
     assert info.resource == "USB0::0x15EF::0x0099::MY001::INSTR"
     assert info.category == "psu"
     assert info.driver_class_name == "BK9115"
-    assert info.vendor_key == "bk_9115"
     assert info.num_channels == 1
 
 
@@ -56,7 +55,6 @@ def test_scan_recognized_dmm() -> None:
     info = result.instruments[0]
     assert info.category == "dmm"
     assert info.driver_class_name == "Keithley2400"
-    assert info.vendor_key is None
     assert info.num_channels is None
 
 

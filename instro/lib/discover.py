@@ -18,10 +18,6 @@ class VisaInstrumentInfo:
     idn: str
     category: str
     driver_class_name: str
-    # Not consumed by anything in this module yet -- kept for an anticipated caller that resolves
-    # a driver via a vendor-key-keyed registry (as PSU_VENDOR_REGISTRY does today) rather than by
-    # driver_class_name, once other categories (e.g. scope) grow their own such registry.
-    vendor_key: str | None
     num_channels: int | None
 
 
@@ -46,30 +42,29 @@ class VisaScanResult:
 
 
 # Key: (vendor, model) substrings matched case-insensitively against the *IDN? response.
-# Value: (category, driver_class_name, vendor_key, num_channels). vendor_key/num_channels are
-# only meaningful for categories with a class-name-keyed driver registry (currently psu, scope);
-# other categories (dmm, eload) don't need them to resolve a driver, so they're left None.
-_IDN_MAP: dict[tuple[str, str], tuple[str, str, str | None, int | None]] = {
-    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None, None),
-    ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None, None),
-    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400", None, None),
-    ("KEYSIGHT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None, None),
-    ("AGILENT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None, None),
-    ("B&K PRECISION", "9115"): ("psu", "BK9115", "bk_9115", 1),
-    ("B&K PRECISION", "9140"): ("psu", "BK914X", "bk_914x", 3),
-    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800", "rigol_dp800", 1),
-    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800", "rigol_dp800", 2),
-    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800", "rigol_dp800", 3),
-    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800", "rigol_dp800", 3),
-    ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", "siglent_spd3303", 3),
-    ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None, None),
-    ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X", "keysight_1200x", 2),
-    ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X", "keysight_1200x", 2),
-    ("TEKTRONIX", "MSO22"): ("scope", "Tektronix2SeriesMSO", "tektronix_2series", 4),
-    ("TEKTRONIX", "MSO24"): ("scope", "Tektronix2SeriesMSO", "tektronix_2series", 4),
-    ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 4),
-    ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 2),
-    ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE", "siglent_sds1000x_e", 4),
+# Value: (category, driver_class_name, num_channels). num_channels is the instrument's real
+# channel count where known; left None where it isn't tracked (dmm, eload).
+_IDN_MAP: dict[tuple[str, str], tuple[str, str, int | None]] = {
+    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None),
+    ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None),
+    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400", None),
+    ("KEYSIGHT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None),
+    ("AGILENT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None),
+    ("B&K PRECISION", "9115"): ("psu", "BK9115", 1),
+    ("B&K PRECISION", "9140"): ("psu", "BK914X", 3),
+    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800", 1),
+    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800", 2),
+    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800", 3),
+    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800", 3),
+    ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", 3),
+    ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None),
+    ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X", 2),
+    ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X", 2),
+    ("TEKTRONIX", "MSO22"): ("scope", "Tektronix2SeriesMSO", 4),
+    ("TEKTRONIX", "MSO24"): ("scope", "Tektronix2SeriesMSO", 4),
+    ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE", 4),
+    ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE", 2),
+    ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE", 4),
 }
 
 
@@ -137,14 +132,13 @@ def scan_visa_resources(
             if match is None:
                 unrecognized.append(VisaUnrecognizedInstrument(resource=resource, idn=idn))
             else:
-                category, driver_class_name, vendor_key, num_channels = match
+                category, driver_class_name, num_channels = match
                 instruments.append(
                     VisaInstrumentInfo(
                         resource=resource,
                         idn=idn,
                         category=category,
                         driver_class_name=driver_class_name,
-                        vendor_key=vendor_key,
                         num_channels=num_channels,
                     )
                 )
