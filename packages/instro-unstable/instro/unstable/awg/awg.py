@@ -15,6 +15,7 @@ from instro.lib.types import Command, Measurement
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -104,6 +105,14 @@ class AWGDriverBase(abc.ABC):
         """Get the modulation enabled state currently active on channel."""
         raise NotImplementedError(f"get_modulation_state is not implemented for {type(self).__name__}")
 
+    def get_burst_state(self, channel: int) -> bool:
+        raise NotImplementedError(f"get_burst_state is not implemented for {type(self).__name__}")
+
+    def get_burst_type(self, channel: int) -> BurstType:
+        raise NotImplementedError(f"get_burst_type is not implemented for {type(self).__name__}")
+
+    def set_burst(self, channel: int, burst_type: BurstType, magnitude: float) -> None:
+        raise NotImplementedError(f"set_burst is not implemented for {type(self).__name__}")
 
 _PUBLISHED_NAMES: dict[type, str] = {
     Sine: "SINE",
@@ -413,3 +422,16 @@ class InstroAWG(Instrument):
         """Read back whether modulation is enabled on channel."""
         self._check_channel(channel)
         return self._execute_measurement(self._driver.get_modulation_state, channel, "modulation_enabled", **kwargs)
+
+    @publish_command
+    def burst(self, channel: int, burst_type: BurstType, **kwargs) -> Command:
+        """Configure burst mode on channel."""
+        if not isinstance(burst_type, BurstType):
+            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.burst(channel=channel, burst_type=burst_type)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.burst.cmd"
+        return self._package_command(descriptor, burst_type.value, timestamp, **kwargs)

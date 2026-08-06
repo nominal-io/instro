@@ -12,6 +12,12 @@ class AmplitudeMeasurementUnit(Enum):
     DBM = "DBM"
 
 
+class BurstType(Enum):
+    NCYCLE = "NCYCLE"
+    GATED = "GATED"
+    INFINITE = "INFINITE"
+
+
 class ModulationType(Enum):
     AM = "AM"
     FM = "FM"

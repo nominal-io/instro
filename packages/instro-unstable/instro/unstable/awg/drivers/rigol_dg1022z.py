@@ -7,6 +7,7 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstType,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -30,6 +31,12 @@ _MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
     Square: "SQU",
     Sawtooth: "RAMP",
     Triangle: "TRI",
+}
+
+_BURST_MODES: dict[BurstType, str] = {
+    BurstType.NCYCLE: "TRIG",
+    BurstType.GATED: "GAT",
+    BurstType.INFINITE: "INF",
 }
 
 
@@ -236,6 +243,23 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
         return enabled
+
+    def burst(self, channel: int, burst_type: BurstType) -> None:
+        _check_channel(channel)
+        if not isinstance(burst_type, BurstType):
+            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
+        with self._visa.lock():
+            carrier = self.get_waveform(channel)
+            if isinstance(carrier, StaticValue):
+                raise ValueError(f"the DG1022Z cannot burst a StaticValue (DC) waveform on channel {channel}")
+            self._visa.write(f":SOUR{channel}:BURS:MODE {_BURST_MODES[burst_type]}")
+            if burst_type is BurstType.GATED:
+                self._visa.write(f":SOUR{channel}:BURS:GATE:POL NORM")
+            elif burst_type is BurstType.INFINITE:
+                self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR MAN")
+            else:
+                self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR INT")
+            self._visa.write(f":SOUR{channel}:BURS:STAT ON")
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
