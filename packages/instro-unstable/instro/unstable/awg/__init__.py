@@ -7,7 +7,9 @@ from instro.unstable.awg.awg import (
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
     BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -33,5 +35,7 @@ __all__ = [
     "AmplitudeMeasurementUnit",
     "ModulationType",
     "BurstType",
+    "BurstTriggerSource",
+    "GatePolarity",
     "convert_amplitude",
 ]
