@@ -80,6 +80,7 @@ class RigolDL3031A(ELoadDriverBase):
     def trigger(self) -> None:
         """
         Initiate trigger when Bus is selected as trigger source.
+        Triggering enables input and transient mode.
         """
         self._write_checked(f"TRIGger:IMMediate")
 
