@@ -24,21 +24,21 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: "0.8.x"
           enable-cache: false
           cache-dependency-glob: "uv.lock"
           python-version: ${{ matrix.python-version }}
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       # `rustup` is available by default on GitHub runners
       - name: Install Rust
         run: rustup show
       - name: Cache Rust build output
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Install dependencies
         run: |
           just install
@@ -71,9 +71,9 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       # `rustup` is available by default on GitHub runners
       - name: Install Rust
         run: rustup show
@@ -81,7 +81,7 @@ jobs:
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
       - name: Cache Rust build output
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Rust format and lint checks
         run: |
           just check-rust

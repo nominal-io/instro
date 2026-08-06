@@ -7,7 +7,7 @@ jobs:
   lint-pr-title:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install Dependencies
         # This release broke the default config https://github.com/conventional-changelog/commitlint/releases/tag/v18.6.1
         # After they fix the config-conventional package we can upgrade.
