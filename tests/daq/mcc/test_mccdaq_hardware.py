@@ -636,8 +636,8 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write_analog_value("ao_1", -3.0)
                     time.sleep(1.0)  # let background daemon collect samples
 
-                    ch0 = daq.get_channel("mccdaq_test.ai_0", 10, True)
-                    ch1 = daq.get_channel("mccdaq_test.ai_1", 10, True)
+                    ch0 = daq.get_channel("mccdaq_test.ai_0", 9, True)
+                    ch1 = daq.get_channel("mccdaq_test.ai_1", 9, True)
 
                     self.assertIsNotNone(ch0)
                     self.assertIsNotNone(ch1)
