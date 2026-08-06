@@ -100,7 +100,9 @@ class RigolDL3031A(ELoadDriverBase):
         """
         self._write_checked(f"INPut:STATe {enable}")
 
-    def set_function_mode(self, mode: Literal["FIXed", "LIST", "WAVe", "BATTery", "OCP", "OPP"]) -> None:
+    def set_function_mode(
+        self, mode: Literal["FIXed", "LIST", "WAVe", "BATTery", "OCP", "OPP", "FIX", "WAV", "BATT"]
+    ) -> None:
         """
         Sets input regulation mode.
 
