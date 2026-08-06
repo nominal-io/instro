@@ -14,7 +14,7 @@ just test-python / test-rust     # single-language tests
 uv build --package <name>        # build a wheel for a workspace package
 ```
 
-If `just check` and `just test` both pass, CI will pass.
+If `just check` and `just test` both pass, CI will pass. (A separate scheduled workflow, `.github/workflows/latest-deps-test.yml`, additionally re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests to catch upstream breaking releases; it is not part of PR CI.)
 
 `just check-python` needs only `just` + `uv`. `just check` and `just test` additionally need a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because they run clippy/`cargo test` across the Rust workspace — including the `instro-opcua` crate's C build of `open62541-sys` — and `just test` builds the EtherNet/IP maturin wheel. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
 
