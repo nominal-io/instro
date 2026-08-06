@@ -1,8 +1,7 @@
-"""
-RIGOL DL3031A DC eload driver
-"""
+"""RIGOL DL3031A DC eload driver."""
 
 from typing import Literal
+
 from instro.eload import ELoadDriverBase
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports.visa import VisaConfig, VisaDriver
@@ -39,9 +38,7 @@ class RigolDL3031A(ELoadDriverBase):
         self._visa.close()
 
     def short_output(self, enable: bool, channel: int) -> None:
-        """
-        Verified in both Toggle/Hold modes.
-        """
+        """Verified in both Toggle/Hold modes."""
         if enable != self._short_enabled:
             self._write_checked("SYSTem:KEY 33")
             self._short_enabled = enable
@@ -61,9 +58,7 @@ class RigolDL3031A(ELoadDriverBase):
             self._write_checked(f"{loadmode_to_rigol(mode)}:RANGe {value}")
 
     def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
-        """
-        POS/NEG slew rate directions only take effect in transient mode.
-        """
+        """POS/NEG slew rate directions only take effect in transient mode."""
         self._write_checked(f"CURRent:SLEW:{slew_direction_to_rigol(direction)} {rate}")
 
     def output_enable(self, enable: bool, channel: int) -> None:
@@ -78,15 +73,14 @@ class RigolDL3031A(ELoadDriverBase):
     # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
     # :TRIGger commands
     def trigger(self) -> None:
-        """
-        Initiate trigger when Bus is selected as trigger source.
+        """Initiate trigger when Bus is selected as trigger source.
+        
         Triggering enables input and transient mode.
         """
         self._write_checked(f"TRIGger:IMMediate")
 
     def set_trigger_source(self, source: Literal["BUS", "EXTernal", "MANual"]) -> None:
-        """
-        Select trigger source.
+        """Select trigger source.
 
         BUS: triggers when receiving remote :TRIGger command
         EXTernal: triggers when receiving low pulse over trigger terminal in rear panel I/O interface
@@ -96,16 +90,13 @@ class RigolDL3031A(ELoadDriverBase):
 
     # [:SOURce] commands
     def set_input_state(self, enable: EnableVal) -> None:
-        """
-        Set eload input to be on/off.
-        """
+        """Set eload input to be on/off."""
         self._write_checked(f"INPut:STATe {enable}")
 
     def set_function_mode(
         self, mode: Literal["FIXed", "LIST", "WAVe", "BATTery", "OCP", "OPP", "FIX", "WAV", "BATT"]
     ) -> None:
-        """
-        Sets input regulation mode.
+        """Sets input regulation mode.
 
         FIXed: controlled by FUNCtion command
         LIST: controlled by activated list command
@@ -117,9 +108,7 @@ class RigolDL3031A(ELoadDriverBase):
         self._write_checked(f"FUNCtion:MODE {mode}")
 
     def set_transient_trigger(self, state: EnableVal) -> None:
-        """
-        Set trigger function to be on or off.
-        """
+        """Set trigger function to be on or off."""
         self._write_checked(f"TRANsient:STATe {state}")
 
     def set_cc_params(
@@ -130,9 +119,7 @@ class RigolDL3031A(ELoadDriverBase):
         v_limit: float | MinMaxDef | None = None,
         i_limit: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Configure CC mode (except slew).
-        """
+        """Configure CC mode (except slew)."""
         cmd_root = "CURRent"
         scpi_commands_to_params = {"RANGe": range, "VON": v_on, "VLIMt": v_limit, "ILIMt": i_limit}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
@@ -149,9 +136,7 @@ class RigolDL3031A(ELoadDriverBase):
         period: float | MinMaxDef | None = None,
         a_duty: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Configure transient operation in CC mode.
-        """
+        """Configure transient operation in CC mode."""
         cmd_root = "CURRent:TRANsient"
         scpi_commands_to_params = {
             "MODE": mode,
@@ -172,9 +157,7 @@ class RigolDL3031A(ELoadDriverBase):
         v_limit: float | MinMaxDef | None = None,
         i_limit: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Configure CV mode.
-        """
+        """Configure CV mode."""
         cmd_root = "VOLTage"
         scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
@@ -186,9 +169,7 @@ class RigolDL3031A(ELoadDriverBase):
         v_limit: float | MinMaxDef | None = None,
         i_limit: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Configure CR mode.
-        """
+        """Configure CR mode."""
         cmd_root = "RESistance"
         scpi_commands_to_params = {"RANGe": range, "VLIMt": v_limit, "ILIMt": i_limit}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
@@ -196,9 +177,7 @@ class RigolDL3031A(ELoadDriverBase):
     def set_cp_params(
         self, *, v_limit: float | MinMaxDef | None = None, i_limit: float | MinMaxDef | None = None
     ) -> None:
-        """
-        Configure CP mode.
-        """
+        """Configure CP mode."""
         cmd_root = "POWer"
         scpi_commands_to_params = {"VLIMt": v_limit, "ILIMt": i_limit}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
@@ -212,9 +191,7 @@ class RigolDL3031A(ELoadDriverBase):
         step: int | MinMax | None = None,
         end_state: Literal["LAST", "OFF"] | None = None,
     ) -> None:
-        """
-        Configure list mode.
-        """
+        """Configure list mode."""
         cmd_root = "LIST"
         scpi_commands_to_params = {
             "MODE": mode.value if mode is not None else None,
@@ -233,9 +210,7 @@ class RigolDL3031A(ELoadDriverBase):
         width: float | None = None,
         slew: float | None = None,
     ) -> None:
-        """
-        Configure individual step within list mode.
-        """
+        """Configure individual step within list mode."""
         scpi_commands_to_params = {"LEVel": level, "WIDth": width, "SLEW": slew}
         for command, value in scpi_commands_to_params.items():
             if value is not None:
@@ -253,9 +228,7 @@ class RigolDL3031A(ELoadDriverBase):
         c_enab_stop: EnableVal | None = None,
         t_enab_stop: EnableVal | None = None,
     ) -> None:
-        """
-        Configure battery mode.
-        """
+        """Configure battery mode."""
         cmd_root = "BATTary"
         scpi_commands_to_params = {
             "RANGe": range,
@@ -283,9 +256,7 @@ class RigolDL3031A(ELoadDriverBase):
         v_ocp: float | MinMaxDef | None = None,
         t_ocp: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Write provided parameters to configure OCP test.
-        """
+        """Write provided parameters to configure OCP test."""
         cmd_root = "OCP"
         scpi_commands_to_params = {
             "RANGe": range,
@@ -314,9 +285,7 @@ class RigolDL3031A(ELoadDriverBase):
         v_opp: float | MinMaxDef | None = None,
         t_opp: float | MinMaxDef | None = None,
     ) -> None:
-        """
-        Write provided parameters to configure OPP test.
-        """
+        """Write provided parameters to configure OPP test."""
         cmd_root = "OPP"
         scpi_commands_to_params = {
             "VON": v_on,
@@ -334,23 +303,17 @@ class RigolDL3031A(ELoadDriverBase):
     def set_wave_params(
         self, *, time: Literal["ADD", "SUB"] | None = None, t_step: Literal[1, 10] | None = None
     ) -> None:
-        """
-        Configure wave mode.
-        """
+        """Configure wave mode."""
         cmd_root = "WAVe"
         scpi_commands_to_params = {"TIMe": time, "TSTep": t_step}
         self._write_cmd_with_params(cmd_root, scpi_commands_to_params)
 
     def set_sense_state(self, enable: EnableVal) -> None:
-        """
-        Enable/disable sense function.
-        """
+        """Enable/disable sense function."""
         self._write_checked(f"SENSe {enable}")
 
     def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
-        """
-        Writes command with provided values.
-        """
+        """Writes command with provided values."""
         for cmd, value in params.items():
             if value is not None:
                 self._write_checked(f"{cmd_root}:{cmd} {value}")
