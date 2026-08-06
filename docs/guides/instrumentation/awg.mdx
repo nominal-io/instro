@@ -150,13 +150,24 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `align_phase()` | `phase.align.cmd` | command |
 | `set_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `modulation_enable(channel=N)` | `ch{N}.modulation_enabled.cmd` | command |
+| `set_burst(channel=N)` | `ch{N}.burst.cmd` | command |
+| `burst_enable(channel=N)` | `ch{N}.burst_enabled.cmd` | command |
+| `set_burst_trigger(channel=N)` | `ch{N}.burst_trigger.cmd` | command |
+| `set_burst_delay(channel=N)` | `ch{N}.burst_delay.cmd` | command |
+| `set_gate_polarity(channel=N)` | `ch{N}.gate_polarity.cmd` | command |
+| `set_ncycles(channel=N)` | `ch{N}.ncycles.cmd` | command |
+| `set_burst_period(channel=N)` | `ch{N}.burst_period.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
 | `get_modulation_state(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
+| `get_burst_state(channel=N)` | `ch{N}.burst_enabled` | telemetry |
+| `get_burst_delay(channel=N)` | `ch{N}.burst_delay` | telemetry |
+| `get_burst_ncycles(channel=N)` | `ch{N}.ncycles` | telemetry |
+| `get_burst_period(channel=N)` | `ch{N}.burst_period` | telemetry |
 
 <Note>
-`get_waveform()`, `get_amplitude()`, `convert_amplitude()`, and `get_modulation_type()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
+`get_waveform()`, `get_amplitude()`, `convert_amplitude()`, `get_modulation_type()`, `get_burst_type()`, and `get_burst_polarity()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`, `BurstType`, `GatePolarity`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
 </Note>
 
 ## Method Reference
@@ -182,6 +193,19 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `modulation_enable(channel, enable)` | Enable or disable modulation on channel |
 | `get_modulation_type(channel)` | Read back the modulation type currently active on channel |
 | `get_modulation_state(channel)` | Read back whether modulation is enabled on channel |
+| `set_burst(channel, burst_type)` | Configure a channel's burst type (NCYCLE/GATED/INFINITE) without enabling it |
+| `burst_enable(channel, enable)` | Enable or disable burst mode on channel |
+| `get_burst_type(channel)` | Read back the burst type currently active on channel |
+| `get_burst_state(channel)` | Read back whether burst mode is enabled on channel |
+| `set_burst_trigger(channel, source)` | Set the burst trigger source (INTERNAL/EXTERNAL/MANUAL) on channel |
+| `set_burst_delay(channel, delay_s)` | Set the burst trigger delay in seconds on channel |
+| `get_burst_delay(channel)` | Read back the burst trigger delay in seconds on channel |
+| `set_gate_polarity(channel, gate_polarity)` | Set the gate polarity (NORM/INV) for GATED bursts on channel |
+| `get_burst_polarity(channel)` | Read back the gate polarity for GATED bursts on channel |
+| `set_ncycles(channel, n_cycles)` | Set the number of cycles per trigger for NCYCLE bursts on channel |
+| `get_burst_ncycles(channel)` | Read back the number of cycles per trigger for NCYCLE bursts on channel |
+| `set_burst_period(channel, period)` | Set the internal burst period in seconds on channel |
+| `get_burst_period(channel)` | Read back the internal burst period in seconds on channel |
 | `start()` | Begin background daemon |
 | `stop()` | End background daemon |
 
@@ -263,6 +287,13 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`modulation_enable(channel, enable)`**: Enable or disable modulation on channel.
 - **`get_modulation_type(channel)`**: Read back the active modulation type from the instrument.
 - **`get_modulation_state(channel)`**: Read back whether modulation is enabled from the instrument.
+- **`set_burst(channel, burst_type)`** / **`get_burst_type(channel)`**: Configure or read back a channel's burst type (NCYCLE/GATED/INFINITE). Call `burst_enable()` to activate it.
+- **`burst_enable(channel, enable)`** / **`get_burst_state(channel)`**: Enable, disable, or read back whether burst mode is active on channel.
+- **`set_burst_trigger(channel, source)`**: Set the burst trigger source (INTERNAL/EXTERNAL/MANUAL) on channel.
+- **`set_burst_delay(channel, delay_s)`** / **`get_burst_delay(channel)`**: Set or read back the burst trigger delay (seconds) on channel.
+- **`set_gate_polarity(channel, gate_polarity)`** / **`get_burst_polarity(channel)`**: Set or read back the gate polarity (NORM/INV) for GATED bursts on channel.
+- **`set_ncycles(channel, n_cycles)`** / **`get_burst_ncycles(channel)`**: Set or read back the number of cycles per trigger for NCYCLE bursts on channel.
+- **`set_burst_period(channel, period)`** / **`get_burst_period(channel)`**: Set or read back the internal burst period (seconds) on channel.
 
 ### Talking to the Instrument
 

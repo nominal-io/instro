@@ -277,10 +277,14 @@ class RigolDG1022Z(AWGDriverBase):
         if not isinstance(source, BurstTriggerSource):
             raise TypeError(f"source must be a BurstTriggerSource, got {type(source).__name__}")
         with self._visa.lock():
-            if self.get_burst_type(channel) is BurstType.GATED:
+            burst_type = self.get_burst_type(channel)
+            if burst_type is BurstType.GATED:
                 raise ValueError(
-                    f"channel {channel} is in GATED burst mode, which locks the trigger source to EXTERNAL"
-                    " and rejects an explicit write; call set_burst with a different burst_type first"
+                    f"Cannot trigger since channel {channel} is in GATED burst mode, call set_burst with a different burst_type first"
+                )
+            if burst_type is BurstType.INFINITE and source is BurstTriggerSource.INTERNAL:
+                raise ValueError(
+                    f"Cannot trigger since channel {channel} is in INFINITE burst mode, call set_burst with a different burst_type"
                 )
             self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR {source.value}")
 
