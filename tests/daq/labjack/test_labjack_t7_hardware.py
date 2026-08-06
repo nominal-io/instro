@@ -721,7 +721,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     time.sleep(1.0)  # let background daemon collect samples
 
                     for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):
-                        ch = daq.get_channel(f"{NAME}.{ai_alias}", 50, True)
+                        ch = daq.get_channel(f"{NAME}.{ai_alias}", 9, True)
                         self.assertIsNotNone(ch)
                         self.assertGreaterEqual(len(ch.values), 1)
                         self.assertTrue(

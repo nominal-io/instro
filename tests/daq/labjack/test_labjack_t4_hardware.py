@@ -514,7 +514,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 try:
                     time.sleep(1.0)  # let background daemon collect samples
 
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 50, True)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 9, True)
                     self.assertIsNotNone(ch)
                     self.assertGreaterEqual(len(ch.values), 1)
                     self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")

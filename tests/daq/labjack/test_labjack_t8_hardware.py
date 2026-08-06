@@ -70,7 +70,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "LABJACK T8 SERIAL NUMBER"  # e.g. "123456789" or "ANY"
+DEVICE_ID = "480010992"  # e.g. "123456789" or "ANY"
 NAME = "t8_validate"
 DATASET_RID = None
 
@@ -820,7 +820,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.start()
                 try:
                     time.sleep(1.0)
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 50, True)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 9, True)
                     self.assertIsNotNone(ch)
                     self.assertGreaterEqual(len(ch.values), 1)
                     self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
