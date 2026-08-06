@@ -18,6 +18,17 @@ class BurstType(Enum):
     INFINITE = "INFINITE"
 
 
+class GatePolarity(Enum):
+    NORM = "NORM"
+    INV = "INV"
+
+
+class BurstTriggerSource(Enum):
+    INTERNAL = "INT"
+    EXTERNAL = "EXT"
+    MANUAL = "MAN"
+
+
 class ModulationType(Enum):
     AM = "AM"
     FM = "FM"
