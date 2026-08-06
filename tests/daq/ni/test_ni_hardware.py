@@ -5,8 +5,9 @@ chassis with installed modules) connected with the loopback wiring described
 below. It exercises analog DAQ functionality exposed by the NI driver:
 software-timed analog read (single-shot and background), hardware-timed analog
 read (background and non-background), analog output, analog loopback
-verification, actual-sample-rate reporting, and buffer-depth telemetry. Each
-test step is recorded as an event on a Nominal Core asset.
+verification (each path alone and both paths together),
+actual-sample-rate reporting, and buffer-depth telemetry. Each test step is
+recorded as an event on a Nominal Core asset.
 
 Digital I/O tests exercise single-line read/write via a DO_LINE -> DI_LINE
 loopback. Relays are not supported by the NI driver, so that test is reported
@@ -17,13 +18,14 @@ NI LOOPBACK WIRING
 ============================================================================
 
   Device Specs:
-      - Mod1:
-      - Mod2:
-      - Mod3:
-      - Mod4:
+      - Mod1: 9205 (AI)
+      - Mod2: 9263 (AO)
+      - Mod3: 9403 (DO)
+      - Mod4: 9401 (DI)
 
-  Analog loopback (wire AO -> AI):
-    AO_CHANNEL (<module>/aoN)  --->  AI_CHANNEL (<module>/aiN)
+  Analog loopback 1 (wire AO -> AI):
+    AO_CHANNEL (<module>/ao0)  --->  AI_CHANNEL (<module>/ai0)
+    AO_CHANNEL_2 (<module>/ao1)  --->  AI_CHANNEL_2 (<module>/ai1)
 
   Digital loopback (wire DO -> DI):
     DO_LINE (<module>/portM/lineP, output)  --->  DI_LINE (<module>/portM/lineP, input)
@@ -53,7 +55,7 @@ NOMINAL CORE CONFIGURATION
 RUNNING
 ============================================================================
 
-    uv run --extra nidaq pytest tests/daq/ni -m hardware -v -s
+    uv run pytest tests/daq/ni -m hardware -v -s
 
 """
 
@@ -84,13 +86,15 @@ NAME = "ni_validate"
 # leave None to publish nowhere.
 DATASET_RID = None
 
-# Analog channel mapping — one AI and one AO (may live on different modules).
-AI_CHANNEL, AI_ALIAS = "<MODULE>/ai0", "ai0"
-AO_CHANNEL, AO_ALIAS = "<MODULE>/ao0", "ao0"
+# Analog channel mapping — two AO -> AI loopback pairs (may live on different modules).
+AI_CHANNEL, AI_ALIAS = f"{DEVICE_ID}Mod1/ai1", "ai1"
+AO_CHANNEL, AO_ALIAS = f"{DEVICE_ID}Mod2/ao0", "ao0"
+AI_CHANNEL_2, AI_ALIAS_2 = f"{DEVICE_ID}Mod1/ai2", "ai2"
+AO_CHANNEL_2, AO_ALIAS_2 = f"{DEVICE_ID}Mod2/ao1", "ao1"
 
 # Digital channel mapping — one DO line and one DI line (DevN/portM/lineP form).
-DO_LINE, DO_ALIAS = "<MODULE>/port0/line0", "do0"
-DI_LINE, DI_ALIAS = "<MODULE>/port1/line0", "di0"
+DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod3/port0/line16", "do20"
+DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod4/port0/line0", "di0"
 
 # True when the corresponding path is physically looped back. Gates the strict
 # value checks; structural checks always run.
@@ -209,22 +213,22 @@ class TestNIDAQHardware(unittest.TestCase):
         daq.open()
         return daq
 
-    def _configure_ai(self, daq: InstroDAQ):
-        """Configure the standard AI input channel."""
+    def _configure_ai(self, daq: InstroDAQ, physical: str = AI_CHANNEL, alias: str = AI_ALIAS):
+        """Configure an AI input channel (defaults to the loopback-1 pair)."""
         daq.configure_analog_channel(
             direction=Direction.INPUT,
-            physical_channel=AI_CHANNEL,
-            alias=AI_ALIAS,
+            physical_channel=physical,
+            alias=alias,
             range_min=AI_RANGE_MIN,
             range_max=AI_RANGE_MAX,
         )
 
-    def _configure_ao(self, daq: InstroDAQ):
-        """Configure the standard AO output channel."""
+    def _configure_ao(self, daq: InstroDAQ, physical: str = AO_CHANNEL, alias: str = AO_ALIAS):
+        """Configure an AO output channel (defaults to the loopback-1 pair)."""
         daq.configure_analog_channel(
             direction=Direction.OUTPUT,
-            physical_channel=AO_CHANNEL,
-            alias=AO_ALIAS,
+            physical_channel=physical,
+            alias=alias,
             range_min=AO_RANGE_MIN,
             range_max=AO_RANGE_MAX,
         )
@@ -371,9 +375,70 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 5. Digital line write/read loopback
+    # 5. Dual analog loopback — drive both AO->AI paths together
     # =====================================================================
-    def test_05_digital_line_loopback(self):
+    def test_05_dual_analog_loopback(self):
+        """Drive both AOs at once and verify each AI tracks only its own source.
+
+        Both AI channels share one DAQmx AI task, so a single read_analog()
+        samples them together. ``.latest`` raises when a Measurement holds
+        multiple channels, so ``channel_data`` is indexed per alias.
+        """
+
+        def step():
+            if not ANALOG_LOOPBACK_WIRED:
+                self.skipTest("ANALOG_LOOPBACK_WIRED=False")
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ai(daq, AI_CHANNEL_2, AI_ALIAS_2)
+                self._configure_ao(daq)
+                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+
+                errs = []
+                for v1, v2 in [(1.0, 4.5), (4.5, 0.5), (2.5, 3.3), (0.0, 0.0)]:
+                    daq.write_analog_value(AO_ALIAS, v1)
+                    daq.write_analog_value(AO_ALIAS_2, v2)
+                    time.sleep(0.05)  # let both outputs settle
+
+                    measurement = daq.read_analog()
+                    for alias, target in [(AI_ALIAS, v1), (AI_ALIAS_2, v2)]:
+                        samples = measurement.channel_data.get(f"{NAME}.{alias}")
+                        self.assertIsNotNone(
+                            samples,
+                            f"channel_data missing '{NAME}.{alias}': {list(measurement.channel_data)}",
+                        )
+                        measured = samples[-1]
+                        err = measured - target
+                        flag = "" if abs(err) <= ANALOG_TOLERANCE_V else "  <-- out of tolerance"
+                        print(
+                            f"         {AO_ALIAS}={v1:.3f} V | {AO_ALIAS_2}={v2:.3f} V | "
+                            f"{alias}={measured:.4f} V | err={err:+.4f} V{flag}"
+                        )
+                        if not math.isfinite(measured):
+                            errs.append(f"{alias}: non-finite read at target {target} V")
+                        elif abs(err) > ANALOG_TOLERANCE_V:
+                            errs.append(
+                                f"{alias}={measured:.4f} V, target={target} V "
+                                f"(err {err:+.4f} V > {ANALOG_TOLERANCE_V} V)"
+                            )
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO_ALIAS_2, 0.0)
+                daq.close()
+
+        self._run_step(
+            "Dual analog loopback (SW-timed)",
+            "Set both AOs to different voltages and read both AIs in one read_analog(). "
+            "Verifies each loopback path tracks its own source with no cross-talk.",
+            step,
+        )
+
+    # =====================================================================
+    # 6. Digital line write/read loopback
+    # =====================================================================
+    def test_06_digital_line_loopback(self):
         """Drive DO_LINE and verify the state on DI_LINE via single-line loopback."""
 
         def step():
@@ -404,9 +469,9 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 6. HW-timed analog read with background daemon
+    # 7. HW-timed analog read with background daemon
     # =====================================================================
-    def test_06_hw_timed_analog_read_background(self):
+    def test_07_hw_timed_analog_read_background(self):
         """Start HW-timed acquisition with background daemon and read buffered data."""
 
         def step():
@@ -447,9 +512,9 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 7. HW-timed analog read without background daemon
+    # 8. HW-timed analog read without background daemon
     # =====================================================================
-    def test_07_hw_timed_analog_read_no_background(self):
+    def test_08_hw_timed_analog_read_no_background(self):
         """Start HW-timed acquisition without background daemon and read directly."""
 
         def step():
@@ -493,9 +558,9 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 8. SW-timed analog read with background daemon
+    # 9. SW-timed analog read with background daemon
     # =====================================================================
-    def test_08_sw_timed_analog_read_background(self):
+    def test_09_sw_timed_analog_read_background(self):
         """Start SW-timed acquisition with background daemon and read buffered data."""
 
         def step():
@@ -510,7 +575,7 @@ class TestNIDAQHardware(unittest.TestCase):
                 try:
                     time.sleep(1.0)  # let background daemon collect samples
 
-                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 50, True)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 9, True)
                     self.assertIsNotNone(ch)
                     self.assertGreaterEqual(len(ch.values), 1)
                     self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
@@ -533,9 +598,9 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Actual sample rate reporting
+    # 10. Actual sample rate reporting
     # =====================================================================
-    def test_09_actual_sample_rate(self):
+    def test_10_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
@@ -570,9 +635,9 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Buffer-depth telemetry
+    # 11. Buffer-depth telemetry
     # =====================================================================
-    def test_10_buffer_depth_telemetry(self):
+    def test_11_buffer_depth_telemetry(self):
         """Verify get_points_in_buffer reports a valid depth during background acquisition."""
 
         def step():
@@ -603,32 +668,34 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Clean shutdown — outputs to safe state
+    # 12. Clean shutdown — outputs to safe state
     # =====================================================================
-    def test_11_clean_shutdown(self):
+    def test_12_clean_shutdown(self):
         """Set all outputs to safe state as a final step."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ao(daq)
+                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
                 self._configure_digital_lines(daq)
 
                 daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write_analog_value(AO_ALIAS_2, 0.0)
                 daq.write_digital_line(DO_ALIAS, 0)
             finally:
                 daq.close()
 
         self._run_step(
             "Clean shutdown — safe state",
-            "Set the AO to 0 V and DO_LINE to 0 as a final safety step.",
+            "Set both AOs to 0 V and DO_LINE to 0 as a final safety step.",
             step,
         )
 
     # =====================================================================
-    # 12. Methods not implemented on NI — reported as skipped
+    # 13. Methods not implemented on NI — reported as skipped
     # =====================================================================
-    def test_12_relay_control_unsupported(self):
+    def test_13_relay_control_unsupported(self):
         """Relay control is not supported by the NI driver."""
         self.skipTest("DAQDriverBase relays unsupported by the NI driver")
 

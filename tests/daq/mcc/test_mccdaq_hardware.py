@@ -80,7 +80,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "MCC DAQ SERIAL NUMBER:0"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "<MCC SERIAL NUMBER>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
 DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
 
