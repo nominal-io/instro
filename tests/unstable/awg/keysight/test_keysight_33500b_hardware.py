@@ -26,8 +26,6 @@ pytestmark = pytest.mark.hardware
 # Set VISA_RESOURCE to the bench unit's VISA resource string (front-panel Utility >
 # I/O Config shows the current LAN address/hostname or USB VISA alias). Set VISA_BACKEND
 # to "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
-# Outputs are only enabled briefly at low amplitude; leave them unconnected or on a scope.
-# Bench unit: Agilent/Keysight 33521B, MY52702203 (single channel).
 VISA_RESOURCE = "USB0::0x0957::0x2B07::MY52702203::INSTR"
 
 VISA_BACKEND = None
@@ -150,8 +148,6 @@ def test_05_sawtooth_readback(driver: Keysight33500B) -> None:
 
 
 def test_06_triangle_readback(driver: Keysight33500B) -> None:
-    # This instrument has a dedicated TRI function distinct from RAMP; confirm it round-trips
-    # as Triangle rather than aliasing back to Sawtooth.
     driver.set_waveform(CHANNEL, Triangle(frequency_hz=TEST_FREQUENCY_HZ))
     driver.check_errors()
 

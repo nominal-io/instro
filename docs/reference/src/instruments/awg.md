@@ -18,6 +18,12 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ## Vendor Drivers
 
+### Keysight 33500B
+
+::: instro.unstable.awg.drivers.keysight_33500b
+    options:
+      heading_level: 4
+
 ### Rigol DG1022Z
 
 ::: instro.unstable.awg.drivers.rigol_dg1022z

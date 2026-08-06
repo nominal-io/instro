@@ -7,6 +7,7 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -24,6 +25,27 @@ _ARB_MAX_POINTS = 65536
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 
+_MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
+    Sine: "SIN",
+    Square: "SQU",
+    Sawtooth: "RAMP",
+    Triangle: "TRI",
+}
+_MOD_SCPI_PREFIX: dict[ModulationType, str] = {
+    ModulationType.AM: "AM",
+    ModulationType.FM: "FM",
+    ModulationType.PM: "PM",
+    ModulationType.PWM: "PWM",
+    ModulationType.FSK: "FSK",
+    ModulationType.PSK: "BPSK",
+}
+_MOD_MAGNITUDE_NODE: dict[ModulationType, str] = {
+    ModulationType.AM: "DEPT",
+    ModulationType.FM: "DEV",
+    ModulationType.PM: "DEV",
+    ModulationType.PWM: "DEV",
+}
+
 
 class Keysight33500B(AWGDriverBase):
     """SCPI driver for the Keysight 33500B arbitrary waveform generator."""
@@ -31,6 +53,7 @@ class Keysight33500B(AWGDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self._arb_waveforms: dict[int, Arbitrary] = {}
+        self._channel_mod_types: dict[int, ModulationType] = {}
 
     def open(self) -> None:
         self._visa.open()
@@ -89,6 +112,7 @@ class Keysight33500B(AWGDriverBase):
                 self._visa.write(f"VOLT:OFFS {waveform.value}")
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+            self._channel_mod_types.pop(channel, None)
 
     def get_waveform(self, channel: int) -> Waveform:
         _check_channel(channel)
@@ -171,6 +195,63 @@ class Keysight33500B(AWGDriverBase):
         load = float(self._visa.query("OUTP:LOAD?"))
         return None if load >= _HIGH_Z_SENTINEL else load
 
+    def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        _check_channel(channel)
+        if not isinstance(mod_type, ModulationType):
+            raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
+        if mod_type is ModulationType.ASK:
+            raise ValueError("ASK modulation is not supported by the Keysight 33500B")
+        modulator = _validate_modulator(shape)
+        prefix = _MOD_SCPI_PREFIX[mod_type]
+
+        with self._visa.lock():
+            # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
+            _validate_carrier(mod_type, self.get_waveform(channel))
+            self._visa.write(f"{prefix}:SOUR INT")
+            if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
+                function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
+                self._visa.write(f"{prefix}:INT:FUNC {function}")
+                self._visa.write(f"{prefix}:INT:FREQ {modulator.frequency_hz}")
+                self._visa.write(f"{prefix}:{_MOD_MAGNITUDE_NODE[mod_type]} {magnitude}")
+            elif mod_type is ModulationType.FSK:
+                self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
+                self._visa.write(f"{prefix}:FREQ {magnitude}")
+            elif mod_type is ModulationType.PSK:
+                self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
+                self._visa.write(f"{prefix}:PHAS {magnitude}")
+            else:
+                raise AssertionError(f"unhandled ModulationType {mod_type}")
+            self.check_errors()
+            self._channel_mod_types[channel] = mod_type
+
+    def modulation_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        mod_type = self._channel_mod_types.get(channel)
+        if mod_type is None:
+            raise ValueError(f"set_modulation must be called before modulation_enable for channel {channel}")
+        prefix = _MOD_SCPI_PREFIX[mod_type]
+        with self._visa.lock():
+            self._visa.write(f"{prefix}:STAT {'ON' if enable else 'OFF'}")
+            self.check_errors()
+
+    def get_modulation_type(self, channel: int) -> ModulationType:
+        _check_channel(channel)
+        mod_type = self._channel_mod_types.get(channel)
+        if mod_type is None:
+            raise RuntimeError(
+                f"channel {channel} modulation type not programmed by this driver;"
+                " the Keysight 33500B has no query for the currently active modulation type"
+            )
+        return mod_type
+
+    def get_modulation_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        mod_type = self._channel_mod_types.get(channel)
+        if mod_type is None:
+            return False
+        prefix = _MOD_SCPI_PREFIX[mod_type]
+        return self._visa.query(f"{prefix}:STAT?").strip() == "1"
+
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
         self._visa.write(f"PHAS {phase_deg % 360}")
@@ -180,3 +261,28 @@ class Keysight33500B(AWGDriverBase):
 def _check_channel(channel: int) -> None:
     if channel != 1:
         raise ValueError(f"Keysight 33500B only supports 1 channel, got {channel}")
+
+
+def _validate_carrier(mod_type: ModulationType, carrier: Waveform) -> None:
+    """Validate that the channel's currently active carrier waveform supports the given modulation type."""
+    if not isinstance(carrier, (Sine, Square, Sawtooth, Triangle, Pulse, Arbitrary)):
+        raise ValueError(
+            f"the Keysight 33500B cannot apply {mod_type.name} modulation to a {type(carrier).__name__} carrier;"
+            " carrier must be Sine, Square, Sawtooth, Triangle, Pulse, or Arbitrary"
+        )
+    if mod_type is ModulationType.PWM and not isinstance(carrier, Pulse):
+        raise ValueError(
+            f"the Keysight 33500B can only apply PWM modulation to a Pulse carrier, not {type(carrier).__name__}"
+        )
+    if isinstance(carrier, Pulse) and mod_type is not ModulationType.PWM:
+        raise ValueError(f"the Keysight 33500B cannot apply {mod_type.name} modulation to a Pulse carrier")
+
+
+def _validate_modulator(shape: Waveform) -> Sine | Square | Sawtooth | Triangle:
+    """Validate the modulating waveform passed to ``set_modulation()``; not to be confused with the channel's carrier."""
+    if not isinstance(shape, (Sine, Square, Sawtooth, Triangle)):
+        raise ValueError(
+            f"the Keysight 33500B cannot use {type(shape).__name__} as a modulating waveform;"
+            " use Sine, Square, Sawtooth, or Triangle"
+        )
+    return shape
