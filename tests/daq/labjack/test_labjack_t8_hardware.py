@@ -70,7 +70,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "480010992"  # e.g. "123456789" or "ANY"
+DEVICE_ID = "<LABJACK T8 SERIAL NUMBER>"  # e.g. "123456789" or "ANY"
 NAME = "t8_validate"
 DATASET_RID = None
 
