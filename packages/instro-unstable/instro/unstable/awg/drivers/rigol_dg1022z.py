@@ -7,6 +7,7 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -23,6 +24,13 @@ _ARB_MAX_POINTS = 16384
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 _TRIANGLE_SYMMETRY_PCT = 50
+
+_MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
+    Sine: "SIN",
+    Square: "SQU",
+    Sawtooth: "RAMP",
+    Triangle: "TRI",
+}
 
 
 class RigolDG1022Z(AWGDriverBase):
@@ -64,7 +72,6 @@ class RigolDG1022Z(AWGDriverBase):
                 self._write_frequency_and_phase(channel, waveform.frequency_hz, waveform.phase_deg)
                 self._visa.write(f":SOUR{channel}:FUNC:RAMP:SYMM {_TRIANGLE_SYMMETRY_PCT}")
             elif isinstance(waveform, Pulse):
-                # The DG1000Z command set has no pulse-delay parameter.
                 if waveform.delay_s != 0.0:
                     raise ValueError("the DG1022Z cannot program a pulse delay; Pulse.delay_s must be 0")
                 self._visa.write(f":SOUR{channel}:FUNC PULS")
@@ -86,9 +93,7 @@ class RigolDG1022Z(AWGDriverBase):
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
                     self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
-                    # check_errors doesn't drain the queue (see check_errors docstring), so a batch write
-                    # here could bury an error under later ones. Checking every point catches it at the
-                    # point it occurred, at the cost of one extra query per point on the happy path.
+                    # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
                     self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
@@ -180,6 +185,58 @@ class RigolDG1022Z(AWGDriverBase):
     def align_phase(self) -> None:
         self._visa.write(":SOUR1:PHAS:SYNC")
 
+    def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        _check_channel(channel)
+        if not isinstance(mod_type, ModulationType):
+            raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
+        # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
+        _validate_carrier(mod_type, self.get_waveform(channel))
+        modulator = _validate_modulator(shape)
+        frequency_hz = modulator.frequency_hz
+
+        with self._visa.lock():
+            if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
+                prefix = mod_type.value
+                function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
+                self._visa.write(f":SOUR{channel}:{prefix}:SOUR INT")
+                self._visa.write(f":SOUR{channel}:{prefix}:INT:FUNC {function}")
+                self._visa.write(f":SOUR{channel}:{prefix}:INT:FREQ {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:{prefix} {magnitude}")
+            elif mod_type is ModulationType.ASK:
+                self._visa.write(f":SOUR{channel}:ASK:SOUR INT")
+                self._visa.write(f":SOUR{channel}:ASK:INT {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:ASK:AMPL {magnitude}")
+            elif mod_type is ModulationType.FSK:
+                self._visa.write(f":SOUR{channel}:FSK:SOUR INT")
+                self._visa.write(f":SOUR{channel}:FSK:INT:RATE {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:FSK {magnitude}")
+            elif mod_type is ModulationType.PSK:
+                self._visa.write(f":SOUR{channel}:PSK:SOUR INT")
+                self._visa.write(f":SOUR{channel}:PSK:INT:RATE {frequency_hz}")
+                self._visa.write(f":SOUR{channel}:PSK:PHAS {magnitude}")
+            else:
+                raise AssertionError(f"unhandled ModulationType {mod_type}")
+            self._visa.write(f":SOUR{channel}:MOD:TYP {mod_type.value}")
+            self.check_errors()
+
+    def modulation_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:MOD:STAT {'ON' if enable else 'OFF'}")
+            self.check_errors()
+
+    def get_modulation_type(self, channel: int) -> ModulationType:
+        _check_channel(channel)
+        with self._visa.lock():
+            mod_type = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
+        return mod_type
+
+    def get_modulation_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
+        return enabled
+
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
         self._visa.write(f":SOUR{channel}:PHAS {phase_deg % 360.0}")
@@ -188,3 +245,26 @@ class RigolDG1022Z(AWGDriverBase):
 def _check_channel(channel: int) -> None:
     if channel not in (1, 2):
         raise ValueError(f"Rigol DG1022Z channel must be 1 or 2, got {channel}")
+
+
+def _validate_carrier(mod_type: ModulationType, carrier: Waveform) -> None:
+    """Validate that the channel's currently active carrier waveform supports the given modulation type."""
+    if not isinstance(carrier, (Sine, Square, Sawtooth, Triangle, Pulse, Arbitrary)):
+        raise ValueError(
+            f"the DG1022Z cannot apply {mod_type.name} modulation to a {type(carrier).__name__} carrier;"
+            " carrier must be Sine, Square, Sawtooth, Triangle, Pulse, or Arbitrary"
+        )
+    if mod_type is ModulationType.PWM and not isinstance(carrier, Pulse):
+        raise ValueError(f"the DG1022Z can only apply PWM modulation to a Pulse carrier, not {type(carrier).__name__}")
+    if isinstance(carrier, Pulse) and mod_type is not ModulationType.PWM:
+        raise ValueError(f"the DG1022Z cannot apply {mod_type.name} modulation to a Pulse carrier")
+
+
+def _validate_modulator(shape: Waveform) -> Sine | Square | Sawtooth | Triangle:
+    """Validate the modulating waveform passed to ``set_modulation()``; not to be confused with the channel's carrier."""
+    if not isinstance(shape, (Sine, Square, Sawtooth, Triangle)):
+        raise ValueError(
+            f"the DG1022Z cannot use {type(shape).__name__} as a modulating waveform;"
+            " use Sine, Square, Sawtooth, or Triangle"
+        )
+    return shape

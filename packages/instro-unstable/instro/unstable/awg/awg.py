@@ -15,6 +15,7 @@ from instro.lib.types import Command, Measurement
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -41,15 +42,15 @@ class AWGDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def check_errors(self) -> None:
-        """Drain the instrument error queue; raise if any error is pending."""
+        """Check the instrument error queue."""
 
     @abc.abstractmethod
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
-        """Program channel with the waveform definition; raise ValueError if the definition is unsupported."""
+        """Program channel with the waveform definition."""
 
     @abc.abstractmethod
     def get_waveform(self, channel: int) -> Waveform:
-        """Get the current waveform on channel; drivers may return the last-programmed definition if not readable."""
+        """Get the current waveform on channel."""
 
     @abc.abstractmethod
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
@@ -86,6 +87,22 @@ class AWGDriverBase(abc.ABC):
     def align_phase(self) -> None:
         """Sync the phase of all channels."""
         raise NotImplementedError(f"align_phase is not implemented for {type(self).__name__}")
+
+    def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        """Configure channel's carrier modulation with modulator shape."""
+        raise NotImplementedError(f"set_modulation is not implemented for {type(self).__name__}")
+
+    def modulation_enable(self, channel: int, enable: bool) -> None:
+        """Enable or disable modulation on the given channel."""
+        raise NotImplementedError(f"modulation_enable is not implemented for {type(self).__name__}")
+
+    def get_modulation_type(self, channel: int) -> ModulationType:
+        """Get the modulation type currently active on channel."""
+        raise NotImplementedError(f"get_modulation_type is not implemented for {type(self).__name__}")
+
+    def get_modulation_state(self, channel: int) -> bool:
+        """Get the modulation enabled state currently active on channel."""
+        raise NotImplementedError(f"get_modulation_state is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -139,7 +156,7 @@ class InstroAWG(Instrument):
         self._define_background_daemon()
 
     def _define_background_daemon(self) -> None:
-        """Register per-channel output-state polling; other readbacks are opt-in via add_background_daemon_function."""
+        """Define the background daemon to read output state for each channel and publish it."""
         for channel in range(1, self._num_channels + 1):
             self.add_background_daemon_function(self.get_output_state, channel=channel)
 
@@ -148,7 +165,7 @@ class InstroAWG(Instrument):
             raise ValueError(f"channel {channel} out of range for '{self.name}' (1-{self._num_channels})")
 
     def _check_errors(self) -> None:
-        """Raise if the driver's error queue holds anything. Caller must hold ``_resource_lock``."""
+        """Raise if the driver's error queue holds anything."""
         self._driver.check_errors()
 
     @publish_command
@@ -161,7 +178,6 @@ class InstroAWG(Instrument):
         /,
         **kwargs,
     ) -> Command:
-        """Run ``driver_method(channel, value)``, check errors, and package."""
         with self._resource_lock:
             driver_method(channel, value)
             timestamp = time.time_ns()
@@ -178,7 +194,6 @@ class InstroAWG(Instrument):
         /,
         **kwargs,
     ) -> Measurement | None:
-        """Readback helper: call ``driver_method(channel=channel)`` and package; positional-only params avoid tag collisions."""
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
@@ -187,7 +202,7 @@ class InstroAWG(Instrument):
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
     def start(self) -> None:
-        """Start the background daemon; raises unless ``set_waveform`` was called for at least one channel."""
+        """Start the background daemon."""
         with self._resource_lock:
             configured = bool(self._channel_waveforms)
         if not configured:
@@ -212,7 +227,7 @@ class InstroAWG(Instrument):
 
     @publish_command
     def set_waveform(self, channel: int, waveform: Waveform, **kwargs) -> Command:
-        """Program channel with the waveform definition; numeric shape parameters publish as companion channels."""
+        """Program channel with a waveform."""
         if type(waveform) not in _PUBLISHED_NAMES:
             raise TypeError(f"waveform must be a Waveform definition, got {type(waveform).__name__}")
         self._check_channel(channel)
@@ -246,7 +261,7 @@ class InstroAWG(Instrument):
 
     @publish_command
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit, **kwargs) -> Command:
-        """Set the output amplitude on channel; the unit ships as a ``unit`` tag."""
+        """Set the output amplitude on channel."""
         if not isinstance(unit, AmplitudeMeasurementUnit):
             raise TypeError(f"unit must be an AmplitudeMeasurementUnit, got {type(unit).__name__}")
         self._check_channel(channel)
@@ -342,7 +357,7 @@ class InstroAWG(Instrument):
 
     @publish_measurement
     def get_output_load(self, channel: int, **kwargs) -> Measurement | None:
-        """Read back the output load impedance on channel; high-Z is published as ``float('inf')``."""
+        """Read back the output load impedance on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             val = self._driver.get_output_load(channel=channel)
@@ -351,3 +366,50 @@ class InstroAWG(Instrument):
         load_float = float("inf") if val is None else val
         descriptor = f"ch{channel}.load"
         return self._package_measurement(descriptor, load_float, timestamp, **kwargs)
+
+    @publish_command
+    def set_modulation(
+        self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float, **kwargs
+    ) -> Command:
+        """Configure channel's carrier modulation with modulator shape.
+
+        NOTE: magnitude varies by mod_type:
+        AM: depth,
+        FM: frequency deviation,
+        PM: phase deviation,
+        ASK: 2nd amplitude,
+        FSK: hop frequency.
+        """
+        if not isinstance(mod_type, ModulationType):
+            raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.set_modulation(channel=channel, mod_type=mod_type, shape=shape, magnitude=magnitude)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.modulation.cmd"
+        return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)
+
+    @publish_command
+    def modulation_enable(self, channel: int, enable: bool, **kwargs) -> Command:
+        """Enable or disable modulation on the given channel."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.modulation_enable(channel=channel, enable=enable)
+            timestamp = time.time_ns()
+            self._check_errors()
+        descriptor = f"ch{channel}.modulation_enabled.cmd"
+        return self._package_command(descriptor, enable, timestamp, **kwargs)
+
+    def get_modulation_type(self, channel: int) -> ModulationType:
+        """Read back the modulation type currently active on channel."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            mod_type = self._driver.get_modulation_type(channel=channel)
+            self._check_errors()
+        return mod_type
+
+    def get_modulation_state(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back whether modulation is enabled on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_modulation_state, channel, "modulation_enabled", **kwargs)
