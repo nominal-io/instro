@@ -100,6 +100,7 @@ pip install "instro[nidaq,contrib]"
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
+| Motor Controller | `VESC6` | VESC 6 over CAN via python-can (unstable) |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 <!-- --8<-- [end:supported-devices] -->
 
