@@ -203,11 +203,14 @@ class LJ_T8:
         hw_timing_config: HWTimingConfig,
         channels: list[AnalogChannel],
     ) -> tuple[list[str], list[float] | list[int]]:
+        # Max device buffer (T8 ceiling): the default overflows when running at MAX_SCAN_RATE and LJM
+        # backfills the skipped scans with -9999.
         aNames = [
             "STREAM_TRIGGER_INDEX",
             "STREAM_CLOCK_SOURCE",
             "STREAM_RESOLUTION_INDEX",
+            "STREAM_BUFFER_SIZE_BYTES",
         ]
-        aValues = [0, 0, 0]
+        aValues = [0, 0, 0, 262144]
 
         return aNames, aValues
