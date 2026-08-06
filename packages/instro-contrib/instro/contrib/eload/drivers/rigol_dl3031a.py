@@ -74,7 +74,7 @@ class RigolDL3031A(ELoadDriverBase):
     # :TRIGger commands
     def trigger(self) -> None:
         """Initiate trigger when Bus is selected as trigger source.
-        
+
         Triggering enables input and transient mode.
         """
         self._write_checked(f"TRIGger:IMMediate")
@@ -104,6 +104,9 @@ class RigolDL3031A(ELoadDriverBase):
         BATTery: controlled by battery discharge command
         OCP: controlled by OCP command
         OPP: controlled by OPP command
+
+        NOTE: unreliable during hardware testing except LIST/WAVe modes. 
+        BATTery mode may be accessible with APP key (:SYSTem:KEY 13).
         """
         self._write_checked(f"FUNCtion:MODE {mode}")
 
