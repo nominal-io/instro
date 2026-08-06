@@ -61,6 +61,9 @@ class RigolDL3031A(ELoadDriverBase):
             self._write_checked(f"{loadmode_to_rigol(mode)}:RANGe {value}")
 
     def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
+        """
+        POS/NEG slew rate directions only take effect in transient mode.
+        """
         self._write_checked(f"CURRent:SLEW:{slew_direction_to_rigol(direction)} {rate}")
 
     def output_enable(self, enable: bool, channel: int) -> None:
