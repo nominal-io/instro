@@ -51,13 +51,13 @@ class EAPSB10000Visa:
 
     # --- ownership: the box grants remote control to one owner, so take it once ---
 
-    def acquire(self, holder: object) -> None:
+    def _acquire(self, holder: object) -> None:
         """Open the session and take the remote lock; ``open`` reports True only for the first quadrant in."""
         if not self._visa.open(holder):
             return
         try:
             with self._visa.lock():
-                self.write_checked("SYST:LOCK ON")
+                self._write_checked("SYST:LOCK ON")
                 owner = self._visa.query("SYST:LOCK:OWN?").strip()
                 if owner != "REMOTE":
                     raise RuntimeError(f"{FRIENDLY_NAME} did not grant the remote lock (owner: {owner})")
@@ -66,7 +66,7 @@ class EAPSB10000Visa:
             self._visa.close(holder, on_last_release=self._release_remote_lock)
             raise
 
-    def release(self, holder: object) -> None:
+    def _release(self, holder: object) -> None:
         """Drop a quadrant's ownership; the last one out unlocks the box, then tears the session down."""
         self._visa.close(holder, on_last_release=self._release_remote_lock)
 
@@ -79,49 +79,41 @@ class EAPSB10000Visa:
 
     # --- device-wide operations both quadrants share ---
 
-    def lock(self) -> threading.RLock:
-        """The transport lock, for quadrants that need a multi-step sequence to stay atomic."""
-        return self._visa.lock()
-
-    def output_enable(self, enable: bool) -> None:
+    def _output_enable(self, enable: bool) -> None:
         """Enable or disable the DC terminal. One terminal, so both quadrants drive this."""
-        self.write_checked("OUTP ON" if enable else "OUTP OFF")
+        self._write_checked("OUTP ON" if enable else "OUTP OFF")
 
-    def get_output_status(self) -> bool:
-        return self.query_checked("OUTP?").strip().upper() == "ON"
-
-    def get_voltage(self) -> float:
+    def _get_voltage(self) -> float:
         """Measured terminal voltage. One meter, and voltage has no per-quadrant sign."""
-        return _strip_unit(self.query_checked("MEAS:VOLT?"))
+        return _strip_unit(self._query_checked("MEAS:VOLT?"))
 
-    def get_current_raw(self) -> float:
+    def _get_current_raw(self) -> float:
         """Measured current as the device reports it: positive sourcing, negative sinking (REV 24 §5.4.4.2)."""
-        return _strip_unit(self.query_checked("MEAS:CURR?"))
+        return _strip_unit(self._query_checked("MEAS:CURR?"))
 
-    def set_operation_mode(self, mode: str) -> None:
-        """Select U/I/P or U/I/R. Device-global: it decides whether power or resistance is the third set value."""
-        if mode not in {"UIP", "UIR"}:
-            raise ValueError(f"operation mode must be 'UIP' or 'UIR', got {mode!r}")
+    def _use_resistance_set(self, enabled: bool) -> None:
+        """Choose resistance or power as the third regulated quantity. Device-global, so write it only on a change."""
+        wanted = "UIR" if enabled else "UIP"
         with self._visa.lock():
-            current = self.query_checked("SYST:CONF:MODE?").strip().upper().replace("/", "")
-            if current == mode:
+            current = self._query_checked("SYST:CONF:MODE?").strip().upper().replace("/", "")
+            if current == wanted:
                 return
-            self.write_checked(f"SYST:CONF:MODE {mode}")
+            self._write_checked(f"SYST:CONF:MODE {wanted}")
 
     # --- I/O ---
 
-    def write_checked(self, command: str) -> None:
+    def _write_checked(self, command: str) -> None:
         with self._visa.lock():
             self._visa.write(command)
-            self.check_errors()
+            self._check_errors()
 
-    def query_checked(self, command: str) -> str:
+    def _query_checked(self, command: str) -> str:
         with self._visa.lock():
             value = self._visa.query(command)
-            self.check_errors()
+            self._check_errors()
         return value
 
-    def check_errors(self) -> None:
+    def _check_errors(self) -> None:
         """One error queue per box, drained in one place."""
         err = self._visa.query("SYST:ERR?")
         if not err.startswith("0"):
@@ -132,46 +124,46 @@ class EAPSB10000VisaSource(PSUDriverBase):
     """Source quadrant of a ``EAPSB10000Visa``. Construct via ``EAPSB10000Visa(...).source``."""
 
     def __init__(self, device: EAPSB10000Visa) -> None:
-        self._dev = device
+        self._device = device
 
     def open(self) -> None:
-        self._dev.acquire(self)
+        self._device._acquire(self)
 
     def close(self) -> None:
-        self._dev.release(self)
+        self._device._release(self)
 
     def set_voltage(self, voltage: float, channel: int) -> None:
         _check_channel(channel)
-        self._dev.write_checked(f"VOLT {voltage:.3f}")
+        self._device._write_checked(f"VOLT {voltage:.3f}")
 
     def get_voltage(self, channel: int) -> float:
         _check_channel(channel)
-        return self._dev.get_voltage()
+        return self._device._get_voltage()
 
     def set_current_limit(self, current_limit: float, channel: int) -> None:
         _check_channel(channel)
-        self._dev.write_checked(f"CURR {current_limit:.3f}")
+        self._device._write_checked(f"CURR {current_limit:.3f}")
 
     def get_current(self, channel: int) -> float:
         """Source-positive: current out of the supply is positive, regeneration reads negative."""
         _check_channel(channel)
-        return self._dev.get_current_raw()
+        return self._device._get_current_raw()
 
     def output_enable(self, enable: bool, channel: int) -> None:
         _check_channel(channel)
-        self._dev.output_enable(enable)
+        self._device._output_enable(enable)
 
     def get_output_status(self, channel: int) -> bool:
         _check_channel(channel)
-        return self._dev.get_output_status()
+        return self._device._query_checked("OUTP?").strip().upper() == "ON"
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         _check_channel(channel)
-        self._dev.write_checked(f"VOLT:PROT {voltage:.3f}")
+        self._device._write_checked(f"VOLT:PROT {voltage:.3f}")
 
     def get_overvoltage_protection_level(self, channel: int) -> float:
         _check_channel(channel)
-        return _strip_unit(self._dev.query_checked("VOLT:PROT?"))
+        return _strip_unit(self._device._query_checked("VOLT:PROT?"))
 
     def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
         raise FeatureNotSupportedError(
@@ -193,11 +185,11 @@ class EAPSB10000VisaSource(PSUDriverBase):
 
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
         _check_channel(channel)
-        self._dev.write_checked(f"CURR:PROT {current:.3f}")
+        self._device._write_checked(f"CURR:PROT {current:.3f}")
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         _check_channel(channel)
-        return _strip_unit(self._dev.query_checked("CURR:PROT?"))
+        return _strip_unit(self._device._query_checked("CURR:PROT?"))
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
         raise FeatureNotSupportedError(
@@ -222,39 +214,39 @@ class EAPSB10000VisaSink(ELoadDriverBase):
     """Sink quadrant of a ``EAPSB10000Visa``. Supports CC, CP, and CR; the PSB has no sink voltage set value."""
 
     def __init__(self, device: EAPSB10000Visa) -> None:
-        self._dev = device
+        self._device = device
 
     def open(self) -> None:
-        self._dev.acquire(self)
+        self._device._acquire(self)
 
     def close(self) -> None:
-        self._dev.release(self)
+        self._device._release(self)
 
     def set_mode(self, mode: LoadMode, channel: int) -> None:
-        """CR needs the device in U/I/R to unlock SINK:RESistance; every other mode uses U/I/P."""
+        """CR is the only mode needing a device change: it swaps resistance in for power as the third set value."""
         _check_channel(channel)
         _check_mode(mode)
-        self._dev.set_operation_mode("UIR" if mode is LoadMode.CR else "UIP")
+        self._device._use_resistance_set(mode is LoadMode.CR)
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
         """Write the sink set value for ``mode`` (CC: A, CP: W, CR: Ω). ``curr_limit`` is unused: CV is unsupported."""
         _check_channel(channel)
         _check_mode(mode)
-        self._dev.write_checked(f"{_SINK_CMD[mode]} {value:.3f}")
+        self._device._write_checked(f"{_SINK_CMD[mode]} {value:.3f}")
 
     def output_enable(self, enable: bool, channel: int) -> None:
         """Drives the shared DC terminal, the same one the source quadrant controls."""
         _check_channel(channel)
-        self._dev.output_enable(enable)
+        self._device._output_enable(enable)
 
     def get_voltage(self, channel: int) -> float:
         _check_channel(channel)
-        return self._dev.get_voltage()
+        return self._device._get_voltage()
 
     def get_current(self, channel: int) -> float:
         """Sink-positive per the Instro E-Load convention; the PSB reports sink as negative."""
         _check_channel(channel)
-        return -self._dev.get_current_raw()
+        return -self._device._get_current_raw()
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
         raise FeatureNotSupportedError(
