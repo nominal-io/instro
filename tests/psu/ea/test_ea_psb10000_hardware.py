@@ -77,7 +77,7 @@ def reset_before_each_test(device: EAPSB10000Visa) -> None:
     device._visa.write("*RST")
     # PSB 10080-60 does not implement *OPC?; a short settle is enough and *RST alone leaves SYST:ERR? clean.
     time.sleep(0.2)
-    device.check_errors()
+    device._check_errors()
     device.source.output_enable(False, channel=CHANNEL)
 
 
@@ -134,7 +134,7 @@ def test_set_voltage_invalid_channel_raises_without_instrument_error(
     with pytest.raises(ValueError, match="only has a single channel"):
         source.set_voltage(PROGRAMMED_VOLTAGE, channel=2)
 
-    device.check_errors()
+    device._check_errors()
 
 
 def test_set_current_limit_sources_no_current_unloaded(source: PSUDriverBase) -> None:
@@ -223,7 +223,7 @@ def test_unsupported_source_optionals(
     with pytest.raises(FeatureNotSupportedError, match=UNSUPPORTED_MATCH):
         getattr(source, method_name)(*args, channel=CHANNEL)
 
-    device.check_errors()
+    device._check_errors()
 
 
 # --- sink quadrant --------------------------------------------------------
@@ -233,14 +233,14 @@ def test_unsupported_source_optionals(
 def test_set_mode_selects_the_uip_set(device: EAPSB10000Visa, sink: ELoadDriverBase, mode: LoadMode) -> None:
     sink.set_mode(mode, channel=CHANNEL)
 
-    device.check_errors()
+    device._check_errors()
 
 
 def test_set_mode_cr_selects_the_uir_set(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
     """CR is the only mode that needs a device reconfiguration, since it unlocks SINK:RESistance."""
     sink.set_mode(LoadMode.CR, channel=CHANNEL)
 
-    device.check_errors()
+    device._check_errors()
 
 
 @pytest.mark.parametrize(
@@ -258,7 +258,7 @@ def test_set_level_accepts_each_supported_mode(
 
     sink.set_level(mode, level, channel=CHANNEL, curr_limit=None)
 
-    device.check_errors()
+    device._check_errors()
 
 
 def test_set_level_raises_after_instrument_error(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
@@ -288,7 +288,7 @@ def test_cv_is_unsupported_and_never_writes_the_shared_voltage_set_value(
         )
     finally:
         source.output_enable(False, channel=CHANNEL)
-    device.check_errors()
+    device._check_errors()
 
 
 @pytest.mark.parametrize(
@@ -305,11 +305,11 @@ def test_unsupported_sink_methods(
     with pytest.raises(FeatureNotSupportedError, match=UNSUPPORTED_MATCH):
         getattr(sink, method_name)(*args, channel=CHANNEL)
 
-    device.check_errors()
+    device._check_errors()
 
 
 def test_check_errors_raises_after_instrument_error(device: EAPSB10000Visa) -> None:
     _queue_instrument_error(device)
 
     with pytest.raises(RuntimeError, match=ERROR_MATCH):
-        device.check_errors()
+        device._check_errors()
