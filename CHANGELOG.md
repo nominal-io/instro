@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/nominal-io/instro/compare/instro-v1.9.0...instro-v1.9.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **awg:** change check_errors() from required to optional in awg ([#374](https://github.com/nominal-io/instro/issues/374)) ([753ecd5](https://github.com/nominal-io/instro/commit/753ecd55d64f9c7752126fb23e357c06e91f2f11))
+
 ## [1.9.0](https://github.com/nominal-io/instro/compare/instro-v1.8.0...instro-v1.9.0) (2026-08-07)
 
 
