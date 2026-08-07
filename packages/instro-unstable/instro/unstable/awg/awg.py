@@ -147,9 +147,9 @@ class AWGDriverBase(abc.ABC):
         """Get the burst trigger delay (seconds) on channel."""
         raise NotImplementedError(f"get_burst_delay is not implemented for {type(self).__name__}")
 
-    def get_burst_polarity(self, channel: int) -> GatePolarity:
+    def get_gate_polarity(self, channel: int) -> GatePolarity:
         """Get the gate polarity for GATED bursts on channel."""
-        raise NotImplementedError(f"get_burst_polarity is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"get_gate_polarity is not implemented for {type(self).__name__}")
 
     def get_burst_ncycles(self, channel: int) -> int:
         """Get the number of cycles per trigger for NCYCLE bursts on channel."""
@@ -542,11 +542,11 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.gate_polarity.cmd"
         return self._package_command(descriptor, gate_polarity.value, timestamp, **kwargs)
 
-    def get_burst_polarity(self, channel: int) -> GatePolarity:
+    def get_gate_polarity(self, channel: int) -> GatePolarity:
         """Read back the gate polarity for GATED bursts on channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            gate_polarity = self._driver.get_burst_polarity(channel=channel)
+            gate_polarity = self._driver.get_gate_polarity(channel=channel)
             self._check_errors()
         return gate_polarity
 

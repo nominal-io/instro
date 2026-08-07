@@ -304,7 +304,7 @@ class RigolDG1022Z(AWGDriverBase):
             raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
         self._visa.write(f":SOUR{channel}:BURS:GATE:POL {gate_polarity.value}")
 
-    def get_burst_polarity(self, channel: int) -> GatePolarity:
+    def get_gate_polarity(self, channel: int) -> GatePolarity:
         _check_channel(channel)
         return GatePolarity(self._visa.query(f":SOUR{channel}:BURS:GATE:POL?").strip())
 

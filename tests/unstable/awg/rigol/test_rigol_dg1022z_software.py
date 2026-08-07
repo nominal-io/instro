@@ -737,7 +737,7 @@ def test_34_gate_polarity_roundtrip_writes_and_parses(
     rigol_visa.write.assert_called_once_with(f":SOUR1:BURS:GATE:POL {gate_polarity.value}")
 
     rigol_visa.query.return_value = gate_polarity.value
-    assert rigol.get_burst_polarity(1) is gate_polarity
+    assert rigol.get_gate_polarity(1) is gate_polarity
 
 
 def test_35_set_gate_polarity_rejects_invalid_type_and_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
