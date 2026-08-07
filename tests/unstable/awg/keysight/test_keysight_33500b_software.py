@@ -147,15 +147,22 @@ def test_10_set_waveform_pulse_writes_width(keysight: Keysight33500B, keysight_v
     assert keysight_visa.write.call_args_list == [
         call("FUNC PULS"),
         call("FREQ 1000.0"),
+        call("PHAS 0.0"),
         call("FUNC:PULS:WIDT 0.0002"),
     ]
 
 
-def test_11_set_waveform_pulse_rejects_nonzero_delay(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    with pytest.raises(ValueError, match="cannot program a pulse delay"):
-        keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001))
+def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+    keysight_visa.query.return_value = '0,"No error"'
 
-    keysight_visa.write.assert_not_called()
+    keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001))
+
+    assert keysight_visa.write.call_args_list == [
+        call("FUNC PULS"),
+        call("FREQ 1000.0"),
+        call("PHAS 36.0"),
+        call("FUNC:PULS:WIDT 0.0002"),
+    ]
 
 
 def test_12_set_waveform_arbitrary_downloads_normalized_samples(
@@ -248,13 +255,18 @@ def test_18_get_waveform_distinguishes_ramp_and_triangle(
     assert waveform == expected
 
 
-def test_19_get_waveform_parses_pulse_width(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    keysight_visa.query.side_effect = ["PULS", "1.000000E+03", "2.000000E-04"]
+def test_19_get_waveform_parses_pulse_width_and_delay(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+    keysight_visa.query.side_effect = ["PULS", "1.000000E+03", "3.600000E+01", "2.000000E-04"]
 
     waveform = keysight.get_waveform(1)
 
-    assert keysight_visa.query.call_args_list == [call("FUNC?"), call("FREQ?"), call("FUNC:PULS:WIDT?")]
-    assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002)
+    assert keysight_visa.query.call_args_list == [
+        call("FUNC?"),
+        call("FREQ?"),
+        call("PHAS?"),
+        call("FUNC:PULS:WIDT?"),
+    ]
+    assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001)
 
 
 def test_20_get_waveform_parses_static_value(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
@@ -355,7 +367,7 @@ def test_29_output_load_roundtrip_and_high_z(keysight: Keysight33500B, keysight_
 # ---------------------------------------------------------------------------
 
 _SINE_CARRIER_RESPONSES = ["SIN", "1.000000E+03", "0.000000E+00"]
-_PULSE_CARRIER_RESPONSES = ["PULS", "1.000000E+03", "2.000000E-04"]
+_PULSE_CARRIER_RESPONSES = ["PULS", "1.000000E+03", "0.000000E+00", "2.000000E-04"]
 _STATICVALUE_CARRIER_RESPONSES = ["DC", "1.500000E+00"]
 
 
@@ -388,6 +400,7 @@ def _mock_carrier_query(
                 call("AM:INT:FUNC SIN"),
                 call("AM:INT:FREQ 100.0"),
                 call("AM:DEPT 50.0"),
+                call("AM:STAT ON"),
             ],
         ),
         (
@@ -400,6 +413,7 @@ def _mock_carrier_query(
                 call("FM:INT:FUNC SQU"),
                 call("FM:INT:FREQ 100.0"),
                 call("FM:DEV 500.0"),
+                call("FM:STAT ON"),
             ],
         ),
         (
@@ -412,6 +426,7 @@ def _mock_carrier_query(
                 call("PM:INT:FUNC TRI"),
                 call("PM:INT:FREQ 100.0"),
                 call("PM:DEV 45.0"),
+                call("PM:STAT ON"),
             ],
         ),
         (
@@ -424,6 +439,7 @@ def _mock_carrier_query(
                 call("PWM:INT:FUNC SQU"),
                 call("PWM:INT:FREQ 100.0"),
                 call("PWM:DEV 5e-05"),
+                call("PWM:STAT ON"),
             ],
         ),
         (
@@ -435,6 +451,7 @@ def _mock_carrier_query(
                 call("FSK:SOUR INT"),
                 call("FSK:INT:RATE 100.0"),
                 call("FSK:FREQ 2000.0"),
+                call("FSK:STAT ON"),
             ],
         ),
         (
@@ -446,6 +463,7 @@ def _mock_carrier_query(
                 call("BPSK:SOUR INT"),
                 call("BPSK:INT:RATE 100.0"),
                 call("BPSK:PHAS 90.0"),
+                call("BPSK:STAT ON"),
             ],
         ),
     ],
@@ -502,71 +520,72 @@ def test_32_set_modulation_rejects_incompatible_carrier(
     keysight_visa.write.assert_not_called()
 
 
-def test_33_modulation_enable_requires_set_modulation_first(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    with pytest.raises(ValueError, match="set_modulation must be called before modulation_enable"):
+def test_33_modulation_enable_rejects_enable_true(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
         keysight.modulation_enable(1, True)
 
     keysight_visa.write.assert_not_called()
 
 
-def test_34_modulation_enable_writes_type_specific_state(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    _mock_carrier_query(keysight_visa)
-    keysight.set_modulation(1, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
-    keysight_visa.write.reset_mock()
+def test_34_modulation_enable_writes_off_for_every_modulation_type(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    keysight_visa.query.return_value = '0,"No error"'
 
-    keysight.modulation_enable(1, True)
     keysight.modulation_enable(1, False)
 
-    assert keysight_visa.write.call_args_list == [call("FSK:STAT ON"), call("FSK:STAT OFF")]
+    assert keysight_visa.write.call_args_list == [
+        call("AM:STAT OFF"),
+        call("FM:STAT OFF"),
+        call("PM:STAT OFF"),
+        call("PWM:STAT OFF"),
+        call("FSK:STAT OFF"),
+        call("BPSK:STAT OFF"),
+    ]
 
 
-def test_35_get_modulation_type_raises_before_set_modulation(
-    keysight: Keysight33500B, keysight_visa: MagicMock
-) -> None:
-    with pytest.raises(RuntimeError, match="modulation type not programmed by this driver"):
+def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+    keysight_visa.query.return_value = "0"
+
+    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
         keysight.get_modulation_type(1)
 
+    assert keysight_visa.query.call_args_list == [
+        call("AM:STAT?"),
+        call("FM:STAT?"),
+        call("PM:STAT?"),
+        call("PWM:STAT?"),
+        call("FSK:STAT?"),
+        call("BPSK:STAT?"),
+    ]
 
-def test_36_get_modulation_type_returns_last_programmed_type(
+
+def test_36_get_modulation_type_queries_hardware_for_the_enabled_type(
     keysight: Keysight33500B, keysight_visa: MagicMock
 ) -> None:
-    _mock_carrier_query(keysight_visa)
-    keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    keysight_visa.query.side_effect = lambda command: "1" if command == "BPSK:STAT?" else "0"
 
     assert keysight.get_modulation_type(1) == ModulationType.PSK
 
 
-def test_37_get_modulation_state_false_before_set_modulation(
-    keysight: Keysight33500B, keysight_visa: MagicMock
-) -> None:
+def test_37_get_modulation_state_false_when_none_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+    keysight_visa.query.return_value = "0"
+
     assert keysight.get_modulation_state(1) is False
-    keysight_visa.query.assert_not_called()
 
 
-def test_38_get_modulation_state_queries_type_specific_stat(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    _mock_carrier_query(keysight_visa)
-    keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
-    keysight_visa.query.reset_mock(side_effect=True)
-
+def test_38_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "1"
+
     assert keysight.get_modulation_state(1) is True
     keysight_visa.query.assert_called_once_with("AM:STAT?")
 
-    keysight_visa.query.return_value = "0"
-    assert keysight.get_modulation_state(1) is False
 
+def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    keysight_visa.query.side_effect = ["PULS", "1.000000E+03", "-1.000000E-09", "2.000000E-04"]
 
-def test_39_set_waveform_clears_stale_modulation_type(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    _mock_carrier_query(keysight_visa, _PULSE_CARRIER_RESPONSES)
-    keysight.set_modulation(1, ModulationType.PWM, Square(frequency_hz=100.0), 50e-6)
-    assert keysight.get_modulation_type(1) == ModulationType.PWM
+    waveform = keysight.get_waveform(1)
 
-    keysight_visa.query.side_effect = None
-    keysight_visa.query.return_value = '0,"No error"'
-    keysight.set_waveform(1, Sine(frequency_hz=1000.0))
-
-    with pytest.raises(RuntimeError, match="modulation type not programmed by this driver"):
-        keysight.get_modulation_type(1)
-    with pytest.raises(ValueError, match="set_modulation must be called before modulation_enable"):
-        keysight.modulation_enable(1, True)
-    assert keysight.get_modulation_state(1) is False
+    assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0)
