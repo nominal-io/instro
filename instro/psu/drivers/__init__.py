@@ -3,6 +3,7 @@
 from instro.psu import PSUDriverBase
 from instro.psu.drivers.bk_914x import BK914X
 from instro.psu.drivers.bk_9115 import BK9115
+from instro.psu.drivers.ea_psb10000 import EAPSB10000Visa, EAPSB10000VisaSource
 from instro.psu.drivers.keysight_e36100 import KeysightE36100
 from instro.psu.drivers.keysight_n5700 import KeysightN5700
 from instro.psu.drivers.rigol_dp800 import RigolDP800
@@ -14,6 +15,8 @@ __all__ = [
     "PSUDriverBase",
     "BK9115",
     "BK914X",
+    "EAPSB10000Visa",
+    "EAPSB10000VisaSource",
     "KeysightE36100",
     "KeysightN5700",
     "RigolDP800",
