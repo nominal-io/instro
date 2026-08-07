@@ -16,7 +16,7 @@ jobs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
     steps:
-      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
           token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
@@ -35,11 +35,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.8.x"
           enable-cache: false
       - name: Resolve package name
         id: pkg
@@ -60,7 +59,13 @@ jobs:
         run: uv build --package "${{ steps.pkg.outputs.name }}" --out-dir dist
       - name: Publish to PyPI
         if: ${{ steps.pkg.outputs.skip != 'true' }}
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Pinning this one is only a partial guarantee: the action is a composite that
+        # generates a Docker action at runtime pointing at
+        # `ghcr.io/pypa/gh-action-pypi-publish:${{ github.action_ref }}`, so the code that
+        # actually runs comes from a (mutable) registry tag lookup keyed on this SHA. pypa
+        # publishes a SHA-tagged image per commit, so the pin resolves; verify that tag
+        # exists in ghcr.io before bumping this SHA, or the release will fail at publish time.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/
 
@@ -90,7 +95,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ steps.crate-pkg.outputs.skip == 'false' }}
 
       - name: Install Rust
@@ -128,7 +133,7 @@ jobs:
           - os: windows-latest
             target: x64
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build EtherNet/IP wheel
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -137,7 +142,7 @@ jobs:
           manylinux: auto
           args: --release --locked --compatibility pypi --out dist --manifest-path packages/instro-ethernetip/Cargo.toml
       - name: Upload EtherNet/IP wheel
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: eip-wheel-${{ matrix.os }}-${{ matrix.target }}
           path: dist/*.whl
@@ -148,7 +153,7 @@ jobs:
     if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build EtherNet/IP sdist
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -164,7 +169,7 @@ jobs:
           fi
           python3 tests/ethernetip/check_ethernetip_sdist.py sdist "${sdists[0]}"
       - name: Upload EtherNet/IP sdist
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: eip-sdist
           path: dist/*.tar.gz
@@ -182,12 +187,13 @@ jobs:
       id-token: write
     steps:
       - name: Download EtherNet/IP artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: eip-*
           path: dist
           merge-multiple: true
       - name: Publish EtherNet/IP artifacts to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # See the ghcr.io caveat on the `Publish to PyPI` step above.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/

@@ -13,13 +13,13 @@ What you need depends on which command you run. **`just check-python` is lightwe
 | Layer | `just check-python` | `just check` / `just test` |
 |---|:---:|:---:|
 | [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
-| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python) | ✅ | ✅ |
+| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python), `>=0.12` | ✅ | ✅ |
 | Synced Python deps (`uv sync`) | ✅ | ✅ |
 | Git Bash (Windows only — for the `#!/usr/bin/env bash` recipes) | — | ✅ |
 | Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
 | C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation. The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
 
 <details>
 <summary><strong>Windows</strong></summary>
