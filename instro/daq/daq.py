@@ -3,6 +3,7 @@
 import abc
 import logging
 import time
+import warnings
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping, TypeVar
@@ -18,7 +19,6 @@ from instro.daq.types import (
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
-    DigitalPortChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -43,6 +43,16 @@ def _coerce_enum(value: str | _E, enum_cls: type[_E], param: str) -> _E:
     except ValueError:
         valid = ", ".join(str(member.value) for member in enum_cls)
         raise ValueError(f"{param} '{value}' is not valid; choose one of {valid}.") from None
+
+
+def _to_digital_states(values: list[int]) -> list[bool]:
+    """Coerce digital write values to bools (``> 0`` is True), warning on any value that wasn't already 0 or 1."""
+    if coerced := [value for value in values if value not in (0, 1)]:
+        warnings.warn(
+            f"Digital write values {coerced} are not 0 or 1; coercing to bool (> 0 is True, otherwise False).",
+            stacklevel=2,
+        )
+    return [value > 0 for value in values]
 
 
 class HWTimestamper:
@@ -334,6 +344,20 @@ class DAQDriverBase(abc.ABC):
     def read_digital_line(self, channel: DigitalChannel) -> int:
         """Sample a single DI line. Returns 0 or 1 after applying ``channel.logic``."""
         ...
+
+    def write_digital(self, channels: list[DigitalChannel], values: list[bool]):
+        """Drive DO ``channels[i]`` to ``values[i]`` in one call. Override if the driver supports batched digital output.
+
+        NOTE: It's on the driver's implementation to determine if a group of lines map to a port and do a port write
+        """
+        raise NotImplementedError("Batched digital output has not been implemented for this driver")
+
+    def read_digital(self, channels: list[DigitalChannel]) -> list[bool]:
+        """Sample DI ``channels`` in one call, returning one bool per channel in order. Override if the driver supports batched digital input.
+
+        NOTE: It's on the driver's implementation to determine if lines map to a port and do a port read instead
+        """
+        raise NotImplementedError("Batched digital input has not been implemented for this driver")
 
     @abc.abstractmethod
     def write_digital_port(self, channel: DigitalChannel, data: int):
@@ -1091,7 +1115,7 @@ class InstroDAQ(Instrument):
         channels: str | list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
+        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital via ``read_digital``."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
         if channels is None:
@@ -1102,27 +1126,25 @@ class InstroDAQ(Instrument):
             if unknown := [a for a in aliases if a not in ai and a not in di]:
                 raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
 
-        # Read every analog channel once, then map each channel key to the Measurement it came back in.
-        analog_source: dict[str, Measurement] = {}
+        # One batched read per domain, then map each published channel key to the Measurement it came back in.
+        sources: dict[str, Measurement] = {}
+        # Analog read
         if any(alias in ai for alias in aliases):
             analog = self.read_analog(**kwargs)
             for measurement in analog if isinstance(analog, list) else [analog]:
-                for key in measurement.channel_data:
-                    analog_source[key] = measurement
+                sources.update(dict.fromkeys(measurement.channel_data, measurement))
 
+        # Digital read
+        if digital_aliases := [alias for alias in aliases if alias in di]:
+            digital = self.read_digital(digital_aliases, **kwargs)
+            sources.update(dict.fromkeys(digital.channel_data, digital))
+
+        # Package reads into measurements
         result: dict[str, Measurement] = {}
         for alias in aliases:
-            if alias in ai:
-                key = f"{self.name}.{alias}"
-                source = analog_source[key]
-                result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
-                continue
-            # NOTE: Planning on ripping out port support
-            if isinstance(di[alias], DigitalPortChannel):
-                result[alias] = self.read_digital_port(alias, **kwargs)
-                continue
-            result[alias] = self.read_digital_line(alias, **kwargs)
-
+            key = f"{self.name}.{alias}"
+            source = sources[key]
+            result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
         return result
 
     def write(
@@ -1131,7 +1153,7 @@ class InstroDAQ(Instrument):
         values: float | list[float],
         **kwargs,
     ) -> Command | list[Command]:
-        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
+        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital via ``write_digital``."""
         self._require_open()
         ao, do = self.ao_channels, self.do_channels
         channel_list = [channels] if isinstance(channels, str) else list(channels)
@@ -1144,19 +1166,66 @@ class InstroDAQ(Instrument):
         if unknown := [c for c in channel_list if c not in ao and c not in do]:
             raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
 
+        # One batched digital write, then map each published channel key to the Command it came back in.
+        # TODO: add support for multi-channel commands (instead of one per channel)
+        digital_sources: dict[str, Command] = {}
+        if digital := [(c, v) for c, v in zip(channel_list, value_list) if c in do]:
+            command = self.write_digital([c for c, _ in digital], [int(v) for _, v in digital], **kwargs)
+            digital_sources = dict.fromkeys(command.channel_data, command)
+
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
             if channel in ao:
                 commands.append(self.write_analog_value(channel, value, **kwargs))
                 continue
-            # NOTE: Planning on ripping out port support
-            if isinstance(do[channel], DigitalPortChannel):
-                commands.append(self.write_digital_port(channel, int(value), **kwargs))
-                continue
-            # Why does this function accept the data as an int? Shouldn't it only accept a bool?
-            commands.append(self.write_digital_line(channel, int(value), **kwargs))
+            key = f"{self.name}.{channel}.cmd"
+            source = digital_sources[key]
+            commands.append(Command({key: source.channel_data[key]}, source.timestamp, source.tags))
 
         return commands[0] if isinstance(channels, str) else commands
+
+    @publish_command
+    def write_digital(self, channels: list[str], values: list[int], **kwargs) -> Command:
+        """Write 0/1 ``values[i]`` to DO line ``channels[i]`` (alias) in a single driver call."""
+        self._require_open()
+        do = self.do_channels
+        if len(channels) != len(values):
+            raise ValueError(
+                f"write_digital() got {len(channels)} channels but {len(values)} values; lengths must match."
+            )
+        if unknown := [c for c in channels if c not in do]:
+            raise KeyError(
+                f"Digital output channel(s) {unknown} not configured. Configured digital output channels: {[*do]}."
+            )
+        states = _to_digital_states(values)
+        logger.debug("Sending DAQ write_digital command to '%s' for channels %s", self.name, channels)
+        self._driver.write_digital([do[c] for c in channels], states)
+        timestamp = time.time_ns()
+
+        # Inline construction preserves the raw `int` value (see write_digital_line for rationale).
+        return Command(
+            channel_data={f"{self.name}.{c}.cmd": int(state) for c, state in zip(channels, states)},
+            timestamp=timestamp,
+            tags={**self.default_tags, **kwargs},
+        )
+
+    @publish_measurement
+    def read_digital(self, channels: list[str], **kwargs) -> Measurement:
+        """Read DI lines ``channels`` (aliases) in a single driver call; driver bools land as 0.0/1.0 on the wire."""
+        self._require_open()
+        di = self.di_channels
+        if unknown := [c for c in channels if c not in di]:
+            raise KeyError(
+                f"Digital input channel(s) {unknown} not configured. Configured digital input channels: {[*di]}."
+            )
+        states = self._driver.read_digital([di[c] for c in channels])
+        timestamp = time.time_ns()
+
+        return Measurement(
+            channel_data={f"{self.name}.{c}": [float(state)] for c, state in zip(channels, states)},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:

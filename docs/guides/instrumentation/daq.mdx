@@ -600,7 +600,7 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 ### Reading by Alias
 
-`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
+`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched `read_analog()`; digital aliases from one batched `read_digital()`.
 
 ```python
 daq.configure_voltage_input(physical_channel="ai0", alias="v0")
@@ -620,7 +620,7 @@ result = daq.read()
 
 ### Writing by Alias
 
-`write()` writes `values[i]` to `channels[i]`, routing each to analog or digital output by channel type. Pass a single alias and value, or parallel lists to write several channels at once. It returns the resulting `Command` for a single alias, or a list of `Command` objects for a list of aliases.
+`write()` writes `values[i]` to `channels[i]`, routing each to `write_analog_value()` or a single batched `write_digital()` by channel type. Pass a single alias and value, or parallel lists to write several channels at once. It returns the resulting `Command` for a single alias, or a list of `Command` objects for a list of aliases.
 
 ```python
 daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
@@ -633,7 +633,29 @@ daq.write("ao0", 2.2)
 daq.write(["ao0", "enable"], [2.2, 1])
 ```
 
-Digital values are coerced to `int`. The `channels` and `values` lists must be the same length; a mismatch raises `ValueError`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
+Every alias is validated before anything is written, so a bad alias can't leave earlier channels already driven. The `channels` and `values` lists must be the same length; a mismatch raises `ValueError`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
+
+### Batched Digital I/O
+
+`read()` and `write()` route digital aliases through `read_digital()` / `write_digital()`, which take parallel lists and hand the whole set to the driver in one call. Both are usable directly:
+
+```python
+# One driver round-trip for every line
+measurement = daq.read_digital(["limit_switch", "estop"])
+print(measurement.channel_data)  # {"myDAQ.limit_switch": [1.0], "myDAQ.estop": [0.0]}
+
+command = daq.write_digital(["enable", "reset"], [1, 0])
+```
+
+`read_digital()` returns one `Measurement` carrying every requested alias; `write_digital()` returns one `Command` carrying every written alias. Both talk to the driver in `bool`: written values are cast on the way down, and the driver's returned bools become the `0.0`/`1.0` in the `Measurement` on the way up. On a write, anything greater than 0 becomes `True`, everything else `False` — a value that wasn't already `0` or `1` still writes, but raises a `UserWarning`:
+
+```python
+daq.write_digital(["enable"], [5])  # UserWarning: ... are not 0 or 1; coercing to bool
+```
+
+<Note>
+These are line-only — ports are not routed through `read()`, `write()`, `read_digital()`, or `write_digital()`. Use `read_digital_port()` / `write_digital_port()` for ports. No packaged driver implements the `read_digital` / `write_digital` driver methods yet.
+</Note>
 
 ## Complete Examples
 
@@ -740,6 +762,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `write_digital_line(channel, data)` / `write_digital_port(channel, data)` | `{alias}.cmd` | command |
 | `read(channels)` (per channel) | `{alias}` | telemetry |
 | `write(channels, values)` (per channel) | `{alias}.cmd` | command |
+| `read_digital(channels)` (all channels in one Measurement) | `{alias}` | telemetry |
+| `write_digital(channels, values)` (all channels in one Command) | `{alias}.cmd` | command |
 | `close_relay(channel)` | `{alias}.cmd` (value `"CLOSED"`) | command |
 | `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
 | `get_points_in_buffer()` | `buffer` | telemetry |
@@ -770,6 +794,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
 | `read(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
 | `write(channels, values)` | Write value(s) to output channel(s) by alias, paired by index |
+| `read_digital(channels)` | Read digital input lines by alias in one driver call |
+| `write_digital(channels, values)` | Write 0/1 to digital output lines by alias in one driver call |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
 | `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
@@ -842,6 +868,8 @@ The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channe
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_thermocouple_channel(channel)`**: Configure a thermocouple input channel from an `AnalogThermocoupleChannel` (thermocouple type plus cold-junction config); record on `self._ai_channels`.
 - **`configure_di_channel(channel)` / `configure_do_channel(channel)`**: Register a typed digital input/output line from a `DigitalLineChannel`; record on `self._di_channels` / `self._do_channels`.
+- **`read_digital(channels)`**: Sample every DI line in `channels` in one call; return a `list[bool]` in the same order, after applying each channel's `logic`. `InstroDAQ` turns those bools into the `0.0`/`1.0` published on the wire.
+- **`write_digital(channels, values)`**: Drive DO `channels[i]` to `values[i]` in one call. `values` is a `list[bool]` — `InstroDAQ` has already cast and range-warned, so the driver only applies `logic` and writes.
 
 ### Timing Configuration
 
