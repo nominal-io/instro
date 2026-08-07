@@ -195,7 +195,7 @@ class Keysight33500B(AWGDriverBase):
         return None if load >= _HIGH_Z_SENTINEL else load
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-        """Configures and enables modulation"""
+        """Configures and enables modulation."""
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
@@ -225,7 +225,7 @@ class Keysight33500B(AWGDriverBase):
             self.check_errors()
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
-        """Disables modulation"""
+        """Disables modulation."""
         _check_channel(channel)
         if enable:
             raise ValueError(
