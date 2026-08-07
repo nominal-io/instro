@@ -10,6 +10,9 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -25,6 +28,7 @@ _ARB_SAMPLES = (0.0, 0.5, 1.0, -1.0, 0.25, -0.25, 0.75, -0.75, 0.125)
 _SINE_CARRIER_APPL_RESPONSE = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
 _PULSE_CARRIER_APPL_RESPONSE = '"PULSE,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"'
 _ARBITRARY_CARRIER_APPL_RESPONSE = '"USER,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"'
+_DC_CARRIER_APPL_RESPONSE = '"DC,DEF,DEF,1.500000E+00"'
 
 
 @pytest.fixture
@@ -581,3 +585,206 @@ def test_23_get_modulation_type_raises_on_unexpected_instrument_response(
 
     with pytest.raises(ValueError, match="'XYZ' is not a valid ModulationType"):
         rigol.get_modulation_type(1)
+
+
+# ---------------------------------------------------------------------------
+# Burst
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("burst_type", "expected_mode"),
+    [(BurstType.NCYCLE, "TRIG"), (BurstType.GATED, "GAT"), (BurstType.INFINITE, "INF")],
+    ids=["ncycle", "gated", "infinite"],
+)
+def test_24_set_burst_writes_mode_for_each_burst_type(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, burst_type: BurstType, expected_mode: str
+) -> None:
+    rigol_visa.query.return_value = _SINE_CARRIER_APPL_RESPONSE
+
+    rigol.set_burst(1, burst_type)
+
+    rigol_visa.write.assert_called_once_with(f":SOUR1:BURS:MODE {expected_mode}")
+
+
+@pytest.mark.parametrize(
+    ("channel", "burst_type", "carrier_response", "match"),
+    [
+        (3, BurstType.NCYCLE, _SINE_CARRIER_APPL_RESPONSE, "channel must be 1 or 2"),
+        (1, "NCYCLE", _SINE_CARRIER_APPL_RESPONSE, "burst_type must be a BurstType"),
+        (1, BurstType.NCYCLE, _DC_CARRIER_APPL_RESPONSE, "cannot burst a StaticValue"),
+    ],
+    ids=["invalid_channel", "invalid_burst_type", "staticvalue_carrier"],
+)
+def test_25_set_burst_rejects_invalid_input(
+    rigol: RigolDG1022Z,
+    rigol_visa: MagicMock,
+    channel: int,
+    burst_type: BurstType,
+    carrier_response: str,
+    match: str,
+) -> None:
+    rigol_visa.query.return_value = carrier_response
+
+    with pytest.raises((ValueError, TypeError), match=match):
+        rigol.set_burst(channel, burst_type)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_26_burst_enable_writes_burs_stat_and_get_burst_state_parses_it(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    rigol.burst_enable(1, True)
+    rigol.burst_enable(1, False)
+    assert rigol_visa.write.call_args_list == [call(":SOUR1:BURS:STAT ON"), call(":SOUR1:BURS:STAT OFF")]
+
+    rigol_visa.query.return_value = "ON\n"
+    assert rigol.get_burst_state(1) is True
+
+    rigol_visa.query.return_value = "OFF\n"
+    assert rigol.get_burst_state(1) is False
+
+
+def test_27_get_burst_type_parses_every_mode_and_rejects_unknown(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.return_value = "TRIG"
+    assert rigol.get_burst_type(1) is BurstType.NCYCLE
+
+    rigol_visa.query.return_value = "GAT"
+    assert rigol.get_burst_type(1) is BurstType.GATED
+
+    rigol_visa.query.return_value = "INF"
+    assert rigol.get_burst_type(1) is BurstType.INFINITE
+
+    rigol_visa.query.return_value = "NOIS"
+    with pytest.raises(ValueError, match="unsupported burst mode 'NOIS'"):
+        rigol.get_burst_type(1)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [BurstTriggerSource.INTERNAL, BurstTriggerSource.EXTERNAL, BurstTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_28_set_burst_trigger_writes_source(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, source: BurstTriggerSource
+) -> None:
+    rigol_visa.query.return_value = "TRIG"
+
+    rigol.set_burst_trigger(1, source)
+
+    rigol_visa.write.assert_called_once_with(f":SOUR1:BURS:TRIG:SOUR {source.value}")
+
+
+def test_29_set_burst_trigger_rejects_gated_mode_without_writing(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Regression guard: :BURS:TRIG:SOUR is rejected (-220) once :BURS:MODE GAT is set; don't even attempt it."""
+    rigol_visa.query.return_value = "GAT"
+
+    with pytest.raises(ValueError, match="GATED burst mode"):
+        rigol.set_burst_trigger(1, BurstTriggerSource.EXTERNAL)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_30_set_burst_trigger_rejects_internal_source_during_infinite_mode_without_writing(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    """Regression guard: INTERNAL trigger during INFINITE burst is rejected (-220) on the bench; don't attempt it."""
+    rigol_visa.query.return_value = "INF"
+
+    with pytest.raises(ValueError, match="INFINITE burst mode"):
+        rigol.set_burst_trigger(1, BurstTriggerSource.INTERNAL)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_31_set_burst_trigger_rejects_invalid_source_and_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(TypeError, match="source must be a BurstTriggerSource"):
+        rigol.set_burst_trigger(1, "INT")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_burst_trigger(3, BurstTriggerSource.INTERNAL)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_32_burst_delay_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_burst_delay(2, 0.5)
+    rigol_visa.write.assert_called_once_with(":SOUR2:BURS:TDEL 0.5")
+
+    rigol_visa.query.return_value = "5.000000E-01"
+    assert rigol.get_burst_delay(2) == pytest.approx(0.5)
+    rigol_visa.query.assert_called_once_with(":SOUR2:BURS:TDEL?")
+
+
+def test_33_set_burst_delay_rejects_negative_value_and_invalid_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="delay_s must be non-negative"):
+        rigol.set_burst_delay(1, -0.1)
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_burst_delay(3, 0.1)
+
+    rigol_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize("gate_polarity", [GatePolarity.NORM, GatePolarity.INV], ids=["norm", "inv"])
+def test_34_gate_polarity_roundtrip_writes_and_parses(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, gate_polarity: GatePolarity
+) -> None:
+    rigol.set_gate_polarity(1, gate_polarity)
+    rigol_visa.write.assert_called_once_with(f":SOUR1:BURS:GATE:POL {gate_polarity.value}")
+
+    rigol_visa.query.return_value = gate_polarity.value
+    assert rigol.get_gate_polarity(1) is gate_polarity
+
+
+def test_35_set_gate_polarity_rejects_invalid_type_and_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(TypeError, match="gate_polarity must be a GatePolarity"):
+        rigol.set_gate_polarity(1, "NORM")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_gate_polarity(3, GatePolarity.NORM)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_36_ncycles_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_ncycles(1, 10)
+    rigol_visa.write.assert_called_once_with(":SOUR1:BURS:NCYC 10")
+
+    rigol_visa.query.return_value = "1.000000E+01"
+    assert rigol.get_burst_ncycles(1) == 10
+
+
+def test_37_set_ncycles_rejects_non_positive_value_and_invalid_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="n_cycles must be >= 1"):
+        rigol.set_ncycles(1, 0)
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_ncycles(3, 10)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_38_burst_period_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_burst_period(1, 0.25)
+    rigol_visa.write.assert_called_once_with(":SOUR1:BURS:INT:PER 0.25")
+
+    rigol_visa.query.return_value = "2.500000E-01"
+    assert rigol.get_burst_period(1) == pytest.approx(0.25)
+
+
+def test_39_set_burst_period_rejects_non_positive_value_and_invalid_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="period must be positive"):
+        rigol.set_burst_period(1, 0.0)
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_burst_period(3, 0.1)
+
+    rigol_visa.write.assert_not_called()

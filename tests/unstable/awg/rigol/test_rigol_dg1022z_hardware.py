@@ -17,6 +17,8 @@ from instro.unstable.awg.drivers import RigolDG1022Z
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -374,4 +376,74 @@ def test_14_modulation_enable_re_arms_after_disable_without_remodulating(driver:
         assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
     finally:
         driver.modulation_enable(1, False)
+    driver.check_errors()
+
+
+# ---------------------------------------------------------------------------
+# Burst
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "carrier",
+    [
+        Sine(frequency_hz=TEST_FREQUENCY_HZ),
+        Square(frequency_hz=TEST_FREQUENCY_HZ),
+        Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
+        Triangle(frequency_hz=TEST_FREQUENCY_HZ),
+        Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+    ],
+    ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary"],
+)
+def test_15_set_burst_ncycle_on_every_valid_carrier(driver: RigolDG1022Z, carrier: Waveform) -> None:
+    driver.set_waveform(1, carrier)
+    driver.set_burst(1, BurstType.NCYCLE)
+    driver.check_errors()
+
+    assert driver.get_burst_type(1) is BurstType.NCYCLE
+
+    driver.burst_enable(1, True)
+    driver.check_errors()
+    assert driver.get_burst_state(1) is True
+
+    driver.burst_enable(1, False)
+    driver.check_errors()
+    assert driver.get_burst_state(1) is False
+
+
+@pytest.mark.parametrize(
+    "burst_type",
+    [BurstType.NCYCLE, BurstType.GATED, BurstType.INFINITE],
+    ids=["ncycle", "gated", "infinite"],
+)
+def test_16_get_burst_type_matches_configured_type(driver: RigolDG1022Z, burst_type: BurstType) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, burst_type)
+    driver.check_errors()
+
+    assert driver.get_burst_type(1) is burst_type
+
+
+def test_17_set_burst_trigger_rejects_gated_mode(driver: RigolDG1022Z) -> None:
+    """Regression guard: :BURS:TRIG:SOUR is rejected (-220) once :BURS:MODE GAT is set."""
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, BurstType.GATED)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="GATED burst mode"):
+        driver.set_burst_trigger(1, BurstTriggerSource.EXTERNAL)
+
+    driver.check_errors()
+
+
+def test_18_set_burst_trigger_rejects_internal_source_in_infinite_mode(driver: RigolDG1022Z) -> None:
+    """Regression guard: INTERNAL trigger during INFINITE burst is rejected (-220) on the bench."""
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, BurstType.INFINITE)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="INFINITE burst mode"):
+        driver.set_burst_trigger(1, BurstTriggerSource.INTERNAL)
+
     driver.check_errors()

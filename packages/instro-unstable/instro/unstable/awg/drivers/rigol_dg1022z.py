@@ -7,6 +7,9 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -31,6 +34,13 @@ _MOD_INTERNAL_FUNCTIONS: dict[type, str] = {
     Sawtooth: "RAMP",
     Triangle: "TRI",
 }
+
+_BURST_MODES: dict[BurstType, str] = {
+    BurstType.NCYCLE: "TRIG",
+    BurstType.GATED: "GAT",
+    BurstType.INFINITE: "INF",
+}
+_BURST_TYPES: dict[str, BurstType] = {mode: burst_type for burst_type, mode in _BURST_MODES.items()}
 
 
 class RigolDG1022Z(AWGDriverBase):
@@ -189,7 +199,7 @@ class RigolDG1022Z(AWGDriverBase):
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
-        # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
+        # shape is the modulator/baseband signal, the carrier is what set_waveform last programmed.
         _validate_carrier(mod_type, self.get_waveform(channel))
         modulator = _validate_modulator(shape)
         frequency_hz = modulator.frequency_hz
@@ -236,6 +246,87 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
         return enabled
+
+    def set_burst(self, channel: int, burst_type: BurstType) -> None:
+        _check_channel(channel)
+        if not isinstance(burst_type, BurstType):
+            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
+        with self._visa.lock():
+            carrier = self.get_waveform(channel)
+            if isinstance(carrier, StaticValue):
+                raise ValueError(f"the DG1022Z cannot burst a StaticValue (DC) waveform on channel {channel}")
+            self._visa.write(f":SOUR{channel}:BURS:MODE {_BURST_MODES[burst_type]}")
+
+    def get_burst_type(self, channel: int) -> BurstType:
+        _check_channel(channel)
+        mode = self._visa.query(f":SOUR{channel}:BURS:MODE?").strip()
+        if mode not in _BURST_TYPES:
+            raise ValueError(f"Rigol DG1022Z reported unsupported burst mode '{mode}'")
+        return _BURST_TYPES[mode]
+
+    def burst_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        self._visa.write(f":SOUR{channel}:BURS:STAT {'ON' if enable else 'OFF'}")
+
+    def get_burst_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        return self._visa.query(f":SOUR{channel}:BURS:STAT?").strip() == "ON"
+
+    def set_burst_trigger(self, channel: int, source: BurstTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, BurstTriggerSource):
+            raise TypeError(f"source must be a BurstTriggerSource, got {type(source).__name__}")
+        with self._visa.lock():
+            burst_type = self.get_burst_type(channel)
+            if burst_type is BurstType.GATED:
+                raise ValueError(
+                    f"Cannot trigger since channel {channel} is in GATED burst mode, call set_burst with a different burst_type first"
+                )
+            if burst_type is BurstType.INFINITE and source is BurstTriggerSource.INTERNAL:
+                raise ValueError(
+                    f"Cannot trigger since channel {channel} is in INFINITE burst mode, call set_burst with a different burst_type"
+                )
+            self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR {source.value}")
+
+    def set_burst_delay(self, channel: int, delay_s: float) -> None:
+        _check_channel(channel)
+        if delay_s < 0:
+            raise ValueError(f"delay_s must be non-negative, got {delay_s}")
+        self._visa.write(f":SOUR{channel}:BURS:TDEL {delay_s}")
+
+    def get_burst_delay(self, channel: int) -> float:
+        _check_channel(channel)
+        return float(self._visa.query(f":SOUR{channel}:BURS:TDEL?"))
+
+    def set_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
+        _check_channel(channel)
+        if not isinstance(gate_polarity, GatePolarity):
+            raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
+        self._visa.write(f":SOUR{channel}:BURS:GATE:POL {gate_polarity.value}")
+
+    def get_gate_polarity(self, channel: int) -> GatePolarity:
+        _check_channel(channel)
+        return GatePolarity(self._visa.query(f":SOUR{channel}:BURS:GATE:POL?").strip())
+
+    def set_ncycles(self, channel: int, n_cycles: int) -> None:
+        _check_channel(channel)
+        if n_cycles <= 0:
+            raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
+        self._visa.write(f":SOUR{channel}:BURS:NCYC {int(n_cycles)}")
+
+    def get_burst_ncycles(self, channel: int) -> int:
+        _check_channel(channel)
+        return int(float(self._visa.query(f":SOUR{channel}:BURS:NCYC?")))
+
+    def set_burst_period(self, channel: int, period: float) -> None:
+        _check_channel(channel)
+        if period <= 0:
+            raise ValueError(f"period must be positive, got {period}")
+        self._visa.write(f":SOUR{channel}:BURS:INT:PER {period}")
+
+    def get_burst_period(self, channel: int) -> float:
+        _check_channel(channel)
+        return float(self._visa.query(f":SOUR{channel}:BURS:INT:PER?"))
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")

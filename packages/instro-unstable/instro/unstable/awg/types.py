@@ -12,6 +12,23 @@ class AmplitudeMeasurementUnit(Enum):
     DBM = "DBM"
 
 
+class BurstType(Enum):
+    NCYCLE = "NCYCLE"
+    GATED = "GATED"
+    INFINITE = "INFINITE"
+
+
+class GatePolarity(Enum):
+    NORM = "NORM"
+    INV = "INV"
+
+
+class BurstTriggerSource(Enum):
+    INTERNAL = "INT"
+    EXTERNAL = "EXT"
+    MANUAL = "MAN"
+
+
 class ModulationType(Enum):
     AM = "AM"
     FM = "FM"
