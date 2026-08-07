@@ -41,10 +41,6 @@ class AWGDriverBase(abc.ABC):
         """Close the underlying transport."""
 
     @abc.abstractmethod
-    def check_errors(self) -> None:
-        """Check the instrument error queue."""
-
-    @abc.abstractmethod
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         """Program channel with the waveform definition."""
 
@@ -75,6 +71,10 @@ class AWGDriverBase(abc.ABC):
     @abc.abstractmethod
     def get_output_state(self, channel: int) -> bool:
         """Return True if the output on channel is enabled."""
+
+    def check_errors(self) -> None:
+        """Check the instrument error queue."""
+        raise NotImplementedError(f"check_errors is not implemented for {type(self).__name__}")
 
     def set_output_load(self, channel: int, load: float | None) -> None:
         """Set the output load impedance; None means high-Z."""
@@ -166,7 +166,10 @@ class InstroAWG(Instrument):
 
     def _check_errors(self) -> None:
         """Raise if the driver's error queue holds anything."""
-        self._driver.check_errors()
+        try:
+            self._driver.check_errors()
+        except NotImplementedError:
+            pass
 
     @publish_command
     def _execute_command(
