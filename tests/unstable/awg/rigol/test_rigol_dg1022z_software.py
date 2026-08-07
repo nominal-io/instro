@@ -761,7 +761,7 @@ def test_36_ncycles_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa:
 def test_37_set_ncycles_rejects_non_positive_value_and_invalid_channel(
     rigol: RigolDG1022Z, rigol_visa: MagicMock
 ) -> None:
-    with pytest.raises(ValueError, match="n_cycles must be positive"):
+    with pytest.raises(ValueError, match="n_cycles must be >= 1"):
         rigol.set_ncycles(1, 0)
 
     with pytest.raises(ValueError, match="channel must be 1 or 2"):

@@ -435,3 +435,15 @@ def test_17_set_burst_trigger_rejects_gated_mode(driver: RigolDG1022Z) -> None:
         driver.set_burst_trigger(1, BurstTriggerSource.EXTERNAL)
 
     driver.check_errors()
+
+
+def test_18_set_burst_trigger_rejects_internal_source_in_infinite_mode(driver: RigolDG1022Z) -> None:
+    """Regression guard: INTERNAL trigger during INFINITE burst is rejected (-220) on the bench."""
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, BurstType.INFINITE)
+    driver.check_errors()
+
+    with pytest.raises(ValueError, match="INFINITE burst mode"):
+        driver.set_burst_trigger(1, BurstTriggerSource.INTERNAL)
+
+    driver.check_errors()

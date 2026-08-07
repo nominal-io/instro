@@ -257,6 +257,13 @@ class RigolDG1022Z(AWGDriverBase):
                 raise ValueError(f"the DG1022Z cannot burst a StaticValue (DC) waveform on channel {channel}")
             self._visa.write(f":SOUR{channel}:BURS:MODE {_BURST_MODES[burst_type]}")
 
+    def get_burst_type(self, channel: int) -> BurstType:
+        _check_channel(channel)
+        mode = self._visa.query(f":SOUR{channel}:BURS:MODE?").strip()
+        if mode not in _BURST_TYPES:
+            raise ValueError(f"Rigol DG1022Z reported unsupported burst mode '{mode}'")
+        return _BURST_TYPES[mode]
+
     def burst_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
         self._visa.write(f":SOUR{channel}:BURS:STAT {'ON' if enable else 'OFF'}")
@@ -264,13 +271,6 @@ class RigolDG1022Z(AWGDriverBase):
     def get_burst_state(self, channel: int) -> bool:
         _check_channel(channel)
         return self._visa.query(f":SOUR{channel}:BURS:STAT?").strip() == "ON"
-
-    def get_burst_type(self, channel: int) -> BurstType:
-        _check_channel(channel)
-        mode = self._visa.query(f":SOUR{channel}:BURS:MODE?").strip()
-        if mode not in _BURST_TYPES:
-            raise ValueError(f"Rigol DG1022Z reported unsupported burst mode '{mode}'")
-        return _BURST_TYPES[mode]
 
     def set_burst_trigger(self, channel: int, source: BurstTriggerSource) -> None:
         _check_channel(channel)
@@ -311,7 +311,7 @@ class RigolDG1022Z(AWGDriverBase):
     def set_ncycles(self, channel: int, n_cycles: int) -> None:
         _check_channel(channel)
         if n_cycles <= 0:
-            raise ValueError(f"n_cycles must be positive, got {n_cycles}")
+            raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
         self._visa.write(f":SOUR{channel}:BURS:NCYC {int(n_cycles)}")
 
     def get_burst_ncycles(self, channel: int) -> int:
