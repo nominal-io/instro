@@ -249,32 +249,29 @@ pub struct OpcUaUserToken {
 }
 
 impl OpcUaUserToken {
-    fn new(policy_id: String, inner: OpcUaUserTokenInner) -> Self {
+    const fn new(policy_id: String, inner: OpcUaUserTokenInner) -> Self {
         Self { policy_id, inner }
     }
 
     /// Creates a new user token for anonymous authentication.
-    pub fn anonymous(policy_id: String) -> Result<Self> {
-        Ok(Self::new(policy_id, OpcUaUserTokenInner::Anonymous))
+    pub const fn anonymous(policy_id: String) -> Self {
+        Self::new(policy_id, OpcUaUserTokenInner::Anonymous)
     }
 
     /// Creates a new user token for basic authentication.
-    pub fn basic(user: String, pass: String, policy_id: String) -> Result<Self> {
-        Ok(Self::new(
+    pub const fn basic(user: String, pass: String, policy_id: String) -> Self {
+        Self::new(
             policy_id,
             OpcUaUserTokenInner::Basic {
                 username: user,
                 password: pass,
             },
-        ))
+        )
     }
 
     /// Creates a new user token for certificate-based authentication.
-    pub fn certificate(cert: Vec<u8>, policy_id: String) -> Result<Self> {
-        Ok(Self::new(
-            policy_id,
-            OpcUaUserTokenInner::Certificate { cert },
-        ))
+    pub const fn certificate(cert: Vec<u8>, policy_id: String) -> Self {
+        Self::new(policy_id, OpcUaUserTokenInner::Certificate { cert })
     }
 }
 
@@ -1899,7 +1896,7 @@ mod tests {
 
     #[test]
     fn user_token_anonymous_serializes_with_flattened_kind() {
-        let token = OpcUaUserToken::anonymous("anon".into()).expect("token");
+        let token = OpcUaUserToken::anonymous("anon".into());
 
         let json = serde_json::to_value(&token).expect("serialize");
         assert_eq!(
@@ -1915,8 +1912,7 @@ mod tests {
 
     #[test]
     fn user_token_basic_serializes_with_flattened_kind_and_credentials() {
-        let token =
-            OpcUaUserToken::basic("user".into(), "pw".into(), "basic".into()).expect("token");
+        let token = OpcUaUserToken::basic("user".into(), "pw".into(), "basic".into());
 
         let json = serde_json::to_value(&token).expect("serialize");
         assert_eq!(
@@ -1934,7 +1930,7 @@ mod tests {
 
     #[test]
     fn user_token_certificate_serializes_with_flattened_kind_and_cert() {
-        let token = OpcUaUserToken::certificate(vec![1, 2, 3], "cert".into()).expect("token");
+        let token = OpcUaUserToken::certificate(vec![1, 2, 3], "cert".into());
 
         let json = serde_json::to_value(&token).expect("serialize");
         assert_eq!(

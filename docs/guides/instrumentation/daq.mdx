@@ -61,7 +61,7 @@ InstroDAQ supports three acquisition modes:
 - Data automatically published via the background daemon, OR manually fetch with `read_analog()`
 - Use case: Mid to high frequency continuous monitoring with deterministic sample timing.
 
-Hardware and software timing are mutually exclusive on one instance: configuring the second mode raises `HWTimingException`. To run both against one device, build a separate `InstroDAQ` per mode with non-overlapping channels: see the [NI hardware- and software-timed example](/instrumentation/examples/daq/daq_hw_and_sw_timed_ni).
+Hardware and software timing are mutually exclusive on one instance: configuring the second mode raises `TimingConfigException`. To run both against one device, build a separate `InstroDAQ` per mode with non-overlapping channels: see the [NI hardware- and software-timed example](/instrumentation/examples/daq/daq_hw_and_sw_timed_ni).
 
 ## Creating an InstroDAQ Instance
 
@@ -274,7 +274,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 
 ### Hardware-Timed Sample Rate
 
-For continuous hardware-timed acquisition, configure the sample rate. `configure_ai_sample_rate()` is an alias for `configure_ai_hw_sample_rate()`.
+For continuous hardware-timed acquisition, configure the sample rate.
 
 ```python
 daq.configure_ai_hw_sample_rate(
@@ -971,7 +971,7 @@ End users read `daq.ai_channels` as a mapping, but it is a **frozen snapshot**: 
 
 #### Example: Vendor differences in timing
 
-Different vendors configure timing differently, but InstroDAQ users must always configure a timing mode before `start()`. Hardware timing (`configure_ai_hw_sample_rate()`) reaches the driver through `configure_ai_hw_timing()`; software timing (`configure_ai_sw_sample_rate()`) is handled entirely by `InstroDAQ`, which paces the daemon around the driver's `read_analog()`.
+Different vendors configure timing differently, but InstroDAQ users must always configure a timing mode before `start()`.
 
 - **NI-DAQmx**: Sample rate is configured on the device prior to starting an acquisition. The driver implements this in `configure_ai_hw_timing()` by calling DAQmx's `task.timing.cfg_samp_clk_timing()` and then stores the config on `self._ai_hw_timing_config`.
 

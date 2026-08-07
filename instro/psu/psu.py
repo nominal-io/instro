@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import abc
+import json
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.psu.config import PSUConfig, resolve_psu_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -120,16 +123,21 @@ class InstroPSU(Instrument):
 
     def __init__(
         self,
-        name: str,
-        driver: PSUDriverBase,
-        num_channels: int,
+        name: str | None = None,
+        driver: PSUDriverBase | None = None,
+        num_channels: int | None = None,
         publishers: list[Publisher] | None = None,
+        config: PSUConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroPSU.
 
+        Provide either ``config`` or ``driver``/``num_channels`` together, not both.
+
         Args:
-            name: Channel-name prefix for published data.
+            name: Channel-name prefix for published data. Falls back to
+                ``config.device.name`` when ``config`` is given.
             driver: Concrete PSU driver; owns its own transport::
 
                 psu = InstroPSU(
@@ -140,17 +148,59 @@ class InstroPSU(Instrument):
 
             num_channels: Number of output channels on this PSU.
             publishers: Publishers that receive emitted Measurement/Command data.
+                Combined with any publishers declared in ``config``.
+            config: A ``PSUConfig``, a dict, or a path to a JSON config file.
+            autostart: When True, open the connection and start background polling.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
+        poll_interval: float | None = None
+        resolved_config: PSUConfig | None = None
+        if config is not None:
+            if driver is not None or num_channels is not None:
+                raise ValueError(
+                    "InstroPSU(config=...) cannot be combined with driver/num_channels; "
+                    "use one construction style or the other."
+                )
+            resolved_config = self._resolve_config(config)
+            resolved_name, driver, num_channels, publishers, poll_interval = resolve_psu_from_config(
+                resolved_config, publishers
+            )
+            if name is None:
+                name = resolved_name
+        elif name is None or driver is None or num_channels is None:
+            raise ValueError("InstroPSU requires either config=..., or name, driver, and num_channels together.")
+
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
         self._num_channels = num_channels
+        self._config = resolved_config
         self._resource_lock = threading.Lock()
 
         self._define_background_daemon()
+
+        if poll_interval is not None:
+            self.background_interval = poll_interval
+
+        if autostart:
+            self.open()
+            self.start()
+
+    @staticmethod
+    def _resolve_config(config: PSUConfig | dict | Path | str) -> PSUConfig:
+        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path.
+
+        Returns a deep copy when ``config`` is already a ``PSUConfig``, so the instance stored on
+        ``self._config`` never aliases a caller-owned object that could mutate out from under it.
+        """
+        if isinstance(config, PSUConfig):
+            return config.model_copy(deep=True)
+        if isinstance(config, dict):
+            return PSUConfig.model_validate(config)
+        with open(Path(config)) as f:
+            return PSUConfig.model_validate(json.load(f))
 
     @publish_command
     def _execute_command(

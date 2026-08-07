@@ -104,6 +104,7 @@ ANALOG_TOLERANCE_V = 0.05  # DAC ~10 mV + AIN noise/offset; 50 mV is comfortable
 
 SAMPLE_RATE_HZ = 1000.0
 SAMPLES_PER_CHANNEL = 100
+SW_SAMPLE_RATE_HZ = 1.0
 HW_TIMED_DC_V = 2.0  # DC level held on DAC0 during hardware-timed reads.
 HW_TIMED_TOLERANCE_V = 0.1
 
@@ -419,7 +420,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
                 daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -462,7 +463,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
                 daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -496,16 +497,56 @@ class TestLabJackT4Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 8. Actual sample rate reporting
+    # 8. SW-timed analog read with background daemon
     # =====================================================================
-    def test_08_actual_sample_rate(self):
+    def test_08_sw_timed_analog_read_background(self):
+        """Start SW-timed acquisition with background daemon and read buffered data."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+
+                try:
+                    time.sleep(1.0)  # let background daemon collect samples
+
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 9, True)
+                    self.assertIsNotNone(ch)
+                    self.assertGreaterEqual(len(ch.values), 1)
+                    self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
+
+                    mean = sum(ch.values) / len(ch.values)
+                    print(f"         background buffer: {len(ch.values)} samples, mean AIN0 = {mean:.4f} V")
+                    if LOOPBACK_WIRED:
+                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
+                finally:
+                    daq.stop()
+                    daq.write_analog_value(AO_ALIAS, 0.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "SW-timed analog read (background)",
+            f"Start SW-timed acquisition at {SW_SAMPLE_RATE_HZ} Hz with background daemon. "
+            f"Hold DAC0 at {HW_TIMED_DC_V} V, verify AIN0 reads match via get_channel().",
+            step,
+        )
+
+    # =====================================================================
+    # 9. Actual sample rate reporting
+    # =====================================================================
+    def test_09_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -533,16 +574,16 @@ class TestLabJackT4Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Buffer-depth telemetry
+    # 10. Buffer-depth telemetry
     # =====================================================================
-    def test_09_buffer_depth_telemetry(self):
+    def test_10_buffer_depth_telemetry(self):
         """Verify get_points_in_buffer reports a valid depth during background acquisition."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -566,9 +607,9 @@ class TestLabJackT4Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Clean shutdown — outputs to safe state
+    # 11. Clean shutdown — outputs to safe state
     # =====================================================================
-    def test_10_clean_shutdown(self):
+    def test_11_clean_shutdown(self):
         """Set all outputs to safe state as a final step."""
 
         def step():
@@ -589,13 +630,13 @@ class TestLabJackT4Hardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Methods not implemented on the T4 — reported as skipped
+    # 12. Methods not implemented on the T4 — reported as skipped
     # =====================================================================
-    def test_11_port_width_digital_unsupported(self):
+    def test_12_port_width_digital_unsupported(self):
         """write_digital_port / read_digital_port are not implemented for the T4."""
         self.skipTest("driver raises NotImplementedError for LabJack port-width digital I/O")
 
-    def test_12_relay_control_unsupported(self):
+    def test_13_relay_control_unsupported(self):
         """Relay control is not supported by the LabJack driver."""
         self.skipTest("DAQDriverBase relays unsupported by LabJack")
 

@@ -4,6 +4,7 @@ import functools
 import logging
 import threading
 import time
+from collections import deque
 from importlib.metadata import version
 from typing import Callable
 
@@ -98,6 +99,9 @@ class Instrument:
         self._background_thread: threading.Thread | None = None
         self._background_stop_event = threading.Event()
         self._background_methods: list[tuple[Callable, tuple, dict]] = []
+        # Used to determine whether requested interval is achievable or not
+        self._daemon_work_times: deque[float] = deque(maxlen=10)
+        self._interval_warning_issued = False
 
         self._channel_buffer_length: int = 10
         self._channel_buffer: DequeInMemoryPublisher | None = None
@@ -234,10 +238,18 @@ class Instrument:
     @background_interval.setter
     def background_interval(self, seconds: float):
         self._background_config.interval = seconds
+        self._reset_daemon_timing()
+
+    def _reset_daemon_timing(self):
+        """Drop the timing window and re-arm the warning so cycles are judged against the current interval."""
+        # Create new deque so we don't risk clearing the queue used by the daemon for averaging
+        self._daemon_work_times = deque(maxlen=self._daemon_work_times.maxlen)
+        self._interval_warning_issued = False
 
     def add_background_daemon_function(self, method: Callable, *args, **kwargs):
         """Append ``method`` to the daemon's call list. Use ``define_background_daemon`` to replace instead."""
         self._background_methods.append((method, args, kwargs))
+        self._reset_daemon_timing()
 
     def _setup_channel_buffer(self, buffer_length: int):
         # Create a channel buffer if one doesn't already exist. Add it to list of publishers.
@@ -255,6 +267,8 @@ class Instrument:
             return
 
         self._setup_channel_buffer(self._channel_buffer_length)
+
+        self._reset_daemon_timing()
 
         self._background_stop_event.clear()
         self._background_thread = threading.Thread(
@@ -360,11 +374,41 @@ class Instrument:
             daemon_work_stop = time.time_ns()
 
             daemon_work_time_s = (daemon_work_stop - daemon_loop_start) * 1e-9
+            self._check_achievable_interval(daemon_work_time_s)
             self._background_stop_event.wait(max(0, self._background_config.interval - daemon_work_time_s))
 
             daemon_loop_stop = time.time_ns()
             daemon_loop_time_s = (daemon_loop_stop - daemon_loop_start) * 1e-9
             self._publish_daemon_timing(daemon_loop_time_s, daemon_work_time_s, daemon_loop_stop)
+
+    def _check_achievable_interval(self, work_time_s: float):
+        """Warn once if the averaged work time shows the requested interval isn't achievable.
+
+        This doesn't give timing guarantees about the background daemon rate,
+        just warn when work_time > requested interval.
+        """
+        # An interval of 0 asks for free-running, so there is no rate to fall short of.
+        if self._background_config.interval <= 0:
+            return
+
+        # Grab current version of work times so we don't have race condition between length check and division
+        work_times = self._daemon_work_times
+        work_times.append(work_time_s)
+        if self._interval_warning_issued or len(work_times) != work_times.maxlen:
+            return
+
+        average_work_time_s = sum(work_times) / len(work_times)
+        if average_work_time_s <= self._background_config.interval:
+            return
+
+        logger.warning(
+            "Background daemon for instrument '%s' cannot achieve the requested interval of %.6f s; "
+            "set background daemon interval to value greater than %.6f, which was the average work time.",
+            self.name,
+            self._background_config.interval,
+            average_work_time_s,
+        )
+        self._interval_warning_issued = True
 
     def _background_daemon(self):
         """Invoke each registered daemon function once.
