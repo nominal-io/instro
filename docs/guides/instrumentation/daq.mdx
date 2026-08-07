@@ -269,7 +269,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
 <Note>
-**Not yet implemented for the packaged drivers.** None of the bundled DAQ drivers (NI-DAQmx, LabJack T-Series, MCC, Keysight 34980A) implement these typed methods yet. Please use `configure_analog_channel` / `configure_digital_line`.
+**Driver support.** NI-DAQmx implements every typed method above. The other bundled DAQ drivers (LabJack T-Series, MCC, Keysight 34980A) do not yet — with those, use `configure_analog_channel` / `configure_digital_line`.
 </Note>
 
 ### Hardware-Timed Sample Rate
@@ -793,7 +793,7 @@ Each of the methods below must (a) program the device and (b) record the resulti
 - **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self._di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 - **`configure_do_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital output port. Record on `self._do_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 
-The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). They are not yet implemented for packaged drivers.
+The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). Of the packaged drivers, only NI-DAQmx implements them.
 
 - **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.

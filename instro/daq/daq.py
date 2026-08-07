@@ -11,6 +11,7 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
@@ -86,8 +87,8 @@ class DAQDriverBase(abc.ABC):
 
     points_in_buffer: int
 
-    _ai_channels: dict[str, AnalogChannel]
-    _ao_channels: dict[str, AnalogChannel]
+    _ai_channels: dict[str, AnalogChannelUnion]
+    _ao_channels: dict[str, AnalogChannelUnion]
     _di_channels: dict[str, DigitalChannel]
     _do_channels: dict[str, DigitalChannel]
     _relay_channels: dict[str, RelayChannel]
@@ -122,12 +123,12 @@ class DAQDriverBase(abc.ABC):
         )
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return MappingProxyType(dict(self._ai_channels))
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return MappingProxyType(dict(self._ao_channels))
 
@@ -320,7 +321,7 @@ class DAQDriverBase(abc.ABC):
         """
         return None
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         """Write ``value`` to AO ``channel``. Override if the driver supports analog output."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
 
@@ -454,12 +455,12 @@ class InstroDAQ(Instrument):
         return self._driver.channels
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return self._driver.ai_channels
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return self._driver.ao_channels
 
