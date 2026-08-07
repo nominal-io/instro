@@ -72,10 +72,6 @@ class AWGDriverBase(abc.ABC):
     def get_output_state(self, channel: int) -> bool:
         """Return True if the output on channel is enabled."""
 
-    def check_errors(self) -> None:
-        """Check the instrument error queue."""
-        raise NotImplementedError(f"check_errors is not implemented for {type(self).__name__}")
-
     def set_output_load(self, channel: int, load: float | None) -> None:
         """Set the output load impedance; None means high-Z."""
         raise NotImplementedError(f"set_output_load is not implemented for {type(self).__name__}")
@@ -164,13 +160,6 @@ class InstroAWG(Instrument):
         if not 1 <= channel <= self._num_channels:
             raise ValueError(f"channel {channel} out of range for '{self.name}' (1-{self._num_channels})")
 
-    def _check_errors(self) -> None:
-        """Raise if the driver's error queue holds anything."""
-        try:
-            self._driver.check_errors()
-        except NotImplementedError:
-            pass
-
     @publish_command
     def _execute_command(
         self,
@@ -184,7 +173,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             driver_method(channel, value)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.{channel_suffix}.cmd"
         return self._package_command(descriptor, value, timestamp, **kwargs)
 
@@ -200,7 +188,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
@@ -237,7 +224,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_waveform(channel=channel, waveform=waveform)
             timestamp = time.time_ns()
-            self._check_errors()
             self._channel_waveforms[channel] = waveform
         published_name = _PUBLISHED_NAMES[type(waveform)]
         params = _waveform_param_channels(waveform)
@@ -259,7 +245,6 @@ class InstroAWG(Instrument):
         self._check_channel(channel)
         with self._resource_lock:
             waveform = self._driver.get_waveform(channel=channel)
-            self._check_errors()
         return waveform
 
     @publish_command
@@ -271,7 +256,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_amplitude(channel=channel, amplitude=amplitude, unit=unit)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.amplitude.cmd"
         return self._package_command(descriptor, amplitude, timestamp, unit=unit.value, **kwargs)
 
@@ -280,7 +264,6 @@ class InstroAWG(Instrument):
         self._check_channel(channel)
         with self._resource_lock:
             amplitude = self._driver.get_amplitude(channel=channel)
-            self._check_errors()
         return amplitude
 
     def convert_amplitude(
@@ -310,8 +293,6 @@ class InstroAWG(Instrument):
                     impedance_ohms = self._driver.get_output_load(channel=channel)
                 except NotImplementedError:
                     impedance_ohms = None
-                else:
-                    self._check_errors()
                 if impedance_ohms is None:
                     raise ValueError(f"channel {channel} has no known output load; pass impedance_ohms explicitly")
         return convert_amplitude(amplitude, from_unit, to_unit, waveform, impedance_ohms=impedance_ohms)
@@ -333,7 +314,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_output_load(channel=channel, load=load)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.load.cmd"
         load_value = float("inf") if load is None else load
         return self._package_command(descriptor, load_value, timestamp, **kwargs)
@@ -344,7 +324,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.align_phase()
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = "phase.align.cmd"
         return self._package_command(descriptor, "ALIGN", timestamp, **kwargs)
 
@@ -365,7 +344,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             val = self._driver.get_output_load(channel=channel)
             timestamp = time.time_ns()
-            self._check_errors()
         load_float = float("inf") if val is None else val
         descriptor = f"ch{channel}.load"
         return self._package_measurement(descriptor, load_float, timestamp, **kwargs)
@@ -389,7 +367,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.set_modulation(channel=channel, mod_type=mod_type, shape=shape, magnitude=magnitude)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.modulation.cmd"
         return self._package_command(descriptor, magnitude, timestamp, mod_type=mod_type.value, **kwargs)
 
@@ -400,7 +377,6 @@ class InstroAWG(Instrument):
         with self._resource_lock:
             self._driver.modulation_enable(channel=channel, enable=enable)
             timestamp = time.time_ns()
-            self._check_errors()
         descriptor = f"ch{channel}.modulation_enabled.cmd"
         return self._package_command(descriptor, enable, timestamp, **kwargs)
 
@@ -409,7 +385,6 @@ class InstroAWG(Instrument):
         self._check_channel(channel)
         with self._resource_lock:
             mod_type = self._driver.get_modulation_type(channel=channel)
-            self._check_errors()
         return mod_type
 
     def get_modulation_state(self, channel: int, **kwargs) -> Measurement | None:

@@ -46,13 +46,6 @@ class RigolDG1022Z(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        """Query ``:SYSTem:ERRor?`` once and raise on a non-zero code. Does not drain the queue."""
-        err = self._visa.query(":SYST:ERR?")
-        code = err.strip().split(",", 1)[0].lstrip("+")
-        if code != "0":
-            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         _check_channel(channel)
         with self._visa.lock():
@@ -77,7 +70,6 @@ class RigolDG1022Z(AWGDriverBase):
                 self._visa.write(f":SOUR{channel}:FUNC PULS")
                 self._visa.write(f":SOUR{channel}:FREQ {waveform.frequency_hz}")
                 self._visa.write(f":SOUR{channel}:FUNC:PULS:WIDT {waveform.width_s}")
-
             elif isinstance(waveform, Arbitrary):
                 # Use per-point downloads to allow both USB and Ethernet compatibility and a higher download size ceiling.
                 num_points = len(waveform.samples)
@@ -86,21 +78,21 @@ class RigolDG1022Z(AWGDriverBase):
                         f"the DG1022Z accepts {_ARB_MIN_POINTS} to {_ARB_MAX_POINTS} arbitrary points"
                         f" per download, got {num_points}"
                     )
-                self._visa.write(f":SOUR{channel}:APPL:ARB {waveform.sample_rate_hz}")
-                self.check_errors()
-                self._visa.write(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
-                self.check_errors()
+                self._write_checked(f":SOUR{channel}:APPL:ARB {waveform.sample_rate_hz}")
+                self._write_checked(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
-                    self._visa.write(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
                     # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
-                    self.check_errors()
+                    self._write_checked(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
                 self._visa.write(f":SOUR{channel}:VOLT:OFFS {waveform.value}")
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+
+            if not isinstance(waveform, Arbitrary):
+                self._check_errors()
 
     def get_waveform(self, channel: int) -> Waveform:
         _check_channel(channel)
@@ -109,29 +101,33 @@ class RigolDG1022Z(AWGDriverBase):
             fields = resp.split(",")
             name = fields[0]
             if name == "SIN":
-                return Sine(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
-            if name == "SQU":
+                result: Waveform = Sine(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
+            elif name == "SQU":
                 duty = float(self._visa.query(f":SOUR{channel}:FUNC:SQU:DCYC?"))
-                return Square(frequency_hz=float(fields[1]), duty_cycle_pct=duty, phase_deg=float(fields[4]))
-            if name == "RAMP":
+                result = Square(frequency_hz=float(fields[1]), duty_cycle_pct=duty, phase_deg=float(fields[4]))
+            elif name == "RAMP":
                 symmetry = float(self._visa.query(f":SOUR{channel}:FUNC:RAMP:SYMM?"))
                 if symmetry == float(_SAWTOOTH_SYMMETRY_PCT):
-                    return Sawtooth(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
-                return Triangle(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
-            if name == "PULSE":
+                    result = Sawtooth(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
+                else:
+                    result = Triangle(frequency_hz=float(fields[1]), phase_deg=float(fields[4]))
+            elif name == "PULSE":
                 width = float(self._visa.query(f":SOUR{channel}:FUNC:PULS:WIDT?"))
-                return Pulse(frequency_hz=float(fields[1]), width_s=width)
-            if name == "DC":
-                return StaticValue(value=float(fields[3]))
-            if name == "USER":
+                result = Pulse(frequency_hz=float(fields[1]), width_s=width)
+            elif name == "DC":
+                result = StaticValue(value=float(fields[3]))
+            elif name == "USER":
                 arb = self._arb_waveforms.get(channel)
                 if arb is None:
                     raise RuntimeError(
                         f"channel {channel} outputs an arbitrary waveform not programmed by this driver;"
                         " sample data is not readable"
                     )
-                return arb
-            raise ValueError(f"Rigol DG1022Z reported unsupported waveform '{name}'")
+                result = arb
+            else:
+                raise ValueError(f"Rigol DG1022Z reported unsupported waveform '{name}'")
+            self._check_errors()
+            return result
 
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         _check_channel(channel)
@@ -140,17 +136,21 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             self._visa.write(f":SOUR{channel}:VOLT:UNIT {unit.value}")
             self._visa.write(f":SOUR{channel}:VOLT {amplitude}")
+            self._check_errors()
 
     def get_amplitude(self, channel: int) -> tuple[float, AmplitudeMeasurementUnit]:
         _check_channel(channel)
         with self._visa.lock():
             unit = AmplitudeMeasurementUnit(self._visa.query(f":SOUR{channel}:VOLT:UNIT?").strip())
             amplitude = float(self._visa.query(f":SOUR{channel}:VOLT?"))
+            self._check_errors()
         return amplitude, unit
 
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
-        self._visa.write(f":SOUR{channel}:VOLT:OFFS {offset}")
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:VOLT:OFFS {offset}")
+            self._check_errors()
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)
@@ -159,31 +159,45 @@ class RigolDG1022Z(AWGDriverBase):
             fields = resp.split(",")
             if fields[0] == "DC":
                 # In DC mode VOLT:OFFS? always reads 0 on the DG1000Z; only APPL? carries the level.
-                return float(fields[3])
-            return float(self._visa.query(f":SOUR{channel}:VOLT:OFFS?"))
+                result = float(fields[3])
+            else:
+                result = float(self._visa.query(f":SOUR{channel}:VOLT:OFFS?"))
+            self._check_errors()
+        return result
 
     def output_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
-        self._visa.write(f":OUTP{channel} ON" if enable else f":OUTP{channel} OFF")
+        with self._visa.lock():
+            self._visa.write(f":OUTP{channel} ON" if enable else f":OUTP{channel} OFF")
+            self._check_errors()
 
     def get_output_state(self, channel: int) -> bool:
         _check_channel(channel)
-        return self._visa.query(f":OUTP{channel}?").strip() == "ON"
+        with self._visa.lock():
+            result = self._visa.query(f":OUTP{channel}?").strip() == "ON"
+            self._check_errors()
+        return result
 
     def set_output_load(self, channel: int, load: float | None) -> None:
         _check_channel(channel)
-        if load is None:
-            self._visa.write(f":OUTP{channel}:LOAD INF")
-        else:
-            self._visa.write(f":OUTP{channel}:LOAD {load:g}")
+        with self._visa.lock():
+            if load is None:
+                self._visa.write(f":OUTP{channel}:LOAD INF")
+            else:
+                self._visa.write(f":OUTP{channel}:LOAD {load:g}")
+            self._check_errors()
 
     def get_output_load(self, channel: int) -> float | None:
         _check_channel(channel)
-        load = float(self._visa.query(f":OUTP{channel}:LOAD?"))
+        with self._visa.lock():
+            load = float(self._visa.query(f":OUTP{channel}:LOAD?"))
+            self._check_errors()
         return None if load >= _HIGH_Z_SENTINEL else load
 
     def align_phase(self) -> None:
-        self._visa.write(":SOUR1:PHAS:SYNC")
+        with self._visa.lock():
+            self._visa.write(":SOUR1:PHAS:SYNC")
+            self._check_errors()
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
         _check_channel(channel)
@@ -217,29 +231,43 @@ class RigolDG1022Z(AWGDriverBase):
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
             self._visa.write(f":SOUR{channel}:MOD:TYP {mod_type.value}")
-            self.check_errors()
+            self._check_errors()
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
         with self._visa.lock():
             self._visa.write(f":SOUR{channel}:MOD:STAT {'ON' if enable else 'OFF'}")
-            self.check_errors()
+            self._check_errors()
 
     def get_modulation_type(self, channel: int) -> ModulationType:
         _check_channel(channel)
         with self._visa.lock():
-            mod_type = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
-        return mod_type
+            result = ModulationType(self._visa.query(f":SOUR{channel}:MOD:TYP?").strip())
+            self._check_errors()
+        return result
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)
         with self._visa.lock():
-            enabled = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
-        return enabled
+            result = self._visa.query(f":SOUR{channel}:MOD:STAT?").strip() == "ON"
+            self._check_errors()
+        return result
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
         self._visa.write(f":SOUR{channel}:PHAS {phase_deg % 360.0}")
+
+    def _write_checked(self, command: str) -> None:
+        with self._visa.lock():
+            self._visa.write(command)
+            self._check_errors()
+
+    def _check_errors(self) -> None:
+        """Query :SYSTem:ERRor? once and raise on a non-zero code. Does not drain the queue."""
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
 
 
 def _check_channel(channel: int) -> None:

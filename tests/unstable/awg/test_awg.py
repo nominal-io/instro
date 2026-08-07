@@ -1,9 +1,11 @@
 """Tests for AWGDriverBase contract and InstroAWG's generic wiring to a driver.
 
 Scoped to what's actually generic about the abstraction layer: the driver contract, lifecycle,
-the shared check_errors/tagging conventions, and channel-bounds enforcement across every method.
-Per-method roundtrip/packaging behavior (set_waveform, amplitude, offset, output, modulation, ...)
-is the responsibility of each vendor driver's own software test file, not re-derived here.
+the shared tagging conventions, and channel-bounds enforcement across every method. Per-method
+roundtrip/packaging behavior (set_waveform, amplitude, offset, output, modulation, ...) is the
+responsibility of each vendor driver's own software test file, not re-derived here. Error
+checking is a per-driver concern (it's a SCPI/VISA convention, not a universal instrument
+concept) and is tested against the concrete drivers that implement it, not here.
 """
 
 from unittest.mock import MagicMock
@@ -81,7 +83,6 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
 @pytest.mark.parametrize(
     ("method_name", "args"),
     [
-        ("check_errors", ()),
         ("set_output_load", (1, 50.0)),
         ("get_output_load", (1,)),
         ("align_phase", ()),
@@ -159,40 +160,22 @@ def test_03_lifecycle_open_close_start_background_daemon_and_invalid_configurati
 
 
 # ---------------------------------------------------------------------------
-# Error checking and tagging conventions
+# Tagging conventions
 # ---------------------------------------------------------------------------
 
 
-def test_04_check_errors_called_propagates_and_helper_tags_avoid_collision(
-    awg: InstroAWG, mock_driver: MagicMock
-) -> None:
-    """Scope precedent: a pending error surfaces at the next query instead of hanging a later blocking read."""
-    awg.set_waveform(1, Sine(frequency_hz=1000.0))
-    mock_driver.check_errors.assert_called_once()
-
-    mock_driver.check_errors.reset_mock()
-    awg.get_output_state(1)
-    awg.get_offset(1)
-    assert mock_driver.check_errors.call_count == 2
-
+def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -> None:
     # Helper params are positional-only, so user tags named after them publish instead of colliding.
     cmd = awg.set_offset(1, 0.5, channel_suffix="rig7", value="x")
     assert cmd.tags["channel_suffix"] == "rig7"
     assert cmd.tags["value"] == "x"
 
-    # Scope-style ordering: check_errors runs before config is recorded, so a rejected set is never cached.
-    mock_driver.check_errors.side_effect = RuntimeError("instrument error queue not empty")
+    # A driver-raised error still propagates before config is recorded, so a rejected set is never cached.
+    driver = awg._driver
+    driver.set_waveform.side_effect = RuntimeError("instrument error queue not empty")
     with pytest.raises(RuntimeError, match="instrument error queue not empty"):
         awg.set_waveform(2, Sine(frequency_hz=1000.0))
     assert 2 not in awg._channel_waveforms
-
-
-def test_04b_check_errors_is_optional(mock_driver: MagicMock) -> None:
-    """A driver that doesn't implement check_errors must not break other calls."""
-    mock_driver.check_errors.side_effect = NotImplementedError("check_errors is not implemented for _NoErrorCheck")
-    awg = InstroAWG(name="test_awg", driver=mock_driver, num_channels=2)
-    awg.set_waveform(1, Sine(frequency_hz=1000.0))
-    awg.get_output_state(1)
 
 
 # ---------------------------------------------------------------------------
