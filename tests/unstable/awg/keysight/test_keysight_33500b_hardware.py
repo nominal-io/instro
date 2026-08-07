@@ -11,6 +11,7 @@ from instro.unstable.awg.drivers import Keysight33500B
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -166,11 +167,13 @@ def test_07_pulse_width_roundtrip(driver: Keysight33500B) -> None:
     assert readback.width_s == pytest.approx(0.0002, rel=0.01)
 
 
-def test_08_pulse_delay_rejected(driver: Keysight33500B) -> None:
-    with pytest.raises(ValueError, match="cannot program a pulse delay"):
-        driver.set_waveform(CHANNEL, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002, delay_s=0.0001))
-
+def test_08_pulse_delay_roundtrip(driver: Keysight33500B) -> None:
+    driver.set_waveform(CHANNEL, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002, delay_s=0.0001))
     driver.check_errors()
+
+    readback = driver.get_waveform(CHANNEL)
+    assert isinstance(readback, Pulse)
+    assert readback.delay_s == pytest.approx(0.0001, rel=0.01)
 
 
 def test_09_static_value_roundtrip(driver: Keysight33500B) -> None:
@@ -269,3 +272,57 @@ def test_19_check_errors_raises_after_invalid_command(driver: Keysight33500B) ->
             driver.check_errors()
     finally:
         driver._visa.write("*CLS")
+
+
+# ---------------------------------------------------------------------------
+# Modulation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("mod_type", "prefix", "carrier", "shape", "magnitude"),
+    [
+        (ModulationType.AM, "AM", Sine(frequency_hz=TEST_FREQUENCY_HZ), Sine(frequency_hz=100.0), 50.0),
+        (
+            ModulationType.PWM,
+            "PWM",
+            Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
+            Square(frequency_hz=100.0),
+            50e-6,
+        ),
+        (ModulationType.PSK, "BPSK", Sine(frequency_hz=TEST_FREQUENCY_HZ), Triangle(frequency_hz=100.0), 90.0),
+    ],
+    ids=["am", "pwm", "psk"],
+)
+def test_20_set_modulation_enables_automatically_and_modulation_enable_disables(
+    driver: Keysight33500B,
+    mod_type: ModulationType,
+    prefix: str,
+    carrier: Waveform,
+    shape: Waveform,
+    magnitude: float,
+) -> None:
+    driver.set_waveform(CHANNEL, carrier)
+    driver.set_modulation(CHANNEL, mod_type, shape, magnitude)
+    driver.check_errors()
+
+    assert driver._visa.query(f"{prefix}:STAT?").strip() == "1"
+    assert driver.get_modulation_type(CHANNEL) == mod_type
+    assert driver.get_modulation_state(CHANNEL) is True
+
+    driver.modulation_enable(CHANNEL, False)
+    driver.check_errors()
+
+    assert driver._visa.query(f"{prefix}:STAT?").strip() == "0"
+    assert driver.get_modulation_state(CHANNEL) is False
+
+
+def test_21_modulation_enable_rejects_enable_true(driver: Keysight33500B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_modulation(CHANNEL, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+    driver.modulation_enable(CHANNEL, False)
+
+    with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
+        driver.modulation_enable(CHANNEL, True)
+
+    driver.check_errors()

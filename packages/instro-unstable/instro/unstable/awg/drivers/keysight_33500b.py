@@ -53,7 +53,6 @@ class Keysight33500B(AWGDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self._arb_waveforms: dict[int, Arbitrary] = {}
-        self._channel_mod_types: dict[int, ModulationType] = {}
 
     def open(self) -> None:
         self._visa.open()
@@ -86,10 +85,9 @@ class Keysight33500B(AWGDriverBase):
                 self._visa.write("FUNC TRI")
                 self._write_frequency_and_phase(waveform.frequency_hz, waveform.phase_deg)
             elif isinstance(waveform, Pulse):
-                if waveform.delay_s != 0.0:
-                    raise ValueError("the Keysight 33500B cannot program a pulse delay; Pulse.delay_s must be 0")
                 self._visa.write("FUNC PULS")
-                self._visa.write(f"FREQ {waveform.frequency_hz}")
+                phase_deg = waveform.delay_s * waveform.frequency_hz * 360.0
+                self._write_frequency_and_phase(waveform.frequency_hz, phase_deg)
                 self._visa.write(f"FUNC:PULS:WIDT {waveform.width_s}")
                 self.check_errors()
             elif isinstance(waveform, Arbitrary):
@@ -112,7 +110,6 @@ class Keysight33500B(AWGDriverBase):
                 self._visa.write(f"VOLT:OFFS {waveform.value}")
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
-            self._channel_mod_types.pop(channel, None)
 
     def get_waveform(self, channel: int) -> Waveform:
         _check_channel(channel)
@@ -137,8 +134,10 @@ class Keysight33500B(AWGDriverBase):
                 return Triangle(frequency_hz=frequency, phase_deg=phase)
             if name == "PULS":
                 frequency = float(self._visa.query("FREQ?"))
+                phase = float(self._visa.query("PHAS?"))
                 width = float(self._visa.query("FUNC:PULS:WIDT?"))
-                return Pulse(frequency_hz=frequency, width_s=width)
+                delay = max(0.0, phase / 360.0 / frequency)
+                return Pulse(frequency_hz=frequency, width_s=width, delay_s=delay)
             if name == "DC":
                 offset = float(self._visa.query("VOLT:OFFS?"))
                 return StaticValue(value=offset)
@@ -196,6 +195,7 @@ class Keysight33500B(AWGDriverBase):
         return None if load >= _HIGH_Z_SENTINEL else load
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
+        """Configures and enables modulation"""
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
@@ -221,36 +221,34 @@ class Keysight33500B(AWGDriverBase):
                 self._visa.write(f"{prefix}:PHAS {magnitude}")
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
+            self._visa.write(f"{prefix}:STAT ON")
             self.check_errors()
-            self._channel_mod_types[channel] = mod_type
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
+        """Disables modulation"""
         _check_channel(channel)
-        mod_type = self._channel_mod_types.get(channel)
-        if mod_type is None:
-            raise ValueError(f"set_modulation must be called before modulation_enable for channel {channel}")
-        prefix = _MOD_SCPI_PREFIX[mod_type]
+        if enable:
+            raise ValueError(
+                "the Keysight 33500B enables modulation as part of set_modulation;"
+                " modulation_enable only supports disabling (enable=False)"
+            )
         with self._visa.lock():
-            self._visa.write(f"{prefix}:STAT {'ON' if enable else 'OFF'}")
+            for prefix in _MOD_SCPI_PREFIX.values():
+                self._visa.write(f"{prefix}:STAT OFF")
             self.check_errors()
 
     def get_modulation_type(self, channel: int) -> ModulationType:
         _check_channel(channel)
-        mod_type = self._channel_mod_types.get(channel)
-        if mod_type is None:
-            raise RuntimeError(
-                f"channel {channel} modulation type not programmed by this driver;"
-                " the Keysight 33500B has no query for the currently active modulation type"
-            )
-        return mod_type
+        with self._visa.lock():
+            for mod_type, prefix in _MOD_SCPI_PREFIX.items():
+                if self._visa.query(f"{prefix}:STAT?").strip() == "1":
+                    return mod_type
+        raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)
-        mod_type = self._channel_mod_types.get(channel)
-        if mod_type is None:
-            return False
-        prefix = _MOD_SCPI_PREFIX[mod_type]
-        return self._visa.query(f"{prefix}:STAT?").strip() == "1"
+        with self._visa.lock():
+            return any(self._visa.query(f"{prefix}:STAT?").strip() == "1" for prefix in _MOD_SCPI_PREFIX.values())
 
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
