@@ -45,5 +45,5 @@ with daq:
         port_width=DigitalPortWidth.WIDTH_8,
     )
 
-    measurement = daq.read_digital_port(channel="di_port")
+    measurement = daq.read("di_port")["di_port"]
     print(f"Port value: {int(measurement.latest)}")

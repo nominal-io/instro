@@ -29,6 +29,8 @@ psu = InstroPSU(
 
 psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
+# Alternatively, construct from JSON config file (see bench_psu.json):
+# psu = InstroPSU(config="bench_psu.json")
 
 with psu:
     # Set up initial state of test

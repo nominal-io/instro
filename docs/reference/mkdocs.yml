@@ -23,6 +23,7 @@ nav:
       - Types: reference/types.md
       - Exceptions: reference/exceptions.md
       - Publishers: reference/publishers.md
+      - Discover: reference/discover.md
 
   - Instruments:
       - instruments/index.md
@@ -33,6 +34,7 @@ nav:
       - Scope: instruments/scope.md
       - Flow Controller: instruments/flowcontroller.md
       - I2C: instruments/i2c.md
+      - AWG: instruments/awg.md
   - Protocols:
       - protocols/index.md
       - Modbus: protocols/modbus.md

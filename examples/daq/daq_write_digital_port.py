@@ -47,4 +47,4 @@ with daq:
     )
 
     # Drive lines 0-3 high, 4-7 low.
-    daq.write_digital_port(channel="do_port", data=0x0F)
+    daq.write("do_port", 0x0F)

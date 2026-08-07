@@ -80,7 +80,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "MCC DAQ SERIAL NUMBER:0"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "<MCC SERIAL NUMBER>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
 DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
 
@@ -104,6 +104,7 @@ DIGITAL_LOOPBACK_MASK = 0b00000011
 ANALOG_LOOPBACK_TOLERANCE_V = 0.15  # volts — accounts for 16-bit quantisation + wiring noise
 SAMPLE_RATE_HZ = 1000
 SAMPLES_PER_CHANNEL = 100
+SW_SAMPLE_RATE_HZ = 1
 
 
 # ---------------------------------------------------------------------------
@@ -257,19 +258,13 @@ class TestMCCDAQHardware(unittest.TestCase):
             port_width=DigitalPortWidth.WIDTH_8,
         )
 
-    def _check_ai(self, measurement, expected: dict, errs: list):
+    def _check_ai(self, reads: dict, expected: dict, errs: list):
         """Assert each AI alias read finite, and (when LOOPBACK_WIRED and target is not None) within tolerance.
 
-        ``expected`` maps AI alias -> target volts (or ``None`` for a finite-only check). Per-channel data is
-        pulled from ``channel_data`` because ``.latest``/``.values`` raise when multiple channels are present.
+        ``expected`` maps AI alias -> target volts (or ``None`` for a finite-only check).
         """
         for alias, target in expected.items():
-            key = f"{NAME}.{alias}"
-            samples = measurement.channel_data.get(key)
-            if not samples:
-                errs.append(f"{alias}: missing/empty channel_data key '{key}' (have {list(measurement.channel_data)})")
-                continue
-            v = samples[-1]
+            v = reads[alias].latest
             if not math.isfinite(v):
                 errs.append(f"{alias}: non-finite reading {v}")
                 continue
@@ -378,10 +373,8 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for _ in range(3):
-                    measurement = daq.read_analog()
-                    self.assertIsNotNone(measurement)
                     # No AO driven here, so the loopback wire value is undefined — assert structure only.
-                    self._check_ai(measurement, {"ai_0": None, "ai_1": None}, errs)
+                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": None, "ai_1": None}, errs)
                     time.sleep(0.25)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -406,8 +399,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in [0.0, 1.0, 2.5, 5.0, -5.0, 0.0]:
-                    daq.write_analog_value("ao_0", v)
-                    daq.write_analog_value("ao_1", -v)
+                    daq.write(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.1)
             finally:
                 daq.close()
@@ -434,18 +426,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for v in test_voltages:
-                    daq.write_analog_value("ao_0", v)
-                    daq.write_analog_value("ao_1", -v)
+                    daq.write(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.2)  # allow signal to settle
 
-                    measurement = daq.read_analog()
-                    self.assertIsNotNone(measurement)
                     # ao_0 -> ai_0 carries +v, ao_1 -> ai_1 carries -v via loopback wiring.
-                    self._check_ai(measurement, {"ai_0": v, "ai_1": -v}, errs)
+                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": v, "ai_1": -v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value("ao_0", 0.0)
-                daq.write_analog_value("ao_1", 0.0)
+                daq.write(["ao_0", "ao_1"], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
@@ -477,16 +465,14 @@ class TestMCCDAQHardware(unittest.TestCase):
                 )
 
                 # Set AO to a value within the narrow range
-                daq.write_analog_value("ao_0", 0.5)
+                daq.write("ao_0", 0.5)
                 time.sleep(0.2)
 
                 errs: list = []
-                measurement = daq.read_analog()
-                self.assertIsNotNone(measurement)
-                self._check_ai(measurement, {"ai_0_narrow": 0.5}, errs)
+                self._check_ai(daq.read("ai_0_narrow"), {"ai_0_narrow": 0.5}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value("ao_0", 0.0)
+                daq.write("ao_0", 0.0)
                 daq.close()
 
         self._run_step(
@@ -512,17 +498,15 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for v in boundary_voltages:
-                    daq.write_analog_value("ao_0", v)
+                    daq.write("ao_0", v)
                     time.sleep(0.2)
 
-                    measurement = daq.read_analog()
-                    self.assertIsNotNone(measurement)
                     # Only ao_0 is driven here; ao_1/ai_1 is left undriven, so check ai_0 only.
-                    self._check_ai(measurement, {"ai_0": v}, errs)
+                    self._check_ai(daq.read("ai_0"), {"ai_0": v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 # Reset output to 0V
-                daq.write_analog_value("ao_0", 0.0)
+                daq.write("ao_0", 0.0)
                 daq.close()
 
         self._run_step(
@@ -544,15 +528,14 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
                 daq.start()
 
                 try:
-                    daq.write_analog_value("ao_0", 3.0)
-                    daq.write_analog_value("ao_1", -3.0)
+                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
                     time.sleep(1.0)  # let background daemon collect samples
 
                     ch0 = daq.get_channel("mccdaq_test.ai_0", 10, True)
@@ -590,19 +573,18 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
                 daq.start(background=False)
 
                 try:
-                    daq.write_analog_value("ao_0", 4.0)
-                    daq.write_analog_value("ao_1", -4.0)
+                    daq.write(["ao_0", "ao_1"], [4.0, -4.0])
                     time.sleep(0.2)
 
-                    measurement = daq.read_analog()
-                    self.assertIsNotNone(measurement)
+                    reads = daq.read(["ai_0", "ai_1"])
+                    self.assertEqual(set(reads), {"ai_0", "ai_1"})
                 finally:
                     daq.stop()
             finally:
@@ -611,14 +593,56 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "HW-timed analog read (no background)",
             f"Start HW-timed acquisition at {SAMPLE_RATE_HZ}Hz with background daemon disabled. "
-            "Write 4V/-4V to AO and read directly via read_analog().",
+            "Write 4V/-4V to AO and read directly via read().",
             step,
         )
 
     # =====================================================================
-    # 8. HW-timed analog loopback — write ramp, verify on AI
+    # 8. SW-timed analog read with background daemon
     # =====================================================================
-    def test_08_hw_timed_analog_loopback(self):
+    def test_08_sw_timed_analog_read_background(self):
+        """Start SW-timed acquisition with background daemon and read buffered data."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+
+                try:
+                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
+                    time.sleep(1.0)  # let background daemon collect samples
+
+                    ch0 = daq.get_channel("mccdaq_test.ai_0", 9, True)
+                    ch1 = daq.get_channel("mccdaq_test.ai_1", 9, True)
+
+                    self.assertIsNotNone(ch0)
+                    self.assertIsNotNone(ch1)
+                    self.assertGreaterEqual(len(ch0.values), 1)
+
+                    mean_ch0 = sum(ch0.values) / len(ch0.values)
+                    mean_ch1 = sum(ch1.values) / len(ch1.values)
+                    self.assertAlmostEqual(mean_ch0, 3.0, delta=ANALOG_LOOPBACK_TOLERANCE_V)
+                    self.assertAlmostEqual(mean_ch1, -3.0, delta=ANALOG_LOOPBACK_TOLERANCE_V)
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "SW-timed analog read (background)",
+            f"Start SW-timed acquisition at {SW_SAMPLE_RATE_HZ}Hz with background daemon. "
+            "Write 3V/-3V to AO, verify AI reads match via get_channel().",
+            step,
+        )
+
+    # =====================================================================
+    # 9. HW-timed analog loopback — write ramp, verify on AI
+    # =====================================================================
+    def test_09_hw_timed_analog_loopback(self):
         """Write a voltage ramp to AO while HW-timed AI captures, then verify."""
 
         def step():
@@ -627,7 +651,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -637,8 +661,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     ramp_voltages = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 
                     for v in ramp_voltages:
-                        daq.write_analog_value("ao_0", v)
-                        daq.write_analog_value("ao_1", 5.0 - v)
+                        daq.write(["ao_0", "ao_1"], [v, 5.0 - v])
                         time.sleep(0.5)
 
                     # Read data while still running — before stop() closes the buffer
@@ -665,9 +688,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Actual sample rate reporting
+    # 10. Actual sample rate reporting
     # =====================================================================
-    def test_09_actual_sample_rate(self):
+    def test_10_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
@@ -675,7 +698,7 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -702,9 +725,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Sustained HW-timed acquisition — buffer overrun check
+    # 11. Sustained HW-timed acquisition — buffer overrun check
     # =====================================================================
-    def test_10_sustained_hw_timed_acquisition(self):
+    def test_11_sustained_hw_timed_acquisition(self):
         """Run HW-timed acquisition for several seconds and verify no data loss."""
 
         def step():
@@ -713,14 +736,14 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
                 daq.start()
 
                 try:
-                    daq.write_analog_value("ao_0", 2.0)
+                    daq.write("ao_0", 2.0)
                     duration_s = 3.0
                     time.sleep(duration_s)
 
@@ -737,7 +760,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     )
                 finally:
                     daq.stop()
-                    daq.write_analog_value("ao_0", 0.0)
+                    daq.write("ao_0", 0.0)
             finally:
                 daq.close()
 
@@ -749,9 +772,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Digital port configuration
+    # 12. Digital port configuration
     # =====================================================================
-    def test_11_digital_port_configure(self):
+    def test_12_digital_port_configure(self):
         """Configure FIRSTPORTA (output) and FIRSTPORTB (input) as 8-bit ports."""
 
         def step():
@@ -768,9 +791,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 12. Digital port write/read loopback
+    # 13. Digital port write/read loopback
     # =====================================================================
-    def test_12_digital_port_loopback(self):
+    def test_13_digital_port_loopback(self):
         """Write bit patterns to FIRSTPORTA and verify on FIRSTPORTB via loopback."""
 
         def step():
@@ -782,11 +805,10 @@ class TestMCCDAQHardware(unittest.TestCase):
                 test_patterns = [0b00, 0b01, 0b10, 0b11]
 
                 for pattern in test_patterns:
-                    daq.write_digital_port("do_port_a", pattern)
+                    daq.write("do_port_a", pattern)
                     time.sleep(0.05)  # allow signal to settle
 
-                    measurement = daq.read_digital_port("di_port_b")
-                    read_value = int(measurement.channel_data["mccdaq_test.di_port_b"][0])
+                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
 
                     self.assertEqual(
@@ -798,7 +820,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     )
             finally:
                 # Reset output port to 0
-                daq.write_digital_port("do_port_a", 0x00)
+                daq.write("do_port_a", 0x00)
                 daq.close()
 
         self._run_step(
@@ -809,9 +831,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 13. Digital port write/read — full byte patterns
+    # 14. Digital port write/read — full byte patterns
     # =====================================================================
-    def test_13_digital_port_full_byte(self):
+    def test_14_digital_port_full_byte(self):
         """Write full-byte patterns to FIRSTPORTA and verify loopback bits on FIRSTPORTB."""
 
         def step():
@@ -823,11 +845,10 @@ class TestMCCDAQHardware(unittest.TestCase):
                 test_patterns = [0x00, 0xFF, 0xAA, 0x55]
 
                 for pattern in test_patterns:
-                    daq.write_digital_port("do_port_a", pattern)
+                    daq.write("do_port_a", pattern)
                     time.sleep(0.05)
 
-                    measurement = daq.read_digital_port("di_port_b")
-                    read_value = int(measurement.channel_data["mccdaq_test.di_port_b"][0])
+                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
                     expected_bits = pattern & DIGITAL_LOOPBACK_MASK
 
@@ -839,7 +860,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                         f"(bits 0-1: 0b{loopback_bits:02b}, expected 0b{expected_bits:02b})",
                     )
             finally:
-                daq.write_digital_port("do_port_a", 0x00)
+                daq.write("do_port_a", 0x00)
                 daq.close()
 
         self._run_step(
@@ -850,16 +871,16 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 14. Buffer-depth telemetry
+    # 15. Buffer-depth telemetry
     # =====================================================================
-    def test_14_buffer_depth_telemetry(self):
+    def test_15_buffer_depth_telemetry(self):
         """get_points_in_buffer() reports a valid depth during background acquisition."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -885,16 +906,16 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 15. read_analog() raises while background daemon is running
+    # 16. read() raises while background daemon is running
     # =====================================================================
-    def test_15_read_analog_raises_while_daemon_running(self):
-        """read_analog() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
+    def test_16_read_raises_while_daemon_running(self):
+        """read() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -907,9 +928,9 @@ class TestMCCDAQHardware(unittest.TestCase):
                     )
                     with self.assertRaises(
                         RuntimeError,
-                        msg="read_analog() should raise RuntimeError while the background daemon is running",
+                        msg="read() should raise RuntimeError while the background daemon is running",
                     ):
-                        daq.read_analog()
+                        daq.read()
                     print("         RuntimeError raised correctly — daemon owns the buffer")
                 finally:
                     daq.stop()
@@ -917,25 +938,25 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.close()
 
         self._run_step(
-            "read_analog() raises while daemon running",
-            "Verify read_analog() raises RuntimeError when the background daemon is active. "
+            "read() raises while daemon running",
+            "Verify read() raises RuntimeError when the background daemon is active. "
             "Guards against buffer race conditions (INSTRO-149).",
             step,
         )
 
     # =====================================================================
-    # 16. Analog output — Command return value
+    # 17. Analog output — Command return value
     # =====================================================================
-    def test_16_analog_output_command_return(self):
-        """write_analog_value() must return a Command with the correct channel key and value."""
+    def test_17_analog_output_command_return(self):
+        """write() must return a Command with the correct channel key and value."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ao(daq)
                 for v in [0.0, 2.5, 5.0, -5.0]:
-                    cmd = daq.write_analog_value("ao_0", v)
-                    self.assertIsNotNone(cmd, f"write_analog_value returned None at {v} V")
+                    cmd = daq.write("ao_0", v)
+                    self.assertIsNotNone(cmd, f"write returned None at {v} V")
                     expected_key = f"{NAME}.ao_0.cmd"
                     self.assertIn(
                         expected_key,
@@ -947,44 +968,41 @@ class TestMCCDAQHardware(unittest.TestCase):
                         returned_v, v, places=6, msg=f"Command value {returned_v} != written value {v}"
                     )
                     print(f"         write {v:.2f} V -> Command key='{expected_key}' value={returned_v}")
-                daq.write_analog_value("ao_0", 0.0)
+                daq.write("ao_0", 0.0)
             finally:
                 daq.close()
 
         self._run_step(
             "Analog output — Command return value",
-            "Verify write_analog_value() returns a Command with the correct channel key and value "
-            "at 0, 2.5, 5.0, and -5.0 V.",
+            "Verify write() returns a Command with the correct channel key and value at 0, 2.5, 5.0, and -5.0 V.",
             step,
         )
 
     # =====================================================================
-    # 17. Analog output — unconfigured channel raises KeyError
+    # 18. Analog output — unconfigured channel raises KeyError
     # =====================================================================
-    def test_17_analog_output_unconfigured_raises(self):
-        """write_analog_value() on an unconfigured alias must raise KeyError immediately."""
+    def test_18_analog_output_unconfigured_raises(self):
+        """write() on an unconfigured alias must raise KeyError immediately."""
 
         def step():
             daq = self._create_daq()
             try:
-                with self.assertRaises(
-                    KeyError, msg="write_analog_value on an unconfigured channel should raise KeyError"
-                ):
-                    daq.write_analog_value("ao_0", 1.0)
+                with self.assertRaises(KeyError, msg="write on an unconfigured channel should raise KeyError"):
+                    daq.write("ao_0", 1.0)
             finally:
                 daq.close()
 
         self._run_step(
             "Analog output — unconfigured channel raises KeyError",
-            "Call write_analog_value() on an alias that was never configured. "
+            "Call write() on an alias that was never configured. "
             "Confirms InstroDAQ's channel guard raises KeyError immediately.",
             step,
         )
 
     # =====================================================================
-    # 18. Per-line digital config unsupported on USB-1616HS-4
+    # 19. Per-line digital config unsupported on USB-1616HS-4
     # =====================================================================
-    def test_18_digital_line_config_unsupported(self):
+    def test_19_digital_line_config_unsupported(self):
         """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
@@ -1010,14 +1028,14 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "Per-line digital config unsupported",
             "Assert configure_digital_line() raises RuntimeError on the USB-1616HS-4, which lacks "
-            "per-bit digital configuration. Port-width digital I/O is covered by tests 11–13.",
+            "per-bit digital configuration. Port-width digital I/O is covered by tests 12–14.",
             step,
         )
 
     # =====================================================================
-    # 19. Relay control unsupported
+    # 20. Relay control unsupported
     # =====================================================================
-    def test_19_relay_control_unsupported(self):
+    def test_20_relay_control_unsupported(self):
         """close_relay() must raise NotImplementedError — the MCC driver has no relay support."""
 
         def step():
@@ -1038,9 +1056,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 20. Clean shutdown — outputs to safe state (runs last)
+    # 21. Clean shutdown — outputs to safe state (runs last)
     # =====================================================================
-    def test_20_clean_shutdown(self):
+    def test_21_clean_shutdown(self):
         """Set all outputs to safe state as the final step."""
 
         def step():
@@ -1049,9 +1067,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
                 self._configure_digital_ports(daq)
 
-                daq.write_analog_value("ao_0", 0.0)
-                daq.write_analog_value("ao_1", 0.0)
-                daq.write_digital_port("do_port_a", 0x00)
+                daq.write(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
             finally:
                 daq.close()
 

@@ -4,7 +4,8 @@ This test requires a physical 34980A mainframe reachable over VISA (LAN/USB/GPIB
 with at least one 34922A multiplexer and the optional internal DMM fitted. It
 exercises the DAQ functionality the 34980A driver implements: software-timed
 analog read (mux channel -> internal DMM), multi-channel scanning, hardware-timed
-(timer-triggered) scanning, buffer-depth telemetry, and relay open/close.
+(timer-triggered) scanning, software-timed background acquisition, buffer-depth
+telemetry, and relay open/close.
 
 Unlike the LabJack T4 there is no onboard analog output, so there is no DAC->AIN
 loopback. Analog reads are checked for structure (finite float) always, and for
@@ -79,6 +80,7 @@ VOLTAGE_TOLERANCE_V = 0.05
 # The 34922A armature mux scans up to ~100 ch/s; keep timer rates modest.
 SAMPLE_RATE_HZ = 10.0
 SAMPLES_PER_CHANNEL = 5
+SW_SAMPLE_RATE_HZ = 2.0  # background daemon polling rate for software-timed acquisition
 
 # Digital I/O needs a digital module (e.g. 34950A). 34950A is in slot 8.
 HAS_DIGITAL_MODULE = True
@@ -161,7 +163,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq)
             for _ in range(3):
-                measurement = daq.read_analog()
+                measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                 self.assertIsNotNone(measurement)
                 v = measurement.latest
                 self.assertTrue(math.isfinite(v), f"non-finite SW-timed read: {v}")
@@ -209,8 +211,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq, physical=AI_CHANNEL, alias=AI_ALIAS)
             self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
-            measurement = daq.read_analog()
-            self.assertIsNotNone(measurement)
+            reads = daq.read([AI_ALIAS, AI_ALIAS_2])
+            self.assertEqual(set(reads), {AI_ALIAS, AI_ALIAS_2})
             daq.driver._check_errors()  # scan of both channels left no error queued
             print(f"         scanned channels {AI_CHANNEL}, {AI_CHANNEL_2} with no SCPI error")
         finally:
@@ -232,8 +234,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             daq.start(background=False)
             try:
-                # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                measurement = daq.read_analog()
+                # No background daemon: read() dispatches to the driver's fetch_analog().
+                measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                 self.assertIsNotNone(measurement)
                 vals = measurement.values
                 self.assertGreaterEqual(len(vals), SAMPLES_PER_CHANNEL)
@@ -270,9 +272,44 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.close()
 
     # =====================================================================
-    # 7. Digital line write/read loopback (only with a digital module)
+    # 7. Software-timed scan with background daemon
     # =====================================================================
-    def test_07_digital_line_loopback(self):
+    def test_07_sw_timed_background_daemon(self):
+        """Poll the mux channel via the software-timed background daemon and read the buffer.
+
+        Software timing never starts the device: the daemon thread paces
+        repeated analog scans, so this covers the daemon path rather
+        than the 34980A's internal timer used by test_05.
+        """
+        if not HAS_INTERNAL_DMM:
+            self.skipTest("requires internal DMM")
+        daq = self._create_daq()
+        try:
+            self._configure_ai(daq)
+            daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+            daq.start()
+            try:
+                # wait_for_new_samples blocks until the daemon has produced 3 fresh samples.
+                ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 3, True)
+                self.assertIsNotNone(ch)
+                self.assertGreaterEqual(len(ch.values), 1)
+                self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
+                mean = sum(ch.values) / len(ch.values)
+                print(
+                    f"         background buffer: {len(ch.values)} samples at "
+                    f"{SW_SAMPLE_RATE_HZ} Hz, mean {AI_ALIAS} = {mean:.6f} V"
+                )
+                if KNOWN_SOURCE_WIRED:
+                    self.assertAlmostEqual(mean, EXPECTED_VOLTAGE, delta=VOLTAGE_TOLERANCE_V)
+            finally:
+                daq.stop()
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 8. Digital line write/read loopback (only with a digital module)
+    # =====================================================================
+    def test_08_digital_line_loopback(self):
         """Drive a DO line and read it back on a DI line via loopback (needs 34950A-class module)."""
         if not HAS_DIGITAL_MODULE:
             self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
@@ -286,28 +323,28 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             errs = []
             for state in (0, 1, 0, 1, 0):
-                daq.write_digital_line(DO_ALIAS, state)
+                daq.write(DO_ALIAS, state)
                 time.sleep(0.05)
-                read = int(daq.read_digital_line(DI_ALIAS).latest)
+                read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                 print(f"         {DO_LINE}<-{state} | {DI_LINE}={read}{flag}")
                 if DIGITAL_LOOPBACK_WIRED and read != state:
                     errs.append(f"drove {DO_LINE}={state}, read {DI_LINE}={read}")
-            daq.write_digital_line(DO_ALIAS, 0)
+            daq.write(DO_ALIAS, 0)
             self.assertFalse(errs, "; ".join(errs))
         finally:
             daq.close()
 
     # =====================================================================
-    # 8. Final error sweep
+    # 9. Final error sweep
     # =====================================================================
-    def test_08_error_queue_clean(self):
+    def test_09_error_queue_clean(self):
         """After a mix of operations, the SCPI error queue should be empty."""
         daq = self._create_daq()
         try:
             if HAS_INTERNAL_DMM:
                 self._configure_ai(daq)
-                daq.read_analog()
+                daq.read(AI_ALIAS)
             relay = SimpleNamespace(physical_channel=RELAY_CHANNEL)
             daq.driver.close_relay(relay)
             daq.driver.open_relay(relay)
@@ -317,9 +354,9 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.close()
 
     # =====================================================================
-    # 9. Analog output is unsupported — verify it is rejected, not silent
+    # 10. Analog output is unsupported — verify it is rejected, not silent
     # =====================================================================
-    def test_09_analog_output_unsupported(self):
+    def test_10_analog_output_unsupported(self):
         """The 34980A driver implements no analog output (no 34951A/34952A DAC).
 
         This is a negative test: configuring an analog OUTPUT channel must raise
@@ -340,9 +377,9 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.close()
 
     # =====================================================================
-    # 10. Digital PORT (byte-wide) write/read on the 34950A
+    # 11. Digital PORT (byte-wide) write/read on the 34950A
     # =====================================================================
-    def test_10_digital_port_write_read(self):
+    def test_11_digital_port_write_read(self):
         """Write a byte to an output port and read an input port back (34950A, 8-bit).
 
         Writes whole bytes rather than single bits. Only bit 0 is physically
@@ -371,15 +408,15 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             errs = []
             for value in (0x00, 0x01, 0xFF, 0xAA, 0x00):
-                daq.write_digital_port(DO_PORT_ALIAS, value)
+                daq.write(DO_PORT_ALIAS, value)
                 time.sleep(0.05)
-                read = int(daq.read_digital_port(DI_PORT_ALIAS).latest)
+                read = int(daq.read(DI_PORT_ALIAS)[DI_PORT_ALIAS].latest)
                 bit0_ok = (read & 0x01) == (value & 0x01)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or bit0_ok) else "  <-- bit0 mismatch"
                 print(f"         {DO_PORT}<-0x{value:02X} | {DI_PORT}=0x{read:02X}{flag}")
                 if DIGITAL_LOOPBACK_WIRED and not bit0_ok:
                     errs.append(f"bit0: wrote {value & 1}, read {read & 1} (full byte 0x{read:02X})")
-            daq.write_digital_port(DO_PORT_ALIAS, 0x00)
+            daq.write(DO_PORT_ALIAS, 0x00)
             self.assertFalse(errs, "; ".join(errs))
         finally:
             daq.close()

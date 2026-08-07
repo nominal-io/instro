@@ -57,17 +57,17 @@ with daq:
         direction=Direction.INPUT, physical_channel=CHANNEL_1, alias="ch_1", range_min=0, range_max=5
     )
 
-    # Set the sample rate but also the number of samples we will fetch each time daq.read_analog() is called.
+    # Set the sample rate but also the number of samples we will fetch each time daq.read() is called.
     daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=50)
 
     # Start hardware acquisition without a background daemon. We fetch the buffer
-    # ourselves in the main app loop via read_analog().
+    # ourselves in the main app loop via read().
     daq.start(background=False)
 
     while True:
         try:
             # Main progam loop
-            data = daq.read_analog()
+            data = daq.read()
         except KeyboardInterrupt:
             print("Exiting main loop")
             break

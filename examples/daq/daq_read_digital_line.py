@@ -63,6 +63,5 @@ with daq:
         logic=Logic.LOW,
     )
 
-    read0 = daq.read_digital_line(channel="di_0")
-    read1 = daq.read_digital_line(channel="di_1")
-    print(f"Values: {read0.latest}, {read1.latest}")
+    reads = daq.read(["di_0", "di_1"])
+    print(f"Values: {reads['di_0'].latest}, {reads['di_1'].latest}")
