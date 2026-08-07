@@ -111,6 +111,8 @@ HW_TIMED_TOLERANCE_V = 0.05
 HIGH_RATE_HZ = 40_000.0
 HIGH_RATE_SAMPLES = 4_000
 HIGH_RATE_TOLERANCE_V = 0.10
+# The T8's default stream buffer drops scans at 40 kS/s; LJM fills them with -9999.
+HIGH_RATE_STREAM_BUFFER_BYTES = 65_536
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +205,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _create_daq(self) -> InstroDAQ:
-        daq = InstroDAQ(name=NAME, driver=LabJackTSeriesDriver(device_id=DEVICE_ID))
+    def _create_daq(self, stream_buffer_bytes: int = 0) -> InstroDAQ:
+        daq = InstroDAQ(
+            name=NAME,
+            driver=LabJackTSeriesDriver(device_id=DEVICE_ID, stream_buffer_bytes=stream_buffer_bytes),
+        )
         if DATASET_RID:
             daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
         daq.open()
@@ -849,7 +854,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
-            daq = self._create_daq()
+            daq = self._create_daq(stream_buffer_bytes=HIGH_RATE_STREAM_BUFFER_BYTES)
             try:
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
@@ -876,7 +881,8 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         self._run_step(
             f"HW-timed high-rate stream ({HIGH_RATE_HZ / 1000:.0f} kS/s)",
-            f"Stream AIN0 at {HIGH_RATE_HZ} Hz via start(background=False). "
+            f"Stream AIN0 at {HIGH_RATE_HZ} Hz via start(background=False) with "
+            f"stream_buffer_bytes={HIGH_RATE_STREAM_BUFFER_BYTES}. "
             "Verifies T8 maximum per-channel rate without errors.",
             step,
         )
