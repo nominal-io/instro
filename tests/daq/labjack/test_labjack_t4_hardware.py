@@ -299,7 +299,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read_analog()
+                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -326,9 +326,9 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
+                    daq.write(AO_ALIAS, v)
                     time.sleep(0.02)
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -352,9 +352,9 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
                 errs = []
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
+                    daq.write(AO_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read_analog().latest
+                    measured = daq.read(AI_ALIAS)[AI_ALIAS].latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -362,10 +362,10 @@ class TestLabJackT4Hardware(unittest.TestCase):
                         errs.append(f"non-finite read at {v} V")
                     if LOOPBACK_WIRED and abs(err) > ANALOG_TOLERANCE_V:
                         errs.append(f"DAC0={v} V -> AIN0={measured:.4f} V (err {err:+.4f} V > {ANALOG_TOLERANCE_V} V)")
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
                 daq.close()
 
         self._run_step(
@@ -388,17 +388,17 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
                 errs = []
                 for state in (0, 1, 0, 1, 0):
-                    daq.write_digital_line(DO_ALIAS, state)
+                    daq.write(DO_ALIAS, state)
                     time.sleep(0.05)
-                    read = int(daq.read_digital_line(DI_ALIAS).latest)
+                    read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
                     flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         FIO4<-{state} | FIO5={read}{flag}")
                     if LOOPBACK_WIRED and read != state:
                         errs.append(f"drove FIO4={state}, read FIO5={read}")
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write(DO_ALIAS, 0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write(DO_ALIAS, 0)
                 daq.close()
 
         self._run_step(
@@ -419,7 +419,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -440,7 +440,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -462,7 +462,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -470,8 +470,8 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 daq.start(background=False)
 
                 try:
-                    # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                    measurement = daq.read_analog()
+                    # No background daemon: read() dispatches to the driver's fetch_analog().
+                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
@@ -485,14 +485,14 @@ class TestLabJackT4Hardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
         self._run_step(
             "HW-timed analog read (no background)",
             f"Start HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon disabled. "
-            f"Hold DAC0 at {HW_TIMED_DC_V} V and read directly via read_analog() (driver fetch_analog()).",
+            f"Hold DAC0 at {HW_TIMED_DC_V} V and read directly via read() (driver fetch_analog()).",
             step,
         )
 
@@ -507,7 +507,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
                 daq.start()
 
@@ -525,7 +525,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -618,8 +618,8 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ao(daq)
                 self._configure_digital_lines(daq)
 
-                daq.write_analog_value(AO_ALIAS, 0.0)
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write(AO_ALIAS, 0.0)
+                daq.write(DO_ALIAS, 0)
             finally:
                 daq.close()
 
