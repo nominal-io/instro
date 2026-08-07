@@ -1,0 +1,25 @@
+{
+    "version": 1,
+    "instrument": "InstroPSU",
+    "device": {
+        "name": "simulated_psu",
+        "description": "Bundled SCPI simulator, works with no real hardware attached",
+        "manufacturer": "Nominal",
+        "model": "SimulatedPSU"
+    },
+    "driver": {
+        "name": "SimulatedPSU",
+        "num_channels": 1,
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "TCPIP0::127.0.0.1::5025::SOCKET"
+        }
+    },
+    "publishers": [
+        {
+            "type": "FilePublisher",
+            "directory": "psu_data",
+            "format": "jsonl"
+        }
+    ]
+}

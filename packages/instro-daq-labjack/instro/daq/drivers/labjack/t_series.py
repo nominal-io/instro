@@ -50,12 +50,23 @@ class LabJackData:
 class LabJackTSeriesDriver(DAQDriverBase):
     """LabJack T-series DAQ driver (T4/T7/T8 via the LJM library)."""
 
-    def __init__(self, device_id: str):
+    def __init__(self, device_id: str, stream_buffer_bytes: int = 0):
+        """Construct the driver.
+
+        Args:
+            device_id: Device serial number, or "ANY" for the first device found.
+            stream_buffer_bytes: Device-side stream buffer size, always written when AI hardware
+                timing is configured so no value carries over from an earlier session.
+                0 selects the device's own default.
+                Must be a power of 2 and the max is 262144.
+                Setting this prevents the device from dropping scans at high sample rates, which LJM reports as -9999 sample values.
+        """
         super().__init__()
         self._model: LJ_Model | None = None
         self._handle: int | None = None
         self._info: tuple[int, int, int, int, int, int] | None = None
         self._device_id = device_id
+        self._stream_buffer_bytes = stream_buffer_bytes
 
         # hw timing settings since LabJack has a single timing engine and samples/channel are predefined
         self._global_scan_rate: float | None = None
@@ -155,7 +166,11 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # Here, we'll configure some of the settling and resolution settings specific to streams
         # We should expand this to expose other register configurations in later versions.
         assert self._model
-        aNames, aValues = self._model.hw_timing_configs(hw_timing_config=hw_timing_config, channels=ai_channels)
+        aNames, aValues = self._model.hw_timing_configs(
+            hw_timing_config=hw_timing_config,
+            channels=ai_channels,
+            stream_buffer_bytes=self._stream_buffer_bytes,
+        )
 
         if aNames:
             ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)

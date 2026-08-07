@@ -65,6 +65,7 @@
               },
               "instrumentation/daq",
               "instrumentation/oscilloscope",
+              "instrumentation/awg",
               "instrumentation/flowcontroller"
             ]
           },
@@ -140,7 +141,8 @@
             "group": "PSU",
             "pages": [
               "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_daemon"
+              "instrumentation/examples/psu/psu_background_daemon",
+              "instrumentation/examples/psu/psu_config"
             ]
           },
           {

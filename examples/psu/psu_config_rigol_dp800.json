@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "instrument": "InstroPSU",
+    "device": {
+        "name": "rigol_dp832_psu",
+        "description": "Bench 3-channel supply",
+        "manufacturer": "Rigol",
+        "model": "DP832"
+    },
+    "driver": {
+        "name": "RigolDP800",
+        "num_channels": 3,
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "USB0::0x1AB1::0x0E11::DP8B26AM00234::INSTR"
+        }
+    }
+}
