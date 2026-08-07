@@ -28,7 +28,7 @@ use open62541::ua;
 
 fn main() -> anyhow::Result<()> {
     let client = OpcUaClientBuilder::new()
-        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned())?)
+        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned()))
         .security_mode(OpcUaSecurityMode::None)
         .security_policy(OpcUaSecurityPolicy::None)
         .pki(OpcUaPki::None)
