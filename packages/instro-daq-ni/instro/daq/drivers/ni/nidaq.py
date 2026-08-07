@@ -14,6 +14,7 @@ from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
+    AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     ChannelType,
@@ -198,6 +199,19 @@ class NIDAQDriver(DAQDriverBase):
 
         self._ai_channels[channel.alias] = channel
 
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        """Configure an analog current input channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
+        task = self._get_task(ChannelType.ANALOG_INPUT)
+
+        task.ai_channels.add_ai_current_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+        )
+
+        self._ai_channels[channel.alias] = channel
+
     def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
         """Configure an analog voltage output channel on the NI device."""
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
@@ -212,6 +226,27 @@ class NIDAQDriver(DAQDriverBase):
         self._ao_sw_tasks[channel.alias] = task
 
         task.ao_channels.add_ao_voltage_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+        )
+
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        """Configure an analog current output channel on the NI device."""
+        # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
+
+        task = self._ao_sw_tasks.get(channel.alias, None)
+        if task:
+            raise ValueError("Channel already exists and is configured")
+
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+        self._ao_sw_tasks[channel.alias] = task
+
+        task.ao_channels.add_ao_current_chan(
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,

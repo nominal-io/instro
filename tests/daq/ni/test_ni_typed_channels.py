@@ -1,28 +1,38 @@
-"""Hardware integration test for the NI driver's typed input channel methods (NI-DAQmx) via InstroDAQ.
+"""Hardware integration test for the NI driver's typed channel methods (NI-DAQmx) via InstroDAQ.
 
-This test requires a physical NI cDAQ chassis with a single NI 9219 universal
-analog input module. The 9219 is reconfigurable per channel, so one channel is
-dedicated to each mode (voltage, thermocouple, current) and each test exercises
-the matching typed-channel path
+This test requires a physical NI cDAQ chassis with a NI 9219 universal analog
+input module plus a voltage output module and a current output module. The 9219
+is reconfigurable per channel, so one input channel is dedicated to each mode
+(voltage, thermocouple, current) and each test exercises the matching
+typed-channel path
 (``configure_voltage_input`` -> ``configure_ai_voltage_channel``,
-``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``)
-rather than the generic analog path covered by ``test_ni_hardware.py``. Each
-test step is recorded as an event on a Nominal Core asset.
+``configure_voltage_output`` -> ``configure_ao_voltage_channel``,
+``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``,
+``configure_current_input`` -> ``configure_ai_current_channel``,
+``configure_current_output`` -> ``configure_ao_current_channel``)
+rather than the generic analog path covered by ``test_ni_hardware.py``. The
+voltage and current modes are verified through a loopback from their output
+module back into the 9219. Each test step is recorded as an event on a Nominal
+Core asset.
 
 ============================================================================
 NI cDAQ CONFIG
 ============================================================================
 
   Device Specs:
-      - Mod1: 9219 (universal AI: voltage, current, thermocouple, RTD, bridge)
+      - Mod1: 9219 (universal AI: voltage, current, thermocouple)
+      - Mod2: 9263 (voltage AO)
+      - Mod3: 9265 (current AO)
 
-  Wiring, one channel per mode:
-    VOLTAGE_CHANNEL  — Channel 0 ( + to pin 4 (HI) and - to pin 5 (LO) )
-    TC_CHANNEL       — Channel 1 (pins 4 and 5)
-    CURRENT_CHANNEL  — Channel 2 ( + to pin 4 (HI) and - to pin 5 (LO) )
+  TC input wiring:
+    TC  --->  TC_CHANNEL (Mod1/ai1) ( Using pins 4 and 5 )
 
-  Set VOLTAGE_SOURCE_WIRED / THERMOCOUPLE_WIRED to False to run structure-only
-  checks (no value asserts) for a mode with nothing attached.
+  Loopback wiring (wire AO -> 9219 AI):
+    VOLTAGE_AO_CHANNEL (Mod2/ao0)  --->  VOLTAGE_CHANNEL (Mod1/ai0) ( + to pin 4 (HI) and - to pin 5 (LO) )
+    CURRENT_AO_CHANNEL (Mod3/ao0)  --->  CURRENT_CHANNEL (Mod1/ai2) ( + to pin 3 (HI) and - to pin 5 (LO) )
+
+  Set VOLTAGE_LOOPBACK_WIRED / CURRENT_LOOPBACK_WIRED / THERMOCOUPLE_WIRED to
+  False to run structure-only checks (no value asserts) for an unwired path.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -70,33 +80,45 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "cDAQ3"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
+DEVICE_ID = "cDAQ2"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
 NAME = "ni_typed_channels"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
 # leave None to publish nowhere.
 DATASET_RID = None
 
-# One 9219 channel per mode.
+# Physical configs. Set to false if simulating device
+VOLTAGE_LOOPBACK_WIRED = False
+CURRENT_LOOPBACK_WIRED = False
+THERMOCOUPLE_WIRED = False
+
+# One 9219 input channel per mode.
 VOLTAGE_CHANNEL, VOLTAGE_ALIAS = f"{DEVICE_ID}Mod1/ai0", "v0"
 TC_CHANNEL, TC_ALIAS = f"{DEVICE_ID}Mod1/ai1", "tc0"
 CURRENT_CHANNEL, CURRENT_ALIAS = f"{DEVICE_ID}Mod1/ai2", "i0"
 
+# Output channels looped back into the 9219.
+VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = f"{DEVICE_ID}Mod2/ao0", "vao0"
+CURRENT_AO_CHANNEL, CURRENT_AO_ALIAS = f"{DEVICE_ID}Mod3/ao0", "iao0"
+
 # Voltage mode — the 9219 supports ±125 mV, ±1 V, ±4 V, ±15 V, and ±60 V.
 VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -15.0, 15.0
-# True when a known DC source is attached. Gates the expected-value check;
-# structural checks always run.
-VOLTAGE_SOURCE_WIRED = False
-EXPECTED_VOLTAGE_V = 0.0
+VOLTAGE_AO_RANGE_MIN, VOLTAGE_AO_RANGE_MAX = -10.0, 10.0
+VOLTAGE_TEST_VALUES = [0.0, 0.5, 1.25, 2.5, 3.3, 4.5]
 VOLTAGE_TOLERANCE_V = 0.05
+
+# Current mode — the 9219 reads ±25 mA; the 9265 sources 0-20 mA.
+CURRENT_RANGE_MIN, CURRENT_RANGE_MAX = -0.025, 0.025
+CURRENT_AO_RANGE_MIN, CURRENT_AO_RANGE_MAX = 0.0, 0.02
+CURRENT_TEST_VALUES = [0.0, 0.004, 0.008, 0.012, 0.016, 0.02]
+CURRENT_TOLERANCE_A = 0.0005
 
 # Thermocouple mode.
 TC_TYPE_UNDER_TEST = TC_TYPE.K
 TC_UNIT_UNDER_TEST = TC_UNIT.CELSIUS
 TC_CJC_SOURCE = CJCSource.INTERNAL
-# True when a thermocouple is physically attached. Gates the plausible-reading
-# checks; structural checks always run.
-THERMOCOUPLE_WIRED = True
+
+# Physical configuration for TC (if connected)
 TC_RANGE_MIN, TC_RANGE_MAX = 0.0, 100.0
 AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 40.0
 
@@ -200,8 +222,8 @@ class TestNITypedChannels(unittest.TestCase):
         daq.open()
         return daq
 
-    def _configure_voltage(self, daq: InstroDAQ, physical: str = VOLTAGE_CHANNEL, alias: str = VOLTAGE_ALIAS):
-        """Configure the 9219 channel as a voltage input."""
+    def _configure_voltage_input(self, daq: InstroDAQ, physical: str = VOLTAGE_CHANNEL, alias: str = VOLTAGE_ALIAS):
+        """Configure the 9219 voltage input channel."""
         daq.configure_voltage_input(
             physical,
             alias=alias,
@@ -209,8 +231,39 @@ class TestNITypedChannels(unittest.TestCase):
             range_max=VOLTAGE_RANGE_MAX,
         )
 
+    def _configure_voltage_output(
+        self, daq: InstroDAQ, physical: str = VOLTAGE_AO_CHANNEL, alias: str = VOLTAGE_AO_ALIAS
+    ):
+        """Configure the voltage output channel looped back to the 9219."""
+        daq.configure_voltage_output(
+            physical,
+            alias=alias,
+            range_min=VOLTAGE_AO_RANGE_MIN,
+            range_max=VOLTAGE_AO_RANGE_MAX,
+        )
+
+    def _configure_current_input(self, daq: InstroDAQ, physical: str = CURRENT_CHANNEL, alias: str = CURRENT_ALIAS):
+        """Configure the 9219 current input channel."""
+        daq.configure_current_input(
+            physical,
+            alias=alias,
+            range_min=CURRENT_RANGE_MIN,
+            range_max=CURRENT_RANGE_MAX,
+        )
+
+    def _configure_current_output(
+        self, daq: InstroDAQ, physical: str = CURRENT_AO_CHANNEL, alias: str = CURRENT_AO_ALIAS
+    ):
+        """Configure the current output channel looped back to the 9219."""
+        daq.configure_current_output(
+            physical,
+            alias=alias,
+            range_min=CURRENT_AO_RANGE_MIN,
+            range_max=CURRENT_AO_RANGE_MAX,
+        )
+
     def _configure_thermocouple(self, daq: InstroDAQ, physical: str = TC_CHANNEL, alias: str = TC_ALIAS):
-        """Configure the 9219 channel as a thermocouple input."""
+        """Configure the 9219 thermocouple input channel."""
         daq.configure_thermocouple_input(
             physical,
             TC_TYPE_UNDER_TEST,
@@ -234,42 +287,52 @@ class TestNITypedChannels(unittest.TestCase):
             raise
 
     # =====================================================================
-    # 1. Voltage input
+    # 1. Voltage loopback — write the AO, verify on the 9219 voltage input
     # =====================================================================
-    def test_01_voltage_input(self):
-        """Configure the 9219 channel as a voltage input and read it."""
+    def test_01_voltage_loopback(self):
+        """Write known voltages to the AO and verify they appear on the 9219 voltage input."""
 
         def step():
             daq = self._create_daq()
             try:
-                self._configure_voltage(daq)
+                self._configure_voltage_input(daq)
+                self._configure_voltage_output(daq)
 
                 channel = daq.ai_channels[VOLTAGE_ALIAS]
                 self.assertEqual(channel.physical_channel, VOLTAGE_CHANNEL)
                 self.assertEqual((channel.range_min, channel.range_max), (VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX))
 
                 errs = []
-                for _ in range(3):
+                for v in VOLTAGE_TEST_VALUES:
+                    daq.write_analog_value(VOLTAGE_AO_ALIAS, v)
+                    time.sleep(0.05)  # let the output settle
                     measured = daq.read_analog().latest
-                    err = measured - EXPECTED_VOLTAGE_V
+                    err = measured - v
                     flag = (
                         ""
-                        if (not VOLTAGE_SOURCE_WIRED or abs(err) <= VOLTAGE_TOLERANCE_V)
+                        if (not VOLTAGE_LOOPBACK_WIRED or abs(err) <= VOLTAGE_TOLERANCE_V)
                         else "  <-- out of tolerance"
                     )
-                    print(f"         {VOLTAGE_ALIAS} = {measured:.4f} V{flag}")
+                    print(
+                        f"         {VOLTAGE_AO_ALIAS}={v:.3f} V | "
+                        f"{VOLTAGE_ALIAS}={measured:.4f} V | err={err:+.4f} V{flag}"
+                    )
                     if not math.isfinite(measured):
-                        errs.append(f"non-finite voltage read: {measured}")
-                    if VOLTAGE_SOURCE_WIRED and abs(err) > VOLTAGE_TOLERANCE_V:
-                        errs.append(f"{measured:.4f} V != {EXPECTED_VOLTAGE_V} V (err {err:+.4f} V)")
-                    time.sleep(0.25)
+                        errs.append(f"non-finite read at {v} V")
+                    if VOLTAGE_LOOPBACK_WIRED and abs(err) > VOLTAGE_TOLERANCE_V:
+                        errs.append(
+                            f"{VOLTAGE_AO_ALIAS}={v} V -> {VOLTAGE_ALIAS}={measured:.4f} V "
+                            f"(err {err:+.4f} V > {VOLTAGE_TOLERANCE_V} V)"
+                        )
+                daq.write_analog_value(VOLTAGE_AO_ALIAS, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 daq.close()
 
         self._run_step(
-            "Voltage input",
-            f"Configure {VOLTAGE_CHANNEL} as a [{VOLTAGE_RANGE_MIN}, {VOLTAGE_RANGE_MAX}] V input and perform 3 reads.",
+            "Voltage loopback",
+            f"Write a sweep of voltages ({VOLTAGE_TEST_VALUES} V) to {VOLTAGE_AO_CHANNEL} and verify each "
+            f"reads back on {VOLTAGE_CHANNEL} within {VOLTAGE_TOLERANCE_V} V.",
             step,
         )
 
@@ -277,7 +340,7 @@ class TestNITypedChannels(unittest.TestCase):
     # 2. Thermocouple input
     # =====================================================================
     def test_02_thermocouple_input(self):
-        """Configure the 9219 channel as a thermocouple input and read plausible ambient temperatures."""
+        """Configure the 9219 thermocouple channel and read plausible ambient temperatures."""
 
         def step():
             daq = self._create_daq()
@@ -311,6 +374,56 @@ class TestNITypedChannels(unittest.TestCase):
             "Thermocouple input",
             f"Configure {TC_CHANNEL} as a type {TC_TYPE_UNDER_TEST.value} thermocouple input "
             f"and perform 3 reads, checking each lands in the plausible ambient band.",
+            step,
+        )
+
+    # =====================================================================
+    # 3. Current loopback — write the AO, verify on the 9219 current input
+    # =====================================================================
+    def test_03_current_loopback(self):
+        """Write known currents to the AO and verify they appear on the 9219 current input."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_current_input(daq)
+                self._configure_current_output(daq)
+
+                channel = daq.ai_channels[CURRENT_ALIAS]
+                self.assertEqual(channel.physical_channel, CURRENT_CHANNEL)
+                self.assertEqual((channel.range_min, channel.range_max), (CURRENT_RANGE_MIN, CURRENT_RANGE_MAX))
+
+                errs = []
+                for i in CURRENT_TEST_VALUES:
+                    daq.write_analog_value(CURRENT_AO_ALIAS, i)
+                    time.sleep(0.05)  # let the output settle
+                    measured = daq.read_analog().latest
+                    err = measured - i
+                    flag = (
+                        ""
+                        if (not CURRENT_LOOPBACK_WIRED or abs(err) <= CURRENT_TOLERANCE_A)
+                        else "  <-- out of tolerance"
+                    )
+                    print(
+                        f"         {CURRENT_AO_ALIAS}={i * 1000:.3f} mA | "
+                        f"{CURRENT_ALIAS}={measured * 1000:.4f} mA | err={err * 1000:+.4f} mA{flag}"
+                    )
+                    if not math.isfinite(measured):
+                        errs.append(f"non-finite read at {i} A")
+                    if CURRENT_LOOPBACK_WIRED and abs(err) > CURRENT_TOLERANCE_A:
+                        errs.append(
+                            f"{CURRENT_AO_ALIAS}={i} A -> {CURRENT_ALIAS}={measured:.6f} A "
+                            f"(err {err:+.6f} A > {CURRENT_TOLERANCE_A} A)"
+                        )
+                daq.write_analog_value(CURRENT_AO_ALIAS, 0.0)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Current loopback",
+            f"Write a sweep of currents ({CURRENT_TEST_VALUES} A) to {CURRENT_AO_CHANNEL} and verify each "
+            f"reads back on {CURRENT_CHANNEL} within {CURRENT_TOLERANCE_A} A.",
             step,
         )
 
