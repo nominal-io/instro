@@ -72,6 +72,10 @@ class AWGDriverBase(abc.ABC):
     def get_output_state(self, channel: int) -> bool:
         """Return True if the output on channel is enabled."""
 
+    def check_errors(self) -> None:
+        """Check the instrument error queue."""
+        raise NotImplementedError(f"check_errors is not implemented for {type(self).__name__}")
+
     def set_output_load(self, channel: int, load: float | None) -> None:
         """Set the output load impedance; None means high-Z."""
         raise NotImplementedError(f"set_output_load is not implemented for {type(self).__name__}")
