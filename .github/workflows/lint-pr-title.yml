@@ -15,7 +15,7 @@ jobs:
         # and resolves `extends` from the invoking tree, which a global install does not
         # reliably provide. Both packages are pinned exactly and must be bumped together.
         run: |
-          echo "$TITLE" | npx --yes -p @commitlint/cli@21.2.1 -p @commitlint/config-conventional@21.2.1 commitlint --config .github/commitlint.config.js
+          echo "$TITLE" | npx --yes -p @commitlint/cli@21.2.1 -p @commitlint/config-conventional@21.2.0 commitlint --config .github/commitlint.config.js
       - name: display helpful error message
         if: failure()
         run: |
