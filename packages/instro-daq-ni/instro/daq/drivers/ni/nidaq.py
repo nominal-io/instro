@@ -10,11 +10,14 @@ from nidaqmx.system import System as niSystem
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
+    AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     ChannelType,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -215,6 +218,79 @@ class NIDAQDriver(DAQDriverBase):
         )
 
         self._ao_channels[channel.alias] = channel
+
+    @staticmethod
+    def _get_thermocouple_type(tc_type: TC_TYPE) -> nidaqmx.constants.ThermocoupleType:
+        """Match instro thermocouple type enum to nidaqmx thermocouple type enum."""
+        match tc_type:
+            case TC_TYPE.B:
+                return nidaqmx.constants.ThermocoupleType.B
+            case TC_TYPE.E:
+                return nidaqmx.constants.ThermocoupleType.E
+            case TC_TYPE.J:
+                return nidaqmx.constants.ThermocoupleType.J
+            case TC_TYPE.K:
+                return nidaqmx.constants.ThermocoupleType.K
+            case TC_TYPE.N:
+                return nidaqmx.constants.ThermocoupleType.N
+            case TC_TYPE.R:
+                return nidaqmx.constants.ThermocoupleType.R
+            case TC_TYPE.S:
+                return nidaqmx.constants.ThermocoupleType.S
+            case TC_TYPE.T:
+                return nidaqmx.constants.ThermocoupleType.T
+            case _:
+                raise ValueError(f"Invalid thermocouple type: {tc_type}, must be one of {[t.name for t in TC_TYPE]}")
+
+    @staticmethod
+    def _get_temperature_units(unit: TC_UNIT | None) -> nidaqmx.constants.TemperatureUnits:
+        """Match instro temperature unit enum to nidaqmx temperature unit enum."""
+        match unit:
+            case None | TC_UNIT.CELSIUS:
+                return nidaqmx.constants.TemperatureUnits.DEG_C
+            case TC_UNIT.FAHRENHEIT:
+                return nidaqmx.constants.TemperatureUnits.DEG_F
+            case TC_UNIT.KELVIN:
+                return nidaqmx.constants.TemperatureUnits.K
+            case TC_UNIT.RANKINE:
+                return nidaqmx.constants.TemperatureUnits.DEG_R
+            case _:
+                raise ValueError(f"Invalid temperature unit: {unit}, must be one of {[u.name for u in TC_UNIT]}")
+
+    @staticmethod
+    def _get_cjc_source(cjc_source: CJCSource | None) -> nidaqmx.constants.CJCSource:
+        """Match instro cold-junction compensation source enum to nidaqmx CJC source enum."""
+        match cjc_source:
+            case None | CJCSource.INTERNAL:
+                return nidaqmx.constants.CJCSource.BUILT_IN
+            case CJCSource.CONSTANT:
+                return nidaqmx.constants.CJCSource.CONSTANT_USER_VALUE
+            case CJCSource.CHANNEL:
+                return nidaqmx.constants.CJCSource.SCANNABLE_CHANNEL
+            case _:
+                raise ValueError(f"Invalid CJC source: {cjc_source}, must be one of {[s.name for s in CJCSource]}")
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Configure a thermocouple input channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
+        if channel.cjc_source is CJCSource.CONSTANT and channel.cjc_temp is None:
+            raise ValueError(f"cjc_temp is required for channel '{channel.alias}' when cjc_source is CONSTANT.")
+        if channel.cjc_source is CJCSource.CHANNEL and not channel.cjc_channel:
+            raise ValueError(f"cjc_channel is required for channel '{channel.alias}' when cjc_source is CHANNEL.")
+        task = self._get_task(ChannelType.ANALOG_INPUT)
+
+        task.ai_channels.add_ai_thrmcpl_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+            units=self._get_temperature_units(channel.unit),
+            thermocouple_type=self._get_thermocouple_type(channel.tc_type),
+            cjc_source=self._get_cjc_source(channel.cjc_source),
+            cjc_val=channel.cjc_temp if channel.cjc_temp is not None else 25.0,
+            cjc_channel=channel.cjc_channel or "",
+        )
+
+        self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
