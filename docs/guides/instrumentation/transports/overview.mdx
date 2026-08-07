@@ -54,37 +54,62 @@ The lock is reentrant, so calling an I/O method from inside the `with` block doe
 
 ## Shared ownership
 
-Some instruments expose more than one logical surface over a single connection. The EA PSB series, for example, both sources and sinks current on the same box, so it needs a PSU-shaped driver and an ELoad-shaped driver sharing one connection.
+Some instruments expose more than one logical surface over a single connection. The EA PSB series both sources and sinks current on the same box, so it needs a PSU-shaped driver and an ELoad-shaped driver over one connection.
 
-A driver that shares a connection calls `open()`/`close()` with itself as the holder:
+Model this as one **device** class that owns the connection and vends one driver per category:
+
+```python
+class BidirectionalSupply:
+    """The box. Owns the session, the device-wide state, and the one-time setup."""
+
+    def __init__(self, visa_resource: str | VisaConfig) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    @cached_property
+    def source(self) -> PSUDriverBase:
+        return SourceDriver(self)
+
+    @cached_property
+    def sink(self) -> ELoadDriverBase:
+        return SinkDriver(self)
+
+    def acquire(self, holder: object) -> None:
+        if not self._visa.open(holder):        # True only for the first view in
+            return
+        try:
+            self._visa.write("SYST:LOCK ON")   # one-time device setup
+        except Exception:
+            # A stranded holder would make the retry report not-first-owner,
+            # so SYST:LOCK ON would never be re-attempted.
+            self._visa.close(holder, on_last_release=self._release_remote_lock)
+            raise
+
+    def release(self, holder: object) -> None:
+        self._visa.close(holder, on_last_release=self._release_remote_lock)
+```
+
+Each view implements one category contract and delegates its lifecycle to the device:
 
 ```python
 class SourceDriver(PSUDriverBase):
-    def __init__(self, connection: VisaDriver) -> None:
-        self._visa = connection
+    def __init__(self, device: BidirectionalSupply) -> None:
+        self._dev = device
 
     def open(self) -> None:
-        if self._visa.open(self):                 # True only for the first owner
-            try:
-                self._visa.write("SYST:LOCK ON")  # one-time device setup
-            except Exception:
-                # A stranded holder would make the retry's open report not-first-owner,
-                # so SYST:LOCK ON would never be re-attempted.
-                self._visa.close(self)
-                raise
+        self._dev.acquire(self)
 
     def close(self) -> None:
-        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+        self._dev.release(self)
 ```
 
-`open(self)` opens the connection if needed and reports whether this call made the driver the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once no matter how many surfaces share the connection. `close(self, ...)` mirrors this: the connection stays open as long as any owner remains, and only the close that empties the owner list runs `on_last_release` and tears the connection down. If that one-time setup raises, the driver must `close(self)` before propagating, as above: a holder left registered by a failed `open()` makes a later `open(self)` report not-first-owner and skip the setup it still needs to run.
+`open(view)` opens the connection if needed and reports whether this call made the view the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once however many views open. `close(view, ...)` mirrors this: the connection stays open as long as any view holds it, and only the close that empties the owner list runs `on_last_release` and tears the connection down.
 
-Construct one transport and hand it to both drivers to wire up the combined instrument:
+Construct the device once and take a view for each instrument:
 
 ```python
-connection = VisaDriver("TCPIP0::10.0.0.5::5025::SOCKET")
-source = InstroPSU(name="psb_source", driver=SourceDriver(connection), num_channels=1)
-sink = InstroELoad(name="psb_sink", driver=SinkDriver(connection))  # mirrors SourceDriver
+psb = BidirectionalSupply("TCPIP0::10.0.0.5::5025::SOCKET")
+source = InstroPSU(name="psb.source", driver=psb.source, num_channels=1)
+sink = InstroELoad(name="psb.sink", driver=psb.sink)
 
 source.open()
 sink.open()      # shares the session; SYST:LOCK ON already sent by source.open()
@@ -92,7 +117,9 @@ source.close()   # sink still holds the connection, so nothing tears down yet
 sink.close()     # last owner leaves: SYST:LOCK OFF, then the socket closes
 ```
 
-A driver that never passes a holder is unaffected. It is the sole owner by construction, so bare `open()`/`close()` behave exactly as in [Lifecycle](#lifecycle).
+Two driver classes rather than one class inheriting both contracts, because colliding methods need different bodies. `get_current` is positive out of the supply for `InstroPSU` and positive into the load for `InstroELoad`, reading the same meter.
+
+A driver that serves a single category owns its transport outright and never passes a holder. It is the sole owner by construction, so bare `open()`/`close()` behave exactly as in [Lifecycle](#lifecycle).
 
 ## Implementing a transport
 
