@@ -111,8 +111,8 @@ VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = f"{DEVICE_ID}Mod2/ao3", "vao0"
 CURRENT_AO_CHANNEL, CURRENT_AO_ALIAS = f"{DEVICE_ID}Mod3/ao0", "iao0"
 
 # Digital lines — one DO line looped back to one DI line (DevN/portM/lineP form).
-DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod3/port0/line16", "do20"
-DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod4/port0/line0", "di0"
+DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod4/port0/line16", "do20"
+DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod5/port0/line0", "di0"
 DIGITAL_TEST_STATES = (0, 1, 0, 1, 0)
 
 # Voltage mode — the 9219 supports ±125 mV, ±1 V, ±4 V, ±15 V, and ±60 V.
