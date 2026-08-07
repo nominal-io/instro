@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.0](https://github.com/nominal-io/instro/compare/instro-v1.8.0...instro-v1.9.0) (2026-08-07)
+
+
+### Features
+
+* **instrodaq:** add support for sw timed background daemon ([#325](https://github.com/nominal-io/instro/issues/325)) ([81f3784](https://github.com/nominal-io/instro/commit/81f37845e12eda260c55d71537e93221956fa17e))
+
+
+### Bug Fixes
+
+* **ljm:** expose stream buffer byte size configuration ([#366](https://github.com/nominal-io/instro/issues/366)) ([4cc6d14](https://github.com/nominal-io/instro/commit/4cc6d14977b1c3c8c42f17d22e79bd139df2953b))
+
 ## [1.8.0](https://github.com/nominal-io/instro/compare/instro-v1.7.0...instro-v1.8.0) (2026-08-06)
 
 
