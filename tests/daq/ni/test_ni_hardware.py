@@ -292,7 +292,7 @@ class TestNIDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read_analog()
+                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -319,9 +319,9 @@ class TestNIDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
+                    daq.write(AO_ALIAS, v)
                     time.sleep(0.02)
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -345,9 +345,9 @@ class TestNIDAQHardware(unittest.TestCase):
 
                 errs = []
                 for v in ANALOG_TEST_VOLTAGES:
-                    daq.write_analog_value(AO_ALIAS, v)
+                    daq.write(AO_ALIAS, v)
                     time.sleep(0.05)  # let the output settle
-                    measured = daq.read_analog().latest
+                    measured = daq.read(AI_ALIAS)[AI_ALIAS].latest
                     err = measured - v
                     flag = (
                         ""
@@ -361,10 +361,10 @@ class TestNIDAQHardware(unittest.TestCase):
                         errs.append(
                             f"{AO_ALIAS}={v} V -> {AI_ALIAS}={measured:.4f} V (err {err:+.4f} V > {ANALOG_TOLERANCE_V} V)"
                         )
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value(AO_ALIAS, 0.0)
+                daq.write(AO_ALIAS, 0.0)
                 daq.close()
 
         self._run_step(
@@ -380,9 +380,8 @@ class TestNIDAQHardware(unittest.TestCase):
     def test_05_dual_analog_loopback(self):
         """Drive both AOs at once and verify each AI tracks only its own source.
 
-        Both AI channels share one DAQmx AI task, so a single read_analog()
-        samples them together. ``.latest`` raises when a Measurement holds
-        multiple channels, so ``channel_data`` is indexed per alias.
+        Both AI channels share one DAQmx AI task, so a single read()
+        samples them together.
         """
 
         def step():
@@ -397,18 +396,12 @@ class TestNIDAQHardware(unittest.TestCase):
 
                 errs = []
                 for v1, v2 in [(1.0, 4.5), (4.5, 0.5), (2.5, 3.3), (0.0, 0.0)]:
-                    daq.write_analog_value(AO_ALIAS, v1)
-                    daq.write_analog_value(AO_ALIAS_2, v2)
+                    daq.write([AO_ALIAS, AO_ALIAS_2], [v1, v2])
                     time.sleep(0.05)  # let both outputs settle
 
-                    measurement = daq.read_analog()
+                    reads = daq.read([AI_ALIAS, AI_ALIAS_2])
                     for alias, target in [(AI_ALIAS, v1), (AI_ALIAS_2, v2)]:
-                        samples = measurement.channel_data.get(f"{NAME}.{alias}")
-                        self.assertIsNotNone(
-                            samples,
-                            f"channel_data missing '{NAME}.{alias}': {list(measurement.channel_data)}",
-                        )
-                        measured = samples[-1]
+                        measured = reads[alias].latest
                         err = measured - target
                         flag = "" if abs(err) <= ANALOG_TOLERANCE_V else "  <-- out of tolerance"
                         print(
@@ -424,13 +417,12 @@ class TestNIDAQHardware(unittest.TestCase):
                             )
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_analog_value(AO_ALIAS, 0.0)
-                daq.write_analog_value(AO_ALIAS_2, 0.0)
+                daq.write([AO_ALIAS, AO_ALIAS_2], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
             "Dual analog loopback (SW-timed)",
-            "Set both AOs to different voltages and read both AIs in one read_analog(). "
+            "Set both AOs to different voltages and read both AIs in one read(). "
             "Verifies each loopback path tracks its own source with no cross-talk.",
             step,
         )
@@ -448,17 +440,17 @@ class TestNIDAQHardware(unittest.TestCase):
 
                 errs = []
                 for state in (0, 1, 0, 1, 0):
-                    daq.write_digital_line(DO_ALIAS, state)
+                    daq.write(DO_ALIAS, state)
                     time.sleep(0.05)
-                    read = int(daq.read_digital_line(DI_ALIAS).latest)
+                    read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
                     flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         {DO_ALIAS}<-{state} | {DI_ALIAS}={read}{flag}")
                     if DIGITAL_LOOPBACK_WIRED and read != state:
                         errs.append(f"drove {DO_ALIAS}={state}, read {DI_ALIAS}={read}")
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write(DO_ALIAS, 0)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write(DO_ALIAS, 0)
                 daq.close()
 
         self._run_step(
@@ -479,7 +471,7 @@ class TestNIDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -500,7 +492,7 @@ class TestNIDAQHardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -522,7 +514,7 @@ class TestNIDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -530,8 +522,8 @@ class TestNIDAQHardware(unittest.TestCase):
                 daq.start(background=False)
 
                 try:
-                    # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                    measurement = daq.read_analog()
+                    # No background daemon: read() dispatches to the driver's fetch_analog().
+                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
@@ -546,14 +538,14 @@ class TestNIDAQHardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
         self._run_step(
             "HW-timed analog read (no background)",
             f"Start HW-timed acquisition at {SAMPLE_RATE_HZ} Hz with background daemon disabled. "
-            f"Hold the AO at {HW_TIMED_DC_V} V and read directly via read_analog() (driver fetch_analog()).",
+            f"Hold the AO at {HW_TIMED_DC_V} V and read directly via read() (driver fetch_analog()).",
             step,
         )
 
@@ -568,7 +560,7 @@ class TestNIDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write_analog_value(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
+                daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
                 daq.start()
 
@@ -586,7 +578,7 @@ class TestNIDAQHardware(unittest.TestCase):
                         self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
                 finally:
                     daq.stop()
-                    daq.write_analog_value(AO_ALIAS, 0.0)
+                    daq.write(AO_ALIAS, 0.0)
             finally:
                 daq.close()
 
@@ -680,9 +672,7 @@ class TestNIDAQHardware(unittest.TestCase):
                 self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
                 self._configure_digital_lines(daq)
 
-                daq.write_analog_value(AO_ALIAS, 0.0)
-                daq.write_analog_value(AO_ALIAS_2, 0.0)
-                daq.write_digital_line(DO_ALIAS, 0)
+                daq.write([AO_ALIAS, AO_ALIAS_2, DO_ALIAS], [0.0, 0.0, 0])
             finally:
                 daq.close()
 
