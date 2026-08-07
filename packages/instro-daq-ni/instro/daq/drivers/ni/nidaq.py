@@ -379,6 +379,34 @@ class NIDAQDriver(DAQDriverBase):
         )
         self._do_channels[channel.alias] = channel
 
+    def configure_di_channel(self, channel: DigitalLineChannel):
+        """Parse ``DevN/portM/lineP``, add as CHAN_PER_LINE to the shared DI line task, and register the line."""
+        channel = self._build_line_channel(
+            channel.physical_channel, Direction.INPUT, channel.logic, channel.logic_level, channel.alias
+        )
+        task = self._get_task(ChannelType.DIGITAL_INPUT)
+        self._di_lines_state[channel.alias] = False
+        task.di_channels.add_di_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_PER_LINE,
+        )
+        self._di_channels[channel.alias] = channel
+
+    def configure_do_channel(self, channel: DigitalLineChannel):
+        """Parse ``DevN/portM/lineP``, add as CHAN_PER_LINE to the shared DO line task, and register the line."""
+        channel = self._build_line_channel(
+            channel.physical_channel, Direction.OUTPUT, channel.logic, channel.logic_level, channel.alias
+        )
+        task = self._get_task(ChannelType.DIGITAL_OUTPUT)
+        self._do_lines_state[channel.alias] = False
+        task.do_channels.add_do_chan(
+            lines=channel.physical_channel,
+            name_to_assign_to_lines=channel.alias,
+            line_grouping=LineGrouping.CHAN_PER_LINE,
+        )
+        self._do_channels[channel.alias] = channel
+
     def configure_di_port_channel(
         self,
         physical_channel: str,

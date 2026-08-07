@@ -9,7 +9,9 @@ typed-channel path
 ``configure_voltage_output`` -> ``configure_ao_voltage_channel``,
 ``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``,
 ``configure_current_input`` -> ``configure_ai_current_channel``,
-``configure_current_output`` -> ``configure_ao_current_channel``)
+``configure_current_output`` -> ``configure_ao_current_channel``,
+``configure_digital_input`` -> ``configure_di_channel``,
+``configure_digital_output`` -> ``configure_do_channel``)
 rather than the generic analog path covered by ``test_ni_hardware.py``. The
 voltage and current modes are verified through a loopback from their output
 module back into the 9219. Each test step is recorded as an event on a Nominal
@@ -19,10 +21,12 @@ Core asset.
 NI cDAQ CONFIG
 ============================================================================
 
-  Device Specs:
+  Device Specs (cDAQ 9189 8-slot):
       - Mod1: 9219 (universal AI: voltage, current, thermocouple)
       - Mod2: 9263 (voltage AO)
       - Mod3: 9265 (current AO)
+      - Mod4: 9403 (DO)
+      - Mod5: 9401 (DI)
 
   TC input wiring:
     TC  --->  TC_CHANNEL (Mod1/ai1) ( Using pins 4 and 5 )
@@ -31,8 +35,12 @@ NI cDAQ CONFIG
     VOLTAGE_AO_CHANNEL (Mod2/ao0)  --->  VOLTAGE_CHANNEL (Mod1/ai0) ( + to pin 4 (HI) and - to pin 5 (LO) )
     CURRENT_AO_CHANNEL (Mod3/ao0)  --->  CURRENT_CHANNEL (Mod1/ai2) ( + to pin 3 (HI) and - to pin 5 (LO) )
 
-  Set VOLTAGE_LOOPBACK_WIRED / CURRENT_LOOPBACK_WIRED / THERMOCOUPLE_WIRED to
-  False to run structure-only checks (no value asserts) for an unwired path.
+  Digital loopback wiring (wire DO -> DI):
+    DO_LINE (Mod4/port0/line16)  --->  DI_LINE (Mod5/port0/line0)
+
+  Set VOLTAGE_LOOPBACK_WIRED / CURRENT_LOOPBACK_WIRED / THERMOCOUPLE_WIRED /
+  DIGITAL_LOOPBACK_WIRED to False to run structure-only checks (no value
+  asserts) for an unwired path.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -91,6 +99,7 @@ DATASET_RID = None
 VOLTAGE_LOOPBACK_WIRED = True
 CURRENT_LOOPBACK_WIRED = False
 THERMOCOUPLE_WIRED = True
+DIGITAL_LOOPBACK_WIRED = True
 
 # One 9219 input channel per mode.
 VOLTAGE_CHANNEL, VOLTAGE_ALIAS = f"{DEVICE_ID}Mod1/ai2", "v0"
@@ -100,6 +109,11 @@ CURRENT_CHANNEL, CURRENT_ALIAS = f"{DEVICE_ID}Mod1/ai3", "i0"
 # Output channels looped back into the 9219.
 VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = f"{DEVICE_ID}Mod2/ao3", "vao0"
 CURRENT_AO_CHANNEL, CURRENT_AO_ALIAS = f"{DEVICE_ID}Mod3/ao0", "iao0"
+
+# Digital lines — one DO line looped back to one DI line (DevN/portM/lineP form).
+DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod3/port0/line16", "do20"
+DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod4/port0/line0", "di0"
+DIGITAL_TEST_STATES = (0, 1, 0, 1, 0)
 
 # Voltage mode — the 9219 supports ±125 mV, ±1 V, ±4 V, ±15 V, and ±60 V.
 VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -15.0, 15.0
@@ -274,6 +288,11 @@ class TestNITypedChannels(unittest.TestCase):
             unit=TC_UNIT_UNDER_TEST,
         )
 
+    def _configure_digital_lines(self, daq: InstroDAQ):
+        """Configure DO_LINE as a digital output and DI_LINE as a digital input."""
+        daq.configure_digital_output(DO_LINE, alias=DO_ALIAS)
+        daq.configure_digital_input(DI_LINE, alias=DI_ALIAS)
+
     def _run_step(self, name: str, description: str, fn):
         """Execute *fn*, record a Nominal event with description, and re-raise on failure."""
         start_ns = time.time_ns()
@@ -424,6 +443,41 @@ class TestNITypedChannels(unittest.TestCase):
             "Current loopback",
             f"Write a sweep of currents ({CURRENT_TEST_VALUES} A) to {CURRENT_AO_CHANNEL} and verify each "
             f"reads back on {CURRENT_CHANNEL} within {CURRENT_TOLERANCE_A} A.",
+            step,
+        )
+
+    # =====================================================================
+    # 4. Digital line loopback — drive the DO line, verify on the DI line
+    # =====================================================================
+    def test_04_digital_line_loopback(self):
+        """Drive DO_LINE and verify the state on DI_LINE via single-line loopback."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_digital_lines(daq)
+
+                self.assertEqual(daq.do_channels[DO_ALIAS].physical_channel, DO_LINE)
+                self.assertEqual(daq.di_channels[DI_ALIAS].physical_channel, DI_LINE)
+
+                errs = []
+                for state in DIGITAL_TEST_STATES:
+                    daq.write_digital_line(DO_ALIAS, state)
+                    time.sleep(0.05)
+                    read = int(daq.read_digital_line(DI_ALIAS).latest)
+                    flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
+                    print(f"         {DO_ALIAS}<-{state} | {DI_ALIAS}={read}{flag}")
+                    if DIGITAL_LOOPBACK_WIRED and read != state:
+                        errs.append(f"drove {DO_ALIAS}={state}, read {DI_ALIAS}={read}")
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.write_digital_line(DO_ALIAS, 0)
+                daq.close()
+
+        self._run_step(
+            "Digital line loopback",
+            f"Drive {DO_LINE} through a {list(DIGITAL_TEST_STATES)} sequence and verify {DI_LINE} reads back "
+            "the same state via single-line loopback wiring.",
             step,
         )
 
