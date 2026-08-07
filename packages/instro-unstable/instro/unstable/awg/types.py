@@ -10,7 +10,7 @@ class AmplitudeMeasurementUnit(Enum):
     VP = "VP"
     VRMS = "VRMS"
     DBM = "DBM"
-    
+
 
 class ModulationType(Enum):
     AM = "AM"
