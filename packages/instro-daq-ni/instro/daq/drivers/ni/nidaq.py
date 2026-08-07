@@ -12,6 +12,8 @@ from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
+    AnalogVoltageChannel,
     ChannelType,
     DAQChannel,
     DigitalChannel,
@@ -143,7 +145,7 @@ class NIDAQDriver(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Configure a channel on the NI device."""
+        """Deprecated: use ``configure_ai_voltage_channel``. Configures a channel on the NI device."""
         self._reject_channel_range_or_list(channel.physical_channel)
         task = self._get_task(ChannelType.ANALOG_INPUT)
         terminal_config = self._get_terminal_config(channel.terminal_config)
@@ -158,6 +160,43 @@ class NIDAQDriver(DAQDriverBase):
         self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
+        """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the NI device."""
+        # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
+
+        task = self._ao_sw_tasks.get(channel.alias, None)
+        if task:
+            raise ValueError("Channel already exists and is configured")
+
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+        self._ao_sw_tasks[channel.alias] = task
+
+        task.ao_channels.add_ao_voltage_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+        )
+
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an analog voltage input channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
+        task = self._get_task(ChannelType.ANALOG_INPUT)
+        terminal_config = self._get_terminal_config(channel.terminal_config)
+
+        task.ai_channels.add_ai_voltage_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+            terminal_config=terminal_config,
+        )
+
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an analog voltage output channel on the NI device."""
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
         self._reject_channel_range_or_list(channel.physical_channel)
 
@@ -407,7 +446,7 @@ class NIDAQDriver(DAQDriverBase):
     def get_actual_sample_rate(self) -> float | None:
         return self._actual_sample_rate
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         task = self._ao_sw_tasks[channel.alias]
 
         task.write(value)

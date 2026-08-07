@@ -98,6 +98,10 @@ class AnalogThermocoupleChannel(DAQChannel):
     unit: TC_UNIT | None
 
 
+# The analog channel types are siblings, so driver state that holds any of them is typed on this union.
+AnalogChannelUnion = AnalogChannel | AnalogVoltageChannel | AnalogCurrentChannel | AnalogThermocoupleChannel
+
+
 # ========  Digital Channel Types  ===========
 
 
