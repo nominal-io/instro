@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/nominal-io/instro/compare/instro-v1.7.0...instro-v1.8.0) (2026-08-06)
+
+
+### Features
+
+* **lib:** add VISA instrument discovery API, consolidate CLI onto it ([#341](https://github.com/nominal-io/instro/issues/341)) ([d922c0d](https://github.com/nominal-io/instro/commit/d922c0dcc30c43d6a522807ccc44cf62997ae12a))
+
+
+### Bug Fixes
+
+* **lib:** import exceptions from nominal.core ([#353](https://github.com/nominal-io/instro/issues/353)) ([e53edb2](https://github.com/nominal-io/instro/commit/e53edb2b2a5a71e8fbfab54a61aa0addb98e38c0)), closes [#352](https://github.com/nominal-io/instro/issues/352)
+
 ## [1.7.0](https://github.com/nominal-io/instro/compare/instro-v1.6.0...instro-v1.7.0) (2026-08-05)
 
 
