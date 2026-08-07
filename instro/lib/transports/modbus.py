@@ -72,10 +72,10 @@ def _modbus_op(fn):
 class ModbusDriver(TransportBase):
     """Transport for Modbus TCP/RTU instruments. Composed by concrete drivers, not extended.
 
-    Supports shared ownership: multiple drivers can hold the same connection by passing
-    themselves as the holder to :meth:`open`/:meth:`close`, and it closes only when the
-    last owner closes it. Thread-safe at the I/O level via an internal lock; use
-    :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
+    Supports shared ownership: a device serving several categories holds one connection for
+    all of them, passing each category view as the holder to :meth:`open`/:meth:`close`, and
+    it closes only when the last owner closes it. Thread-safe at the I/O level via an internal
+    lock; use :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
     function-code ops return/accept the 16-bit register words or coil bits on the
     wire; :meth:`read_typed` / :meth:`write_typed` add typed encode/decode across registers.
     """

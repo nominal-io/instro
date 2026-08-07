@@ -117,10 +117,10 @@ class VisaConfig:
 class VisaDriver(TransportBase):
     """Transport for VISA-attached instruments. Composed by concrete drivers, not extended.
 
-    Supports shared ownership: multiple drivers can hold the same connection by passing
-    themselves as the holder to :meth:`open`/:meth:`close`, and it closes only when the
-    last owner closes it. Thread-safe at the I/O level via an internal lock; use
-    :meth:`lock` to keep a multi-step VISA sequence atomic.
+    Supports shared ownership: a device serving several categories holds one connection for
+    all of them, passing each category view as the holder to :meth:`open`/:meth:`close`, and
+    it closes only when the last owner closes it. Thread-safe at the I/O level via an internal
+    lock; use :meth:`lock` to keep a multi-step VISA sequence atomic.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:

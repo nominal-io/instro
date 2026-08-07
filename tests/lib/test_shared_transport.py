@@ -1,18 +1,18 @@
-"""One transport shared by two driver surfaces: exactly one session per box, torn down by the last owner.
+"""One transport shared by a device's category views: exactly one session per box, torn down by the last view.
 
-Given a combined instrument (one box that both sources and sinks, e.g. the EA PSB 10000),
-when the user constructs one connection and hands it to a PSU driver and an ELoad driver,
-then the two surfaces share that one session for as long as either of them owns it.
+Given a combined instrument (one box that both sources and sinks, e.g. the EA PSB 10000), when the
+user constructs the device and takes a view for each category, then the two views share that one
+session for as long as either of them owns it.
 
-Two driver objects rather than one ``EAPSB(PSUDriverBase, ELoadDriverBase)`` because each surface
-applies its own current-sign convention and publishes into its own category namespace. The stubs below
-carry real SCPI only where the single test reaches them — the lock lifecycle, one measurement, one
-output toggle; every other abstract method raises, because this test pins the shared-ownership contract
-and the vendor commands belong to the EA drivers' own tests.
+The device owns the connection and vends the views; the views are the transport's holders. Two view
+classes rather than one class inheriting both contracts, because each applies its own current-sign
+convention and publishes into its own category namespace. The stubs below carry real SCPI only where
+this test reaches them, because it pins the shared-ownership contract, not any vendor's command set.
 """
 
 from __future__ import annotations
 
+from functools import cached_property
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -25,24 +25,52 @@ from instro.psu import InstroPSU, PSUDriverBase
 RESOURCE = "TCPIP0::10.0.0.5::5025::SOCKET"
 
 
-class _SharedPSUDriver(PSUDriverBase):
-    """Mirrors the EA PSB lifecycle: takes the device's remote lock when it is the connection's first owner."""
+class _Box:
+    """Mirrors a bidirectional supply: owns the session and takes the device's remote lock once."""
 
-    def __init__(self, connection: VisaDriver) -> None:
-        self._visa = connection
+    def __init__(self, visa_resource: str) -> None:
+        self._visa = VisaDriver(visa_resource)
+
+    @cached_property
+    def source(self) -> PSUDriverBase:
+        return _SourceView(self)
+
+    @cached_property
+    def sink(self) -> ELoadDriverBase:
+        return _SinkView(self)
+
+    def acquire(self, holder: object) -> None:
+        if not self._visa.open(holder):
+            return
+        try:
+            self._visa.write("SYST:LOCK ON")
+        except Exception:
+            # A stranded holder would make the retry's open report not-first-owner, so
+            # SYST:LOCK ON would never be re-attempted.
+            self._visa.close(holder, on_last_release=self._unlock)
+            raise
+
+    def release(self, holder: object) -> None:
+        self._visa.close(holder, on_last_release=self._unlock)
+
+    def _unlock(self) -> None:
+        self._visa.write("SYST:LOCK OFF")
+
+    def measure_voltage(self) -> float:
+        return float(self._visa.query("MEAS:VOLT?"))
+
+
+class _SourceView(PSUDriverBase):
+    """The source surface of the box."""
+
+    def __init__(self, device: _Box) -> None:
+        self._dev = device
 
     def open(self) -> None:
-        if self._visa.open(self):
-            try:
-                self._visa.write("SYST:LOCK ON")
-            except Exception:
-                # Closing here is the driver's obligation: a stranded holder would make the retry's
-                # open report not-first-owner, so SYST:LOCK ON would never be re-attempted.
-                self._visa.close(self)
-                raise
+        self._dev.acquire(self)
 
     def close(self) -> None:
-        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+        self._dev.release(self)
 
     def set_voltage(self, voltage: float, channel: int) -> None:
         raise NotImplementedError
@@ -63,22 +91,17 @@ class _SharedPSUDriver(PSUDriverBase):
         raise NotImplementedError
 
 
-class _SharedELoadDriver(ELoadDriverBase):
-    """The sink surface of the same box; same lifecycle as ``_SharedPSUDriver``, deliberately mirrored."""
+class _SinkView(ELoadDriverBase):
+    """The sink surface of the same box, deliberately mirroring ``_SourceView``'s lifecycle."""
 
-    def __init__(self, connection: VisaDriver) -> None:
-        self._visa = connection
+    def __init__(self, device: _Box) -> None:
+        self._dev = device
 
     def open(self) -> None:
-        if self._visa.open(self):
-            try:
-                self._visa.write("SYST:LOCK ON")
-            except Exception:
-                self._visa.close(self)
-                raise
+        self._dev.acquire(self)
 
     def close(self) -> None:
-        self._visa.close(self, on_last_release=lambda: self._visa.write("SYST:LOCK OFF"))
+        self._dev.release(self)
 
     def short_output(self, enable: bool, channel: int) -> None:
         raise NotImplementedError
@@ -102,7 +125,7 @@ class _SharedELoadDriver(ELoadDriverBase):
         raise NotImplementedError
 
     def get_voltage(self, channel: int) -> float:
-        return float(self._visa.query("MEAS:VOLT?"))
+        return self._dev.measure_voltage()
 
 
 @pytest.fixture
@@ -119,12 +142,12 @@ def mock_pyvisa():
         yield rm_instance, resource
 
 
-def test_psu_and_eload_surfaces_share_one_session(mock_pyvisa):
+def test_a_devices_views_share_one_session(mock_pyvisa):
     rm_instance, resource = mock_pyvisa
 
-    connection = VisaDriver(RESOURCE)
-    psu = InstroPSU(name="psb_source", driver=_SharedPSUDriver(connection), num_channels=1)
-    eload = InstroELoad(name="psb_sink", driver=_SharedELoadDriver(connection))
+    box = _Box(RESOURCE)
+    psu = InstroPSU(name="psb_source", driver=box.source, num_channels=1)
+    eload = InstroELoad(name="psb_sink", driver=box.sink)
 
     psu.open()
     eload.open()
@@ -135,10 +158,9 @@ def test_psu_and_eload_surfaces_share_one_session(mock_pyvisa):
 
     psu.close()
 
-    # The ELoad still holds the box, and is still readable.
+    # The sink view still holds the box, and is still readable.
     assert call("SYST:LOCK OFF") not in resource.write.call_args_list
     resource.close.assert_not_called()
-    assert connection.is_open is True
     # Doubly nested because ``channel_data`` maps channel name to that channel's list of samples.
     assert list(eload.get_voltage(channel=1).channel_data.values()) == [[48.0]]  # type: ignore[union-attr]
 
@@ -149,4 +171,26 @@ def test_psu_and_eload_surfaces_share_one_session(mock_pyvisa):
     assert resource.write.call_args_list.count(call("SYST:LOCK OFF")) == 1
     resource.close.assert_called_once()
     assert resource.mock_calls.index(call.write("SYST:LOCK OFF")) < resource.mock_calls.index(call.close())
-    assert connection.is_open is False
+
+
+def test_reopening_the_same_view_is_idempotent(mock_pyvisa):
+    _, resource = mock_pyvisa
+
+    box = _Box(RESOURCE)
+    box.source.open()
+    box.source.open()
+
+    assert resource.write.call_args_list.count(call("SYST:LOCK ON")) == 1
+
+
+def test_failed_setup_leaves_no_stranded_holder(mock_pyvisa):
+    _, resource = mock_pyvisa
+    resource.write.side_effect = [RuntimeError("device in local mode"), None, None]
+
+    box = _Box(RESOURCE)
+    with pytest.raises(RuntimeError, match="local mode"):
+        box.source.open()
+
+    # The retry is first-owner again, so the one-time setup is re-attempted.
+    box.source.open()
+    assert resource.write.call_args_list.count(call("SYST:LOCK ON")) == 2
