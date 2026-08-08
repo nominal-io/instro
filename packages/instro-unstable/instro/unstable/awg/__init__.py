@@ -7,6 +7,7 @@ from instro.unstable.awg.awg import (
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -29,5 +30,6 @@ __all__ = [
     "Arbitrary",
     "StaticValue",
     "AmplitudeMeasurementUnit",
+    "ModulationType",
     "convert_amplitude",
 ]

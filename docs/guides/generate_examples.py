@@ -71,13 +71,13 @@ def write_mdx(py_path: Path, out_path: Path, *, unstable: bool = False) -> None:
     out_path.write_text(f'---\ntitle: "{title}"\n---\n\n{warning}```python {py_path.name}\n{body}```\n')
 
 
-def clean_output_dir() -> None:
-    if not EXAMPLES_OUT.exists():
+def clean_output_dir(output_path: Path) -> None:
+    if not output_path.exists():
         return
-    for mdx in EXAMPLES_OUT.rglob("*.mdx"):
+    for mdx in output_path.rglob("*.mdx"):
         mdx.unlink()
     for d in sorted(
-        (p for p in EXAMPLES_OUT.rglob("*") if p.is_dir()),
+        (p for p in output_path.rglob("*") if p.is_dir()),
         key=lambda p: -len(p.parts),
     ):
         if not any(d.iterdir()):
@@ -171,18 +171,24 @@ def update_docs_json(
     DOCS_JSON.write_text(json.dumps(docs, indent=2) + "\n")
 
 
-def main() -> None:
-    clean_output_dir()
+def main(output_path: Path) -> None:
+    clean_output_dir(output_path)
     for py_path in sorted(EXAMPLES_SRC.rglob("*.py")):
         rel = py_path.relative_to(EXAMPLES_SRC)
-        out_path = (EXAMPLES_OUT / rel).with_suffix(".mdx")
+        out_path = (output_path / rel).with_suffix(".mdx")
         write_mdx(py_path, out_path)
-        print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
+        try:
+            print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
+        except ValueError as e:
+            print(f"wrote {out_path}")
     for py_path in sorted(UNSTABLE_SRC.rglob("examples/*.py")):
         category = py_path.parent.parent.name
-        out_path = EXAMPLES_OUT / "unstable" / category / py_path.with_suffix(".mdx").name
+        out_path = output_path / "unstable" / category / py_path.with_suffix(".mdx").name
         write_mdx(py_path, out_path, unstable=True)
-        print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
+        try:
+            print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
+        except ValueError as e:
+            print(f"wrote {out_path}")
     categories, root_files = discover()
     unstable_categories = discover_unstable()
     update_docs_json(categories, root_files, unstable_categories)
@@ -190,4 +196,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(EXAMPLES_OUT)

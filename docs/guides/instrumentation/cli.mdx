@@ -80,3 +80,24 @@ psu.open()
 ### Unrecognized devices
 
 If your instrument appears in the **Unrecognized devices** table, `instro` does not yet have a driver for it. See [Custom instruments](/instrumentation/custom-instruments) for how to author one, or [instro-contrib](/instrumentation/contrib) to check for community-contributed drivers.
+
+### Discovering programmatically
+
+`instro discover` is a thin wrapper around `scan_visa_resources`, which is also available directly from `instro.lib` for use in your own scripts:
+
+```python
+from instro.lib import scan_visa_resources
+
+result = scan_visa_resources()
+
+for info in result.instruments:
+    print(info.resource, info.category, info.driver_class_name)
+
+for unrecognized in result.unrecognized:
+    print(unrecognized.resource, unrecognized.idn)
+
+for error in result.errors:
+    print(error.resource, error.hint or error.message)
+```
+
+`scan_visa_resources` accepts the same `backend` the CLI's `--backend` flag does, plus an optional `timeout` (seconds per instrument query, default `2`) that the CLI doesn't currently expose. It returns a `VisaScanResult` with `instruments` (`VisaInstrumentInfo`), `unrecognized` (`VisaUnrecognizedInstrument`), and `errors` (`VisaScanError`) — the same data the CLI renders into the tables above.

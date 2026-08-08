@@ -1,5 +1,61 @@
 # Changelog
 
+## [1.9.0](https://github.com/nominal-io/instro/compare/instro-v1.8.0...instro-v1.9.0) (2026-08-07)
+
+
+### Features
+
+* **instrodaq:** add support for sw timed background daemon ([#325](https://github.com/nominal-io/instro/issues/325)) ([81f3784](https://github.com/nominal-io/instro/commit/81f37845e12eda260c55d71537e93221956fa17e))
+
+
+### Bug Fixes
+
+* **ljm:** expose stream buffer byte size configuration ([#366](https://github.com/nominal-io/instro/issues/366)) ([4cc6d14](https://github.com/nominal-io/instro/commit/4cc6d14977b1c3c8c42f17d22e79bd139df2953b))
+
+## [1.8.0](https://github.com/nominal-io/instro/compare/instro-v1.7.0...instro-v1.8.0) (2026-08-06)
+
+
+### Features
+
+* **lib:** add VISA instrument discovery API, consolidate CLI onto it ([#341](https://github.com/nominal-io/instro/issues/341)) ([d922c0d](https://github.com/nominal-io/instro/commit/d922c0dcc30c43d6a522807ccc44cf62997ae12a))
+
+
+### Bug Fixes
+
+* **lib:** import exceptions from nominal.core ([#353](https://github.com/nominal-io/instro/issues/353)) ([e53edb2](https://github.com/nominal-io/instro/commit/e53edb2b2a5a71e8fbfab54a61aa0addb98e38c0)), closes [#352](https://github.com/nominal-io/instro/issues/352)
+
+## [1.7.0](https://github.com/nominal-io/instro/compare/instro-v1.6.0...instro-v1.7.0) (2026-08-05)
+
+
+### Features
+
+* **awg:** add modulation to AWG ([#335](https://github.com/nominal-io/instro/issues/335)) ([9ea6bbd](https://github.com/nominal-io/instro/commit/9ea6bbd3548de24b809503e5adc4d2e0d1772aab))
+
+
+### Bug Fixes
+
+* **publishers:** fix BufferedPublisher retains its buffer after close ([#345](https://github.com/nominal-io/instro/issues/345)) ([fe2d160](https://github.com/nominal-io/instro/commit/fe2d1605c8fe47f9bb179a3ba23a3c0ed3503584))
+
+## [1.6.0](https://github.com/nominal-io/instro/compare/instro-v1.5.0...instro-v1.6.0) (2026-08-04)
+
+
+### Features
+
+* add gen-examples to `fix` step in justfile, closing [#326](https://github.com/nominal-io/instro/issues/326) ([#327](https://github.com/nominal-io/instro/issues/327)) ([c9f992b](https://github.com/nominal-io/instro/commit/c9f992b3ebd13e3c402c7b6d81d65fbbb4b91fe8))
+* add support for alicat mc flow controller and the concept of an instro flow controller. First pass. Aimed for future compatibility for different flow control types and different vendors but expect to adapt as new vendors supported. ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* add support for alicat mc flow controller and the concept of an InstroFlowController ([#132](https://github.com/nominal-io/instro/issues/132)) ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* **awg:** add Rigol-DG1022Z driver ([#307](https://github.com/nominal-io/instro/issues/307)) ([168be78](https://github.com/nominal-io/instro/commit/168be78a092cf7847410059137f925d7cb7ea2c9))
+* **cli:** add scopes to idn map ([#330](https://github.com/nominal-io/instro/issues/330)) ([f44cf77](https://github.com/nominal-io/instro/commit/f44cf7710fb685bcd7f266e05fee5b4b9b6c4090))
+* **dmm:** add Keysight 34461A Truevolt driver ([#263](https://github.com/nominal-io/instro/issues/263)) ([f00ff08](https://github.com/nominal-io/instro/commit/f00ff08bb44e4398dd92b4253f25e5bfd5a3c1cc))
+* **psu:** add get_voltage_setpoint() and get_current_setpoint() to PSUDriverBase ([#308](https://github.com/nominal-io/instro/issues/308)) ([c487dcd](https://github.com/nominal-io/instro/commit/c487dcd512bb0d851932480c5740afe0f9f1d64a))
+* **psu:** config-driven InstroPSU initialization from JSON and dict ([#131](https://github.com/nominal-io/instro/issues/131)) ([73c1415](https://github.com/nominal-io/instro/commit/73c1415bed3015ad86b72df471b8c3003c61cfb7))
+* **psu:** implement get_voltage_setpoint()/get_current_setpoint() for RigolDP800 ([#314](https://github.com/nominal-io/instro/issues/314)) ([5ec23ed](https://github.com/nominal-io/instro/commit/5ec23edae3d5859462119505cc99a93da3ce417d))
+
+
+### Bug Fixes
+
+* **scope:** remove loop from scope check_errors() ([#340](https://github.com/nominal-io/instro/issues/340)) ([719aff4](https://github.com/nominal-io/instro/commit/719aff413d6cd5b48a0502cbccf980a10c6f99ba))
+
 ## [1.5.0](https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v1.5.0) (2026-07-26)
 
 

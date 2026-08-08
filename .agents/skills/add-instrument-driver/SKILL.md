@@ -190,7 +190,8 @@ Per `AGENTS.md` "Documentation":
 Run the repo gates and fix anything they flag:
 
 ```bash
-just check    # ruff format, mypy, ruff lint
+just fix      # perform format and generate examples, intended to ensure just check passes
+just check    # ruff format, mypy, ruff lint, and compare examples against working dir
 just test     # mocked unit tests, no hardware
 ```
 

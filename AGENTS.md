@@ -7,14 +7,16 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ```bash
 uv sync --extra all              # install everything
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
-just check                       # ruff format, mypy, ruff lint
-just test                        # unit tests; no hardware required
+just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
+just test                        # all tests: python + Rust; no hardware required
+just check-python / check-rust   # single-language lints (check-rust includes lockfile + standalone-crate checks)
+just test-python / test-rust     # single-language tests
 uv build --package <name>        # build a wheel for a workspace package
 ```
 
-If `just check` and `just test` both pass, CI will pass.
+If `just check` and `just test` both pass, CI will pass. (A separate scheduled workflow, `.github/workflows/latest-deps-test.yml`, additionally re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests to catch upstream breaking releases; it is not part of PR CI.)
 
-`just check` needs only `just` + `uv`. `just test` additionally needs a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because it builds the EtherNet/IP maturin wheel and runs `cargo test` across the Rust workspace, including the `instro-opcua` crate's C build of `open62541-sys`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+`just check-python` needs only `just` + `uv`. `just check` and `just test` additionally need a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because they run clippy/`cargo test` across the Rust workspace — including the `instro-opcua` crate's C build of `open62541-sys` — and `just test` builds the EtherNet/IP maturin wheel. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
 
 ## Codebase layout
 
@@ -41,6 +43,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
 - **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
+- **GitHub Actions are SHA-pinned.** Every `uses:` in `.github/workflows/` pins a full commit SHA with the release as a trailing comment (`@11d5960a... # v4.4.0`). Resolve SHAs from the upstream repo's releases — never trust an unverified suggestion. Dependabot bumps the pins weekly.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
 ### Naming
@@ -106,7 +109,7 @@ This repo prefers duplicated, explicit code over premature abstraction. The cons
 - **`_write_checked` is per-driver because some drivers can't use it.** The helper assumes `write + _check_errors` is one atomic step. Stateful drivers can't fit that shape: `BK9140` must hold the VISA lock across `INST <n>` channel-select + write + check, so it inlines the sequence. Keeping the helper driver-local lets stateless drivers stay terse and stateful ones write atomic sequences directly.
 - **`pkgutil.extend_path` in `drivers/__init__.py`** is required for any category whose drivers can come from workspace vendor packages (`daq`, `i2c` currently). Without it, vendor-package subpackages disappear at import time.
 - **VISA drivers' `__init__` accepts `str | VisaConfig`.** `VisaConfig` is the canonical customization vehicle for `VisaDriver`. Don't propose dropping the union. Drivers on other transports take whatever their transport needs.
-- **No vendor-string factory** (`Instrument.create(vendor="bk", ...)`). Construct concrete drivers explicitly and pass them in: `InstroPSU(name="x", driver=BK9115(...), num_channels=1)`.
+- **No vendor-string factory in the direct Python construction API** (`Instrument.create(vendor="bk", ...)`). Construct concrete drivers explicitly and pass them in: `InstroPSU(name="x", driver=BK9115(...), num_channels=1)`. This doesn't extend to JSON/dict config loading (`InstroPSU(config=...)`): resolving a validated `driver.name` string to a class via `PSU_VENDOR_REGISTRY` is an implementation detail of that declarative config format's strict schema, not a public factory method — direct construction stays mandatory and unaffected.
 - **No driver-side facade or back-channel.** Drivers don't hold a reference back to the category HAL. Any vendor-specific state a driver needs across calls (e.g. an `nidaqmx.Task` handle, a `VisaDriver`, a cached sample rate) lives on the driver itself.
 - **Every concrete transport calls `super().__init__()` first.** `VisaDriver` and `ModbusDriver` inherit `TransportBase` (`instro/lib/transports/transport_base.py`), the base every transport implements: `_open_session`, `_teardown_session`, and `is_open` are required, and the base itself owns the holder list, the reentrant lock, and the shared `open`/`close`/`__del__` lifecycle. A subclass `__init__` that skips `super().__init__()` leaves the holder list and lock uninitialized.
 - **A device serving more than one category is one class that owns the connection and vends one driver per category.** The device constructs its own transport from `str | VisaConfig`; connections are never injected by callers. It exposes each category's driver as a property: a bidirectional supply's device class offers `.source` (a `PSUDriverBase`) and `.sink` (an `ELoadDriverBase`). The device lives in the category that best describes the hardware, so a bidirectional supply belongs under `instro/psu/drivers/`, and it reaches the other category's view through a deferred import, which keeps the package dependency one-way; each view still registers in its own category's `drivers/__init__.py`. Don't model this with multiple inheritance: colliding methods need two bodies (`get_current` is source-positive for PSU, sink-positive for ELoad), and Python gives a class one body per name.

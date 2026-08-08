@@ -80,7 +80,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "MCC DAQ SERIAL NUMBER:0"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "<MCC SERIAL NUMBER>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
 DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
 
@@ -104,6 +104,7 @@ DIGITAL_LOOPBACK_MASK = 0b00000011
 ANALOG_LOOPBACK_TOLERANCE_V = 0.15  # volts — accounts for 16-bit quantisation + wiring noise
 SAMPLE_RATE_HZ = 1000
 SAMPLES_PER_CHANNEL = 100
+SW_SAMPLE_RATE_HZ = 1
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +545,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -590,7 +591,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -616,9 +617,52 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 8. HW-timed analog loopback — write ramp, verify on AI
+    # 8. SW-timed analog read with background daemon
     # =====================================================================
-    def test_08_hw_timed_analog_loopback(self):
+    def test_08_sw_timed_analog_read_background(self):
+        """Start SW-timed acquisition with background daemon and read buffered data."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ao(daq)
+
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+
+                try:
+                    daq.write_analog_value("ao_0", 3.0)
+                    daq.write_analog_value("ao_1", -3.0)
+                    time.sleep(1.0)  # let background daemon collect samples
+
+                    ch0 = daq.get_channel("mccdaq_test.ai_0", 9, True)
+                    ch1 = daq.get_channel("mccdaq_test.ai_1", 9, True)
+
+                    self.assertIsNotNone(ch0)
+                    self.assertIsNotNone(ch1)
+                    self.assertGreaterEqual(len(ch0.values), 1)
+
+                    mean_ch0 = sum(ch0.values) / len(ch0.values)
+                    mean_ch1 = sum(ch1.values) / len(ch1.values)
+                    self.assertAlmostEqual(mean_ch0, 3.0, delta=ANALOG_LOOPBACK_TOLERANCE_V)
+                    self.assertAlmostEqual(mean_ch1, -3.0, delta=ANALOG_LOOPBACK_TOLERANCE_V)
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "SW-timed analog read (background)",
+            f"Start SW-timed acquisition at {SW_SAMPLE_RATE_HZ}Hz with background daemon. "
+            "Write 3V/-3V to AO, verify AI reads match via get_channel().",
+            step,
+        )
+
+    # =====================================================================
+    # 9. HW-timed analog loopback — write ramp, verify on AI
+    # =====================================================================
+    def test_09_hw_timed_analog_loopback(self):
         """Write a voltage ramp to AO while HW-timed AI captures, then verify."""
 
         def step():
@@ -627,7 +671,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -665,9 +709,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 9. Actual sample rate reporting
+    # 10. Actual sample rate reporting
     # =====================================================================
-    def test_09_actual_sample_rate(self):
+    def test_10_actual_sample_rate(self):
         """Verify get_actual_sample_rate returns a reasonable value after start."""
 
         def step():
@@ -675,7 +719,7 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -702,9 +746,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 10. Sustained HW-timed acquisition — buffer overrun check
+    # 11. Sustained HW-timed acquisition — buffer overrun check
     # =====================================================================
-    def test_10_sustained_hw_timed_acquisition(self):
+    def test_11_sustained_hw_timed_acquisition(self):
         """Run HW-timed acquisition for several seconds and verify no data loss."""
 
         def step():
@@ -713,7 +757,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
 
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -749,9 +793,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 11. Digital port configuration
+    # 12. Digital port configuration
     # =====================================================================
-    def test_11_digital_port_configure(self):
+    def test_12_digital_port_configure(self):
         """Configure FIRSTPORTA (output) and FIRSTPORTB (input) as 8-bit ports."""
 
         def step():
@@ -768,9 +812,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 12. Digital port write/read loopback
+    # 13. Digital port write/read loopback
     # =====================================================================
-    def test_12_digital_port_loopback(self):
+    def test_13_digital_port_loopback(self):
         """Write bit patterns to FIRSTPORTA and verify on FIRSTPORTB via loopback."""
 
         def step():
@@ -809,9 +853,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 13. Digital port write/read — full byte patterns
+    # 14. Digital port write/read — full byte patterns
     # =====================================================================
-    def test_13_digital_port_full_byte(self):
+    def test_14_digital_port_full_byte(self):
         """Write full-byte patterns to FIRSTPORTA and verify loopback bits on FIRSTPORTB."""
 
         def step():
@@ -850,16 +894,16 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 14. Buffer-depth telemetry
+    # 15. Buffer-depth telemetry
     # =====================================================================
-    def test_14_buffer_depth_telemetry(self):
+    def test_15_buffer_depth_telemetry(self):
         """get_points_in_buffer() reports a valid depth during background acquisition."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -885,16 +929,16 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 15. read_analog() raises while background daemon is running
+    # 16. read_analog() raises while background daemon is running
     # =====================================================================
-    def test_15_read_analog_raises_while_daemon_running(self):
+    def test_16_read_analog_raises_while_daemon_running(self):
         """read_analog() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
 
         def step():
             daq = self._create_daq()
             try:
                 self._configure_ai(daq)
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
                 )
@@ -924,9 +968,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 16. Analog output — Command return value
+    # 17. Analog output — Command return value
     # =====================================================================
-    def test_16_analog_output_command_return(self):
+    def test_17_analog_output_command_return(self):
         """write_analog_value() must return a Command with the correct channel key and value."""
 
         def step():
@@ -959,9 +1003,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 17. Analog output — unconfigured channel raises KeyError
+    # 18. Analog output — unconfigured channel raises KeyError
     # =====================================================================
-    def test_17_analog_output_unconfigured_raises(self):
+    def test_18_analog_output_unconfigured_raises(self):
         """write_analog_value() on an unconfigured alias must raise KeyError immediately."""
 
         def step():
@@ -982,9 +1026,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 18. Per-line digital config unsupported on USB-1616HS-4
+    # 19. Per-line digital config unsupported on USB-1616HS-4
     # =====================================================================
-    def test_18_digital_line_config_unsupported(self):
+    def test_19_digital_line_config_unsupported(self):
         """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
@@ -1010,14 +1054,14 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "Per-line digital config unsupported",
             "Assert configure_digital_line() raises RuntimeError on the USB-1616HS-4, which lacks "
-            "per-bit digital configuration. Port-width digital I/O is covered by tests 11–13.",
+            "per-bit digital configuration. Port-width digital I/O is covered by tests 12–14.",
             step,
         )
 
     # =====================================================================
-    # 19. Relay control unsupported
+    # 20. Relay control unsupported
     # =====================================================================
-    def test_19_relay_control_unsupported(self):
+    def test_20_relay_control_unsupported(self):
         """close_relay() must raise NotImplementedError — the MCC driver has no relay support."""
 
         def step():
@@ -1038,9 +1082,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 20. Clean shutdown — outputs to safe state (runs last)
+    # 21. Clean shutdown — outputs to safe state (runs last)
     # =====================================================================
-    def test_20_clean_shutdown(self):
+    def test_21_clean_shutdown(self):
         """Set all outputs to safe state as the final step."""
 
         def step():

@@ -35,7 +35,7 @@ use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {
     OpcUaClientBuilder::new()
-        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned())?)
+        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned()))
         .security_mode(OpcUaSecurityMode::None)
         .security_policy(OpcUaSecurityPolicy::None)
         .timeout(LIFETIME_TIMEOUT)

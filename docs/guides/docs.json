@@ -64,7 +64,9 @@
                 ]
               },
               "instrumentation/daq",
-              "instrumentation/oscilloscope"
+              "instrumentation/oscilloscope",
+              "instrumentation/awg",
+              "instrumentation/flowcontroller"
             ]
           },
           {
@@ -126,7 +128,9 @@
               "instrumentation/examples/daq/daq_write_digital_line",
               "instrumentation/examples/daq/daq_read_digital_port",
               "instrumentation/examples/daq/daq_write_digital_port",
-              "instrumentation/examples/daq/daq_multi_rate_ni"
+              "instrumentation/examples/daq/daq_multi_rate_ni",
+              "instrumentation/examples/daq/daq_hw_and_sw_timed_ni",
+              "instrumentation/examples/daq/daq_read_analog_sw_timed_no_background"
             ]
           },
           {
@@ -139,7 +143,8 @@
             "group": "PSU",
             "pages": [
               "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_daemon"
+              "instrumentation/examples/psu/psu_background_daemon",
+              "instrumentation/examples/psu/psu_config"
             ]
           },
           {
@@ -200,6 +205,13 @@
             "pages": [
               "instrumentation/examples/scope/scope_background",
               "instrumentation/examples/scope/scope_basic"
+            ]
+          },
+          {
+            "group": "Flowcontroller (Unstable)",
+            "pages": [
+              "instrumentation/examples/unstable/flowcontroller/flowcontroller",
+              "instrumentation/examples/unstable/flowcontroller/alicat_mc"
             ]
           }
         ]

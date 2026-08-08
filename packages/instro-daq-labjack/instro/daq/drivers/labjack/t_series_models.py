@@ -16,6 +16,7 @@ class LJ_Model(Protocol):
         self,
         hw_timing_config: HWTimingConfig,
         channels: list[AnalogChannel],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]: ...
 
 
@@ -56,12 +57,13 @@ class LJ_T4:
         self,
         hw_timing_config: HWTimingConfig,
         channels: list[AnalogChannel],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # Stream settling is 0 (default) and
         # stream resolution index is 0 (default).
 
-        aNames = ["STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX"]
-        aValues = [0, 0]
+        aNames = ["STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX", "STREAM_BUFFER_SIZE_BYTES"]
+        aValues = [0, 0, stream_buffer_bytes]
 
         return aNames, aValues
 
@@ -138,6 +140,7 @@ class LJ_T7:
         self,
         hw_timing_config: HWTimingConfig,
         channels: list[AnalogChannel],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # I believe the Labjack only has one timing engine so no need to track channel_type
 
@@ -150,8 +153,9 @@ class LJ_T7:
             "STREAM_CLOCK_SOURCE",
             "STREAM_RESOLUTION_INDEX",
             "STREAM_SETTLING_US",
+            "STREAM_BUFFER_SIZE_BYTES",
         ]
-        aValues = [0, 0, 0, 0]
+        aValues = [0, 0, 0, 0, stream_buffer_bytes]
 
         return aNames, aValues
 
@@ -202,12 +206,14 @@ class LJ_T8:
         self,
         hw_timing_config: HWTimingConfig,
         channels: list[AnalogChannel],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         aNames = [
             "STREAM_TRIGGER_INDEX",
             "STREAM_CLOCK_SOURCE",
             "STREAM_RESOLUTION_INDEX",
+            "STREAM_BUFFER_SIZE_BYTES",
         ]
-        aValues = [0, 0, 0]
+        aValues = [0, 0, 0, stream_buffer_bytes]
 
         return aNames, aValues

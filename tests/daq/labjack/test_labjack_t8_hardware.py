@@ -70,7 +70,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "LABJACK T8 SERIAL NUMBER"  # e.g. "123456789" or "ANY"
+DEVICE_ID = "<LABJACK T8 SERIAL NUMBER>"  # e.g. "123456789" or "ANY"
 NAME = "t8_validate"
 DATASET_RID = None
 
@@ -104,12 +104,15 @@ ANALOG_TOLERANCE_V = 0.015  # 15 mV: 24-bit ADC, no multiplexer skew
 
 SAMPLE_RATE_HZ = 1_000.0
 SAMPLES_PER_CHANNEL = 100
+SW_SAMPLE_RATE_HZ = 1.0
 HW_TIMED_DC_V = 5.0
 HW_TIMED_TOLERANCE_V = 0.05
 
 HIGH_RATE_HZ = 40_000.0
 HIGH_RATE_SAMPLES = 4_000
 HIGH_RATE_TOLERANCE_V = 0.10
+# The T8's default stream buffer drops scans at 40 kS/s; LJM fills them with -9999.
+HIGH_RATE_STREAM_BUFFER_BYTES = 65_536
 
 
 # ---------------------------------------------------------------------------
@@ -202,8 +205,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _create_daq(self) -> InstroDAQ:
-        daq = InstroDAQ(name=NAME, driver=LabJackTSeriesDriver(device_id=DEVICE_ID))
+    def _create_daq(self, stream_buffer_bytes: int = 0) -> InstroDAQ:
+        daq = InstroDAQ(
+            name=NAME,
+            driver=LabJackTSeriesDriver(device_id=DEVICE_ID, stream_buffer_bytes=stream_buffer_bytes),
+        )
         if DATASET_RID:
             daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
         daq.open()
@@ -693,7 +699,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start()
                 try:
                     time.sleep(1.0)
@@ -737,7 +743,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=True)
                 try:
                     time.sleep(0.2)  # give the daemon time to start and confirm it is alive
@@ -777,7 +783,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
@@ -803,10 +809,10 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 14. HW-timed streaming — high data rate (40 kS/s)
+    # 14. SW-timed streaming — background daemon
     # ==================================================================
-    def test_14_hw_timed_high_rate(self):
-        """Stream at 40 kS/s — T8 maximum per-channel rate."""
+    def test_14_sw_timed_background_daemon(self):
+        """start(background=True) + get_channel() — verify buffered data."""
 
         def step(start_ns: int):
             print(f"         [start {self._ts(start_ns)}]")
@@ -815,7 +821,45 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
-                daq.configure_ai_sample_rate(sample_rate=HIGH_RATE_HZ, samples_per_channel=HIGH_RATE_SAMPLES)
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+                try:
+                    time.sleep(1.0)
+                    ch = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 9, True)
+                    self.assertIsNotNone(ch)
+                    self.assertGreaterEqual(len(ch.values), 1)
+                    self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
+                    mean = sum(ch.values) / len(ch.values)
+                    print(f"         background: {len(ch.values)} samples, mean AIN0={mean:.6f} V")
+                    if LOOPBACK_WIRED:
+                        self.assertAlmostEqual(mean, HW_TIMED_DC_V, delta=HW_TIMED_TOLERANCE_V)
+                finally:
+                    daq.stop()
+                    daq.write_analog_value(AO_ALIAS_0, 0.0)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "SW-timed streaming (background daemon)",
+            f"start() at {SW_SAMPLE_RATE_HZ} Hz with background=True. "
+            f"Hold DAC0 at {HW_TIMED_DC_V} V; verify mean via get_channel().",
+            step,
+        )
+
+    # ==================================================================
+    # 15. HW-timed streaming — high data rate (40 kS/s)
+    # ==================================================================
+    def test_15_hw_timed_high_rate(self):
+        """Stream at 40 kS/s — T8 maximum per-channel rate."""
+
+        def step(start_ns: int):
+            print(f"         [start {self._ts(start_ns)}]")
+            daq = self._create_daq(stream_buffer_bytes=HIGH_RATE_STREAM_BUFFER_BYTES)
+            try:
+                self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
+                self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
+                daq.write_analog_value(AO_ALIAS_0, HW_TIMED_DC_V)
+                daq.configure_ai_hw_sample_rate(sample_rate=HIGH_RATE_HZ, samples_per_channel=HIGH_RATE_SAMPLES)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
@@ -837,15 +881,16 @@ class TestLabJackT8Hardware(unittest.TestCase):
 
         self._run_step(
             f"HW-timed high-rate stream ({HIGH_RATE_HZ / 1000:.0f} kS/s)",
-            f"Stream AIN0 at {HIGH_RATE_HZ} Hz via start(background=False). "
+            f"Stream AIN0 at {HIGH_RATE_HZ} Hz via start(background=False) with "
+            f"stream_buffer_bytes={HIGH_RATE_STREAM_BUFFER_BYTES}. "
             "Verifies T8 maximum per-channel rate without errors.",
             step,
         )
 
     # ==================================================================
-    # 15. Sample rate and buffer-depth telemetry
+    # 16. Sample rate and buffer-depth telemetry
     # ==================================================================
-    def test_15_sample_rate_and_buffer_telemetry(self):
+    def test_16_sample_rate_and_buffer_telemetry(self):
         """get_actual_sample_rate() and get_points_in_buffer() during streaming."""
 
         def step(start_ns: int):
@@ -853,7 +898,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start()
                 try:
                     time.sleep(0.5)
@@ -882,9 +927,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 16. HW-timed streaming — multi-channel simultaneous
+    # 17. HW-timed streaming — multi-channel simultaneous
     # ==================================================================
-    def test_16_hw_timed_multi_channel(self):
+    def test_17_hw_timed_multi_channel(self):
         """Stream AIN0, AIN1, and AIN2 simultaneously in HW-timed mode.
 
         Configures three analog input channels and one sample rate, then
@@ -927,7 +972,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.write_analog_value(AO_ALIAS_1, DAC1_V)
                 time.sleep(0.05)
 
-                daq.configure_ai_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
                     measurement = daq.read_analog()
@@ -1005,9 +1050,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 17. Digital line loopback
+    # 18. Digital line loopback
     # ==================================================================
-    def test_17_digital_line_loopback(self):
+    def test_18_digital_line_loopback(self):
         """write_digital_line() / read_digital_line() via FIO4 → FIO5 loopback."""
 
         def step(start_ns: int):
@@ -1037,9 +1082,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 17. Clean shutdown
+    # 19. Clean shutdown
     # ==================================================================
-    def test_18_clean_shutdown(self):
+    def test_19_clean_shutdown(self):
         """Set all outputs to safe state via InstroDAQ public methods."""
 
         def step(start_ns: int):
@@ -1062,9 +1107,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 18. NotImplementedError — port-width digital I/O
+    # 20. NotImplementedError — port-width digital I/O
     # ==================================================================
-    def test_19_port_width_digital_raises(self):
+    def test_20_port_width_digital_raises(self):
         """configure_digital_port() must raise NotImplementedError on T8."""
 
         def step(start_ns: int):
@@ -1090,9 +1135,9 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 19. NotImplementedError — relay control
+    # 21. NotImplementedError — relay control
     # ==================================================================
-    def test_20_relay_control_raises(self):
+    def test_21_relay_control_raises(self):
         """close_relay() must raise NotImplementedError on the T8 driver."""
 
         def step(start_ns: int):
