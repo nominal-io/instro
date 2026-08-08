@@ -254,7 +254,6 @@ def get_output_state(self, channel: int) -> bool:
 
 Optional overrides (raise `NotImplementedError` if not supported):
 
-- **`check_errors()`**: Drain the instrument error queue; raise if any error is pending. `InstroAWG` calls this after every write and tolerates it being unimplemented.
 - **`set_output_load(channel, load)`** / **`get_output_load(channel)`**: Set or read the output load impedance; `None` means high-Z.
 - **`align_phase()`**: Sync the phase of all channels.
 - **`set_modulation(channel, mod_type, shape, magnitude)`**: Configure a channel's modulation. Call `modulation_enable()` to activate it.

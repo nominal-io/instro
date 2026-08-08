@@ -83,7 +83,6 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
 @pytest.mark.parametrize(
     ("method_name", "args"),
     [
-        ("check_errors", ()),
         ("set_output_load", (1, 50.0)),
         ("get_output_load", (1,)),
         ("align_phase", ()),
@@ -177,14 +176,6 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
     with pytest.raises(RuntimeError, match="instrument error queue not empty"):
         awg.set_waveform(2, Sine(frequency_hz=1000.0))
     assert 2 not in awg._channel_waveforms
-
-
-def test_04b_check_errors_is_optional(mock_driver: MagicMock) -> None:
-    """A driver that doesn't implement check_errors must not break other calls."""
-    mock_driver.check_errors.side_effect = NotImplementedError("check_errors is not implemented for _NoErrorCheck")
-    awg = InstroAWG(name="test_awg", driver=mock_driver, num_channels=2)
-    awg.set_waveform(1, Sine(frequency_hz=1000.0))
-    awg.get_output_state(1)
 
 
 # ---------------------------------------------------------------------------
