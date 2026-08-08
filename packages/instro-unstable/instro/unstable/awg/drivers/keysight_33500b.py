@@ -60,13 +60,6 @@ class Keysight33500B(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        """Query ``:SYSTem:ERRor?`` once and raise on a non-zero code. Does not drain the queue."""
-        err = self._visa.query(":SYST:ERR?")
-        code = err.strip().split(",", 1)[0].lstrip("+")
-        if code != "0":
-            raise RuntimeError(f"Keysight 33500B reported error: {err.strip()}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         _check_channel(channel)
         with self._visa.lock():
@@ -89,7 +82,6 @@ class Keysight33500B(AWGDriverBase):
                 phase_deg = waveform.delay_s * waveform.frequency_hz * 360.0
                 self._write_frequency_and_phase(waveform.frequency_hz, phase_deg)
                 self._visa.write(f"FUNC:PULS:WIDT {waveform.width_s}")
-                self.check_errors()
             elif isinstance(waveform, Arbitrary):
                 num_points = len(waveform.samples)
                 if not _ARB_MIN_POINTS <= num_points <= _ARB_MAX_POINTS:
@@ -99,17 +91,16 @@ class Keysight33500B(AWGDriverBase):
                     )
                 samples_csv = ",".join(str(sample) for sample in waveform.samples)
                 self._visa.write(f"DATA:ARB {_ARB_NAME}, {samples_csv}")
-                self.check_errors()
                 self._visa.write(f"FUNC:ARB:SRAT {waveform.sample_rate_hz}")
                 self._visa.write(f"FUNC:ARB {_ARB_NAME}")
                 self._visa.write("FUNC ARB")
-                self.check_errors()
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write("FUNC DC")
                 self._visa.write(f"VOLT:OFFS {waveform.value}")
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+            self._check_errors()
 
     def get_waveform(self, channel: int) -> Waveform:
         _check_channel(channel)
@@ -118,38 +109,41 @@ class Keysight33500B(AWGDriverBase):
             if name == "SIN":
                 frequency = float(self._visa.query("FREQ?"))
                 phase = float(self._visa.query("PHAS?"))
-                return Sine(frequency_hz=frequency, phase_deg=phase)
-            if name == "SQU":
+                result: Waveform = Sine(frequency_hz=frequency, phase_deg=phase)
+            elif name == "SQU":
                 frequency = float(self._visa.query("FREQ?"))
                 phase = float(self._visa.query("PHAS?"))
                 duty = float(self._visa.query("FUNC:SQU:DCYC?"))
-                return Square(frequency_hz=frequency, duty_cycle_pct=duty, phase_deg=phase)
-            if name == "RAMP":
+                result = Square(frequency_hz=frequency, duty_cycle_pct=duty, phase_deg=phase)
+            elif name == "RAMP":
                 frequency = float(self._visa.query("FREQ?"))
                 phase = float(self._visa.query("PHAS?"))
-                return Sawtooth(frequency_hz=frequency, phase_deg=phase)
-            if name == "TRI":
+                result = Sawtooth(frequency_hz=frequency, phase_deg=phase)
+            elif name == "TRI":
                 frequency = float(self._visa.query("FREQ?"))
                 phase = float(self._visa.query("PHAS?"))
-                return Triangle(frequency_hz=frequency, phase_deg=phase)
-            if name == "PULS":
+                result = Triangle(frequency_hz=frequency, phase_deg=phase)
+            elif name == "PULS":
                 frequency = float(self._visa.query("FREQ?"))
                 phase = float(self._visa.query("PHAS?"))
                 width = float(self._visa.query("FUNC:PULS:WIDT?"))
                 delay = max(0.0, phase / 360.0 / frequency)
-                return Pulse(frequency_hz=frequency, width_s=width, delay_s=delay)
-            if name == "DC":
+                result = Pulse(frequency_hz=frequency, width_s=width, delay_s=delay)
+            elif name == "DC":
                 offset = float(self._visa.query("VOLT:OFFS?"))
-                return StaticValue(value=offset)
-            if name == "ARB":
+                result = StaticValue(value=offset)
+            elif name == "ARB":
                 arb = self._arb_waveforms.get(channel)
                 if arb is None:
                     raise RuntimeError(
                         f"channel {channel} outputs an arbitrary waveform not programmed by this driver;"
                         " sample data is not readable"
                     )
-                return arb
-            raise ValueError(f"Keysight 33500B reported unsupported waveform '{name}'")
+                result = arb
+            else:
+                raise ValueError(f"Keysight 33500B reported unsupported waveform '{name}'")
+            self._check_errors()
+            return result
 
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         _check_channel(channel)
@@ -158,40 +152,56 @@ class Keysight33500B(AWGDriverBase):
         with self._visa.lock():
             self._visa.write(f"VOLT:UNIT {unit.value}")
             self._visa.write(f"VOLT {amplitude}")
+            self._check_errors()
 
     def get_amplitude(self, channel: int) -> tuple[float, AmplitudeMeasurementUnit]:
         _check_channel(channel)
         with self._visa.lock():
             magnitude = float(self._visa.query("VOLT?"))
             unit = AmplitudeMeasurementUnit(self._visa.query("VOLT:UNIT?").strip())
+            self._check_errors()
         return (magnitude, unit)
 
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
-        self._visa.write(f"VOLT:OFFS {offset}")
+        with self._visa.lock():
+            self._visa.write(f"VOLT:OFFS {offset}")
+            self._check_errors()
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)
-        return float(self._visa.query("VOLT:OFFS?"))
+        with self._visa.lock():
+            result = float(self._visa.query("VOLT:OFFS?"))
+            self._check_errors()
+        return result
 
     def output_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
-        self._visa.write("OUTP ON" if enable else "OUTP OFF")
+        with self._visa.lock():
+            self._visa.write("OUTP ON" if enable else "OUTP OFF")
+            self._check_errors()
 
     def get_output_state(self, channel: int) -> bool:
         _check_channel(channel)
-        return self._visa.query("OUTP?").strip() == "1"
+        with self._visa.lock():
+            result = self._visa.query("OUTP?").strip() == "1"
+            self._check_errors()
+        return result
 
     def set_output_load(self, channel: int, load: float | None) -> None:
         _check_channel(channel)
-        if load is None:
-            self._visa.write("OUTP:LOAD INF")
-        else:
-            self._visa.write(f"OUTP:LOAD {load}")
+        with self._visa.lock():
+            if load is None:
+                self._visa.write("OUTP:LOAD INF")
+            else:
+                self._visa.write(f"OUTP:LOAD {load}")
+            self._check_errors()
 
     def get_output_load(self, channel: int) -> float | None:
         _check_channel(channel)
-        load = float(self._visa.query("OUTP:LOAD?"))
+        with self._visa.lock():
+            load = float(self._visa.query("OUTP:LOAD?"))
+            self._check_errors()
         return None if load >= _HIGH_Z_SENTINEL else load
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
@@ -222,7 +232,7 @@ class Keysight33500B(AWGDriverBase):
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
             self._visa.write(f"{prefix}:STAT ON")
-            self.check_errors()
+            self._check_errors()
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
         """Disables modulation."""
@@ -235,25 +245,41 @@ class Keysight33500B(AWGDriverBase):
         with self._visa.lock():
             for prefix in _MOD_SCPI_PREFIX.values():
                 self._visa.write(f"{prefix}:STAT OFF")
-            self.check_errors()
+            self._check_errors()
 
     def get_modulation_type(self, channel: int) -> ModulationType:
         _check_channel(channel)
         with self._visa.lock():
-            for mod_type, prefix in _MOD_SCPI_PREFIX.items():
-                if self._visa.query(f"{prefix}:STAT?").strip() == "1":
-                    return mod_type
-        raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
+            active = next(
+                (
+                    mod_type
+                    for mod_type, prefix in _MOD_SCPI_PREFIX.items()
+                    if self._visa.query(f"{prefix}:STAT?").strip() == "1"
+                ),
+                None,
+            )
+            if active is None:
+                raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
+            self._check_errors()
+        return active
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)
         with self._visa.lock():
-            return any(self._visa.query(f"{prefix}:STAT?").strip() == "1" for prefix in _MOD_SCPI_PREFIX.values())
+            result = any(self._visa.query(f"{prefix}:STAT?").strip() == "1" for prefix in _MOD_SCPI_PREFIX.values())
+            self._check_errors()
+        return result
 
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
         self._visa.write(f"PHAS {phase_deg % 360}")
-        self.check_errors()
+
+    def _check_errors(self) -> None:
+        """Query :SYSTem:ERRor? once and raise on a non-zero code. Does not drain the queue."""
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Keysight 33500B reported error: {err.strip()}")
 
 
 def _check_channel(channel: int) -> None:

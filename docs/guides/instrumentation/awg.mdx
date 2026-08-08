@@ -228,9 +228,6 @@ def open(self) -> None:
 def close(self) -> None:
     """Close the underlying transport."""
 
-def check_errors(self) -> None:
-    """Drain the instrument error queue; raise if any error is pending."""
-
 def set_waveform(self, channel: int, waveform: Waveform) -> None:
     """Program channel with the waveform definition; raise ValueError if the definition is unsupported."""
 
@@ -274,6 +271,10 @@ Concrete drivers should hide transport details behind private attributes. For VI
 
 `VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a sequence of writes and their error check need to execute atomically.
 
+Error checking (e.g. SCPI's `SYST:ERR?` queue) is a protocol concept, not an instrument concept, so `AWGDriverBase` has no `check_errors` hook — `InstroAWG` never checks for errors itself. Drivers that talk to an instrument with an explicit error queue own that entirely with a private `_check_errors()`. Drivers on transports with no error-queue concept (most non-SCPI protocols raise immediately on a bad command) simply don't need this at all.
+
+Default to one `_check_errors()` call per public method, after all of that call's writes/queries — cheap, and still catches anything the call did wrong. Only reach for checking after every individual write when checking late is itself a problem: `RigolDG1022Z`'s arbitrary-waveform point-by-point upload (up to 16384 individual writes) checks every point, because the error queue isn't drained and a bad point could otherwise go unnoticed for thousands of writes on a path with a known history of USB/firmware trouble on that hardware. `Keysight33500B`'s arbitrary-waveform download is a single bulk write instead, so it doesn't have that failure mode and sticks with the one-check-per-call default. That's a judgment call each driver author makes for their instrument, not a fixed rule.
+
 See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
 
 For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
@@ -300,12 +301,6 @@ class RigolDG1022Z(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query(":SYST:ERR?")
-        code = err.strip().split(",", 1)[0].lstrip("+")
-        if code != "0":
-            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         with self._visa.lock():
             if isinstance(waveform, Sine):
@@ -315,6 +310,7 @@ class RigolDG1022Z(AWGDriverBase):
             # ... other Waveform shapes ...
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+            self._check_errors()  # one check per call, not one per write — see note above
 
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         if unit is AmplitudeMeasurementUnit.VP:
@@ -322,8 +318,15 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             self._visa.write(f":SOUR{channel}:VOLT:UNIT {unit.value}")
             self._visa.write(f":SOUR{channel}:VOLT {amplitude}")
+            self._check_errors()
 
     # ... other required and optional methods ...
+
+    def _check_errors(self) -> None:
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
 ```
 
 ## Using a Custom Driver
@@ -349,14 +352,10 @@ class MyCustomAWGDriver(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query("ERR?")
-        if err != "OK":
-            raise RuntimeError(f"AWG error: {err}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         if isinstance(waveform, Sine):
             self._visa.write(f"CH{channel}:WAVE SIN,{waveform.frequency_hz}")
+            self._check_errors()
         else:
             raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
 
@@ -364,6 +363,11 @@ class MyCustomAWGDriver(AWGDriverBase):
 
     def get_output_state(self, channel: int) -> bool:
         return self._visa.query(f"CH{channel}:OUTP?") == "ON"
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("ERR?")
+        if err != "OK":
+            raise RuntimeError(f"AWG error: {err}")
 
 
 awg = InstroAWG(
