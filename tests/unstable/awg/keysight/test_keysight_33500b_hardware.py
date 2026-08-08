@@ -57,7 +57,7 @@ def _reset_driver(driver: Keysight33500B) -> None:
     driver._visa.write("*CLS")
     driver._visa.write("*RST")
     driver._visa.write("*CLS")
-    driver.check_errors()
+    driver._check_errors()
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def test_01_connect_to_awg(driver: Keysight33500B) -> None:
     print(f"\nIDN: {idn.strip()}")
 
     assert "33" in idn
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_02_cycle_through_waveforms(driver: Keysight33500B) -> None:
@@ -115,14 +115,14 @@ def test_02_cycle_through_waveforms(driver: Keysight33500B) -> None:
 
     for waveform in waveforms:
         driver.set_waveform(CHANNEL, waveform)
-        driver.check_errors()
+        driver._check_errors()
         readback = driver.get_waveform(CHANNEL)
         assert type(readback) is type(waveform), f"programmed {waveform}, read back {readback}"
 
 
 def test_03_sine_frequency_and_phase_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ, phase_deg=90.0))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Sine)
@@ -132,7 +132,7 @@ def test_03_sine_frequency_and_phase_roundtrip(driver: Keysight33500B) -> None:
 
 def test_04_square_duty_cycle_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ, duty_cycle_pct=30.0))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Square)
@@ -141,7 +141,7 @@ def test_04_square_duty_cycle_roundtrip(driver: Keysight33500B) -> None:
 
 def test_05_sawtooth_readback(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Sawtooth(frequency_hz=TEST_FREQUENCY_HZ))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Sawtooth)
@@ -150,7 +150,7 @@ def test_05_sawtooth_readback(driver: Keysight33500B) -> None:
 
 def test_06_triangle_readback(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Triangle(frequency_hz=TEST_FREQUENCY_HZ))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Triangle)
@@ -159,7 +159,7 @@ def test_06_triangle_readback(driver: Keysight33500B) -> None:
 
 def test_07_pulse_width_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Pulse)
@@ -169,7 +169,7 @@ def test_07_pulse_width_roundtrip(driver: Keysight33500B) -> None:
 
 def test_08_pulse_delay_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002, delay_s=0.0001))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, Pulse)
@@ -178,7 +178,7 @@ def test_08_pulse_delay_roundtrip(driver: Keysight33500B) -> None:
 
 def test_09_static_value_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, StaticValue(value=TEST_OFFSET_V))
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert isinstance(readback, StaticValue)
@@ -188,7 +188,7 @@ def test_09_static_value_roundtrip(driver: Keysight33500B) -> None:
 def test_10_arbitrary_download_and_cached_readback(driver: Keysight33500B) -> None:
     arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
     driver.set_waveform(CHANNEL, arbitrary)
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(CHANNEL)
     assert readback is arbitrary
@@ -197,7 +197,7 @@ def test_10_arbitrary_download_and_cached_readback(driver: Keysight33500B) -> No
 def test_11_amplitude_vpp_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_amplitude(CHANNEL, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
-    driver.check_errors()
+    driver._check_errors()
 
     amplitude, unit = driver.get_amplitude(CHANNEL)
     assert unit is AmplitudeMeasurementUnit.VPP
@@ -207,7 +207,7 @@ def test_11_amplitude_vpp_roundtrip(driver: Keysight33500B) -> None:
 def test_12_amplitude_vrms_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_amplitude(CHANNEL, TEST_AMPLITUDE_VRMS, AmplitudeMeasurementUnit.VRMS)
-    driver.check_errors()
+    driver._check_errors()
 
     amplitude, unit = driver.get_amplitude(CHANNEL)
     assert unit is AmplitudeMeasurementUnit.VRMS
@@ -218,14 +218,14 @@ def test_13_amplitude_vp_unit_rejected(driver: Keysight33500B) -> None:
     with pytest.raises(ValueError, match="VP is not supported"):
         driver.set_amplitude(CHANNEL, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VP)
 
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_14_offset_roundtrip(driver: Keysight33500B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_amplitude(CHANNEL, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
     driver.set_offset(CHANNEL, TEST_OFFSET_V)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver.get_offset(CHANNEL) == pytest.approx(TEST_OFFSET_V, rel=0.01)
 
@@ -235,7 +235,7 @@ def test_15_output_enable_toggle(driver: Keysight33500B) -> None:
     driver.set_amplitude(CHANNEL, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
     try:
         driver.output_enable(CHANNEL, True)
-        driver.check_errors()
+        driver._check_errors()
         assert driver.get_output_state(CHANNEL) is True
     finally:
         driver.output_enable(CHANNEL, False)
@@ -245,14 +245,14 @@ def test_15_output_enable_toggle(driver: Keysight33500B) -> None:
 
 def test_16_output_load_50_ohm_roundtrip(driver: Keysight33500B) -> None:
     driver.set_output_load(CHANNEL, 50.0)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver.get_output_load(CHANNEL) == pytest.approx(50.0)
 
 
 def test_17_output_load_high_z_roundtrip(driver: Keysight33500B) -> None:
     driver.set_output_load(CHANNEL, None)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver.get_output_load(CHANNEL) is None
 
@@ -261,7 +261,7 @@ def test_18_invalid_channel_rejected(driver: Keysight33500B) -> None:
     with pytest.raises(ValueError, match="only supports 1 channel"):
         driver.set_waveform(INVALID_CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
 
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_19_check_errors_raises_after_invalid_command(driver: Keysight33500B) -> None:
@@ -269,7 +269,7 @@ def test_19_check_errors_raises_after_invalid_command(driver: Keysight33500B) ->
 
     try:
         with pytest.raises(RuntimeError, match="Keysight 33500B reported error"):
-            driver.check_errors()
+            driver._check_errors()
     finally:
         driver._visa.write("*CLS")
 
@@ -304,14 +304,14 @@ def test_20_set_modulation_enables_automatically_and_modulation_enable_disables(
 ) -> None:
     driver.set_waveform(CHANNEL, carrier)
     driver.set_modulation(CHANNEL, mod_type, shape, magnitude)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver._visa.query(f"{prefix}:STAT?").strip() == "1"
     assert driver.get_modulation_type(CHANNEL) == mod_type
     assert driver.get_modulation_state(CHANNEL) is True
 
     driver.modulation_enable(CHANNEL, False)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver._visa.query(f"{prefix}:STAT?").strip() == "0"
     assert driver.get_modulation_state(CHANNEL) is False
@@ -325,4 +325,4 @@ def test_21_modulation_enable_rejects_enable_true(driver: Keysight33500B) -> Non
     with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
         driver.modulation_enable(CHANNEL, True)
 
-    driver.check_errors()
+    driver._check_errors()
