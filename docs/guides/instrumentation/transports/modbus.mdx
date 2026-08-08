@@ -15,13 +15,7 @@ Modbus is a register-and-coil protocol. A driver reads and writes numbered 16-bi
 
 ## When to reach for it
 
-`ModbusDriver` is the right starting point when any of the following are true:
-
-| If you want to... | `ModbusDriver` is the right fit because... |
-| --- | --- |
-| Talk to a **Modbus TCP or RTU** instrument | It wraps pymodbus and owns the client lifecycle, locking, and dead-socket reconnect |
-| Build a **vendor- or model-specific driver** whose register map is fixed in code | It exposes raw function-code ops and typed codec, so the driver composes it the same way a SCPI driver composes `VisaDriver` |
-| Use a **standalone client** for a register-mapped device | It is usable on its own, addressing registers directly by number |
+`ModbusDriver` addresses Modbus TCP and RTU (serial) devices, exposing raw function-code ops plus a typed codec. Reach for it when the register map is fixed in code, or when you want a standalone client addressing registers by number. For a comparison against the other transports, see [Transports](/instrumentation/transports/overview).
 
 For a config-driven device where the register map lives in a JSON file rather than driver code, use [`ModbusDevice`](/instrumentation/protocols/modbus) instead. `ModbusDevice` composes `ModbusDriver` and adds semantic access by register alias, scaling, validation, and background polling.
 
@@ -53,12 +47,137 @@ from instro.lib.transports import ModbusDriver, RTUConnection
 modbus = ModbusDriver(RTUConnection(port="/dev/ttyUSB0", baudrate=19200, unit_id=1))
 ```
 
+## Register and data types
+
+Modbus defines four address spaces. `ModbusDriver` names them with the `RegisterType` vocabulary, and the typed access path dispatches on it:
+
+| `RegisterType` | Width | Access | Function codes |
+| --- | --- | --- | --- |
+| `"holding"` | 16-bit register | read and write | FC03 read, FC06 write one, FC16 write many |
+| `"input"` | 16-bit register | read only | FC04 |
+| `"coil"` | single bit | read and write | FC01 read, FC05 write one, FC15 write many |
+| `"discrete"` | single bit | read only | FC02 |
+
+Values wider than 16 bits span consecutive registers. `DataType` names the encoding, and `register_count()` reports the span:
+
+| `DataType` | Registers | Notes |
+| --- | --- | --- |
+| `"uint16"`, `"int16"` | 1 | |
+| `"uint32"`, `"int32"`, `"float32"` | 2 | |
+| `"uint64"`, `"int64"`, `"float64"` | 4 | |
+| `"bool"` | 1 | The only type valid for `"coil"` and `"discrete"` |
+
+## Typed access
+
+`read_typed` and `write_typed` handle the multi-register encode and decode, so callers work in native Python types rather than assembling 16-bit words:
+
+```python
+process_value = modbus.read_typed("input", 0x0000, "float32")
+modbus.write_typed("holding", 0x0100, 72.5, "float32")
+```
+
+Modbus itself does not specify how a multi-register value is ordered, so vendors differ. Three keyword flags cover the common permutations, all defaulting to `False` (big-endian, high word first):
+
+| Flag | Effect |
+| --- | --- |
+| `byte_swap` | Reverses the two bytes within each register |
+| `word_swap` | Swaps the 16-bit words within each 32-bit group |
+| `long_swap` | Swaps the 32-bit halves of a 64-bit value |
+
+```python
+# A device that reports float32 low-word-first.
+flow_rate = modbus.read_typed("input", 0x0010, "float32", word_swap=True)
+```
+
+Four rules the typed path enforces:
+
+- **`"input"` and `"discrete"` are read-only.** `write_typed` raises `ValueError` rather than issuing a doomed request.
+- **Single-bit spaces require `"bool"`.** Passing any other `data_type` for `"coil"` or `"discrete"` raises `ValueError`.
+- **Coil writes require an actual `bool`.** There is no numeric coercion, so `write_typed("coil", addr, 1, "bool")` raises rather than silently treating `1` as `True`.
+- **Register count follows from the data type.** `read_typed` reads exactly the span `register_count()` reports, so callers never pass a count.
+
+`register_count`, `decode_registers`, and `encode_value` are also available as static methods for callers that hold raw registers already and only need the codec.
+
 ## Atomic multi-step sequences
 
-`ModbusDriver` serializes every op behind an internal reentrant lock, so a background poller and user code can share one connection safely. Hold the lock across several ops to keep them atomic (for example, select a page or bank register, then read from it):
+Hold the [transport lock](/instrumentation/transports/overview#atomic-multi-step-sequences) across several ops to keep them atomic, for example selecting a page or bank register and then reading from it:
 
 ```python
 with modbus.lock():
     modbus.write_holding_register(0x00FF, page)
     values = modbus.read_holding_registers(0x0000, count=8)
 ```
+
+Note that a transport error inside the block closes the dead socket before re-raising, so the next op after the `with` reconnects rather than reusing it.
+
+## Configuration
+
+`ModbusDriver` takes either a `TCPConnection` or an `RTUConnection`. Both carry the `unit_id` (the Modbus slave address) and the response `timeout`, which `ModbusDriver` exposes through the `unit_id` property.
+
+### `TCPConnection`
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `host` | `str` | required | Hostname or IP address |
+| `port` | `int` | `502` | 1 to 65535 |
+| `unit_id` | `int` | `1` | 0 to 255 |
+| `timeout` | `float` | `3.0` | Response timeout in seconds |
+
+### `RTUConnection`
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `port` | `str` | required | Serial device, e.g. `/dev/ttyUSB0`, `/dev/cu.usbserial-1234`, `COM3` |
+| `baudrate` | `int` | `9600` | |
+| `parity` | `"N"`, `"E"`, `"O"` | `"N"` | None, even, odd |
+| `stopbits` | `1`, `2` | `1` | |
+| `bytesize` | `5`, `6`, `7`, `8` | `8` | |
+| `unit_id` | `int` | `1` | 0 to 255 |
+| `timeout` | `float` | `3.0` | Response timeout in seconds |
+
+## Method reference
+
+| Method | Purpose |
+| --- | --- |
+| `ModbusDriver(connection)` | Construct from a `TCPConnection` or `RTUConnection`. No I/O yet. |
+| `is_open` | Property: `True` once opened and not closed. Stays `True` across a dropped socket, which the next op reconnects. |
+| `unit_id` | Property: the Modbus unit/slave ID from the connection config. |
+| `open(holder=None)` | Connect. Idempotent. See [Lifecycle](/instrumentation/transports/overview#lifecycle). |
+| `close(holder=None, on_last_release=None)` | Disconnect. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
+| `lock()` | The reentrant lock, for atomic multi-step sequences. |
+| `read_holding_registers(address, count)` | FC03. Returns `list[int]`. |
+| `read_input_registers(address, count)` | FC04. Returns `list[int]`. |
+| `write_holding_register(address, value)` | FC06. Writes one 16-bit register. |
+| `write_holding_registers(address, values)` | FC16. Writes consecutive registers. |
+| `read_coils(address, count)` | FC01. Returns `list[bool]`. |
+| `write_coil(address, value)` | FC05. Writes one coil. |
+| `write_coils(address, values)` | FC15. Writes consecutive coils. |
+| `read_discrete_inputs(address, count)` | FC02. Returns `list[bool]`. |
+| `read_typed(register_type, address, data_type, *, byte_swap, word_swap, long_swap)` | Read and decode across registers. |
+| `write_typed(register_type, address, value, data_type, *, byte_swap, word_swap, long_swap)` | Encode and write across registers. |
+| `register_count(data_type)` | Static. Registers the type spans. |
+| `decode_registers(registers, data_type, byte_swap, word_swap, long_swap)` | Static. Raw registers to a typed value. |
+| `encode_value(value, data_type, byte_swap, word_swap, long_swap)` | Static. Typed value to raw registers. |
+
+## Error handling
+
+| Error | Cause |
+| --- | --- |
+| `RuntimeError: Modbus client not connected. Call open() first.` | An op was issued before `open()`, or after `close()`. |
+| `RuntimeError: Modbus error <operation>: <name> (0x<code>)` | The device returned a Modbus exception response. The name and code come from the standard set below. |
+| `ConnectionError: Failed to connect to Modbus device at <target>` | `open()` could not establish the TCP or serial connection. |
+| `ValueError` | A typed-access rule was violated: writing a read-only space, a non-`"bool"` type on a single-bit space, a non-`bool` coil value, or an unknown register or data type. |
+
+Device-side failures carry the standard Modbus exception-code name, so the message identifies the protocol-level cause rather than just reporting a failure:
+
+| Code | Name | Code | Name |
+| --- | --- | --- | --- |
+| `0x01` | `IllegalFunction` | `0x06` | `SlaveDeviceBusy` |
+| `0x02` | `IllegalDataAddress` | `0x08` | `MemoryParityError` |
+| `0x03` | `IllegalDataValue` | `0x0A` | `GatewayPathUnavailable` |
+| `0x04` | `SlaveDeviceFailure` | `0x0B` | `GatewayNoResponse` |
+| `0x05` | `Acknowledge` | | |
+
+<Tip>
+The pymodbus synchronous client does not reconnect on its own between operations. `ModbusDriver` closes the dead socket when an op fails with a transport error and re-raises, so the next call establishes a fresh connection. Application code still has to decide whether to retry; the transport does not retry for you.
+</Tip>

@@ -24,6 +24,7 @@ nav:
       - Exceptions: reference/exceptions.md
       - Publishers: reference/publishers.md
       - Discover: reference/discover.md
+      - Transports: reference/transports.md
 
   - Instruments:
       - instruments/index.md
