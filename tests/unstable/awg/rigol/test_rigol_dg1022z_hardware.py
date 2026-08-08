@@ -73,7 +73,7 @@ def _reset_driver(driver: RigolDG1022Z) -> None:
     driver._visa.write("*RST")
     time.sleep(0.5)
     driver._visa.write("*CLS")
-    driver.check_errors()
+    driver._check_errors()
 
 
 def _assert_waveform_matches(readback: Waveform, expected_type: type, checks: dict[str, float]) -> None:
@@ -124,7 +124,7 @@ def test_01_connect_to_awg(driver: RigolDG1022Z) -> None:
     print(f"\nIDN: {idn.strip()}")
 
     assert "DG1" in idn.upper()
-    driver.check_errors()
+    driver._check_errors()
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ def test_02_set_and_get_waveform_roundtrip(
     checks: dict[str, float],
 ) -> None:
     driver.set_waveform(channel, waveform)
-    driver.check_errors()
+    driver._check_errors()
 
     readback = driver.get_waveform(channel)
     _assert_waveform_matches(readback, expected_type, checks)
@@ -188,13 +188,13 @@ def test_03_set_waveform_rejects_invalid_input(
     with pytest.raises(ValueError, match=match):
         driver.set_waveform(channel, waveform)
 
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_04_arbitrary_waveform_download_and_cached_readback(driver: RigolDG1022Z) -> None:
     arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
     driver.set_waveform(1, arbitrary)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver.get_waveform(1) is arbitrary
 
@@ -218,7 +218,7 @@ def test_05_amplitude_roundtrip(driver: RigolDG1022Z, amplitude: float, unit: Am
     if unit is AmplitudeMeasurementUnit.DBM:
         driver.set_output_load(1, 50.0)
     driver.set_amplitude(1, amplitude, unit)
-    driver.check_errors()
+    driver._check_errors()
 
     readback_amplitude, readback_unit = driver.get_amplitude(1)
     assert readback_unit is unit
@@ -232,7 +232,7 @@ def test_06_set_amplitude_rejects_vp_unit(driver: RigolDG1022Z) -> None:
     with pytest.raises(ValueError, match="no VP amplitude unit"):
         driver.set_amplitude(1, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VP)
 
-    driver.check_errors()
+    driver._check_errors()
 
 
 @pytest.mark.parametrize("channel", CHANNELS, ids=lambda channel: f"channel_{channel}")
@@ -240,7 +240,7 @@ def test_07_offset_roundtrip(driver: RigolDG1022Z, channel: int) -> None:
     driver.set_waveform(channel, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_amplitude(channel, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
     driver.set_offset(channel, TEST_OFFSET_V)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver.get_offset(channel) == pytest.approx(TEST_OFFSET_V, rel=0.01)
 
@@ -251,7 +251,7 @@ def test_08_output_enable_toggle(driver: RigolDG1022Z, channel: int) -> None:
     driver.set_amplitude(channel, TEST_AMPLITUDE_VPP, AmplitudeMeasurementUnit.VPP)
     try:
         driver.output_enable(channel, True)
-        driver.check_errors()
+        driver._check_errors()
         assert driver.get_output_state(channel) is True
     finally:
         driver.output_enable(channel, False)
@@ -261,11 +261,11 @@ def test_08_output_enable_toggle(driver: RigolDG1022Z, channel: int) -> None:
 
 def test_09_output_load_roundtrip_and_high_z(driver: RigolDG1022Z) -> None:
     driver.set_output_load(1, 50.0)
-    driver.check_errors()
+    driver._check_errors()
     assert driver.get_output_load(1) == pytest.approx(50.0)
 
     driver.set_output_load(1, None)
-    driver.check_errors()
+    driver._check_errors()
     assert driver.get_output_load(1) is None
 
 
@@ -274,7 +274,7 @@ def test_10_align_phase_completes_without_error(driver: RigolDG1022Z) -> None:
         driver.set_waveform(channel, Sine(frequency_hz=TEST_FREQUENCY_HZ, phase_deg=0.0))
 
     driver.align_phase()
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_11_check_errors_raises_after_invalid_command(driver: RigolDG1022Z) -> None:
@@ -282,7 +282,7 @@ def test_11_check_errors_raises_after_invalid_command(driver: RigolDG1022Z) -> N
 
     try:
         with pytest.raises(RuntimeError, match="Rigol DG1022Z reported error"):
-            driver.check_errors()
+            driver._check_errors()
     finally:
         driver._visa.write("*CLS")
 
@@ -316,13 +316,13 @@ def test_12_set_modulation_and_modulation_enable_reports_type_specific_stat(
     driver.set_waveform(1, carrier)
     driver.set_modulation(1, mod_type, shape, magnitude)
     driver.modulation_enable(1, True)
-    driver.check_errors()
+    driver._check_errors()
 
     try:
         assert driver._visa.query(f":SOUR1:{mod_type.value}:STAT?").strip() == "ON"
     finally:
         driver.modulation_enable(1, False)
-    driver.check_errors()
+    driver._check_errors()
 
     assert driver._visa.query(f":SOUR1:{mod_type.value}:STAT?").strip() == "OFF"
 
@@ -360,7 +360,7 @@ def test_13_set_modulation_rejects_invalid_input(
     with pytest.raises(ValueError, match=match):
         driver.set_modulation(1, mod_type, shape, magnitude)
 
-    driver.check_errors()
+    driver._check_errors()
 
 
 def test_14_modulation_enable_re_arms_after_disable_without_remodulating(driver: RigolDG1022Z) -> None:
@@ -370,8 +370,8 @@ def test_14_modulation_enable_re_arms_after_disable_without_remodulating(driver:
     driver.modulation_enable(1, False)
     try:
         driver.modulation_enable(1, True)
-        driver.check_errors()
+        driver._check_errors()
         assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
     finally:
         driver.modulation_enable(1, False)
-    driver.check_errors()
+    driver._check_errors()
