@@ -81,7 +81,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "480010992"  # LabJack T8 serial number (or "ANY" for the first device found)
+DEVICE_ID = "<LABJACK T8 SERIAL NUMBER>"  # LabJack T8 serial number (or "ANY" for the first device found)
 NAME = "labjack_t8_typed_channels"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;

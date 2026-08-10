@@ -68,6 +68,18 @@ def _kelvin_to_unit(temp_k: float, unit: TC_UNIT | None) -> float:
             return temp_k - 273.15
 
 
+def _unit_to_kelvin(temp: float, unit: TC_UNIT | None) -> float:
+    match unit:
+        case TC_UNIT.KELVIN:
+            return temp
+        case TC_UNIT.FAHRENHEIT:
+            return (temp + 459.67) * 5 / 9
+        case TC_UNIT.RANKINE:
+            return temp * 5 / 9
+        case _:
+            return temp + 273.15
+
+
 class LabJackTSeriesDriver(DAQDriverBase):
     """LabJack T-series DAQ driver (T4/T7/T8 via the LJM library)."""
 
@@ -215,7 +227,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         )
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
-        """Configure a thermocouple ai channel; raw volts are converted to temperature on read. ``cjc_temp`` is °C."""
+        """Configure a thermocouple ai channel; volts convert to temperature on read; ``cjc_temp`` is in ``unit``."""
         if self._model is None:
             self._initialize_model()
         assert self._model is not None
@@ -266,7 +278,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
         if channel.cjc_source is CJCSource.CONSTANT:
             assert channel.cjc_temp is not None
-            cjc_k = channel.cjc_temp + 273.15
+            cjc_k = _unit_to_kelvin(channel.cjc_temp, channel.unit)
         else:
             cjc_k = self._model.tc_cjc_kelvin(channel.physical_channel, cjc_samples)
 

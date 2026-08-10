@@ -285,7 +285,7 @@ daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0")
 Cold-junction compensation depends on `cjc_source`:
 
 - `INTERNAL` (default): the driver reads the device's cold-junction sensor alongside the thermocouple. The T8 streams the per-channel `TEMPERATURE#` sensor, the T7 streams the internal sensor's raw volts (`AIN14`), and the T4 snapshots `TEMPERATURE_DEVICE_K` before each read and conversion (the `TEMPERATURE_DEVICE_K` register cannot be streamed).
-- `CONSTANT`: pass the reference junction temperature in °C via `cjc_temp`.
+- `CONSTANT`: pass the reference junction temperature via `cjc_temp`, expressed in the channel's `unit`.
 - `CHANNEL`: not supported by this driver.
 
 
