@@ -15,6 +15,9 @@ import pytest
 from instro.unstable.awg.awg import AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Sine,
     Waveform,
@@ -90,6 +93,19 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("modulation_enable", (1, True)),
         ("get_modulation_type", (1,)),
         ("get_modulation_state", (1,)),
+        ("set_burst", (1, BurstType.NCYCLE)),
+        ("burst_enable", (1, True)),
+        ("get_burst_type", (1,)),
+        ("get_burst_state", (1,)),
+        ("set_burst_trigger", (1, BurstTriggerSource.INTERNAL)),
+        ("set_burst_delay", (1, 0.001)),
+        ("get_burst_delay", (1,)),
+        ("set_gate_polarity", (1, GatePolarity.NORM)),
+        ("get_gate_polarity", (1,)),
+        ("set_ncycles", (1, 10)),
+        ("get_burst_ncycles", (1,)),
+        ("set_burst_period", (1, 0.001)),
+        ("get_burst_period", (1,)),
     ],
 )
 def test_02_awg_driver_base_optional_methods_raise_not_implemented(
@@ -116,6 +132,9 @@ def mock_driver() -> MagicMock:
     driver.get_output_load.return_value = 50.0
     driver.get_modulation_type.return_value = ModulationType.AM
     driver.get_modulation_state.return_value = False
+    driver.get_burst_type.return_value = BurstType.NCYCLE
+    driver.get_burst_state.return_value = False
+    driver.get_gate_polarity.return_value = GatePolarity.NORM
     return driver
 
 
@@ -201,6 +220,19 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
         ("modulation_enable", (True,)),
         ("get_modulation_type", ()),
         ("get_modulation_state", ()),
+        ("set_burst", (BurstType.NCYCLE,)),
+        ("burst_enable", (True,)),
+        ("get_burst_type", ()),
+        ("get_burst_state", ()),
+        ("set_burst_trigger", (BurstTriggerSource.INTERNAL,)),
+        ("set_burst_delay", (0.001,)),
+        ("get_burst_delay", ()),
+        ("set_gate_polarity", (GatePolarity.NORM,)),
+        ("get_gate_polarity", ()),
+        ("set_ncycles", (10,)),
+        ("get_burst_ncycles", ()),
+        ("set_burst_period", (0.001,)),
+        ("get_burst_period", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 1, 2, 3])
