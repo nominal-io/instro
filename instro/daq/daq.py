@@ -1097,39 +1097,46 @@ class InstroDAQ(Instrument):
         channels: list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
+        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` (or the daemon buffer while it runs), digital per line/port."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
+        daemon_running = bool(self._background_thread and self._background_thread.is_alive())
+
         if channels is None:
             aliases = [*ai, *di]
+        elif unknown := [a for a in channels if a not in ai and a not in di]:
+            raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
         else:
             aliases = list(channels)
-            # Validate up front so a bad alias can't leave earlier channels already read from hardware.
-            if unknown := [a for a in aliases if a not in ai and a not in di]:
-                raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
 
-        # Read every analog channel once, then map each channel key to the Measurement it came back in.
-        analog_source: dict[str, Measurement] = {}
-        if any(alias in ai for alias in aliases):
-            analog = self.read_analog(**kwargs)
-            for measurement in analog if isinstance(analog, list) else [analog]:
-                for key in measurement.channel_data:
-                    analog_source[key] = measurement
+        analog_aliases = [alias for alias in aliases if alias in ai]
+        digital_aliases = [alias for alias in aliases if alias in di]
 
-        result: dict[str, Measurement] = {}
-        for alias in aliases:
-            if alias in ai:
+        # Analog pass
+        analog: dict[str, Measurement] = {}
+        if analog_aliases and not daemon_running:
+            batch = self.read_analog(**kwargs)
+            by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
+            for alias in analog_aliases:
                 key = f"{self.name}.{alias}"
-                source = analog_source[key]
-                result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
-                continue
-            # NOTE: Planning on ripping out port support
-            if isinstance(di[alias], DigitalPortChannel):
-                result[alias] = self.read_digital_port(alias, **kwargs)
-                continue
-            result[alias] = self.read_digital_line(alias, **kwargs)
+                source = by_key[key]
+                analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
+        elif analog_aliases:
+            # Just use the get_channel defaults here. Directly call get_channel for more customization
+            analog = {alias: self.get_channel(alias) for alias in analog_aliases}
 
-        return result
+        # Digital pass
+        # NOTE: Planning on ripping out port support
+        # TODO: Handle digital read when background daemon is running (when continuos di feature lands)
+        digital = {
+            alias: self.read_digital_port(alias, **kwargs)
+            if isinstance(di[alias], DigitalPortChannel)
+            else self.read_digital_line(alias, **kwargs)
+            for alias in digital_aliases
+        }
+
+        measurements = analog | digital
+        return {alias: measurements[alias] for alias in aliases}
 
     def write(self, channel: str, value: float, **kwargs) -> Command:
         """Write ``value`` to one AO/DO channel by alias; returns its Command."""

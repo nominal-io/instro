@@ -906,45 +906,6 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 16. read() raises while background daemon is running
-    # =====================================================================
-    def test_16_read_raises_while_daemon_running(self):
-        """read() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
-
-        def step():
-            daq = self._create_daq()
-            try:
-                self._configure_ai(daq)
-                daq.configure_ai_hw_sample_rate(
-                    sample_rate=SAMPLE_RATE_HZ,
-                    samples_per_channel=SAMPLES_PER_CHANNEL,
-                )
-                daq.start(background=True)
-                try:
-                    time.sleep(0.2)  # confirm the daemon is alive before testing the guard
-                    self.assertTrue(
-                        daq._background_thread and daq._background_thread.is_alive(),
-                        "Background daemon is not alive after start() — cannot test the RuntimeError guard",
-                    )
-                    with self.assertRaises(
-                        RuntimeError,
-                        msg="read() should raise RuntimeError while the background daemon is running",
-                    ):
-                        daq.read_batch()
-                    print("         RuntimeError raised correctly — daemon owns the buffer")
-                finally:
-                    daq.stop()
-            finally:
-                daq.close()
-
-        self._run_step(
-            "read() raises while daemon running",
-            "Verify read() raises RuntimeError when the background daemon is active. "
-            "Guards against buffer race conditions (INSTRO-149).",
-            step,
-        )
-
-    # =====================================================================
     # 17. Analog output — Command return value
     # =====================================================================
     def test_17_analog_output_command_return(self):

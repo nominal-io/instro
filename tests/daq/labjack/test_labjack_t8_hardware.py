@@ -717,52 +717,6 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     # ==================================================================
-    # 12. read() while background daemon is running raises RuntimeError
-    # ==================================================================
-    def test_12_read_raises_while_daemon_running(self):
-        """read() must raise RuntimeError while the background daemon owns the buffer.
-
-        Accounts for known bugs in the buffer ownership logic.
-
-        This test verifies that guard is in place. If the RuntimeError is
-        NOT raised, it means the guard was removed or bypassed — and any
-        code that calls read() expecting the daemon to own the buffer
-        would silently get partial data instead of a clear error.
-        """
-
-        def step(start_ns: int):
-            print(f"         [start {self._ts(start_ns)}]")
-            daq = self._create_daq()
-            try:
-                self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
-                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
-                daq.start(background=True)
-                try:
-                    time.sleep(0.2)  # give the daemon time to start and confirm it is alive
-                    self.assertTrue(
-                        daq._background_thread and daq._background_thread.is_alive(),
-                        "Background daemon thread is not alive after start() — "
-                        "cannot test the RuntimeError guard meaningfully",
-                    )
-                    with self.assertRaises(
-                        RuntimeError,
-                        msg="read() should raise RuntimeError while the background daemon is running",
-                    ):
-                        daq.read_batch()
-                    print("         RuntimeError raised correctly — daemon owns the buffer")
-                finally:
-                    daq.stop()
-            finally:
-                daq.close()
-
-        self._run_step(
-            "read() raises while daemon running",
-            "Verify read() raises RuntimeError when the background daemon "
-            "is active. Guards against buffer race conditions (INSTRO-149).",
-            step,
-        )
-
-    # ==================================================================
     # 13. HW-timed streaming — foreground fetch
     # ==================================================================
     def test_13_hw_timed_foreground_fetch(self):

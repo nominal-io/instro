@@ -380,7 +380,7 @@ daq.stop()
 daq.close()
 ```
 
-While the daemon is running, `read_analog()` raises: the daemon owns the reads. Use `get_channel()` to pull buffered samples instead. See the [software-timed example](/instrumentation/examples/daq/daq_read_analog_sw_timed).
+While the daemon is running, `read()` and `read_batch()` serve analog channels from the daemon's channel buffer, so the same read code works whether or not the daemon is running. `read_analog()` raises instead: the daemon owns the hardware reads. Call `get_channel()` directly for more control over buffered reads (sample count, blocking for new samples, timeouts). See the [software-timed example](/instrumentation/examples/daq/daq_read_analog_sw_timed).
 
 ### Hardware-Timed Acquisition with Background Fetching
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -600,7 +600,7 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 ### Reading by Alias
 
-`read()` accepts a single alias and returns that channel's `Measurement`. `read_batch()` accepts a list of aliases, or `None` for every configured input channel, and returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
+`read()` accepts a single alias and returns that channel's `Measurement`. `read_batch()` accepts a list of aliases, or `None` for every configured input channel, and returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port. While the background daemon is running, analog aliases are served from the daemon's channel buffer (latest sample) instead of triggering a hardware read; call `get_channel()` directly when you need more control (sample count, blocking for new samples, timeouts).
 
 ```python
 daq.configure_voltage_input(physical_channel="ai0", alias="v0")
