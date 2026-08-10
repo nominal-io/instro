@@ -4,6 +4,7 @@ from typing import Protocol
 from instro.daq.scaling.scaling import ReverseLinearScaler, Scaler
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     DAQChannel,
@@ -40,7 +41,7 @@ class LJ_Model(Protocol):
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
         stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]: ...
 
@@ -120,7 +121,7 @@ class LJ_T4:
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
         stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # Stream settling is 0 (default) and
@@ -239,7 +240,7 @@ class LJ_T7:
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
         stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # I believe the Labjack only has one timing engine so no need to track channel_type
@@ -334,7 +335,7 @@ class LJ_T8:
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
         stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         aNames = [

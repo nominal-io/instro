@@ -13,6 +13,7 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
@@ -206,13 +207,13 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if aNames:
             ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
 
-        self._ai_channels[channel.alias] = channel  # type: ignore[assignment]
+        self._ai_channels[channel.alias] = channel
 
     def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
         """Configure a voltage AO channel on the LabJack device."""
         # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
-        self._ao_channels[channel.alias] = channel  # type: ignore[assignment]
+        self._ao_channels[channel.alias] = channel
 
     def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
         raise NotImplementedError(
@@ -242,7 +243,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if aNames:
             ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
 
-        self._ai_channels[channel.alias] = channel  # type: ignore[assignment]
+        self._ai_channels[channel.alias] = channel
 
         self._refresh_tc_cjc()
 
@@ -320,7 +321,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
         self._ai_hw_timing_config = hw_timing_config
 
-    def _validate_scan_rate(self, hw_timing_config: HWTimingConfig, channels: list[AnalogChannel]):
+    def _validate_scan_rate(self, hw_timing_config: HWTimingConfig, channels: list[AnalogChannelUnion]):
         """Pre-check the requested scan rate so we raise a clear error instead of LJM's cryptic one."""
         assert self._model
 
@@ -416,7 +417,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
     def get_actual_sample_rate(self) -> float | None:
         return self._actual_sample_rate
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         ljm.eWriteName(self._handle, channel.physical_channel, value)
 
     # ====== DIGITAL ==========
