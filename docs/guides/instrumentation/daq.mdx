@@ -738,8 +738,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `write_analog_value(channel)` | `{alias}.cmd` | command |
 | `read_digital_line(channel)` / `read_digital_port(channel)` | `{alias}` | telemetry |
 | `write_digital_line(channel, data)` / `write_digital_port(channel, data)` | `{alias}.cmd` | command |
-| `read(channels)` (per channel) | `{alias}` | telemetry |
-| `write(channels, values)` (per channel) | `{alias}.cmd` | command |
+| `read(channel)` / `read_batch(channels)` (per channel) | `{alias}` | telemetry |
+| `write(channel, value)` / `write_batch(channels, values)` (per channel) | `{alias}.cmd` | command |
 | `close_relay(channel)` | `{alias}.cmd` (value `"CLOSED"`) | command |
 | `open_relay(channel)` | `{alias}.cmd` (value `"OPEN"`) | command |
 | `get_points_in_buffer()` | `buffer` | telemetry |
@@ -768,8 +768,10 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `start()` | Begin acquisition (device task, background daemon, or both) |
 | `stop()` | End acquisition and stop the background daemon |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
-| `read(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
-| `write(channels, values)` | Write value(s) to output channel(s) by alias, paired by index |
+| `read(channel)` | Read one input channel by alias; returns `Measurement` |
+| `read_batch(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
+| `write(channel, value)` | Write value to one output channel by alias; returns `Command` |
+| `write_batch(channels, values)` | Write values to output channels by alias, paired by index; returns `list[Command]` |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
 | `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
