@@ -78,10 +78,10 @@ class Keysight33500B(AWGDriverBase):
                 self._visa.write("FUNC TRI")
                 self._write_frequency_and_phase(waveform.frequency_hz, waveform.phase_deg)
             elif isinstance(waveform, Pulse):
-                self._visa.write("FUNC PULS")
                 phase_deg = waveform.delay_s * waveform.frequency_hz * 360.0
                 self._write_frequency_and_phase(waveform.frequency_hz, phase_deg)
                 self._visa.write(f"FUNC:PULS:WIDT {waveform.width_s}")
+                self._visa.write("FUNC PULS")
             elif isinstance(waveform, Arbitrary):
                 num_points = len(waveform.samples)
                 if not _ARB_MIN_POINTS <= num_points <= _ARB_MAX_POINTS:

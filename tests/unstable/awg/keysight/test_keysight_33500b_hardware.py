@@ -114,7 +114,6 @@ def test_02_cycle_through_waveforms(driver: Keysight33500B) -> None:
     ]
 
     for waveform in waveforms:
-        print(waveform)
         driver.set_waveform(CHANNEL, waveform)
         driver._check_errors()
         readback = driver.get_waveform(CHANNEL)
