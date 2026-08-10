@@ -1286,7 +1286,7 @@ def test_write_digital_line_rejects_non_binary():
 
 
 def test_write_digital_port_requires_int():
-    """Digital port values must be real ints; bool and float raise ValueError."""
+    """Digital port values must be ints; float raises ValueError."""
     mock_driver = _make_mock_driver()
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()

@@ -1187,7 +1187,8 @@ class InstroDAQ(Instrument):
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                     raise ValueError(f"Analog output '{alias}' requires a finite number, got {value!r}.")
             elif isinstance(self.do_channels[alias], DigitalPortChannel):
-                if not isinstance(value, int):
+                # bool is a subclass of int, so it must be excluded explicitly.
+                if isinstance(value, bool) or not isinstance(value, int):
                     raise ValueError(f"Digital port '{alias}' requires an integer value, got {value!r}.")
             elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
                 raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
