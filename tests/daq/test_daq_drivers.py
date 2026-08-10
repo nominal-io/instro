@@ -1251,6 +1251,72 @@ def test_write_batch_unconfigured_channel_raises_before_writing_anything():
     mock_driver.write_analog_value.assert_not_called()
 
 
+def test_write_analog_rejects_bool_and_non_finite():
+    """Analog values must be finite numbers; bool and NaN raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    for bad in (True, float("nan")):
+        with pytest.raises(ValueError, match="requires a finite number"):
+            daq.write("ao0", bad)
+    mock_driver.write_analog_value.assert_not_called()
+
+
+def test_write_digital_line_accepts_bool():
+    """Digital line writes accept a bool; the command holds the coerced int."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    assert daq.write("do0", True).channel_data["ut.do0.cmd"] == 1
+
+
+def test_write_digital_line_rejects_non_binary():
+    """Digital line values other than 0/1 raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="requires 0 or 1"):
+        daq.write("do0", 0.5)
+    mock_driver.write_digital_line.assert_not_called()
+
+
+def test_write_digital_port_requires_int():
+    """Digital port values must be real ints; bool and float raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT,
+        physical_channel="port0",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        alias="do_port",
+    )
+
+    assert daq.write("do_port", 0x0F).channel_data["ut.do_port.cmd"] == 0x0F
+    for bad in (True, 15.0):
+        with pytest.raises(ValueError, match="requires an integer"):
+            daq.write("do_port", bad)
+
+
+def test_write_batch_invalid_value_raises_before_writing_anything():
+    """write_batch() validates every value up front, so a bad value leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="Digital line 'do0'"):
+        daq.write_batch(["ao0", "do0"], [2.5, 0.5])
+    mock_driver.write_analog_value.assert_not_called()
+
+
 # --- software-timed background daemon ---
 
 

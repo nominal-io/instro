@@ -633,7 +633,7 @@ daq.write("ao0", 2.2)
 daq.write_batch(["ao0", "enable"], [2.2, 1])
 ```
 
-Digital values are coerced to `int`. The `channels` and `values` lists must be the same length; a mismatch raises `ValueError`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
+Values may be `float`, `int`, or `bool`, and every value is validated against its target channel before anything is written: analog outputs require a finite number, digital lines require `0` or `1` (in any of the three forms), and digital ports require an integer. An invalid value — or a `channels`/`values` length mismatch — raises `ValueError` with no channels written. Digital values are coerced to `int`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
 
 ## Complete Examples
 

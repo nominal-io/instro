@@ -2,6 +2,7 @@
 
 import abc
 import logging
+import math
 import time
 from enum import Enum
 from types import MappingProxyType
@@ -1138,7 +1139,7 @@ class InstroDAQ(Instrument):
         measurements = analog | digital
         return {alias: measurements[alias] for alias in aliases}
 
-    def write(self, channel: str, value: float, **kwargs) -> Command:
+    def write(self, channel: str, value: float | int | bool, **kwargs) -> Command:
         """Write ``value`` to one AO/DO channel by alias; returns its Command."""
         if channel is None:
             raise ValueError("write() requires a channel alias; use write_batch() to write several channels.")
@@ -1147,7 +1148,7 @@ class InstroDAQ(Instrument):
     def write_batch(
         self,
         channels: list[str],
-        values: list[float],
+        values: list[float | int | bool],
         **kwargs,
     ) -> list[Command]:
         """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
@@ -1161,9 +1162,10 @@ class InstroDAQ(Instrument):
             raise ValueError(
                 f"write_batch() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
             )
-        # Validate up front so a bad alias can't leave earlier channels already written to hardware.
+        # Validate up front so a bad alias or value can't leave earlier channels already written to hardware.
         if unknown := [c for c in channel_list if c not in ao and c not in do]:
             raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
+        self._validate_inputs_for_channels(channel_list, value_list)
 
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
@@ -1174,10 +1176,21 @@ class InstroDAQ(Instrument):
             if isinstance(do[channel], DigitalPortChannel):
                 commands.append(self.write_digital_port(channel, int(value), **kwargs))
                 continue
-            # Why does this function accept the data as an int? Shouldn't it only accept a bool?
             commands.append(self.write_digital_line(channel, int(value), **kwargs))
 
         return commands
+
+    def _validate_inputs_for_channels(self, channels: list[str], values: list[float | int | bool]) -> None:
+        """Validate every value against its target channel type before anything is written to hardware."""
+        for alias, value in zip(channels, values):
+            if alias in self.ao_channels:
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise ValueError(f"Analog output '{alias}' requires a finite number, got {value!r}.")
+            elif isinstance(self.do_channels[alias], DigitalPortChannel):
+                if not isinstance(value, int):
+                    raise ValueError(f"Digital port '{alias}' requires an integer value, got {value!r}.")
+            elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
+                raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
