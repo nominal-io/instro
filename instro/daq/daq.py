@@ -721,9 +721,9 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
-            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
+            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``, expressed in ``unit``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
-            unit: Temperature unit for returned readings.
+            unit: Temperature unit for returned readings and ``cjc_temp``.
         """
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")

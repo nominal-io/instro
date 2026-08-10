@@ -306,7 +306,7 @@ class NIDAQDriver(DAQDriverBase):
                 raise ValueError(f"Invalid CJC source: {cjc_source}, must be one of {[s.name for s in CJCSource]}")
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
-        """Configure a thermocouple input channel on the NI device."""
+        """Configure a thermocouple input channel on the NI device; DAQmx reads ``cjc_temp`` in ``unit``."""
         self._reject_channel_range_or_list(channel.physical_channel)
         if channel.cjc_source is CJCSource.CONSTANT and channel.cjc_temp is None:
             raise ValueError(f"cjc_temp is required for channel '{channel.alias}' when cjc_source is CONSTANT.")
