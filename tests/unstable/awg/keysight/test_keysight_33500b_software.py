@@ -185,7 +185,7 @@ def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B,
         call("FREQ 1000.0"),
         call("PHAS 36.0"),
         call("FUNC:PULS:WIDT 0.0002"),
-        call("FUNC PULS")
+        call("FUNC PULS"),
     ]
 
 
