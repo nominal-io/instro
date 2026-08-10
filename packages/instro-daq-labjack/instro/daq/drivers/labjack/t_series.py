@@ -1,4 +1,5 @@
 import atexit
+import logging
 import time
 import weakref
 from dataclasses import dataclass
@@ -8,8 +9,12 @@ from typing import Mapping
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
+from instro.daq.scaling.scaling import Scaler
+from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogThermocoupleChannel,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -19,6 +24,8 @@ from instro.daq.types import (
 )
 from instro.lib import Measurement
 from labjack import ljm
+
+logger = logging.getLogger(__name__)
 
 # TODO(INSTRO-89): Remove this once context managers are added.
 # We use a callback functionality of the LJM driver. This is for performance reasons vs. python threading.
@@ -47,10 +54,22 @@ class LabJackData:
     dt: int | None
 
 
+def _kelvin_to_unit(temp_k: float, unit: TC_UNIT | None) -> float:
+    match unit:
+        case TC_UNIT.KELVIN:
+            return temp_k
+        case TC_UNIT.FAHRENHEIT:
+            return temp_k * 9 / 5 - 459.67
+        case TC_UNIT.RANKINE:
+            return temp_k * 9 / 5
+        case _:
+            return temp_k - 273.15
+
+
 class LabJackTSeriesDriver(DAQDriverBase):
     """LabJack T-series DAQ driver (T4/T7/T8 via the LJM library)."""
 
-    def __init__(self, device_id: str, stream_buffer_bytes: int = 0):
+    def __init__(self, device_id: str, stream_buffer_bytes: int = 0, tc_input_scaler: Scaler | None = None):
         """Construct the driver.
 
         Args:
@@ -60,6 +79,9 @@ class LabJackTSeriesDriver(DAQDriverBase):
                 0 selects the device's own default.
                 Must be a power of 2 and the max is 262144.
                 Setting this prevents the device from dropping scans at high sample rates, which LJM reports as -9999 sample values.
+            tc_input_scaler: T4 only (ignored on T7/T8). Descale readings from LJTick InAmp amplifier before
+                temperature conversion. Defaults to ``ReverseLinearScaler(gain=51, offset=1.25, units="V")``,
+                an LJTick-InAmp at x51 with the 1.25 V offset jumper.
         """
         super().__init__()
         self._model: LJ_Model | None = None
@@ -77,6 +99,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._timestamper: HWTimestamper | None = None  # None until first hw-timed read
 
         self._data_queue: Queue = Queue()
+        self._tc_input_scaler = tc_input_scaler
 
         _ACTIVE.add(self)
 
@@ -122,13 +145,19 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # Grab device specific behaviors
         match self._info[0]:
             case ljm.constants.dtT4:
-                self._model = LJ_T4()
+                self._model = LJ_T4(tc_input_scaler=self._tc_input_scaler)
             case ljm.constants.dtT7:
                 self._model = LJ_T7()
             case ljm.constants.dtT8:
                 self._model = LJ_T8()
             case _:
                 raise RuntimeError(f"Unsupported LabJack device type: {self._info[0]}")
+
+        if self._tc_input_scaler is not None and not isinstance(self._model, LJ_T4):
+            logger.warning(
+                "tc_input_scaler is only supported on the LabJack T4 (LJTick-InAmp back-out); ignoring it on this %s.",
+                type(self._model).__name__,
+            )
 
     def configure_ai_channel(
         self,
@@ -150,6 +179,71 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
         self._ao_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Configure a thermocouple ai channel; raw volts are converted to temperature on read. ``cjc_temp`` is °C."""
+        if self._model is None:
+            self._initialize_model()
+        assert self._model is not None
+
+        if channel.cjc_source is CJCSource.CHANNEL:
+            raise ValueError("cjc_source CHANNEL is not supported by the LabJack driver; use INTERNAL or CONSTANT.")
+        if channel.cjc_source is CJCSource.CONSTANT and channel.cjc_temp is None:
+            raise ValueError("cjc_temp is required when cjc_source is CONSTANT.")
+
+        aNames, aValues = self._model.thermocouple_channel_configs(channel)
+
+        if aNames:
+            ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
+
+        self._ai_channels[channel.alias] = channel  # type: ignore[assignment]
+
+        self._refresh_tc_cjc()
+
+    def _cjc_read_names(self) -> list[str]:
+        """CJC sensor registers appended after the AI channels in every read and stream scan list."""
+        names: list[str] = []
+        for channel in self._ai_channels.values():
+            if isinstance(channel, AnalogThermocoupleChannel) and channel.cjc_source is not CJCSource.CONSTANT:
+                assert self._model is not None
+                name = self._model.tc_cjc_read_name(channel.physical_channel)
+                if name is not None and name not in names:
+                    names.append(name)
+        return names
+
+    def _refresh_tc_cjc(self):
+        """Let the model refresh its CJC state when any channel needs device-sourced CJC; no-op otherwise."""
+        if any(
+            isinstance(channel, AnalogThermocoupleChannel) and channel.cjc_source is not CJCSource.CONSTANT
+            for channel in self._ai_channels.values()
+        ):
+            assert self._model is not None
+            self._model.refresh_tc_cjc(self._handle)
+
+    def _tc_volts_to_temps(
+        self,
+        channel: AnalogThermocoupleChannel,
+        volts: list[float],
+        cjc_samples: dict[str, list[float]],
+    ) -> list[float]:
+        """Convert a batch of thermocouple volts to temperatures in the channel's unit."""
+        assert self._model is not None
+        volts = [self._model.tc_scale_input(v) for v in volts]
+
+        if channel.cjc_source is CJCSource.CONSTANT:
+            assert channel.cjc_temp is not None
+            cjc_k = channel.cjc_temp + 273.15
+        else:
+            cjc_k = self._model.tc_cjc_kelvin(channel.physical_channel, cjc_samples)
+
+        tc_type = getattr(ljm.constants, f"tt{channel.tc_type.value}")
+        temps = []
+        for v in volts:
+            try:
+                temps.append(_kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
+            except ljm.LJMError:
+                temps.append(float("nan"))  # open/overranged input or dropped-scan sentinel; keep the batch flowing
+        return temps
 
     def configure_ai_hw_timing(
         self,
@@ -194,7 +288,8 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if isinstance(self._model, (LJ_T8)):
             return
 
-        if self._model.MAX_SCAN_RATE / len(channels) < hw_timing_config.sample_rate:
+        num_scan_columns = len(channels) + len(self._cjc_read_names())
+        if self._model.MAX_SCAN_RATE / num_scan_columns < hw_timing_config.sample_rate:
             raise HWTimingException(
                 "The requested sample rate is higher than the device can support for the number of channels requested. This is a multiplexed DAQ."
             )
@@ -213,9 +308,12 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if not channels:
             raise ValueError("No channels specified to start streaming on LabJack device.")
 
-        physical_channels = [ch.physical_channel for ch in channels]
+        scan_names = [ch.physical_channel for ch in channels] + self._cjc_read_names()
 
-        scan_list = ljm.namesToAddresses(len(physical_channels), physical_channels)[0]
+        scan_list = ljm.namesToAddresses(len(scan_names), scan_names)[0]
+
+        # Models with no streamable CJC source snapshot it now, before the stream claims the ADC.
+        self._refresh_tc_cjc()
 
         self._timestamper = None
         actual_scan_rate = ljm.eStreamStart(
@@ -250,7 +348,9 @@ class LabJackTSeriesDriver(DAQDriverBase):
             if len(physical_channels) > 1:
                 physical_channels = [physical_channels[0]] + [f"{ch}_CAPTURE" for ch in physical_channels[1:]]
 
-        response = ljm.eReadNames(handle=self._handle, numFrames=len(channels), aNames=physical_channels)
+        read_names = physical_channels + self._cjc_read_names()
+        self._refresh_tc_cjc()
+        response = ljm.eReadNames(handle=self._handle, numFrames=len(read_names), aNames=read_names)
         timestamp = time.time_ns()  # TODO read from labjack. It has some capabilities here.
 
         return LabJackData(data=response, timestamp=timestamp, dt=None)
@@ -350,12 +450,20 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # aData[2] contains the second AIN0 sample aData[3] contains the second AIN1 sample ...
 
         num_channels = len(channel_list)
-        samples_per_channel = len(response.data) // num_channels
+        cjc_names = self._cjc_read_names()
+        num_columns = num_channels + len(cjc_names)
+        samples_per_channel = len(response.data) // num_columns
 
         # De-interleave the data
         channel_data = {}
         for i, channel in enumerate(channel_list):
-            channel_data[f"{daq_name}.{channel}"] = response.data[i::num_channels]
+            channel_data[f"{daq_name}.{channel}"] = response.data[i::num_columns]
+
+        cjc_samples = {name: response.data[num_channels + i :: num_columns] for i, name in enumerate(cjc_names)}
+        for alias, channel_config in channel_list.items():
+            if isinstance(channel_config, AnalogThermocoupleChannel):
+                key = f"{daq_name}.{alias}"
+                channel_data[key] = self._tc_volts_to_temps(channel_config, channel_data[key], cjc_samples)
 
         if response.dt:
             if self._timestamper is None:
