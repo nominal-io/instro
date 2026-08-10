@@ -169,10 +169,10 @@ def test_10_set_waveform_pulse_writes_width(keysight: Keysight33500B, keysight_v
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002))
 
     assert keysight_visa.write.call_args_list == [
+        call("FUNC PULS"),
         call("FREQ 1000.0"),
         call("PHAS 0.0"),
         call("FUNC:PULS:WIDT 0.0002"),
-        call("FUNC PULS"),
     ]
 
 
@@ -182,10 +182,10 @@ def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B,
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001))
 
     assert keysight_visa.write.call_args_list == [
+        call("FUNC PULS"),
         call("FREQ 1000.0"),
         call("PHAS 36.0"),
         call("FUNC:PULS:WIDT 0.0002"),
-        call("FUNC PULS"),
     ]
 
 
@@ -311,7 +311,7 @@ def test_21_get_waveform_returns_cached_arbitrary(keysight: Keysight33500B, keys
 
 
 def test_22_get_waveform_unprogrammed_arbitrary_raises(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
-    keysight_visa.query.return_value = "ARB"
+    _query_sequence(keysight_visa, ["ARB"])
 
     with pytest.raises(RuntimeError, match="not programmed by this driver"):
         keysight.get_waveform(1)
@@ -389,9 +389,10 @@ def test_29_output_load_roundtrip_and_high_z(keysight: Keysight33500B, keysight_
 # Modulation
 # ---------------------------------------------------------------------------
 
-_SINE_CARRIER_RESPONSES = ["SIN", "1.000000E+03", "0.000000E+00"]
-_PULSE_CARRIER_RESPONSES = ["PULS", "1.000000E+03", "0.000000E+00", "2.000000E-04"]
-_STATICVALUE_CARRIER_RESPONSES = ["DC", "1.500000E+00"]
+_SINE_CARRIER_RESPONSES = ["SIN"]
+_PULSE_CARRIER_RESPONSES = ["PULS"]
+_STATICVALUE_CARRIER_RESPONSES = ["DC"]
+_ARB_CARRIER_RESPONSES = ["ARB"]
 
 
 def _mock_carrier_query(
@@ -399,7 +400,7 @@ def _mock_carrier_query(
     carrier_responses: list[str] | None = None,
     error_response: str = '0,"No error"',
 ) -> None:
-    """Answer get_waveform() and :SYST:ERR? for set_modulation() tests; carrier defaults to a Sine."""
+    """Answer the FUNC? carrier-type query and :SYST:ERR? for set_modulation() tests; carrier defaults to a Sine."""
     responses = list(carrier_responses if carrier_responses is not None else _SINE_CARRIER_RESPONSES)
 
     def fake_query(command: str) -> str:
@@ -580,6 +581,7 @@ def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33500
         call("PWM:STAT?"),
         call("FSK:STAT?"),
         call("BPSK:STAT?"),
+        call(":SYST:ERR?"),
     ]
 
 
@@ -612,3 +614,57 @@ def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
     waveform = keysight.get_waveform(1)
 
     assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0)
+
+
+def test_40_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driver(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid AM carrier."""
+    _mock_carrier_query(keysight_visa, _ARB_CARRIER_RESPONSES)
+
+    keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    assert call("AM:STAT ON") in keysight_visa.write.call_args_list
+
+
+def test_41_set_modulation_validates_carrier_with_a_single_query(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    """Carrier validation costs one FUNC? query, not a full get_waveform() round trip."""
+    _mock_carrier_query(keysight_visa)
+
+    keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    assert _real_query_calls(keysight_visa) == [call("FUNC?")]
+
+
+def test_42_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    """Regression: a real pending SCPI error must surface, not be swallowed by the 'none enabled' message."""
+
+    def fake_query(command: str) -> str:
+        if command == ":SYST:ERR?":
+            return '-113,"Undefined header"'
+        return "0"
+
+    keysight_visa.query.side_effect = fake_query
+
+    with pytest.raises(RuntimeError, match="Undefined header"):
+        keysight.get_modulation_type(1)
+
+
+def test_43_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
+    keysight: Keysight33500B, keysight_visa: MagicMock
+) -> None:
+    """Regression: a real pending SCPI error must surface, not be swallowed by the 'not programmed' message."""
+
+    def fake_query(command: str) -> str:
+        if command == ":SYST:ERR?":
+            return '-113,"Undefined header"'
+        return "ARB"
+
+    keysight_visa.query.side_effect = fake_query
+
+    with pytest.raises(RuntimeError, match="Undefined header"):
+        keysight.get_waveform(1)

@@ -228,9 +228,6 @@ def open(self) -> None:
 def close(self) -> None:
     """Close the underlying transport."""
 
-def check_errors(self) -> None:
-    """Drain the instrument error queue; raise if any error is pending."""
-
 def set_waveform(self, channel: int, waveform: Waveform) -> None:
     """Program channel with the waveform definition; raise ValueError if the definition is unsupported."""
 
