@@ -269,8 +269,38 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
 <Note>
-**Not yet implemented for the packaged drivers.** None of the bundled DAQ drivers (NI-DAQmx, LabJack T-Series, MCC, Keysight 34980A) implement these typed methods yet. Please use `configure_analog_channel` / `configure_digital_line`.
+**Driver support.** LabJack T-Series implements the typed voltage, thermocouple, and digital methods above. Current input/output is not supported by LabJack hardware: the driver raises `NotImplementedError` and points to the [measuring current app note](https://support.labjack.com/docs/measuring-current-app-note) (measure current as voltage across a shunt resistor with a voltage input and a scaler). The other bundled DAQ drivers (NI-DAQmx, MCC, Keysight 34980A) do not implement the typed methods yet; with those, use `configure_analog_channel` / `configure_digital_line`.
 </Note>
+
+#### LabJack thermocouple channels
+
+The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. More info about using thermocouples with a LabJack device can be found [here](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
+
+```python
+from instro.daq.scaling.thermocouple import TC_TYPE
+
+daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0")
+```
+
+Cold-junction compensation depends on `cjc_source`:
+
+- `INTERNAL` (default): the driver reads the device's cold-junction sensor alongside the thermocouple. The T8 streams the per-channel `TEMPERATURE#` sensor, the T7 streams the internal sensor's raw volts (`AIN14`), and the T4 snapshots `TEMPERATURE_DEVICE_K` before each read and conversion (the `TEMPERATURE_DEVICE_K` register cannot be streamed).
+- `CONSTANT`: pass the reference junction temperature in °C via `cjc_temp`.
+- `CHANNEL`: not supported by this driver.
+
+
+The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview). The driver backs the amplifier's gain and offset out of the measured volts with the `tc_input_scaler` constructor argument, which defaults to the InAmp's x51 gain and 1.25 V offset jumpers:
+
+```python
+from instro.daq.scaling.scaling import ReverseLinearScaler
+
+driver = LabJackTSeriesDriver(
+    device_id="440020473",
+    tc_input_scaler=ReverseLinearScaler(gain=51, offset=1.25, units="V"),
+)
+```
+
+Readings return in `unit` (Celsius by default). A channel `scaler` applies to the converted temperatures.
 
 ### Hardware-Timed Sample Rate
 
@@ -793,7 +823,7 @@ Each of the methods below must (a) program the device and (b) record the resulti
 - **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self._di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 - **`configure_do_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital output port. Record on `self._do_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 
-The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). They are not yet implemented for packaged drivers.
+The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). Of the packaged drivers, only LabJack T-Series implements them (its current methods raise `NotImplementedError` because the hardware measures voltage only).
 
 - **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.
