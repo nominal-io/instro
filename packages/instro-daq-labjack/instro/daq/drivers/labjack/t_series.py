@@ -13,6 +13,7 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     CJCSource,
@@ -200,6 +201,18 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
         self._ao_channels[channel.alias] = channel  # type: ignore[assignment]
+
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        raise NotImplementedError(
+            "LabJack T-series analog inputs measure voltage only. Measure current through an external shunt "
+            "resistor (e.g. an LJTick-CurrentShunt) with a voltage input and a scaler. "
+            "See https://support.labjack.com/docs/measuring-current-app-note."
+        )
+
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        raise NotImplementedError(
+            "LabJack T-series DACs output voltage only; current output requires external circuitry. "
+        )
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
         """Configure a thermocouple ai channel; raw volts are converted to temperature on read. ``cjc_temp`` is °C."""
