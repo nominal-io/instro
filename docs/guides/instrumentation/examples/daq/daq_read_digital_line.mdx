@@ -68,6 +68,6 @@ with daq:
         logic=Logic.LOW,
     )
 
-    reads = daq.read(["di_0", "di_1"])
+    reads = daq.read_batch(["di_0", "di_1"])
     print(f"Values: {reads['di_0'].latest}, {reads['di_1'].latest}")
 ```

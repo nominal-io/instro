@@ -308,7 +308,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq = self._create_daq()
                 try:
                     self._configure_ai(daq, physical, alias)
-                    measurement = daq.read(alias)[alias]
+                    measurement = daq.read(alias)
                     self.assertIsNotNone(measurement, f"{alias}: measurement is None")
                     vals = measurement.values
                     self.assertTrue(vals, f"{alias}: empty values list")
@@ -369,7 +369,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write(AO_ALIAS_0, v)
                     time.sleep(0.05)
-                    measured = daq.read(AI_ALIAS_0)[AI_ALIAS_0].latest
+                    measured = daq.read(AI_ALIAS_0).latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.6f} V | err={err:+.6f} V{flag}")
@@ -414,11 +414,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 errs = []
                 pairs = [(1.0, 8.0), (4.5, 0.5), (9.0, 3.3), (0.0, 0.0)]
                 for v0, v1 in pairs:
-                    daq.write([AO_ALIAS_0, AO_ALIAS_1], [v0, v1])
+                    daq.write_batch([AO_ALIAS_0, AO_ALIAS_1], [v0, v1])
                     time.sleep(0.05)
 
                     # Single read() captures both channels simultaneously.
-                    reads = daq.read([AI_ALIAS_0, AI_ALIAS_2])
+                    reads = daq.read_batch([AI_ALIAS_0, AI_ALIAS_2])
                     ain0 = reads[AI_ALIAS_0].latest
                     ain2 = reads[AI_ALIAS_2].latest
 
@@ -435,10 +435,10 @@ class TestLabJackT8Hardware(unittest.TestCase):
                         if abs(err) > ANALOG_TOLERANCE_V:
                             errs.append(f"{label}: target={target} V, measured={measured:.4f} V")
 
-                daq.write([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
+                daq.write_batch([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
+                daq.write_batch([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
@@ -472,7 +472,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write(AO_ALIAS_1, v)
                     time.sleep(0.05)
-                    measured = daq.read(AI_ALIAS_2)[AI_ALIAS_2].latest
+                    measured = daq.read(AI_ALIAS_2).latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- OUT OF TOLERANCE"
                     print(f"         DAC1={v:.3f} V | AIN2={measured:.6f} V | err={err:+.6f} V{flag}")
@@ -591,11 +591,11 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for v in [1.0, 5.0, 9.0]:
                     daq.write(AO_ALIAS_0, v)
                     time.sleep(0.05)
-                    before = daq.read(AI_ALIAS_0)[AI_ALIAS_0].latest
+                    before = daq.read(AI_ALIAS_0).latest
 
                     time.sleep(HOLD_DURATION_S)
 
-                    after = daq.read(AI_ALIAS_0)[AI_ALIAS_0].latest
+                    after = daq.read(AI_ALIAS_0).latest
                     drift = abs(after - before)
                     flag = "" if drift <= HOLD_TOLERANCE_V else "  <-- DRIFT FAIL"
                     print(
@@ -649,7 +649,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.write(AO_ALIAS_0, FINAL_V)
 
                 time.sleep(0.1)
-                measured = daq.read(AI_ALIAS_0)[AI_ALIAS_0].latest
+                measured = daq.read(AI_ALIAS_0).latest
                 err = measured - FINAL_V
                 print(
                     f"         {N_WRITES} rapid writes | final={FINAL_V} V | "
@@ -748,7 +748,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                         RuntimeError,
                         msg="read() should raise RuntimeError while the background daemon is running",
                     ):
-                        daq.read()
+                        daq.read_batch()
                     print("         RuntimeError raised correctly — daemon owns the buffer")
                 finally:
                     daq.stop()
@@ -778,7 +778,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
-                    measurement = daq.read(AI_ALIAS_0)[AI_ALIAS_0]
+                    measurement = daq.read(AI_ALIAS_0)
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)
@@ -854,7 +854,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 daq.configure_ai_hw_sample_rate(sample_rate=HIGH_RATE_HZ, samples_per_channel=HIGH_RATE_SAMPLES)
                 daq.start(background=False)
                 try:
-                    measurement = daq.read(AI_ALIAS_0)[AI_ALIAS_0]
+                    measurement = daq.read(AI_ALIAS_0)
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(
@@ -960,13 +960,13 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 self._configure_ao(daq, AO_CHANNEL_0, AO_ALIAS_0)
                 self._configure_ao(daq, AO_CHANNEL_1, AO_ALIAS_1)
 
-                daq.write([AO_ALIAS_0, AO_ALIAS_1], [DAC0_V, DAC1_V])
+                daq.write_batch([AO_ALIAS_0, AO_ALIAS_1], [DAC0_V, DAC1_V])
                 time.sleep(0.05)
 
                 daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
                 daq.start(background=False)
                 try:
-                    reads = daq.read([alias for _physical, alias in MULTI_CH_CHANNELS])
+                    reads = daq.read_batch([alias for _physical, alias in MULTI_CH_CHANNELS])
 
                     errs = []
                     means = {}
@@ -1020,7 +1020,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                     self.assertFalse(errs, "; ".join(errs))
                 finally:
                     daq.stop()
-                    daq.write([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
+                    daq.write_batch([AO_ALIAS_0, AO_ALIAS_1], [0.0, 0.0])
             finally:
                 daq.close()
 
@@ -1048,7 +1048,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
                 for state in (0, 1, 0, 1, 0):
                     daq.write(DO_ALIAS, state)
                     time.sleep(0.05)
-                    read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
+                    read = int(daq.read(DI_ALIAS).latest)
                     flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         FIO4←{state} | FIO5={read}{flag}")
                     if LOOPBACK_WIRED and read != state:

@@ -1086,18 +1086,24 @@ class InstroDAQ(Instrument):
                     measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
         return measurements
 
-    def read(
+    def read(self, channel: str, **kwargs) -> Measurement:
+        """Read one AI/DI channel by alias; returns its Measurement."""
+        if channel is None:
+            raise ValueError("read() requires a channel alias; use read_batch() to read all configured inputs.")
+        return self.read_batch([channel], **kwargs)[channel]
+
+    def read_batch(
         self,
-        channels: str | list[str] | None = None,
+        channels: list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
+        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital per line/port."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
         if channels is None:
             aliases = [*ai, *di]
         else:
-            aliases = [channels] if isinstance(channels, str) else list(channels)
+            aliases = list(channels)
             # Validate up front so a bad alias can't leave earlier channels already read from hardware.
             if unknown := [a for a in aliases if a not in ai and a not in di]:
                 raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
@@ -1125,20 +1131,28 @@ class InstroDAQ(Instrument):
 
         return result
 
-    def write(
+    def write(self, channel: str, value: float, **kwargs) -> Command:
+        """Write ``value`` to one AO/DO channel by alias; returns its Command."""
+        if channel is None:
+            raise ValueError("write() requires a channel alias; use write_batch() to write several channels.")
+        return self.write_batch([channel], [value], **kwargs)[0]
+
+    def write_batch(
         self,
-        channels: str | list[str],
-        values: float | list[float],
+        channels: list[str],
+        values: list[float],
         **kwargs,
-    ) -> Command | list[Command]:
+    ) -> list[Command]:
         """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
+        if not channels:
+            raise ValueError("write_batch() requires at least one channel alias.")
         self._require_open()
         ao, do = self.ao_channels, self.do_channels
-        channel_list = [channels] if isinstance(channels, str) else list(channels)
-        value_list = list(values) if isinstance(values, list) else [values]
+        channel_list = list(channels)
+        value_list = list(values)
         if len(channel_list) != len(value_list):
             raise ValueError(
-                f"write() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
+                f"write_batch() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
             )
         # Validate up front so a bad alias can't leave earlier channels already written to hardware.
         if unknown := [c for c in channel_list if c not in ao and c not in do]:
@@ -1156,7 +1170,7 @@ class InstroDAQ(Instrument):
             # Why does this function accept the data as an int? Shouldn't it only accept a bool?
             commands.append(self.write_digital_line(channel, int(value), **kwargs))
 
-        return commands[0] if isinstance(channels, str) else commands
+        return commands
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:

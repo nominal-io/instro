@@ -299,7 +299,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
+                    measurement = daq.read(AI_ALIAS)
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -354,7 +354,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write(AO_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read(AI_ALIAS)[AI_ALIAS].latest
+                    measured = daq.read(AI_ALIAS).latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -390,7 +390,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
                 for state in (0, 1, 0, 1, 0):
                     daq.write(DO_ALIAS, state)
                     time.sleep(0.05)
-                    read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
+                    read = int(daq.read(DI_ALIAS).latest)
                     flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         FIO4<-{state} | FIO5={read}{flag}")
                     if LOOPBACK_WIRED and read != state:
@@ -471,7 +471,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
                 try:
                     # No background daemon: read() dispatches to the driver's fetch_analog().
-                    measurement = daq.read(AI_ALIAS)[AI_ALIAS]
+                    measurement = daq.read(AI_ALIAS)
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertGreaterEqual(len(vals), 1)

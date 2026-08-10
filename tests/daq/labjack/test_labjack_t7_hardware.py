@@ -332,7 +332,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ai(daq)
 
                 for _ in range(3):
-                    measurement = daq.read(AI0_ALIAS)[AI0_ALIAS]
+                    measurement = daq.read(AI0_ALIAS)
                     self.assertIsNotNone(measurement)
                     vals = measurement.values
                     self.assertTrue(vals and math.isfinite(vals[-1]), f"non-finite SW-timed read: {vals}")
@@ -390,10 +390,10 @@ class TestLabJackT7Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write([AO0_ALIAS, AO1_ALIAS], [3.0, 1.0])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [3.0, 1.0])
                 time.sleep(0.05)
 
-                reads = daq.read([AI0_ALIAS, AI1_ALIAS])
+                reads = daq.read_batch([AI0_ALIAS, AI1_ALIAS])
                 ain0 = reads[AI0_ALIAS].latest
                 ain1 = reads[AI1_ALIAS].latest
                 self.assertTrue(
@@ -411,7 +411,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     terminal_config=TerminalConfig.DIFF,
                 )
                 time.sleep(0.05)
-                diff_reading = daq.read(AI0_ALIAS)[AI0_ALIAS].latest
+                diff_reading = daq.read(AI0_ALIAS).latest
                 self.assertTrue(
                     math.isfinite(diff_reading),
                     f"non-finite differential read: {diff_reading}",
@@ -428,9 +428,9 @@ class TestLabJackT7Hardware(unittest.TestCase):
                         delta=ANALOG_TOLERANCE_V,
                         msg=f"differential read {diff_reading:.4f} V != single-ended diff {single_ended_diff:.4f} V",
                     )
-                daq.write([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
             finally:
-                daq.write([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
@@ -456,7 +456,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write(AO0_ALIAS, v)
                     time.sleep(0.05)  # let the DAC settle
-                    measured = daq.read(AI0_ALIAS)[AI0_ALIAS].latest
+                    measured = daq.read(AI0_ALIAS).latest
                     err = measured - v
                     flag = "" if (not LOOPBACK_WIRED or abs(err) <= ANALOG_TOLERANCE_V) else "  <-- out of tolerance"
                     print(f"         DAC0={v:.3f} V | AIN0={measured:.4f} V | err={err:+.4f} V{flag}")
@@ -489,7 +489,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 def read_ain0():
-                    return daq.read(AI0_ALIAS)[AI0_ALIAS].latest
+                    return daq.read(AI0_ALIAS).latest
 
                 errs = []
                 for range_min, range_max, in_v, over_v in AIN_VOLTAGE_RANGES:
@@ -568,7 +568,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 for state in (0, 1, 0, 1, 0):
                     daq.write(DO_ALIAS, state)
                     time.sleep(0.05)
-                    read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
+                    read = int(daq.read(DI_ALIAS).latest)
                     flag = "" if (not LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                     print(f"         FIO0<-{state} | FIO1={read}{flag}")
                     if LOOPBACK_WIRED and read != state:
@@ -598,7 +598,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
                 # hold distinct DC levels before streaming
-                daq.write([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -628,7 +628,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                             )
                 finally:
                     daq.stop()
-                    daq.write([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
+                    daq.write_batch([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
             finally:
                 daq.close()
 
@@ -651,7 +651,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
             try:
                 self._configure_ai(daq)
                 self._configure_ao(daq)
-                daq.write([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -660,7 +660,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
                 try:
                     # No background daemon: read() dispatches to the driver's fetch_analog().
-                    reads = daq.read([AI0_ALIAS, AI1_ALIAS])
+                    reads = daq.read_batch([AI0_ALIAS, AI1_ALIAS])
 
                     for ai_alias, level in ((AI0_ALIAS, HW_TIMED_DC_V0), (AI1_ALIAS, HW_TIMED_DC_V1)):
                         vals = reads[ai_alias].values
@@ -682,7 +682,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                             )
                 finally:
                     daq.stop()
-                    daq.write([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
+                    daq.write_batch([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
             finally:
                 daq.close()
 
@@ -706,7 +706,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ai(daq)
                 self._configure_ao(daq)
                 # hold distinct DC levels before streaming
-                daq.write([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
+                daq.write_batch([AO0_ALIAS, AO1_ALIAS], [HW_TIMED_DC_V0, HW_TIMED_DC_V1])
                 daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
                 daq.start()
 
@@ -733,7 +733,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                             )
                 finally:
                     daq.stop()
-                    daq.write([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
+                    daq.write_batch([AO0_ALIAS, AO1_ALIAS], [0.0, 0.0])
             finally:
                 daq.close()
 
@@ -827,7 +827,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 self._configure_ao(daq)
                 self._configure_digital_lines(daq)
 
-                daq.write([AO0_ALIAS, DO_ALIAS], [0.0, 0])
+                daq.write_batch([AO0_ALIAS, DO_ALIAS], [0.0, 0])
             finally:
                 daq.close()
 
@@ -918,7 +918,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                     alias=AI0_ALIAS,
                 )
             with self.assertRaises(InstrumentNotOpenError):
-                daq.read()
+                daq.read_batch()
             print("         InstrumentNotOpenError raised for config + read before open()")
 
         self._run_step(

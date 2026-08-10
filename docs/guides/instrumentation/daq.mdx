@@ -600,27 +600,27 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 ### Reading by Alias
 
-`read()` accepts a single alias, a list of aliases, or `None` for every configured input channel. It returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
+`read()` accepts a single alias and returns that channel's `Measurement`. `read_batch()` accepts a list of aliases, or `None` for every configured input channel, and returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
 
 ```python
 daq.configure_voltage_input(physical_channel="ai0", alias="v0")
 daq.configure_digital_input(physical_channel="DIO0", alias="limit_switch")
 
 # A single channel
-result = daq.read("v0")
-print(result["v0"].latest)
+measurement = daq.read("v0")
+print(measurement.latest)
 
 # Several channels of mixed type
-result = daq.read(["v0", "limit_switch"])
+result = daq.read_batch(["v0", "limit_switch"])
 print(result["v0"].latest, result["limit_switch"].latest)
 
 # Every configured input channel
-result = daq.read()
+result = daq.read_batch()
 ```
 
 ### Writing by Alias
 
-`write()` writes `values[i]` to `channels[i]`, routing each to analog or digital output by channel type. Pass a single alias and value, or parallel lists to write several channels at once. It returns the resulting `Command` for a single alias, or a list of `Command` objects for a list of aliases.
+`write()` writes a single value to a single alias and returns the resulting `Command`. `write_batch()` writes `values[i]` to `channels[i]` and returns a list of `Command` objects. Both route each alias to analog or digital output by channel type.
 
 ```python
 daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
@@ -630,7 +630,7 @@ daq.configure_digital_output(physical_channel="DIO1", alias="enable")
 daq.write("ao0", 2.2)
 
 # Several channels, paired by index
-daq.write(["ao0", "enable"], [2.2, 1])
+daq.write_batch(["ao0", "enable"], [2.2, 1])
 ```
 
 Digital values are coerced to `int`. The `channels` and `values` lists must be the same length; a mismatch raises `ValueError`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.

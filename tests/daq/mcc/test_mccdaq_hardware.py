@@ -374,7 +374,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 errs: list = []
                 for _ in range(3):
                     # No AO driven here, so the loopback wire value is undefined — assert structure only.
-                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": None, "ai_1": None}, errs)
+                    self._check_ai(daq.read_batch(["ai_0", "ai_1"]), {"ai_0": None, "ai_1": None}, errs)
                     time.sleep(0.25)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -399,7 +399,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in [0.0, 1.0, 2.5, 5.0, -5.0, 0.0]:
-                    daq.write(["ao_0", "ao_1"], [v, -v])
+                    daq.write_batch(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.1)
             finally:
                 daq.close()
@@ -426,14 +426,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for v in test_voltages:
-                    daq.write(["ao_0", "ao_1"], [v, -v])
+                    daq.write_batch(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.2)  # allow signal to settle
 
                     # ao_0 -> ai_0 carries +v, ao_1 -> ai_1 carries -v via loopback wiring.
-                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": v, "ai_1": -v}, errs)
+                    self._check_ai(daq.read_batch(["ai_0", "ai_1"]), {"ai_0": v, "ai_1": -v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write(["ao_0", "ao_1"], [0.0, 0.0])
+                daq.write_batch(["ao_0", "ao_1"], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
@@ -469,7 +469,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 time.sleep(0.2)
 
                 errs: list = []
-                self._check_ai(daq.read("ai_0_narrow"), {"ai_0_narrow": 0.5}, errs)
+                self._check_ai(daq.read_batch(["ai_0_narrow"]), {"ai_0_narrow": 0.5}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 daq.write("ao_0", 0.0)
@@ -502,7 +502,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     time.sleep(0.2)
 
                     # Only ao_0 is driven here; ao_1/ai_1 is left undriven, so check ai_0 only.
-                    self._check_ai(daq.read("ai_0"), {"ai_0": v}, errs)
+                    self._check_ai(daq.read_batch(["ai_0"]), {"ai_0": v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 # Reset output to 0V
@@ -535,7 +535,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start()
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
+                    daq.write_batch(["ao_0", "ao_1"], [3.0, -3.0])
                     time.sleep(1.0)  # let background daemon collect samples
 
                     ch0 = daq.get_channel("mccdaq_test.ai_0", 10, True)
@@ -580,10 +580,10 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start(background=False)
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [4.0, -4.0])
+                    daq.write_batch(["ao_0", "ao_1"], [4.0, -4.0])
                     time.sleep(0.2)
 
-                    reads = daq.read(["ai_0", "ai_1"])
+                    reads = daq.read_batch(["ai_0", "ai_1"])
                     self.assertEqual(set(reads), {"ai_0", "ai_1"})
                 finally:
                     daq.stop()
@@ -613,7 +613,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start()
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
+                    daq.write_batch(["ao_0", "ao_1"], [3.0, -3.0])
                     time.sleep(1.0)  # let background daemon collect samples
 
                     ch0 = daq.get_channel("mccdaq_test.ai_0", 9, True)
@@ -661,7 +661,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     ramp_voltages = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 
                     for v in ramp_voltages:
-                        daq.write(["ao_0", "ao_1"], [v, 5.0 - v])
+                        daq.write_batch(["ao_0", "ao_1"], [v, 5.0 - v])
                         time.sleep(0.5)
 
                     # Read data while still running — before stop() closes the buffer
@@ -808,7 +808,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write("do_port_a", pattern)
                     time.sleep(0.05)  # allow signal to settle
 
-                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
+                    read_value = int(daq.read("di_port_b").latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
 
                     self.assertEqual(
@@ -848,7 +848,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write("do_port_a", pattern)
                     time.sleep(0.05)
 
-                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
+                    read_value = int(daq.read("di_port_b").latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
                     expected_bits = pattern & DIGITAL_LOOPBACK_MASK
 
@@ -930,7 +930,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                         RuntimeError,
                         msg="read() should raise RuntimeError while the background daemon is running",
                     ):
-                        daq.read()
+                        daq.read_batch()
                     print("         RuntimeError raised correctly — daemon owns the buffer")
                 finally:
                     daq.stop()
@@ -1067,7 +1067,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
                 self._configure_digital_ports(daq)
 
-                daq.write(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
+                daq.write_batch(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
             finally:
                 daq.close()
 

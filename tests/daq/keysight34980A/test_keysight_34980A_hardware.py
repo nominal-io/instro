@@ -163,7 +163,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq)
             for _ in range(3):
-                measurement = daq.read(AI_ALIAS)[AI_ALIAS]
+                measurement = daq.read(AI_ALIAS)
                 self.assertIsNotNone(measurement)
                 v = measurement.latest
                 self.assertTrue(math.isfinite(v), f"non-finite SW-timed read: {v}")
@@ -211,7 +211,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq, physical=AI_CHANNEL, alias=AI_ALIAS)
             self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
-            reads = daq.read([AI_ALIAS, AI_ALIAS_2])
+            reads = daq.read_batch([AI_ALIAS, AI_ALIAS_2])
             self.assertEqual(set(reads), {AI_ALIAS, AI_ALIAS_2})
             daq.driver._check_errors()  # scan of both channels left no error queued
             print(f"         scanned channels {AI_CHANNEL}, {AI_CHANNEL_2} with no SCPI error")
@@ -235,7 +235,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.start(background=False)
             try:
                 # No background daemon: read() dispatches to the driver's fetch_analog().
-                measurement = daq.read(AI_ALIAS)[AI_ALIAS]
+                measurement = daq.read(AI_ALIAS)
                 self.assertIsNotNone(measurement)
                 vals = measurement.values
                 self.assertGreaterEqual(len(vals), SAMPLES_PER_CHANNEL)
@@ -325,7 +325,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
             for state in (0, 1, 0, 1, 0):
                 daq.write(DO_ALIAS, state)
                 time.sleep(0.05)
-                read = int(daq.read(DI_ALIAS)[DI_ALIAS].latest)
+                read = int(daq.read(DI_ALIAS).latest)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                 print(f"         {DO_LINE}<-{state} | {DI_LINE}={read}{flag}")
                 if DIGITAL_LOOPBACK_WIRED and read != state:
@@ -410,7 +410,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
             for value in (0x00, 0x01, 0xFF, 0xAA, 0x00):
                 daq.write(DO_PORT_ALIAS, value)
                 time.sleep(0.05)
-                read = int(daq.read(DI_PORT_ALIAS)[DI_PORT_ALIAS].latest)
+                read = int(daq.read(DI_PORT_ALIAS).latest)
                 bit0_ok = (read & 0x01) == (value & 0x01)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or bit0_ok) else "  <-- bit0 mismatch"
                 print(f"         {DO_PORT}<-0x{value:02X} | {DI_PORT}=0x{read:02X}{flag}")
