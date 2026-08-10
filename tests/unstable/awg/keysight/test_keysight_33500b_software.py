@@ -169,6 +169,7 @@ def test_10_set_waveform_pulse_writes_width(keysight: Keysight33500B, keysight_v
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002))
 
     assert keysight_visa.write.call_args_list == [
+        call("FUNC:PULS:WIDT MIN"),
         call("FUNC PULS"),
         call("FREQ 1000.0"),
         call("PHAS 0.0"),
@@ -182,6 +183,7 @@ def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B,
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001))
 
     assert keysight_visa.write.call_args_list == [
+        call("FUNC:PULS:WIDT MIN"),
         call("FUNC PULS"),
         call("FREQ 1000.0"),
         call("PHAS 36.0"),
