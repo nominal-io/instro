@@ -1,8 +1,10 @@
 """Hardware integration test for the LabJack T7 driver's typed channel methods via InstroDAQ.
 
-This test requires a physical LabJack T7 with a thermocouple connected. It
-exercises the typed-channel path
-(``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``)
+This test requires a physical LabJack T7 with a thermocouple connected and a
+DAC0 -> AIN2 voltage loopback. It exercises the typed-channel paths
+(``configure_voltage_input`` -> ``configure_ai_voltage_channel``,
+``configure_voltage_output`` -> ``configure_ao_voltage_channel``,
+``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``)
 rather than the generic analog path covered by ``test_labjack_t7_hardware.py``.
 The driver registers the thermocouple's AIN in the scan list as raw volts and
 converts to temperature on read using the internal cold-junction sensor. Each
@@ -20,8 +22,11 @@ LABJACK T7 WIRING
   CJC: the internal temp sensor (AIN14 / TEMPERATURE_DEVICE_K, located between
   the AIN0-AIN3 screw terminals) is read alongside the thermocouple.
 
-  Set THERMOCOUPLE_WIRED = False to run structure-only checks (no value
-  asserts) with nothing connected.
+  Voltage loopback (wire DAC0 -> AIN2):
+    DAC0 (AO, 0-5 V)  --->  AIN2  (AI)
+
+  Set VOLTAGE_LOOPBACK_WIRED / THERMOCOUPLE_WIRED = False to run
+  structure-only checks (no value asserts) for an unwired path.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -78,6 +83,7 @@ DATASET_RID = None
 
 # Physical configs. Set to false if nothing is connected
 THERMOCOUPLE_WIRED = True
+VOLTAGE_LOOPBACK_WIRED = True
 
 # Thermocouple mode.
 TC_CHANNEL, TC_ALIAS = "AIN0", "tc0"
@@ -88,6 +94,14 @@ TC_CJC_SOURCE = CJCSource.INTERNAL
 # Physical configuration for TC (if connected)
 TC_RANGE_MIN, TC_RANGE_MAX = 0.0, 100.0
 AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 40.0
+
+# Voltage mode — DAC0 looped back into the voltage input.
+VOLTAGE_CHANNEL, VOLTAGE_ALIAS = "AIN2", "v0"
+VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = "DAC0", "vao0"
+VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -10.0, 10.0
+VOLTAGE_AO_RANGE_MIN, VOLTAGE_AO_RANGE_MAX = 0.0, 5.0
+VOLTAGE_TEST_VALUES = [0.0, 0.5, 1.25, 2.5, 3.3, 4.5]
+VOLTAGE_TOLERANCE_V = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +203,26 @@ class TestLabJackT7TypedChannels(unittest.TestCase):
         daq.open()
         return daq
 
+    def _configure_voltage_input(self, daq: InstroDAQ, physical: str = VOLTAGE_CHANNEL, alias: str = VOLTAGE_ALIAS):
+        """Configure the voltage input channel."""
+        daq.configure_voltage_input(
+            physical,
+            alias=alias,
+            range_min=VOLTAGE_RANGE_MIN,
+            range_max=VOLTAGE_RANGE_MAX,
+        )
+
+    def _configure_voltage_output(
+        self, daq: InstroDAQ, physical: str = VOLTAGE_AO_CHANNEL, alias: str = VOLTAGE_AO_ALIAS
+    ):
+        """Configure the voltage output channel looped back to the voltage input."""
+        daq.configure_voltage_output(
+            physical,
+            alias=alias,
+            range_min=VOLTAGE_AO_RANGE_MIN,
+            range_max=VOLTAGE_AO_RANGE_MAX,
+        )
+
     def _configure_thermocouple(self, daq: InstroDAQ, physical: str = TC_CHANNEL, alias: str = TC_ALIAS):
         """Configure the thermocouple input channel."""
         daq.configure_thermocouple_input(
@@ -214,9 +248,59 @@ class TestLabJackT7TypedChannels(unittest.TestCase):
             raise
 
     # =====================================================================
-    # 1. Thermocouple input
+    # 1. Voltage loopback — write the DAC, verify on the voltage input
     # =====================================================================
-    def test_01_thermocouple_input(self):
+    def test_01_voltage_loopback(self):
+        """Write known voltages to the DAC and verify they appear on the voltage input."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_voltage_input(daq)
+                self._configure_voltage_output(daq)
+
+                channel = daq.ai_channels[VOLTAGE_ALIAS]
+                self.assertEqual(channel.physical_channel, VOLTAGE_CHANNEL)
+                self.assertEqual((channel.range_min, channel.range_max), (VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX))
+
+                errs = []
+                for v in VOLTAGE_TEST_VALUES:
+                    daq.write_analog_value(VOLTAGE_AO_ALIAS, v)
+                    time.sleep(0.05)  # let the output settle
+                    measured = daq.read_analog().latest
+                    err = measured - v
+                    flag = (
+                        ""
+                        if (not VOLTAGE_LOOPBACK_WIRED or abs(err) <= VOLTAGE_TOLERANCE_V)
+                        else "  <-- out of tolerance"
+                    )
+                    print(
+                        f"         {VOLTAGE_AO_ALIAS}={v:.3f} V | "
+                        f"{VOLTAGE_ALIAS}={measured:.4f} V | err={err:+.4f} V{flag}"
+                    )
+                    if not math.isfinite(measured):
+                        errs.append(f"non-finite read at {v} V")
+                    if VOLTAGE_LOOPBACK_WIRED and abs(err) > VOLTAGE_TOLERANCE_V:
+                        errs.append(
+                            f"{VOLTAGE_AO_ALIAS}={v} V -> {VOLTAGE_ALIAS}={measured:.4f} V "
+                            f"(err {err:+.4f} V > {VOLTAGE_TOLERANCE_V} V)"
+                        )
+                daq.write_analog_value(VOLTAGE_AO_ALIAS, 0.0)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Voltage loopback",
+            f"Write a sweep of voltages ({VOLTAGE_TEST_VALUES} V) to {VOLTAGE_AO_CHANNEL} and verify each "
+            f"reads back on {VOLTAGE_CHANNEL} within {VOLTAGE_TOLERANCE_V} V.",
+            step,
+        )
+
+    # =====================================================================
+    # 2. Thermocouple input
+    # =====================================================================
+    def test_02_thermocouple_input(self):
         """Configure the thermocouple channel and read plausible ambient temperatures."""
 
         def step():

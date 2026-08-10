@@ -14,6 +14,7 @@ from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
     CJCSource,
     DAQChannel,
     DigitalChannel,
@@ -163,7 +164,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Configure an ai channel on the LabJack device."""
+        """Deprecated: use ``configure_ai_voltage_channel``. Configures an ai channel on the LabJack device."""
         if self._model is None:
             self._initialize_model()
 
@@ -176,9 +177,29 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
+        """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the LabJack device."""
         # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
         # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
         self._ao_channels[channel.alias] = channel
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure a voltage ai channel on the LabJack device."""
+        if self._model is None:
+            self._initialize_model()
+
+        assert self._model is not None
+        aNames, aValues = self._model.ai_channel_configs(channel)
+
+        if aNames:
+            ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
+
+        self._ai_channels[channel.alias] = channel  # type: ignore[assignment]
+
+    def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure a voltage AO channel on the LabJack device."""
+        # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
+        # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
+        self._ao_channels[channel.alias] = channel  # type: ignore[assignment]
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
         """Configure a thermocouple ai channel; raw volts are converted to temperature on read. ``cjc_temp`` is °C."""

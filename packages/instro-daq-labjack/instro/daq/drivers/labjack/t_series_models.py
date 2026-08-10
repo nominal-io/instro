@@ -2,7 +2,14 @@ import logging
 from typing import Protocol
 
 from instro.daq.scaling.scaling import ReverseLinearScaler, Scaler
-from instro.daq.types import AnalogChannel, AnalogThermocoupleChannel, DAQChannel, HWTimingConfig, TerminalConfig
+from instro.daq.types import (
+    AnalogChannel,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
+    DAQChannel,
+    HWTimingConfig,
+    TerminalConfig,
+)
 from labjack import ljm
 
 logger = logging.getLogger(__name__)
@@ -14,7 +21,7 @@ class LJ_Model(Protocol):
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]: ...
 
     def thermocouple_channel_configs(
@@ -54,7 +61,7 @@ class LJ_T4:
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         """T4 AI channel config (RSE only; AIN# format)."""
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
@@ -69,7 +76,9 @@ class LJ_T4:
 
         return self._ai_channel_configs(channel)
 
-    def _ai_channel_configs(self, channel: AnalogChannel) -> tuple[list[str], list[float] | list[int]]:
+    def _ai_channel_configs(
+        self, channel: AnalogChannel | AnalogVoltageChannel
+    ) -> tuple[list[str], list[float] | list[int]]:
         """T4 has no per-channel AI config; returns empty names/values."""
         aNames = []  # type: ignore
         aValues = []  # type: ignore
@@ -135,7 +144,7 @@ class LJ_T7:
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
             raise ValueError(
@@ -166,7 +175,7 @@ class LJ_T7:
 
     def _ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         range = self._compute_range(channel.range_min, channel.range_max)
 
@@ -261,7 +270,9 @@ class LJ_T8:
     MAX_SCAN_RATE = 40000.0
     TC_RANGE = 0.075
 
-    def ai_channel_configs(self, channel: AnalogChannel) -> tuple[list[str], list[float] | list[int]]:
+    def ai_channel_configs(
+        self, channel: AnalogChannel | AnalogVoltageChannel
+    ) -> tuple[list[str], list[float] | list[int]]:
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
             raise ValueError(
                 f"Channel '{channel.physical_channel}' must be in the format '{self.AI_CHANNEL_PREFIX}#' where # is an integer"
@@ -274,7 +285,7 @@ class LJ_T8:
 
     def _ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         range = self._compute_range(channel.range_min, channel.range_max)
 
