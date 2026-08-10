@@ -10,7 +10,7 @@ from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
 from instro.daq.scaling.scaling import Scaler
-from instro.daq.scaling.thermocouple import TC_UNIT
+from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -55,30 +55,6 @@ class LabJackData:
     data: list[float]
     timestamp: int
     dt: int | None
-
-
-def _kelvin_to_unit(temp_k: float, unit: TC_UNIT | None) -> float:
-    match unit:
-        case TC_UNIT.KELVIN:
-            return temp_k
-        case TC_UNIT.FAHRENHEIT:
-            return temp_k * 9 / 5 - 459.67
-        case TC_UNIT.RANKINE:
-            return temp_k * 9 / 5
-        case _:
-            return temp_k - 273.15
-
-
-def _unit_to_kelvin(temp: float, unit: TC_UNIT | None) -> float:
-    match unit:
-        case TC_UNIT.KELVIN:
-            return temp
-        case TC_UNIT.FAHRENHEIT:
-            return (temp + 459.67) * 5 / 9
-        case TC_UNIT.RANKINE:
-            return temp * 5 / 9
-        case _:
-            return temp + 273.15
 
 
 class LabJackTSeriesDriver(DAQDriverBase):
@@ -279,7 +255,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
         if channel.cjc_source is CJCSource.CONSTANT:
             assert channel.cjc_temp is not None
-            cjc_k = _unit_to_kelvin(channel.cjc_temp, channel.unit)
+            cjc_k = unit_to_kelvin(channel.cjc_temp, channel.unit)
         else:
             cjc_k = self._model.tc_cjc_kelvin(channel.physical_channel, cjc_samples)
 
@@ -287,7 +263,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         temps = []
         for v in volts:
             try:
-                temps.append(_kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
+                temps.append(kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
             except ljm.LJMError:
                 temps.append(float("nan"))  # open/overranged input or dropped-scan sentinel; keep the batch flowing
         return temps
