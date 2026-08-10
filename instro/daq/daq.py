@@ -1120,7 +1120,12 @@ class InstroDAQ(Instrument):
             by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
             for alias in analog_aliases:
                 key = f"{self.name}.{alias}"
-                source = by_key[key]
+                source = by_key.get(key)
+                if source is None:
+                    raise KeyError(
+                        f"read_analog() returned no data for analog channel '{alias}' (key '{key}'). "
+                        f"Channels returned: {sorted(by_key)}."
+                    )
                 analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
         elif analog_aliases:
             # Just use the get_channel defaults here. Directly call get_channel for more customization
@@ -1165,7 +1170,7 @@ class InstroDAQ(Instrument):
         # Validate up front so a bad alias or value can't leave earlier channels already written to hardware.
         if unknown := [c for c in channel_list if c not in ao and c not in do]:
             raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
-        self._validate_inputs_for_channels(channel_list, value_list)
+        self._validate_inputs_for_channels(channel_list, value_list, ao, do)
 
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
@@ -1180,13 +1185,19 @@ class InstroDAQ(Instrument):
 
         return commands
 
-    def _validate_inputs_for_channels(self, channels: list[str], values: list[float | int | bool]) -> None:
+    def _validate_inputs_for_channels(
+        self,
+        channels: list[str],
+        values: list[float | int | bool],
+        ao: Mapping[str, AnalogChannel],
+        do: Mapping[str, DigitalChannel],
+    ) -> None:
         """Validate every value against its target channel type before anything is written to hardware."""
         for alias, value in zip(channels, values):
-            if alias in self.ao_channels:
+            if alias in ao:
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                     raise ValueError(f"Analog output '{alias}' requires a finite number, got {value!r}.")
-            elif isinstance(self.do_channels[alias], DigitalPortChannel):
+            elif isinstance(do[alias], DigitalPortChannel):
                 # bool is a subclass of int, so it must be excluded explicitly.
                 if isinstance(value, bool) or not isinstance(value, int):
                     raise ValueError(f"Digital port '{alias}' requires an integer value, got {value!r}.")
