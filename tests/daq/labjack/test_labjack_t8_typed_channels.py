@@ -1,10 +1,13 @@
 """Hardware integration test for the LabJack T8 driver's typed channel methods via InstroDAQ.
 
-This test requires a physical LabJack T8 with a thermocouple connected and a
-DAC0 -> AIN1 voltage loopback. It exercises the typed-channel paths
+This test requires a physical LabJack T8 with a thermocouple connected, a
+DAC0 -> AIN1 voltage loopback, and a FIO4 -> FIO5 digital loopback. It
+exercises the typed-channel paths
 (``configure_voltage_input`` -> ``configure_ai_voltage_channel``,
 ``configure_voltage_output`` -> ``configure_ao_voltage_channel``,
-``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``)
+``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``,
+``configure_digital_input`` -> ``configure_di_channel``,
+``configure_digital_output`` -> ``configure_do_channel``)
 rather than the generic analog path covered by ``test_labjack_t8_hardware.py``.
 The driver registers the thermocouple's AIN in the scan list as raw volts and
 converts to temperature on read using the per-channel cold-junction sensor.
@@ -26,8 +29,11 @@ LABJACK T8 WIRING
     DAC0 (AO, 0-5 V)  --->  AIN1+
     GND               --->  AIN1-
 
-  Set VOLTAGE_LOOPBACK_WIRED / THERMOCOUPLE_WIRED = False to run
-  structure-only checks (no value asserts) for an unwired path.
+  Digital loopback (wire FIO4 -> FIO5):
+    FIO4 (driven as output)  --->  FIO5 (read as input)
+
+  Set VOLTAGE_LOOPBACK_WIRED / THERMOCOUPLE_WIRED / DIGITAL_LOOPBACK_WIRED =
+  False to run structure-only checks (no value asserts) for an unwired path.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -85,6 +91,7 @@ DATASET_RID = None
 # Physical configs. Set to false if nothing is connected
 THERMOCOUPLE_WIRED = True
 VOLTAGE_LOOPBACK_WIRED = True
+DIGITAL_LOOPBACK_WIRED = True
 
 # Thermocouple mode.
 TC_CHANNEL, TC_ALIAS = "AIN0", "tc0"
@@ -103,6 +110,11 @@ VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -10.0, 10.0
 VOLTAGE_AO_RANGE_MIN, VOLTAGE_AO_RANGE_MAX = 0.0, 5.0
 VOLTAGE_TEST_VALUES = [0.0, 0.5, 1.25, 2.5, 3.3, 4.5]
 VOLTAGE_TOLERANCE_V = 0.05
+
+# Digital lines — one DO line looped back to one DI line.
+DO_LINE, DO_ALIAS = "FIO4", "do0"
+DI_LINE, DI_ALIAS = "FIO5", "di0"
+DIGITAL_TEST_STATES = (0, 1, 0, 1, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +248,11 @@ class TestLabJackT8TypedChannels(unittest.TestCase):
             unit=TC_UNIT_UNDER_TEST,
         )
 
+    def _configure_digital_lines(self, daq: InstroDAQ):
+        """Configure DO_LINE as a digital output and DI_LINE as a digital input."""
+        daq.configure_digital_output(DO_LINE, alias=DO_ALIAS)
+        daq.configure_digital_input(DI_LINE, alias=DI_ALIAS)
+
     def _run_step(self, name: str, description: str, fn):
         """Execute *fn*, record a Nominal event with description, and re-raise on failure."""
         start_ns = time.time_ns()
@@ -336,6 +353,41 @@ class TestLabJackT8TypedChannels(unittest.TestCase):
             "Thermocouple input",
             f"Configure {TC_CHANNEL} as a type {TC_TYPE_UNDER_TEST.value} thermocouple input "
             f"and perform 3 reads, checking each lands in the plausible ambient band.",
+            step,
+        )
+
+    # =====================================================================
+    # 3. Digital line loopback — drive the DO line, verify on the DI line
+    # =====================================================================
+    def test_03_digital_line_loopback(self):
+        """Drive DO_LINE and verify the state on DI_LINE via single-line loopback."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_digital_lines(daq)
+
+                self.assertEqual(daq.do_channels[DO_ALIAS].physical_channel, DO_LINE)
+                self.assertEqual(daq.di_channels[DI_ALIAS].physical_channel, DI_LINE)
+
+                errs = []
+                for state in DIGITAL_TEST_STATES:
+                    daq.write_digital_line(DO_ALIAS, state)
+                    time.sleep(0.05)
+                    read = int(daq.read_digital_line(DI_ALIAS).latest)
+                    flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
+                    print(f"         {DO_ALIAS}<-{state} | {DI_ALIAS}={read}{flag}")
+                    if DIGITAL_LOOPBACK_WIRED and read != state:
+                        errs.append(f"drove {DO_ALIAS}={state}, read {DI_ALIAS}={read}")
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.write_digital_line(DO_ALIAS, 0)
+                daq.close()
+
+        self._run_step(
+            "Digital line loopback",
+            f"Drive {DO_LINE} through a {list(DIGITAL_TEST_STATES)} sequence and verify {DI_LINE} reads back "
+            "the same state via single-line loopback wiring.",
             step,
         )
 
