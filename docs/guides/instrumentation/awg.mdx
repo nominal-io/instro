@@ -270,8 +270,6 @@ Concrete drivers should hide transport details behind private attributes. For VI
 
 `VisaDriver` owns the resource lock. Concurrent `write` / `query` calls against the same driver are serialized automatically. Use `with self._visa.lock():` when a sequence of writes and their error check need to execute atomically.
 
-Error checking (e.g. SCPI's `SYST:ERR?` queue) is a protocol concept, not an instrument concept, so `AWGDriverBase` has no `check_errors` hook — `InstroAWG` never checks for errors itself. Drivers that talk to an instrument with an explicit error queue own that entirely with a private `_check_errors()`. Drivers on transports with no error-queue concept (most non-SCPI protocols raise immediately on a bad command) simply don't need this at all.
-
 See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference, covering configuration, terminators, timeouts, serial settings, and the raw-byte I/O path.
 
 For non-VISA instruments, follow the same shape with the protocol client your driver needs. The important part is that the public constructor describes the instrument connection, while the transport object remains an implementation detail.
