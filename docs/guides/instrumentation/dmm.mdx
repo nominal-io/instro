@@ -68,10 +68,84 @@ dmm = InstroDMM(
 
 ### Parameters
 
-- **`name`**: A name for this DMM instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model.
-- **`publishers`**: Optional list of publishers to attach.
+- **`name`**: A name for this DMM instance. Used as a prefix for channel names when publishing. Falls back to `config.device.name` when `config` is given.
+- **`driver`**: A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model. Mutually exclusive with `config`.
+- **`config`**: A `DMMConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`. See [From a JSON Config File](#from-a-json-config-file) below.
+- **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### From a JSON Config File
+
+`InstroDMM` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
+
+```python
+from instro.dmm import InstroDMM
+
+dmm = InstroDMM(config="bench_dmm.json")
+```
+
+Where bench_dmm.json contains:
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroDMM",
+  "device": {
+    "name": "bench_dmm",
+    "description": "Bench multimeter",
+    "manufacturer": "Keysight",
+    "model": "34461A"
+  },
+  "driver": {
+    "name": "Keysight34461A",
+    "connection_type": "visa",
+    "visa": {
+      "visa_resource": "USB0::0x2A8D::0x1301::MY12345678::INSTR"
+    }
+  },
+  "measurement": {
+    "function": "DC_VOLTAGE",
+    "digits": 6,
+    "aperture_nplc": 10,
+    "range": 10.0
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "publishers": [
+    {
+      "type": "NominalCorePublisher",
+      "dataset_rid": "<dataset_rid>"
+    }
+  ]
+}
+```
+
+`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+
+`driver.name` must match one of the registered vendor/model keys (`Agilent34401A`, `Keithley2400`, `Keysight34461A`, `SimulatedDMM`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+
+The optional `measurement` block declares the initial measurement state. It is applied through the public setters (`set_measurement_function`, `set_digits`, ...) when `open()` runs, so it publishes the same `.cmd` channels the equivalent manual calls would:
+
+- **`function`** (required within the block): one of `DC_VOLTAGE`, `AC_VOLTAGE`, `DC_CURRENT`, `AC_CURRENT`, `TWO_WIRE_RESISTANCE`, `FOUR_WIRE_RESISTANCE`.
+- **`digits`**: resolution in digits. Omit to keep the instrument default.
+- **`aperture_nplc`** / **`aperture_seconds`**: integration time, in power-line cycles or seconds. At most one of the two.
+- **`range`**: a number for a manual range in the function's units, or `"auto"` for auto-range. Omit to keep the instrument default.
+
+Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
+
+`publishers` is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`, as in the example above.
+
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Because background polling cannot start without a measurement function (`start()` raises without one, matching the runtime API), a config that declares `timing` must also declare `measurement`. Pass `autostart=True` to open the connection and start polling immediately:
+
+```python
+dmm = InstroDMM(config="bench_dmm.json", autostart=True)
+```
+
+`config` also accepts a plain dict or an already-built `DMMConfig`, so a config built or received elsewhere in code can construct an `InstroDMM` directly, without a JSON round-trip.
+
+JSON configs are validated strictly: `DMMConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `measurement`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
@@ -153,6 +227,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | Method | Purpose |
 |--------|---------|
 | `InstroDMM(name, driver, publishers=None, **kwargs)` | Construct an InstroDMM with a vendor driver |
+| `InstroDMM(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `DMMConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish VISA connection to the DMM |
 | `close()` | Disconnect from DMM and close all publishers |
 | `set_measurement_function(function)` | Set measurement function (DC_VOLTAGE, AC_VOLTAGE, DC_CURRENT, AC_CURRENT, TWO_WIRE_RESISTANCE, FOUR_WIRE_RESISTANCE) |

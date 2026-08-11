@@ -1,0 +1,29 @@
+---
+title: "build an InstroDMM from a JSON config file"
+---
+
+```python dmm_config.py
+"""Example: build an InstroDMM from a JSON config file.
+
+Run:
+    uv run python examples/dmm/dmm_config.py
+"""
+
+from pathlib import Path
+
+from instro.dmm import InstroDMM
+
+# Swap this for dmm_config_keysight_34461a.json (after editing its visa_resource)
+# to run against real hardware instead of the simulator.
+CONFIG_PATH = Path(__file__).parent / "dmm_config_simulated.json"
+
+
+def main() -> None:
+    with InstroDMM(config=CONFIG_PATH) as dmm:
+        measurement = dmm.read()
+        print(f"{dmm.name}: {measurement.latest:.3f}V")
+
+
+if __name__ == "__main__":
+    main()
+```
