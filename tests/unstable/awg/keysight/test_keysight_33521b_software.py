@@ -1,4 +1,4 @@
-"""Software tests for the Keysight 33500B AWG driver."""
+"""Software tests for the Keysight 33521B AWG driver."""
 
 from collections.abc import Iterator
 from unittest.mock import MagicMock, call, patch
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from instro.lib.transports import VisaConfig
-from instro.unstable.awg.drivers import Keysight33500B
+from instro.unstable.awg.drivers import Keysight33521B
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
@@ -27,7 +27,7 @@ _NO_ERROR = '0,"No error"'
 
 @pytest.fixture
 def keysight_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.awg.drivers.keysight_33500b.VisaDriver", autospec=True) as cls:
+    with patch("instro.unstable.awg.drivers.keysight_33521b.VisaDriver", autospec=True) as cls:
         yield cls
 
 
@@ -42,8 +42,8 @@ def keysight_visa(keysight_visa_cls: MagicMock) -> MagicMock:
 
 
 @pytest.fixture
-def keysight(keysight_visa_cls: MagicMock) -> Keysight33500B:
-    return Keysight33500B("TCPIP0::keysight::INSTR")
+def keysight(keysight_visa_cls: MagicMock) -> Keysight33521B:
+    return Keysight33521B("TCPIP0::keysight::INSTR")
 
 
 def _query_sequence(keysight_visa: MagicMock, real_responses: list[str]) -> None:
@@ -64,19 +64,19 @@ def _real_query_calls(keysight_visa: MagicMock) -> list:
 
 
 def test_01_init_builds_visa_driver_from_resource(keysight_visa_cls: MagicMock) -> None:
-    Keysight33500B("TCPIP0::keysight::INSTR")
+    Keysight33521B("TCPIP0::keysight::INSTR")
 
     keysight_visa_cls.assert_called_once_with("TCPIP0::keysight::INSTR")
 
 
 def test_02_init_accepts_prebuilt_connection_config(keysight_visa_cls: MagicMock) -> None:
     config = VisaConfig(visa_resource="TCPIP0::keysight::INSTR")
-    Keysight33500B(config)
+    Keysight33521B(config)
 
     keysight_visa_cls.assert_called_once_with(config)
 
 
-def test_03_open_close_delegate_to_visa(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_03_open_close_delegate_to_visa(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.open()
     keysight.close()
 
@@ -85,7 +85,7 @@ def test_03_open_close_delegate_to_visa(keysight: Keysight33500B, keysight_visa:
 
 
 @pytest.mark.parametrize("response", ['0,"No error"', '+0,"No error"'])
-def test_04_check_errors_accepts_zero_codes(keysight: Keysight33500B, keysight_visa: MagicMock, response: str) -> None:
+def test_04_check_errors_accepts_zero_codes(keysight: Keysight33521B, keysight_visa: MagicMock, response: str) -> None:
     keysight_visa.query.return_value = response
 
     keysight._check_errors()
@@ -93,15 +93,15 @@ def test_04_check_errors_accepts_zero_codes(keysight: Keysight33500B, keysight_v
     keysight_visa.query.assert_called_once_with(":SYST:ERR?")
 
 
-def test_05_check_errors_raises_on_nonzero_code(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_05_check_errors_raises_on_nonzero_code(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = '-113,"Undefined header"'
 
-    with pytest.raises(RuntimeError, match=r'Keysight 33500B reported error: -113,"Undefined header"'):
+    with pytest.raises(RuntimeError, match=r'Keysight 33521B reported error: -113,"Undefined header"'):
         keysight._check_errors()
 
 
 def test_06_set_waveform_sine_writes_function_frequency_phase(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
 ) -> None:
     keysight_visa.query.return_value = '0,"No error"'
@@ -115,7 +115,7 @@ def test_06_set_waveform_sine_writes_function_frequency_phase(
     ]
 
 
-def test_07_set_waveform_wraps_negative_phase(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_07_set_waveform_wraps_negative_phase(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
     keysight.set_waveform(1, Sine(frequency_hz=1000.0, phase_deg=-90.0))
@@ -123,7 +123,7 @@ def test_07_set_waveform_wraps_negative_phase(keysight: Keysight33500B, keysight
     assert call("PHAS 270.0") in keysight_visa.write.call_args_list
 
 
-def test_08_set_waveform_square_writes_duty_cycle(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_08_set_waveform_square_writes_duty_cycle(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
     keysight.set_waveform(1, Square(frequency_hz=500.0, duty_cycle_pct=25.0))
@@ -151,7 +151,7 @@ def test_08_set_waveform_square_writes_duty_cycle(keysight: Keysight33500B, keys
     ids=["sawtooth", "triangle"],
 )
 def test_09_set_waveform_ramp_shapes_dispatch_correctly(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
     waveform: Waveform,
     expected_writes: list,
@@ -163,7 +163,7 @@ def test_09_set_waveform_ramp_shapes_dispatch_correctly(
     assert keysight_visa.write.call_args_list == expected_writes
 
 
-def test_10_set_waveform_pulse_writes_width(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_10_set_waveform_pulse_writes_width(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002))
@@ -176,7 +176,7 @@ def test_10_set_waveform_pulse_writes_width(keysight: Keysight33500B, keysight_v
     ]
 
 
-def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
     keysight.set_waveform(1, Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001))
@@ -190,7 +190,7 @@ def test_11_set_waveform_pulse_programs_delay_as_phase(keysight: Keysight33500B,
 
 
 def test_12_set_waveform_arbitrary_downloads_normalized_samples(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
 ) -> None:
     keysight_visa.query.return_value = '0,"No error"'
@@ -207,7 +207,7 @@ def test_12_set_waveform_arbitrary_downloads_normalized_samples(
 
 @pytest.mark.parametrize("num_points", [2, 65537], ids=["too_few", "too_many"])
 def test_13_set_waveform_arbitrary_rejects_bad_point_counts(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
     num_points: int,
 ) -> None:
@@ -219,7 +219,7 @@ def test_13_set_waveform_arbitrary_rejects_bad_point_counts(
     keysight_visa.write.assert_not_called()
 
 
-def test_14_set_waveform_static_value_writes_dc_offset(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_14_set_waveform_static_value_writes_dc_offset(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.set_waveform(1, StaticValue(value=1.5))
 
     assert keysight_visa.write.call_args_list == [
@@ -228,14 +228,14 @@ def test_14_set_waveform_static_value_writes_dc_offset(keysight: Keysight33500B,
     ]
 
 
-def test_15_set_waveform_rejects_invalid_channel(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_15_set_waveform_rejects_invalid_channel(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     with pytest.raises(ValueError, match="only supports 1 channel"):
         keysight.set_waveform(2, Sine(frequency_hz=1000.0))
 
     keysight_visa.write.assert_not_called()
 
 
-def test_16_get_waveform_parses_sine(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_16_get_waveform_parses_sine(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["SIN", "1.000000E+03", "9.000000E+01"])
 
     waveform = keysight.get_waveform(1)
@@ -244,7 +244,7 @@ def test_16_get_waveform_parses_sine(keysight: Keysight33500B, keysight_visa: Ma
     assert waveform == Sine(frequency_hz=1000.0, phase_deg=90.0)
 
 
-def test_17_get_waveform_parses_square_duty_cycle(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_17_get_waveform_parses_square_duty_cycle(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["SQU", "5.000000E+02", "0.000000E+00", "2.500000E+01"])
 
     waveform = keysight.get_waveform(1)
@@ -267,7 +267,7 @@ def test_17_get_waveform_parses_square_duty_cycle(keysight: Keysight33500B, keys
     ids=["sawtooth", "triangle"],
 )
 def test_18_get_waveform_distinguishes_ramp_and_triangle(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
     function_reply: str,
     expected: Waveform,
@@ -279,7 +279,7 @@ def test_18_get_waveform_distinguishes_ramp_and_triangle(
     assert waveform == expected
 
 
-def test_19_get_waveform_parses_pulse_width_and_delay(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_19_get_waveform_parses_pulse_width_and_delay(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["PULS", "1.000000E+03", "3.600000E+01", "2.000000E-04"])
 
     waveform = keysight.get_waveform(1)
@@ -293,7 +293,7 @@ def test_19_get_waveform_parses_pulse_width_and_delay(keysight: Keysight33500B, 
     assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0001)
 
 
-def test_20_get_waveform_parses_static_value(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_20_get_waveform_parses_static_value(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["DC", "1.500000E+00"])
 
     waveform = keysight.get_waveform(1)
@@ -302,7 +302,7 @@ def test_20_get_waveform_parses_static_value(keysight: Keysight33500B, keysight_
     assert waveform == StaticValue(value=1.5)
 
 
-def test_21_get_waveform_returns_cached_arbitrary(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_21_get_waveform_returns_cached_arbitrary(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0)
     keysight.set_waveform(1, arbitrary)
     _query_sequence(keysight_visa, ["ARB"])
@@ -310,21 +310,21 @@ def test_21_get_waveform_returns_cached_arbitrary(keysight: Keysight33500B, keys
     assert keysight.get_waveform(1) is arbitrary
 
 
-def test_22_get_waveform_unprogrammed_arbitrary_raises(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_22_get_waveform_unprogrammed_arbitrary_raises(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["ARB"])
 
     with pytest.raises(RuntimeError, match="not programmed by this driver"):
         keysight.get_waveform(1)
 
 
-def test_23_get_waveform_unknown_shape_raises(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_23_get_waveform_unknown_shape_raises(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "NOIS"
 
     with pytest.raises(ValueError, match="unsupported waveform 'NOIS'"):
         keysight.get_waveform(1)
 
 
-def test_24_set_amplitude_writes_unit_then_value(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_24_set_amplitude_writes_unit_then_value(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VPP)
 
     assert keysight_visa.write.call_args_list == [
@@ -333,14 +333,14 @@ def test_24_set_amplitude_writes_unit_then_value(keysight: Keysight33500B, keysi
     ]
 
 
-def test_25_set_amplitude_rejects_vp_unit(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_25_set_amplitude_rejects_vp_unit(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     with pytest.raises(ValueError, match="VP is not supported"):
         keysight.set_amplitude(1, 2.5, AmplitudeMeasurementUnit.VP)
 
     keysight_visa.write.assert_not_called()
 
 
-def test_26_get_amplitude_parses_value_and_unit(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_26_get_amplitude_parses_value_and_unit(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["1.000000E+00", "VRMS\n"])
 
     amplitude, unit = keysight.get_amplitude(1)
@@ -350,7 +350,7 @@ def test_26_get_amplitude_parses_value_and_unit(keysight: Keysight33500B, keysig
     assert unit is AmplitudeMeasurementUnit.VRMS
 
 
-def test_27_offset_roundtrip_uses_offset_commands(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_27_offset_roundtrip_uses_offset_commands(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.set_offset(1, 0.5)
     keysight_visa.write.assert_called_once_with("VOLT:OFFS 0.5")
 
@@ -359,7 +359,7 @@ def test_27_offset_roundtrip_uses_offset_commands(keysight: Keysight33500B, keys
     assert _real_query_calls(keysight_visa) == [call("VOLT:OFFS?")]
 
 
-def test_28_output_enable_formats_on_off_and_parses_state(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_28_output_enable_formats_on_off_and_parses_state(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.output_enable(1, True)
     keysight.output_enable(1, False)
     assert keysight_visa.write.call_args_list == [call("OUTP ON"), call("OUTP OFF")]
@@ -372,7 +372,7 @@ def test_28_output_enable_formats_on_off_and_parses_state(keysight: Keysight3350
     assert keysight.get_output_state(1) is False
 
 
-def test_29_output_load_roundtrip_and_high_z(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_29_output_load_roundtrip_and_high_z(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight.set_output_load(1, 50.0)
     keysight.set_output_load(1, None)
     assert keysight_visa.write.call_args_list == [call("OUTP:LOAD 50.0"), call("OUTP:LOAD INF")]
@@ -494,7 +494,7 @@ def _mock_carrier_query(
     ids=["am", "fm", "pm", "pwm", "fsk", "psk"],
 )
 def test_30_set_modulation_writes_type_specific_commands(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
     mod_type: ModulationType,
     shape: Waveform,
@@ -509,7 +509,7 @@ def test_30_set_modulation_writes_type_specific_commands(
     assert keysight_visa.write.call_args_list == expected_calls
 
 
-def test_31_set_modulation_rejects_ask(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_31_set_modulation_rejects_ask(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     with pytest.raises(ValueError, match="ASK modulation is not supported"):
         keysight.set_modulation(1, ModulationType.ASK, Sine(frequency_hz=100.0), 3.0)
 
@@ -530,7 +530,7 @@ def test_31_set_modulation_rejects_ask(keysight: Keysight33500B, keysight_visa: 
     ids=["pulse_carrier_non_pwm", "non_pulse_carrier_pwm", "staticvalue_carrier"],
 )
 def test_32_set_modulation_rejects_incompatible_carrier(
-    keysight: Keysight33500B,
+    keysight: Keysight33521B,
     keysight_visa: MagicMock,
     carrier_responses: list[str],
     mod_type: ModulationType,
@@ -544,7 +544,7 @@ def test_32_set_modulation_rejects_incompatible_carrier(
     keysight_visa.write.assert_not_called()
 
 
-def test_33_modulation_enable_rejects_enable_true(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_33_modulation_enable_rejects_enable_true(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
         keysight.modulation_enable(1, True)
 
@@ -552,7 +552,7 @@ def test_33_modulation_enable_rejects_enable_true(keysight: Keysight33500B, keys
 
 
 def test_34_modulation_enable_writes_off_for_every_modulation_type(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
@@ -568,7 +568,7 @@ def test_34_modulation_enable_writes_off_for_every_modulation_type(
     ]
 
 
-def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "0"
 
     with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
@@ -586,20 +586,20 @@ def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33500
 
 
 def test_36_get_modulation_type_queries_hardware_for_the_enabled_type(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     keysight_visa.query.side_effect = lambda command: "1" if command == "BPSK:STAT?" else "0"
 
     assert keysight.get_modulation_type(1) == ModulationType.PSK
 
 
-def test_37_get_modulation_state_false_when_none_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_37_get_modulation_state_false_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "0"
 
     assert keysight.get_modulation_state(1) is False
 
 
-def test_38_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33500B, keysight_visa: MagicMock) -> None:
+def test_38_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["1"])
 
     assert keysight.get_modulation_state(1) is True
@@ -607,7 +607,7 @@ def test_38_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33
 
 
 def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     _query_sequence(keysight_visa, ["PULS", "1.000000E+03", "-1.000000E-09", "2.000000E-04"])
 
@@ -617,7 +617,7 @@ def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
 
 
 def test_40_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driver(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid AM carrier."""
     _mock_carrier_query(keysight_visa, _ARB_CARRIER_RESPONSES)
@@ -628,7 +628,7 @@ def test_40_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driv
 
 
 def test_41_set_modulation_validates_carrier_with_a_single_query(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Carrier validation costs one FUNC? query, not a full get_waveform() round trip."""
     _mock_carrier_query(keysight_visa)
@@ -639,7 +639,7 @@ def test_41_set_modulation_validates_carrier_with_a_single_query(
 
 
 def test_42_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: a real pending SCPI error must surface, not be swallowed by the 'none enabled' message."""
 
@@ -655,7 +655,7 @@ def test_42_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
 
 
 def test_43_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
-    keysight: Keysight33500B, keysight_visa: MagicMock
+    keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: a real pending SCPI error must surface, not be swallowed by the 'not programmed' message."""
 

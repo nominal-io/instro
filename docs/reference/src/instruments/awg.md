@@ -18,9 +18,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ## Vendor Drivers
 
-### Keysight 33500B
+### Keysight 33521B
 
-::: instro.unstable.awg.drivers.keysight_33500b
+::: instro.unstable.awg.drivers.keysight_33521b
     options:
       heading_level: 4
 
