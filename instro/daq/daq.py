@@ -1193,14 +1193,26 @@ class InstroDAQ(Instrument):
         do: Mapping[str, DigitalChannel],
     ) -> None:
         """Validate every value against its target channel type before anything is written to hardware."""
+        # Reject duplicate aliases: writing the same channel twice with last-wins is ambiguous intent.
+        if len(set(channels)) != len(channels):
+            duplicates = sorted({alias for alias in channels if channels.count(alias) > 1})
+            raise ValueError(f"Duplicate output channel(s) {duplicates}; each channel may appear only once.")
         for alias, value in zip(channels, values):
             if alias in ao:
+                # Analog outputs require a real, finite number; bool is excluded despite being an int subclass.
                 if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                     raise ValueError(f"Analog output '{alias}' requires a finite number, got {value!r}.")
+                # Vendor SDKs silently clip or error on out-of-range values, so enforce the configured range here.
+                if not ao[alias].range_min <= value <= ao[alias].range_max:
+                    raise ValueError(
+                        f"Analog output '{alias}' value {value!r} is outside the configured range "
+                        f"[{ao[alias].range_min}, {ao[alias].range_max}]."
+                    )
             elif isinstance(do[alias], DigitalPortChannel):
-                # bool is a subclass of int, so it must be excluded explicitly.
+                # Digital ports take a raw integer; bool is a subclass of int, so it must be excluded explicitly.
                 if isinstance(value, bool) or not isinstance(value, int):
                     raise ValueError(f"Digital port '{alias}' requires an integer value, got {value!r}.")
+            # Digital lines accept only 0 or 1, in bool, int, or float form.
             elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
                 raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
 
