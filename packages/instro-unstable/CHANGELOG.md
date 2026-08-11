@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.0...instro-unstable-v1.4.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* **awg:** change check_errors() from required to optional in awg ([#374](https://github.com/nominal-io/instro/issues/374)) ([753ecd5](https://github.com/nominal-io/instro/commit/753ecd55d64f9c7752126fb23e357c06e91f2f11))
+* **awg:** move check_errors() into driver level instead of outer abstraction ([#381](https://github.com/nominal-io/instro/issues/381)) ([bc461b7](https://github.com/nominal-io/instro/commit/bc461b79f2e56e17a70cb7992a9bc557b85d752b))
+
 ## [1.4.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.3.0...instro-unstable-v1.4.0) (2026-08-05)
 
 
