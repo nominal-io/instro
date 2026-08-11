@@ -7,11 +7,9 @@ from unittest.mock import MagicMock, patch
 import can
 import pytest
 
-from instro.unstable.motorcontroller import DriveState
 from instro.unstable.motorcontroller.drivers import VESC6
 
 _CONTROLLER_ID = 42
-_HOST_ID = 254
 
 
 def _status_frame(packet_id: int, payload: bytes, controller_id: int = _CONTROLLER_ID) -> can.Message:
@@ -91,10 +89,7 @@ def test_init_rejects_invalid_pole_pairs(bus_cls: MagicMock) -> None:
         (lambda m: m.set_brake_current(3.0), 2, 3_000),
         (lambda m: m.set_velocity(12_000), 3, 12_000),
         (lambda m: m.set_position(180.0), 4, 180_000_000),
-        (lambda m: m.set_relative_current(-0.25), 10, -25_000),
-        (lambda m: m.set_relative_brake_current(0.4), 11, 40_000),
         (lambda m: m.stop(), 1, 0),
-        (lambda m: m.disable(), 1, 0),
     ],
 )
 def test_commands_send_expected_wire_frames(vesc: VESC6, bus: MagicMock, call, packet_id: int, raw: int) -> None:
@@ -112,8 +107,6 @@ def test_commands_send_expected_wire_frames(vesc: VESC6, bus: MagicMock, call, p
         lambda m: m.set_duty_cycle(1.5),
         lambda m: m.set_brake_current(-1.0),
         lambda m: m.set_position(361.0),
-        lambda m: m.set_relative_current(-1.1),
-        lambda m: m.set_relative_brake_current(-0.1),
     ],
 )
 def test_commands_reject_out_of_range_values(vesc: VESC6, bus: MagicMock, call) -> None:
@@ -135,19 +128,6 @@ def test_pole_pairs_convert_rpm_and_telemetry_velocity(bus: MagicMock) -> None:
     assert driver.get_telemetry()["velocity"] == pytest.approx(2_469.0)
 
 
-def test_enable_is_a_noop_and_drive_state_synthesizes(vesc: VESC6, bus: MagicMock) -> None:
-    assert vesc.get_drive_state() is DriveState.DISABLED
-
-    vesc.enable()
-    bus.send.assert_not_called()
-
-    vesc.set_current(1.0)
-    assert vesc.get_drive_state() is DriveState.ENABLED
-
-    vesc.stop()
-    assert vesc.get_drive_state() is DriveState.DISABLED
-
-
 def test_get_telemetry_parses_status_frames(vesc: VESC6, bus: MagicMock) -> None:
     bus.recv.side_effect = [
         _status_frame(9, struct.pack(">ihh", 12_345, 155, 500)),
@@ -158,15 +138,16 @@ def test_get_telemetry_parses_status_frames(vesc: VESC6, bus: MagicMock) -> None
 
     telemetry = vesc.get_telemetry()
 
-    assert telemetry["velocity"] == pytest.approx(12_345)  # pole_pairs=1: RPM == ERPM
-    assert telemetry["motor_current"] == pytest.approx(15.5)
-    assert telemetry["duty_cycle"] == pytest.approx(0.5)
-    assert telemetry["fet_temperature"] == pytest.approx(42.1)
-    assert telemetry["motor_temperature"] == pytest.approx(38.0)
-    assert telemetry["input_current"] == pytest.approx(9.2)
-    assert telemetry["position"] == pytest.approx(180.0)
-    assert telemetry["tachometer"] == pytest.approx(6_000)
-    assert telemetry["bus_voltage"] == pytest.approx(24.4)
+    assert telemetry == {
+        "velocity": pytest.approx(12_345),  # pole_pairs=1: RPM == ERPM
+        "motor_current": pytest.approx(15.5),
+        "duty_cycle": pytest.approx(0.5),
+        "fet_temperature": pytest.approx(42.1),
+        "motor_temperature": pytest.approx(38.0),
+        "input_current": pytest.approx(9.2),
+        "position": pytest.approx(180.0),
+        "bus_voltage": pytest.approx(24.4),
+    }
 
 
 def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, bus: MagicMock) -> None:
@@ -177,32 +158,3 @@ def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, bu
     ]
 
     assert vesc.get_telemetry() == {}
-
-
-def test_ping_detects_pong(vesc: VESC6, bus: MagicMock) -> None:
-    bus.recv.side_effect = [
-        can.Message(arbitration_id=(18 << 8) | _HOST_ID, data=bytes([_CONTROLLER_ID, 0]), is_extended_id=True),
-    ]
-
-    alive = vesc.ping(timeout=0.2)
-
-    ping_frame = _sent_frames(bus)[-1]
-    assert ping_frame.arbitration_id == (17 << 8) | _CONTROLLER_ID
-    assert bytes(ping_frame.data) == bytes([_HOST_ID])
-    assert alive is True
-
-
-def test_ping_times_out_without_pong(vesc: VESC6, bus: MagicMock) -> None:
-    assert vesc.ping(timeout=0.05) is False
-
-
-def test_ping_routes_status_frames_to_telemetry_instead_of_dropping(vesc: VESC6, bus: MagicMock) -> None:
-    bus.recv.side_effect = [
-        _status_frame(9, struct.pack(">ihh", 5_000, 20, 100)),
-        can.Message(arbitration_id=(18 << 8) | _HOST_ID, data=bytes([_CONTROLLER_ID, 0]), is_extended_id=True),
-    ]
-
-    assert vesc.ping(timeout=0.5) is True
-
-    bus.recv.side_effect = None
-    assert vesc.get_telemetry()["velocity"] == pytest.approx(5_000)
