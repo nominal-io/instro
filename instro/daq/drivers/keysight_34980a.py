@@ -1,5 +1,6 @@
 """Keysight 34980A Multifunction Switch/Measure Unit DAQ driver."""
 
+import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ from typing import Mapping, cast
 from instro.daq import DAQDriverBase
 from instro.daq.types import (
     AnalogChannel,
+    AnalogThermocoupleChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -21,6 +23,8 @@ from instro.daq.types import (
 )
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Measurement
+
+logger = logging.getLogger(__name__)
 
 # A single grouped 34950A digital channel addresses at most 32 bits (LWORd). WIDTH_64 spans
 # separate banks and must be configured as two channels, so it is rejected at configure time.
@@ -143,6 +147,12 @@ class Keysight34980A(DAQDriverBase):
             self._check_errors()
 
         self._ai_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Thermocouple input is not implemented for Keysight; warns if the LabJack-only ``tc_input_scaler`` is set."""
+        if channel.tc_input_scaler is not None:
+            logger.warning("tc_input_scaler is only honored by the LabJack driver; the Keysight driver ignores it.")
+        super().configure_ai_thermocouple_channel(channel)
 
     def configure_ai_hw_timing(
         self,

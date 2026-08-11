@@ -710,6 +710,7 @@ class InstroDAQ(Instrument):
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
         unit: str | TC_UNIT = TC_UNIT.CELSIUS,
+        tc_input_scaler: Scaler | None = None,
     ):
         """Configure a thermocouple input channel.
 
@@ -721,9 +722,10 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
-            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
+            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``, expressed in ``unit``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
-            unit: Temperature unit for returned readings.
+            unit: Temperature unit for returned readings and ``cjc_temp``.
+            tc_input_scaler: Volts-domain scaler applied before temperature conversion if amplifier was used (LabJack only).
         """
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
@@ -745,6 +747,7 @@ class InstroDAQ(Instrument):
             cjc_temp=cjc_temp,
             cjc_channel=cjc_channel,
             unit=unit,
+            tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)
         logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)

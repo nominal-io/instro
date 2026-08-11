@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class LJ_Model(Protocol):
     MIN_SCAN_RATE: float
     MAX_SCAN_RATE: float
+    default_tc_input_scaler: Scaler | None
 
     def ai_channel_configs(
         self,
@@ -31,8 +32,6 @@ class LJ_Model(Protocol):
     ) -> tuple[list[str], list[float] | list[int]]: ...
 
     def tc_cjc_read_name(self, physical_channel: str) -> str | None: ...
-
-    def tc_scale_input(self, value: float) -> float: ...
 
     def refresh_tc_cjc(self, handle: int | None) -> None: ...
 
@@ -54,10 +53,10 @@ class LJ_T4:
     VALID_RANGES = [10]
     MIN_SCAN_RATE = 0.0157
     MAX_SCAN_RATE = 50000.0
+    # T4 thermocouples require an LJTick-InAmp; default to its x51 gain / 1.25 V offset jumpers.
+    default_tc_input_scaler: Scaler | None = ReverseLinearScaler(gain=51, offset=1.25, units="V")
 
-    def __init__(self, tc_input_scaler: Scaler | None = None):
-        # T4 thermocouples require an LJTick-InAmp; default to its x51 gain / 1.25 V offset jumpers.
-        self._tc_input_scaler = tc_input_scaler or ReverseLinearScaler(gain=51, offset=1.25, units="V")
+    def __init__(self):
         self._cjc_k: float | None = None
 
     def ai_channel_configs(
@@ -98,7 +97,7 @@ class LJ_T4:
 
         logger.warning(
             "LabJack T4's 12-bit ADC cannot resolve a bare thermocouple; an LJTick-InAmp is assumed, and its "
-            "gain/offset is backed out per the driver's tc_input_scaler (default: x51 gain, 1.25 V offset)."
+            "gain/offset is backed out per the channel's tc_input_scaler (default: x51 gain, 1.25 V offset)."
         )
 
         return [], []
@@ -106,9 +105,6 @@ class LJ_T4:
     def tc_cjc_read_name(self, physical_channel: str) -> str | None:
         """T4 has no streamable CJC source; CJC comes from the snapshot taken by ``refresh_tc_cjc``."""
         return None
-
-    def tc_scale_input(self, value: float) -> float:
-        return self._tc_input_scaler.scale(value)
 
     def refresh_tc_cjc(self, handle: int | None) -> None:
         """Snapshot TEMPERATURE_DEVICE_K; Device temp (CJC) isn't streamable."""
@@ -142,6 +138,7 @@ class LJ_T7:
     MIN_SCAN_RATE = 0.0157
     MAX_SCAN_RATE = 100000.0
     TC_RANGE = 0.1
+    default_tc_input_scaler: Scaler | None = None
 
     def ai_channel_configs(
         self,
@@ -215,9 +212,6 @@ class LJ_T7:
         """AIN14 is the internal temp sensor's raw volts; streamable, unlike TEMPERATURE_DEVICE_K."""
         return "AIN14"
 
-    def tc_scale_input(self, value: float) -> float:
-        return value
-
     def refresh_tc_cjc(self, handle: int | None) -> None:
         """No-op; CJC is streamable."""
 
@@ -270,6 +264,7 @@ class LJ_T8:
     MIN_SCAN_RATE = 20.0
     MAX_SCAN_RATE = 40000.0
     TC_RANGE = 0.075
+    default_tc_input_scaler: Scaler | None = None
 
     def ai_channel_configs(
         self, channel: AnalogChannel | AnalogVoltageChannel
@@ -321,9 +316,6 @@ class LJ_T8:
     def tc_cjc_read_name(self, physical_channel: str) -> str:
         """TEMPERATURE# is the streamable screw-terminal sensor (Kelvin) next to each AIN#."""
         return f"TEMPERATURE{physical_channel[3:]}"
-
-    def tc_scale_input(self, value: float) -> float:
-        return value
 
     def refresh_tc_cjc(self, handle: int | None) -> None:
         """No-op; CJC is streamable."""

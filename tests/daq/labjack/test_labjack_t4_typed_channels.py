@@ -216,7 +216,7 @@ class TestLabJackT4TypedChannels(unittest.TestCase):
         """Create, optionally attach publisher, and open a fresh DAQ instance."""
         daq = InstroDAQ(
             name=NAME,
-            driver=LabJackTSeriesDriver(device_id=DEVICE_ID, tc_input_scaler=TC_INPUT_SCALER),
+            driver=LabJackTSeriesDriver(device_id=DEVICE_ID),
         )
         if DATASET_RID:
             daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
@@ -253,6 +253,7 @@ class TestLabJackT4TypedChannels(unittest.TestCase):
             range_max=TC_RANGE_MAX,
             cjc_source=TC_CJC_SOURCE,
             unit=TC_UNIT_UNDER_TEST,
+            tc_input_scaler=TC_INPUT_SCALER,
         )
 
     def _configure_digital_lines(self, daq: InstroDAQ):

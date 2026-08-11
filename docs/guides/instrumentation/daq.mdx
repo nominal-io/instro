@@ -264,7 +264,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_voltage_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogVoltageChannel` | `configure_ao_voltage_channel` |
 | `configure_current_input(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ai_current_channel` |
 | `configure_current_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ao_current_channel` |
-| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, unit)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
+| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, unit, tc_input_scaler)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
 | `configure_digital_input(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_di_channel` |
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
@@ -289,13 +289,14 @@ Cold-junction compensation depends on `cjc_source`:
 - `CHANNEL`: not supported by this driver.
 
 
-The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview). The driver backs the amplifier's gain and offset out of the measured volts with the `tc_input_scaler` constructor argument, which defaults to the InAmp's x51 gain and 1.25 V offset jumpers:
+To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. It applies on any T-series model; the NI and MCC drivers do not honor it and warn if it is set. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
 
 ```python
 from instro.daq.scaling.scaling import ReverseLinearScaler
 
-driver = LabJackTSeriesDriver(
-    device_id="440020473",
+daq.configure_thermocouple_input(
+    "AIN4",
+    TC_TYPE.K,
     tc_input_scaler=ReverseLinearScaler(gain=51, offset=1.25, units="V"),
 )
 ```

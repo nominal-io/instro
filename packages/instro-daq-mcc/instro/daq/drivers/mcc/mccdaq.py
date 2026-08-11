@@ -1,3 +1,4 @@
+import logging
 import time
 from ctypes import POINTER, addressof, c_double, c_ulong, c_ulonglong, c_ushort, cast, memmove, sizeof
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     AnalogChannel,
+    AnalogThermocoupleChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -36,6 +38,8 @@ from instro.daq.types import (
     TerminalConfig,
 )
 from instro.lib import Measurement
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -251,6 +255,12 @@ class MCCDriver(DAQDriverBase):
             pass
 
         self._ao_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Thermocouple input is not implemented for MCC; warns if the LabJack-only ``tc_input_scaler`` is set."""
+        if channel.tc_input_scaler is not None:
+            logger.warning("tc_input_scaler is only honored by the LabJack driver; the MCC driver ignores it.")
+        super().configure_ai_thermocouple_channel(channel)
 
     def _get_range(self, channel: AnalogChannel) -> ULRange:
         # Find the tightest ULRange that includes the configured range

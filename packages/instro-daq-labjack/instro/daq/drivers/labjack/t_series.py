@@ -9,7 +9,6 @@ from typing import Mapping
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
-from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
@@ -60,7 +59,7 @@ class LabJackData:
 class LabJackTSeriesDriver(DAQDriverBase):
     """LabJack T-series DAQ driver (T4/T7/T8 via the LJM library)."""
 
-    def __init__(self, device_id: str, stream_buffer_bytes: int = 0, tc_input_scaler: Scaler | None = None):
+    def __init__(self, device_id: str, stream_buffer_bytes: int = 0):
         """Construct the driver.
 
         Args:
@@ -70,9 +69,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
                 0 selects the device's own default.
                 Must be a power of 2 and the max is 262144.
                 Setting this prevents the device from dropping scans at high sample rates, which LJM reports as -9999 sample values.
-            tc_input_scaler: T4 only (ignored on T7/T8). Descale readings from LJTick InAmp amplifier before
-                temperature conversion. Defaults to ``ReverseLinearScaler(gain=51, offset=1.25, units="V")``,
-                an LJTick-InAmp at x51 with the 1.25 V offset jumper.
         """
         super().__init__()
         self._model: LJ_Model | None = None
@@ -90,7 +86,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._timestamper: HWTimestamper | None = None  # None until first hw-timed read
 
         self._data_queue: Queue = Queue()
-        self._tc_input_scaler = tc_input_scaler
 
         _ACTIVE.add(self)
 
@@ -136,19 +131,13 @@ class LabJackTSeriesDriver(DAQDriverBase):
         # Grab device specific behaviors
         match self._info[0]:
             case ljm.constants.dtT4:
-                self._model = LJ_T4(tc_input_scaler=self._tc_input_scaler)
+                self._model = LJ_T4()
             case ljm.constants.dtT7:
                 self._model = LJ_T7()
             case ljm.constants.dtT8:
                 self._model = LJ_T8()
             case _:
                 raise RuntimeError(f"Unsupported LabJack device type: {self._info[0]}")
-
-        if self._tc_input_scaler is not None and not isinstance(self._model, LJ_T4):
-            logger.warning(
-                "tc_input_scaler is only supported on the LabJack T4 (LJTick-InAmp back-out); ignoring it on this %s.",
-                type(self._model).__name__,
-            )
 
     def configure_ai_channel(
         self,
@@ -251,7 +240,9 @@ class LabJackTSeriesDriver(DAQDriverBase):
     ) -> list[float]:
         """Convert a batch of thermocouple volts to temperatures in the channel's unit."""
         assert self._model is not None
-        volts = [self._model.tc_scale_input(v) for v in volts]
+        input_scaler = channel.tc_input_scaler or self._model.default_tc_input_scaler
+        if input_scaler is not None:
+            volts = [input_scaler.scale(v) for v in volts]
 
         if channel.cjc_source is CJCSource.CONSTANT:
             assert channel.cjc_temp is not None
