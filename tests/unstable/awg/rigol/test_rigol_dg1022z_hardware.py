@@ -34,7 +34,7 @@ pytestmark = pytest.mark.hardware
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND to
 # "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
-VISA_RESOURCE = "USB0::6833::1602::DG1ZA000000000::0::INSTR"
+VISA_RESOURCE = "TCPIP0::169.254.10.1::INSTR"
 
 VISA_BACKEND = "@py"
 CHANNELS = (1, 2)
@@ -449,5 +449,65 @@ def test_18_set_burst_trigger_rejects_internal_source_in_infinite_mode(driver: R
 
     with pytest.raises(ValueError, match="INFINITE burst mode"):
         driver.set_burst_trigger(1, BurstTriggerSource.INTERNAL)
+
+    driver._check_errors()
+
+
+@pytest.mark.parametrize(
+    ("burst_type", "source"),
+    [
+        (BurstType.NCYCLE, BurstTriggerSource.INTERNAL),
+        (BurstType.NCYCLE, BurstTriggerSource.EXTERNAL),
+        (BurstType.NCYCLE, BurstTriggerSource.MANUAL),
+        (BurstType.INFINITE, BurstTriggerSource.EXTERNAL),
+        (BurstType.INFINITE, BurstTriggerSource.MANUAL),
+    ],
+    ids=["ncycle_internal", "ncycle_external", "ncycle_manual", "infinite_external", "infinite_manual"],
+)
+def test_19_burst_trigger_roundtrip_matches_configured_source(
+    driver: RigolDG1022Z, burst_type: BurstType, source: BurstTriggerSource
+) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, burst_type)
+    driver._check_errors()
+
+    driver.set_burst_trigger(1, source)
+    driver._check_errors()
+
+    assert driver.get_burst_trigger(1) is source
+
+
+def test_20_get_burst_trigger_rejects_invalid_channel(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        driver.get_burst_trigger(INVALID_CHANNEL)
+
+    driver._check_errors()
+
+
+@pytest.mark.parametrize(
+    "burst_type",
+    [BurstType.NCYCLE, BurstType.INFINITE],
+    ids=["ncycle", "infinite"],
+)
+def test_21_force_burst_trigger_switches_to_manual_and_fires(driver: RigolDG1022Z, burst_type: BurstType) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, burst_type)
+    driver.set_burst_trigger(1, BurstTriggerSource.EXTERNAL)
+    driver._check_errors()
+
+    driver.output_enable(1, True)
+    driver.force_burst_trigger(1)
+    driver._check_errors()
+
+    driver.output_enable(1, False)
+    assert driver.get_burst_trigger(1) is BurstTriggerSource.MANUAL
+
+def test_22_force_burst_trigger_rejects_gated_mode(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(1, BurstType.GATED)
+    driver._check_errors()
+
+    with pytest.raises(ValueError, match="GATED burst mode"):
+        driver.force_burst_trigger(1)
 
     driver._check_errors()

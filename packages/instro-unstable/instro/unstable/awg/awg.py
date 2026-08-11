@@ -123,6 +123,14 @@ class AWGDriverBase(abc.ABC):
         """Set the burst trigger source on channel."""
         raise NotImplementedError(f"set_burst_trigger is not implemented for {type(self).__name__}")
 
+    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+        """Get the burst trigger source on channel."""
+        raise NotImplementedError(f"get_burst_trigger is not implemented for {type(self).__name__}")
+
+    def force_burst_trigger(self, channel: int) -> None:
+        """Force the burst trigger source to MANUAL and fire a trigger on channel now."""
+        raise NotImplementedError(f"force_burst_trigger is not implemented for {type(self).__name__}")
+
     def set_burst_delay(self, channel: int, delay_s: float) -> None:
         """Set the burst trigger delay (seconds) on channel."""
         raise NotImplementedError(f"set_burst_delay is not implemented for {type(self).__name__}")
@@ -131,17 +139,17 @@ class AWGDriverBase(abc.ABC):
         """Get the burst trigger delay (seconds) on channel."""
         raise NotImplementedError(f"get_burst_delay is not implemented for {type(self).__name__}")
 
-    def set_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
+    def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
         """Set the gate polarity for GATED bursts on channel."""
-        raise NotImplementedError(f"set_gate_polarity is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"set_burst_gate_polarity is not implemented for {type(self).__name__}")
 
-    def get_gate_polarity(self, channel: int) -> GatePolarity:
+    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
         """Get the gate polarity for GATED bursts on channel."""
-        raise NotImplementedError(f"get_gate_polarity is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"get_burst_gate_polarity is not implemented for {type(self).__name__}")
 
-    def set_ncycles(self, channel: int, n_cycles: int) -> None:
+    def set_burst_ncycles(self, channel: int, n_cycles: int) -> None:
         """Set the number of cycles per trigger for NCYCLE bursts on channel."""
-        raise NotImplementedError(f"set_ncycles is not implemented for {type(self).__name__}")
+        raise NotImplementedError(f"set_burst_ncycles is not implemented for {type(self).__name__}")
 
     def get_burst_ncycles(self, channel: int) -> int:
         """Get the number of cycles per trigger for NCYCLE bursts on channel."""
@@ -488,6 +496,23 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.burst_trigger.cmd"
         return self._package_command(descriptor, source.value, timestamp, **kwargs)
 
+    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+        """Read back the burst trigger source on channel."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            source = self._driver.get_burst_trigger(channel=channel)
+        return source
+
+    @publish_command
+    def force_burst_trigger(self, channel: int, **kwargs) -> Command:
+        """Force the burst trigger source to MANUAL and fire a trigger on channel now."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.force_burst_trigger(channel=channel)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.burst_trigger_forced.cmd"
+        return self._package_command(descriptor, BurstTriggerSource.MANUAL.value, timestamp, **kwargs)
+
     def set_burst_delay(self, channel: int, delay_s: float, **kwargs) -> Command:
         """Set the burst trigger delay (seconds) on channel."""
         self._check_channel(channel)
@@ -499,28 +524,28 @@ class InstroAWG(Instrument):
         return self._execute_measurement(self._driver.get_burst_delay, channel, "burst_delay", **kwargs)
 
     @publish_command
-    def set_gate_polarity(self, channel: int, gate_polarity: GatePolarity, **kwargs) -> Command:
+    def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity, **kwargs) -> Command:
         """Set the gate polarity for GATED bursts on channel."""
         if not isinstance(gate_polarity, GatePolarity):
             raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
         self._check_channel(channel)
         with self._resource_lock:
-            self._driver.set_gate_polarity(channel=channel, gate_polarity=gate_polarity)
+            self._driver.set_burst_gate_polarity(channel=channel, gate_polarity=gate_polarity)
             timestamp = time.time_ns()
         descriptor = f"ch{channel}.gate_polarity.cmd"
         return self._package_command(descriptor, gate_polarity.value, timestamp, **kwargs)
 
-    def get_gate_polarity(self, channel: int) -> GatePolarity:
+    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
         """Read back the gate polarity for GATED bursts on channel."""
         self._check_channel(channel)
         with self._resource_lock:
-            gate_polarity = self._driver.get_gate_polarity(channel=channel)
+            gate_polarity = self._driver.get_burst_gate_polarity(channel=channel)
         return gate_polarity
 
-    def set_ncycles(self, channel: int, n_cycles: int, **kwargs) -> Command:
+    def set_burst_ncycles(self, channel: int, n_cycles: int, **kwargs) -> Command:
         """Set the number of cycles per trigger for NCYCLE bursts on channel."""
         self._check_channel(channel)
-        return self._execute_command(self._driver.set_ncycles, channel, n_cycles, "ncycles", **kwargs)
+        return self._execute_command(self._driver.set_burst_ncycles, channel, n_cycles, "ncycles", **kwargs)
 
     def get_burst_ncycles(self, channel: int, **kwargs) -> Measurement | None:
         """Read back the number of cycles per trigger for NCYCLE bursts on channel."""

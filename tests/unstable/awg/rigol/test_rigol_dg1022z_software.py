@@ -757,42 +757,44 @@ def test_33_set_burst_delay_rejects_negative_value_and_invalid_channel(
 
 
 @pytest.mark.parametrize("gate_polarity", [GatePolarity.NORM, GatePolarity.INV], ids=["norm", "inv"])
-def test_34_gate_polarity_roundtrip_writes_and_parses(
+def test_34_burst_gate_polarity_roundtrip_writes_and_parses(
     rigol: RigolDG1022Z, rigol_visa: MagicMock, gate_polarity: GatePolarity
 ) -> None:
-    rigol.set_gate_polarity(1, gate_polarity)
+    rigol.set_burst_gate_polarity(1, gate_polarity)
     rigol_visa.write.assert_called_once_with(f":SOUR1:BURS:GATE:POL {gate_polarity.value}")
 
     _query_sequence(rigol_visa, [gate_polarity.value])
-    assert rigol.get_gate_polarity(1) is gate_polarity
+    assert rigol.get_burst_gate_polarity(1) is gate_polarity
 
 
-def test_35_set_gate_polarity_rejects_invalid_type_and_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+def test_35_set_burst_gate_polarity_rejects_invalid_type_and_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
     with pytest.raises(TypeError, match="gate_polarity must be a GatePolarity"):
-        rigol.set_gate_polarity(1, "NORM")  # type: ignore[arg-type]
+        rigol.set_burst_gate_polarity(1, "NORM")  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match="channel must be 1 or 2"):
-        rigol.set_gate_polarity(3, GatePolarity.NORM)
+        rigol.set_burst_gate_polarity(3, GatePolarity.NORM)
 
     rigol_visa.write.assert_not_called()
 
 
-def test_36_ncycles_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
-    rigol.set_ncycles(1, 10)
+def test_36_burst_ncycles_roundtrip_writes_and_parses(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_burst_ncycles(1, 10)
     rigol_visa.write.assert_called_once_with(":SOUR1:BURS:NCYC 10")
 
     _query_sequence(rigol_visa, ["1.000000E+01"])
     assert rigol.get_burst_ncycles(1) == 10
 
 
-def test_37_set_ncycles_rejects_non_positive_value_and_invalid_channel(
+def test_37_set_burst_ncycles_rejects_non_positive_value_and_invalid_channel(
     rigol: RigolDG1022Z, rigol_visa: MagicMock
 ) -> None:
     with pytest.raises(ValueError, match="n_cycles must be >= 1"):
-        rigol.set_ncycles(1, 0)
+        rigol.set_burst_ncycles(1, 0)
 
     with pytest.raises(ValueError, match="channel must be 1 or 2"):
-        rigol.set_ncycles(3, 10)
+        rigol.set_burst_ncycles(3, 10)
 
     rigol_visa.write.assert_not_called()
 
@@ -813,5 +815,52 @@ def test_39_set_burst_period_rejects_non_positive_value_and_invalid_channel(
 
     with pytest.raises(ValueError, match="channel must be 1 or 2"):
         rigol.set_burst_period(3, 0.1)
+
+    rigol_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [BurstTriggerSource.INTERNAL, BurstTriggerSource.EXTERNAL, BurstTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_40_get_burst_trigger_parses_every_source(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, source: BurstTriggerSource
+) -> None:
+    _query_sequence(rigol_visa, [source.value])
+
+    assert rigol.get_burst_trigger(1) is source
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:BURS:TRIG:SOUR?")]
+
+
+def test_41_get_burst_trigger_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.get_burst_trigger(3)
+
+    rigol_visa.query.assert_not_called()
+
+
+def test_42_force_burst_trigger_writes_manual_source_then_fires(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Regression guard: :BURS:TRIG:IMM is rejected (-220) on the bench; only :BURS:TRIG is accepted."""
+    _query_sequence(rigol_visa, ["TRIG"])
+
+    rigol.force_burst_trigger(1)
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:BURS:TRIG:SOUR MAN"),
+        call(":SOUR1:BURS:TRIG"),
+    ]
+
+
+def test_43_force_burst_trigger_rejects_gated_mode_and_invalid_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    _query_sequence(rigol_visa, ["GAT"])
+
+    with pytest.raises(ValueError, match="GATED burst mode"):
+        rigol.force_burst_trigger(1)
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.force_burst_trigger(3)
 
     rigol_visa.write.assert_not_called()

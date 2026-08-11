@@ -98,11 +98,13 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("get_burst_type", (1,)),
         ("get_burst_state", (1,)),
         ("set_burst_trigger", (1, BurstTriggerSource.INTERNAL)),
+        ("get_burst_trigger", (1,)),
+        ("force_burst_trigger", (1,)),
         ("set_burst_delay", (1, 0.001)),
         ("get_burst_delay", (1,)),
-        ("set_gate_polarity", (1, GatePolarity.NORM)),
-        ("get_gate_polarity", (1,)),
-        ("set_ncycles", (1, 10)),
+        ("set_burst_gate_polarity", (1, GatePolarity.NORM)),
+        ("get_burst_gate_polarity", (1,)),
+        ("set_burst_ncycles", (1, 10)),
         ("get_burst_ncycles", (1,)),
         ("set_burst_period", (1, 0.001)),
         ("get_burst_period", (1,)),
@@ -134,7 +136,8 @@ def mock_driver() -> MagicMock:
     driver.get_modulation_state.return_value = False
     driver.get_burst_type.return_value = BurstType.NCYCLE
     driver.get_burst_state.return_value = False
-    driver.get_gate_polarity.return_value = GatePolarity.NORM
+    driver.get_burst_trigger.return_value = BurstTriggerSource.INTERNAL
+    driver.get_burst_gate_polarity.return_value = GatePolarity.NORM
     return driver
 
 
@@ -225,11 +228,13 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
         ("get_burst_type", ()),
         ("get_burst_state", ()),
         ("set_burst_trigger", (BurstTriggerSource.INTERNAL,)),
+        ("get_burst_trigger", ()),
+        ("force_burst_trigger", ()),
         ("set_burst_delay", (0.001,)),
         ("get_burst_delay", ()),
-        ("set_gate_polarity", (GatePolarity.NORM,)),
-        ("get_gate_polarity", ()),
-        ("set_ncycles", (10,)),
+        ("set_burst_gate_polarity", (GatePolarity.NORM,)),
+        ("get_burst_gate_polarity", ()),
+        ("set_burst_ncycles", (10,)),
         ("get_burst_ncycles", ()),
         ("set_burst_period", (0.001,)),
         ("get_burst_period", ()),

@@ -311,6 +311,19 @@ class RigolDG1022Z(AWGDriverBase):
             self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR {source.value}")
             self._check_errors()
 
+    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = BurstTriggerSource(self._visa.query(f":SOUR{channel}:BURS:TRIG:SOUR?").strip())
+            self._check_errors()
+        return result
+
+    def force_burst_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self.set_burst_trigger(channel, BurstTriggerSource.MANUAL)
+            self._write_checked(f":SOUR{channel}:TRIG")
+
     def set_burst_delay(self, channel: int, delay_s: float) -> None:
         _check_channel(channel)
         if delay_s < 0:
@@ -324,20 +337,20 @@ class RigolDG1022Z(AWGDriverBase):
             self._check_errors()
         return result
 
-    def set_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
+    def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
         _check_channel(channel)
         if not isinstance(gate_polarity, GatePolarity):
             raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
         self._write_checked(f":SOUR{channel}:BURS:GATE:POL {gate_polarity.value}")
 
-    def get_gate_polarity(self, channel: int) -> GatePolarity:
+    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
         _check_channel(channel)
         with self._visa.lock():
             result = GatePolarity(self._visa.query(f":SOUR{channel}:BURS:GATE:POL?").strip())
             self._check_errors()
         return result
 
-    def set_ncycles(self, channel: int, n_cycles: int) -> None:
+    def set_burst_ncycles(self, channel: int, n_cycles: int) -> None:
         _check_channel(channel)
         if n_cycles <= 0:
             raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
