@@ -33,7 +33,7 @@ def bus(bus_cls: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def vesc(bus: MagicMock) -> Iterator[VESC6]:
-    driver = VESC6(channel="COM4", controller_id=_CONTROLLER_ID, interface="slcan")
+    driver = VESC6(channel="COM4", pole_pairs=1, controller_id=_CONTROLLER_ID, interface="slcan")
     driver.open()
     yield driver
     driver.close()
@@ -44,7 +44,7 @@ def _sent_frames(bus: MagicMock) -> list[can.Message]:
 
 
 def test_open_builds_bus_and_close_safe_stops_and_shuts_down(bus_cls: MagicMock, bus: MagicMock) -> None:
-    driver = VESC6(channel="COM4", controller_id=_CONTROLLER_ID, interface="slcan", bitrate=250_000)
+    driver = VESC6(channel="COM4", pole_pairs=1, controller_id=_CONTROLLER_ID, interface="slcan", bitrate=250_000)
     bus_cls.assert_not_called()
 
     driver.open()
@@ -61,13 +61,13 @@ def test_open_builds_bus_and_close_safe_stops_and_shuts_down(bus_cls: MagicMock,
 
 
 def test_bus_kwargs_forwarded(bus_cls: MagicMock, bus: MagicMock) -> None:
-    driver = VESC6(channel=0, interface="gs_usb", bus_kwargs={"index": 0})
+    driver = VESC6(channel=0, pole_pairs=1, interface="gs_usb", bus_kwargs={"index": 0})
     driver.open()
     bus_cls.assert_called_once_with(interface="gs_usb", channel=0, bitrate=500_000, index=0)
 
 
 def test_send_before_open_raises(bus_cls: MagicMock) -> None:
-    driver = VESC6(channel="COM4")
+    driver = VESC6(channel="COM4", pole_pairs=1)
     with pytest.raises(RuntimeError, match="not open"):
         driver.set_duty_cycle(0.1)
 
@@ -75,7 +75,7 @@ def test_send_before_open_raises(bus_cls: MagicMock) -> None:
 @pytest.mark.parametrize("controller_id", [-1, 256])
 def test_init_rejects_out_of_range_controller_id(bus_cls: MagicMock, controller_id: int) -> None:
     with pytest.raises(ValueError, match="controller_id"):
-        VESC6(channel="COM4", controller_id=controller_id)
+        VESC6(channel="COM4", pole_pairs=1, controller_id=controller_id)
 
 
 def test_init_rejects_invalid_pole_pairs(bus_cls: MagicMock) -> None:
@@ -123,7 +123,7 @@ def test_commands_reject_out_of_range_values(vesc: VESC6, bus: MagicMock, call) 
 
 
 def test_pole_pairs_convert_rpm_and_telemetry_velocity(bus: MagicMock) -> None:
-    driver = VESC6(channel="COM4", controller_id=_CONTROLLER_ID, interface="slcan", pole_pairs=5)
+    driver = VESC6(channel="COM4", pole_pairs=5, controller_id=_CONTROLLER_ID, interface="slcan")
     driver.open()
 
     driver.set_velocity(1_000)

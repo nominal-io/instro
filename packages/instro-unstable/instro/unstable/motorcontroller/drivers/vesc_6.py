@@ -107,14 +107,14 @@ class VESC6(MotorControllerDriverBase):
     def __init__(
         self,
         channel: str | int,
+        pole_pairs: int,
         controller_id: int = 0,
         interface: str = "gs_usb",
         bitrate: int = 500_000,
         host_id: int = 254,
-        pole_pairs: int = 1,
         bus_kwargs: dict[str, Any] | None = None,
     ) -> None:
-        """With the default pole_pairs=1, velocity RPM values are electrical RPM (ERPM); set the motor's pole-pair count for mechanical RPM."""
+        """pole_pairs is the motor's pole-pair count, converting mechanical RPM to VESC ERPM (ERPM = RPM x pole_pairs)."""
         if not 0 <= controller_id <= 255:
             raise ValueError(f"controller_id must be 0-255, got {controller_id}")
         if not 0 <= host_id <= 255:
