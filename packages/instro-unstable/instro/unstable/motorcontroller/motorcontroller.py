@@ -113,9 +113,9 @@ class InstroMotorController(Instrument):
         logger.info("Closed MotorController '%s'", self.name)
 
     @publish_command
-    def motor_enable(self, **kwargs) -> Command:
+    def enable_motor(self, **kwargs) -> Command:
         """Energize the power stage into closed-loop control."""
-        logger.debug("Sending MotorController motor_enable to '%s'", self.name)
+        logger.debug("Sending MotorController enable_motor to '%s'", self.name)
         with self._resource_lock:
             self._driver.enable()
             timestamp = time.time_ns()
@@ -123,9 +123,9 @@ class InstroMotorController(Instrument):
         return self._package_command("enable.cmd", True, timestamp, **kwargs)
 
     @publish_command
-    def motor_disable(self, **kwargs) -> Command:
+    def disable_motor(self, **kwargs) -> Command:
         """De-energize the power stage; the motor coasts freely."""
-        logger.debug("Sending MotorController motor_disable to '%s'", self.name)
+        logger.debug("Sending MotorController disable_motor to '%s'", self.name)
         with self._resource_lock:
             self._driver.disable()
             timestamp = time.time_ns()

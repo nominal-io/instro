@@ -70,8 +70,8 @@ def test_open_close_delegate_to_driver(motor: InstroMotorController, driver: _St
     ("call", "channel", "value", "driver_call"),
     [
         (lambda m: m.stop_motor(), "m.stop.cmd", 1.0, ("stop",)),
-        (lambda m: m.motor_enable(), "m.enable.cmd", 1.0, ("enable",)),
-        (lambda m: m.motor_disable(), "m.enable.cmd", 0.0, ("disable",)),
+        (lambda m: m.enable_motor(), "m.enable.cmd", 1.0, ("enable",)),
+        (lambda m: m.disable_motor(), "m.enable.cmd", 0.0, ("disable",)),
         (lambda m: m.set_current(2.5), "m.current.cmd", 2.5, ("set_current", 2.5)),
     ],
 )
