@@ -34,6 +34,14 @@ class MotorControllerDriverBase(abc.ABC):
     def get_telemetry(self) -> MotorTelemetry:
         """Latest telemetry snapshot; only fields the device reports are present."""
 
+    def enable(self) -> None:
+        """Energize the power stage into closed-loop control. Raises NotImplementedError if unsupported."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not support explicit enable")
+
+    def disable(self) -> None:
+        """De-energize the power stage; the motor coasts freely. Raises NotImplementedError if unsupported."""
+        raise NotImplementedError(f"{self.__class__.__name__} does not support explicit disable")
+
     def set_duty_cycle(self, duty: float) -> None:
         """Command a voltage fraction in -1.0..1.0. Raises NotImplementedError if unsupported."""
         raise NotImplementedError(f"{self.__class__.__name__} does not support duty-cycle control")
@@ -103,6 +111,26 @@ class InstroMotorController(Instrument):
         super().close()
         self._driver.close()
         logger.info("Closed MotorController '%s'", self.name)
+
+    @publish_command
+    def motor_enable(self, **kwargs) -> Command:
+        """Energize the power stage into closed-loop control."""
+        logger.debug("Sending MotorController motor_enable to '%s'", self.name)
+        with self._resource_lock:
+            self._driver.enable()
+            timestamp = time.time_ns()
+
+        return self._package_command("enable.cmd", True, timestamp, **kwargs)
+
+    @publish_command
+    def motor_disable(self, **kwargs) -> Command:
+        """De-energize the power stage; the motor coasts freely."""
+        logger.debug("Sending MotorController motor_disable to '%s'", self.name)
+        with self._resource_lock:
+            self._driver.disable()
+            timestamp = time.time_ns()
+
+        return self._package_command("enable.cmd", False, timestamp, **kwargs)
 
     @publish_command
     def stop_motor(self, **kwargs) -> Command:
