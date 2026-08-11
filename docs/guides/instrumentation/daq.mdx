@@ -622,6 +622,8 @@ result = daq.read_batch()
 
 `write()` writes a single value to a single alias and returns the resulting `Command`. `write_batch()` writes `values[i]` to `channels[i]` and returns a list of `Command` objects. Both route each alias to analog or digital output by channel type.
 
+By default, the first write that fails at the device logs a warning and raises `RuntimeError` naming the failed channel; later channels in the batch are not written. Pass `continue_on_failed_write=True` to log the failure and continue with the remaining channels instead; the returned list then contains only the successful commands. Every write emits a per-channel log line: `<alias> -> succeeded` at debug level, or `<alias> -> failed: <reason>` at warning level.
+
 ```python
 daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
 daq.configure_digital_output(physical_channel="DIO1", alias="enable")
@@ -633,7 +635,7 @@ daq.write("ao0", 2.2)
 daq.write_batch(["ao0", "enable"], [2.2, 1])
 ```
 
-Values may be `float`, `int`, or `bool`, and every value is validated against its target channel before anything is written: analog outputs require a finite number, digital lines require `0` or `1` (in any of the three forms), and digital ports require an integer. An invalid value — or a `channels`/`values` length mismatch — raises `ValueError` with no channels written. Digital values are coerced to `int`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
+Values may be `float`, `int`, or `bool`, and every channel and value is validated before anything is written: each alias must be configured as an output channel (unknown aliases raise `KeyError`), aliases may appear only once per batch, analog outputs require a finite number within the channel's configured `range_min`/`range_max`, digital lines require `0` or `1` (in any of the three forms), and digital ports require an integer. An invalid value, a duplicate alias, or a `channels`/`values` length mismatch raises `ValueError` with no channels written. Digital values are coerced to `int`. Relays are not routed through `write()`; use `open_relay()` and `close_relay()`.
 
 ## Complete Examples
 
@@ -771,7 +773,7 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `read(channel)` | Read one input channel by alias; returns `Measurement` |
 | `read_batch(channels=None)` | Read input channel(s) by alias; returns `{alias: Measurement}` |
 | `write(channel, value)` | Write value to one output channel by alias; returns `Command` |
-| `write_batch(channels, values)` | Write values to output channels by alias, paired by index; returns `list[Command]` |
+| `write_batch(channels, values, continue_on_failed_write=False)` | Write values to output channels by alias, paired by index; returns `list[Command]`. By default raises on the first failed write; `continue_on_failed_write=True` logs, skips, and continues |
 | `read_digital_line(channel)` | Read digital input line |
 | `write_digital_line(channel, data)` | Write to digital output line |
 | `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
