@@ -1,4 +1,4 @@
-"""Example: VESC 6 over CAN with a Canable 2.0 Pro.
+"""Example: VESC 6 over CAN with a Canable 2.0 Pro, behind InstroMotorController.
 
 Spins the motor with a current setpoint while the background daemon drains the
 VESC's broadcast status frames into the channel buffer (and any publishers).
@@ -12,17 +12,20 @@ Two things the daemon does NOT do:
 
 import time
 
+from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 
 CONTROLLER_ID = 0  # VESC Tool: App Settings -> General -> VESC ID
+POLE_PAIRS = 7  # motor pole pairs, for mechanical-RPM velocity telemetry
 RUN_SECONDS = 5.0
 MOTOR_CURRENT_A = 2.0
 
 # Canable 2.0 Pro with stock candleLight firmware:
-motor = VESC6(channel=0, controller_id=CONTROLLER_ID, interface="gs_usb", name="drive")
+driver = VESC6(channel=0, controller_id=CONTROLLER_ID, interface="gs_usb", pole_pairs=POLE_PAIRS)
 # ...or with slcan firmware flashed (adjust the COM port):
-# motor = VESC6(channel="COM4", controller_id=CONTROLLER_ID, interface="slcan", name="drive")
+# driver = VESC6(channel="COM4", controller_id=CONTROLLER_ID, interface="slcan", pole_pairs=POLE_PAIRS)
 
+motor = InstroMotorController("drive", driver=driver)
 motor.background_interval = 0.1  # drain broadcast telemetry at 10 Hz
 motor.open()
 
@@ -36,11 +39,11 @@ def latest(field: str) -> float | None:
 
 
 try:
-    if motor.ping().latest != 1.0:
+    if not driver.ping():
         raise SystemExit("VESC did not answer PING; check wiring, bitrate, and controller ID")
 
     # Launches the background daemon: get_telemetry() runs every
-    # background_interval, publishing erpm/current/duty/temps/voltage and
+    # background_interval, publishing velocity/current/duty/temps/voltage and
     # filling the channel buffer read by get_channel().
     motor.start()
 
@@ -52,13 +55,13 @@ try:
         if time.monotonic() - last_print >= 0.5:
             last_print = time.monotonic()
             print(
-                f"erpm={latest('erpm')} motor_current={latest('motor_current')} A "
-                f"duty={latest('duty')} v_in={latest('input_voltage')} V "
+                f"velocity={latest('velocity')} rpm motor_current={latest('motor_current')} A "
+                f"duty={latest('duty_cycle')} v_bus={latest('bus_voltage')} V "
                 f"fet_temp={latest('fet_temperature')} C"
             )
 
-    motor.stop_motor()
-    print(f"Stopped. Final erpm={latest('erpm')}")
+    motor.stop()
+    print(f"Stopped. Final velocity={latest('velocity')} rpm")
 
 finally:
     motor.close()
