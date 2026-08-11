@@ -105,9 +105,9 @@ class InstroMotorController(Instrument):
         logger.info("Closed MotorController '%s'", self.name)
 
     @publish_command
-    def stop(self, **kwargs) -> Command:
-        """Cease motion by the safest means the device supports."""
-        logger.debug("Sending MotorController stop to '%s'", self.name)
+    def stop_motor(self, **kwargs) -> Command:
+        """Cease motion by the safest means the device supports. Named stop_motor because Instrument.stop() stops the background daemon."""
+        logger.debug("Sending MotorController stop_motor to '%s'", self.name)
         with self._resource_lock:
             self._driver.stop()
             timestamp = time.time_ns()

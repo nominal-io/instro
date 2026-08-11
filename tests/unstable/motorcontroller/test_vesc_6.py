@@ -58,6 +58,22 @@ def test_open_builds_bus_and_close_safe_stops_and_shuts_down(bus_cls: MagicMock,
     bus.shutdown.assert_called_once_with()
 
 
+def test_open_twice_raises_instead_of_leaking_the_first_bus(vesc: VESC6, bus_cls: MagicMock) -> None:
+    with pytest.raises(RuntimeError, match="already open"):
+        vesc.open()
+    bus_cls.assert_called_once()
+
+
+def test_close_shuts_down_bus_even_when_safe_stop_fails(bus_cls: MagicMock, bus: MagicMock) -> None:
+    driver = VESC6(channel="COM4", pole_pairs=1, controller_id=_CONTROLLER_ID, interface="slcan")
+    driver.open()
+    bus.send.side_effect = OSError("USB device unplugged")
+
+    driver.close()
+
+    bus.shutdown.assert_called_once_with()
+
+
 def test_bus_kwargs_forwarded(bus_cls: MagicMock, bus: MagicMock) -> None:
     driver = VESC6(channel=0, pole_pairs=1, interface="gs_usb", bus_kwargs={"index": 0})
     driver.open()
@@ -107,6 +123,8 @@ def test_commands_send_expected_wire_frames(vesc: VESC6, bus: MagicMock, call, p
         lambda m: m.set_duty_cycle(1.5),
         lambda m: m.set_brake_current(-1.0),
         lambda m: m.set_position(361.0),
+        lambda m: m.set_current(3e6),  # scaled x1000 overflows int32
+        lambda m: m.set_velocity(3e9),  # scaled by pole_pairs overflows int32
     ],
 )
 def test_commands_reject_out_of_range_values(vesc: VESC6, bus: MagicMock, call) -> None:

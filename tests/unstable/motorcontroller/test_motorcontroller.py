@@ -63,7 +63,7 @@ def test_open_close_delegate_to_driver(motor: InstroMotorController, driver: _St
 @pytest.mark.parametrize(
     ("call", "channel", "value", "driver_call"),
     [
-        (lambda m: m.stop(), "m.stop.cmd", 1.0, ("stop",)),
+        (lambda m: m.stop_motor(), "m.stop.cmd", 1.0, ("stop",)),
         (lambda m: m.set_current(2.5), "m.current.cmd", 2.5, ("set_current", 2.5)),
     ],
 )
@@ -107,3 +107,14 @@ def test_get_telemetry_empty_returns_none_and_publishes_nothing(
 ) -> None:
     assert motor.get_telemetry() is None
     publisher.publish.assert_not_called()
+
+
+def test_close_stops_background_daemon(motor: InstroMotorController) -> None:
+    motor.open()
+    motor.start()
+    daemon = motor._background_thread
+    assert daemon is not None and daemon.is_alive()
+
+    # Regression: a HAL method named stop() would shadow Instrument.stop() and leave the daemon running.
+    motor.close()
+    assert not daemon.is_alive()
