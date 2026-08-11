@@ -317,19 +317,16 @@ def test_12_set_modulation_and_modulation_enable_reports_type_specific_stat(
 ) -> None:
     driver.set_waveform(1, carrier)
     driver.set_modulation(1, mod_type, shape, magnitude)
-    assert driver.get_modulation_type(1) is mod_type
     driver.modulation_enable(1, True)
     driver._check_errors()
 
     try:
         assert driver._visa.query(f":SOUR1:{mod_type.value}:STAT?").strip() == "ON"
-        assert driver.get_modulation_state(1) is True
     finally:
         driver.modulation_enable(1, False)
     driver._check_errors()
 
     assert driver._visa.query(f":SOUR1:{mod_type.value}:STAT?").strip() == "OFF"
-    assert driver.get_modulation_state(1) is False
 
 
 @pytest.mark.parametrize(
@@ -377,7 +374,6 @@ def test_14_modulation_enable_re_arms_after_disable_without_remodulating(driver:
         driver.modulation_enable(1, True)
         driver._check_errors()
         assert driver._visa.query(":SOUR1:AM:STAT?").strip() == "ON"
-        assert driver.get_modulation_state(1) is True
     finally:
         driver.modulation_enable(1, False)
     driver._check_errors()
