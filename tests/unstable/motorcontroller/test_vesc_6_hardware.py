@@ -2,7 +2,7 @@
 
 Wiring / stimulus:
     Jhoinrch (CANable-derivative) USB-CAN adapter in candleLight/gs_usb mode on a
-    500 kbps bus with one powered VESC 6 (VESC ID 0, CAN status broadcasts enabled).
+    500 kbps bus with one powered VESC 6 (VESC ID 102, CAN status broadcasts enabled).
     No motor attached unless MOTOR_ATTACHED is True; without a motor, motion
     commands are validated at the wire level only (frames sent, VESC stays alive).
 
