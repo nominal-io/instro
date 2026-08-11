@@ -1154,9 +1154,10 @@ class InstroDAQ(Instrument):
         self,
         channels: list[str],
         values: list[float | int | bool],
+        continue_on_failed_write: bool = False,
         **kwargs,
     ) -> list[Command]:
-        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital per line/port."""
+        """Write ``values[i]`` to output ``channels[i]`` (alias); ``continue_on_failed_write`` logs and skips failed writes instead of raising."""
         if not channels:
             raise ValueError("write_batch() requires at least one channel alias.")
         self._require_open()
@@ -1168,20 +1169,29 @@ class InstroDAQ(Instrument):
                 f"write_batch() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
             )
         # Validate up front so a bad alias or value can't leave earlier channels already written to hardware.
-        if unknown := [c for c in channel_list if c not in ao and c not in do]:
-            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
         self._validate_inputs_for_channels(channel_list, value_list, ao, do)
 
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
-            if channel in ao:
-                commands.append(self.write_analog_value(channel, value, **kwargs))
+            try:
+                if channel in ao:
+                    command = self.write_analog_value(channel, value, **kwargs)
+                # NOTE: Planning on ripping out port support
+                elif isinstance(do[channel], DigitalPortChannel):
+                    command = self.write_digital_port(channel, int(value), **kwargs)
+                else:
+                    command = self.write_digital_line(channel, int(value), **kwargs)
+            # Non-failed write errors should always raise (relating to interpreter health)
+            except (MemoryError, RecursionError):
+                raise
+            # Catch errors relating to a failed write
+            except Exception as e:
+                logger.warning("%s -> failed: %s", channel, e)
+                if not continue_on_failed_write:
+                    raise RuntimeError(f"write_batch() failed writing to channel '{channel}': {e}") from e
                 continue
-            # NOTE: Planning on ripping out port support
-            if isinstance(do[channel], DigitalPortChannel):
-                commands.append(self.write_digital_port(channel, int(value), **kwargs))
-                continue
-            commands.append(self.write_digital_line(channel, int(value), **kwargs))
+            logger.debug("%s -> succeeded", channel)
+            commands.append(command)
 
         return commands
 
@@ -1193,6 +1203,9 @@ class InstroDAQ(Instrument):
         do: Mapping[str, DigitalChannel],
     ) -> None:
         """Validate every value against its target channel type before anything is written to hardware."""
+        # Every alias must be registered on the driver as an AO or DO channel.
+        if unknown := [alias for alias in channels if alias not in ao and alias not in do]:
+            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
         # Reject duplicate aliases: writing the same channel twice with last-wins is ambiguous intent.
         if len(set(channels)) != len(channels):
             duplicates = sorted({alias for alias in channels if channels.count(alias) > 1})

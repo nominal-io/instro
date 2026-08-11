@@ -79,7 +79,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "<NI DEVICE NAME>"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
+DEVICE_ID = "cDAQ5"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
 NAME = "ni_validate"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -683,9 +683,163 @@ class TestNIDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 13. Methods not implemented on NI — reported as skipped
+    # 13. write_batch failure handling — continue_on_failed_write
     # =====================================================================
-    def test_13_relay_control_unsupported(self):
+    def test_13_write_batch_continue_on_failed_write(self):
+        """Verify write_batch stops on a failed write by default and skips it with continue_on_failed_write=True."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_digital_lines(daq)
+                # Drive the DO low first so the stopped-batch check starts from a known state.
+                daq.write(DO_ALIAS, 0)
+
+                # Close the second AO's underlying DAQmx task so its write raises a real DaqError mid-batch.
+                daq._driver._ao_sw_tasks[AO_ALIAS_2].close()
+                batch_channels = [AO_ALIAS, AO_ALIAS_2, DO_ALIAS]
+
+                with self.assertRaises(RuntimeError) as ctx:
+                    daq.write_batch(batch_channels, [1.0, 1.0, 1])
+                self.assertIn(AO_ALIAS_2, str(ctx.exception))
+                print(f"         default: {ctx.exception}")
+                if DIGITAL_LOOPBACK_WIRED:
+                    time.sleep(0.05)
+                    self.assertEqual(int(daq.read(DI_ALIAS).latest), 0, "batch continued past the failed write")
+
+                commands = daq.write_batch(batch_channels, [1.0, 1.0, 1], continue_on_failed_write=True)
+                self.assertEqual(len(commands), 2, f"expected 2 successful commands, got {len(commands)}")
+                print(f"         continue_on_failed_write=True: {len(commands)}/{len(batch_channels)} succeeded")
+                if DIGITAL_LOOPBACK_WIRED:
+                    time.sleep(0.05)
+                    self.assertEqual(int(daq.read(DI_ALIAS).latest), 1, "write after the failed channel was skipped")
+
+                daq.write_batch([AO_ALIAS, DO_ALIAS], [0.0, 0])
+            finally:
+                daq.close()
+
+        self._run_step(
+            "write_batch failure handling",
+            "Break one AO task mid-batch. Verify write_batch raises and stops at the failed channel by "
+            "default, and skips it and continues with continue_on_failed_write=True.",
+            step,
+        )
+
+    # =====================================================================
+    # 14. Unified write — single, batch, invalid-alias batch
+    # =====================================================================
+    def test_14_write(self):
+        """Exercise write() single-channel, write_batch() multi-channel, and write_batch() with an unknown alias."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_digital_lines(daq)
+
+                # Normal commanding of a single channel.
+                cmd = daq.write(AO_ALIAS, 1.0)
+                self.assertIsNotNone(cmd)
+                print(f"         single write: {AO_ALIAS} <- 1.0 V")
+
+                # Normal commanding of multiple channels to multiple values.
+                commands = daq.write_batch([AO_ALIAS, AO_ALIAS_2, DO_ALIAS], [1.5, 2.5, 1])
+                self.assertEqual(len(commands), 3)
+                print("         batch write: 3 channels -> 3 commands")
+
+                # Edge case: batch containing an unconfigured alias raises KeyError, nothing written.
+                with self.assertRaises(KeyError) as ctx:
+                    daq.write_batch([AO_ALIAS, "not_a_channel"], [0.0, 0.0])
+                self.assertIn("not_a_channel", str(ctx.exception))
+                print(f"         invalid batch: {ctx.exception}")
+
+                # Edge case: AO value outside the configured range raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch([AO_ALIAS], [15.0])
+
+                # Edge case: non-finite analog value raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch([AO_ALIAS], [math.nan])
+
+                # Edge case: digital line value other than 0/1 raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch([DO_ALIAS], [2])
+                print("         ValueError raised for out-of-range, non-finite, and non-binary values")
+
+                daq.write_batch([AO_ALIAS, AO_ALIAS_2, DO_ALIAS], [0.0, 0.0, 0])
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Unified write",
+            "Write one channel with write(), several channels with write_batch(), and verify unknown aliases, "
+            "out-of-range AO values, and invalid analog/digital values each raise with nothing written.",
+            step,
+        )
+
+    # =====================================================================
+    # 15. Unified read — single, batch, invalid aliases
+    # =====================================================================
+    def test_15_read(self):
+        """Exercise read() single-channel, read_batch() multi-channel, and both invalid-alias paths."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_ai(daq, AI_CHANNEL_2, AI_ALIAS_2)
+                self._configure_digital_lines(daq)
+
+                # Reading of a single channel.
+                measurement = daq.read(AI_ALIAS)
+                self.assertTrue(math.isfinite(measurement.latest))
+                print(f"         single read: {AI_ALIAS} = {measurement.latest:.4f} V")
+
+                # Reading of multiple channels.
+                aliases = [AI_ALIAS, AI_ALIAS_2, DI_ALIAS]
+                reads = daq.read_batch(aliases)
+                self.assertEqual(list(reads), aliases)
+                self.assertTrue(all(math.isfinite(reads[a].latest) for a in aliases))
+                print("         batch read: " + ", ".join(f"{a}={reads[a].latest:.4f}" for a in aliases))
+
+                # Edge case: unknown alias raises KeyError for both single and batch reads.
+                with self.assertRaises(KeyError) as single_ctx:
+                    daq.read("not_a_channel")
+                self.assertIn("not_a_channel", str(single_ctx.exception))
+                with self.assertRaises(KeyError) as batch_ctx:
+                    daq.read_batch([AI_ALIAS, "not_a_channel"])
+                self.assertIn("not_a_channel", str(batch_ctx.exception))
+                print("         KeyError raised for invalid single and batch reads")
+
+                # Edge case: reads while the background daemon is streaming serve analog from its buffer.
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+                try:
+                    # read()'s buffered path blocks until the daemon's first sample arrives.
+                    streaming = daq.read(AI_ALIAS)
+                    self.assertTrue(math.isfinite(streaming.latest))
+                    streaming_batch = daq.read_batch(aliases)
+                    self.assertTrue(all(math.isfinite(streaming_batch[a].latest) for a in aliases))
+                    print(f"         streaming read: {AI_ALIAS} = {streaming.latest:.4f} V (daemon running)")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Unified read",
+            "Read one channel with read(), several channels with read_batch(), verify unknown aliases raise "
+            "KeyError, and confirm reads serve from the daemon buffer while background streaming runs.",
+            step,
+        )
+
+    # =====================================================================
+    # 16. Methods not implemented on NI — reported as skipped
+    # =====================================================================
+    def test_16_relay_control_unsupported(self):
         """Relay control is not supported by the NI driver."""
         self.skipTest("DAQDriverBase relays unsupported by the NI driver")
 
