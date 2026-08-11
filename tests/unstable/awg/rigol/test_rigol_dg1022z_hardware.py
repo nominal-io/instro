@@ -489,25 +489,26 @@ def test_20_get_burst_trigger_rejects_invalid_channel(driver: RigolDG1022Z) -> N
     [BurstType.NCYCLE, BurstType.INFINITE],
     ids=["ncycle", "infinite"],
 )
-def test_21_force_burst_trigger_switches_to_manual_and_fires(driver: RigolDG1022Z, burst_type: BurstType) -> None:
+def test_21_fire_burst_trigger_fires_when_source_already_manual(driver: RigolDG1022Z, burst_type: BurstType) -> None:
     driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(1, burst_type)
-    driver.set_burst_trigger(1, BurstTriggerSource.EXTERNAL)
+    driver.set_burst_trigger(1, BurstTriggerSource.MANUAL)
     driver._check_errors()
 
     driver.output_enable(1, True)
-    driver.force_burst_trigger(1)
+    driver.fire_burst_trigger(1)
     driver._check_errors()
 
     driver.output_enable(1, False)
-    assert driver.get_burst_trigger(1) is BurstTriggerSource.MANUAL
 
-def test_22_force_burst_trigger_rejects_gated_mode(driver: RigolDG1022Z) -> None:
+
+def test_22_fire_burst_trigger_rejects_non_manual_source(driver: RigolDG1022Z) -> None:
+    """GATED locks the trigger source to EXTERNAL; rejected the same as any other non-MANUAL source."""
     driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(1, BurstType.GATED)
     driver._check_errors()
 
-    with pytest.raises(ValueError, match="GATED burst mode"):
-        driver.force_burst_trigger(1)
+    with pytest.raises(ValueError, match="already MANUAL"):
+        driver.fire_burst_trigger(1)
 
     driver._check_errors()

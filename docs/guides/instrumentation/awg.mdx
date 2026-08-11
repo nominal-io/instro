@@ -153,10 +153,10 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_burst(channel=N)` | `ch{N}.burst.cmd` | command |
 | `burst_enable(channel=N)` | `ch{N}.burst_enabled.cmd` | command |
 | `set_burst_trigger(channel=N)` | `ch{N}.burst_trigger.cmd` | command |
-| `force_burst_trigger(channel=N)` | `ch{N}.burst_trigger_forced.cmd` | command |
+| `fire_burst_trigger(channel=N)` | `ch{N}.burst_trigger_forced.cmd` | command |
 | `set_burst_delay(channel=N)` | `ch{N}.burst_delay.cmd` | command |
-| `set_burst_gate_polarity(channel=N)` | `ch{N}.gate_polarity.cmd` | command |
-| `set_burst_ncycles(channel=N)` | `ch{N}.ncycles.cmd` | command |
+| `set_burst_gate_polarity(channel=N)` | `ch{N}.burst_gate_polarity.cmd` | command |
+| `set_burst_ncycles(channel=N)` | `ch{N}.burst_ncycles.cmd` | command |
 | `set_burst_period(channel=N)` | `ch{N}.burst_period.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
@@ -164,7 +164,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_modulation_state(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
 | `get_burst_state(channel=N)` | `ch{N}.burst_enabled` | telemetry |
 | `get_burst_delay(channel=N)` | `ch{N}.burst_delay` | telemetry |
-| `get_burst_ncycles(channel=N)` | `ch{N}.ncycles` | telemetry |
+| `get_burst_ncycles(channel=N)` | `ch{N}.burst_ncycles` | telemetry |
 | `get_burst_period(channel=N)` | `ch{N}.burst_period` | telemetry |
 
 <Note>
@@ -200,7 +200,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_burst_state(channel)` | Read back whether burst mode is enabled on channel |
 | `set_burst_trigger(channel, source)` | Set the burst trigger source (`INTERNAL`/`EXTERNAL`/`MANUAL`) on channel |
 | `get_burst_trigger(channel)` | Read back the burst trigger source on channel |
-| `force_burst_trigger(channel)` | Force the burst trigger source to `MANUAL` and fire a trigger on channel now |
+| `fire_burst_trigger(channel)` | Fire a burst trigger on channel now; the trigger source must already be `MANUAL` |
 | `set_burst_delay(channel, delay_s)` | Set the burst trigger delay in seconds on channel |
 | `get_burst_delay(channel)` | Read back the burst trigger delay in seconds on channel |
 | `set_burst_gate_polarity(channel, gate_polarity)` | Set the gate polarity (`NORM`/`INV`) for GATED bursts on channel |
@@ -290,7 +290,7 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`set_burst(channel, burst_type)`** / **`get_burst_type(channel)`**: Configure or read back a channel's burst type (`NCYCLE`/`GATED`/`INFINITE`). Call `burst_enable()` to activate it.
 - **`burst_enable(channel, enable)`** / **`get_burst_state(channel)`**: Enable/disable burst mode, or read back whether it's enabled.
 - **`set_burst_trigger(channel, source)`** / **`get_burst_trigger(channel)`**: Set or read back the burst trigger source (`INTERNAL`/`EXTERNAL`/`MANUAL`).
-- **`force_burst_trigger(channel)`**: Force the trigger source to `MANUAL` and fire a burst trigger on channel immediately.
+- **`fire_burst_trigger(channel)`**: Fire a burst trigger on channel immediately. Requires the trigger source already set to `MANUAL`; call `set_burst_trigger()` first otherwise.
 - **`set_burst_delay(channel, delay_s)`** / **`get_burst_delay(channel)`**: Set or read back the burst trigger delay in seconds.
 - **`set_burst_gate_polarity(channel, gate_polarity)`** / **`get_burst_gate_polarity(channel)`**: Set or read back the gate polarity (`NORM`/`INV`) for GATED bursts.
 - **`set_burst_ncycles(channel, n_cycles)`** / **`get_burst_ncycles(channel)`**: Set or read back the number of cycles per trigger for NCYCLE bursts.

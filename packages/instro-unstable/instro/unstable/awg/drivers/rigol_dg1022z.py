@@ -213,7 +213,7 @@ class RigolDG1022Z(AWGDriverBase):
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
-        # shape is the modulator/baseband signal, the carrier is what set_waveform last programmed.
+        # `shape` is the modulator/baseband signal, the carrier is what set_waveform last programmed.
         _validate_carrier(mod_type, self.get_waveform(channel))
         modulator = _validate_modulator(shape)
         frequency_hz = modulator.frequency_hz
@@ -306,7 +306,8 @@ class RigolDG1022Z(AWGDriverBase):
                 )
             if burst_type is BurstType.INFINITE and source is BurstTriggerSource.INTERNAL:
                 raise ValueError(
-                    f"Cannot trigger since channel {channel} is in INFINITE burst mode, call set_burst with a different burst_type"
+                    f"Cannot use INTERNAL trigger source since channel {channel} is in INFINITE burst mode,"
+                    " use EXTERNAL or MANUAL instead"
                 )
             self._visa.write(f":SOUR{channel}:BURS:TRIG:SOUR {source.value}")
             self._check_errors()
@@ -318,10 +319,15 @@ class RigolDG1022Z(AWGDriverBase):
             self._check_errors()
         return result
 
-    def force_burst_trigger(self, channel: int) -> None:
+    def fire_burst_trigger(self, channel: int) -> None:
         _check_channel(channel)
         with self._visa.lock():
-            self.set_burst_trigger(channel, BurstTriggerSource.MANUAL)
+            source = self.get_burst_trigger(channel)
+            if source is not BurstTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Got: {source.name}"
+                )
             self._write_checked(f":SOUR{channel}:TRIG")
 
     def set_burst_delay(self, channel: int, delay_s: float) -> None:
