@@ -131,6 +131,9 @@ class VESC6(MotorControllerDriverBase):
         self._bus: can.BusABC | None = None
         self._bus_lock = threading.Lock()
         self._state = DriveState.DISABLED
+        self._pong_event = threading.Event()
+        self._status_lock = threading.Lock()
+        self._status_buffer: dict[str, float] = {}
 
     def open(self) -> None:
         self._bus = can.Bus(interface=self._interface, channel=self._channel, bitrate=self._bitrate, **self._bus_kwargs)
@@ -218,16 +221,20 @@ class VESC6(MotorControllerDriverBase):
     def ping(self, timeout: float = 1.0) -> bool:
         """Ping the controller; True if a PONG arrives within timeout."""
         bus = self._require_bus()
+        self._pong_event.clear()
         self._send(_CanPacketId.PING, bytes([self._host_id]))
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self._bus_lock:
-                message = bus.recv(timeout=max(0.0, deadline - time.monotonic()))
-            if message is None:
-                return False
-            if self._is_pong(message):
+        while True:
+            # The PONG may be received (and routed) by a concurrent get_telemetry drain,
+            # so check the event rather than trusting this loop's own recv calls.
+            if self._pong_event.is_set():
                 return True
-        return False
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            with self._bus_lock:
+                message = bus.recv(timeout=min(0.05, remaining))
+            self._route(message)
 
     def _require_bus(self) -> can.BusABC:
         if self._bus is None:
@@ -253,15 +260,30 @@ class VESC6(MotorControllerDriverBase):
             and message.data[0] == self._controller_id
         )
 
+    def _route(self, message: can.Message | None) -> None:
+        """Classify a received frame: PONGs set the ping event, status frames accumulate for get_telemetry."""
+        if message is None:
+            return
+        if self._is_pong(message):
+            self._pong_event.set()
+            return
+        updates = self._parse_status_frame(message)
+        if updates:
+            with self._status_lock:
+                self._status_buffer.update(updates)
+
     def _drain_status_frames(self) -> dict[str, float]:
         bus = self._require_bus()
-        updates: dict[str, float] = {}
         while True:
             with self._bus_lock:
                 message = bus.recv(timeout=0.0)
             if message is None:
-                return updates
-            updates.update(self._parse_status_frame(message))
+                break
+            self._route(message)
+        with self._status_lock:
+            updates = self._status_buffer
+            self._status_buffer = {}
+        return updates
 
     def _parse_status_frame(self, message: can.Message) -> dict[str, float]:
         if not message.is_extended_id or message.arbitration_id & 0xFF != self._controller_id:

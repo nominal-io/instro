@@ -194,3 +194,15 @@ def test_ping_detects_pong(vesc: VESC6, bus: MagicMock) -> None:
 
 def test_ping_times_out_without_pong(vesc: VESC6, bus: MagicMock) -> None:
     assert vesc.ping(timeout=0.05) is False
+
+
+def test_ping_routes_status_frames_to_telemetry_instead_of_dropping(vesc: VESC6, bus: MagicMock) -> None:
+    bus.recv.side_effect = [
+        _status_frame(9, struct.pack(">ihh", 5_000, 20, 100)),
+        can.Message(arbitration_id=(18 << 8) | _HOST_ID, data=bytes([_CONTROLLER_ID, 0]), is_extended_id=True),
+    ]
+
+    assert vesc.ping(timeout=0.5) is True
+
+    bus.recv.side_effect = None
+    assert vesc.get_telemetry()["velocity"] == pytest.approx(5_000)
