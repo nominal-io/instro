@@ -7,7 +7,6 @@ import pytest
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
 from instro.unstable.motorcontroller import (
-    DriveState,
     InstroMotorController,
     MotorControllerDriverBase,
     MotorTelemetry,
@@ -25,17 +24,8 @@ class _StubDriver(MotorControllerDriverBase):
     def close(self) -> None:
         self.calls.append(("close",))
 
-    def enable(self) -> None:
-        self.calls.append(("enable",))
-
-    def disable(self) -> None:
-        self.calls.append(("disable",))
-
     def stop(self) -> None:
         self.calls.append(("stop",))
-
-    def get_drive_state(self) -> DriveState:
-        return DriveState.ENABLED
 
     def get_telemetry(self) -> MotorTelemetry:
         return self.telemetry
@@ -73,8 +63,6 @@ def test_open_close_delegate_to_driver(motor: InstroMotorController, driver: _St
 @pytest.mark.parametrize(
     ("call", "channel", "value", "driver_call"),
     [
-        (lambda m: m.enable(), "m.enable.cmd", 1.0, ("enable",)),
-        (lambda m: m.disable(), "m.enable.cmd", 0.0, ("disable",)),
         (lambda m: m.stop(), "m.stop.cmd", 1.0, ("stop",)),
         (lambda m: m.set_current(2.5), "m.current.cmd", 2.5, ("set_current", 2.5)),
     ],
@@ -119,7 +107,3 @@ def test_get_telemetry_empty_returns_none_and_publishes_nothing(
 ) -> None:
     assert motor.get_telemetry() is None
     publisher.publish.assert_not_called()
-
-
-def test_get_drive_state_delegates(motor: InstroMotorController) -> None:
-    assert motor.get_drive_state() is DriveState.ENABLED

@@ -10,7 +10,7 @@ import time
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.unstable.motorcontroller.types import DriveState, MotorTelemetry
+from instro.unstable.motorcontroller.types import MotorTelemetry
 
 logger = logging.getLogger(__name__)
 
@@ -27,20 +27,8 @@ class MotorControllerDriverBase(abc.ABC):
         """Safe-stop the motor and close the underlying transport. Idempotent."""
 
     @abc.abstractmethod
-    def enable(self) -> None:
-        """Energize the power stage into closed-loop control; no-op on devices that arm implicitly on first setpoint."""
-
-    @abc.abstractmethod
-    def disable(self) -> None:
-        """De-energize the power stage; the motor coasts freely."""
-
-    @abc.abstractmethod
     def stop(self) -> None:
         """Cease motion by the safest means the device supports; holding position afterwards is not guaranteed."""
-
-    @abc.abstractmethod
-    def get_drive_state(self) -> DriveState:
-        """Current drive state; synthesized best-effort on devices without a real state machine."""
 
     @abc.abstractmethod
     def get_telemetry(self) -> MotorTelemetry:
@@ -85,7 +73,7 @@ class InstroMotorController(Instrument):
 
                 motor = InstroMotorController(
                     "drive",
-                    driver=VESC6(channel=0, controller_id=0, pole_pairs=7),
+                    driver=VESC6(channel=0, pole_pairs=7),
                 )
 
             publishers: Publishers that receive emitted Measurement/Command data.
@@ -93,10 +81,10 @@ class InstroMotorController(Instrument):
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher.
 
         Note:
-            Direct access to driver-specific methods not in MotorControllerDriverBase
-            (e.g., VESC6.set_relative_current, VESC6.ping) bypasses _resource_lock and
-            is the caller's responsibility to synchronize if mixed with concurrent
-            InstroMotorController method calls.
+            Drivers are not thread-safe on their own; InstroMotorController serializes
+            all driver access through _resource_lock (including the background
+            telemetry daemon). Calling driver methods directly while the instrument
+            is in use bypasses that lock.
         """
         super().__init__(name, publishers=publishers, **kwargs)
         self._driver = driver
@@ -115,26 +103,6 @@ class InstroMotorController(Instrument):
         super().close()
         self._driver.close()
         logger.info("Closed MotorController '%s'", self.name)
-
-    @publish_command
-    def enable(self, **kwargs) -> Command:
-        """Energize the power stage into closed-loop control."""
-        logger.debug("Sending MotorController enable to '%s'", self.name)
-        with self._resource_lock:
-            self._driver.enable()
-            timestamp = time.time_ns()
-
-        return self._package_command("enable.cmd", True, timestamp, **kwargs)
-
-    @publish_command
-    def disable(self, **kwargs) -> Command:
-        """De-energize the power stage; the motor coasts freely."""
-        logger.debug("Sending MotorController disable to '%s'", self.name)
-        with self._resource_lock:
-            self._driver.disable()
-            timestamp = time.time_ns()
-
-        return self._package_command("enable.cmd", False, timestamp, **kwargs)
 
     @publish_command
     def stop(self, **kwargs) -> Command:
@@ -195,11 +163,6 @@ class InstroMotorController(Instrument):
             timestamp = time.time_ns()
 
         return self._package_command("position.cmd", degrees, timestamp, **kwargs)
-
-    def get_drive_state(self) -> DriveState:
-        """Current drive state."""
-        with self._resource_lock:
-            return self._driver.get_drive_state()
 
     @publish_measurement
     def get_telemetry(self, **kwargs) -> Measurement | None:

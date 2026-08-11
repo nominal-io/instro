@@ -21,9 +21,9 @@ RUN_SECONDS = 5.0
 MOTOR_CURRENT_A = 2.0
 
 # Canable 2.0 Pro with stock candleLight firmware:
-driver = VESC6(channel=0, controller_id=CONTROLLER_ID, interface="gs_usb", pole_pairs=POLE_PAIRS)
+driver = VESC6(channel=0, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID, interface="gs_usb")
 # ...or with slcan firmware flashed (adjust the COM port):
-# driver = VESC6(channel="COM4", controller_id=CONTROLLER_ID, interface="slcan", pole_pairs=POLE_PAIRS)
+# driver = VESC6(channel="COM4", pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID, interface="slcan")
 
 motor = InstroMotorController("drive", driver=driver)
 motor.background_interval = 0.1  # drain broadcast telemetry at 10 Hz
@@ -39,13 +39,19 @@ def latest(field: str) -> float | None:
 
 
 try:
-    if not driver.ping():
-        raise SystemExit("VESC did not answer PING; check wiring, bitrate, and controller ID")
-
     # Launches the background daemon: get_telemetry() runs every
     # background_interval, publishing velocity/current/duty/temps/voltage and
     # filling the channel buffer read by get_channel().
     motor.start()
+
+    # Liveness check: broadcast telemetry doubles as the connectivity test.
+    deadline = time.monotonic() + 2.0
+    while latest("velocity") is None:
+        if time.monotonic() > deadline:
+            raise SystemExit(
+                "no broadcast telemetry seen; check wiring, bitrate, controller ID, and CAN status message mode"
+            )
+        time.sleep(0.1)
 
     deadline = time.monotonic() + RUN_SECONDS
     last_print = 0.0
