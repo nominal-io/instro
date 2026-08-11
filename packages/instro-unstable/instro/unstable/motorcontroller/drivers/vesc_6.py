@@ -15,6 +15,14 @@ from instro.unstable.motorcontroller.types import MotorTelemetry
 logger = logging.getLogger(__name__)
 
 
+def _pack_scaled_int32(value: float, description: str) -> bytes:
+    """Wire values are big-endian int32; reject scaled setpoints that would overflow."""
+    raw = round(value)
+    if not -(2**31) <= raw < 2**31:
+        raise ValueError(f"{description}: scaled value {raw} exceeds the int32 wire format")
+    return struct.pack(">i", raw)
+
+
 class _CanPacketId(enum.IntEnum):
     SET_DUTY = 0
     SET_CURRENT = 1
@@ -52,6 +60,8 @@ class VESC6(MotorControllerDriverBase):
         self._bus: can.BusABC | None = None
 
     def open(self) -> None:
+        if self._bus is not None:
+            raise RuntimeError("VESC6 is already open; call close() before re-opening")
         self._bus = can.Bus(interface=self._interface, channel=self._channel, bitrate=self._bitrate, **self._bus_kwargs)
 
     def close(self) -> None:
@@ -59,10 +69,11 @@ class VESC6(MotorControllerDriverBase):
             return
         try:
             self.stop()
-        except can.CanError:
+        except Exception:
             logger.warning("VESC6 safe-stop on close failed", exc_info=True)
-        self._bus.shutdown()
-        self._bus = None
+        finally:
+            self._bus.shutdown()
+            self._bus = None
 
     def stop(self) -> None:
         """Release the motor by commanding zero current; the VESC cannot hold position."""
@@ -75,7 +86,7 @@ class VESC6(MotorControllerDriverBase):
 
     def set_current(self, amps: float) -> None:
         """Command a motor current in amps (sign sets direction; device clamps to its configured limits)."""
-        self._send(_CanPacketId.SET_CURRENT, struct.pack(">i", round(amps * 1000)))
+        self._send(_CanPacketId.SET_CURRENT, _pack_scaled_int32(amps * 1000, f"current {amps} A"))
 
     def set_brake_current(self, amps: float) -> None:
         if amps < 0:
@@ -84,7 +95,7 @@ class VESC6(MotorControllerDriverBase):
 
     def set_velocity(self, rpm: float) -> None:
         """Command a mechanical speed in RPM, converted to ERPM via pole_pairs."""
-        self._send(_CanPacketId.SET_RPM, struct.pack(">i", round(rpm * self._pole_pairs)))
+        self._send(_CanPacketId.SET_RPM, _pack_scaled_int32(rpm * self._pole_pairs, f"velocity {rpm} RPM"))
 
     def set_position(self, degrees: float) -> None:
         """Command a servo position in degrees, 0..360 (single-turn)."""

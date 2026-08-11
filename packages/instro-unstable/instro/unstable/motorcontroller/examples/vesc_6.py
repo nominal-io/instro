@@ -66,7 +66,7 @@ try:
                 f"fet_temp={latest('fet_temperature')} C"
             )
 
-    motor.stop()
+    motor.stop_motor()
     print(f"Stopped. Final velocity={latest('velocity')} rpm")
 
 finally:
