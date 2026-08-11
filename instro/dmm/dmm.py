@@ -223,15 +223,15 @@ class InstroDMM(Instrument):
 
         if autostart:
             self.open()
-            self.start()
+            try:
+                self.start()
+            except Exception:
+                self._driver.close()
+                raise
 
     @staticmethod
     def _resolve_config(config: DMMConfig | dict | Path | str) -> DMMConfig:
-        """Validate ``config`` into a DMMConfig. A ``str``/``Path`` is always treated as a file path.
-
-        Returns a deep copy when ``config`` is already a ``DMMConfig``, so the instance stored on
-        ``self._config`` never aliases a caller-owned object that could mutate out from under it.
-        """
+        """Validate ``config`` (a dict, file path, or ``DMMConfig``, which gets deep-copied) into a ``DMMConfig``."""
         if isinstance(config, DMMConfig):
             return config.model_copy(deep=True)
         if isinstance(config, dict):
@@ -254,7 +254,11 @@ class InstroDMM(Instrument):
         """Open the underlying driver and apply any configured measurement state."""
         logger.info("Opening DMM '%s'", self.name)
         self._driver.open()
-        self._apply_measurement_config()
+        try:
+            self._apply_measurement_config()
+        except Exception:
+            self._driver.close()
+            raise
         logger.info("Opened DMM '%s'", self.name)
 
     def _apply_measurement_config(self) -> None:

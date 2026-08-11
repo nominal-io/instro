@@ -106,7 +106,6 @@ Where bench_dmm.json contains:
   },
   "measurement": {
     "function": "DC_VOLTAGE",
-    "digits": 6,
     "aperture_nplc": 10,
     "range": 10.0
   },
@@ -129,7 +128,7 @@ Where bench_dmm.json contains:
 The optional `measurement` block declares the initial measurement state. It is applied through the public setters (`set_measurement_function`, `set_digits`, ...) when `open()` runs, so it publishes the same `.cmd` channels the equivalent manual calls would:
 
 - **`function`** (required within the block): one of `DC_VOLTAGE`, `AC_VOLTAGE`, `DC_CURRENT`, `AC_CURRENT`, `TWO_WIRE_RESISTANCE`, `FOUR_WIRE_RESISTANCE`.
-- **`digits`**: resolution in digits. Omit to keep the instrument default.
+- **`digits`**: resolution in digits. Omit to keep the instrument default. Driver support varies: the Agilent 34401A accepts it, while the Keysight 34461A rejects it in favor of `aperture_nplc` (hence its absence from the example above).
 - **`aperture_nplc`** / **`aperture_seconds`**: integration time, in power-line cycles or seconds. At most one of the two.
 - **`range`**: a number for a manual range in the function's units, or `"auto"` for auto-range. Omit to keep the instrument default.
 

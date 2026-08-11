@@ -16,7 +16,6 @@
     },
     "measurement": {
         "function": "DC_VOLTAGE",
-        "digits": 6,
         "aperture_nplc": 10,
         "range": 10.0
     },
