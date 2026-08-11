@@ -1,5 +1,6 @@
 import atexit
 import logging
+import math
 import time
 import weakref
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from instro.daq.types import (
 )
 from instro.lib import Measurement
 from labjack import ljm
+from labjack.ljm import errorcodes
 
 logger = logging.getLogger(__name__)
 
@@ -255,8 +257,11 @@ class LabJackTSeriesDriver(DAQDriverBase):
         for v in volts:
             try:
                 temps.append(kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
-            except ljm.LJMError:
-                temps.append(float("nan"))  # open/overranged input or dropped-scan sentinel; keep the batch flowing
+            except ljm.LJMError as error:
+                if error.errorCode not in (errorcodes.VOLTAGE_OUT_OF_RANGE, errorcodes.TEMPERATURE_OUT_OF_RANGE):
+                    raise
+                logger.warning("Thermocouple channel '%s' read out of range, returning NaN: %s", channel.alias, error)
+                temps.append(math.nan)  # open/overranged input or dropped-scan sentinel; keep the batch flowing
         return temps
 
     def configure_ai_hw_timing(
