@@ -24,6 +24,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
     convert_amplitude,
@@ -162,6 +163,62 @@ class AWGDriverBase(abc.ABC):
     def get_burst_period(self, channel: int) -> float:
         """Get the internal burst period (seconds) on channel."""
         raise NotImplementedError(f"get_burst_period is not implemented for {type(self).__name__}")
+
+    def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
+        """Configure the sweep type on channel."""
+        raise NotImplementedError(f"set_sweep is not implemented for {type(self).__name__}")
+
+    def get_sweep_type(self, channel: int) -> SweepType:
+        """Get the sweep type currently configured on channel."""
+        raise NotImplementedError(f"get_sweep_type is not implemented for {type(self).__name__}")
+
+    def sweep_enable(self, channel: int, enable: bool) -> None:
+        """Enable or disable sweep mode on channel."""
+        raise NotImplementedError(f"sweep_enable is not implemented for {type(self).__name__}")
+
+    def get_sweep_state(self, channel: int) -> bool:
+        """Return True if sweep mode is enabled on channel."""
+        raise NotImplementedError(f"get_sweep_state is not implemented for {type(self).__name__}")
+
+    def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
+        """Set the sweep start frequency (Hz) on channel."""
+        raise NotImplementedError(f"set_sweep_start_freq is not implemented for {type(self).__name__}")
+
+    def get_sweep_start_freq(self, channel: int) -> float:
+        """Get the sweep start frequency (Hz) on channel."""
+        raise NotImplementedError(f"get_sweep_start_freq is not implemented for {type(self).__name__}")
+
+    def set_sweep_end_freq(self, channel: int, frequency_hz: float) -> None:
+        """Set the sweep end frequency (Hz) on channel."""
+        raise NotImplementedError(f"set_sweep_end_freq is not implemented for {type(self).__name__}")
+
+    def get_sweep_end_freq(self, channel: int) -> float:
+        """Get the sweep end frequency (Hz) on channel."""
+        raise NotImplementedError(f"get_sweep_end_freq is not implemented for {type(self).__name__}")
+
+    def set_sweep_time(self, channel: int, sweep_time: float) -> None:
+        """Set the sweep time (seconds) on channel."""
+        raise NotImplementedError(f"set_sweep_time is not implemented for {type(self).__name__}")
+
+    def get_sweep_time(self, channel: int) -> float:
+        """Get the sweep time (seconds) on channel."""
+        raise NotImplementedError(f"get_sweep_time is not implemented for {type(self).__name__}")
+
+    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
+        """Set the sweep hold time (seconds) on channel."""
+        raise NotImplementedError(f"set_sweep_hold_time is not implemented for {type(self).__name__}")
+
+    def get_sweep_hold_time(self, channel: int) -> float:
+        """Get the sweep hold time (seconds) on channel."""
+        raise NotImplementedError(f"get_sweep_hold_time is not implemented for {type(self).__name__}")
+
+    def set_sweep_return_time(self, channel: int, return_time: float) -> None:
+        """Set the sweep return time (seconds) on channel."""
+        raise NotImplementedError(f"set_sweep_return_time is not implemented for {type(self).__name__}")
+
+    def get_sweep_return_time(self, channel: int) -> float:
+        """Get the sweep return time (seconds) on channel."""
+        raise NotImplementedError(f"get_sweep_return_time is not implemented for {type(self).__name__}")
 
 
 _PUBLISHED_NAMES: dict[type, str] = {
@@ -561,3 +618,86 @@ class InstroAWG(Instrument):
         """Read back the internal burst period (seconds) on channel."""
         self._check_channel(channel)
         return self._execute_measurement(self._driver.get_burst_period, channel, "burst_period", **kwargs)
+
+    @publish_command
+    def set_sweep(self, channel: int, sweep_type: SweepType, **kwargs) -> Command:
+        """Configure the sweep type on channel."""
+        if not isinstance(sweep_type, SweepType):
+            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.set_sweep(channel=channel, sweep_type=sweep_type)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.sweep.cmd"
+        return self._package_command(descriptor, sweep_type.value, timestamp, **kwargs)
+
+    def get_sweep_type(self, channel: int) -> SweepType:
+        """Read back the sweep type currently configured on channel."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            sweep_type = self._driver.get_sweep_type(channel=channel)
+        return sweep_type
+
+    def sweep_enable(self, channel: int, enable: bool, **kwargs) -> Command:
+        """Enable or disable sweep mode on channel."""
+        self._check_channel(channel)
+        return self._execute_command(self._driver.sweep_enable, channel, enable, "sweep_enabled", **kwargs)
+
+    def get_sweep_state(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back whether sweep mode is enabled on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_state, channel, "sweep_enabled", **kwargs)
+
+    def set_sweep_start_freq(self, channel: int, frequency_hz: float, **kwargs) -> Command:
+        """Set the sweep start frequency (Hz) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(
+            self._driver.set_sweep_start_freq, channel, frequency_hz, "sweep_start_freq", **kwargs
+        )
+
+    def get_sweep_start_freq(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep start frequency (Hz) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_start_freq, channel, "sweep_start_freq", **kwargs)
+
+    def set_sweep_end_freq(self, channel: int, frequency_hz: float, **kwargs) -> Command:
+        """Set the sweep end frequency (Hz) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(self._driver.set_sweep_end_freq, channel, frequency_hz, "sweep_end_freq", **kwargs)
+
+    def get_sweep_end_freq(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep end frequency (Hz) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_end_freq, channel, "sweep_end_freq", **kwargs)
+
+    def set_sweep_time(self, channel: int, sweep_time: float, **kwargs) -> Command:
+        """Set the sweep time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(self._driver.set_sweep_time, channel, sweep_time, "sweep_time", **kwargs)
+
+    def get_sweep_time(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_time, channel, "sweep_time", **kwargs)
+
+    def set_sweep_hold_time(self, channel: int, hold_time: float, **kwargs) -> Command:
+        """Set the sweep hold time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(self._driver.set_sweep_hold_time, channel, hold_time, "sweep_hold_time", **kwargs)
+
+    def get_sweep_hold_time(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep hold time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_hold_time, channel, "sweep_hold_time", **kwargs)
+
+    def set_sweep_return_time(self, channel: int, return_time: float, **kwargs) -> Command:
+        """Set the sweep return time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(
+            self._driver.set_sweep_return_time, channel, return_time, "sweep_return_time", **kwargs
+        )
+
+    def get_sweep_return_time(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep return time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(self._driver.get_sweep_return_time, channel, "sweep_return_time", **kwargs)

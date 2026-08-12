@@ -16,6 +16,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
     convert_amplitude,
@@ -37,5 +38,6 @@ __all__ = [
     "BurstType",
     "BurstTriggerSource",
     "GatePolarity",
+    "SweepType",
     "convert_amplitude",
 ]
