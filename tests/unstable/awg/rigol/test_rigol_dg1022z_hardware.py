@@ -25,6 +25,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -49,6 +50,13 @@ FREQUENCY_TOLERANCE_REL = 1e-4
 AMPLITUDE_TOLERANCE_REL = 0.01
 AMPLITUDE_DBM_TOLERANCE_ABS = 0.1
 PHASE_TOLERANCE_DEG = 0.1
+
+TEST_SWEEP_START_HZ = 100.0
+TEST_SWEEP_END_HZ = 900.0
+TEST_SWEEP_TIME_S = 1.0
+TEST_SWEEP_HOLD_TIME_S = 0.1
+TEST_SWEEP_RETURN_TIME_S = 0.1
+SWEEP_TIME_TOLERANCE_REL = 0.01
 
 _ARB_SAMPLES = (0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5, 0.25)
 
@@ -510,3 +518,56 @@ def test_22_fire_burst_trigger_rejects_non_manual_source(driver: RigolDG1022Z) -
         driver.fire_burst_trigger(1)
 
     driver._check_errors()
+
+
+# ---------------------------------------------------------------------------
+# Sweep
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("sweep_type", list(SweepType), ids=lambda sweep_type: sweep_type.value.lower())
+def test_23_set_sweep_and_get_sweep_type_roundtrip(driver: RigolDG1022Z, sweep_type: SweepType) -> None:
+    """Also guards the abbreviated :SWE:SPAC? readback (LIN/LOG/STE) that get_sweep_type() must tolerate."""
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+
+    driver.set_sweep(1, sweep_type)
+    driver._check_errors()
+
+    assert driver.get_sweep_type(1) is sweep_type
+
+
+@pytest.mark.parametrize("channel", CHANNELS, ids=lambda channel: f"channel_{channel}")
+def test_24_sweep_enable_toggle(driver: RigolDG1022Z, channel: int) -> None:
+    driver.set_waveform(channel, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    try:
+        driver.sweep_enable(channel, True)
+        driver._check_errors()
+        assert driver.get_sweep_state(channel) is True
+    finally:
+        driver.sweep_enable(channel, False)
+
+    assert driver.get_sweep_state(channel) is False
+
+
+def test_25_sweep_frequency_bounds_roundtrip(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+
+    driver.set_sweep_start_freq(1, TEST_SWEEP_START_HZ)
+    driver.set_sweep_end_freq(1, TEST_SWEEP_END_HZ)
+    driver._check_errors()
+
+    assert driver.get_sweep_start_freq(1) == pytest.approx(TEST_SWEEP_START_HZ, rel=FREQUENCY_TOLERANCE_REL)
+    assert driver.get_sweep_end_freq(1) == pytest.approx(TEST_SWEEP_END_HZ, rel=FREQUENCY_TOLERANCE_REL)
+
+
+def test_26_sweep_timing_roundtrip(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+
+    driver.set_sweep_time(1, TEST_SWEEP_TIME_S)
+    driver.set_sweep_hold_time(1, TEST_SWEEP_HOLD_TIME_S)
+    driver.set_sweep_return_time(1, TEST_SWEEP_RETURN_TIME_S)
+    driver._check_errors()
+
+    assert driver.get_sweep_time(1) == pytest.approx(TEST_SWEEP_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)
+    assert driver.get_sweep_hold_time(1) == pytest.approx(TEST_SWEEP_HOLD_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)
+    assert driver.get_sweep_return_time(1) == pytest.approx(TEST_SWEEP_RETURN_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)

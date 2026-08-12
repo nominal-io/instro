@@ -16,6 +16,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -41,6 +42,13 @@ _BURST_MODES: dict[BurstType, str] = {
     BurstType.INFINITE: "INF",
 }
 _BURST_TYPES: dict[str, BurstType] = {mode: burst_type for burst_type, mode in _BURST_MODES.items()}
+
+# :SWE:SPAC? always echoes the instrument's own abbreviated mnemonic, never the full keyword written.
+_SWEEP_SPACING_READBACK: dict[str, SweepType] = {
+    "LIN": SweepType.LINEAR,
+    "LOG": SweepType.LOG,
+    "STE": SweepType.STEP,
+}
 
 
 class RigolDG1022Z(AWGDriverBase):
@@ -384,6 +392,100 @@ class RigolDG1022Z(AWGDriverBase):
         _check_channel(channel)
         with self._visa.lock():
             result = float(self._visa.query(f":SOUR{channel}:BURS:INT:PER?"))
+            self._check_errors()
+        return result
+
+    def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:SPAC {sweep_type.value}")
+            self._check_errors()
+
+    def get_sweep_type(self, channel: int) -> SweepType:
+        _check_channel(channel)
+        with self._visa.lock():
+            resp = self._visa.query(f":SOUR{channel}:SWE:SPAC?").strip()
+            self._check_errors()
+        result = _SWEEP_SPACING_READBACK.get(resp)
+        if result is None:
+            raise ValueError(f"Rigol DG1022Z reported unsupported sweep type '{resp}'")
+        return result
+
+    def sweep_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:STAT {'ON' if enable else 'OFF'}")
+            self._check_errors()
+
+    def get_sweep_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = self._visa.query(f":SOUR{channel}:SWE:STAT?").strip() == "ON"
+            self._check_errors()
+        return result
+
+    def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:FREQ:STAR {frequency_hz}")
+            self._check_errors()
+
+    def get_sweep_start_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:FREQ:STAR?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_end_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:FREQ:STOP {frequency_hz}")
+            self._check_errors()
+
+    def get_sweep_end_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:FREQ:STOP?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_time(self, channel: int, sweep_time: float) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:TIME {sweep_time}")
+            self._check_errors()
+
+    def get_sweep_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:SWE:TIME?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:HTIM {hold_time}")
+            self._check_errors()
+
+    def get_sweep_hold_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:SWE:HTIM?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_return_time(self, channel: int, return_time: float) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:RTIM {return_time}")
+            self._check_errors()
+
+    def get_sweep_return_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:SWE:RTIM?"))
             self._check_errors()
         return result
 
