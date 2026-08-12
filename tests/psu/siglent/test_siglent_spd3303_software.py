@@ -69,6 +69,20 @@ def test_siglent_get_current_returns_float(siglent: SiglentSPD3303, siglent_visa
     assert siglent_visa.query.call_args_list == [call("MEAS:CURR? CH1"), call("SYST:ERR?")]
 
 
+def test_siglent_get_voltage_setpoint_uses_ch_query(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.side_effect = ["25.000", '+0,"No error"']
+
+    assert siglent.get_voltage_setpoint(channel=1) == pytest.approx(25.0)
+    assert siglent_visa.query.call_args_list == [call("CH1:VOLT?"), call("SYST:ERR?")]
+
+
+def test_siglent_get_current_setpoint_uses_ch_query(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
+    siglent_visa.query.side_effect = ["0.500", '+0,"No error"']
+
+    assert siglent.get_current_setpoint(channel=2) == pytest.approx(0.5)
+    assert siglent_visa.query.call_args_list == [call("CH2:CURR?"), call("SYST:ERR?")]
+
+
 def test_siglent_output_enable_formats_on_per_channel(siglent: SiglentSPD3303, siglent_visa: MagicMock) -> None:
     siglent.output_enable(True, channel=2)
 
@@ -168,6 +182,28 @@ def test_siglent_get_current_channel_three_unsupported_does_not_send_scpi(
 ) -> None:
     with pytest.raises(FeatureNotSupportedError, match="get_current is not supported for channel 3"):
         siglent.get_current(channel=3)
+
+    siglent_visa.write.assert_not_called()
+    siglent_visa.query.assert_not_called()
+
+
+def test_siglent_get_voltage_setpoint_channel_three_unsupported_does_not_send_scpi(
+    siglent: SiglentSPD3303,
+    siglent_visa: MagicMock,
+) -> None:
+    with pytest.raises(FeatureNotSupportedError, match="get_voltage_setpoint is not supported for channel 3"):
+        siglent.get_voltage_setpoint(channel=3)
+
+    siglent_visa.write.assert_not_called()
+    siglent_visa.query.assert_not_called()
+
+
+def test_siglent_get_current_setpoint_channel_three_unsupported_does_not_send_scpi(
+    siglent: SiglentSPD3303,
+    siglent_visa: MagicMock,
+) -> None:
+    with pytest.raises(FeatureNotSupportedError, match="get_current_setpoint is not supported for channel 3"):
+        siglent.get_current_setpoint(channel=3)
 
     siglent_visa.write.assert_not_called()
     siglent_visa.query.assert_not_called()

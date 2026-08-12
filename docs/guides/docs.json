@@ -136,7 +136,8 @@
           {
             "group": "DMM",
             "pages": [
-              "instrumentation/examples/dmm/dmm_basic"
+              "instrumentation/examples/dmm/dmm_basic",
+              "instrumentation/examples/dmm/dmm_config"
             ]
           },
           {

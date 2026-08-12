@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import json
 import logging
 import threading
 import time
@@ -11,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.psu.config import PSUConfig, resolve_psu_from_config
@@ -157,16 +157,18 @@ class InstroPSU(Instrument):
         """
         poll_interval: float | None = None
         resolved_config: PSUConfig | None = None
+        config_publishers: list[Publisher] = []
         if config is not None:
             if driver is not None or num_channels is not None:
                 raise ValueError(
                     "InstroPSU(config=...) cannot be combined with driver/num_channels; "
                     "use one construction style or the other."
                 )
-            resolved_config = self._resolve_config(config)
-            resolved_name, driver, num_channels, publishers, poll_interval = resolve_psu_from_config(
-                resolved_config, publishers
+            resolved_config = load_config(config, PSUConfig)
+            resolved_name, driver, num_channels, config_publishers, poll_interval = resolve_psu_from_config(
+                resolved_config
             )
+            publishers = [*(publishers or []), *config_publishers] or None
             if name is None:
                 name = resolved_name
         elif name is None or driver is None or num_channels is None:
@@ -185,22 +187,14 @@ class InstroPSU(Instrument):
             self.background_interval = poll_interval
 
         if autostart:
-            self.open()
-            self.start()
-
-    @staticmethod
-    def _resolve_config(config: PSUConfig | dict | Path | str) -> PSUConfig:
-        """Validate ``config`` into a PSUConfig. A ``str``/``Path`` is always treated as a file path.
-
-        Returns a deep copy when ``config`` is already a ``PSUConfig``, so the instance stored on
-        ``self._config`` never aliases a caller-owned object that could mutate out from under it.
-        """
-        if isinstance(config, PSUConfig):
-            return config.model_copy(deep=True)
-        if isinstance(config, dict):
-            return PSUConfig.model_validate(config)
-        with open(Path(config)) as f:
-            return PSUConfig.model_validate(json.load(f))
+            try:
+                self.open()
+                self.start()
+            except Exception:
+                self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
+                raise
 
     @publish_command
     def _execute_command(

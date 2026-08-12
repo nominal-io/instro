@@ -145,6 +145,24 @@ def test_get_current(driver: SiglentSPD3303, channel_config: ChannelConfig) -> N
 
 
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_voltage_setpoint(driver: SiglentSPD3303, channel_config: ChannelConfig) -> None:
+    driver.set_voltage(channel_config.programmed_voltage(), channel=channel_config.channel)
+
+    setpoint = driver.get_voltage_setpoint(channel=channel_config.channel)
+
+    assert setpoint == pytest.approx(channel_config.programmed_voltage(), abs=0.001)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_current_setpoint(driver: SiglentSPD3303, channel_config: ChannelConfig) -> None:
+    driver.set_current_limit(channel_config.programmed_current_limit(), channel=channel_config.channel)
+
+    setpoint = driver.get_current_setpoint(channel=channel_config.channel)
+
+    assert setpoint == pytest.approx(channel_config.programmed_current_limit(), abs=0.001)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
 def test_output_enable(driver: SiglentSPD3303, channel_config: ChannelConfig) -> None:
     driver.output_enable(True, channel=channel_config.channel)
     assert driver.get_output_status(channel=channel_config.channel) is True
@@ -284,6 +302,16 @@ def test_get_current_channel_three_unsupported(driver: SiglentSPD3303) -> None:
         driver.get_current(channel=3)
 
 
+def test_get_voltage_setpoint_channel_three_unsupported(driver: SiglentSPD3303) -> None:
+    with pytest.raises(FeatureNotSupportedError, match="get_voltage_setpoint is not supported for channel 3"):
+        driver.get_voltage_setpoint(channel=3)
+
+
+def test_get_current_setpoint_channel_three_unsupported(driver: SiglentSPD3303) -> None:
+    with pytest.raises(FeatureNotSupportedError, match="get_current_setpoint is not supported for channel 3"):
+        driver.get_current_setpoint(channel=3)
+
+
 def test_output_enable_channel_three_unsupported(driver: SiglentSPD3303) -> None:
     with pytest.raises(FeatureNotSupportedError, match="output_enable is not supported for channel 3"):
         driver.output_enable(True, channel=3)
@@ -312,6 +340,16 @@ def test_set_current_limit_invalid_channel(driver: SiglentSPD3303) -> None:
 def test_get_current_invalid_channel(driver: SiglentSPD3303) -> None:
     with pytest.raises(ValueError, match="channel must be 1, 2, or 3"):
         driver.get_current(channel=4)
+
+
+def test_get_voltage_setpoint_invalid_channel(driver: SiglentSPD3303) -> None:
+    with pytest.raises(ValueError, match="channel must be 1, 2, or 3"):
+        driver.get_voltage_setpoint(channel=4)
+
+
+def test_get_current_setpoint_invalid_channel(driver: SiglentSPD3303) -> None:
+    with pytest.raises(ValueError, match="channel must be 1, 2, or 3"):
+        driver.get_current_setpoint(channel=4)
 
 
 def test_output_enable_invalid_channel(driver: SiglentSPD3303) -> None:

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v1.0.0...instro-daq-labjack-v1.0.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* **ljm:** expose stream buffer byte size configuration ([#366](https://github.com/nominal-io/instro/issues/366)) ([4cc6d14](https://github.com/nominal-io/instro/commit/4cc6d14977b1c3c8c42f17d22e79bd139df2953b))
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v0.8.0...instro-daq-labjack-v1.0.0) (2026-07-02)
 
 

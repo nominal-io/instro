@@ -254,7 +254,6 @@ def get_output_state(self, channel: int) -> bool:
 
 Optional overrides (raise `NotImplementedError` if not supported):
 
-- **`check_errors()`**: Drain the instrument error queue; raise if any error is pending. `InstroAWG` calls this after every write and tolerates it being unimplemented.
 - **`set_output_load(channel, load)`** / **`get_output_load(channel)`**: Set or read the output load impedance; `None` means high-Z.
 - **`align_phase()`**: Sync the phase of all channels.
 - **`set_modulation(channel, mod_type, shape, magnitude)`**: Configure a channel's modulation. Call `modulation_enable()` to activate it.
@@ -297,12 +296,6 @@ class RigolDG1022Z(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query(":SYST:ERR?")
-        code = err.strip().split(",", 1)[0].lstrip("+")
-        if code != "0":
-            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         with self._visa.lock():
             if isinstance(waveform, Sine):
@@ -312,6 +305,7 @@ class RigolDG1022Z(AWGDriverBase):
             # ... other Waveform shapes ...
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+            self._check_errors()  # one check per call, not one per write — see note above
 
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         if unit is AmplitudeMeasurementUnit.VP:
@@ -319,8 +313,15 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             self._visa.write(f":SOUR{channel}:VOLT:UNIT {unit.value}")
             self._visa.write(f":SOUR{channel}:VOLT {amplitude}")
+            self._check_errors()
 
     # ... other required and optional methods ...
+
+    def _check_errors(self) -> None:
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
 ```
 
 ## Using a Custom Driver
@@ -346,14 +347,10 @@ class MyCustomAWGDriver(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query("ERR?")
-        if err != "OK":
-            raise RuntimeError(f"AWG error: {err}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         if isinstance(waveform, Sine):
             self._visa.write(f"CH{channel}:WAVE SIN,{waveform.frequency_hz}")
+            self._check_errors()
         else:
             raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
 
@@ -361,6 +358,11 @@ class MyCustomAWGDriver(AWGDriverBase):
 
     def get_output_state(self, channel: int) -> bool:
         return self._visa.query(f"CH{channel}:OUTP?") == "ON"
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("ERR?")
+        if err != "OK":
+            raise RuntimeError(f"AWG error: {err}")
 
 
 awg = InstroAWG(
