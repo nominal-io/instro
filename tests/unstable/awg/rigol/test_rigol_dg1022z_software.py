@@ -19,6 +19,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -873,3 +874,95 @@ def test_44_fire_burst_trigger_rejects_when_burst_not_enabled(rigol: RigolDG1022
 
     assert _real_query_calls(rigol_visa) == [call(":SOUR1:BURS:STAT?")]
     rigol_visa.write.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Sweep
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sweep_type", "expected_command"),
+    [
+        (SweepType.LINEAR, ":SOUR1:SWE:SPAC LINEAR"),
+        (SweepType.LOG, ":SOUR1:SWE:SPAC LOG"),
+        (SweepType.STEP, ":SOUR1:SWE:SPAC STEP"),
+    ],
+    ids=["linear", "log", "step"],
+)
+def test_45_set_sweep_writes_spacing_command(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, sweep_type: SweepType, expected_command: str
+) -> None:
+    rigol.set_sweep(1, sweep_type)
+
+    rigol_visa.write.assert_called_once_with(expected_command)
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        ("LIN", SweepType.LINEAR),
+        ("LOG", SweepType.LOG),
+        ("STE", SweepType.STEP),
+    ],
+    ids=["linear", "log", "step"],
+)
+def test_46_get_sweep_type_parses_abbreviated_readback(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, response: str, expected: SweepType
+) -> None:
+    """The DG1000Z always echoes the abbreviated mnemonic (LIN/LOG/STE), never the full keyword written."""
+    _query_sequence(rigol_visa, [response])
+
+    assert rigol.get_sweep_type(2) is expected
+    assert _real_query_calls(rigol_visa) == [call(":SOUR2:SWE:SPAC?")]
+
+
+def test_47_get_sweep_type_raises_on_unexpected_instrument_response(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _query_sequence(rigol_visa, ["XYZ"])
+
+    with pytest.raises(ValueError, match="unsupported sweep type 'XYZ'"):
+        rigol.get_sweep_type(1)
+
+
+def test_48_sweep_enable_and_get_sweep_state_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.sweep_enable(1, True)
+    rigol.sweep_enable(1, False)
+    assert rigol_visa.write.call_args_list == [call(":SOUR1:SWE:STAT ON"), call(":SOUR1:SWE:STAT OFF")]
+
+    _query_sequence(rigol_visa, ["ON\n"])
+    assert rigol.get_sweep_state(1) is True
+
+    _query_sequence(rigol_visa, ["OFF\n"])
+    assert rigol.get_sweep_state(1) is False
+
+
+def test_49_sweep_frequency_bounds_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_sweep_start_freq(1, 100.0)
+    rigol.set_sweep_end_freq(1, 900.0)
+    assert rigol_visa.write.call_args_list == [call(":SOUR1:FREQ:STAR 100.0"), call(":SOUR1:FREQ:STOP 900.0")]
+
+    _query_sequence(rigol_visa, ["1.000000E+02", "9.000000E+02"])
+    assert rigol.get_sweep_start_freq(1) == pytest.approx(100.0)
+    assert rigol.get_sweep_end_freq(1) == pytest.approx(900.0)
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:FREQ:STAR?"), call(":SOUR1:FREQ:STOP?")]
+
+
+def test_50_sweep_timing_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    rigol.set_sweep_time(2, 5.0)
+    rigol.set_sweep_hold_time(2, 1.0)
+    rigol.set_sweep_return_time(2, 0.5)
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR2:SWE:TIME 5.0"),
+        call(":SOUR2:SWE:HTIM 1.0"),
+        call(":SOUR2:SWE:RTIM 0.5"),
+    ]
+
+    _query_sequence(rigol_visa, ["5.000000E+00", "1.000000E+00", "5.000000E-01"])
+    assert rigol.get_sweep_time(2) == pytest.approx(5.0)
+    assert rigol.get_sweep_hold_time(2) == pytest.approx(1.0)
+    assert rigol.get_sweep_return_time(2) == pytest.approx(0.5)
+    assert _real_query_calls(rigol_visa) == [
+        call(":SOUR2:SWE:TIME?"),
+        call(":SOUR2:SWE:HTIM?"),
+        call(":SOUR2:SWE:RTIM?"),
+    ]
