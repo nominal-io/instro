@@ -20,6 +20,7 @@ from instro.unstable.awg.types import (
     GatePolarity,
     ModulationType,
     Sine,
+    SweepType,
     Waveform,
 )
 
@@ -108,6 +109,20 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("get_burst_ncycles", (1,)),
         ("set_burst_period", (1, 0.001)),
         ("get_burst_period", (1,)),
+        ("set_sweep", (1, SweepType.LINEAR)),
+        ("get_sweep_type", (1,)),
+        ("sweep_enable", (1, True)),
+        ("get_sweep_state", (1,)),
+        ("set_sweep_start_freq", (1, 100.0)),
+        ("get_sweep_start_freq", (1,)),
+        ("set_sweep_end_freq", (1, 200.0)),
+        ("get_sweep_end_freq", (1,)),
+        ("set_sweep_time", (1, 0.5)),
+        ("get_sweep_time", (1,)),
+        ("set_sweep_hold_time", (1, 0.1)),
+        ("get_sweep_hold_time", (1,)),
+        ("set_sweep_return_time", (1, 0.1)),
+        ("get_sweep_return_time", (1,)),
     ],
 )
 def test_02_awg_driver_base_optional_methods_raise_not_implemented(
@@ -138,6 +153,8 @@ def mock_driver() -> MagicMock:
     driver.get_burst_state.return_value = False
     driver.get_burst_trigger.return_value = BurstTriggerSource.INTERNAL
     driver.get_burst_gate_polarity.return_value = GatePolarity.NORM
+    driver.get_sweep_type.return_value = SweepType.LINEAR
+    driver.get_sweep_state.return_value = False
     return driver
 
 
@@ -238,6 +255,20 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
         ("get_burst_ncycles", ()),
         ("set_burst_period", (0.001,)),
         ("get_burst_period", ()),
+        ("set_sweep", (SweepType.LINEAR,)),
+        ("get_sweep_type", ()),
+        ("sweep_enable", (True,)),
+        ("get_sweep_state", ()),
+        ("set_sweep_start_freq", (100.0,)),
+        ("get_sweep_start_freq", ()),
+        ("set_sweep_end_freq", (200.0,)),
+        ("get_sweep_end_freq", ()),
+        ("set_sweep_time", (0.5,)),
+        ("get_sweep_time", ()),
+        ("set_sweep_hold_time", (0.1,)),
+        ("get_sweep_hold_time", ()),
+        ("set_sweep_return_time", (0.1,)),
+        ("get_sweep_return_time", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 1, 2, 3])
