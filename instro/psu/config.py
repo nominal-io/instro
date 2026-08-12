@@ -60,7 +60,7 @@ class PSUConfig(BaseModel):
     """Validated config for constructing an InstroPSU from JSON."""
 
     model_config = ConfigDict(extra="forbid")
-    version: int = 1
+    version: Literal[1] = 1
     instrument: Literal["InstroPSU"] = "InstroPSU"
     device: DeviceInfo
     driver: VisaDriverConfig

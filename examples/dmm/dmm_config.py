@@ -1,7 +1,8 @@
 """Example: build an InstroDMM from a JSON config file.
 
 Run:
-    uv run python examples/dmm/dmm_config.py
+    uv run python -m instro.dmm.scpi_sim_server   # terminal 1: the simulator (port 5026)
+    uv run python examples/dmm/dmm_config.py      # terminal 2
 """
 
 from pathlib import Path

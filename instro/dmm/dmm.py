@@ -191,23 +191,34 @@ class InstroDMM(Instrument):
             config: A ``DMMConfig``, a dict, or a path to a JSON config file. Its
                 ``measurement`` block is applied through the public setters on ``open()``.
             autostart: When True, open the connection and start background polling.
+                Requires ``config`` with a ``measurement`` block, since polling cannot
+                start without a measurement function.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
         poll_interval: float | None = None
         resolved_config: DMMConfig | None = None
+        config_publishers: list[Publisher] = []
         if config is not None:
             if driver is not None:
                 raise ValueError(
                     "InstroDMM(config=...) cannot be combined with driver; use one construction style or the other."
                 )
             resolved_config = self._resolve_config(config)
-            resolved_name, driver, publishers, poll_interval = resolve_dmm_from_config(resolved_config, publishers)
+            resolved_name, driver, resolved_publishers, poll_interval = resolve_dmm_from_config(resolved_config)
+            config_publishers = resolved_publishers or []
+            publishers = [*(publishers or []), *config_publishers] or None
             if name is None:
                 name = resolved_name
         elif name is None or driver is None:
             raise ValueError("InstroDMM requires either config=..., or name and driver together.")
+
+        if autostart and (resolved_config is None or resolved_config.measurement is None):
+            raise ValueError(
+                "autostart=True requires a config with a measurement block; "
+                "background polling cannot start without a measurement function."
+            )
 
         super().__init__(name, publishers=publishers, **kwargs)
 
@@ -215,6 +226,7 @@ class InstroDMM(Instrument):
         self._config = resolved_config
         self._resource_lock = threading.Lock()
         self._measurement_config: DMMMeasurementConfig | None = None
+        self._measurement_config_applied = False
 
         self._define_background_daemon()
 
@@ -222,11 +234,13 @@ class InstroDMM(Instrument):
             self.background_interval = poll_interval
 
         if autostart:
-            self.open()
             try:
+                self.open()
                 self.start()
             except Exception:
                 self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
                 raise
 
     @staticmethod
@@ -257,13 +271,15 @@ class InstroDMM(Instrument):
         try:
             self._apply_measurement_config()
         except Exception:
+            self._measurement_config = None
+            self._measurement_config_applied = False
             self._driver.close()
             raise
         logger.info("Opened DMM '%s'", self.name)
 
     def _apply_measurement_config(self) -> None:
-        """Apply the config's ``measurement`` block through the public setters, in the order the API requires."""
-        if self._config is None or self._config.measurement is None:
+        """Apply the config's ``measurement`` block through the public setters, once per open, in the order the API requires."""
+        if self._config is None or self._config.measurement is None or self._measurement_config_applied:
             return
         measurement = self._config.measurement
         self.set_measurement_function(measurement.function)
@@ -275,12 +291,14 @@ class InstroDMM(Instrument):
             self.set_aperture_seconds(measurement.aperture_seconds)
         if measurement.range is not None:
             self.set_range(None if isinstance(measurement.range, str) else measurement.range)
+        self._measurement_config_applied = True
 
     def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing DMM '%s'", self.name)
         super().close()
         self._driver.close()
+        self._measurement_config_applied = False
         logger.info("Closed DMM '%s'", self.name)
 
     @publish_command

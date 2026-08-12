@@ -77,7 +77,7 @@ class DMMConfig(BaseModel):
     """Validated config for constructing an InstroDMM from JSON."""
 
     model_config = ConfigDict(extra="forbid")
-    version: int = 1
+    version: Literal[1] = 1
     instrument: Literal["InstroDMM"] = "InstroDMM"
     device: DeviceInfo
     driver: VisaDriverConfig

@@ -118,7 +118,7 @@ def test_open_without_measurement_block_touches_nothing(valid_config):
     assert method_order == ["open"]
 
 
-def test_open_closes_driver_when_measurement_apply_fails(valid_config):
+def test_open_closes_driver_and_rolls_back_state_when_measurement_apply_fails(valid_config):
     dmm, mock_driver = _make_dmm_with_mock_driver(
         {**valid_config, "measurement": {"function": "DC_VOLTAGE", "digits": 6}}
     )
@@ -128,19 +128,70 @@ def test_open_closes_driver_when_measurement_apply_fails(valid_config):
         dmm.open()
 
     mock_driver.close.assert_called_once()
+    # The partial apply must not leave stale state that lets start() run against a closed driver.
+    with pytest.raises(ValueError, match="set_measurement_function"):
+        dmm.start()
 
 
-def test_init_with_autostart_without_measurement_closes_driver_and_raises(valid_config):
+def test_reopen_without_close_does_not_reapply_measurement(valid_config):
+    dmm, mock_driver = _make_dmm_with_mock_driver({**valid_config, "measurement": {"function": "DC_VOLTAGE"}})
+
+    dmm.open()
+    dmm.open()
+    assert mock_driver.set_measurement_function.call_count == 1
+
+    dmm.close()
+    dmm.open()
+    assert mock_driver.set_measurement_function.call_count == 2
+
+
+def test_init_with_autostart_without_measurement_raises_before_opening(valid_config):
     with patch("instro.dmm.drivers.simulated.VisaDriver") as mock_visa_cls:
-        with pytest.raises(ValueError, match="set_measurement_function"):
+        with pytest.raises(ValueError, match="measurement block"):
             InstroDMM(config=valid_config, autostart=True)
 
-    mock_visa_cls.return_value.close.assert_called_once()
+    mock_visa_cls.return_value.open.assert_not_called()
+
+
+def test_init_with_autostart_and_direct_driver_raises():
+    driver = MagicMock(spec=DMMDriverBase)
+
+    with pytest.raises(ValueError, match="measurement block"):
+        InstroDMM(name="m", driver=driver, autostart=True)
+
+    driver.open.assert_not_called()
+
+
+def test_init_with_autostart_open_failure_closes_config_publishers(valid_config):
+    config = {
+        **valid_config,
+        "measurement": {"function": "DC_VOLTAGE"},
+        "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "test_dmm"}],
+    }
+    with (
+        patch("instro.dmm.drivers.simulated.VisaDriver") as mock_visa_cls,
+        patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
+    ):
+        mock_visa_cls.return_value.open.side_effect = OSError("unreachable")
+        with pytest.raises(OSError):
+            InstroDMM(config=config, autostart=True)
+
+    mock_ncp.return_value.close.assert_called_once()
 
 
 def test_init_with_config_dict_missing_required_field():
     with pytest.raises(Exception):
         InstroDMM(config={"driver": {"name": "SimulatedDMM", "connection_type": "visa"}})
+
+
+def test_init_with_config_dict_device_typo_rejected(valid_config):
+    with pytest.raises(Exception):
+        InstroDMM(config={**valid_config, "device": {"name": "test_dmm", "descripton": "typo"}})
+
+
+def test_init_with_config_dict_unknown_version_rejected(valid_config):
+    with pytest.raises(Exception):
+        InstroDMM(config={**valid_config, "version": 2})
 
 
 def test_init_with_config_dict_unknown_driver_name(valid_config):

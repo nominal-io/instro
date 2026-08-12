@@ -11,7 +11,7 @@
         "name": "SimulatedDMM",
         "connection_type": "visa",
         "visa": {
-            "visa_resource": "TCPIP0::127.0.0.1::5025::SOCKET"
+            "visa_resource": "TCPIP0::127.0.0.1::5026::SOCKET"
         }
     },
     "measurement": {

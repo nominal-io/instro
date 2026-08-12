@@ -72,7 +72,7 @@ dmm = InstroDMM(
 - **`driver`**: A concrete `DMMDriverBase` instance (e.g. `Agilent34401A`, `Keithley2400`) configured with the connection details for that model. Mutually exclusive with `config`.
 - **`config`**: A `DMMConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`. See [From a JSON Config File](#from-a-json-config-file) below.
 - **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
-- **`autostart`**: When `True`, opens the connection and starts background polling immediately.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately. Requires `config` with a `measurement` block, since polling cannot start without a measurement function.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### From a JSON Config File
