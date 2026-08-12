@@ -27,13 +27,23 @@ VISA_ADDRESS = "TCPIP::192.168.0.3::5025::SOCKET"
 CHANNEL = 1
 PROGRAMMED_VOLTAGE = 12.0
 PROGRAMMED_CURRENT_LIMIT = 2.0
+NOMINAL_VOLTAGE = 80.0  # PSB 10080-60 rating, used as a sanity bound on readings
 OVP_LEVEL = 40.0
 OCP_LEVEL = 30.0
 SINK_CURRENT = 1.0
 SINK_POWER = 50.0
 SINK_RESISTANCE = 10.0  # within the unit's 0.04-80 ohm sink-resistance band (SYST:NOM:RES:MIN?/MAX?)
 VOLTAGE_READBACK_TOLERANCE = 0.25
-CURRENT_READBACK_TOLERANCE = 0.05
+# ~0.25% of the unit's 60 A rating. An unloaded PSB reads a small bias current (0.09 A observed on
+# the bench unit), so a tighter bound here fails on the instrument's own measurement floor.
+CURRENT_READBACK_TOLERANCE = 0.15
+# The PSB accepts one socket at a time and needs a moment to release it, so a connect that follows a
+# disconnect too closely is refused. Settle between them rather than skipping the whole module.
+RECONNECT_SETTLE_SECONDS = 3.0
+# The device parses an invalid command and queues the error asynchronously, so a SYST:ERR? that
+# follows immediately can read the queue clean. Manual quotes 10-15 ms response over Ethernet.
+ERROR_QUEUE_SETTLE_SECONDS = 0.1
+CONNECT_ATTEMPTS = 3
 
 ERROR_MATCH = "EA PSB 10000-series reported error"
 UNSUPPORTED_MATCH = "is not supported by the EA PSB 10000-series"
@@ -43,13 +53,20 @@ UNSUPPORTED_MATCH = "is not supported by the EA PSB 10000-series"
 def device(request: pytest.FixtureRequest) -> EAPSB10000Visa:
     """Open both quadrants off one device; the second ``open`` failing means shared ownership is broken."""
     psb = EAPSB10000Visa(VisaConfig(visa_resource=VISA_ADDRESS))
-    try:
-        psb.source.open()
-        psb.sink.open()
-    except Exception as exc:
-        psb.source.close()
-        psb.sink.close()
-        pytest.skip(f"EA PSB not reachable at {VISA_ADDRESS}: {exc}")
+    last_error: Exception | None = None
+    for attempt in range(CONNECT_ATTEMPTS):
+        try:
+            psb.source.open()
+            psb.sink.open()
+            break
+        except Exception as exc:
+            last_error = exc
+            psb.source.close()
+            psb.sink.close()
+            if attempt < CONNECT_ATTEMPTS - 1:
+                time.sleep(RECONNECT_SETTLE_SECONDS)
+    else:
+        pytest.skip(f"EA PSB not reachable at {VISA_ADDRESS} after {CONNECT_ATTEMPTS} attempts: {last_error}")
 
     def cleanup() -> None:
         try:
@@ -57,6 +74,8 @@ def device(request: pytest.FixtureRequest) -> EAPSB10000Visa:
         finally:
             psb.source.close()
             psb.sink.close()
+            # Give the box time to release the socket before anything reconnects.
+            time.sleep(RECONNECT_SETTLE_SECONDS)
 
     request.addfinalizer(cleanup)
     return psb
@@ -83,6 +102,7 @@ def reset_before_each_test(device: EAPSB10000Visa) -> None:
 
 def _queue_instrument_error(device: EAPSB10000Visa) -> None:
     device._visa.write("INSTRO:INVALID")
+    time.sleep(ERROR_QUEUE_SETTLE_SECONDS)
 
 
 # --- shared session -------------------------------------------------------
@@ -98,7 +118,10 @@ def test_closing_one_quadrant_leaves_the_other_usable(device: EAPSB10000Visa) ->
     """The session must outlive the first close, or the surviving view cannot talk to the box."""
     device.source.close()
     try:
-        assert device.sink.get_voltage(channel=CHANNEL) == pytest.approx(0.0, abs=VOLTAGE_READBACK_TOLERANCE)
+        # A successful, in-range reading is the whole assertion. Don't pin the value: with nothing
+        # attached the terminals hold residual charge from earlier tests and decay slowly, so this
+        # is not reliably zero.
+        assert 0.0 <= device.sink.get_voltage(channel=CHANNEL) <= NOMINAL_VOLTAGE
     finally:
         device.source.open()
 
