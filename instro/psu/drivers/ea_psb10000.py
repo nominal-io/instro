@@ -31,13 +31,16 @@ _SINK_CMD: dict[LoadMode, str] = {
 class EAPSB10000Visa:
     """One PSB 10000: owns the VISA session, the remote lock, the error queue, and the operation mode.
 
-    Ownership is deferred-teardown via ``TransportBase``: the first quadrant to open takes the
-    device's remote lock, and the last one to close releases it.
+    Ownership is two-level: this device holds the transport and counts its own quadrants, so the
+    remote lock is taken when the first quadrant opens and released, while the session is still up,
+    when the last one closes.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         """Construct from a VISA resource string (uses defaults) or a full ``VisaConfig``."""
         self._visa = VisaDriver(visa_resource)
+        self._ownership = threading.RLock()
+        self._views: list[object] = []
 
     @cached_property
     def source(self) -> PSUDriverBase:
@@ -51,24 +54,37 @@ class EAPSB10000Visa:
 
     # --- ownership: the box grants remote control to one owner, so take it once ---
 
-    def _acquire(self, holder: object) -> None:
-        """Open the session and take the remote lock; ``open`` reports True only for the first quadrant in."""
-        if not self._visa.open(holder):
-            return
-        try:
-            with self._visa.lock():
-                self._write_checked("SYST:LOCK ON")
-                owner = self._visa.query("SYST:LOCK:OWN?").strip()
-                if owner != "REMOTE":
-                    raise RuntimeError(f"{FRIENDLY_NAME} did not grant the remote lock (owner: {owner})")
-        except BaseException:
-            # Leave no stranded holder, or a retry reports not-first-owner and skips this setup.
-            self._visa.close(holder, on_last_release=self._release_remote_lock)
-            raise
+    def _acquire(self, view: object) -> None:
+        """Admit a quadrant; the first one in opens the session and takes the box's remote lock."""
+        with self._ownership:
+            if any(held is view for held in self._views):
+                return
+            first = not self._views
+            self._views.append(view)
+            if not first:
+                return
+            self._visa.open(self)  # the device holds the transport, not its quadrants
+            try:
+                with self._visa.lock():
+                    self._write_checked("SYST:LOCK ON")
+                    owner = self._visa.query("SYST:LOCK:OWN?").strip()
+                    if owner != "REMOTE":
+                        raise RuntimeError(f"{FRIENDLY_NAME} did not grant the remote lock (owner: {owner})")
+            except BaseException:
+                # Leave nothing behind, or a retry reports not-first and skips this setup.
+                self._views.remove(view)
+                self._release_remote_lock()
+                self._visa.close(self)
+                raise
 
-    def _release(self, holder: object) -> None:
-        """Drop a quadrant's ownership; the last one out unlocks the box, then tears the session down."""
-        self._visa.close(holder, on_last_release=self._release_remote_lock)
+    def _release(self, view: object) -> None:
+        """Drop a quadrant; the last one out unlocks the box while the session is still up, then closes it."""
+        with self._ownership:
+            self._views = [held for held in self._views if held is not view]
+            if self._views:
+                return
+            self._release_remote_lock()
+            self._visa.close(self)
 
     def _release_remote_lock(self) -> None:
         """Best-effort ``SYST:LOCK OFF``; a failure here must not block transport teardown."""
