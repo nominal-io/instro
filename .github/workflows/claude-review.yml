@@ -45,7 +45,7 @@ jobs:
       actions: read # token scope for reading CI results; paired with additional_permissions below
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # issue_comment events check out the default branch by default, not the PR head,
           # so pin the PR head ref explicitly for that path. The pull_request path already
@@ -57,7 +57,7 @@ jobs:
           fetch-depth: 0
 
       - name: Review with Claude
-        uses: anthropics/claude-code-action@dde2242db6af13460b916652159b6ba19a598f30 # v1.0.120
+        uses: anthropics/claude-code-action@1623c36729ac1cd5895198cded705a287de7db79 # v1.0.187
         env:
           # Run subagents using cheaper, faster agents while leaving higher level thinking
           # to the higher tier model (opus 4.8)

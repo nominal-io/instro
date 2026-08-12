@@ -13,13 +13,13 @@ What you need depends on which command you run. **`just check-python` is lightwe
 | Layer | `just check-python` | `just check` / `just test` |
 |---|:---:|:---:|
 | [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
-| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python) | ✅ | ✅ |
+| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python), `>=0.12` | ✅ | ✅ |
 | Synced Python deps (`uv sync`) | ✅ | ✅ |
 | Git Bash (Windows only — for the `#!/usr/bin/env bash` recipes) | — | ✅ |
 | Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
 | C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation. The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
 
 <details>
 <summary><strong>Windows</strong></summary>
@@ -193,6 +193,8 @@ Individual commits should follow the same Conventional Commits format. Each comm
 ### Tests and checks
 
 Every PR must pass `just check` and `just test`. CI will run these automatically against the committed `uv.lock`. A separate scheduled workflow (`.github/workflows/latest-deps-test.yml`) re-resolves all dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests, so a breaking release in an upstream dependency surfaces within a day instead of when an end user hits it; if that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
+
+GitHub Actions in `.github/workflows/` are pinned to full commit SHAs with the release version as a trailing comment (`uses: actions/checkout@11d5960a... # v4.4.0`), so a repointed upstream tag can't silently change what runs in CI. Dependabot (`.github/dependabot.yml`) opens a weekly grouped PR bumping the pins. When adding an action, pin it the same way, resolving the SHA from the upstream repo's release — never from an unverified suggestion.
 
 Write unit tests to cover the invariant or edge case under test with the least necessary complexity. Prefer targeted, high-signal cases over broad, redundant matrices, heavily abstracted helpers. Don't rewrite tests where the main effect is making tests look shareable. Don't add tests simply to increase line coverage or the number of executed cases. You're going to be working features/bug-fixes that have a clear reason test, so make sure that your tests are meaningfully addressing the real needs for test coverage. Shared test helpers are fine when they remove duplication without hiding the behavior that each test proves. A large, complicated test suite that repeats the same assertion in different shapes is almost as unhelpful as no coverage.
 

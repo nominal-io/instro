@@ -43,6 +43,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
 - **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
+- **GitHub Actions are SHA-pinned.** Every `uses:` in `.github/workflows/` pins a full commit SHA with the release as a trailing comment (`@11d5960a... # v4.4.0`). Resolve SHAs from the upstream repo's releases — never trust an unverified suggestion. Dependabot bumps the pins weekly.
 - **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/reference/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
 ### Naming
