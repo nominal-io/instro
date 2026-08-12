@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Protocol
 
 from instro.daq.scaling.scaling import ReverseLinearScaler, Scaler
@@ -221,8 +222,10 @@ class LJ_T7:
 
     def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
         """AIN14 volts → Kelvin (datasheet §18.0), minus 3 K to reflect screw-terminal temperature."""
-        # CJC moves slowly; the batch's most recent sample is current enough.
-        return cjc_samples[self.tc_cjc_read_name(physical_channel)][-1] * -92.6 + 467.6 - 3.0
+        samples = cjc_samples[self.tc_cjc_read_name(physical_channel)]
+        # CJC moves slowly; the most recent sample that isn't a dropped-scan sentinel is current enough.
+        volts = next((s for s in reversed(samples) if s != ljm.constants.DUMMY_VALUE), math.nan)
+        return volts * -92.6 + 467.6 - 3.0
 
     def _compute_range(self, range_min: float, range_max: float) -> float:
         abs_range_max = max(abs(range_min), abs(range_max))
@@ -325,8 +328,9 @@ class LJ_T8:
         """No-op; CJC is streamable."""
 
     def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
-        # CJC moves slowly; the batch's most recent sample is current enough.
-        return cjc_samples[self.tc_cjc_read_name(physical_channel)][-1]
+        samples = cjc_samples[self.tc_cjc_read_name(physical_channel)]
+        # CJC moves slowly; the most recent sample that isn't a dropped-scan sentinel is current enough.
+        return next((s for s in reversed(samples) if s != ljm.constants.DUMMY_VALUE), math.nan)
 
     def hw_timing_configs(
         self,
