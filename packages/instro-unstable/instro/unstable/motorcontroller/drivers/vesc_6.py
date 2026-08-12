@@ -35,7 +35,7 @@ class _CanPacketId(enum.IntEnum):
 
 
 class VESC6(MotorControllerDriverBase):
-    """VESC 6 motor controller over CAN. Firmware stops the motor ~0.5 s after the last command; re-send setpoints to keep it running."""
+    """VESC 6 motor controller over CAN. Firmware stops the motor ~0.5 s after the last command (re-send setpoints to keep it running); poll telemetry at >=10 Hz, e.g. background_interval=0.1 (slow drains overflow the adapter FIFO, which drops the newest frames)."""
 
     def __init__(
         self,
