@@ -2,7 +2,7 @@
 
 Wiring / stimulus:
     Jhoinrch (CANable-derivative) USB-CAN adapter in candleLight/gs_usb mode on a
-    500 kbps bus with one powered VESC 6 (VESC ID 102, CAN status broadcasts enabled).
+    500 kbps bus with one powered VESC 6 (VESC ID 1, CAN status mode 1-5 enabled).
     No motor attached unless MOTOR_ATTACHED is True; without a motor, motion
     commands are validated at the wire level only (frames sent, VESC stays alive).
 
@@ -23,7 +23,7 @@ from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 
 CHANNEL = 0  # gs_usb device index          <-- edit before running
-CONTROLLER_ID = 102  # VESC Tool "VESC ID"        <-- edit before running
+CONTROLLER_ID = 1  # VESC Tool "VESC ID"        <-- edit before running
 INTERFACE = "gs_usb"
 BITRATE = 500_000
 POLE_PAIRS = 7  # motor pole-pair count      <-- edit to match the motor
@@ -32,6 +32,8 @@ MAX_TEST_CURRENT_A = 2.0
 TEST_DUTY = 0.05
 TEST_RPM = 500.0
 TELEMETRY_TIMEOUT_S = 3.0
+EXPECT_BUS_VOLTAGE = True  # requires CAN status mode 1-5 (STATUS_5 carries bus voltage)
+EXPECTED_BUS_VOLTAGE_V = None  # set to the supply voltage to enable the strict value check
 
 
 def _ensure_libusb_backend() -> None:
@@ -55,24 +57,41 @@ def _run(name, fn, failures: list) -> None:
 
 
 def _wait_for_telemetry(motor: InstroMotorController) -> dict[str, float]:
+    """Merge drains until telemetry appears, then settle 0.5 s so every frame in the broadcast round-robin lands."""
+    merged: dict[str, float] = {}
     deadline = time.monotonic() + TELEMETRY_TIMEOUT_S
+    settle_until: float | None = None
     while time.monotonic() < deadline:
         measurement = motor.get_telemetry()
         if measurement is not None:
-            return {k: v[0] for k, v in measurement.channel_data.items()}
-        time.sleep(0.1)
+            merged.update({k: v[0] for k, v in measurement.channel_data.items()})
+            if settle_until is None:
+                settle_until = time.monotonic() + 0.5
+        if settle_until is not None and time.monotonic() >= settle_until:
+            return merged
+        time.sleep(0.05)
+    if merged:
+        return merged
     raise AssertionError(
         f"no broadcast telemetry within {TELEMETRY_TIMEOUT_S}s; "
         "check CAN status message mode, bitrate, wiring, and VESC ID"
     )
 
 
-def _stream(motor: InstroMotorController, send, seconds: float) -> None:
-    """Re-send a setpoint as keep-alive; the VESC releases the motor ~0.5 s after the last frame."""
+def _stream(motor: InstroMotorController, send, seconds: float) -> dict[str, float]:
+    """Re-send a setpoint as keep-alive, draining telemetry as we go; a full gs_usb RX FIFO drops the NEWEST frames.
+
+    Returns the latest telemetry snapshot observed while streaming.
+    """
+    latest: dict[str, float] = {}
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         send()
+        measurement = motor.get_telemetry()
+        if measurement is not None:
+            latest.update({k: v[0] for k, v in measurement.channel_data.items()})
         time.sleep(0.05)
+    return latest
 
 
 def run_all() -> list:
@@ -97,10 +116,16 @@ def run_all() -> list:
             for key, value in telemetry.items():
                 assert math.isfinite(value), f"{key} not finite: {value}"
             voltage = telemetry.get("hw_validate.bus_voltage")
+            if EXPECT_BUS_VOLTAGE:
+                assert voltage is not None, "bus_voltage absent; is CAN status mode 1-5 written to the VESC?"
             if voltage is not None:
                 assert 5.0 <= voltage <= 70.0, f"bus_voltage implausible: {voltage} V"
+            if voltage is not None and EXPECTED_BUS_VOLTAGE_V is not None:
+                assert abs(voltage - EXPECTED_BUS_VOLTAGE_V) <= 0.05 * EXPECTED_BUS_VOLTAGE_V, (
+                    f"bus_voltage {voltage} V not within 5% of expected {EXPECTED_BUS_VOLTAGE_V} V"
+                )
 
-        _run("telemetry: values finite, bus voltage plausible", check_telemetry_sanity, failures)
+        _run("telemetry: values finite, bus voltage present and plausible", check_telemetry_sanity, failures)
 
         amps = min(1.0, MAX_TEST_CURRENT_A)
         _run("set_current: frame accepted", lambda: motor.set_current(amps), failures)
@@ -110,6 +135,33 @@ def run_all() -> list:
         _run("set_brake_current: frame accepted", lambda: motor.set_brake_current(1.0), failures)
         _run("set_position: frame accepted", lambda: motor.set_position(90.0), failures)
         _run("stop_motor: motor released", lambda: motor.stop_motor(), failures)
+
+        def check_duty_echo():
+            """Motorless closed-loop check: the VESC reports commanded duty in STATUS_1 even unloaded."""
+            streaming = _stream(motor, lambda: motor.set_duty_cycle(TEST_DUTY), seconds=1.2)
+            motor.stop_motor()
+            echoed = streaming.get("hw_validate.duty_cycle")
+            assert echoed is not None, "no duty_cycle in telemetry"
+            assert abs(echoed - TEST_DUTY) <= 0.02, f"duty echo {echoed} != commanded {TEST_DUTY}"
+
+        _run("duty echo: commanded duty appears in telemetry", check_duty_echo, failures)
+
+        def check_watchdog_decay():
+            """Stop streaming and confirm the ~0.5 s firmware timeout releases the motor (duty back to 0)."""
+            streaming = _stream(motor, lambda: motor.set_duty_cycle(TEST_DUTY), seconds=1.0)
+            assert streaming.get("hw_validate.duty_cycle"), "duty never applied; decay check would be vacuous"
+            duty = None
+            deadline = time.monotonic() + 2.5
+            while time.monotonic() < deadline:
+                measurement = motor.get_telemetry()
+                if measurement is not None and "hw_validate.duty_cycle" in measurement.channel_data:
+                    duty = measurement.channel_data["hw_validate.duty_cycle"][0]
+                    if abs(duty) <= 0.01:
+                        return
+                time.sleep(0.1)
+            raise AssertionError(f"duty did not decay to 0 within 2.5s of last command (last seen: {duty})")
+
+        _run("watchdog: duty decays to 0 after commands cease", check_watchdog_decay, failures)
 
         if MOTOR_ATTACHED:
 
