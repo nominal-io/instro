@@ -286,13 +286,13 @@ Cold-junction compensation depends on `cjc_source`:
 
 - `INTERNAL` (default): the driver reads the device's cold-junction sensor alongside the thermocouple. The T8 streams the per-channel `TEMPERATURE#` sensor, the T7 streams the internal sensor's raw volts (`AIN14`), and the T4 snapshots `TEMPERATURE_DEVICE_K` before each software-timed read (the `TEMPERATURE_DEVICE_K` register cannot be streamed).
 - `CONSTANT`: pass the reference junction temperature via `cjc_temp`, expressed in the channel's `unit`.
-- `CHANNEL`: not supported by this driver.
+- `CHANNEL`: not yet supported by this driver.
 
 <Note>
 The T4 snapshots CJC once when the stream starts, so its thermocouple readings can drift over a long hardware-timed acquisition.
 </Note>
 
-To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. It applies on any T-series model. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
+To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
 
 ```python
 from instro.daq.scaling.scaling import ReverseLinearScaler
@@ -838,7 +838,7 @@ The methods below back `InstroDAQ`'s [typed channel configuration](#typed-channe
 
 - **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.
-- **`configure_ai_thermocouple_channel(channel)`**: Configure a thermocouple input channel from an `AnalogThermocoupleChannel` (thermocouple type plus cold-junction config); record on `self._ai_channels`. The driver owns unit handling: `channel.cjc_temp` arrives in `channel.unit`, and the driver must return samples in `channel.unit`. `kelvin_to_unit` / `unit_to_kelvin` in `instro.daq.scaling.thermocouple` convert to and from Kelvin for devices whose SDK is Kelvin-only; a device that accepts a temperature unit natively should program `channel.unit` instead and skip the conversion. Default raises `NotImplementedError`.
+- **`configure_ai_thermocouple_channel(channel)`**: Configure a thermocouple input channel from an `AnalogThermocoupleChannel` (thermocouple type plus cold-junction config); record on `self._ai_channels`.
 - **`configure_di_channel(channel)` / `configure_do_channel(channel)`**: Register a typed digital input/output line from a `DigitalLineChannel`; record on `self._di_channels` / `self._do_channels`.
 
 ### Timing Configuration
