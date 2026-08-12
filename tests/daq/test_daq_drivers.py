@@ -8,6 +8,7 @@ import pytest
 
 from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     DigitalLineChannel,
     DigitalPortChannel,
@@ -15,7 +16,6 @@ from instro.daq.types import (
     Direction,
     Logic,
 )
-from instro.daq.units import parse_unit
 from instro.lib import InstrumentNotOpenError, Measurement
 
 
@@ -428,23 +428,23 @@ def test_duplicate_channel_guard_is_global_across_configure_methods():
 
 
 def test_configure_thermocouple_input_records_requested_unit():
-    """A valid unit is recorded as a pint unit and cjc_temp stays in that unit, not converted."""
+    """A valid unit is recorded as a TC_UNIT and cjc_temp stays in that unit, not converted."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
 
     daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="degF", cjc_source="CONSTANT", cjc_temp=77.0)
 
     channel = daq.ai_channels["tc0"]
-    assert channel.unit == parse_unit("degF")
+    assert channel.unit is TC_UNIT.FAHRENHEIT
     assert channel.cjc_temp == 77.0
 
 
 def test_configure_thermocouple_input_rejects_unknown_unit():
-    """An unparseable unit raises and no channel is recorded."""
+    """An unrecognized unit raises and no channel is recorded."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
 
-    with pytest.raises(ValueError, match="unit 'CELSIUS' is not a known unit"):
+    with pytest.raises(ValueError, match="unit 'CELSIUS' is not valid; choose one of"):
         daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="CELSIUS")
     assert not daq.ai_channels
 

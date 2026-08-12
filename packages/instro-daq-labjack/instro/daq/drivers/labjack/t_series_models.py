@@ -103,7 +103,10 @@ class LJ_T4:
         return [], []
 
     def tc_cjc_read_name(self, physical_channel: str) -> str | None:
-        """T4 has no streamable CJC source; CJC comes from the snapshot taken by ``refresh_tc_cjc``."""
+        """T4 has no streamable CJC source; CJC comes from the snapshot taken by ``refresh_tc_cjc``.
+
+        NOTE: Because this value is only retrieved before streaming starts, it may drift over the course of a continuous stream.
+        """
         return None
 
     def refresh_tc_cjc(self, handle: int | None) -> None:
@@ -111,6 +114,7 @@ class LJ_T4:
         self._cjc_k = ljm.eReadName(handle, "TEMPERATURE_DEVICE_K")
 
     def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
+        """Last snapshot; during a stream that is start() time, so CJC can drift over a long session."""
         assert self._cjc_k is not None
         return self._cjc_k
 

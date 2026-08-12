@@ -5,10 +5,10 @@ import logging
 import time
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, ClassVar, Literal, Mapping, TypeVar
+from typing import Any, ClassVar, Mapping, TypeVar
 
 from instro.daq.scaling.scaling import Scaler
-from instro.daq.scaling.thermocouple import TC_TYPE
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -26,7 +26,6 @@ from instro.daq.types import (
     RelayChannel,
     TerminalConfig,
 )
-from instro.daq.units import parse_unit
 from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -703,7 +702,7 @@ class InstroDAQ(Instrument):
         physical_channel: str,
         tc_type: str | TC_TYPE,
         *,
-        unit: Literal["degC", "degF", "K", "degR"],
+        unit: str | TC_UNIT,
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
@@ -731,6 +730,7 @@ class InstroDAQ(Instrument):
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
         cjc_source = _coerce_enum(cjc_source, CJCSource, "cjc_source")
+        unit = _coerce_enum(unit, TC_UNIT, "unit")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -746,7 +746,7 @@ class InstroDAQ(Instrument):
             cjc_source=cjc_source,
             cjc_temp=cjc_temp,
             cjc_channel=cjc_channel,
-            unit=parse_unit(unit),
+            unit=unit,
             tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)

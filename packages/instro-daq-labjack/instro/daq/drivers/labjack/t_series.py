@@ -10,6 +10,7 @@ from typing import Mapping
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
+from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -24,15 +25,11 @@ from instro.daq.types import (
     HWTimingConfig,
     Logic,
 )
-from instro.daq.units import convert_units, parse_unit
 from instro.lib import Measurement
 from labjack import ljm
 from labjack.ljm import errorcodes
 
 logger = logging.getLogger(__name__)
-
-# LJM's temperature conversion and CJC registers work only in kelvin.
-_LJM_TEMPERATURE_UNIT = parse_unit("kelvin")
 
 # TODO(INSTRO-89): Remove this once context managers are added.
 # We use a callback functionality of the LJM driver. This is for performance reasons vs. python threading.
@@ -254,7 +251,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
         if channel.cjc_source is CJCSource.CONSTANT:
             assert channel.cjc_temp is not None
-            cjc_k = convert_units(channel.cjc_temp, channel.unit, _LJM_TEMPERATURE_UNIT)
+            cjc_k = unit_to_kelvin(channel.cjc_temp, channel.unit)
         else:
             cjc_k = self._model.tc_cjc_kelvin(channel.physical_channel, cjc_samples)
 
@@ -263,7 +260,8 @@ class LabJackTSeriesDriver(DAQDriverBase):
         for v in volts:
             try:
                 # Convert calculated Kelvin temp to user requested unit
-                temps.append(convert_units(ljm.tcVoltsToTemp(tc_type, v, cjc_k), _LJM_TEMPERATURE_UNIT, channel.unit))
+                # LJM's conversion and the T-series CJC registers work only in kelvin.
+                temps.append(kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
             except ljm.LJMError as error:
                 if error.errorCode not in (errorcodes.VOLTAGE_OUT_OF_RANGE, errorcodes.TEMPERATURE_OUT_OF_RANGE):
                     raise

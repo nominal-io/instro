@@ -73,9 +73,8 @@ from nominal.core import EventType, NominalClient  # noqa: E402
 
 from instro.daq import InstroDAQ  # noqa: E402
 from instro.daq.drivers.labjack import LabJackTSeriesDriver  # noqa: E402
-from instro.daq.scaling.thermocouple import TC_TYPE  # noqa: E402
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT  # noqa: E402
 from instro.daq.types import CJCSource  # noqa: E402
-from instro.daq.units import parse_unit  # noqa: E402
 from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -96,7 +95,7 @@ DIGITAL_LOOPBACK_WIRED = True
 # Thermocouple mode.
 TC_CHANNEL, TC_ALIAS = "AIN0", "tc0"
 TC_TYPE_UNDER_TEST = TC_TYPE.K
-TC_UNIT_UNDER_TEST = "degC"
+TC_UNIT_UNDER_TEST = TC_UNIT.CELSIUS
 TC_CJC_SOURCE = CJCSource.INTERNAL
 
 # Physical configuration for TC (if connected)
@@ -329,7 +328,7 @@ class TestLabJackT7TypedChannels(unittest.TestCase):
                 channel = daq.ai_channels[TC_ALIAS]
                 self.assertEqual(channel.physical_channel, TC_CHANNEL)
                 self.assertEqual(channel.tc_type, TC_TYPE_UNDER_TEST)
-                self.assertEqual(channel.unit, parse_unit(TC_UNIT_UNDER_TEST))
+                self.assertEqual(channel.unit, TC_UNIT_UNDER_TEST)
 
                 errs = []
                 for _ in range(3):
@@ -339,7 +338,7 @@ class TestLabJackT7TypedChannels(unittest.TestCase):
                         if (not THERMOCOUPLE_WIRED or AMBIENT_MIN_C <= measured <= AMBIENT_MAX_C)
                         else "  <-- outside plausible ambient range"
                     )
-                    print(f"         {TC_ALIAS} = {measured:.3f} {TC_UNIT_UNDER_TEST}{flag}")
+                    print(f"         {TC_ALIAS} = {measured:.3f} {TC_UNIT_UNDER_TEST.value}{flag}")
                     if not math.isfinite(measured):
                         errs.append(f"non-finite thermocouple read: {measured}")
                     if THERMOCOUPLE_WIRED and not AMBIENT_MIN_C <= measured <= AMBIENT_MAX_C:

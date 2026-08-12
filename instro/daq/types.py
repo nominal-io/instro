@@ -3,10 +3,8 @@
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 
-from pint import Unit
-
 from instro.daq.scaling.scaling import Scaler
-from instro.daq.scaling.thermocouple import TC_TYPE
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 
 
 class DAQVendor(Enum):
@@ -98,7 +96,7 @@ class AnalogThermocoupleChannel(DAQChannel):
     cjc_temp: float | None
     cjc_channel: str | None
     # Unit of cjc_temp, range_min/range_max, and the temperatures the driver returns on read.
-    unit: Unit
+    unit: TC_UNIT
     # Volts-domain scaler applied before temperature conversion (LabJack only), e.g. descaling an amplified read from an LJTick-InAmp.
     tc_input_scaler: Scaler | None = None
 
