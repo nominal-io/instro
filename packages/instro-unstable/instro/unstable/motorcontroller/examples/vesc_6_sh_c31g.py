@@ -21,7 +21,7 @@ from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 
 CONTROLLER_ID = 0  # VESC Tool: App Settings -> General -> VESC ID
-POLE_PAIRS = 7  # motor pole-pair count; wrong values scale set_velocity and velocity telemetry
+POLE_PAIRS = 6  # motor pole-pair count; wrong values scale set_velocity and velocity telemetry
 TARGET_RPM = 300.0  # slow mechanical speed; keep RPM x POLE_PAIRS above the VESC's ~900 minimum regulated ERPM
 RUN_SECONDS = 5.0
 
