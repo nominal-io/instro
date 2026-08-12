@@ -12,12 +12,11 @@ import pytest
 from pyvisa.constants import InterfaceType
 
 from instro.eload import InstroELoad
-from instro.eload.drivers import EAPSB10000VisaSink
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
 from instro.psu import InstroPSU
-from instro.psu.drivers import EAPSB10000Visa, EAPSB10000VisaSource
+from instro.psu.drivers.ea_psb10000 import EAPSB10000Visa, EAPSB10000VisaSink, EAPSB10000VisaSource
 
 RESOURCE = "TCPIP0::192.168.0.2::5025::SOCKET"
 
