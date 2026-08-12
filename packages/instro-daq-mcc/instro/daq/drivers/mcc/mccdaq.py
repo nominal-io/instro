@@ -1,4 +1,3 @@
-import logging
 import time
 from ctypes import POINTER, addressof, c_double, c_ulong, c_ulonglong, c_ushort, cast, memmove, sizeof
 from dataclasses import dataclass
@@ -37,8 +36,6 @@ from instro.daq.types import (
     TerminalConfig,
 )
 from instro.lib import Measurement
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

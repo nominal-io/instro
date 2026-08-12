@@ -1,6 +1,5 @@
 """Keysight 34980A Multifunction Switch/Measure Unit DAQ driver."""
 
-import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -22,8 +21,6 @@ from instro.daq.types import (
 )
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Measurement
-
-logger = logging.getLogger(__name__)
 
 # A single grouped 34950A digital channel addresses at most 32 bits (LWORd). WIDTH_64 spans
 # separate banks and must be configured as two channels, so it is rejected at configure time.

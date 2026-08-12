@@ -1,4 +1,3 @@
-import logging
 import time
 from dataclasses import dataclass
 from itertools import count
@@ -25,8 +24,6 @@ from instro.daq.types import (
     TerminalConfig,
 )
 from instro.lib import Measurement
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
