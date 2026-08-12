@@ -1,34 +1,31 @@
 """Example: single VESC 6 (VESC ID 0) over a Deshide SH-C31G USB-CAN adapter.
 
-The SH-C31G is a CANable 2.0 derivative shipping candleLight firmware (gs_usb).
-Wire CAN_H/CAN_L (and GND) to the VESC's COMM port; 120 ohm termination at both
-ends. VESC Tool prerequisites: VESC ID = 0, CAN baud 500 kbps, CAN status
-message mode 1-5, and FOC motor detection completed before commanding motion.
+The SH-C31G presents an slcan serial port (this unit enumerates as a USB Serial
+Device, e.g. COM6 on Windows). Wire CAN_H/CAN_L (and GND) from the terminal
+block to the VESC's COMM port; 120 ohm termination at both ends of the bus.
 
-Windows host setup (python-can's gs_usb backend, not project deps):
-    uv pip install gs-usb libusb-package
+VESC Tool prerequisites: VESC ID = 0, CAN baud 500 kbps, CAN status message
+mode 1-5 (broadcast telemetry doubles as the liveness check), and FOC motor
+detection completed before commanding motion.
 
 Run:
-    uv run --no-sync python packages/instro-unstable/instro/unstable/motorcontroller/examples/vesc_6_sh_c31g.py
+    uv run python packages/instro-unstable/instro/unstable/motorcontroller/examples/vesc_6_sh_c31g.py
 """
 
 import time
 
-import libusb_package
-import usb.backend.libusb1
-
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 
+COM_PORT = "COM6"  # the SH-C31G's serial port; check Device Manager if it moved
 CONTROLLER_ID = 0  # VESC Tool: App Settings -> General -> VESC ID
 POLE_PAIRS = 4  # motor pole-pair count; wrong values scale set_velocity and velocity telemetry
-TARGET_RPM = 300.0  # slow mechanical speed; keep RPM x POLE_PAIRS above the VESC's ~900 minimum regulated ERPM
-RUN_SECONDS = 5.0
+TARGET_RPM = 1000.0  # keep RPM x POLE_PAIRS above the VESC's ~900 minimum regulated ERPM
+RUN_SECONDS = 10.0
 
-# python-can's gs_usb backend needs a libusb-1.0 DLL; libusb-package provides it.
-usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
-
-motor = InstroMotorController("drive", driver=VESC6(channel=0, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID))
+motor = InstroMotorController(
+    "drive", driver=VESC6(channel=COM_PORT, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID, interface="slcan")
+)
 telemetry: dict[str, float] = {}
 
 
