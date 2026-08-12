@@ -96,17 +96,14 @@ class DMMConfig(BaseModel):
 
 def resolve_dmm_from_config(
     config: DMMConfig,
-    publishers: list[Publisher] | None = None,
-) -> tuple[str, DMMDriverBase, list[Publisher] | None, float | None]:
-    """Resolve a validated DMMConfig into the ``(name, driver, publishers, poll_interval)`` InstroDMM needs."""
+) -> tuple[str, DMMDriverBase, list[Publisher], float | None]:
+    """Resolve a validated DMMConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroDMM needs."""
     import importlib
 
     module_path, class_name = DMM_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
     driver_cls = getattr(importlib.import_module(module_path), class_name)
     driver: DMMDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
-    all_publishers = list(publishers or [])
-    all_publishers.extend(build_publisher(p) for p in config.publishers)
-
+    config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None
-    return config.device.name, driver, (all_publishers or None), poll_interval
+    return config.device.name, driver, config_publishers, poll_interval

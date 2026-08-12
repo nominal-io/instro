@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,7 +17,20 @@ __all__ = [
     "PublisherConfigType",
     "TimingConfig",
     "build_publisher",
+    "load_config",
 ]
+
+ConfigT = TypeVar("ConfigT", bound=BaseModel)
+
+
+def load_config(config: ConfigT | dict | Path | str, model_cls: type[ConfigT]) -> ConfigT:
+    """Validate ``config`` (a dict, file path, or existing ``model_cls`` instance, which gets deep-copied) into ``model_cls``."""
+    if isinstance(config, dict):
+        return model_cls.model_validate(config)
+    if isinstance(config, (Path, str)):
+        with open(Path(config)) as f:
+            return model_cls.model_validate(json.load(f))
+    return config.model_copy(deep=True)
 
 
 class TimingConfig(BaseModel):

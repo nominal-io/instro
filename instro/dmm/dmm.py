@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import json
 import logging
 import threading
 import time
@@ -14,6 +13,7 @@ from typing import Callable
 from instro.dmm.config import DMMConfig, resolve_dmm_from_config
 from instro.dmm.types import DMMMeasurementConfig, MeasurementFunction, RangeMode
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 
@@ -205,9 +205,8 @@ class InstroDMM(Instrument):
                 raise ValueError(
                     "InstroDMM(config=...) cannot be combined with driver; use one construction style or the other."
                 )
-            resolved_config = self._resolve_config(config)
-            resolved_name, driver, resolved_publishers, poll_interval = resolve_dmm_from_config(resolved_config)
-            config_publishers = resolved_publishers or []
+            resolved_config = load_config(config, DMMConfig)
+            resolved_name, driver, config_publishers, poll_interval = resolve_dmm_from_config(resolved_config)
             publishers = [*(publishers or []), *config_publishers] or None
             if name is None:
                 name = resolved_name
@@ -242,16 +241,6 @@ class InstroDMM(Instrument):
                 for publisher in config_publishers:
                     publisher.close()
                 raise
-
-    @staticmethod
-    def _resolve_config(config: DMMConfig | dict | Path | str) -> DMMConfig:
-        """Validate ``config`` (a dict, file path, or ``DMMConfig``, which gets deep-copied) into a ``DMMConfig``."""
-        if isinstance(config, DMMConfig):
-            return config.model_copy(deep=True)
-        if isinstance(config, dict):
-            return DMMConfig.model_validate(config)
-        with open(Path(config)) as f:
-            return DMMConfig.model_validate(json.load(f))
 
     def start(self) -> None:
         """Start the background daemon thread.

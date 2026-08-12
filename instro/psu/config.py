@@ -70,17 +70,14 @@ class PSUConfig(BaseModel):
 
 def resolve_psu_from_config(
     config: PSUConfig,
-    publishers: list[Publisher] | None = None,
-) -> tuple[str, PSUDriverBase, int, list[Publisher] | None, float | None]:
-    """Resolve a validated PSUConfig into the ``(name, driver, num_channels, publishers, poll_interval)`` InstroPSU needs."""
+) -> tuple[str, PSUDriverBase, int, list[Publisher], float | None]:
+    """Resolve a validated PSUConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroPSU needs."""
     import importlib
 
     module_path, class_name = PSU_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
     driver_cls = getattr(importlib.import_module(module_path), class_name)
     driver: PSUDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
-    all_publishers = list(publishers or [])
-    all_publishers.extend(build_publisher(p) for p in config.publishers)
-
+    config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None
-    return config.device.name, driver, config.driver.num_channels, (all_publishers or None), poll_interval
+    return config.device.name, driver, config.driver.num_channels, config_publishers, poll_interval
