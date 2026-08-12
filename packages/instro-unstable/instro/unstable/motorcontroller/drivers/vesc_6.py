@@ -104,7 +104,7 @@ class VESC6(MotorControllerDriverBase):
         self._send(_CanPacketId.SET_POS, struct.pack(">i", round(degrees * 1_000_000)))
 
     def get_telemetry(self) -> MotorTelemetry:
-        """Drain broadcast status frames and return the latest value of each field seen; empty if none arrived."""
+        """Drain status frames, returning the latest value per field (empty if none); poll frequently — an overflowed RX FIFO (e.g. gs_usb) drops the newest frames."""
         bus = self._require_bus()
         updates: dict[str, float] = {}
         while True:
