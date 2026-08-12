@@ -14,6 +14,9 @@ Run:
 
 import time
 
+import libusb_package
+import usb.backend.libusb1
+
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 
@@ -22,14 +25,8 @@ POLE_PAIRS = 7  # motor pole-pair count; wrong values scale set_velocity and vel
 DUTY = 0.05  # gentle 5% duty; echoed in telemetry even with no motor attached
 RUN_SECONDS = 5.0
 
-# python-can's gs_usb backend needs a libusb-1.0 DLL; on Windows libusb-package provides it.
-try:
-    import libusb_package
-    import usb.backend.libusb1
-
-    usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
-except ImportError:
-    pass
+# python-can's gs_usb backend needs a libusb-1.0 DLL; libusb-package provides it.
+usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
 
 motor = InstroMotorController("drive", driver=VESC6(channel=0, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID))
 telemetry: dict[str, float] = {}
