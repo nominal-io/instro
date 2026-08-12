@@ -22,7 +22,7 @@ from instro.unstable.motorcontroller.drivers import VESC6
 
 CONTROLLER_ID = 0  # VESC Tool: App Settings -> General -> VESC ID
 POLE_PAIRS = 7  # motor pole-pair count; wrong values scale set_velocity and velocity telemetry
-DUTY = 0.05  # gentle 5% duty; echoed in telemetry even with no motor attached
+TARGET_RPM = 300.0  # slow mechanical speed; keep RPM x POLE_PAIRS above the VESC's ~900 minimum regulated ERPM
 RUN_SECONDS = 5.0
 
 # python-can's gs_usb backend needs a libusb-1.0 DLL; libusb-package provides it.
@@ -50,10 +50,13 @@ try:
     print(f"VESC {CONTROLLER_ID} alive: bus={telemetry.get('bus_voltage')} V")
 
     for i in range(int(RUN_SECONDS / 0.05)):
-        motor.set_duty_cycle(DUTY)  # re-sent at 20 Hz; the VESC releases the motor ~0.5 s after the last command
+        motor.set_velocity(TARGET_RPM)  # re-sent at 20 Hz; the VESC releases the motor ~0.5 s after the last command
         poll()
         if i % 10 == 0:
-            print(f"duty={telemetry.get('duty_cycle')} velocity={telemetry.get('velocity')} rpm")
+            print(
+                f"commanded={TARGET_RPM} rpm measured={telemetry.get('velocity')} rpm "
+                f"motor_current={telemetry.get('motor_current')} A"
+            )
         time.sleep(0.05)
 finally:
     motor.close()  # safe-stops the motor (zero current) before shutting the bus down
