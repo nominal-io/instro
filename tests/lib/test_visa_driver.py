@@ -17,6 +17,7 @@ import pyvisa
 from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
+from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports import (
     ControlFlow,
     Parity,
@@ -692,46 +693,41 @@ def test_first_close_leaves_session_for_survivor_last_close_tears_down_in_order(
     a, b = object(), object()
     driver.open(a)
     driver.open(b)
-    cb = MagicMock()
 
-    driver.close(a, on_last_release=cb)
+    driver.close(a)
 
-    cb.assert_not_called()
     resource.close.assert_not_called()
     assert driver.is_open is True
 
-    driver.close(b, on_last_release=cb)
+    driver.close(b)
 
-    cb.assert_called_once()
     resource.close.assert_called_once()
     assert driver.is_open is False
 
 
-def test_close_by_non_holder_is_noop(mock_pyvisa):
+def test_close_by_non_holder_raises_while_others_own_it(mock_pyvisa):
+    """A silent no-op here would leave the real owner registered and the session open forever."""
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a, stranger = object(), object()
     driver.open(a)
-    cb = MagicMock()
 
-    driver.close(stranger, on_last_release=cb)
+    with pytest.raises(UnknownHolderError, match="does not own this"):
+        driver.close(stranger)
 
-    cb.assert_not_called()
     resource.close.assert_not_called()
     assert driver.is_open is True
 
 
-def test_close_on_last_release_raising_still_tears_down(mock_pyvisa):
+def test_repeat_close_after_the_last_owner_left_is_a_noop(mock_pyvisa):
+    """Close stays idempotent once the connection is down: there is no owner left to strand."""
     _, _, resource = mock_pyvisa
     driver = _make_driver()
     a = object()
     driver.open(a)
 
-    def raising_callback() -> None:
-        raise RuntimeError("callback failed")
-
-    with pytest.raises(RuntimeError, match="callback failed"):
-        driver.close(a, on_last_release=raising_callback)
+    driver.close(a)
+    driver.close(a)
 
     resource.close.assert_called_once()
     assert driver.is_open is False
@@ -744,27 +740,6 @@ def test_close_last_owner_with_no_callback_tears_down(mock_pyvisa):
     driver.open(a)
 
     driver.close(a)
-
-    resource.close.assert_called_once()
-    assert driver.is_open is False
-
-
-def test_on_last_release_reopening_leaves_teardown_to_new_holder(mock_pyvisa):
-    _, _, resource = mock_pyvisa
-    driver = _make_driver()
-    a, b = object(), object()
-    driver.open(a)
-
-    def reopen_as_b() -> None:
-        assert driver.open(b) is True  # reentrant: same thread, same RLock
-
-    driver.close(a, on_last_release=reopen_as_b)
-
-    # b now legitimately owns the connection; close(a)'s teardown must not have run.
-    resource.close.assert_not_called()
-    assert driver.is_open is True
-
-    driver.close(b)
 
     resource.close.assert_called_once()
     assert driver.is_open is False

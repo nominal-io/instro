@@ -143,7 +143,7 @@ Note that a transport error inside the block closes the dead socket before re-ra
 | `is_open` | Property: `True` once opened and not closed. Stays `True` across a dropped socket, which the next op reconnects. |
 | `unit_id` | Property: the Modbus unit/slave ID from the connection config. |
 | `open(holder=None)` | Connect. Idempotent. See [Lifecycle](/instrumentation/transports/overview#lifecycle). |
-| `close(holder=None, on_last_release=None)` | Disconnect. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
+| `close(holder=None)` | Disconnect. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
 | `lock()` | The reentrant lock, for atomic multi-step sequences. |
 | `read_holding_registers(address, count)` | FC03. Returns `list[int]`. |
 | `read_input_registers(address, count)` | FC04. Returns `list[int]`. |

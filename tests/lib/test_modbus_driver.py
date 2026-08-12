@@ -18,6 +18,7 @@ from pymodbus.datastore import (
 from pymodbus.exceptions import ConnectionException
 from pymodbus.server import StartAsyncTcpServer
 
+from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports import ModbusDriver, RTUConnection, TCPConnection
 
 TEST_PORT = 5031
@@ -399,10 +400,8 @@ class TestSharedOwnership:
         drv.close(a)
         assert drv.is_open  # b still holds it
 
-        cb = Mock()
-        drv.close(b, on_last_release=cb)
+        drv.close(b)
 
-        cb.assert_called_once()
         assert not drv.is_open
 
     def test_one_connect_across_two_holder_opens(self):
@@ -418,12 +417,13 @@ class TestSharedOwnership:
             drv.close(a)
             drv.close(b)
 
-    def test_close_by_non_holder_is_noop(self, modbus_server):
+    def test_close_by_non_holder_raises(self, modbus_server):
         drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
         a, stranger = object(), object()
         drv.open(a)
 
-        drv.close(stranger)
+        with pytest.raises(UnknownHolderError, match="does not own this"):
+            drv.close(stranger)
 
         assert drv.is_open
         drv.close(a)

@@ -64,6 +64,8 @@ class BidirectionalSupply:
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
+        self._ownership = threading.RLock()
+        self._views: list[object] = []
 
     @cached_property
     def source(self) -> PSUDriverBase:
@@ -73,19 +75,31 @@ class BidirectionalSupply:
     def sink(self) -> ELoadDriverBase:
         return SinkDriver(self)
 
-    def acquire(self, holder: object) -> None:
-        if not self._visa.open(holder):        # True only for the first view in
-            return
-        try:
-            self._visa.write("SYST:LOCK ON")   # one-time device setup
-        except Exception:
-            # A stranded holder would make the retry report not-first-owner,
-            # so SYST:LOCK ON would never be re-attempted.
-            self._visa.close(holder, on_last_release=self._release_remote_lock)
-            raise
+    def acquire(self, view: object) -> None:
+        with self._ownership:
+            if any(held is view for held in self._views):
+                return
+            first = not self._views
+            self._views.append(view)
+            if not first:
+                return
+            self._visa.open(self)              # the device holds the transport
+            try:
+                self._visa.write("SYST:LOCK ON")   # one-time device setup
+            except Exception:
+                # A stranded view would make the retry report not-first, so
+                # SYST:LOCK ON would never be re-attempted.
+                self._views.remove(view)
+                self._visa.close(self)
+                raise
 
-    def release(self, holder: object) -> None:
-        self._visa.close(holder, on_last_release=self._release_remote_lock)
+    def release(self, view: object) -> None:
+        with self._ownership:
+            self._views = [held for held in self._views if held is not view]
+            if self._views:
+                return
+            self._visa.write("SYST:LOCK OFF")  # session is still up here
+            self._visa.close(self)
 ```
 
 Each view implements one category contract and delegates its lifecycle to the device:
@@ -102,7 +116,9 @@ class SourceDriver(PSUDriverBase):
         self._dev.release(self)
 ```
 
-`open(view)` opens the connection if needed and reports whether this call made the view the **first** owner, so one-time device setup (the box's remote lock, here) runs exactly once however many views open. `close(view, ...)` mirrors this: the connection stays open as long as any view holds it, and only the close that empties the owner list runs `on_last_release` and tears the connection down.
+Ownership is two-level. The **device** holds the transport, and the device tracks its **views** itself. That keeps each "last release" unambiguous: the device's last view leaving is what triggers device teardown, and the transport's last holder leaving is what closes the connection. Because the device does its own teardown before calling `close`, the session is still up when `SYST:LOCK OFF` goes out, and no teardown callback has to be threaded through the transport for a close site to forget.
+
+`transport.open(device)` returns True only for the first owner, so a transport shared by several devices opens once. `transport.close(device)` tears the connection down only when the last device leaves.
 
 Construct the device once and take a view for each instrument:
 
@@ -130,7 +146,7 @@ A driver that serves a single category owns its transport outright and never pas
 | Member | What the base provides |
 | --- | --- |
 | `open(holder=None)` | Opens the connection through `_open_session()`. Idempotent. With a holder, registers shared ownership and returns `True` only for the first owner. |
-| `close(holder=None, on_last_release=None)` | Tears the connection down through `_teardown_session()`. Bare `close()` declines and logs a warning while any holder remains. With a holder, removes that owner and tears down only when the last one leaves. |
+| `close(holder=None)` | Tears the connection down through `_teardown_session()`. Bare `close()` declines and logs a warning while any holder remains. With a holder, removes that owner and tears down only when the last one leaves. Raises `UnknownHolderError` if an unrecognized holder closes while others still own the connection, since ignoring that would strand them. Once the last owner has left, a repeat close is a no-op. |
 | `lock()` | The reentrant lock guarding this connection, for callers that need a multi-step sequence to stay atomic. |
 | `__del__` | Best-effort teardown on garbage collection, bypassing the ownership guard and swallowing errors. A backstop against a stranded socket, not something to rely on. |
 

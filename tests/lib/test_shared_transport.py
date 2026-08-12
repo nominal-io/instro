@@ -4,14 +4,18 @@ Given a combined instrument (one box that both sources and sinks, e.g. the EA PS
 user constructs the device and takes a view for each category, then the two views share that one
 session for as long as either of them owns it.
 
-The device owns the connection and vends the views; the views are the transport's holders. Two view
-classes rather than one class inheriting both contracts, because each applies its own current-sign
-convention and publishes into its own category namespace. The stubs below carry real SCPI only where
-this test reaches them, because it pins the shared-ownership contract, not any vendor's command set.
+Ownership is two-level: the device holds the transport on its own behalf, and tracks its views
+itself. That puts device-level teardown (the remote lock, here) in the device's own release path
+while the session is still up, so no teardown callback has to be threaded through the transport.
+Two view classes rather than one class inheriting both contracts, because each applies its own
+current-sign convention and publishes into its own category namespace. The stubs below carry real
+SCPI only where this test reaches them, because it pins the ownership contract, not any vendor's
+command set.
 """
 
 from __future__ import annotations
 
+import threading
 from functools import cached_property
 from unittest.mock import MagicMock, call, patch
 
@@ -30,6 +34,8 @@ class _Box:
 
     def __init__(self, visa_resource: str) -> None:
         self._visa = VisaDriver(visa_resource)
+        self._ownership = threading.RLock()
+        self._views: list[object] = []
 
     @cached_property
     def source(self) -> PSUDriverBase:
@@ -39,22 +45,31 @@ class _Box:
     def sink(self) -> ELoadDriverBase:
         return _SinkView(self)
 
-    def acquire(self, holder: object) -> None:
-        if not self._visa.open(holder):
-            return
-        try:
-            self._visa.write("SYST:LOCK ON")
-        except Exception:
-            # A stranded holder would make the retry's open report not-first-owner, so
-            # SYST:LOCK ON would never be re-attempted.
-            self._visa.close(holder, on_last_release=self._unlock)
-            raise
+    def acquire(self, view: object) -> None:
+        with self._ownership:
+            if any(held is view for held in self._views):
+                return
+            first = not self._views
+            self._views.append(view)
+            if not first:
+                return
+            self._visa.open(self)  # the device holds the transport, not the views
+            try:
+                self._visa.write("SYST:LOCK ON")
+            except Exception:
+                # A stranded view would make the retry report not-first, so SYST:LOCK ON
+                # would never be re-attempted.
+                self._views.remove(view)
+                self._visa.close(self)
+                raise
 
-    def release(self, holder: object) -> None:
-        self._visa.close(holder, on_last_release=self._unlock)
-
-    def _unlock(self) -> None:
-        self._visa.write("SYST:LOCK OFF")
+    def release(self, view: object) -> None:
+        with self._ownership:
+            self._views = [held for held in self._views if held is not view]
+            if self._views:
+                return
+            self._visa.write("SYST:LOCK OFF")  # session still up
+            self._visa.close(self)
 
     def measure_voltage(self) -> float:
         return float(self._visa.query("MEAS:VOLT?"))

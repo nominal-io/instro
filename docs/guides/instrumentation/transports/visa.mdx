@@ -190,7 +190,7 @@ print(rm.list_resources())
 | `VisaDriver(visa_resource)` | Construct a driver from a VISA resource string or a `VisaConfig`. No I/O yet. |
 | `is_open` | Property: `True` if the underlying VISA resource is open. |
 | `open(holder=None)` | Open the resource manager and resource; apply terminator/timeout/serial config. Idempotent. Pass a holder to register shared ownership: returns `True` if `holder` is the first owner. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
-| `close(holder=None, on_last_release=None)` | Close the resource and resource manager. Idempotent. Bare `close()` declines and logs a warning if another driver still holds the connection. With a holder, removes that owner; the close that empties the owner list runs `on_last_release`, then tears the connection down. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
+| `close(holder=None)` | Close the resource and resource manager. Idempotent. Bare `close()` declines and logs a warning if another driver still holds the connection. With a holder, removes that owner; the close that empties the owner list tears the connection down. Raises `UnknownHolderError` if an unrecognized holder closes while others still own the connection. See [Shared ownership](/instrumentation/transports/overview#shared-ownership). |
 | `write(command)` | Write a text command; the configured write terminator is appended. |
 | `read()` | Read a single response string up to (and stripping) the read terminator. |
 | `query(command)` | Write a command and read the response as text. |
