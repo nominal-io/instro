@@ -10,6 +10,10 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ::: instro.daq.types
 
+## Units
+
+::: instro.daq.units
+
 ## Scaling
 
 ::: instro.daq.scaling

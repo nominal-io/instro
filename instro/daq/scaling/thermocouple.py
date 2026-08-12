@@ -18,43 +18,6 @@ class TC_TYPE(Enum):
     T = "T"
 
 
-class TC_UNIT(Enum):
-    CELSIUS = "CELSIUS"
-    KELVIN = "KELVIN"
-    FAHRENHEIT = "FAHRENHEIT"
-    RANKINE = "RANKINE"
-
-
-def kelvin_to_unit(temp_k: float, unit: TC_UNIT | None) -> float:
-    """Convert a Kelvin temperature to ``unit``; defaults to Celsius."""
-    match unit:
-        case TC_UNIT.CELSIUS:
-            return temp_k - 273.15
-        case TC_UNIT.KELVIN:
-            return temp_k
-        case TC_UNIT.FAHRENHEIT:
-            return temp_k * 9 / 5 - 459.67
-        case TC_UNIT.RANKINE:
-            return temp_k * 9 / 5
-        case _:
-            return temp_k - 273.15
-
-
-def unit_to_kelvin(temp: float, unit: TC_UNIT | None) -> float:
-    """Convert a temperature in ``unit`` to Kelvin; defaults to Celsius."""
-    match unit:
-        case TC_UNIT.CELSIUS:
-            return temp + 273.15
-        case TC_UNIT.KELVIN:
-            return temp
-        case TC_UNIT.FAHRENHEIT:
-            return (temp + 459.67) * 5 / 9
-        case TC_UNIT.RANKINE:
-            return temp * 5 / 9
-        case _:
-            return temp + 273.15
-
-
 class ThermocoupleSensor(Scaler):
     """Thermocouple voltage → °C with cold-junction compensation.
 

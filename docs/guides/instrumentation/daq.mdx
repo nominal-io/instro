@@ -264,7 +264,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_voltage_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogVoltageChannel` | `configure_ao_voltage_channel` |
 | `configure_current_input(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ai_current_channel` |
 | `configure_current_output(physical_channel, *, alias, range_min, range_max, scaler)` | `AnalogCurrentChannel` | `configure_ao_current_channel` |
-| `configure_thermocouple_input(physical_channel, tc_type, *, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, unit, tc_input_scaler)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
+| `configure_thermocouple_input(physical_channel, tc_type, *, unit, alias, range_min, range_max, scaler, cjc_source, cjc_temp, cjc_channel, tc_input_scaler)` | `AnalogThermocoupleChannel` | `configure_ai_thermocouple_channel` |
 | `configure_digital_input(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_di_channel` |
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
@@ -279,7 +279,7 @@ The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw vol
 ```python
 from instro.daq.scaling.thermocouple import TC_TYPE
 
-daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0")
+daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0", unit="degC")
 ```
 
 Cold-junction compensation depends on `cjc_source`:
@@ -297,11 +297,16 @@ from instro.daq.scaling.scaling import ReverseLinearScaler
 daq.configure_thermocouple_input(
     "AIN4",
     TC_TYPE.K,
+    unit="degC",
     tc_input_scaler=ReverseLinearScaler(gain=51, offset=1.25, units="V"),
 )
 ```
 
-Readings return in `unit` (Celsius by default). A channel `scaler` applies to the converted temperatures.
+`unit` is required and is one of `"degC"`, `"degF"`, `"K"`, `"degR"`. It governs `range_min`/`range_max`, `cjc_temp`, and the returned readings: the driver converts each sample into `unit` on read. A channel `scaler` applies to the converted temperatures.
+
+```python
+daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0", unit="degF", cjc_source="CONSTANT", cjc_temp=77.0)
+```
 
 ### Hardware-Timed Sample Rate
 

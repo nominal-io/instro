@@ -9,6 +9,7 @@ requires-python = ">=3.10,<3.15"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
     "nominal>=1.99.0,<2.0.0",
+    "pint>=0.24",
     "pydantic>=2.0",
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",

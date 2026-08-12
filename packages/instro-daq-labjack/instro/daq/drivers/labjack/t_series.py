@@ -10,7 +10,6 @@ from typing import Mapping
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
-from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -25,11 +24,15 @@ from instro.daq.types import (
     HWTimingConfig,
     Logic,
 )
+from instro.daq.units import convert_units, parse_unit
 from instro.lib import Measurement
 from labjack import ljm
 from labjack.ljm import errorcodes
 
 logger = logging.getLogger(__name__)
+
+# LJM's temperature conversion and CJC registers work only in kelvin.
+_LJM_TEMPERATURE_UNIT = parse_unit("kelvin")
 
 # TODO(INSTRO-89): Remove this once context managers are added.
 # We use a callback functionality of the LJM driver. This is for performance reasons vs. python threading.
@@ -195,7 +198,10 @@ class LabJackTSeriesDriver(DAQDriverBase):
         )
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
-        """Configure a thermocouple ai channel; volts convert to temperature on read; ``cjc_temp`` is in ``unit``."""
+        """Configure a thermocouple ai channel; volts convert to temperature in the channel's unit on read.
+
+        ``range_min``/``range_max`` are ignored: the ADC range is fixed per model (T7 0.1 V, T8 0.075 V, T4 none).
+        """
         if self._model is None:
             self._initialize_model()
         assert self._model is not None
@@ -248,7 +254,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
         if channel.cjc_source is CJCSource.CONSTANT:
             assert channel.cjc_temp is not None
-            cjc_k = unit_to_kelvin(channel.cjc_temp, channel.unit)
+            cjc_k = convert_units(channel.cjc_temp, channel.unit, _LJM_TEMPERATURE_UNIT)
         else:
             cjc_k = self._model.tc_cjc_kelvin(channel.physical_channel, cjc_samples)
 
@@ -256,7 +262,8 @@ class LabJackTSeriesDriver(DAQDriverBase):
         temps = []
         for v in volts:
             try:
-                temps.append(kelvin_to_unit(ljm.tcVoltsToTemp(tc_type, v, cjc_k), channel.unit))
+                # Convert calculated Kelvin temp to user requested unit
+                temps.append(convert_units(ljm.tcVoltsToTemp(tc_type, v, cjc_k), _LJM_TEMPERATURE_UNIT, channel.unit))
             except ljm.LJMError as error:
                 if error.errorCode not in (errorcodes.VOLTAGE_OUT_OF_RANGE, errorcodes.TEMPERATURE_OUT_OF_RANGE):
                     raise

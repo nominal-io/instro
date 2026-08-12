@@ -15,6 +15,7 @@ from instro.daq.types import (
     Direction,
     Logic,
 )
+from instro.daq.units import parse_unit
 from instro.lib import InstrumentNotOpenError, Measurement
 
 
@@ -373,7 +374,7 @@ _NEW_CONFIGURE_CALLS = [
     (
         "configure_thermocouple_input",
         lambda daq, alias: daq.configure_thermocouple_input(
-            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="CELSIUS"
+            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="degC"
         ),
     ),
     (
@@ -419,6 +420,33 @@ def test_duplicate_channel_guard_is_global_across_configure_methods():
 
     with pytest.raises(ValueError, match=r"channel 'shared' is already configured \(voltage_input on ai0\)"):
         daq.configure_current_input("ai1", alias="shared")
+
+
+# ---------------------------------------------------------------------------
+# thermocouple units
+# ---------------------------------------------------------------------------
+
+
+def test_configure_thermocouple_input_records_requested_unit():
+    """A valid unit is recorded as a pint unit and cjc_temp stays in that unit, not converted."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="degF", cjc_source="CONSTANT", cjc_temp=77.0)
+
+    channel = daq.ai_channels["tc0"]
+    assert channel.unit == parse_unit("degF")
+    assert channel.cjc_temp == 77.0
+
+
+def test_configure_thermocouple_input_rejects_unknown_unit():
+    """An unparseable unit raises and no channel is recorded."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="unit 'CELSIUS' is not a known unit"):
+        daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="CELSIUS")
+    assert not daq.ai_channels
 
 
 def test_configure_while_running_raises():

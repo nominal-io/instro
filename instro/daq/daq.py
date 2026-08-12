@@ -5,10 +5,10 @@ import logging
 import time
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, ClassVar, Mapping, TypeVar
+from typing import Any, ClassVar, Literal, Mapping, TypeVar
 
 from instro.daq.scaling.scaling import Scaler
-from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
+from instro.daq.scaling.thermocouple import TC_TYPE
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -26,6 +26,7 @@ from instro.daq.types import (
     RelayChannel,
     TerminalConfig,
 )
+from instro.daq.units import parse_unit
 from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -702,6 +703,7 @@ class InstroDAQ(Instrument):
         physical_channel: str,
         tc_type: str | TC_TYPE,
         *,
+        unit: Literal["degC", "degF", "K", "degR"],
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
@@ -709,28 +711,26 @@ class InstroDAQ(Instrument):
         cjc_source: str | CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
-        unit: str | TC_UNIT = TC_UNIT.CELSIUS,
         tc_input_scaler: Scaler | None = None,
     ):
         """Configure a thermocouple input channel.
 
         Args:
             physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
+            unit: Temperature unit for ``range_min``/``range_max``, ``cjc_temp``, and returned readings.
             alias: Friendly name; defaults to ``physical_channel``.
             range_min: Lower temperature range (in ``unit``).
             range_max: Upper temperature range (in ``unit``).
             scaler: Optional ``Scaler`` applied to AI samples after read.
-            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
             cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``, expressed in ``unit``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
-            unit: Temperature unit for returned readings and ``cjc_temp``.
             tc_input_scaler: Volts-domain scaler applied before temperature conversion if amplifier was used (LabJack only).
         """
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
         cjc_source = _coerce_enum(cjc_source, CJCSource, "cjc_source")
-        unit = _coerce_enum(unit, TC_UNIT, "unit")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -746,7 +746,7 @@ class InstroDAQ(Instrument):
             cjc_source=cjc_source,
             cjc_temp=cjc_temp,
             cjc_channel=cjc_channel,
-            unit=unit,
+            unit=parse_unit(unit),
             tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)
