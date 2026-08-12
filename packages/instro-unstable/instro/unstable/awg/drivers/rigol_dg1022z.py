@@ -322,13 +322,18 @@ class RigolDG1022Z(AWGDriverBase):
     def fire_burst_trigger(self, channel: int) -> None:
         _check_channel(channel)
         with self._visa.lock():
+            if not self.get_burst_state(channel):
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless burst mode is already"
+                    " enabled, call burst_enable(channel, True) first"
+                )
             source = self.get_burst_trigger(channel)
             if source is not BurstTriggerSource.MANUAL:
                 raise ValueError(
                     f"Cannot fire a burst trigger on channel {channel} unless the trigger source is"
                     f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Got: {source.name}"
                 )
-            self._write_checked(f":SOUR{channel}:TRIG")
+            self._write_checked(f":SOUR{channel}:BURS:TRIG")
 
     def set_burst_delay(self, channel: int, delay_s: float) -> None:
         _check_channel(channel)

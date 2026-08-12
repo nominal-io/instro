@@ -34,7 +34,7 @@ pytestmark = pytest.mark.hardware
 # HARDWARE TEST SETUP - EDIT THESE VALUES BEFORE RUNNING THIS FILE.
 # Set VISA_RESOURCE to the bench unit's VISA resource string. Set VISA_BACKEND to
 # "@ivi" or "" for the system VISA library, or "@py" for pyvisa-py.
-VISA_RESOURCE = "TCPIP0::169.254.10.1::INSTR"
+VISA_RESOURCE = "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
 
 VISA_BACKEND = "@py"
 CHANNELS = (1, 2)
@@ -492,6 +492,7 @@ def test_21_fire_burst_trigger_fires_when_source_already_manual(driver: RigolDG1
     driver._check_errors()
 
     driver.output_enable(1, True)
+    driver.burst_enable(1, True)
     driver.fire_burst_trigger(1)
     driver._check_errors()
 
@@ -502,6 +503,7 @@ def test_22_fire_burst_trigger_rejects_non_manual_source(driver: RigolDG1022Z) -
     """GATED locks the trigger source to EXTERNAL; rejected the same as any other non-MANUAL source."""
     driver.set_waveform(1, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(1, BurstType.GATED)
+    driver.burst_enable(1, True)
     driver._check_errors()
 
     with pytest.raises(ValueError, match="already MANUAL"):

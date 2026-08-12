@@ -842,18 +842,18 @@ def test_41_get_burst_trigger_rejects_invalid_channel(rigol: RigolDG1022Z, rigol
 
 def test_42_fire_burst_trigger_fires_when_source_already_manual(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     """Regression guard: :BURS:TRIG:IMM is rejected (-220) on the bench; only :BURS:TRIG is accepted."""
-    _query_sequence(rigol_visa, ["MAN"])
+    _query_sequence(rigol_visa, ["ON", "MAN"])
 
     rigol.fire_burst_trigger(1)
 
-    assert _real_query_calls(rigol_visa) == [call(":SOUR1:BURS:TRIG:SOUR?")]
-    assert rigol_visa.write.call_args_list == [call(":SOUR1:TRIG")]
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:BURS:STAT?"), call(":SOUR1:BURS:TRIG:SOUR?")]
+    assert rigol_visa.write.call_args_list == [call(":SOUR1:BURS:TRIG")]
 
 
 def test_43_fire_burst_trigger_rejects_non_manual_source_and_invalid_channel(
     rigol: RigolDG1022Z, rigol_visa: MagicMock
 ) -> None:
-    _query_sequence(rigol_visa, ["EXT"])
+    _query_sequence(rigol_visa, ["ON", "EXT"])
 
     with pytest.raises(ValueError, match="already MANUAL"):
         rigol.fire_burst_trigger(1)
@@ -861,4 +861,15 @@ def test_43_fire_burst_trigger_rejects_non_manual_source_and_invalid_channel(
     with pytest.raises(ValueError, match="channel must be 1 or 2"):
         rigol.fire_burst_trigger(3)
 
+    rigol_visa.write.assert_not_called()
+
+
+def test_44_fire_burst_trigger_rejects_when_burst_not_enabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    """Regression guard: firing before burst_enable(channel, True) is rejected (-220) on the bench."""
+    _query_sequence(rigol_visa, ["OFF"])
+
+    with pytest.raises(ValueError, match="burst mode is already"):
+        rigol.fire_burst_trigger(1)
+
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:BURS:STAT?")]
     rigol_visa.write.assert_not_called()
