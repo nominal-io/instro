@@ -13,7 +13,6 @@ from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     AnalogChannel,
-    AnalogThermocoupleChannel,
     ChannelType,
     DAQChannel,
     DigitalChannel,
@@ -180,12 +179,6 @@ class NIDAQDriver(DAQDriverBase):
         )
 
         self._ao_channels[channel.alias] = channel
-
-    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
-        """Thermocouple input is not implemented for NI; warns if the LabJack-only ``tc_input_scaler`` is set."""
-        if channel.tc_input_scaler is not None:
-            logger.warning("tc_input_scaler is only honored by the LabJack driver; the NI driver ignores it.")
-        super().configure_ai_thermocouple_channel(channel)
 
     def configure_ai_hw_timing(
         self,

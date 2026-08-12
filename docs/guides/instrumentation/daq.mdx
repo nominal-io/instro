@@ -289,7 +289,7 @@ Cold-junction compensation depends on `cjc_source`:
 - `CHANNEL`: not supported by this driver.
 
 
-To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. It applies on any T-series model; the NI and MCC drivers do not honor it and warn if it is set. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
+To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. It applies on any T-series model. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
 
 ```python
 from instro.daq.scaling.scaling import ReverseLinearScaler
