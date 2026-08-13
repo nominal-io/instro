@@ -10,6 +10,7 @@ dependencies = [
     "python-can>=4.3",
     "gs-usb>=0.3",
     "libusb-package>=1.0.26",
+    "pyserial>=3.5",
 ]
 
 [build-system]

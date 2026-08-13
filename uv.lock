@@ -823,6 +823,7 @@ dependencies = [
     { name = "gs-usb" },
     { name = "instro" },
     { name = "libusb-package" },
+    { name = "pyserial" },
     { name = "python-can" },
 ]
 
@@ -831,6 +832,7 @@ requires-dist = [
     { name = "gs-usb", specifier = ">=0.3" },
     { name = "instro", editable = "." },
     { name = "libusb-package", specifier = ">=1.0.26" },
+    { name = "pyserial", specifier = ">=3.5" },
     { name = "python-can", specifier = ">=4.3" },
 ]
 
