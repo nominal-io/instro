@@ -8,6 +8,7 @@ import can
 import pytest
 
 from instro.unstable.motorcontroller.drivers import VESC6
+from instro.unstable.transports import CanConfig, CanDriver
 
 _CONTROLLER_ID = 42
 
@@ -18,7 +19,10 @@ def _status_frame(packet_id: int, payload: bytes, controller_id: int = _CONTROLL
 
 @pytest.fixture
 def bus_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.motorcontroller.drivers.vesc_6.can.Bus", autospec=True) as cls:
+    with (
+        patch("instro.unstable.transports.can._prime_gs_usb_backend", autospec=True),
+        patch("instro.unstable.transports.can.can.Bus", autospec=True) as cls,
+    ):
         yield cls
 
 
@@ -176,3 +180,28 @@ def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, bu
     ]
 
     assert vesc.get_telemetry() == {}
+
+
+def test_two_drivers_share_one_transport(bus_cls: MagicMock, bus: MagicMock) -> None:
+    transport = CanDriver(CanConfig(channel=0, interface="gs_usb"))
+    left = VESC6(channel=transport, pole_pairs=1, controller_id=1)
+    right = VESC6(channel=transport, pole_pairs=1, controller_id=2)
+
+    left.open()
+    right.open()
+    bus_cls.assert_called_once()
+
+    bus.recv.side_effect = [
+        _status_frame(9, struct.pack(">ihh", 100, 0, 0), controller_id=1),
+        _status_frame(9, struct.pack(">ihh", 200, 0, 0), controller_id=2),
+        None,
+        None,
+    ]
+    assert left.get_telemetry()["velocity"] == pytest.approx(100)
+    # left's drain routed right's frame instead of consuming it.
+    assert right.get_telemetry()["velocity"] == pytest.approx(200)
+
+    left.close()
+    bus.shutdown.assert_not_called()
+    right.close()
+    bus.shutdown.assert_called_once_with()
