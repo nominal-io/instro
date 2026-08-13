@@ -400,4 +400,3 @@ def test_24_modulation_enable_persists_after_set_modulation(driver: Keysight3352
 
     driver.modulation_enable(CHANNEL, False)
     driver._check_errors()
-    
