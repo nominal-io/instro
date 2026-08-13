@@ -1203,7 +1203,7 @@ class InstroDAQ(Instrument):
         self,
         channels: list[str],
         values: list[float | int | bool],
-        ao: Mapping[str, AnalogChannel],
+        ao: Mapping[str, AnalogChannelUnion],
         do: Mapping[str, DigitalChannel],
     ) -> None:
         """Validate every value against its target channel type before anything is written to hardware."""

@@ -582,7 +582,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.9.0"
+version = "1.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -723,7 +723,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -805,7 +805,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-unstable"
-version = "1.4.0"
+version = "1.4.1"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "instro" },

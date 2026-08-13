@@ -1177,7 +1177,7 @@ def test_read_batch_none_reads_every_configured_input():
     daq.open()
     daq.configure_voltage_input(physical_channel="ai0", alias="v0")
     daq.configure_current_input(physical_channel="ai1", alias="c0")
-    daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0")
+    daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
     daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
 
     result = daq.read_batch()
