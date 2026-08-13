@@ -6,11 +6,8 @@ Wiring / stimulus:
     No motor attached unless MOTOR_ATTACHED is True; without a motor, motion
     commands are validated at the wire level only (frames sent, VESC stays alive).
 
-Host setup (not project deps):
-    uv pip install gs-usb libusb-package
-
 Run:
-    uv run --no-sync python tests/unstable/motorcontroller/test_vesc_6_hardware.py
+    uv run python tests/unstable/motorcontroller/test_vesc_6_hardware.py
 """
 
 import math
@@ -34,17 +31,6 @@ TEST_RPM = 500.0
 TELEMETRY_TIMEOUT_S = 3.0
 EXPECT_BUS_VOLTAGE = True  # requires CAN status mode 1-5 (STATUS_5 carries bus voltage)
 EXPECTED_BUS_VOLTAGE_V = None  # set to the supply voltage to enable the strict value check
-
-
-def _ensure_libusb_backend() -> None:
-    """python-can's gs_usb backend needs a libusb-1.0 DLL; on Windows libusb-package provides it."""
-    try:
-        import libusb_package
-        import usb.backend.libusb1
-
-        usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
-    except ImportError:
-        pass
 
 
 def _run(name, fn, failures: list) -> None:
@@ -95,7 +81,6 @@ def _stream(motor: InstroMotorController, send, seconds: float) -> dict[str, flo
 
 
 def run_all() -> list:
-    _ensure_libusb_backend()
     driver = VESC6(
         channel=CHANNEL, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID, interface=INTERFACE, bitrate=BITRATE
     )

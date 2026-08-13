@@ -8,17 +8,11 @@ VESC Tool prerequisites: VESC ID = 0, CAN baud 500 kbps, CAN status message
 mode including statuses 1/4/5 (broadcast telemetry doubles as the liveness
 check), and FOC motor detection completed before commanding motion.
 
-Windows host setup (python-can's gs_usb backend, not project deps):
-    uv pip install gs-usb libusb-package
-
 Run:
-    uv run --no-sync python packages/instro-unstable/instro/unstable/motorcontroller/examples/vesc_6_sh_c31g.py
+    uv run python packages/instro-unstable/instro/unstable/motorcontroller/examples/vesc_6_single_motor.py
 """
 
 import time
-
-import libusb_package
-import usb.backend.libusb1
 
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
@@ -27,9 +21,6 @@ CONTROLLER_ID = 0  # VESC Tool: App Settings -> General -> VESC ID
 POLE_PAIRS = 4  # motor pole-pair count; wrong values scale set_velocity and velocity telemetry
 TARGET_RPM = 1000.0  # keep RPM x POLE_PAIRS above the VESC's ~900 minimum regulated ERPM
 RUN_SECONDS = 10.0
-
-# python-can's gs_usb backend needs a libusb-1.0 DLL; libusb-package provides it.
-usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
 
 motor = InstroMotorController(
     "drive", driver=VESC6(channel=0, pole_pairs=POLE_PAIRS, controller_id=CONTROLLER_ID, interface="gs_usb")
