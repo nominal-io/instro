@@ -1,0 +1,14 @@
+# Keeps the SHA-pinned actions in .github/workflows/ current: opens a weekly
+# grouped PR bumping each pin to the latest release. The chore(ci) prefix
+# satisfies the conventional-commit PR title lint.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"

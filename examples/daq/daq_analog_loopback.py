@@ -71,8 +71,7 @@ with daq:
             # Main progam loop. Set outputs while InstroDAQ acquires data on the inputs in the background.
             # Sit in this while loop until ctrl+c is pressed.
             # InstroDAQ will acquire data from the daq device in the background and publish to the configured Publisher.
-            daq.write_analog_value("ao_0", i)
-            daq.write_analog_value("ao_1", 5 - i)
+            daq.write_batch(["ao_0", "ao_1"], [i, 5 - i])
             time.sleep(1)
         except KeyboardInterrupt:
             print("Exiting main loop")

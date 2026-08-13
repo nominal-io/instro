@@ -95,7 +95,10 @@ class AnalogThermocoupleChannel(DAQChannel):
     cjc_source: CJCSource | None
     cjc_temp: float | None
     cjc_channel: str | None
-    unit: TC_UNIT | None
+    # Unit of cjc_temp, range_min/range_max, and the temperatures the driver returns on read.
+    unit: TC_UNIT
+    # Volts-domain scaler applied before temperature conversion (LabJack only), e.g. descaling an amplified read from an LJTick-InAmp.
+    tc_input_scaler: Scaler | None = None
 
 
 # The analog channel types are siblings, so driver state that holds any of them is typed on this union.

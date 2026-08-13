@@ -8,6 +8,7 @@ import pytest
 
 from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     DigitalLineChannel,
     DigitalPortChannel,
@@ -16,6 +17,7 @@ from instro.daq.types import (
     Logic,
 )
 from instro.lib import InstrumentNotOpenError, Measurement
+from instro.lib.types import Command
 
 
 class _RecordingDriver(DAQDriverBase):
@@ -373,7 +375,7 @@ _NEW_CONFIGURE_CALLS = [
     (
         "configure_thermocouple_input",
         lambda daq, alias: daq.configure_thermocouple_input(
-            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="CELSIUS"
+            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="degC"
         ),
     ),
     (
@@ -419,6 +421,33 @@ def test_duplicate_channel_guard_is_global_across_configure_methods():
 
     with pytest.raises(ValueError, match=r"channel 'shared' is already configured \(voltage_input on ai0\)"):
         daq.configure_current_input("ai1", alias="shared")
+
+
+# ---------------------------------------------------------------------------
+# thermocouple units
+# ---------------------------------------------------------------------------
+
+
+def test_configure_thermocouple_input_records_requested_unit():
+    """A valid unit is recorded as a TC_UNIT and cjc_temp stays in that unit, not converted."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="degF", cjc_source="CONSTANT", cjc_temp=77.0)
+
+    channel = daq.ai_channels["tc0"]
+    assert channel.unit is TC_UNIT.FAHRENHEIT
+    assert channel.cjc_temp == 77.0
+
+
+def test_configure_thermocouple_input_rejects_unknown_unit():
+    """An unrecognized unit raises and no channel is recorded."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="unit 'CELSIUS' is not valid; choose one of"):
+        daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="CELSIUS")
+    assert not daq.ai_channels
 
 
 def test_configure_while_running_raises():
@@ -1093,6 +1122,226 @@ def test_read_analog_raises_while_daemon_running():
             daq.read_analog()
     finally:
         daq.stop()
+
+
+# --- unified read() / write() routing ---
+
+
+def test_read_projects_analog_batch_to_requested_alias():
+    """read(str) returns a single Measurement for only the requested analog channel, projected from the batch."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.v0": [1.0], "ut.v1": [2.0]}, timestamps=[111])
+    ]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_voltage_input(physical_channel="ai1", alias="v1")
+
+    result = daq.read("v0")
+
+    assert isinstance(result, Measurement)
+    assert result.channel_data == {"ut.v0": [1.0]}
+
+
+def test_read_routes_digital_line_by_type():
+    """read(str) routes a digital line alias to the line read, returning its Measurement."""
+    mock_driver = _make_mock_driver()
+    mock_driver.read_digital_line.return_value = 1
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    result = daq.read("di0")
+
+    assert result.channel_data == {"ut.di0": [1.0]}
+
+
+def test_read_none_channel_raises():
+    """read(None) raises ValueError pointing at read_batch() for all-channel reads."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="use read_batch"):
+        daq.read(None)
+
+
+def test_read_batch_none_reads_every_configured_input():
+    """read_batch() returns {alias: Measurement} for one of each analog type plus every DI channel."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
+    ]
+    mock_driver.read_digital_line.return_value = 1
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_current_input(physical_channel="ai1", alias="c0")
+    daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    result = daq.read_batch()
+
+    assert result["v0"].channel_data == {"ut.v0": [1.0]}
+    assert result["c0"].channel_data == {"ut.c0": [0.01]}
+    assert result["tc0"].channel_data == {"ut.tc0": [25.0]}
+    assert result["di0"].channel_data == {"ut.di0": [1.0]}
+
+
+def test_read_batch_unconfigured_channel_raises_before_reading_anything():
+    """read_batch() validates every alias up front, so a bad alias reads nothing from hardware."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+
+    with pytest.raises(KeyError, match=r"Input channel\(s\) \['nope'\] not configured"):
+        daq.read_batch(["v0", "nope"])
+    mock_driver.read_analog.assert_not_called()
+
+
+def test_write_routes_each_index_to_its_channel():
+    """write_batch(list, list) commands values[i] to channels[i], analog and digital each on their own path, in order."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    analog_cmd, digital_cmd = daq.write_batch(["ao0", "do0"], [2.5, 1])
+
+    assert analog_cmd.channel_data == {"ut.ao0.cmd": 2.5}
+    assert digital_cmd.channel_data == {"ut.do0.cmd": 1}
+
+
+def test_write_scalar_single_channel_returns_one_command():
+    """write(str, value) returns a single Command carrying the written value."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    result = daq.write("ao0", 2.5)
+
+    assert isinstance(result, Command)
+    assert result.channel_data == {"ut.ao0.cmd": 2.5}
+
+
+def test_write_none_channel_raises():
+    """write(None) raises ValueError pointing at write_batch() for multi-channel writes."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="use write_batch"):
+        daq.write(None, 2.5)
+
+
+def test_write_batch_no_channels_raises():
+    """write_batch(None or []) raises ValueError; there is no all-channels write."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="at least one channel"):
+        daq.write_batch(None, [2.5])
+    with pytest.raises(ValueError, match="at least one channel"):
+        daq.write_batch([], [])
+
+
+def test_write_coerces_value_to_int_for_digital():
+    """Digital writes coerce the value to int; the command holds an int, not a float."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    value = daq.write("do0", 1.0).channel_data["ut.do0.cmd"]
+
+    assert value == 1 and isinstance(value, int)
+
+
+def test_write_length_mismatch_raises():
+    """Mismatched channels/values lengths raise ValueError."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    with pytest.raises(ValueError, match="lengths must match"):
+        daq.write_batch(["ao0", "do0"], [2.5])
+
+
+def test_write_batch_unconfigured_channel_raises_before_writing_anything():
+    """write_batch() validates every alias up front, so a bad alias leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    with pytest.raises(KeyError, match=r"Output channel\(s\) \['nope'\] not configured"):
+        daq.write_batch(["ao0", "nope"], [2.5, 1])
+    mock_driver.write_analog_value.assert_not_called()
+
+
+def test_write_analog_rejects_bool_and_non_finite():
+    """Analog values must be finite numbers; bool and NaN raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    for bad in (True, float("nan")):
+        with pytest.raises(ValueError, match="requires a finite number"):
+            daq.write("ao0", bad)
+    mock_driver.write_analog_value.assert_not_called()
+
+
+def test_write_digital_line_accepts_bool():
+    """Digital line writes accept a bool; the command holds the coerced int."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    assert daq.write("do0", True).channel_data["ut.do0.cmd"] == 1
+
+
+def test_write_digital_line_rejects_non_binary():
+    """Digital line values other than 0/1 raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="requires 0 or 1"):
+        daq.write("do0", 0.5)
+    mock_driver.write_digital_line.assert_not_called()
+
+
+def test_write_digital_port_requires_int():
+    """Digital port values must be ints; float raises ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT,
+        physical_channel="port0",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        alias="do_port",
+    )
+
+    assert daq.write("do_port", 0x0F).channel_data["ut.do_port.cmd"] == 0x0F
+    for bad in (True, 15.0):
+        with pytest.raises(ValueError, match="requires an integer"):
+            daq.write("do_port", bad)
+
+
+def test_write_batch_invalid_value_raises_before_writing_anything():
+    """write_batch() validates every value up front, so a bad value leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="Digital line 'do0'"):
+        daq.write_batch(["ao0", "do0"], [2.5, 0.5])
+    mock_driver.write_analog_value.assert_not_called()
 
 
 # --- software-timed background daemon ---

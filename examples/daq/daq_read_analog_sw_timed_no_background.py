@@ -61,6 +61,6 @@ with daq:
 
     for i in range(5):
         # Take 5 measurements of each channel
-        measurement = daq.read_analog()
-        print(measurement)
+        reads = daq.read_batch()
+        print(f"ch_0: {reads['ch_0'].latest}, ch_1: {reads['ch_1'].latest}")
         time.sleep(1)  # Software sleep. Then request daq to sample new points.
