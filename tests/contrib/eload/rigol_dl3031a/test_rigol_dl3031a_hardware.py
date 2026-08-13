@@ -206,7 +206,7 @@ def run_all() -> list:
                 "BATTery": "BATT",
                 "OCP": "OCP",
                 "OPP": "OPP",
-                "FIX": "FIX"
+                "FIX": "FIX",
             }
 
             for mode, expected in mode_to_expected.items():
@@ -273,6 +273,43 @@ def run_all() -> list:
             time.sleep(SLEEP_TIME if SLEEP_TIME > 0 else 1)
 
         _run("short_output: toggles short state (cofirm visually)", short_output, failures)
+
+        def battery_discharge() -> None:
+            # Tested with single 21700 Li-ion cell
+            driver.output_enable(False, channel=ch)
+
+            resting_voltage = _finite(driver._query_checked_float("MEAS:VOLT?"), "battery resting voltage")
+            print(f"Resting voltage: {resting_voltage:g} V")
+
+            driver.set_cc_params(v_limit=5, i_limit=6)
+            driver.set_function_mode("BATTery")
+            driver.set_battery_params(
+                range=6,
+                level=1,  # discharge current
+                v_stop=3.1,
+                v_on=2.5,
+                v_enab_stop="ON",
+            )
+
+            driver.output_enable(True, channel=ch)
+
+            # Track discharge for 2 mins
+            voltage_measures = []
+            for t in range(120):
+                time.sleep(1)
+                voltage = _finite(driver._query_checked_float("MEAS:VOLT?"), "battery voltage")
+                voltage_measures.append((t, voltage))
+                print(f"t={t:5.1f}s, V={voltage:.3f}")
+
+            # Save voltage measurements over course of test
+            with open("discharge_log.csv", "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["elapsed_time_s", "voltage_V"])
+                writer.writerows(voltage_measures)
+
+            driver.output_enable(False, channel=ch)
+
+        _run("battery mode: configure + discharge check", battery_discharge, failures)
 
     finally:
         try:
