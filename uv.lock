@@ -537,6 +537,18 @@ wheels = [
 ]
 
 [[package]]
+name = "gs-usb"
+version = "0.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyusb" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/d8/bb03645332d0de656b913cf4ac151aabc5c2c6e3c0c1fa30814fd4c45126/gs_usb-0.3.1.tar.gz", hash = "sha256:a8a76285fda29b45a5a633cfe232a08058f642441b3d030877dc28ef6e0b7807", size = 6605, upload-time = "2026-02-25T11:01:02.502Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/08/13b4e21ff15df9b7017e7e6265282df78098e50275bb99efc26b5d14ce29/gs_usb-0.3.1-py2.py3-none-any.whl", hash = "sha256:1c35d4404427db3f7955a687a1235b5829f94c61ece56eb0cf3f3b23e2d44883", size = 7333, upload-time = "2026-02-25T11:01:01.439Z" },
+]
+
+[[package]]
 name = "hightime"
 version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -808,13 +820,17 @@ name = "instro-unstable"
 version = "1.4.1"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
+    { name = "gs-usb" },
     { name = "instro" },
+    { name = "libusb-package" },
     { name = "python-can" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "gs-usb", specifier = ">=0.3" },
     { name = "instro", editable = "." },
+    { name = "libusb-package", specifier = ">=1.0.26" },
     { name = "python-can", specifier = ">=4.3" },
 ]
 

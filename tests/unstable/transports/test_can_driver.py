@@ -14,7 +14,13 @@ def _frame(arbitration_id: int, data: bytes = b"\x00", extended: bool = True) ->
 
 
 @pytest.fixture
-def bus_cls() -> Iterator[MagicMock]:
+def prime_backend() -> Iterator[MagicMock]:
+    with patch("instro.unstable.transports.can._prime_gs_usb_backend", autospec=True) as fn:
+        yield fn
+
+
+@pytest.fixture
+def bus_cls(prime_backend: MagicMock) -> Iterator[MagicMock]:
     with patch("instro.unstable.transports.can.can.Bus", autospec=True) as cls:
         yield cls
 
@@ -57,6 +63,24 @@ def test_shared_holders_open_once_and_teardown_on_last_close(
     bus.shutdown.assert_not_called()
     transport.close(second)
     bus.shutdown.assert_called_once_with()
+
+
+def test_gs_usb_open_primes_the_libusb_backend(bus: MagicMock, prime_backend: MagicMock) -> None:
+    CanDriver(CanConfig(channel=0, interface="gs_usb")).open()
+    prime_backend.assert_called_once_with()
+
+    prime_backend.reset_mock()
+    CanDriver(CanConfig(channel="COM4", interface="slcan")).open()
+    prime_backend.assert_not_called()
+
+
+def test_gs_usb_open_failure_raises_a_teaching_error(bus_cls: MagicMock) -> None:
+    bus_cls.side_effect = can.exceptions.CanInitializationError("Cannot find device 0. Devices found: 0")
+    transport = CanDriver(CanConfig(channel=0, interface="gs_usb"))
+
+    with pytest.raises(can.exceptions.CanInitializationError, match="candleLight") as excinfo:
+        transport.open()
+    assert isinstance(excinfo.value.__cause__, can.exceptions.CanInitializationError)
 
 
 def test_send_before_open_raises(transport: CanDriver, bus: MagicMock) -> None:

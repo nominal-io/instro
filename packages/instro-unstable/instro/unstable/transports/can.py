@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_SUBSCRIPTION_DEPTH = 512
 
 
+def _prime_gs_usb_backend() -> None:
+    """Load the bundled libusb into pyusb's backend cache; hosts without a system libusb (notably Windows) find no backend otherwise."""
+    import libusb_package
+    import usb.backend.libusb1
+
+    usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
+
+
 @dataclasses.dataclass
 class CanConfig:
     """Connection parameters for a python-can bus.
@@ -73,7 +81,18 @@ class CanDriver(TransportBase):
                 return
             cfg = self._config
             logger.info("Opening CAN bus %s on interface %s at %d bit/s", cfg.channel, cfg.interface, cfg.bitrate)
-            self._bus = can.Bus(interface=cfg.interface, channel=cfg.channel, bitrate=cfg.bitrate, **cfg.bus_kwargs)
+            if cfg.interface == "gs_usb":
+                _prime_gs_usb_backend()
+            try:
+                self._bus = can.Bus(interface=cfg.interface, channel=cfg.channel, bitrate=cfg.bitrate, **cfg.bus_kwargs)
+            except can.exceptions.CanInitializationError as exc:
+                if cfg.interface != "gs_usb":
+                    raise
+                raise can.exceptions.CanInitializationError(
+                    f"Could not open gs_usb adapter (channel {cfg.channel}): check that the adapter is plugged in, "
+                    "runs candleLight/gs_usb firmware (stock vendor firmware often speaks neither gs_usb nor slcan), "
+                    f"and is not held by another process. Original error: {exc}"
+                ) from exc
 
     def _teardown_session(self) -> None:
         """Shut down the python-can bus and drop buffered frames, so a reopen never replays the previous session."""
