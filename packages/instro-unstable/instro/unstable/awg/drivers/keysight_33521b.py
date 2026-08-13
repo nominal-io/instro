@@ -217,7 +217,7 @@ class Keysight33521B(AWGDriverBase):
         return None if load >= _HIGH_Z_SENTINEL else load
 
     def set_modulation(self, channel: int, mod_type: ModulationType, shape: Waveform, magnitude: float) -> None:
-        """Configures and enables modulation."""
+        """Configures modulation. Enabled state is persistent across set_modulation calls."""
         _check_channel(channel)
         if not isinstance(mod_type, ModulationType):
             raise TypeError(f"mod_type must be a ModulationType, got {type(mod_type).__name__}")
@@ -225,8 +225,10 @@ class Keysight33521B(AWGDriverBase):
             raise ValueError("ASK modulation is not supported by the Keysight 33521B")
         modulator = _validate_modulator(shape)
         prefix = _MOD_SCPI_PREFIX[mod_type]
-
         with self._visa.lock():
+            was_enabled = self.get_modulation_state(channel)
+            if self._last_modulation_type:
+                self.modulation_enable(channel, False)
             # `shape` is the modulator/baseband signal; the carrier is the channel's currently active function.
             carrier_name = self._visa.query("FUNC?").strip()
             carrier_type = _FUNC_NAME_TO_CARRIER_TYPE.get(carrier_name)
@@ -249,6 +251,8 @@ class Keysight33521B(AWGDriverBase):
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
             self._check_errors()
             self._last_modulation_type = mod_type
+            if was_enabled:
+                self.modulation_enable(channel, True)
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
         """Enables the most recently configured modulation type, or disables modulation."""
@@ -264,28 +268,12 @@ class Keysight33521B(AWGDriverBase):
             self._check_errors()
 
     def get_modulation_type(self, channel: int) -> ModulationType:
-        """Returns modulation type currently enabled, or the last type set by the user when none is enabled.
-
-        Resyncs the cached type from hardware if an enabled :STAT register disagrees with it.
-        """
+        """Returns modulation type currently enabled, or the last type set by the user when none is enabled."""
         _check_channel(channel)
         with self._visa.lock():
-            active = next(
-                (
-                    mod_type
-                    for mod_type, prefix in _MOD_SCPI_PREFIX.items()
-                    if self._visa.query(f"{prefix}:STAT?").strip() == "1"
-                ),
-                None,
-            )
-            self._check_errors()
-            if active is not None and active != self._last_modulation_type:
-                # prioritize hardware state
-                self._last_modulation_type = active
-            resolved = self._last_modulation_type
-            if resolved is None:
+            if self._last_modulation_type is None:
                 raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
-        return resolved
+        return self._last_modulation_type
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)

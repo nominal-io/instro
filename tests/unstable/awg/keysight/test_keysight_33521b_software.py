@@ -400,12 +400,14 @@ def _mock_carrier_query(
     carrier_responses: list[str] | None = None,
     error_response: str = '0,"No error"',
 ) -> None:
-    """Answer the FUNC? carrier-type query and :SYST:ERR? for set_modulation() tests; carrier defaults to a Sine."""
+    """Answer the pre-flight :STAT?, FUNC?, and :SYST:ERR? queries for set_modulation() tests; modulation defaults to disabled, carrier defaults to a Sine."""
     responses = list(carrier_responses if carrier_responses is not None else _SINE_CARRIER_RESPONSES)
 
     def fake_query(command: str) -> str:
         if command == ":SYST:ERR?":
             return error_response
+        if command.endswith(":STAT?"):
+            return "0"
         return responses.pop(0)
 
     keysight_visa.query.side_effect = fake_query
@@ -545,7 +547,6 @@ def test_33_modulation_enable_true_enables_the_last_set_modulation_type(
     _mock_carrier_query(keysight_visa)
     keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
     keysight_visa.write.reset_mock()
-    _query_sequence(keysight_visa, ["0"] * 6)  # AM, FM, PM, PWM, FSK, BPSK :STAT? all read off
 
     keysight.modulation_enable(1, True)
 
@@ -581,28 +582,22 @@ def test_35_modulation_enable_writes_off_for_every_modulation_type(
 
 
 def test_36_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    keysight_visa.query.return_value = "0"
-
     with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
         keysight.get_modulation_type(1)
 
-    assert keysight_visa.query.call_args_list == [
-        call("AM:STAT?"),
-        call("FM:STAT?"),
-        call("PM:STAT?"),
-        call("PWM:STAT?"),
-        call("FSK:STAT?"),
-        call("BPSK:STAT?"),
-        call(":SYST:ERR?"),
-    ]
+    keysight_visa.query.assert_not_called()
 
 
-def test_37_get_modulation_type_queries_hardware_for_the_enabled_type(
+def test_37_get_modulation_type_returns_the_last_configured_type_without_querying_hardware(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
-    keysight_visa.query.side_effect = lambda command: "1" if command == "BPSK:STAT?" else "0"
+    """get_modulation_type is a pure cache read: the 33521B has no unified modulation-type register to poll."""
+    _mock_carrier_query(keysight_visa)
+    keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    keysight_visa.query.reset_mock()
 
     assert keysight.get_modulation_type(1) == ModulationType.PSK
+    keysight_visa.query.assert_not_called()
 
 
 def test_38_get_modulation_state_false_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
@@ -647,26 +642,11 @@ def test_42_set_modulation_validates_carrier_with_a_single_query(
 
     keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
 
-    assert _real_query_calls(keysight_visa) == [call("FUNC?")]
+    real_calls = _real_query_calls(keysight_visa)
+    assert real_calls.count(call("FUNC?")) == 1
 
 
-def test_43_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
-    keysight: Keysight33521B, keysight_visa: MagicMock
-) -> None:
-    """Regression: a real pending SCPI error must surface, not be swallowed by the 'none enabled' message."""
-
-    def fake_query(command: str) -> str:
-        if command == ":SYST:ERR?":
-            return '-113,"Undefined header"'
-        return "0"
-
-    keysight_visa.query.side_effect = fake_query
-
-    with pytest.raises(RuntimeError, match="Undefined header"):
-        keysight.get_modulation_type(1)
-
-
-def test_44_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
+def test_43_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: a real pending SCPI error must surface, not be swallowed by the 'not programmed' message."""
@@ -680,3 +660,27 @@ def test_44_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_o
 
     with pytest.raises(RuntimeError, match="Undefined header"):
         keysight.get_waveform(1)
+
+
+def test_44_set_modulation_disables_the_previous_modulation_type_before_reconfiguring(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """Regression: only one modulation type can be enabled on the 33521B at a time (hardware-confirmed)."""
+    _mock_carrier_query(keysight_visa)
+    keysight.set_modulation(1, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    keysight_visa.write.reset_mock()
+    _mock_carrier_query(keysight_visa)
+
+    keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+
+    assert keysight_visa.write.call_args_list == [
+        call("AM:STAT OFF"),
+        call("FM:STAT OFF"),
+        call("PM:STAT OFF"),
+        call("PWM:STAT OFF"),
+        call("FSK:STAT OFF"),
+        call("BPSK:STAT OFF"),
+        call("BPSK:SOUR INT"),
+        call("BPSK:INT:RATE 100.0"),
+        call("BPSK:PHAS 90.0"),
+    ]

@@ -362,3 +362,42 @@ def test_22_disable_then_reenable_uses_the_cached_type_across_a_type_switch(driv
 
     driver.modulation_enable(CHANNEL, False)
     driver._check_errors()
+
+
+def test_23_only_one_modulation_type_enabled_at_a_time(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_modulation(CHANNEL, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+    assert driver._visa.query("FSK:STAT?").strip() == "1"
+    driver._check_errors()
+
+    driver.set_modulation(CHANNEL, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+
+    assert driver._visa.query("BPSK:STAT?").strip() == "1"
+    assert driver.get_modulation_type(CHANNEL) == ModulationType.PSK
+
+    driver.modulation_enable(CHANNEL, False)
+    driver._check_errors()
+
+
+def test_24_modulation_enable_persists_after_set_modulation(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_modulation(CHANNEL, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+    assert driver.get_modulation_state(CHANNEL) is True
+    assert driver.get_modulation_type(CHANNEL) == ModulationType.FSK
+    driver._check_errors()
+
+    driver.set_modulation(CHANNEL, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    driver._check_errors()
+
+    assert driver.get_modulation_state(CHANNEL) is True
+    assert driver.get_modulation_type(CHANNEL) == ModulationType.PSK
+
+    driver.modulation_enable(CHANNEL, False)
+    driver._check_errors()
+    

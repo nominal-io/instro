@@ -264,7 +264,8 @@ Optional overrides (raise `NotImplementedError` if not supported):
 
 ### Modulation
 
-`set_modulation()` only configures modulation on a specific channel and does not enable modulation. To enable or disable, use `modulation_enable()`. 
+`set_modulation()` only configures modulation on a specific channel and does not enable modulation. 
+To enable or disable modulation, use `modulation_enable()`. Only one modulation type is enabled at a time.
 `get_modulation_type` returns the most previous modulation type set by the user. 
 
 ### Talking to the Instrument
