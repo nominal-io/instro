@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import sys
 import time
+import csv
 from collections.abc import Callable
 
 import pytest
@@ -27,7 +28,7 @@ EXPECTED_CV_VOLTAGE: float | None = None  # V
 VALUE_REL_TOL = 0.05
 
 # For confirming test results visually after each step
-SLEEP_TIME = 0
+SLEEP_TIME = 1
 
 
 def _make_eload() -> InstroELoad:
@@ -198,17 +199,26 @@ def run_all() -> list:
 
         # Set function mode
         def function_mode() -> None:
-            driver.set_function_mode("FIX")
-            time.sleep(SLEEP_TIME)
-            mode = driver._visa.query("FUNCtion:MODE?")
-            assert mode == "FIX", f"expected FUNC:MODE? to return 'FIX', got {mode}"
+            results = []
+            mode_to_expected = {
+                "LIST": "LIST",
+                "WAVe": "WAV",
+                "BATTery": "BATT",
+                "OCP": "OCP",
+                "OPP": "OPP",
+                "FIX": "FIX"
+            }
 
-            driver.set_function_mode("LIST")
-            time.sleep(SLEEP_TIME)
-            mode = driver._visa.query("FUNCtion:MODE?")
-            assert mode == "LIST", f"expected FUNCtion:MODE? to return 'LIST', got {mode}"
+            for mode, expected in mode_to_expected.items():
+                driver.set_function_mode(mode)
+                time.sleep(SLEEP_TIME)
+                actual = driver._visa.query("FUNCtion:MODE?").strip()
+                results.append((mode, expected, actual))
 
-        _run("set_function_mode: LIST + FIXed", function_mode, failures)
+            failures = [(m, e, a) for m, e, a in results if a != e]
+            assert not failures, f"function_mode mismatches: {failures}"
+
+        _run("set_function_mode: LIST + FIXed + BATTery", function_mode, failures)
 
         # Set OCP/OPP params
         def ocp_params() -> None:
@@ -264,7 +274,6 @@ def run_all() -> list:
 
         _run("short_output: toggles short state (cofirm visually)", short_output, failures)
 
-        _skip("battery mode", "need DUT")
     finally:
         try:
             eload.output_enable(False, channel=ch)
