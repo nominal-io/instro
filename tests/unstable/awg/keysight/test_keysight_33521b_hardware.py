@@ -294,7 +294,7 @@ def test_19_check_errors_raises_after_invalid_command(driver: Keysight33521B) ->
     ],
     ids=["am", "pwm", "psk"],
 )
-def test_20_set_modulation_enables_automatically_and_modulation_enable_disables(
+def test_20_set_modulation_enables_does_not_enable(
     driver: Keysight33521B,
     mod_type: ModulationType,
     prefix: str,
@@ -306,23 +306,59 @@ def test_20_set_modulation_enables_automatically_and_modulation_enable_disables(
     driver.set_modulation(CHANNEL, mod_type, shape, magnitude)
     driver._check_errors()
 
-    assert driver._visa.query(f"{prefix}:STAT?").strip() == "1"
+    assert driver._visa.query(f"{prefix}:STAT?").strip() == "0"
     assert driver.get_modulation_type(CHANNEL) == mod_type
-    assert driver.get_modulation_state(CHANNEL) is True
+    assert driver.get_modulation_state(CHANNEL) is False
 
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+
+    assert driver._visa.query(f"{prefix}:STAT?").strip() == "1"
+    assert driver.get_modulation_state(CHANNEL) is True
     driver.modulation_enable(CHANNEL, False)
     driver._check_errors()
 
-    assert driver._visa.query(f"{prefix}:STAT?").strip() == "0"
-    assert driver.get_modulation_state(CHANNEL) is False
 
+def test_21_modulation_enable_true_without_prior_configuration_raises(driver: Keysight33521B) -> None:
+    """Order: modulation_enable(True) before any set_modulation call on a freshly reset instrument.
 
-def test_21_modulation_enable_rejects_enable_true(driver: Keysight33521B) -> None:
-    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
-    driver.set_modulation(CHANNEL, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
-    driver.modulation_enable(CHANNEL, False)
+    *RST clears hardware modulation state but not the driver's software-side cache, so the cache is
+    cleared here directly to simulate a driver that has never had set_modulation called on it -- the
+    `driver` fixture is module-scoped and earlier tests (e.g. test_20) leave it populated.
+    """
+    driver._last_modulation_type = None
 
-    with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
+    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
         driver.modulation_enable(CHANNEL, True)
 
+    driver._check_errors()
+
+
+def test_22_disable_then_reenable_uses_the_cached_type_across_a_type_switch(driver: Keysight33521B) -> None:
+    """Order: set_modulation -> enable -> disable -> get_modulation_type -> set_modulation (new type) -> enable.
+
+    Confirms the cached type survives a disable (so get_modulation_type keeps reporting it instead of
+    raising), and that switching to a different modulation type while the old one is enabled leaves the
+    instrument with only the newly enabled type active on hardware.
+    """
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_modulation(CHANNEL, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+    assert driver._visa.query("FSK:STAT?").strip() == "1"
+
+    driver.modulation_enable(CHANNEL, False)
+    driver._check_errors()
+    assert driver._visa.query("FSK:STAT?").strip() == "0"
+    assert driver.get_modulation_type(CHANNEL) == ModulationType.FSK
+
+    driver.set_modulation(CHANNEL, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    driver.modulation_enable(CHANNEL, True)
+    driver._check_errors()
+
+    assert driver._visa.query("FSK:STAT?").strip() == "0"
+    assert driver._visa.query("BPSK:STAT?").strip() == "1"
+    assert driver.get_modulation_type(CHANNEL) == ModulationType.PSK
+
+    driver.modulation_enable(CHANNEL, False)
     driver._check_errors()

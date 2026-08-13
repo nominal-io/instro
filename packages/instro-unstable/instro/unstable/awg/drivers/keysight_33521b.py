@@ -62,6 +62,10 @@ class Keysight33521B(AWGDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self._arb_waveforms: dict[int, Arbitrary] = {}
+        # The instrument has no query to read back which modulation type is configured
+        # (only per-type :STAT?), so we cache the last type set by the user, same
+        # rationale as _arb_waveforms above.
+        self._last_modulation_type: ModulationType | None = None
 
     def open(self) -> None:
         self._visa.open()
@@ -246,23 +250,27 @@ class Keysight33521B(AWGDriverBase):
                 self._visa.write(f"{prefix}:PHAS {magnitude}")
             else:
                 raise AssertionError(f"unhandled ModulationType {mod_type}")
-            self._visa.write(f"{prefix}:STAT ON")
             self._check_errors()
+            self._last_modulation_type = mod_type
 
     def modulation_enable(self, channel: int, enable: bool) -> None:
-        """Disables modulation."""
+        """Enables the most recently configured modulation type, or disables modulation."""
         _check_channel(channel)
-        if enable:
-            raise ValueError(
-                "the Keysight 33521B enables modulation as part of set_modulation;"
-                " modulation_enable only supports disabling (enable=False)"
-            )
         with self._visa.lock():
-            for prefix in _MOD_SCPI_PREFIX.values():
-                self._visa.write(f"{prefix}:STAT OFF")
+            if enable:
+                mod_type = self.get_modulation_type(channel)
+                prefix = _MOD_SCPI_PREFIX[mod_type]
+                self._visa.write(f"{prefix}:STAT ON")
+            else:
+                for prefix in _MOD_SCPI_PREFIX.values():
+                    self._visa.write(f"{prefix}:STAT OFF")
             self._check_errors()
 
     def get_modulation_type(self, channel: int) -> ModulationType:
+        """Returns modulation type currently enabled, or the last type set by the user when none is enabled.
+
+        Resyncs the cached type from hardware if an enabled :STAT register disagrees with it.
+        """
         _check_channel(channel)
         with self._visa.lock():
             active = next(
@@ -274,9 +282,13 @@ class Keysight33521B(AWGDriverBase):
                 None,
             )
             self._check_errors()
-            if active is None:
+            if active is not None and active != self._last_modulation_type:
+                # prioritize hardware state
+                self._last_modulation_type = active
+            resolved = self._last_modulation_type
+            if resolved is None:
                 raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
-        return active
+        return resolved
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)

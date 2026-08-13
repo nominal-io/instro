@@ -424,7 +424,6 @@ def _mock_carrier_query(
                 call("AM:INT:FUNC SIN"),
                 call("AM:INT:FREQ 100.0"),
                 call("AM:DEPT 50.0"),
-                call("AM:STAT ON"),
             ],
         ),
         (
@@ -437,7 +436,6 @@ def _mock_carrier_query(
                 call("FM:INT:FUNC SQU"),
                 call("FM:INT:FREQ 100.0"),
                 call("FM:DEV 500.0"),
-                call("FM:STAT ON"),
             ],
         ),
         (
@@ -450,7 +448,6 @@ def _mock_carrier_query(
                 call("PM:INT:FUNC TRI"),
                 call("PM:INT:FREQ 100.0"),
                 call("PM:DEV 45.0"),
-                call("PM:STAT ON"),
             ],
         ),
         (
@@ -463,7 +460,6 @@ def _mock_carrier_query(
                 call("PWM:INT:FUNC SQU"),
                 call("PWM:INT:FREQ 100.0"),
                 call("PWM:DEV 5e-05"),
-                call("PWM:STAT ON"),
             ],
         ),
         (
@@ -475,7 +471,6 @@ def _mock_carrier_query(
                 call("FSK:SOUR INT"),
                 call("FSK:INT:RATE 100.0"),
                 call("FSK:FREQ 2000.0"),
-                call("FSK:STAT ON"),
             ],
         ),
         (
@@ -487,7 +482,6 @@ def _mock_carrier_query(
                 call("BPSK:SOUR INT"),
                 call("BPSK:INT:RATE 100.0"),
                 call("BPSK:PHAS 90.0"),
-                call("BPSK:STAT ON"),
             ],
         ),
     ],
@@ -544,14 +538,32 @@ def test_32_set_modulation_rejects_incompatible_carrier(
     keysight_visa.write.assert_not_called()
 
 
-def test_33_modulation_enable_rejects_enable_true(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    with pytest.raises(ValueError, match="modulation_enable only supports disabling"):
+def test_33_modulation_enable_true_enables_the_last_set_modulation_type(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """Regression: PSK's SCPI prefix is BPSK, not ModulationType.PSK.value ("PSK")."""
+    _mock_carrier_query(keysight_visa)
+    keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+    keysight_visa.write.reset_mock()
+    _query_sequence(keysight_visa, ["0"] * 6)  # AM, FM, PM, PWM, FSK, BPSK :STAT? all read off
+
+    keysight.modulation_enable(1, True)
+
+    assert keysight_visa.write.call_args_list == [call("BPSK:STAT ON")]
+
+
+def test_34_modulation_enable_true_raises_when_no_modulation_configured(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    keysight_visa.query.return_value = "0"
+
+    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
         keysight.modulation_enable(1, True)
 
     keysight_visa.write.assert_not_called()
 
 
-def test_34_modulation_enable_writes_off_for_every_modulation_type(
+def test_35_modulation_enable_writes_off_for_every_modulation_type(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     keysight_visa.query.return_value = '0,"No error"'
@@ -568,7 +580,7 @@ def test_34_modulation_enable_writes_off_for_every_modulation_type(
     ]
 
 
-def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+def test_36_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "0"
 
     with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
@@ -585,7 +597,7 @@ def test_35_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521
     ]
 
 
-def test_36_get_modulation_type_queries_hardware_for_the_enabled_type(
+def test_37_get_modulation_type_queries_hardware_for_the_enabled_type(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     keysight_visa.query.side_effect = lambda command: "1" if command == "BPSK:STAT?" else "0"
@@ -593,20 +605,20 @@ def test_36_get_modulation_type_queries_hardware_for_the_enabled_type(
     assert keysight.get_modulation_type(1) == ModulationType.PSK
 
 
-def test_37_get_modulation_state_false_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+def test_38_get_modulation_state_false_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     keysight_visa.query.return_value = "0"
 
     assert keysight.get_modulation_state(1) is False
 
 
-def test_38_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+def test_39_get_modulation_state_true_when_any_type_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
     _query_sequence(keysight_visa, ["1"])
 
     assert keysight.get_modulation_state(1) is True
     assert _real_query_calls(keysight_visa) == [call("AM:STAT?")]
 
 
-def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
+def test_40_get_waveform_clamps_negative_phase_noise_to_zero_delay(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     _query_sequence(keysight_visa, ["PULS", "1.000000E+03", "-1.000000E-09", "2.000000E-04"])
@@ -616,7 +628,7 @@ def test_39_get_waveform_clamps_negative_phase_noise_to_zero_delay(
     assert waveform == Pulse(frequency_hz=1000.0, width_s=0.0002, delay_s=0.0)
 
 
-def test_40_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driver(
+def test_41_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driver(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid AM carrier."""
@@ -624,10 +636,10 @@ def test_40_set_modulation_accepts_arbitrary_carrier_not_programmed_by_this_driv
 
     keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
 
-    assert call("AM:STAT ON") in keysight_visa.write.call_args_list
+    assert call("AM:DEPT 50.0") in keysight_visa.write.call_args_list
 
 
-def test_41_set_modulation_validates_carrier_with_a_single_query(
+def test_42_set_modulation_validates_carrier_with_a_single_query(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Carrier validation costs one FUNC? query, not a full get_waveform() round trip."""
@@ -638,7 +650,7 @@ def test_41_set_modulation_validates_carrier_with_a_single_query(
     assert _real_query_calls(keysight_visa) == [call("FUNC?")]
 
 
-def test_42_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
+def test_43_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: a real pending SCPI error must surface, not be swallowed by the 'none enabled' message."""
@@ -654,7 +666,7 @@ def test_42_get_modulation_type_surfaces_pending_error_instead_of_masking_it(
         keysight.get_modulation_type(1)
 
 
-def test_43_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
+def test_44_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_of_masking_it(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """Regression: a real pending SCPI error must surface, not be swallowed by the 'not programmed' message."""
