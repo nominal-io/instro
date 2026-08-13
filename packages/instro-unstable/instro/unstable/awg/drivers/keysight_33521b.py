@@ -62,9 +62,6 @@ class Keysight33521B(AWGDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
         self._arb_waveforms: dict[int, Arbitrary] = {}
-        # The instrument has no query to read back which modulation type is configured
-        # (only per-type :STAT?), so we cache the last type set by the user, same
-        # rationale as _arb_waveforms above.
         self._last_modulation_type: ModulationType | None = None
 
     def open(self) -> None:
