@@ -11,9 +11,7 @@ FIRSTPORTB (input) with a 2-line loopback. The USB-1616HS-4 does not support
 per-line digital configuration (d_config_bit), so all digital tests use the
 port-width API (write_digital_port / read_digital_port).
 
-============================================================================
 USB-1616HS-4 LOOPBACK WIRING
-============================================================================
 
   Device specs:
     - 16 SE / 8 DIFF analog input channels, 16-bit, up to 1 MS/s
@@ -36,9 +34,7 @@ USB-1616HS-4 LOOPBACK WIRING
     DO port "FIRSTPORTA" — alias "do_port_a", 8-bit, Logic.HIGH
     DI port "FIRSTPORTB" — alias "di_port_b", 8-bit, Logic.HIGH
 
-============================================================================
 NOMINAL CORE CONFIGURATION
-============================================================================
 
   Before running, hand-edit the configuration constants below:
 
@@ -54,14 +50,13 @@ NOMINAL CORE CONFIGURATION
   creates an event on that asset with the test name, status (SUCCESS/ERROR),
   and duration. Data is streamed to the dataset via NominalCorePublisher.
 
-============================================================================
 RUNNING
-============================================================================
 
     pytest -m hardware -v -s
 
 """
 
+import dataclasses
 import math
 import time
 import unittest
@@ -80,7 +75,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "<MCC SERIAL NUMBER>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "344371"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
 DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
 
@@ -374,7 +369,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 errs: list = []
                 for _ in range(3):
                     # No AO driven here, so the loopback wire value is undefined — assert structure only.
-                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": None, "ai_1": None}, errs)
+                    self._check_ai(daq.read_batch(["ai_0", "ai_1"]), {"ai_0": None, "ai_1": None}, errs)
                     time.sleep(0.25)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
@@ -399,7 +394,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 self._configure_ao(daq)
 
                 for v in [0.0, 1.0, 2.5, 5.0, -5.0, 0.0]:
-                    daq.write(["ao_0", "ao_1"], [v, -v])
+                    daq.write_batch(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.1)
             finally:
                 daq.close()
@@ -426,14 +421,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
                 errs: list = []
                 for v in test_voltages:
-                    daq.write(["ao_0", "ao_1"], [v, -v])
+                    daq.write_batch(["ao_0", "ao_1"], [v, -v])
                     time.sleep(0.2)  # allow signal to settle
 
                     # ao_0 -> ai_0 carries +v, ao_1 -> ai_1 carries -v via loopback wiring.
-                    self._check_ai(daq.read(["ai_0", "ai_1"]), {"ai_0": v, "ai_1": -v}, errs)
+                    self._check_ai(daq.read_batch(["ai_0", "ai_1"]), {"ai_0": v, "ai_1": -v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
-                daq.write(["ao_0", "ao_1"], [0.0, 0.0])
+                daq.write_batch(["ao_0", "ao_1"], [0.0, 0.0])
                 daq.close()
 
         self._run_step(
@@ -469,7 +464,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 time.sleep(0.2)
 
                 errs: list = []
-                self._check_ai(daq.read("ai_0_narrow"), {"ai_0_narrow": 0.5}, errs)
+                self._check_ai(daq.read_batch(["ai_0_narrow"]), {"ai_0_narrow": 0.5}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 daq.write("ao_0", 0.0)
@@ -502,7 +497,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     time.sleep(0.2)
 
                     # Only ao_0 is driven here; ao_1/ai_1 is left undriven, so check ai_0 only.
-                    self._check_ai(daq.read("ai_0"), {"ai_0": v}, errs)
+                    self._check_ai(daq.read_batch(["ai_0"]), {"ai_0": v}, errs)
                 self.assertFalse(errs, "; ".join(errs))
             finally:
                 # Reset output to 0V
@@ -535,7 +530,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start()
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
+                    daq.write_batch(["ao_0", "ao_1"], [3.0, -3.0])
                     time.sleep(1.0)  # let background daemon collect samples
 
                     ch0 = daq.get_channel("mccdaq_test.ai_0", 10, True)
@@ -580,10 +575,10 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start(background=False)
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [4.0, -4.0])
+                    daq.write_batch(["ao_0", "ao_1"], [4.0, -4.0])
                     time.sleep(0.2)
 
-                    reads = daq.read(["ai_0", "ai_1"])
+                    reads = daq.read_batch(["ai_0", "ai_1"])
                     self.assertEqual(set(reads), {"ai_0", "ai_1"})
                 finally:
                     daq.stop()
@@ -613,7 +608,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 daq.start()
 
                 try:
-                    daq.write(["ao_0", "ao_1"], [3.0, -3.0])
+                    daq.write_batch(["ao_0", "ao_1"], [3.0, -3.0])
                     time.sleep(1.0)  # let background daemon collect samples
 
                     ch0 = daq.get_channel("mccdaq_test.ai_0", 9, True)
@@ -661,7 +656,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     ramp_voltages = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 
                     for v in ramp_voltages:
-                        daq.write(["ao_0", "ao_1"], [v, 5.0 - v])
+                        daq.write_batch(["ao_0", "ao_1"], [v, 5.0 - v])
                         time.sleep(0.5)
 
                     # Read data while still running — before stop() closes the buffer
@@ -808,7 +803,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write("do_port_a", pattern)
                     time.sleep(0.05)  # allow signal to settle
 
-                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
+                    read_value = int(daq.read("di_port_b").latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
 
                     self.assertEqual(
@@ -848,7 +843,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                     daq.write("do_port_a", pattern)
                     time.sleep(0.05)
 
-                    read_value = int(daq.read("di_port_b")["di_port_b"].latest)
+                    read_value = int(daq.read("di_port_b").latest)
                     loopback_bits = read_value & DIGITAL_LOOPBACK_MASK
                     expected_bits = pattern & DIGITAL_LOOPBACK_MASK
 
@@ -902,45 +897,6 @@ class TestMCCDAQHardware(unittest.TestCase):
             "Buffer-depth telemetry",
             "Start HW-timed acquisition and verify get_points_in_buffer() reports a non-negative "
             "finite depth. Exercises the fetch-path sample counter (INSTRO-384).",
-            step,
-        )
-
-    # =====================================================================
-    # 16. read() raises while background daemon is running
-    # =====================================================================
-    def test_16_read_raises_while_daemon_running(self):
-        """read() must raise RuntimeError while the background daemon owns the buffer (INSTRO-149)."""
-
-        def step():
-            daq = self._create_daq()
-            try:
-                self._configure_ai(daq)
-                daq.configure_ai_hw_sample_rate(
-                    sample_rate=SAMPLE_RATE_HZ,
-                    samples_per_channel=SAMPLES_PER_CHANNEL,
-                )
-                daq.start(background=True)
-                try:
-                    time.sleep(0.2)  # confirm the daemon is alive before testing the guard
-                    self.assertTrue(
-                        daq._background_thread and daq._background_thread.is_alive(),
-                        "Background daemon is not alive after start() — cannot test the RuntimeError guard",
-                    )
-                    with self.assertRaises(
-                        RuntimeError,
-                        msg="read() should raise RuntimeError while the background daemon is running",
-                    ):
-                        daq.read()
-                    print("         RuntimeError raised correctly — daemon owns the buffer")
-                finally:
-                    daq.stop()
-            finally:
-                daq.close()
-
-        self._run_step(
-            "read() raises while daemon running",
-            "Verify read() raises RuntimeError when the background daemon is active. "
-            "Guards against buffer race conditions (INSTRO-149).",
             step,
         )
 
@@ -1000,9 +956,185 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 19. Per-line digital config unsupported on USB-1616HS-4
+    # 19. Unified write — single, batch, invalid-alias batch
     # =====================================================================
-    def test_19_digital_line_config_unsupported(self):
+    def test_19_write(self):
+        """Exercise write() single-channel, write_batch() multi-channel, and write_batch() with an unknown alias."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_digital_ports(daq)
+
+                # Normal commanding of a single channel.
+                cmd = daq.write("ao_0", 1.0)
+                self.assertIsNotNone(cmd)
+                print("         single write: ao_0 <- 1.0 V")
+
+                # Normal commanding of multiple channels to multiple values.
+                commands = daq.write_batch(["ao_0", "ao_1", "do_port_a"], [1.5, -1.5, 0x03])
+                self.assertEqual(len(commands), 3)
+                print("         batch write: 3 channels -> 3 commands")
+
+                # Edge case: batch containing an unconfigured alias raises KeyError, nothing written.
+                with self.assertRaises(KeyError) as ctx:
+                    daq.write_batch(["ao_0", "not_a_channel"], [0.0, 0.0])
+                self.assertIn("not_a_channel", str(ctx.exception))
+                print(f"         invalid batch: {ctx.exception}")
+
+                # Edge case: AO value outside the configured range raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch(["ao_0"], [15.0])
+
+                # Edge case: non-finite analog value raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch(["ao_0"], [math.nan])
+
+                # Edge case: non-integer digital port value raises ValueError, nothing written.
+                with self.assertRaises(ValueError):
+                    daq.write_batch(["do_port_a"], [1.5])
+                print("         ValueError raised for out-of-range, non-finite, and non-integer values")
+
+                daq.write_batch(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Unified write",
+            "Write one channel with write(), several channels with write_batch(), and verify unknown aliases, "
+            "out-of-range AO values, and invalid analog/digital values each raise with nothing written.",
+            step,
+        )
+
+    # =====================================================================
+    # 20. Unified read — single, batch, invalid aliases
+    # =====================================================================
+    def test_20_read(self):
+        """Exercise read() single-channel, read_batch() multi-channel, and both invalid-alias paths."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                self._configure_digital_ports(daq)
+
+                # Reading of a single channel.
+                measurement = daq.read("ai_0")
+                self.assertTrue(math.isfinite(measurement.latest))
+                print(f"         single read: ai_0 = {measurement.latest:.4f} V")
+
+                # Reading of multiple channels.
+                aliases = ["ai_0", "ai_1", "di_port_b"]
+                reads = daq.read_batch(aliases)
+                self.assertEqual(list(reads), aliases)
+                self.assertTrue(all(math.isfinite(reads[a].latest) for a in aliases))
+                print("         batch read: " + ", ".join(f"{a}={reads[a].latest:.4f}" for a in aliases))
+
+                # Edge case: unknown alias raises KeyError for both single and batch reads.
+                with self.assertRaises(KeyError) as single_ctx:
+                    daq.read("not_a_channel")
+                self.assertIn("not_a_channel", str(single_ctx.exception))
+                with self.assertRaises(KeyError) as batch_ctx:
+                    daq.read_batch(["ai_0", "not_a_channel"])
+                self.assertIn("not_a_channel", str(batch_ctx.exception))
+                print("         KeyError raised for invalid single and batch reads")
+
+                # Edge case: reads while the background daemon is streaming serve analog from its buffer.
+                daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+                daq.start()
+                try:
+                    # read()'s buffered path blocks until the daemon's first sample arrives.
+                    streaming = daq.read("ai_0")
+                    self.assertTrue(math.isfinite(streaming.latest))
+                    streaming_batch = daq.read_batch(aliases)
+                    self.assertTrue(all(math.isfinite(streaming_batch[a].latest) for a in aliases))
+                    print(f"         streaming read: ai_0 = {streaming.latest:.4f} V (daemon running)")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Unified read",
+            "Read one channel with read(), several channels with read_batch(), verify unknown aliases raise "
+            "KeyError, and confirm reads serve from the daemon buffer while background streaming runs.",
+            step,
+        )
+
+    # =====================================================================
+    # 21. write_batch failure handling — continue_on_failed_write
+    # =====================================================================
+    def test_21_write_batch_continue_on_failed_write(self):
+        """Verify write_batch stops on a failed write by default and skips it with continue_on_failed_write=True."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_digital_ports(daq)
+                # Drive the DO port low first so the stopped-batch check starts from a known state.
+                daq.write("do_port_a", 0x00)
+
+                # Point ao_1 at an invalid physical channel so its write raises a real error mid-batch.
+                broken = dataclasses.replace(daq._driver._ao_channels["ao_1"], physical_channel="NOT_A_CHANNEL")
+                daq._driver._ao_channels["ao_1"] = broken
+                batch_channels = ["ao_0", "ao_1", "do_port_a"]
+
+                with self.assertRaises(RuntimeError) as ctx:
+                    daq.write_batch(batch_channels, [1.0, 1.0, 0x03])
+                self.assertIn("ao_1", str(ctx.exception))
+                print(f"         default: {ctx.exception}")
+                if LOOPBACK_WIRED:
+                    time.sleep(0.05)
+                    masked = int(daq.read("di_port_b").latest) & DIGITAL_LOOPBACK_MASK
+                    self.assertEqual(masked, 0x00, "batch continued past the failed write")
+
+                commands = daq.write_batch(batch_channels, [1.0, 1.0, 0x03], continue_on_failed_write=True)
+                self.assertEqual(len(commands), 2, f"expected 2 successful commands, got {len(commands)}")
+                print(f"         continue_on_failed_write=True: {len(commands)}/{len(batch_channels)} succeeded")
+                if LOOPBACK_WIRED:
+                    time.sleep(0.05)
+                    masked = int(daq.read("di_port_b").latest) & DIGITAL_LOOPBACK_MASK
+                    self.assertEqual(masked, 0x03, "write after the failed channel was skipped")
+
+                daq.write_batch(["ao_0", "do_port_a"], [0.0, 0x00])
+            finally:
+                daq.close()
+
+        self._run_step(
+            "write_batch failure handling",
+            "Break one AO channel mid-batch. Verify write_batch raises and stops at the failed channel by "
+            "default, and skips it and continues with continue_on_failed_write=True.",
+            step,
+        )
+
+    # =====================================================================
+    # 22. Clean shutdown — outputs to safe state
+    # =====================================================================
+    def test_22_clean_shutdown(self):
+        """Set all outputs to safe state as the final step."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ao(daq)
+                self._configure_digital_ports(daq)
+
+                daq.write_batch(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Clean shutdown — safe state",
+            "Set all analog outputs to 0V and digital output port to 0x00 as a final safety step.",
+            step,
+        )
+
+    # =====================================================================
+    # 23. Per-line digital config unsupported on USB-1616HS-4
+    # =====================================================================
+    def test_23_digital_line_config_unsupported(self):
         """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
@@ -1033,9 +1165,9 @@ class TestMCCDAQHardware(unittest.TestCase):
         )
 
     # =====================================================================
-    # 20. Relay control unsupported
+    # 24. Relay control unsupported
     # =====================================================================
-    def test_20_relay_control_unsupported(self):
+    def test_24_relay_control_unsupported(self):
         """close_relay() must raise NotImplementedError — the MCC driver has no relay support."""
 
         def step():
@@ -1052,28 +1184,6 @@ class TestMCCDAQHardware(unittest.TestCase):
         self._run_step(
             "Relay control unsupported",
             "Assert close_relay() raises NotImplementedError on the MCC driver, which implements no relay control.",
-            step,
-        )
-
-    # =====================================================================
-    # 21. Clean shutdown — outputs to safe state (runs last)
-    # =====================================================================
-    def test_21_clean_shutdown(self):
-        """Set all outputs to safe state as the final step."""
-
-        def step():
-            daq = self._create_daq()
-            try:
-                self._configure_ao(daq)
-                self._configure_digital_ports(daq)
-
-                daq.write(["ao_0", "ao_1", "do_port_a"], [0.0, 0.0, 0x00])
-            finally:
-                daq.close()
-
-        self._run_step(
-            "Clean shutdown — safe state",
-            "Set all analog outputs to 0V and digital output port to 0x00 as a final safety step.",
             step,
         )
 

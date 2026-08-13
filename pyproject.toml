@@ -1,6 +1,6 @@
 [project]
 name = "instro"
-version = "1.8.0"
+version = "1.10.0"
 description = "Typed Python API for test-and-measurement instruments: power supplies, multimeters, electronic loads, DAQs, and more"
 readme = "README.md"
 license = "Apache-2.0"
@@ -81,6 +81,9 @@ test = [
 ]
 
 [tool.uv]
+# Single source of truth for the uv version: `setup-uv` in .github/workflows/ reads this
+# instead of pinning a version per workflow, so CI and local dev cannot drift apart.
+required-version = ">=0.12"
 default-groups = ["dev", "test"]
 
 [tool.uv.sources]

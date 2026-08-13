@@ -104,14 +104,14 @@ def _drive_waveform(rigol: RigolDG1022Z, waveform: Waveform, amplitude_vpp: floa
     rigol.set_waveform(AWG_CHANNEL, waveform)
     if not isinstance(waveform, StaticValue):
         rigol.set_amplitude(AWG_CHANNEL, amplitude_vpp, AmplitudeMeasurementUnit.VPP)
-    rigol.check_errors()
+    rigol._check_errors()
 
 
 def _enable_and_settle(
     rigol: RigolDG1022Z, scope: InstroScope, vertical_scale: float, horizontal_scale: float, trigger_level: float
 ) -> None:
     rigol.output_enable(AWG_CHANNEL, True)
-    rigol.check_errors()
+    rigol._check_errors()
     scope.set_vertical_scale(vertical_scale, channel=SCOPE_CHANNEL)
     scope.set_horizontal_scale(horizontal_scale)
     scope.set_trigger_level(trigger_level)
@@ -155,7 +155,7 @@ def reset_rigol_before_each_test(rigol: RigolDG1022Z) -> None:
     rigol._visa.write("*RST")
     time.sleep(0.5)
     rigol._visa.write("*CLS")
-    rigol.check_errors()
+    rigol._check_errors()
     # Direct BNC into the scope's high-Z input, with no external 50 ohm terminator: without this
     # the Rigol assumes a 50 ohm load and the scope reads ~2x the programmed Vpp (open-circuit
     # doubling from the AWG's internal 50 ohm source impedance).
@@ -208,7 +208,7 @@ def scope() -> Iterator[InstroScope]:
 
 def test_01_connects_to_both_instruments(rigol: RigolDG1022Z, scope: InstroScope) -> None:
     """Confirm both VISA sessions are open and responding, before checking what they identify as."""
-    rigol.check_errors()
+    rigol._check_errors()
     scope.get_horizontal_scale()
 
 
@@ -219,7 +219,7 @@ def test_02_identifies_both_instruments(rigol: RigolDG1022Z, scope: InstroScope)
 
     assert "DG1" in awg_idn.upper()
     assert "TEK" in scope_idn.upper()
-    rigol.check_errors()
+    rigol._check_errors()
 
 
 @pytest.mark.parametrize(
@@ -321,7 +321,7 @@ def test_08_all_modulation_types_signal_present(
     _drive_waveform(rigol, Square(frequency_hz=TEST_FREQUENCY_HZ))
     rigol.set_modulation(AWG_CHANNEL, mod_type, shape, 50.0)
     rigol.modulation_enable(AWG_CHANNEL, True)
-    rigol.check_errors()
+    rigol._check_errors()
     try:
         _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
         measured_vpp = _measure(scope, ScopeMeasurementType.VPP)

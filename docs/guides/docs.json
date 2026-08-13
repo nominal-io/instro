@@ -90,6 +90,8 @@
           {
             "group": "Transports",
             "icon": "plug",
+            "root": "instrumentation/transports/overview",
+            "expanded": true,
             "pages": [
               "instrumentation/transports/visa",
               "instrumentation/transports/modbus"
@@ -128,13 +130,15 @@
               "instrumentation/examples/daq/daq_write_digital_port",
               "instrumentation/examples/daq/daq_multi_rate_ni",
               "instrumentation/examples/daq/daq_hw_and_sw_timed_ni",
-              "instrumentation/examples/daq/daq_read_analog_sw_timed_no_background"
+              "instrumentation/examples/daq/daq_read_analog_sw_timed_no_background",
+              "instrumentation/examples/daq/daq_write_batch_continuous_ni"
             ]
           },
           {
             "group": "DMM",
             "pages": [
-              "instrumentation/examples/dmm/dmm_basic"
+              "instrumentation/examples/dmm/dmm_basic",
+              "instrumentation/examples/dmm/dmm_config"
             ]
           },
           {

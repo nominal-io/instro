@@ -1,0 +1,31 @@
+{
+    "version": 1,
+    "instrument": "InstroDMM",
+    "device": {
+        "name": "bench_dmm",
+        "description": "Bench multimeter",
+        "manufacturer": "Keysight",
+        "model": "34461A"
+    },
+    "driver": {
+        "name": "Keysight34461A",
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "USB0::0x2A8D::0x1301::MY12345678::INSTR"
+        }
+    },
+    "measurement": {
+        "function": "DC_VOLTAGE",
+        "aperture_nplc": 10,
+        "range": 10.0
+    },
+    "timing": {
+        "poll_interval": 1.0
+    },
+    "publishers": [
+        {
+            "type": "NominalCorePublisher",
+            "dataset_rid": "<dataset_rid>"
+        }
+    ]
+}

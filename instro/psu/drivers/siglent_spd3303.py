@@ -33,6 +33,14 @@ class SiglentSPD3303(PSUDriverBase):
         _require_programmable_channel("get_current", channel)
         return self._query_checked_float(f"MEAS:CURR? CH{channel}")
 
+    def get_voltage_setpoint(self, channel: int) -> float:
+        _require_programmable_channel("get_voltage_setpoint", channel)
+        return self._query_checked_float(f"CH{channel}:VOLT?")
+
+    def get_current_setpoint(self, channel: int) -> float:
+        _require_programmable_channel("get_current_setpoint", channel)
+        return self._query_checked_float(f"CH{channel}:CURR?")
+
     def output_enable(self, enable: bool, channel: int) -> None:
         _require_programmable_channel("output_enable", channel)
         cmd = f"OUTP CH{channel},ON" if enable else f"OUTP CH{channel},OFF"

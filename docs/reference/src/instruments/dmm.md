@@ -10,6 +10,8 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ::: instro.dmm.types
 
+::: instro.dmm.config
+
 ## Driver Interface
 
 ::: instro.dmm.DMMDriverBase

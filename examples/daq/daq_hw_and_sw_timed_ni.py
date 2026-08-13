@@ -63,8 +63,8 @@ with daq_hw, daq_sw:
     while True:
         try:
             # Both instances buffer into their own channel buffer; read either one.
-            print(f"hw_channel0 latest: {daq_hw.get_channel('hw_channel0').latest}")
-            print(f"sw_channel0 latest: {daq_sw.get_channel('sw_channel0').latest}")
+            print(f"hw_channel0 latest: {daq_hw.read('hw_channel0').latest}")
+            print(f"sw_channel0 latest: {daq_sw.read('sw_channel0').latest}")
             print(f"sw loop period (s): {daq_sw.get_channel('loop_time').latest}")
             time.sleep(1)
         except KeyboardInterrupt:

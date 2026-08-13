@@ -2,6 +2,7 @@
 
 import abc
 import logging
+import math
 import time
 import warnings
 from enum import Enum
@@ -12,6 +13,7 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
@@ -19,6 +21,7 @@ from instro.daq.types import (
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
+    DigitalPortChannel,
     DigitalPortWidth,
     Direction,
     HWTimingConfig,
@@ -97,8 +100,8 @@ class DAQDriverBase(abc.ABC):
 
     _buffer_depths: dict[str, int]
 
-    _ai_channels: dict[str, AnalogChannel]
-    _ao_channels: dict[str, AnalogChannel]
+    _ai_channels: dict[str, AnalogChannelUnion]
+    _ao_channels: dict[str, AnalogChannelUnion]
     _di_channels: dict[str, DigitalChannel]
     _do_channels: dict[str, DigitalChannel]
     _relay_channels: dict[str, RelayChannel]
@@ -133,12 +136,12 @@ class DAQDriverBase(abc.ABC):
         )
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return MappingProxyType(dict(self._ai_channels))
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return MappingProxyType(dict(self._ao_channels))
 
@@ -392,7 +395,7 @@ class DAQDriverBase(abc.ABC):
         """
         return None
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         """Write ``value`` to AO ``channel``. Override if the driver supports analog output."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
 
@@ -533,12 +536,12 @@ class InstroDAQ(Instrument):
         return self._driver.channels
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return self._driver.ai_channels
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return self._driver.ao_channels
 
@@ -801,6 +804,7 @@ class InstroDAQ(Instrument):
         physical_channel: str,
         tc_type: str | TC_TYPE,
         *,
+        unit: str | TC_UNIT,
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
@@ -808,21 +812,22 @@ class InstroDAQ(Instrument):
         cjc_source: str | CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
-        unit: str | TC_UNIT = TC_UNIT.CELSIUS,
+        tc_input_scaler: Scaler | None = None,
     ):
         """Configure a thermocouple input channel.
 
         Args:
             physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
+            unit: Temperature unit for ``range_min``/``range_max``, ``cjc_temp``, and returned readings.
             alias: Friendly name; defaults to ``physical_channel``.
             range_min: Lower temperature range (in ``unit``).
             range_max: Upper temperature range (in ``unit``).
             scaler: Optional ``Scaler`` applied to AI samples after read.
-            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
-            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
+            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``, expressed in ``unit``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
-            unit: Temperature unit for returned readings.
+            tc_input_scaler: Volts-domain scaler applied before temperature conversion if amplifier was used (LabJack only).
         """
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
@@ -844,6 +849,7 @@ class InstroDAQ(Instrument):
             cjc_temp=cjc_temp,
             cjc_channel=cjc_channel,
             unit=unit,
+            tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)
         logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)
@@ -1202,80 +1208,151 @@ class InstroDAQ(Instrument):
                     measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
         return measurements
 
-    def read(
+    def read(self, channel: str, **kwargs) -> Measurement:
+        """Read one AI/DI channel by alias; returns its Measurement."""
+        if channel is None:
+            raise ValueError("read() requires a channel alias; use read_batch() to read all configured inputs.")
+        return self.read_batch([channel], **kwargs)[channel]
+
+    def read_batch(
         self,
-        channels: str | list[str] | None = None,
+        channels: list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channel(s) by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog``, digital via ``read_digital``."""
+        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` and digital per line/port, or the daemon buffer while it runs."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
+        daemon_running = bool(self._background_thread and self._background_thread.is_alive())
+
         if channels is None:
             aliases = [*ai, *di]
+        elif unknown := [a for a in channels if a not in ai and a not in di]:
+            raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
         else:
-            aliases = [channels] if isinstance(channels, str) else list(channels)
-            # Validate up front so a bad alias can't leave earlier channels already read from hardware.
-            if unknown := [a for a in aliases if a not in ai and a not in di]:
-                raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
+            aliases = list(channels)
 
-        # One batched read per domain, then map each published channel key to the Measurement it came back in.
-        sources: dict[str, Measurement] = {}
-        # Analog read
-        if any(alias in ai for alias in aliases):
-            analog = self.read_analog(**kwargs)
-            for measurement in analog if isinstance(analog, list) else [analog]:
-                sources.update(dict.fromkeys(measurement.channel_data, measurement))
+        analog_aliases = [alias for alias in aliases if alias in ai]
+        digital_aliases = [alias for alias in aliases if alias in di]
 
-        # Digital read
-        if any(alias in di for alias in aliases):
-            digital = self.read_digital(**kwargs)
-            for measurement in digital if isinstance(digital, list) else [digital]:
-                sources.update(dict.fromkeys(measurement.channel_data, measurement))
+        # Analog pass
+        analog: dict[str, Measurement] = {}
+        if analog_aliases and not daemon_running:
+            batch = self.read_analog(**kwargs)
+            by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
+            for alias in analog_aliases:
+                key = f"{self.name}.{alias}"
+                source = by_key.get(key)
+                if source is None:
+                    raise KeyError(
+                        f"read_analog() returned no data for analog channel '{alias}' (key '{key}'). "
+                        f"Channels returned: {sorted(by_key)}."
+                    )
+                analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
+        elif analog_aliases:
+            # Just use the get_channel defaults here. Directly call get_channel for more customization
+            analog = {alias: self.get_channel(alias) for alias in analog_aliases}
 
-        # Package reads into measurements
-        result: dict[str, Measurement] = {}
-        for alias in aliases:
-            key = f"{self.name}.{alias}"
-            source = sources[key]
-            result[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
-        return result
+        # Digital pass
+        # NOTE: Planning on ripping out port support
+        digital: dict[str, Measurement] = {}
+        if digital_aliases and daemon_running:
+            # The daemon fetches DI too, so serve its buffer instead of touching hardware (see the analog branch).
+            digital = {alias: self.get_channel(alias) for alias in digital_aliases}
+        else:
+            digital = {
+                alias: self.read_digital_port(alias, **kwargs)
+                if isinstance(di[alias], DigitalPortChannel)
+                else self.read_digital_line(alias, **kwargs)
+                for alias in digital_aliases
+            }
 
-    def write(
+        measurements = analog | digital
+        return {alias: measurements[alias] for alias in aliases}
+
+    def write(self, channel: str, value: float | int | bool, **kwargs) -> Command:
+        """Write ``value`` to one AO/DO channel by alias; returns its Command."""
+        if channel is None:
+            raise ValueError("write() requires a channel alias; use write_batch() to write several channels.")
+        return self.write_batch([channel], [value], **kwargs)[0]
+
+    def write_batch(
         self,
-        channels: str | list[str],
-        values: float | list[float],
+        channels: list[str],
+        values: list[float | int | bool],
+        continue_on_failed_write: bool = False,
         **kwargs,
-    ) -> Command | list[Command]:
-        """Write ``values[i]`` to output ``channels[i]`` (alias); analog via ``write_analog_value``, digital via ``write_digital``."""
+    ) -> list[Command]:
+        """Write ``values[i]`` to output ``channels[i]`` (alias); ``continue_on_failed_write`` logs and skips failed writes instead of raising."""
+        if not channels:
+            raise ValueError("write_batch() requires at least one channel alias.")
         self._require_open()
         ao, do = self.ao_channels, self.do_channels
-        channel_list = [channels] if isinstance(channels, str) else list(channels)
-        value_list = list(values) if isinstance(values, list) else [values]
+        channel_list = list(channels)
+        value_list = list(values)
         if len(channel_list) != len(value_list):
             raise ValueError(
-                f"write() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
+                f"write_batch() got {len(channel_list)} channels but {len(value_list)} values; lengths must match."
             )
-        # Validate up front so a bad alias can't leave earlier channels already written to hardware.
-        if unknown := [c for c in channel_list if c not in ao and c not in do]:
-            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
-
-        # One batched digital write, then map each published channel key to the Command it came back in.
-        # TODO: add support for multi-channel commands (instead of one per channel)
-        digital_sources: dict[str, Command] = {}
-        if digital := [(c, v) for c, v in zip(channel_list, value_list) if c in do]:
-            command = self.write_digital([c for c, _ in digital], [int(v) for _, v in digital], **kwargs)
-            digital_sources = dict.fromkeys(command.channel_data, command)
+        # Validate up front so a bad alias or value can't leave earlier channels already written to hardware.
+        self._validate_inputs_for_channels(channel_list, value_list, ao, do)
 
         commands: list[Command] = []
         for channel, value in zip(channel_list, value_list):
-            if channel in ao:
-                commands.append(self.write_analog_value(channel, value, **kwargs))
+            try:
+                if channel in ao:
+                    command = self.write_analog_value(channel, value, **kwargs)
+                # NOTE: Planning on ripping out port support
+                elif isinstance(do[channel], DigitalPortChannel):
+                    command = self.write_digital_port(channel, int(value), **kwargs)
+                else:
+                    command = self.write_digital_line(channel, int(value), **kwargs)
+            # Non-failed write errors should always raise (relating to interpreter health)
+            except (MemoryError, RecursionError):
+                raise
+            # Catch errors relating to a failed write
+            except Exception as e:
+                logger.warning("%s -> failed: %s", channel, e)
+                if not continue_on_failed_write:
+                    raise RuntimeError(f"write_batch() failed writing to channel '{channel}': {e}") from e
                 continue
-            key = f"{self.name}.{channel}.cmd"
-            source = digital_sources[key]
-            commands.append(Command({key: source.channel_data[key]}, source.timestamp, source.tags))
+            logger.debug("%s -> succeeded", channel)
+            commands.append(command)
 
-        return commands[0] if isinstance(channels, str) else commands
+        return commands
+
+    def _validate_inputs_for_channels(
+        self,
+        channels: list[str],
+        values: list[float | int | bool],
+        ao: Mapping[str, AnalogChannelUnion],
+        do: Mapping[str, DigitalChannel],
+    ) -> None:
+        """Validate every value against its target channel type before anything is written to hardware."""
+        # Every alias must be registered on the driver as an AO or DO channel.
+        if unknown := [alias for alias in channels if alias not in ao and alias not in do]:
+            raise KeyError(f"Output channel(s) {unknown} not configured. Configured output channels: {[*ao, *do]}.")
+        # Reject duplicate aliases: writing the same channel twice with last-wins is ambiguous intent.
+        if len(set(channels)) != len(channels):
+            duplicates = sorted({alias for alias in channels if channels.count(alias) > 1})
+            raise ValueError(f"Duplicate output channel(s) {duplicates}; each channel may appear only once.")
+        for alias, value in zip(channels, values):
+            if alias in ao:
+                # Analog outputs require a real, finite number; bool is excluded despite being an int subclass.
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise ValueError(f"Analog output '{alias}' requires a finite number, got {value!r}.")
+                # Vendor SDKs silently clip or error on out-of-range values, so enforce the configured range here.
+                if not ao[alias].range_min <= value <= ao[alias].range_max:
+                    raise ValueError(
+                        f"Analog output '{alias}' value {value!r} is outside the configured range "
+                        f"[{ao[alias].range_min}, {ao[alias].range_max}]."
+                    )
+            elif isinstance(do[alias], DigitalPortChannel):
+                # Digital ports take a raw integer; bool is a subclass of int, so it must be excluded explicitly.
+                if isinstance(value, bool) or not isinstance(value, int):
+                    raise ValueError(f"Digital port '{alias}' requires an integer value, got {value!r}.")
+            # Digital lines accept only 0 or 1, in bool, int, or float form.
+            elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
+                raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
 
     @publish_command
     def write_digital(self, channels: list[str], values: list[int], **kwargs) -> Command:
