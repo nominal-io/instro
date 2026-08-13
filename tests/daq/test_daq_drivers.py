@@ -54,7 +54,6 @@ class _RecordingDriver(DAQDriverBase):
         "read_digital_line",
         "write_digital_port",
         "read_digital_port",
-        "write_digital",
         "read_digital",
         "fetch_digital",
         "close_relay",
@@ -1348,49 +1347,7 @@ def test_write_batch_invalid_value_raises_before_writing_anything():
     mock_driver.write_analog_value.assert_not_called()
 
 
-# --- batched read_digital() / write_digital() ---
-
-
-def test_write_digital_passes_whole_channel_and_bool_lists_to_driver():
-    """write_digital() hands the driver every channel in one call, with values cast to bools."""
-    mock_driver = _make_mock_driver()
-    daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.open()
-    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
-    daq.configure_digital_output(physical_channel="port0/line1", alias="do1", logic=Logic.HIGH)
-
-    command = daq.write_digital(["do0", "do1"], [1, 0])
-
-    channels, values = mock_driver.write_digital.call_args.args
-    assert [c.alias for c in channels] == ["do0", "do1"]
-    assert values == [True, False]
-    assert command.channel_data == {"ut.do0.cmd": 1, "ut.do1.cmd": 0}
-
-
-def test_write_digital_warns_and_coerces_out_of_range_values():
-    """Values outside 0/1 still write — >0 becomes True, everything else False — but warn."""
-    mock_driver = _make_mock_driver()
-    daq = InstroDAQ(name="ut", driver=mock_driver)
-    daq.open()
-    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
-    daq.configure_digital_output(physical_channel="port0/line1", alias="do1", logic=Logic.HIGH)
-
-    with pytest.warns(UserWarning, match=r"\[5, -2\] are not 0 or 1"):
-        command = daq.write_digital(["do0", "do1"], [5, -2])
-
-    assert mock_driver.write_digital.call_args.args[1] == [True, False]
-    assert command.channel_data == {"ut.do0.cmd": 1, "ut.do1.cmd": 0}
-
-
-def test_write_digital_in_range_values_do_not_warn():
-    """0 and 1 pass through without a warning."""
-    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
-    daq.open()
-    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        daq.write_digital(["do0"], [1])
+# --- batched read_digital() ---
 
 
 def test_read_digital_unpacks_the_software_timed_driver_payload():
@@ -1431,15 +1388,27 @@ def test_read_digital_hw_timed_fetches_the_buffer():
     assert measurement.channel_data == {"ut.di0": [0.0, 1.0]}
 
 
-def test_write_digital_unconfigured_channel_raises():
-    """write_digital() on an unknown alias raises KeyError before touching the driver."""
+def test_read_digital_covers_line_and_port_channels():
+    """A batched digital read spans DI lines and DI ports, not just lines."""
     mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.di0": [1.0], "ut.di_port": [15.0]}, timestamps=[111])
+    ]
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_digital_port(
+        direction=Direction.INPUT,
+        physical_channel="port0",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        alias="di_port",
+    )
 
-    with pytest.raises(KeyError, match=r"Digital output channel\(s\) \['nope'\] not configured"):
-        daq.write_digital(["nope"], [1])
-    mock_driver.write_digital.assert_not_called()
+    measurement = daq.read_digital()
+
+    assert [*mock_driver._read_to_measurements.call_args.kwargs["channel_list"]] == ["di0", "di_port"]
+    assert measurement.channel_data == {"ut.di0": [1.0], "ut.di_port": [15.0]}
 
 
 # --- software-timed background daemon ---

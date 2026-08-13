@@ -4,7 +4,6 @@ import abc
 import logging
 import math
 import time
-import warnings
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping, TypeVar
@@ -46,16 +45,6 @@ def _coerce_enum(value: str | _E, enum_cls: type[_E], param: str) -> _E:
     except ValueError:
         valid = ", ".join(str(member.value) for member in enum_cls)
         raise ValueError(f"{param} '{value}' is not valid; choose one of {valid}.") from None
-
-
-def _to_digital_states(values: list[int]) -> list[bool]:
-    """Coerce digital write values to bools (``> 0`` is True), warning on any value that wasn't already 0 or 1."""
-    if coerced := [value for value in values if value not in (0, 1)]:
-        warnings.warn(
-            f"Digital write values {coerced} are not 0 or 1; coercing to bool (> 0 is True, otherwise False).",
-            stacklevel=2,
-        )
-    return [value > 0 for value in values]
 
 
 class HWTimestamper:
@@ -362,14 +351,15 @@ class DAQDriverBase(abc.ABC):
     def read_digital(
         self,
     ) -> Any:
-        """Software-timed read of every configured DI channel.
+        """Software-timed read of every configured DI channel, line and port alike.
 
         Digital mirror of :meth:`read_analog`: returns a vendor-specific payload
         that ``_read_to_measurements`` then unpacks into ``Measurement``s.
         ``response.dt`` should be ``None`` so the wrapper timestamps with
         wall-clock time. Override if the driver supports batched digital input.
 
-        NOTE: It's on the driver's implementation to determine if lines map to a port and do a port read instead
+        Each ``DigitalLineChannel`` carries 0/1; each ``DigitalPortChannel``
+        carries its whole N-bit integer, as ``read_digital_port`` would return.
         """
         raise NotImplementedError("Batched digital input has not been implemented for this driver")
 
@@ -383,6 +373,9 @@ class DAQDriverBase(abc.ABC):
         and return ``dt`` (ns per sample) so the wrapper can build contiguous
         timestamps via ``HWTimestamper``. Override if the driver supports
         hardware-timed digital input.
+
+        Covers every configured DI channel, line and port alike, with the same
+        per-channel sample shape as :meth:`read_digital`.
         """
         raise NotImplementedError("Hardware-timed digital input has not been configured for this driver")
 
@@ -408,13 +401,6 @@ class DAQDriverBase(abc.ABC):
     def read_digital_line(self, channel: DigitalChannel) -> int:
         """Sample a single DI line. Returns 0 or 1 after applying ``channel.logic``."""
         ...
-
-    def write_digital(self, channels: list[DigitalChannel], values: list[bool]):
-        """Drive DO ``channels[i]`` to ``values[i]`` in one call. Override if the driver supports batched digital output.
-
-        NOTE: It's on the driver's implementation to determine if a group of lines map to a port and do a port write
-        """
-        raise NotImplementedError("Batched digital output has not been implemented for this driver")
 
     @abc.abstractmethod
     def write_digital_port(self, channel: DigitalChannel, data: int):
@@ -1353,31 +1339,6 @@ class InstroDAQ(Instrument):
             # Digital lines accept only 0 or 1, in bool, int, or float form.
             elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
                 raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
-
-    @publish_command
-    def write_digital(self, channels: list[str], values: list[int], **kwargs) -> Command:
-        """Write 0/1 ``values[i]`` to DO line ``channels[i]`` (alias) in a single driver call."""
-        self._require_open()
-        do = self.do_channels
-        if len(channels) != len(values):
-            raise ValueError(
-                f"write_digital() got {len(channels)} channels but {len(values)} values; lengths must match."
-            )
-        if unknown := [c for c in channels if c not in do]:
-            raise KeyError(
-                f"Digital output channel(s) {unknown} not configured. Configured digital output channels: {[*do]}."
-            )
-        states = _to_digital_states(values)
-        logger.debug("Sending DAQ write_digital command to '%s' for channels %s", self.name, channels)
-        self._driver.write_digital([do[c] for c in channels], states)
-        timestamp = time.time_ns()
-
-        # Inline construction preserves the raw `int` value (see write_digital_line for rationale).
-        return Command(
-            channel_data={f"{self.name}.{c}.cmd": int(state) for c, state in zip(channels, states)},
-            timestamp=timestamp,
-            tags={**self.default_tags, **kwargs},
-        )
 
     def read_digital(
         self,
