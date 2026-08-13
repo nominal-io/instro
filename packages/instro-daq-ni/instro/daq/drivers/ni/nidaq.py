@@ -255,7 +255,7 @@ class NIDAQDriver(DAQDriverBase):
         self._ao_channels[channel.alias] = channel
 
     @staticmethod
-    def _get_thermocouple_type(tc_type: TC_TYPE) -> nidaqmx.constants.ThermocoupleType:
+    def _get_ni_thermocouple_type(tc_type: TC_TYPE) -> nidaqmx.constants.ThermocoupleType:
         """Match instro thermocouple type enum to nidaqmx thermocouple type enum."""
         match tc_type:
             case TC_TYPE.B:
@@ -278,7 +278,7 @@ class NIDAQDriver(DAQDriverBase):
                 raise ValueError(f"Invalid thermocouple type: {tc_type}, must be one of {[t.name for t in TC_TYPE]}")
 
     @staticmethod
-    def _get_temperature_units(unit: TC_UNIT | None) -> nidaqmx.constants.TemperatureUnits:
+    def _get_ni_temperature_units(unit: TC_UNIT | None) -> nidaqmx.constants.TemperatureUnits:
         """Match instro temperature unit enum to nidaqmx temperature unit enum."""
         match unit:
             case None | TC_UNIT.CELSIUS:
@@ -318,8 +318,8 @@ class NIDAQDriver(DAQDriverBase):
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
-            units=self._get_temperature_units(channel.unit),
-            thermocouple_type=self._get_thermocouple_type(channel.tc_type),
+            units=self._get_ni_temperature_units(channel.unit),
+            thermocouple_type=self._get_ni_thermocouple_type(channel.tc_type),
             cjc_source=self._get_cjc_source(channel.cjc_source),
             cjc_val=channel.cjc_temp if channel.cjc_temp is not None else 25.0,
             cjc_channel=channel.cjc_channel or "",
