@@ -90,6 +90,8 @@
           {
             "group": "Transports",
             "icon": "plug",
+            "root": "instrumentation/transports/overview",
+            "expanded": true,
             "pages": [
               "instrumentation/transports/visa",
               "instrumentation/transports/modbus"
@@ -135,7 +137,8 @@
           {
             "group": "DMM",
             "pages": [
-              "instrumentation/examples/dmm/dmm_basic"
+              "instrumentation/examples/dmm/dmm_basic",
+              "instrumentation/examples/dmm/dmm_config"
             ]
           },
           {

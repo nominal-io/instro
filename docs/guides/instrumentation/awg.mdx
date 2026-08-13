@@ -150,13 +150,25 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `align_phase()` | `phase.align.cmd` | command |
 | `set_modulation(channel=N)` | `ch{N}.modulation.cmd` | command |
 | `modulation_enable(channel=N)` | `ch{N}.modulation_enabled.cmd` | command |
+| `set_burst(channel=N)` | `ch{N}.burst.cmd` | command |
+| `burst_enable(channel=N)` | `ch{N}.burst_enabled.cmd` | command |
+| `set_burst_trigger(channel=N)` | `ch{N}.burst_trigger.cmd` | command |
+| `fire_burst_trigger(channel=N)` | `ch{N}.burst_trigger_forced.cmd` | command |
+| `set_burst_delay(channel=N)` | `ch{N}.burst_delay.cmd` | command |
+| `set_burst_gate_polarity(channel=N)` | `ch{N}.burst_gate_polarity.cmd` | command |
+| `set_burst_ncycles(channel=N)` | `ch{N}.burst_ncycles.cmd` | command |
+| `set_burst_period(channel=N)` | `ch{N}.burst_period.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
 | `get_output_state(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_output_load(channel=N)` | `ch{N}.load` | telemetry |
 | `get_modulation_state(channel=N)` | `ch{N}.modulation_enabled` | telemetry |
+| `get_burst_state(channel=N)` | `ch{N}.burst_enabled` | telemetry |
+| `get_burst_delay(channel=N)` | `ch{N}.burst_delay` | telemetry |
+| `get_burst_ncycles(channel=N)` | `ch{N}.burst_ncycles` | telemetry |
+| `get_burst_period(channel=N)` | `ch{N}.burst_period` | telemetry |
 
 <Note>
-`get_waveform()`, `get_amplitude()`, `convert_amplitude()`, and `get_modulation_type()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
+`get_waveform()`, `get_amplitude()`, `convert_amplitude()`, `get_modulation_type()`, `get_burst_type()`, `get_burst_trigger()`, and `get_burst_gate_polarity()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`, `BurstType`, `BurstTriggerSource`, `GatePolarity`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
 </Note>
 
 ## Method Reference
@@ -182,6 +194,21 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `modulation_enable(channel, enable)` | Enable or disable modulation on channel |
 | `get_modulation_type(channel)` | Read back the modulation type currently active on channel |
 | `get_modulation_state(channel)` | Read back whether modulation is enabled on channel |
+| `set_burst(channel, burst_type)` | Configure a channel's burst type (`NCYCLE`/`GATED`/`INFINITE`) without enabling it |
+| `burst_enable(channel, enable)` | Enable or disable burst mode on channel |
+| `get_burst_type(channel)` | Read back the burst type currently active on channel |
+| `get_burst_state(channel)` | Read back whether burst mode is enabled on channel |
+| `set_burst_trigger(channel, source)` | Set the burst trigger source (`INTERNAL`/`EXTERNAL`/`MANUAL`) on channel |
+| `get_burst_trigger(channel)` | Read back the burst trigger source on channel |
+| `fire_burst_trigger(channel)` | Fire a burst trigger on channel now; the trigger source must already be `MANUAL` |
+| `set_burst_delay(channel, delay_s)` | Set the burst trigger delay in seconds on channel |
+| `get_burst_delay(channel)` | Read back the burst trigger delay in seconds on channel |
+| `set_burst_gate_polarity(channel, gate_polarity)` | Set the gate polarity (`NORM`/`INV`) for GATED bursts on channel |
+| `get_burst_gate_polarity(channel)` | Read back the gate polarity for GATED bursts on channel |
+| `set_burst_ncycles(channel, n_cycles)` | Set the number of cycles per trigger for NCYCLE bursts on channel |
+| `get_burst_ncycles(channel)` | Read back the number of cycles per trigger for NCYCLE bursts on channel |
+| `set_burst_period(channel, period)` | Set the internal burst period in seconds on channel |
+| `get_burst_period(channel)` | Read back the internal burst period in seconds on channel |
 | `start()` | Begin background daemon |
 | `stop()` | End background daemon |
 
@@ -227,9 +254,6 @@ def open(self) -> None:
 def close(self) -> None:
     """Close the underlying transport."""
 
-def check_errors(self) -> None:
-    """Drain the instrument error queue; raise if any error is pending."""
-
 def set_waveform(self, channel: int, waveform: Waveform) -> None:
     """Program channel with the waveform definition; raise ValueError if the definition is unsupported."""
 
@@ -263,6 +287,14 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`modulation_enable(channel, enable)`**: Enable or disable modulation on channel.
 - **`get_modulation_type(channel)`**: Read back the active modulation type from the instrument.
 - **`get_modulation_state(channel)`**: Read back whether modulation is enabled from the instrument.
+- **`set_burst(channel, burst_type)`** / **`get_burst_type(channel)`**: Configure or read back a channel's burst type (`NCYCLE`/`GATED`/`INFINITE`). Call `burst_enable()` to activate it.
+- **`burst_enable(channel, enable)`** / **`get_burst_state(channel)`**: Enable/disable burst mode, or read back whether it's enabled.
+- **`set_burst_trigger(channel, source)`** / **`get_burst_trigger(channel)`**: Set or read back the burst trigger source (`INTERNAL`/`EXTERNAL`/`MANUAL`).
+- **`fire_burst_trigger(channel)`**: Fire a burst trigger on channel immediately. Requires the trigger source already set to `MANUAL`; call `set_burst_trigger()` first otherwise.
+- **`set_burst_delay(channel, delay_s)`** / **`get_burst_delay(channel)`**: Set or read back the burst trigger delay in seconds.
+- **`set_burst_gate_polarity(channel, gate_polarity)`** / **`get_burst_gate_polarity(channel)`**: Set or read back the gate polarity (`NORM`/`INV`) for GATED bursts.
+- **`set_burst_ncycles(channel, n_cycles)`** / **`get_burst_ncycles(channel)`**: Set or read back the number of cycles per trigger for NCYCLE bursts.
+- **`set_burst_period(channel, period)`** / **`get_burst_period(channel)`**: Set or read back the internal burst period in seconds.
 
 ### Talking to the Instrument
 
@@ -299,12 +331,6 @@ class RigolDG1022Z(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query(":SYST:ERR?")
-        code = err.strip().split(",", 1)[0].lstrip("+")
-        if code != "0":
-            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         with self._visa.lock():
             if isinstance(waveform, Sine):
@@ -314,6 +340,7 @@ class RigolDG1022Z(AWGDriverBase):
             # ... other Waveform shapes ...
             else:
                 raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
+            self._check_errors()  # one check per call, not one per write — see note above
 
     def set_amplitude(self, channel: int, amplitude: float, unit: AmplitudeMeasurementUnit) -> None:
         if unit is AmplitudeMeasurementUnit.VP:
@@ -321,8 +348,15 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             self._visa.write(f":SOUR{channel}:VOLT:UNIT {unit.value}")
             self._visa.write(f":SOUR{channel}:VOLT {amplitude}")
+            self._check_errors()
 
     # ... other required and optional methods ...
+
+    def _check_errors(self) -> None:
+        err = self._visa.query(":SYST:ERR?")
+        code = err.strip().split(",", 1)[0].lstrip("+")
+        if code != "0":
+            raise RuntimeError(f"Rigol DG1022Z reported error: {err.strip()}")
 ```
 
 ## Using a Custom Driver
@@ -348,14 +382,10 @@ class MyCustomAWGDriver(AWGDriverBase):
     def close(self) -> None:
         self._visa.close()
 
-    def check_errors(self) -> None:
-        err = self._visa.query("ERR?")
-        if err != "OK":
-            raise RuntimeError(f"AWG error: {err}")
-
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
         if isinstance(waveform, Sine):
             self._visa.write(f"CH{channel}:WAVE SIN,{waveform.frequency_hz}")
+            self._check_errors()
         else:
             raise ValueError(f"unsupported waveform definition {type(waveform).__name__}")
 
@@ -363,6 +393,11 @@ class MyCustomAWGDriver(AWGDriverBase):
 
     def get_output_state(self, channel: int) -> bool:
         return self._visa.query(f"CH{channel}:OUTP?") == "ON"
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("ERR?")
+        if err != "OK":
+            raise RuntimeError(f"AWG error: {err}")
 
 
 awg = InstroAWG(

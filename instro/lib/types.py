@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ============================================================================
 # Runtime data types
@@ -89,6 +89,7 @@ class Command:
 class DeviceInfo(BaseModel):
     """Device metadata. ``name`` is the channel-name prefix on publish (e.g. ``my_device.temperature``)."""
 
+    model_config = ConfigDict(extra="forbid")
     name: str
     description: str = ""
     manufacturer: str = ""

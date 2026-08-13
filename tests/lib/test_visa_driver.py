@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import logging
 import socket
@@ -16,6 +17,7 @@ import pyvisa
 from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
 from pyvisa.constants import Parity as VisaParity
 
+from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports import (
     ControlFlow,
     Parity,
@@ -606,3 +608,187 @@ def test_transactional_lock_blocks_other_threads_until_released(mock_pyvisa):
 def test_visa_backend_package_is_installed(module: str) -> None:
     """Every pyvisa-py backend the @py fallback relies on must ship with instro (issue #102)."""
     assert importlib.util.find_spec(module) is not None
+
+
+# ============ Shared Ownership ============
+
+
+def test_first_holder_open_opens_and_reports_first_owner(mock_pyvisa):
+    _, rm_instance, _ = mock_pyvisa
+    driver = _make_driver()
+    a, b = object(), object()
+
+    first = driver.open(a)
+    second = driver.open(b)
+
+    assert first is True
+    assert second is False
+    rm_instance.open_resource.assert_called_once()
+
+
+def test_open_same_holder_twice_returns_false(mock_pyvisa):
+    _, rm_instance, _ = mock_pyvisa
+    driver = _make_driver()
+    holder = object()
+
+    first = driver.open(holder)
+    second = driver.open(holder)
+
+    assert first is True
+    assert second is False
+    rm_instance.open_resource.assert_called_once()
+
+
+def test_equal_but_distinct_holders_are_two_owners(mock_pyvisa):
+    """Holders are tracked by identity, not equality.
+
+    A driver written as a dataclass (or pydantic model) gets a field-based ``__eq__``, so two
+    separate instances configured alike compare equal. Matching holders by equality would collapse
+    them into one owner: the second driver would be told it is not the first owner and skip its
+    one-time device setup, and the first driver's close would tear the session out from under it.
+    """
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+
+    @dataclasses.dataclass
+    class _DataclassDriver:
+        channel: int
+
+    a, b = _DataclassDriver(channel=1), _DataclassDriver(channel=1)
+    assert a is not b and a == b  # the precondition that made this fail
+
+    assert driver.open(a) is True  # first owner
+    assert driver.open(b) is False  # second owner, but still registered as one
+
+    driver.close(a)
+
+    assert driver.is_open is True  # b still holds the session
+    resource.close.assert_not_called()
+
+    driver.close(b)
+
+    assert driver.is_open is False
+    resource.close.assert_called_once()
+
+
+def test_holder_open_after_bare_open_reports_first_owner(mock_pyvisa):
+    _, _, _ = mock_pyvisa
+    driver = _make_driver()
+    holder_a, holder_b = object(), object()
+
+    # Manually open first, with no holder
+    driver.open()
+
+    # A holder open should still report first owner (is-first-owner, not did-open)
+    first = driver.open(holder_a)
+    second = driver.open(holder_b)
+
+    assert first is True  # First owner (even though session already open)
+    assert second is False  # Second owner
+
+
+def test_first_close_leaves_session_for_survivor_last_close_tears_down_in_order(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a, b = object(), object()
+    driver.open(a)
+    driver.open(b)
+
+    driver.close(a)
+
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+
+    driver.close(b)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_close_by_non_holder_raises_while_others_own_it(mock_pyvisa):
+    """A silent no-op here would leave the real owner registered and the session open forever."""
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a, stranger = object(), object()
+    driver.open(a)
+
+    with pytest.raises(UnknownHolderError, match="does not own this"):
+        driver.close(stranger)
+
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+
+
+def test_repeat_close_after_the_last_owner_left_is_a_noop(mock_pyvisa):
+    """Close stays idempotent once the connection is down: there is no owner left to strand."""
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.open(a)
+
+    driver.close(a)
+    driver.close(a)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_close_last_owner_with_no_callback_tears_down(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.open(a)
+
+    driver.close(a)
+
+    resource.close.assert_called_once()
+    assert driver.is_open is False
+
+
+def test_sole_holder_open_close_behaves_like_bare_open_close(mock_pyvisa):
+    rm_instance = mock_pyvisa[1]
+    resource = mock_pyvisa[2]
+    driver = _make_driver()
+    a = object()
+
+    driver.open(a)
+    assert driver.is_open is True
+    rm_instance.open_resource.assert_called_once()
+
+    driver.close(a)
+    assert driver.is_open is False
+    resource.close.assert_called_once()
+
+
+def test_bare_close_while_owned_declines_and_logs(mock_pyvisa, caplog):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.open(a)
+
+    with caplog.at_level(logging.WARNING, logger="instro.lib.transports.transport_base"):
+        driver.close()
+
+    resource.close.assert_not_called()
+    assert driver.is_open is True
+    assert len(caplog.records) == 1
+
+
+def test_del_tears_down_even_with_non_empty_holders(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    driver = _make_driver()
+    a = object()
+    driver.open(a)
+
+    driver.__del__()
+
+    resource.close.assert_called_once()
+
+
+def test_del_swallows_raising_teardown(mock_pyvisa):
+    _, _, resource = mock_pyvisa
+    resource.close.side_effect = RuntimeError("close failed")
+    driver = _make_driver()
+    driver.open()
+
+    driver.__del__()  # must not raise

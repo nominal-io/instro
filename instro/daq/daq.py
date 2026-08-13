@@ -12,6 +12,7 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
@@ -88,8 +89,8 @@ class DAQDriverBase(abc.ABC):
 
     points_in_buffer: int
 
-    _ai_channels: dict[str, AnalogChannel]
-    _ao_channels: dict[str, AnalogChannel]
+    _ai_channels: dict[str, AnalogChannelUnion]
+    _ao_channels: dict[str, AnalogChannelUnion]
     _di_channels: dict[str, DigitalChannel]
     _do_channels: dict[str, DigitalChannel]
     _relay_channels: dict[str, RelayChannel]
@@ -124,12 +125,12 @@ class DAQDriverBase(abc.ABC):
         )
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return MappingProxyType(dict(self._ai_channels))
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return MappingProxyType(dict(self._ao_channels))
 
@@ -322,7 +323,7 @@ class DAQDriverBase(abc.ABC):
         """
         return None
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         """Write ``value`` to AO ``channel``. Override if the driver supports analog output."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
 
@@ -456,12 +457,12 @@ class InstroDAQ(Instrument):
         return self._driver.channels
 
     @property
-    def ai_channels(self) -> Mapping[str, AnalogChannel]:
+    def ai_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AI channels, keyed by alias."""
         return self._driver.ai_channels
 
     @property
-    def ao_channels(self) -> Mapping[str, AnalogChannel]:
+    def ao_channels(self) -> Mapping[str, AnalogChannelUnion]:
         """Frozen snapshot of configured AO channels, keyed by alias."""
         return self._driver.ao_channels
 
@@ -703,6 +704,7 @@ class InstroDAQ(Instrument):
         physical_channel: str,
         tc_type: str | TC_TYPE,
         *,
+        unit: str | TC_UNIT,
         alias: str | None = None,
         range_min: float = 0.0,
         range_max: float = 100.0,
@@ -710,21 +712,22 @@ class InstroDAQ(Instrument):
         cjc_source: str | CJCSource = CJCSource.INTERNAL,
         cjc_temp: float | None = None,
         cjc_channel: str | None = None,
-        unit: str | TC_UNIT = TC_UNIT.CELSIUS,
+        tc_input_scaler: Scaler | None = None,
     ):
         """Configure a thermocouple input channel.
 
         Args:
             physical_channel: Vendor-specific channel id (e.g. ``"ai0"`` or ``"Dev1/ai0"``).
+            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
+            unit: Temperature unit for ``range_min``/``range_max``, ``cjc_temp``, and returned readings.
             alias: Friendly name; defaults to ``physical_channel``.
             range_min: Lower temperature range (in ``unit``).
             range_max: Upper temperature range (in ``unit``).
             scaler: Optional ``Scaler`` applied to AI samples after read.
-            tc_type: Thermocouple type — one of B, E, J, K, N, R, S, T.
             cjc_source: Cold-junction compensation source (internal / constant / channel).
-            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``.
+            cjc_temp: Cold-junction temperature when ``cjc_source`` is ``CONSTANT``, expressed in ``unit``.
             cjc_channel: Channel supplying cold-junction temperature when ``cjc_source`` is ``CHANNEL``.
-            unit: Temperature unit for returned readings.
+            tc_input_scaler: Volts-domain scaler applied before temperature conversion if amplifier was used (LabJack only).
         """
         self._require_open()
         tc_type = _coerce_enum(tc_type, TC_TYPE, "tc_type")
@@ -746,6 +749,7 @@ class InstroDAQ(Instrument):
             cjc_temp=cjc_temp,
             cjc_channel=cjc_channel,
             unit=unit,
+            tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)
         logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)

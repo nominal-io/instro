@@ -175,6 +175,22 @@ def test_init_with_autostart_opens_and_starts(valid_config):
     mock_start.assert_called_once()
 
 
+def test_init_with_autostart_open_failure_closes_config_publishers(valid_config):
+    config = {
+        **valid_config,
+        "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "test_psu"}],
+    }
+    with (
+        patch("instro.psu.drivers.simulated.VisaDriver") as mock_visa_cls,
+        patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
+    ):
+        mock_visa_cls.return_value.open.side_effect = OSError("unreachable")
+        with pytest.raises(OSError):
+            InstroPSU(config=config, autostart=True)
+
+    mock_ncp.return_value.close.assert_called_once()
+
+
 def test_init_without_autostart_does_not_open_or_start(valid_config):
     with (
         patch("instro.psu.drivers.simulated.VisaDriver"),

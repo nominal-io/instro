@@ -1,9 +1,11 @@
 """Tests for AWGDriverBase contract and InstroAWG's generic wiring to a driver.
 
 Scoped to what's actually generic about the abstraction layer: the driver contract, lifecycle,
-the shared check_errors/tagging conventions, and channel-bounds enforcement across every method.
-Per-method roundtrip/packaging behavior (set_waveform, amplitude, offset, output, modulation, ...)
-is the responsibility of each vendor driver's own software test file, not re-derived here.
+the shared tagging conventions, and channel-bounds enforcement across every method. Per-method
+roundtrip/packaging behavior (set_waveform, amplitude, offset, output, modulation, ...) is the
+responsibility of each vendor driver's own software test file, not re-derived here. Error
+checking is a per-driver concern (it's a SCPI/VISA convention, not a universal instrument
+concept) and is tested against the concrete drivers that implement it, not here.
 """
 
 from unittest.mock import MagicMock
@@ -13,6 +15,9 @@ import pytest
 from instro.unstable.awg.awg import AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Sine,
     Waveform,
@@ -30,9 +35,6 @@ class _MinimalAWGDriver(AWGDriverBase):
         pass
 
     def close(self) -> None:
-        pass
-
-    def check_errors(self) -> None:
         pass
 
     def set_waveform(self, channel: int, waveform: Waveform) -> None:
@@ -91,6 +93,21 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("modulation_enable", (1, True)),
         ("get_modulation_type", (1,)),
         ("get_modulation_state", (1,)),
+        ("set_burst", (1, BurstType.NCYCLE)),
+        ("burst_enable", (1, True)),
+        ("get_burst_type", (1,)),
+        ("get_burst_state", (1,)),
+        ("set_burst_trigger", (1, BurstTriggerSource.INTERNAL)),
+        ("get_burst_trigger", (1,)),
+        ("fire_burst_trigger", (1,)),
+        ("set_burst_delay", (1, 0.001)),
+        ("get_burst_delay", (1,)),
+        ("set_burst_gate_polarity", (1, GatePolarity.NORM)),
+        ("get_burst_gate_polarity", (1,)),
+        ("set_burst_ncycles", (1, 10)),
+        ("get_burst_ncycles", (1,)),
+        ("set_burst_period", (1, 0.001)),
+        ("get_burst_period", (1,)),
     ],
 )
 def test_02_awg_driver_base_optional_methods_raise_not_implemented(
@@ -117,6 +134,10 @@ def mock_driver() -> MagicMock:
     driver.get_output_load.return_value = 50.0
     driver.get_modulation_type.return_value = ModulationType.AM
     driver.get_modulation_state.return_value = False
+    driver.get_burst_type.return_value = BurstType.NCYCLE
+    driver.get_burst_state.return_value = False
+    driver.get_burst_trigger.return_value = BurstTriggerSource.INTERNAL
+    driver.get_burst_gate_polarity.return_value = GatePolarity.NORM
     return driver
 
 
@@ -161,29 +182,19 @@ def test_03_lifecycle_open_close_start_background_daemon_and_invalid_configurati
 
 
 # ---------------------------------------------------------------------------
-# Error checking and tagging conventions
+# Tagging conventions
 # ---------------------------------------------------------------------------
 
 
-def test_04_check_errors_called_propagates_and_helper_tags_avoid_collision(
-    awg: InstroAWG, mock_driver: MagicMock
-) -> None:
-    """Scope precedent: a pending error surfaces at the next query instead of hanging a later blocking read."""
-    awg.set_waveform(1, Sine(frequency_hz=1000.0))
-    mock_driver.check_errors.assert_called_once()
-
-    mock_driver.check_errors.reset_mock()
-    awg.get_output_state(1)
-    awg.get_offset(1)
-    assert mock_driver.check_errors.call_count == 2
-
+def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -> None:
     # Helper params are positional-only, so user tags named after them publish instead of colliding.
     cmd = awg.set_offset(1, 0.5, channel_suffix="rig7", value="x")
     assert cmd.tags["channel_suffix"] == "rig7"
     assert cmd.tags["value"] == "x"
 
-    # Scope-style ordering: check_errors runs before config is recorded, so a rejected set is never cached.
-    mock_driver.check_errors.side_effect = RuntimeError("instrument error queue not empty")
+    # A driver-raised error still propagates before config is recorded, so a rejected set is never cached.
+    driver = awg._driver
+    driver.set_waveform.side_effect = RuntimeError("instrument error queue not empty")
     with pytest.raises(RuntimeError, match="instrument error queue not empty"):
         awg.set_waveform(2, Sine(frequency_hz=1000.0))
     assert 2 not in awg._channel_waveforms
@@ -212,6 +223,21 @@ def test_04_check_errors_called_propagates_and_helper_tags_avoid_collision(
         ("modulation_enable", (True,)),
         ("get_modulation_type", ()),
         ("get_modulation_state", ()),
+        ("set_burst", (BurstType.NCYCLE,)),
+        ("burst_enable", (True,)),
+        ("get_burst_type", ()),
+        ("get_burst_state", ()),
+        ("set_burst_trigger", (BurstTriggerSource.INTERNAL,)),
+        ("get_burst_trigger", ()),
+        ("fire_burst_trigger", ()),
+        ("set_burst_delay", (0.001,)),
+        ("get_burst_delay", ()),
+        ("set_burst_gate_polarity", (GatePolarity.NORM,)),
+        ("get_burst_gate_polarity", ()),
+        ("set_burst_ncycles", (10,)),
+        ("get_burst_ncycles", ()),
+        ("set_burst_period", (0.001,)),
+        ("get_burst_period", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 1, 2, 3])

@@ -7,6 +7,7 @@ from instro.lib.transports.modbus import (
     RTUConnection,
     TCPConnection,
 )
+from instro.lib.transports.transport_base import TransportBase
 from instro.lib.transports.visa import (
     ControlFlow,
     Parity,
@@ -30,6 +31,7 @@ __all__ = [
     "TCPConnection",
     "TerminatorConfig",
     "TimeoutConfig",
+    "TransportBase",
     "VisaConfig",
     "VisaDriver",
 ]
