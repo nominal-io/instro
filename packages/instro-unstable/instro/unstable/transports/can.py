@@ -76,13 +76,15 @@ class CanDriver(TransportBase):
             self._bus = can.Bus(interface=cfg.interface, channel=cfg.channel, bitrate=cfg.bitrate, **cfg.bus_kwargs)
 
     def _teardown_session(self) -> None:
-        """Shut down the python-can bus."""
+        """Shut down the python-can bus and drop buffered frames, so a reopen never replays the previous session."""
         if self._bus is None:
             return
         try:
             self._bus.shutdown()
         finally:
             self._bus = None
+            for subscription in self._subscriptions:
+                subscription._frames.clear()
 
     def send(self, arbitration_id: int, data: bytes, is_extended_id: bool = True) -> None:
         """Send one frame; the caller owns payload encoding."""

@@ -106,6 +106,19 @@ def test_full_subscription_drops_oldest_frames(transport: CanDriver, bus: MagicM
     assert [f.arbitration_id for f in subscription.drain()] == [2, 3]
 
 
+def test_reopen_does_not_replay_frames_from_the_previous_session(transport: CanDriver, bus: MagicMock) -> None:
+    transport.open()
+    keeper = transport.subscribe(lambda m: True)
+    router = transport.subscribe(lambda m: True)
+    bus.recv.side_effect = [_frame(0x901), None, None]
+    router.drain()  # routes the frame into keeper's buffer, where it sits across the close
+
+    transport.close()
+    transport.open()
+
+    assert keeper.drain() == []
+
+
 def test_unsubscribed_subscription_no_longer_receives(transport: CanDriver, bus: MagicMock) -> None:
     transport.open()
     dropped = transport.subscribe(lambda m: True)
