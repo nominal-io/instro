@@ -262,6 +262,11 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`get_modulation_type(channel)`**: Read back the active modulation type from the instrument.
 - **`get_modulation_state(channel)`**: Read back whether modulation is enabled from the instrument.
 
+### Modulation
+
+`set_modulation()` only configures modulation on a specific channel and does not enable modulation. To enable or disable, use `modulation_enable()`. 
+`get_modulation_type` returns the most previous modulation type set by the user. 
+
 ### Talking to the Instrument
 
 Concrete drivers should hide transport details behind private attributes. For VISA-backed drivers, create a `VisaDriver` internally and use it for all I/O:
