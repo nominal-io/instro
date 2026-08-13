@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.10.0](https://github.com/nominal-io/instro/compare/instro-v1.9.1...instro-v1.10.0) (2026-08-13)
+
+
+### Features
+
+* **awg:** add burst to awg ([#367](https://github.com/nominal-io/instro/issues/367)) ([27fea81](https://github.com/nominal-io/instro/commit/27fea81239be095b97a8e54093a781c029263316))
+* **dmm:** json config-driven instrument creation ([#387](https://github.com/nominal-io/instro/issues/387)) ([6b6789f](https://github.com/nominal-io/instro/commit/6b6789f31970d639755ce9b2377e7d928cf88239))
+* **instrodaq:** unified read and write functions ([#303](https://github.com/nominal-io/instro/issues/303)) ([22abe49](https://github.com/nominal-io/instro/commit/22abe4997a126b7600c3be30b84411cdfa25db46))
+* **lib:** transport base class that implements shared ownership of transport ([#336](https://github.com/nominal-io/instro/issues/336)) ([80841e0](https://github.com/nominal-io/instro/commit/80841e0d81f082edbf59e8ad910f27f05d63e60b))
+* **psu:** implement get_voltage_setpoint()/get_current_setpoint() for SiglentSPD3303 ([#377](https://github.com/nominal-io/instro/issues/377)) ([653a6db](https://github.com/nominal-io/instro/commit/653a6dbd50958e4f2000556d43d1086b9f2b8f93))
+
 ## [1.9.1](https://github.com/nominal-io/instro/compare/instro-v1.9.0...instro-v1.9.1) (2026-08-10)
 
 
