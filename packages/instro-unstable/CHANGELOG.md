@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.1...instro-unstable-v1.5.0) (2026-08-13)
+
+
+### Features
+
+* **awg:** add burst to awg ([#367](https://github.com/nominal-io/instro/issues/367)) ([27fea81](https://github.com/nominal-io/instro/commit/27fea81239be095b97a8e54093a781c029263316))
+
 ## [1.4.1](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.0...instro-unstable-v1.4.1) (2026-08-10)
 
 
