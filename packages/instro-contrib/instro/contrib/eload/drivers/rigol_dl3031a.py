@@ -223,6 +223,7 @@ class RigolDL3031A(ELoadDriverBase):
         self,
         *,
         range: float | MinMaxDef | None = None,
+        level: float | MinMaxDef | None = None,
         v_stop: float | MinMaxDef | None = None,
         c_stop: float | MinMaxDef | None = None,
         time_stop: float | None = None,
@@ -235,6 +236,7 @@ class RigolDL3031A(ELoadDriverBase):
         cmd_root = "BATTary"
         scpi_commands_to_params = {
             "RANGe": range,
+            "LEVel:IMMediate": level,
             "VSTop": v_stop,
             "CSTop": c_stop,
             "TIMestop": time_stop,
