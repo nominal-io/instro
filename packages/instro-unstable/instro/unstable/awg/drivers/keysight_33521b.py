@@ -226,15 +226,14 @@ class Keysight33521B(AWGDriverBase):
         modulator = _validate_modulator(shape)
         prefix = _MOD_SCPI_PREFIX[mod_type]
         with self._visa.lock():
-            was_enabled = self.get_modulation_state(channel)
-            if self._last_modulation_type:
-                self.modulation_enable(channel, False)
             # `shape` is the modulator/baseband signal; the carrier is the channel's currently active function.
             carrier_name = self._visa.query("FUNC?").strip()
             carrier_type = _FUNC_NAME_TO_CARRIER_TYPE.get(carrier_name)
             if carrier_type is None:
                 raise ValueError(f"Keysight 33521B reported unsupported waveform '{carrier_name}'")
             _validate_carrier(mod_type, carrier_type)
+            was_enabled = self.get_modulation_state(channel)
+            self.modulation_enable(channel, False)
             self._visa.write(f"{prefix}:SOUR INT")
             if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
                 function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
@@ -272,8 +271,8 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         with self._visa.lock():
             if self._last_modulation_type is None:
-                raise RuntimeError(f"channel {channel} has no modulation type currently enabled; set modulation first.")
-        return self._last_modulation_type
+                raise RuntimeError(f"channel {channel} has no modulation type currently set; set modulation first.")
+            return self._last_modulation_type
 
     def get_modulation_state(self, channel: int) -> bool:
         _check_channel(channel)
