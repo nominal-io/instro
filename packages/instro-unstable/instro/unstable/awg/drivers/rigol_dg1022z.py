@@ -398,6 +398,9 @@ class RigolDG1022Z(AWGDriverBase):
     def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
         _check_channel(channel)
         with self._visa.lock():
+            carrier = self.get_waveform(channel)
+            if isinstance(carrier, StaticValue):
+                raise ValueError(f"the DG1022Z cannot sweep a StaticValue (DC) waveform on channel {channel}")
             self._visa.write(f":SOUR{channel}:SWE:SPAC {sweep_type.value}")
             self._check_errors()
 
