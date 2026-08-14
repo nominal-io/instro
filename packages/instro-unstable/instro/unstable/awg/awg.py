@@ -220,6 +220,10 @@ class AWGDriverBase(abc.ABC):
         """Get the sweep return time (seconds) on channel."""
         raise NotImplementedError(f"get_sweep_return_time is not implemented for {type(self).__name__}")
 
+    def fire_sweep_trigger(self, channel: int) -> None:
+        """Manually trigger a sweep on channel."""
+        raise NotImplementedError(f"fire_sweep_trigger is not implemented for {type(self).__name__}")
+
 
 _PUBLISHED_NAMES: dict[type, str] = {
     Sine: "SINE",
@@ -701,3 +705,13 @@ class InstroAWG(Instrument):
         """Read back the sweep return time (seconds) on channel."""
         self._check_channel(channel)
         return self._execute_measurement(self._driver.get_sweep_return_time, channel, "sweep_return_time", **kwargs)
+
+    @publish_command
+    def fire_sweep_trigger(self, channel: int, **kwargs) -> Command:
+        """Trigger a sweep on a channel manually."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.fire_sweep_trigger(channel=channel)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.sweep_trigger_forced.cmd"
+        return self._package_command(descriptor, "TRIGGER", timestamp, **kwargs)

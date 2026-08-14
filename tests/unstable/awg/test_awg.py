@@ -123,6 +123,7 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("get_sweep_hold_time", (1,)),
         ("set_sweep_return_time", (1, 0.1)),
         ("get_sweep_return_time", (1,)),
+        ("fire_sweep_trigger", (1,)),
     ],
 )
 def test_02_awg_driver_base_optional_methods_raise_not_implemented(
@@ -269,6 +270,7 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
         ("get_sweep_hold_time", ()),
         ("set_sweep_return_time", (0.1,)),
         ("get_sweep_return_time", ()),
+        ("fire_sweep_trigger", ()),
     ],
 )
 @pytest.mark.parametrize("channel", [0, 1, 2, 3])
