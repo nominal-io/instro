@@ -442,25 +442,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
         )
         self._do_channels[channel.alias] = channel
 
-    def configure_di_channel(self, channel: DigitalLineChannel):
-        """Register a DI line channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        self._di_channels[channel.alias] = channel
-
-    def configure_do_channel(self, channel: DigitalLineChannel):
-        """Register a DO line channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        # If the FIO/EIO line is an analog input, it needs to first be changed to a
-        # digital I/O by reading from the line or setting it to digital I/O with the
-        # DIO_ANALOG_ENABLE register.
-        ljm.eReadName(self._handle, channel.physical_channel)
-
-        self._do_channels[channel.alias] = channel
-
     def write_digital_line(self, channel: DigitalChannel, data: int):
         if channel.logic is Logic.LOW:
             data = 1 - data

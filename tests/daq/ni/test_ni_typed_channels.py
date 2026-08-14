@@ -10,8 +10,8 @@ typed-channel path
 ``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``,
 ``configure_current_input`` -> ``configure_ai_current_channel``,
 ``configure_current_output`` -> ``configure_ao_current_channel``,
-``configure_digital_input`` -> ``configure_di_channel``,
-``configure_digital_output`` -> ``configure_do_channel``)
+``configure_digital_input`` -> ``configure_di_line_channel``,
+``configure_digital_output`` -> ``configure_do_line_channel``)
 rather than the generic analog path covered by ``test_ni_hardware.py``. The
 voltage and current modes are verified through a loopback from their output
 module back into the 9219. Each test step is recorded as an event on a Nominal

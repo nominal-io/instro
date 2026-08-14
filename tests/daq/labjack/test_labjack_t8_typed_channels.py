@@ -6,8 +6,8 @@ exercises the typed-channel paths
 (``configure_voltage_input`` -> ``configure_ai_voltage_channel``,
 ``configure_voltage_output`` -> ``configure_ao_voltage_channel``,
 ``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``,
-``configure_digital_input`` -> ``configure_di_channel``,
-``configure_digital_output`` -> ``configure_do_channel``)
+``configure_digital_input`` -> ``configure_di_line_channel``,
+``configure_digital_output`` -> ``configure_do_line_channel``)
 rather than the generic analog path covered by ``test_labjack_t8_hardware.py``.
 The driver registers the thermocouple's AIN in the scan list as raw volts and
 converts to temperature on read using the per-channel cold-junction sensor.

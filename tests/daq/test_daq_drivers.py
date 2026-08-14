@@ -84,12 +84,6 @@ class _RecordingDriver(DAQDriverBase):
     def configure_ai_thermocouple_channel(self, channel):
         self._ai_channels[channel.alias] = channel
 
-    def configure_di_channel(self, channel):
-        self._di_channels[channel.alias] = channel
-
-    def configure_do_channel(self, channel):
-        self._do_channels[channel.alias] = channel
-
     def configure_ai_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
 
