@@ -25,6 +25,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
     SweepType,
     Triangle,
     Waveform,
@@ -549,7 +550,59 @@ def test_24_sweep_enable_toggle(driver: RigolDG1022Z, channel: int) -> None:
     assert driver.get_sweep_state(channel) is False
 
 
-def test_25_sweep_frequency_bounds_roundtrip(driver: RigolDG1022Z) -> None:
+@pytest.mark.parametrize("source", list(SweepTriggerSource), ids=lambda source: source.value.lower())
+def test_25_sweep_trigger_roundtrip_matches_configured_source(driver: RigolDG1022Z, source: SweepTriggerSource) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(1, SweepType.LINEAR)
+    driver._check_errors()
+
+    driver.set_sweep_trigger(1, source)
+    driver._check_errors()
+
+    assert driver.get_sweep_trigger(1) is source
+
+
+def test_26_get_sweep_trigger_rejects_invalid_channel(driver: RigolDG1022Z) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        driver.get_sweep_trigger(INVALID_CHANNEL)
+
+    driver._check_errors()
+
+
+def test_27_fire_sweep_trigger_fires_when_source_already_manual(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(1, SweepType.LINEAR)
+    driver.set_sweep_trigger(1, SweepTriggerSource.MANUAL)
+    driver._check_errors()
+
+    try:
+        driver.output_enable(1, True)
+        driver.sweep_enable(1, True)
+        driver.fire_sweep_trigger(1)
+        driver._check_errors()
+    finally:
+        driver.sweep_enable(1, False)
+        driver.output_enable(1, False)
+
+
+def test_28_fire_sweep_trigger_rejects_non_manual_source(driver: RigolDG1022Z) -> None:
+    driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(1, SweepType.LINEAR)
+    driver.set_sweep_trigger(1, SweepTriggerSource.EXTERNAL)
+    driver._check_errors()
+
+    try:
+        driver.sweep_enable(1, True)
+
+        with pytest.raises(ValueError, match="already MANUAL"):
+            driver.fire_sweep_trigger(1)
+
+        driver._check_errors()
+    finally:
+        driver.sweep_enable(1, False)
+
+
+def test_29_sweep_frequency_bounds_roundtrip(driver: RigolDG1022Z) -> None:
     driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
 
     driver.set_sweep_start_freq(1, TEST_SWEEP_START_HZ)
@@ -560,7 +613,7 @@ def test_25_sweep_frequency_bounds_roundtrip(driver: RigolDG1022Z) -> None:
     assert driver.get_sweep_end_freq(1) == pytest.approx(TEST_SWEEP_END_HZ, rel=FREQUENCY_TOLERANCE_REL)
 
 
-def test_26_sweep_timing_roundtrip(driver: RigolDG1022Z) -> None:
+def test_30_sweep_timing_roundtrip(driver: RigolDG1022Z) -> None:
     driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
 
     driver.set_sweep_time(1, TEST_SWEEP_TIME_S)
