@@ -208,17 +208,15 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
         """Configure the two standard differential AI channels."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
-            physical_channel=AI_CH0,
+        daq.configure_voltage_input(
+            AI_CH0,
             alias="ai_0",
             range_min=range_min,
             range_max=range_max,
             terminal_config=TerminalConfig.DIFF,
         )
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
-            physical_channel=AI_CH1,
+        daq.configure_voltage_input(
+            AI_CH1,
             alias="ai_1",
             range_min=range_min,
             range_max=range_max,
@@ -227,16 +225,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_ao(self, daq: InstroDAQ):
         """Configure the two standard AO channels."""
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
-            physical_channel=AO_CH0,
+        daq.configure_voltage_output(
+            AO_CH0,
             alias="ao_0",
             range_min=-10,
             range_max=10,
         )
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
-            physical_channel=AO_CH1,
+        daq.configure_voltage_output(
+            AO_CH1,
             alias="ao_1",
             range_min=-10,
             range_max=10,
@@ -456,9 +452,8 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 self._configure_ao(daq)
 
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
-                    physical_channel=AI_CH0,
+                daq.configure_voltage_input(
+                    AI_CH0,
                     alias="ai_0_narrow",
                     range_min=-1,
                     range_max=1,

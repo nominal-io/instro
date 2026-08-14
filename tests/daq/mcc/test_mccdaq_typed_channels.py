@@ -19,8 +19,14 @@ MCC THERMOCOUPLE WIRING
   CJC: the device's built-in cold-junction sensors are used by the Universal
   Library automatically; no CJC wiring or configuration is needed.
 
-  Set THERMOCOUPLE_WIRED = False to run structure-only checks (no value
-  asserts) when no thermocouple is connected.
+  Voltage input wiring (channel 1). This device has no analog output, so the
+  voltage comes from an external supply rather than an AO loopback. Set the
+  supply to EXTERNAL_VOLTAGE volts and wire it as:
+    source +  --->  CH1H  (channel 1 high)
+    source -  --->  CH1L  (channel 1 low)
+
+  Set THERMOCOUPLE_WIRED / EXTERNAL_VOLTAGE_WIRED = False to run structure-only
+  checks (no value asserts) for whichever input is not connected.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -79,6 +85,7 @@ DATASET_RID = None
 
 # Physical configs. Set to false if nothing is connected
 THERMOCOUPLE_WIRED = True
+EXTERNAL_VOLTAGE_WIRED = True
 
 # Thermocouple mode.
 TC_CHANNEL, TC_ALIAS = "0", "tc0"
@@ -89,6 +96,14 @@ TC_CJC_SOURCE = CJCSource.INTERNAL
 # Physical configuration for TC (if connected)
 TC_RANGE_MIN, TC_RANGE_MAX = 0.0, 100.0
 AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 40.0
+
+# Voltage mode. This device has no analog output, so an external supply drives the channel.
+VOLTAGE_CHANNEL, VOLTAGE_ALIAS = "1", "v1"
+VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -10.0, 10.0
+
+# Voltage the external supply applies to VOLTAGE_CHANNEL, in volts (if connected)
+EXTERNAL_VOLTAGE = 2.5
+VOLTAGE_TOLERANCE_V = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +216,15 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             unit=TC_UNIT_UNDER_TEST,
         )
 
+    def _configure_voltage_input(self, daq: InstroDAQ, physical: str = VOLTAGE_CHANNEL, alias: str = VOLTAGE_ALIAS):
+        """Configure the voltage input channel driven by the external supply."""
+        daq.configure_voltage_input(
+            physical,
+            alias=alias,
+            range_min=VOLTAGE_RANGE_MIN,
+            range_max=VOLTAGE_RANGE_MAX,
+        )
+
     def _run_step(self, name: str, description: str, fn):
         """Execute *fn*, record a Nominal event with description, and re-raise on failure."""
         start_ns = time.time_ns()
@@ -251,6 +275,50 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             "Thermocouple input",
             f"Configure {TC_CHANNEL} as a type {TC_TYPE_UNDER_TEST.value} thermocouple input "
             f"and perform 3 reads, checking each lands in the plausible ambient band.",
+            step,
+        )
+
+    # =====================================================================
+    # 2. Voltage input — externally supplied, this device has no analog output
+    # =====================================================================
+    def test_02_voltage_input(self):
+        """Configure the voltage channel and verify it reads the externally applied voltage."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_voltage_input(daq)
+
+                channel = daq.ai_channels[VOLTAGE_ALIAS]
+                self.assertEqual(channel.physical_channel, VOLTAGE_CHANNEL)
+                self.assertEqual((channel.range_min, channel.range_max), (VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX))
+
+                errs = []
+                for _ in range(3):
+                    measured = daq.read_analog().latest
+                    err = measured - EXTERNAL_VOLTAGE
+                    flag = (
+                        ""
+                        if (not EXTERNAL_VOLTAGE_WIRED or abs(err) <= VOLTAGE_TOLERANCE_V)
+                        else "  <-- out of tolerance"
+                    )
+                    print(f"         {VOLTAGE_ALIAS} = {measured:.4f} V | err={err:+.4f} V{flag}")
+                    if not math.isfinite(measured):
+                        errs.append(f"non-finite voltage read: {measured}")
+                    if EXTERNAL_VOLTAGE_WIRED and abs(err) > VOLTAGE_TOLERANCE_V:
+                        errs.append(
+                            f"{VOLTAGE_ALIAS}={measured:.4f} V vs {EXTERNAL_VOLTAGE} V applied "
+                            f"(err {err:+.4f} V > {VOLTAGE_TOLERANCE_V} V)"
+                        )
+                    time.sleep(0.25)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Voltage input",
+            f"Configure {VOLTAGE_CHANNEL} as a voltage input and perform 3 reads, checking each lands "
+            f"within {VOLTAGE_TOLERANCE_V} V of the {EXTERNAL_VOLTAGE} V external supply.",
             step,
         )
 
