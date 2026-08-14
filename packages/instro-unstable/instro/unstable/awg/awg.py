@@ -24,6 +24,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
     SweepType,
     Triangle,
     Waveform,
@@ -179,6 +180,14 @@ class AWGDriverBase(abc.ABC):
     def get_sweep_state(self, channel: int) -> bool:
         """Return True if sweep mode is enabled on channel."""
         raise NotImplementedError(f"get_sweep_state is not implemented for {type(self).__name__}")
+
+    def set_sweep_trigger(self, channel: int, source: SweepTriggerSource) -> None:
+        """Set the sweep trigger source on channel."""
+        raise NotImplementedError(f"set_sweep_trigger is not implemented for {type(self).__name__}")
+
+    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+        """Get the sweep trigger source on channel."""
+        raise NotImplementedError(f"get_sweep_trigger is not implemented for {type(self).__name__}")
 
     def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
         """Set the sweep start frequency (Hz) on channel."""
@@ -651,6 +660,25 @@ class InstroAWG(Instrument):
         """Read back whether sweep mode is enabled on channel."""
         self._check_channel(channel)
         return self._execute_measurement(self._driver.get_sweep_state, channel, "sweep_enabled", **kwargs)
+
+    @publish_command
+    def set_sweep_trigger(self, channel: int, source: SweepTriggerSource, **kwargs) -> Command:
+        """Set the sweep trigger source on channel."""
+        if not isinstance(source, SweepTriggerSource):
+            raise TypeError(f"source must be a SweepTriggerSource, got {type(source).__name__}")
+        self._check_channel(channel)
+        with self._resource_lock:
+            self._driver.set_sweep_trigger(channel=channel, source=source)
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.sweep_trigger.cmd"
+        return self._package_command(descriptor, source.value, timestamp, **kwargs)
+
+    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+        """Read back the sweep trigger source on channel."""
+        self._check_channel(channel)
+        with self._resource_lock:
+            source = self._driver.get_sweep_trigger(channel=channel)
+        return source
 
     def set_sweep_start_freq(self, channel: int, frequency_hz: float, **kwargs) -> Command:
         """Set the sweep start frequency (Hz) on channel."""

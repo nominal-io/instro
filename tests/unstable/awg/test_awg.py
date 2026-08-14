@@ -20,6 +20,7 @@ from instro.unstable.awg.types import (
     GatePolarity,
     ModulationType,
     Sine,
+    SweepTriggerSource,
     SweepType,
     Waveform,
 )
@@ -113,6 +114,8 @@ def test_01_awg_driver_base_contract_enforces_instantiation_rules() -> None:
         ("get_sweep_type", (1,)),
         ("sweep_enable", (1, True)),
         ("get_sweep_state", (1,)),
+        ("set_sweep_trigger", (1, SweepTriggerSource.INTERNAL)),
+        ("get_sweep_trigger", (1,)),
         ("set_sweep_start_freq", (1, 100.0)),
         ("get_sweep_start_freq", (1,)),
         ("set_sweep_end_freq", (1, 200.0)),
@@ -156,6 +159,7 @@ def mock_driver() -> MagicMock:
     driver.get_burst_gate_polarity.return_value = GatePolarity.NORM
     driver.get_sweep_type.return_value = SweepType.LINEAR
     driver.get_sweep_state.return_value = False
+    driver.get_sweep_trigger.return_value = SweepTriggerSource.INTERNAL
     return driver
 
 
@@ -260,6 +264,8 @@ def test_04_helper_tags_avoid_collision_with_positional_params(awg: InstroAWG) -
         ("get_sweep_type", ()),
         ("sweep_enable", (True,)),
         ("get_sweep_state", ()),
+        ("set_sweep_trigger", (SweepTriggerSource.INTERNAL,)),
+        ("get_sweep_trigger", ()),
         ("set_sweep_start_freq", (100.0,)),
         ("get_sweep_start_freq", ()),
         ("set_sweep_end_freq", (200.0,)),
