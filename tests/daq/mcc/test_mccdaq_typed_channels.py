@@ -8,6 +8,12 @@ The Universal Library applies cold-junction compensation internally and
 returns temperature directly. Each test step is recorded as an event on a
 Nominal Core asset.
 
+Analog input only: the USB-2404-UI has no digital I/O and no analog output
+(its UL User's Guide page lists analog input as its only feature). The typed
+digital channel methods (``configure_digital_input`` /
+``configure_digital_output``) are covered against the USB-1616HS-4 in
+``test_mccdaq_hardware.py`` instead.
+
 ============================================================================
 MCC THERMOCOUPLE WIRING
 ============================================================================

@@ -1136,7 +1136,7 @@ class TestMCCDAQHardware(unittest.TestCase):
     # 23. Per-line digital config unsupported on USB-1616HS-4
     # =====================================================================
     def test_23_digital_line_config_unsupported(self):
-        """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
+        """configure_digital_output() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
         driver re-raises the UL failure as a RuntimeError directing the caller to the port-width
@@ -1148,20 +1148,22 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 with self.assertRaises(
                     RuntimeError,
-                    msg="configure_digital_line should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
+                    msg="configure_digital_output should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
                 ):
-                    daq.configure_digital_line(
-                        direction=Direction.OUTPUT,
-                        physical_channel="FIRSTPORTA/0",
-                        logic=Logic.HIGH,
-                    )
+                    daq.configure_digital_output("FIRSTPORTA/0", logic=Logic.HIGH)
+                with self.assertRaises(
+                    RuntimeError,
+                    msg="configure_digital_input should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
+                ):
+                    daq.configure_digital_input("FIRSTPORTB/0", logic=Logic.HIGH)
             finally:
                 daq.close()
 
         self._run_step(
             "Per-line digital config unsupported",
-            "Assert configure_digital_line() raises RuntimeError on the USB-1616HS-4, which lacks "
-            "per-bit digital configuration. Port-width digital I/O is covered by tests 12–14.",
+            "Assert configure_digital_output() and configure_digital_input() raise RuntimeError on the "
+            "USB-1616HS-4, which lacks per-bit digital configuration. Port-width digital I/O is covered "
+            "by tests 12–14.",
             step,
         )
 

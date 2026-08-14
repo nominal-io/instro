@@ -601,8 +601,22 @@ class MCCDriver(DAQDriverBase):
         logic_level: float | None = None,
         alias: str | None = None,
     ):
+        """Deprecated: use ``configure_di_channel``. Parse ``DigitalPortType/#`` and register the DI line."""
+        self.configure_di_channel(
+            DigitalLineChannel(
+                physical_channel=physical_channel,
+                alias=alias or physical_channel,
+                direction=Direction.INPUT,
+                logic_level=logic_level,
+                logic=logic,
+            )
+        )
+
+    def configure_di_channel(self, channel: DigitalLineChannel):
         """Parse ``DigitalPortType/#``, configure the bit for DI, and register the line."""
-        channel = self._build_line_channel(physical_channel, Direction.INPUT, logic, logic_level, alias)
+        channel = self._build_line_channel(
+            channel.physical_channel, Direction.INPUT, channel.logic, channel.logic_level, channel.alias
+        )
         port = self._get_port(channel.physical_channel)
         try:
             ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.IN)
@@ -621,8 +635,22 @@ class MCCDriver(DAQDriverBase):
         logic_level: float | None = None,
         alias: str | None = None,
     ):
+        """Deprecated: use ``configure_do_channel``. Parse ``DigitalPortType/#`` and register the DO line."""
+        self.configure_do_channel(
+            DigitalLineChannel(
+                physical_channel=physical_channel,
+                alias=alias or physical_channel,
+                direction=Direction.OUTPUT,
+                logic_level=logic_level,
+                logic=logic,
+            )
+        )
+
+    def configure_do_channel(self, channel: DigitalLineChannel):
         """Parse ``DigitalPortType/#``, configure the bit for DO, and register the line."""
-        channel = self._build_line_channel(physical_channel, Direction.OUTPUT, logic, logic_level, alias)
+        channel = self._build_line_channel(
+            channel.physical_channel, Direction.OUTPUT, channel.logic, channel.logic_level, channel.alias
+        )
         port = self._get_port(channel.physical_channel)
         try:
             ul.d_config_bit(self._board_number, port.type, channel.bit_position, DigitalIODirection.OUT)
