@@ -16,6 +16,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
     SweepType,
     Triangle,
     Waveform,
@@ -427,6 +428,21 @@ class RigolDG1022Z(AWGDriverBase):
             self._check_errors()
         return result
 
+    def set_sweep_trigger(self, channel: int, source: SweepTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, SweepTriggerSource):
+            raise TypeError(f"source must be a SweepTriggerSource, got {type(source).__name__}")
+        with self._visa.lock():
+            self._visa.write(f":SOUR{channel}:SWE:TRIG:SOUR {source.value}")
+            self._check_errors()
+
+    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = SweepTriggerSource(self._visa.query(f":SOUR{channel}:SWE:TRIG:SOUR?").strip())
+            self._check_errors()
+        return result
+
     def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
         _check_channel(channel)
         with self._visa.lock():
@@ -491,6 +507,22 @@ class RigolDG1022Z(AWGDriverBase):
             result = float(self._visa.query(f":SOUR{channel}:SWE:RTIM?"))
             self._check_errors()
         return result
+
+    def fire_sweep_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            if not self.get_sweep_state(channel):
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless sweep mode is already"
+                    " enabled, call sweep_enable(channel, True) first"
+                )
+            source = self.get_sweep_trigger(channel)
+            if source is not SweepTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_sweep_trigger(channel, SweepTriggerSource.MANUAL) first. Got: {source.name}"
+                )
+            self._write_checked(f":SOUR{channel}:SWE:TRIG")
 
     def _write_frequency_and_phase(self, channel: int, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f":SOUR{channel}:FREQ {frequency_hz}")
