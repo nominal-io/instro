@@ -18,16 +18,21 @@ from mcculw.enums import (
     InterfaceType,
     ScanOptions,
     Status,
+    TcType,
+    TempScale,
     ULRange,
 )
 from mcculw.ul import ULError
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
+    AnalogThermocoupleChannel,
     AnalogVoltageChannel,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -83,6 +88,7 @@ class MCCDriver(DAQDriverBase):
 
         self._ai_channel_ranges: dict[str, ULRange] = {}  # Cache for resolved ULRange per AI channel
         self._ao_channel_ranges: dict[str, ULRange] = {}  # Cache for resolved ULRange per AO channel
+        self._ai_supported_ranges: list[ULRange] = []  # Device AI ranges, captured at open()
 
     def open(self):
         """Connect to MCC device."""
@@ -100,6 +106,10 @@ class MCCDriver(DAQDriverBase):
                 )
             ul.create_daq_device(self._board_number, device)
             self._info = DaqDeviceInfo(self._board_number)
+            # Capture the AI ranges before any channel is programmed. The UL derives this list from
+            # BoardInfo.RANGE, so once a channel's range is set it collapses to just that range.
+            ai_info = self._info.get_ai_info()
+            self._ai_supported_ranges = list(ai_info.supported_ranges) if ai_info.is_supported else []
         except ULError as e:
             raise RuntimeError(
                 f"Failed to connect to MCC device '{self._device_id}' on board {self._board_number}: {e}. "
@@ -143,9 +153,28 @@ class MCCDriver(DAQDriverBase):
                     f"Invalid terminal configuration: {terminal_config}, must be one of {[cfg.name for cfg in TerminalConfig]}"
                 )
 
+    @staticmethod
+    def _get_temp_scale(unit: TC_UNIT) -> TempScale:
+        match unit:
+            case TC_UNIT.CELSIUS:
+                return TempScale.CELSIUS
+            case TC_UNIT.FAHRENHEIT:
+                return TempScale.FAHRENHEIT
+            case TC_UNIT.KELVIN:
+                return TempScale.KELVIN
+            case _:
+                raise ValueError(
+                    f"MCC DAQ does not support the {unit.name} temperature scale, "
+                    f"must be one of {[u.name for u in (TC_UNIT.CELSIUS, TC_UNIT.FAHRENHEIT, TC_UNIT.KELVIN)]}"
+                )
+
     def _ordered_ai_channels(self) -> list[AnalogChannelUnion]:
         """AI channels in ascending physical-channel order, the order the channel/gain queue requires."""
         return sorted(self._ai_channels.values(), key=lambda channel: int(channel.physical_channel))
+
+    def _get_tc_range(self) -> ULRange:
+        """Range the thermocouple front end uses; it is always the device's most sensitive range."""
+        return min(self._ai_supported_ranges, key=lambda ul_range: ul_range.range_max - ul_range.range_min)
 
     def _program_ai_channel(self, channel: AnalogChannelUnion, chan_type: AiChanType, ul_range: ULRange):
         """Program a channel's input type and range, then cache the range for scans."""
@@ -198,7 +227,7 @@ class MCCDriver(DAQDriverBase):
 
         self._validate_ai_channel(channel, ai_info.num_chans)
 
-        self._program_ai_channel(channel, AiChanType.VOLTAGE, self._get_range(channel))
+        self._program_ai_channel(channel, AiChanType.VOLTAGE, self._get_range(channel, self._ai_supported_ranges))
 
         # set channel terminal config of board
         # Software-timed does not support per-channel terminal config, each channel configuration will update board-wide terminal config
@@ -206,6 +235,52 @@ class MCCDriver(DAQDriverBase):
             ul.a_input_mode(self._board_number, self._get_terminal_config(channel.terminal_config))
         except Exception:
             pass
+
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Configure a thermocouple input channel on the MCC DAQ device."""
+        ai_info = self._info.get_ai_info()
+        if not ai_info.temp_supported:
+            raise ValueError("Temperature input is not supported by this device.")
+
+        self._validate_ai_channel(channel, ai_info.num_temp_chans)
+
+        if channel.cjc_source not in (None, CJCSource.INTERNAL):
+            raise ValueError("MCC DAQ applies cold-junction compensation internally; cjc_source must be INTERNAL.")
+
+        if channel.tc_input_scaler is not None:
+            raise ValueError(
+                "tc_input_scaler is not supported by the MCC driver; the device returns temperature directly."
+            )
+
+        temp_scale = self._get_temp_scale(channel.unit)
+
+        # TEMPSCALE is board-wide, so scanned temperatures come back in one unit for every thermocouple channel.
+        conflicting = [
+            other.alias
+            for other in self._ai_channels.values()
+            if isinstance(other, AnalogThermocoupleChannel) and other.unit is not channel.unit
+        ]
+        if conflicting:
+            raise ValueError(
+                f"MCC DAQ applies one board-wide temperature scale, but channels {conflicting} are already "
+                f"configured in a different unit than '{channel.alias}' ({channel.unit.name})."
+            )
+
+        self._program_ai_channel(channel, AiChanType.TC, self._get_tc_range())
+
+        # set thermocouple type on channel
+        ul.set_config(
+            InfoType.BOARDINFO,
+            self._board_number,
+            int(channel.physical_channel),
+            BoardInfo.CHANTCTYPE,
+            TcType[channel.tc_type.value],
+        )
+
+        # (hw timed) sets the unit a_in_scan returns for thermocouple channels;
+        ul.set_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.TEMPSCALE, temp_scale)
 
         self._ai_channels[channel.alias] = channel
 
@@ -228,7 +303,7 @@ class MCCDriver(DAQDriverBase):
             raise ValueError(f"Channel '{channel}' must be an output channel to configure an analog output channel")
 
         # set channel range
-        ul_range = self._get_range(channel)
+        ul_range = self._get_range(channel, ao_info.supported_ranges)
         self._ao_channel_ranges[channel.physical_channel] = ul_range
         try:
             ul.set_config(
@@ -243,29 +318,27 @@ class MCCDriver(DAQDriverBase):
 
         self._ao_channels[channel.alias] = channel
 
-    def _get_range(self, channel: AnalogChannel | AnalogVoltageChannel) -> ULRange:
-        # Find the tightest ULRange that includes the configured range
-        valid_ranges = []
-
-        for ul_range in ULRange:
-            # Check if this ULRange can accommodate the channel's configured range
-            if hasattr(ul_range, "range_min") and hasattr(ul_range, "range_max"):
-                if ul_range.range_min <= channel.range_min and ul_range.range_max >= channel.range_max:
-                    # Calculate the span of this range
-                    span = ul_range.range_max - ul_range.range_min
-                    valid_ranges.append((ul_range, span))
+    def _get_range(self, channel: AnalogChannel | AnalogVoltageChannel, supported_ranges: list[ULRange]) -> ULRange:
+        """Return the tightest range the device offers that spans the channel's configured range."""
+        # Only ranges the device actually offers are candidates; picking any other ULRange is accepted
+        # by set_config and then fails the read or write with a range error.
+        valid_ranges = [
+            ul_range
+            for ul_range in supported_ranges
+            if hasattr(ul_range, "range_min")
+            and hasattr(ul_range, "range_max")
+            and ul_range.range_min <= channel.range_min
+            and ul_range.range_max >= channel.range_max
+        ]
 
         if not valid_ranges:
             raise ValueError(
                 f"No supported range found for channel {channel.physical_channel} "
                 f"with range [{channel.range_min}, {channel.range_max}]. "
-                "The configured range exceeds all available hardware ranges."
+                f"This device supports {[ul_range.name for ul_range in supported_ranges] or 'no ranges'}."
             )
 
-        # Sort by span (ascending) to get the tightest range first
-        valid_ranges.sort(key=lambda x: x[1])
-
-        return valid_ranges[0][0]
+        return min(valid_ranges, key=lambda ul_range: ul_range.range_max - ul_range.range_min)
 
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
         """Configure hardware timing for the specified channels."""
@@ -343,6 +416,18 @@ class MCCDriver(DAQDriverBase):
         # allocate a buffer for the scan based on the supported scan options and device resolution
         scan_options = ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS
         self._scan_scaled = ScanOptions.SCALEDATA in ai_info.supported_scan_options
+
+        # Raw counts convert through a voltage range, which cannot linearize a thermocouple.
+        if not self._scan_scaled:
+            thermocouples = [
+                channel.alias for channel in ordered_channels if isinstance(channel, AnalogThermocoupleChannel)
+            ]
+            if thermocouples:
+                raise ValueError(
+                    f"Hardware-timed acquisition of thermocouple channels {thermocouples} requires the SCALEDATA "
+                    "scan option, which is not supported by this device. Use software-timed reads (read_analog)."
+                )
+
         if self._scan_scaled:
             scan_options |= ScanOptions.SCALEDATA
             self._memhandle = ul.scaled_win_buf_alloc(self._buffer_size)
@@ -419,7 +504,10 @@ class MCCDriver(DAQDriverBase):
             raise ValueError("No analog input channels configured")
         for channel in self._ordered_ai_channels():
             ch = int(channel.physical_channel)
-            if ai_resolution <= 16:
+            if isinstance(channel, AnalogThermocoupleChannel):
+                # (sw timed) read thermocouple channels in their configured unit.
+                eng_value = ul.t_in(self._board_number, ch, self._get_temp_scale(channel.unit))
+            elif ai_resolution <= 16:
                 eng_value = ul.v_in(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])
             else:
                 eng_value = ul.v_in_32(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])

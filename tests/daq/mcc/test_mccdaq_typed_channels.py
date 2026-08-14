@@ -104,12 +104,14 @@ TC_RANGE_MIN, TC_RANGE_MAX = 0.0, 100.0
 AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 40.0
 
 # Voltage mode. This device has no analog output, so an external supply drives the channel.
+# The USB-2404-UI only offers +/-60, +/-15, +/-4, +/-1 and +/-0.125 V; asking for a range it
+# does not have (e.g. +/-10) raises at configure time.
 VOLTAGE_CHANNEL, VOLTAGE_ALIAS = "1", "v1"
-VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -10.0, 10.0
+VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -4.0, 4.0
 
 # Voltage the external supply applies to VOLTAGE_CHANNEL, in volts (if connected)
-EXTERNAL_VOLTAGE = 2.5
-VOLTAGE_TOLERANCE_V = 0.05
+EXTERNAL_VOLTAGE = 3.3
+VOLTAGE_TOLERANCE_V = 0.053
 
 
 # ---------------------------------------------------------------------------
