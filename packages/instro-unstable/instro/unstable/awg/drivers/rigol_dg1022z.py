@@ -398,6 +398,8 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
         _check_channel(channel)
+        if not isinstance(sweep_type, SweepType):
+            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
         with self._visa.lock():
             carrier = self.get_waveform(channel)
             if isinstance(carrier, StaticValue):
