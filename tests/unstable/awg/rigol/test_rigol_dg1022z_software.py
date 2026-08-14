@@ -19,6 +19,7 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
     SweepType,
     Triangle,
     Waveform,
@@ -957,7 +958,51 @@ def test_49_sweep_enable_and_get_sweep_state_roundtrip(rigol: RigolDG1022Z, rigo
     assert rigol.get_sweep_state(1) is False
 
 
-def test_50_sweep_frequency_bounds_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "source",
+    [SweepTriggerSource.INTERNAL, SweepTriggerSource.EXTERNAL, SweepTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_50_set_sweep_trigger_writes_source(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, source: SweepTriggerSource
+) -> None:
+    rigol.set_sweep_trigger(1, source)
+
+    rigol_visa.write.assert_called_once_with(f":SOUR1:SWE:TRIG:SOUR {source.value}")
+
+
+def test_51_set_sweep_trigger_rejects_invalid_source_and_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(TypeError, match="source must be a SweepTriggerSource"):
+        rigol.set_sweep_trigger(1, "INT")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.set_sweep_trigger(3, SweepTriggerSource.INTERNAL)
+
+    rigol_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [SweepTriggerSource.INTERNAL, SweepTriggerSource.EXTERNAL, SweepTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_52_get_sweep_trigger_parses_every_source(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock, source: SweepTriggerSource
+) -> None:
+    _query_sequence(rigol_visa, [source.value])
+
+    assert rigol.get_sweep_trigger(1) is source
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:SWE:TRIG:SOUR?")]
+
+
+def test_53_get_sweep_trigger_rejects_invalid_channel(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.get_sweep_trigger(3)
+
+    rigol_visa.query.assert_not_called()
+
+
+def test_54_sweep_frequency_bounds_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.set_sweep_start_freq(1, 100.0)
     rigol.set_sweep_end_freq(1, 900.0)
     assert rigol_visa.write.call_args_list == [call(":SOUR1:FREQ:STAR 100.0"), call(":SOUR1:FREQ:STOP 900.0")]
@@ -968,7 +1013,7 @@ def test_50_sweep_frequency_bounds_roundtrip(rigol: RigolDG1022Z, rigol_visa: Ma
     assert _real_query_calls(rigol_visa) == [call(":SOUR1:FREQ:STAR?"), call(":SOUR1:FREQ:STOP?")]
 
 
-def test_51_sweep_timing_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+def test_55_sweep_timing_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.set_sweep_time(2, 5.0)
     rigol.set_sweep_hold_time(2, 1.0)
     rigol.set_sweep_return_time(2, 0.5)
@@ -987,3 +1032,36 @@ def test_51_sweep_timing_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -
         call(":SOUR2:SWE:HTIM?"),
         call(":SOUR2:SWE:RTIM?"),
     ]
+
+
+def test_56_fire_sweep_trigger_fires_when_source_already_manual(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _query_sequence(rigol_visa, ["ON", "MAN"])
+
+    rigol.fire_sweep_trigger(1)
+
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:SWE:STAT?"), call(":SOUR1:SWE:TRIG:SOUR?")]
+    assert rigol_visa.write.call_args_list == [call(":SOUR1:SWE:TRIG")]
+
+
+def test_57_fire_sweep_trigger_rejects_non_manual_source_and_invalid_channel(
+    rigol: RigolDG1022Z, rigol_visa: MagicMock
+) -> None:
+    _query_sequence(rigol_visa, ["ON", "EXT"])
+
+    with pytest.raises(ValueError, match="already MANUAL"):
+        rigol.fire_sweep_trigger(1)
+
+    with pytest.raises(ValueError, match="channel must be 1 or 2"):
+        rigol.fire_sweep_trigger(3)
+
+    rigol_visa.write.assert_not_called()
+
+
+def test_58_fire_sweep_trigger_rejects_when_sweep_not_enabled(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _query_sequence(rigol_visa, ["OFF"])
+
+    with pytest.raises(ValueError, match="sweep mode is already"):
+        rigol.fire_sweep_trigger(1)
+
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:SWE:STAT?")]
+    rigol_visa.write.assert_not_called()
