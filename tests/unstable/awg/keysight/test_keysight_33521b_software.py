@@ -422,12 +422,6 @@ def _mock_carrier_query(
             50.0,
             _SINE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("AM:SOUR INT"),
                 call("AM:INT:FUNC SIN"),
                 call("AM:INT:FREQ 100.0"),
@@ -440,12 +434,6 @@ def _mock_carrier_query(
             500.0,
             _SINE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("FM:SOUR INT"),
                 call("FM:INT:FUNC SQU"),
                 call("FM:INT:FREQ 100.0"),
@@ -458,12 +446,6 @@ def _mock_carrier_query(
             45.0,
             _SINE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("PM:SOUR INT"),
                 call("PM:INT:FUNC TRI"),
                 call("PM:INT:FREQ 100.0"),
@@ -476,12 +458,6 @@ def _mock_carrier_query(
             50e-6,
             _PULSE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("PWM:SOUR INT"),
                 call("PWM:INT:FUNC SQU"),
                 call("PWM:INT:FREQ 100.0"),
@@ -494,12 +470,6 @@ def _mock_carrier_query(
             2000.0,
             _SINE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("FSK:SOUR INT"),
                 call("FSK:INT:RATE 100.0"),
                 call("FSK:FREQ 2000.0"),
@@ -511,12 +481,6 @@ def _mock_carrier_query(
             90.0,
             _SINE_CARRIER_RESPONSES,
             [
-                call("AM:STAT OFF"),
-                call("FM:STAT OFF"),
-                call("PM:STAT OFF"),
-                call("PWM:STAT OFF"),
-                call("FSK:STAT OFF"),
-                call("BPSK:STAT OFF"),
                 call("BPSK:SOUR INT"),
                 call("BPSK:INT:RATE 100.0"),
                 call("BPSK:PHAS 90.0"),
@@ -698,14 +662,41 @@ def test_43_get_waveform_unprogrammed_arbitrary_surfaces_pending_error_instead_o
         keysight.get_waveform(1)
 
 
-def test_44_set_modulation_disables_the_previous_modulation_type_before_reconfiguring(
+def test_44_set_modulation_skips_disable_when_previous_type_was_not_enabled(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
-    """Regression: only one modulation type can be enabled on the 33521B at a time (hardware-confirmed)."""
+    """Hardware-confirmed: reconfiguring modulation types needs no disable-all step when the previous type was never enabled."""
     _mock_carrier_query(keysight_visa)
     keysight.set_modulation(1, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
     keysight_visa.write.reset_mock()
     _mock_carrier_query(keysight_visa)
+
+    keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
+
+    assert keysight_visa.write.call_args_list == [
+        call("BPSK:SOUR INT"),
+        call("BPSK:INT:RATE 100.0"),
+        call("BPSK:PHAS 90.0"),
+    ]
+
+
+def test_45_set_modulation_disables_and_reenables_when_previous_type_was_enabled(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """Hardware-confirmed: switching modulation types while the previous type is enabled disables every type first, then re-enables only the new one."""
+    _mock_carrier_query(keysight_visa)
+    keysight.set_modulation(1, ModulationType.FSK, Sawtooth(frequency_hz=100.0), 2000.0)
+    keysight.modulation_enable(1, True)
+    keysight_visa.write.reset_mock()
+
+    def fake_query(command: str) -> str:
+        if command == ":SYST:ERR?":
+            return _NO_ERROR
+        if command.endswith(":STAT?"):
+            return "1"
+        return "SIN"
+
+    keysight_visa.query.side_effect = fake_query
 
     keysight.set_modulation(1, ModulationType.PSK, Triangle(frequency_hz=100.0), 90.0)
 
@@ -719,4 +710,5 @@ def test_44_set_modulation_disables_the_previous_modulation_type_before_reconfig
         call("BPSK:SOUR INT"),
         call("BPSK:INT:RATE 100.0"),
         call("BPSK:PHAS 90.0"),
+        call("BPSK:STAT ON"),
     ]
