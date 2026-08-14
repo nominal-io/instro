@@ -233,7 +233,8 @@ class Keysight33521B(AWGDriverBase):
                 raise ValueError(f"Keysight 33521B reported unsupported waveform '{carrier_name}'")
             _validate_carrier(mod_type, carrier_type)
             was_enabled = self.get_modulation_state(channel)
-            self.modulation_enable(channel, False)
+            if self._last_modulation_type:
+                self.modulation_enable(channel, False)
             self._visa.write(f"{prefix}:SOUR INT")
             if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
                 function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
@@ -271,7 +272,9 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         with self._visa.lock():
             if self._last_modulation_type is None:
-                raise RuntimeError(f"channel {channel} has no modulation type currently set; set modulation first.")
+                raise RuntimeError(
+                    f"channel {channel} has no modulation type currently configured; set modulation first."
+                )
             return self._last_modulation_type
 
     def get_modulation_state(self, channel: int) -> bool:

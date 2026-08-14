@@ -422,6 +422,12 @@ def _mock_carrier_query(
             50.0,
             _SINE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("AM:SOUR INT"),
                 call("AM:INT:FUNC SIN"),
                 call("AM:INT:FREQ 100.0"),
@@ -434,6 +440,12 @@ def _mock_carrier_query(
             500.0,
             _SINE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("FM:SOUR INT"),
                 call("FM:INT:FUNC SQU"),
                 call("FM:INT:FREQ 100.0"),
@@ -446,6 +458,12 @@ def _mock_carrier_query(
             45.0,
             _SINE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("PM:SOUR INT"),
                 call("PM:INT:FUNC TRI"),
                 call("PM:INT:FREQ 100.0"),
@@ -458,6 +476,12 @@ def _mock_carrier_query(
             50e-6,
             _PULSE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("PWM:SOUR INT"),
                 call("PWM:INT:FUNC SQU"),
                 call("PWM:INT:FREQ 100.0"),
@@ -470,6 +494,12 @@ def _mock_carrier_query(
             2000.0,
             _SINE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("FSK:SOUR INT"),
                 call("FSK:INT:RATE 100.0"),
                 call("FSK:FREQ 2000.0"),
@@ -481,6 +511,12 @@ def _mock_carrier_query(
             90.0,
             _SINE_CARRIER_RESPONSES,
             [
+                call("AM:STAT OFF"),
+                call("FM:STAT OFF"),
+                call("PM:STAT OFF"),
+                call("PWM:STAT OFF"),
+                call("FSK:STAT OFF"),
+                call("BPSK:STAT OFF"),
                 call("BPSK:SOUR INT"),
                 call("BPSK:INT:RATE 100.0"),
                 call("BPSK:PHAS 90.0"),
@@ -558,7 +594,7 @@ def test_34_modulation_enable_true_raises_when_no_modulation_configured(
 ) -> None:
     keysight_visa.query.return_value = "0"
 
-    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
+    with pytest.raises(RuntimeError, match="no modulation type currently configured"):
         keysight.modulation_enable(1, True)
 
     keysight_visa.write.assert_not_called()
@@ -582,7 +618,7 @@ def test_35_modulation_enable_writes_off_for_every_modulation_type(
 
 
 def test_36_get_modulation_type_raises_when_none_enabled(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
+    with pytest.raises(RuntimeError, match="no modulation type currently configured"):
         keysight.get_modulation_type(1)
 
     keysight_visa.query.assert_not_called()

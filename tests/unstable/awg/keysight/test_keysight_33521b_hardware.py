@@ -328,7 +328,7 @@ def test_21_modulation_enable_true_without_prior_configuration_raises(driver: Ke
     """
     driver._last_modulation_type = None
 
-    with pytest.raises(RuntimeError, match="no modulation type currently enabled"):
+    with pytest.raises(RuntimeError, match="no modulation type currently configured"):
         driver.modulation_enable(CHANNEL, True)
 
     driver._check_errors()
