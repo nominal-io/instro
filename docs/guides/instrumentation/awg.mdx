@@ -264,7 +264,7 @@ Optional overrides (raise `NotImplementedError` if not supported):
 
 ### Modulation
 
-`set_modulation()` only configures modulation on a specific channel and does not enable modulation. 
+`set_modulation()` only configures modulation on a specific channel and does not enable modulation. Only exception is the Keysight 33521B driver: set_modulation will temporarily disable modulation, if previously enabled, to change modulation type. Enable state is restored once `set_modulation` finishes successfully. In error cases, `set_modulation` could leave modulation disabled.
 To enable or disable modulation, use `modulation_enable()`. Only one modulation type is enabled at a time.
 `get_modulation_type` returns the most previous modulation type set by the user. 
 

@@ -1,5 +1,6 @@
 """Software tests for the Keysight 33521B AWG driver."""
 
+import logging
 from collections.abc import Iterator
 from unittest.mock import MagicMock, call, patch
 
@@ -712,3 +713,29 @@ def test_45_set_modulation_disables_and_reenables_when_previous_type_was_enabled
         call("BPSK:PHAS 90.0"),
         call("BPSK:STAT ON"),
     ]
+
+
+def test_46_set_modulation_warns_when_reconfigure_fails_while_disabled(
+    keysight: Keysight33521B, keysight_visa: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failed reconfigure must warn that modulation was left disabled, not silently swallow the state change."""
+    err_query_count = 0
+
+    def fake_query(command: str) -> str:
+        nonlocal err_query_count
+        if command == ":SYST:ERR?":
+            err_query_count += 1
+            # 1st check is get_modulation_state's, 2nd is modulation_enable(False)'s, 3rd is the reconfigure's.
+            return '-113,"Undefined header"' if err_query_count == 3 else _NO_ERROR
+        if command.endswith(":STAT?"):
+            return "1"
+        return "SIN"
+
+    keysight_visa.query.side_effect = fake_query
+
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(RuntimeError, match="Undefined header"):
+            keysight.set_modulation(1, ModulationType.AM, Sine(frequency_hz=100.0), 50.0)
+
+    assert "modulation remains disabled" in caplog.text
+    assert call("AM:STAT ON") not in keysight_visa.write.call_args_list

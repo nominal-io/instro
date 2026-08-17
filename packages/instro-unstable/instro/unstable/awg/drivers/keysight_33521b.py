@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
@@ -45,6 +47,8 @@ _MOD_MAGNITUDE_NODE: dict[ModulationType, str] = {
     ModulationType.PM: "DEV",
     ModulationType.PWM: "DEV",
 }
+logger = logging.getLogger(__name__)
+
 _FUNC_NAME_TO_CARRIER_TYPE: dict[str, type] = {
     "SIN": Sine,
     "SQU": Square,
@@ -235,21 +239,30 @@ class Keysight33521B(AWGDriverBase):
             was_enabled = self.get_modulation_state(channel)
             if was_enabled:
                 self.modulation_enable(channel, False)
-            self._visa.write(f"{prefix}:SOUR INT")
-            if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
-                function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
-                self._visa.write(f"{prefix}:INT:FUNC {function}")
-                self._visa.write(f"{prefix}:INT:FREQ {modulator.frequency_hz}")
-                self._visa.write(f"{prefix}:{_MOD_MAGNITUDE_NODE[mod_type]} {magnitude}")
-            elif mod_type is ModulationType.FSK:
-                self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
-                self._visa.write(f"{prefix}:FREQ {magnitude}")
-            elif mod_type is ModulationType.PSK:
-                self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
-                self._visa.write(f"{prefix}:PHAS {magnitude}")
-            else:
-                raise AssertionError(f"unhandled ModulationType {mod_type}")
-            self._check_errors()
+            try:
+                self._visa.write(f"{prefix}:SOUR INT")
+                if mod_type in (ModulationType.AM, ModulationType.FM, ModulationType.PM, ModulationType.PWM):
+                    function = _MOD_INTERNAL_FUNCTIONS[type(modulator)]
+                    self._visa.write(f"{prefix}:INT:FUNC {function}")
+                    self._visa.write(f"{prefix}:INT:FREQ {modulator.frequency_hz}")
+                    self._visa.write(f"{prefix}:{_MOD_MAGNITUDE_NODE[mod_type]} {magnitude}")
+                elif mod_type is ModulationType.FSK:
+                    self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
+                    self._visa.write(f"{prefix}:FREQ {magnitude}")
+                elif mod_type is ModulationType.PSK:
+                    self._visa.write(f"{prefix}:INT:RATE {modulator.frequency_hz}")
+                    self._visa.write(f"{prefix}:PHAS {magnitude}")
+                else:
+                    raise AssertionError(f"unhandled ModulationType {mod_type}")
+                self._check_errors()
+            except Exception:
+                if was_enabled:
+                    logger.warning(
+                        "channel %d: modulation was disabled to reconfigure it but the reconfigure failed;"
+                        " modulation remains disabled",
+                        channel,
+                    )
+                raise
             self._last_modulation_type = mod_type
             if was_enabled:
                 self.modulation_enable(channel, True)
