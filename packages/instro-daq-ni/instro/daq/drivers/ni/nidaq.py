@@ -213,16 +213,16 @@ class NIDAQDriver(DAQDriverBase):
         if task:
             raise ValueError("Channel already exists and is configured")
 
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+
         task.ao_channels.add_ao_voltage_chan(
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
 
-        task_name = f"{self._task_prefix}_{channel.alias}"
-        task = nidaqmx.Task(task_name)
         self._ao_sw_tasks[channel.alias] = task
-
         self._ao_channels[channel.alias] = channel
 
     def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
@@ -234,16 +234,16 @@ class NIDAQDriver(DAQDriverBase):
         if task:
             raise ValueError("Channel already exists and is configured")
 
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+
         task.ao_channels.add_ao_current_chan(
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
 
-        task_name = f"{self._task_prefix}_{channel.alias}"
-        task = nidaqmx.Task(task_name)
         self._ao_sw_tasks[channel.alias] = task
-
         self._ao_channels[channel.alias] = channel
 
     @staticmethod
