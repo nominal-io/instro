@@ -1013,6 +1013,7 @@ mod subscription_loop_tests {
     use anyhow::Context as _;
     use anyhow::Result;
     use anyhow::anyhow;
+    use futures_util::stream;
     use futures_util::Stream;
     use futures_util::StreamExt as _;
     use tokio::sync::mpsc;
@@ -1132,12 +1133,9 @@ mod subscription_loop_tests {
         }
     }
 
-    fn datapoint(server_timestamp: u64, value: f64) -> OpcUaDataPoint {
-        OpcUaDataPoint {
-            server_timestamp,
-            source_timestamp: None,
-            value: OpcUaValue::Double(value),
-        }
+    fn datapoint(ts: u64, value: f64) -> OpcUaDataPoint {
+        OpcUaDataPoint::new(OpcUaValue::Double(value))
+            .with_server_timestamp(ts)
     }
 
     /// Wraps an unbounded channel as a notification [`Stream`]; the stream ends when the sender
@@ -1145,7 +1143,7 @@ mod subscription_loop_tests {
     fn notification_stream(
         rx: mpsc::UnboundedReceiver<(OpcUaNodeId, OpcUaDataPoint)>,
     ) -> impl Stream<Item = (OpcUaNodeId, OpcUaDataPoint)> + Send + Unpin + 'static {
-        futures_util::stream::unfold(rx, |mut rx| async move {
+        stream::unfold(rx, |mut rx| async move {
             rx.recv().await.map(|item| (item, rx))
         })
         .boxed()
@@ -1239,13 +1237,16 @@ mod subscription_loop_tests {
             .collect::<Vec<_>>();
 
         assert_eq!(samples.len(), 3, "expected one polled sample per tick");
+
         for sample in &samples {
             assert_eq!(sample.node_id, x.node_id);
         }
+
         let timestamps = samples
             .iter()
-            .map(|s| s.data.server_timestamp)
+            .map(|s| s.data.server_timestamp.expect("server timestamp should be present"))
             .collect::<Vec<_>>();
+
         assert_eq!(
             timestamps,
             vec![1, 2, 3],
@@ -1258,6 +1259,7 @@ mod subscription_loop_tests {
             .map_err(|_| anyhow!("state poisoned"))?
             .requested
             .clone();
+
         assert_eq!(requested.len(), 3);
 
         Ok(())
@@ -1300,7 +1302,7 @@ mod subscription_loop_tests {
         assert_eq!(samples.len(), 1, "stale polled sample should be dropped");
         let sample = samples.first().context("missing notification sample")?;
         assert_eq!(sample.node_id, x.node_id);
-        assert_eq!(sample.data.server_timestamp, 100);
+        assert_eq!(sample.data.server_timestamp, Some(100));
         assert_eq!(sample.data.value, OpcUaValue::Double(1.0));
 
         let _ = state; // shared handle kept alive for the loop's duration
@@ -1345,10 +1347,10 @@ mod subscription_loop_tests {
         let polled = samples.first().context("missing polled sample")?;
         let notification = samples.get(1).context("missing notification sample")?;
         assert_eq!(
-            polled.data.server_timestamp, 100,
+            polled.data.server_timestamp, Some(100),
             "polled sample emitted first"
         );
-        assert_eq!(notification.data.server_timestamp, 200);
+        assert_eq!(notification.data.server_timestamp, Some(200));
 
         Ok(())
     }
@@ -1388,7 +1390,7 @@ mod subscription_loop_tests {
         );
         let sample = samples.first().context("missing drained sample")?;
         assert_eq!(sample.node_id, x.node_id);
-        assert_eq!(sample.data.server_timestamp, 7);
+        assert_eq!(sample.data.server_timestamp, Some(7));
 
         Ok(())
     }
@@ -1490,7 +1492,7 @@ mod subscription_loop_tests {
 
         assert_eq!(samples.len(), 1, "only the notification should be emitted");
         let sample = samples.first().context("missing notification sample")?;
-        assert_eq!(sample.data.server_timestamp, 7);
+        assert_eq!(sample.data.server_timestamp, Some(7));
 
         let requested = state
             .lock()
@@ -1564,7 +1566,7 @@ mod subscription_loop_tests {
             "static node should keep being polled (got {static_count})"
         );
         assert!(
-            active_timestamps.contains(&5) && active_timestamps.contains(&6),
+            active_timestamps.contains(&Some(5)) && active_timestamps.contains(&Some(6)),
             "both active-node notifications should be delivered, got {active_timestamps:?}",
         );
 
@@ -1618,7 +1620,7 @@ mod subscription_loop_tests {
             "only the buffered sample should be drained on exit"
         );
         let sample = samples.first().context("missing drained sample")?;
-        assert_eq!(sample.data.server_timestamp, 1);
+        assert_eq!(sample.data.server_timestamp, Some(1));
 
         // Tick 2 broke before reading, so exactly one read (from tick 1) was issued.
         let requested = state
