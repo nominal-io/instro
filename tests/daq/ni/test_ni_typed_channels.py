@@ -14,8 +14,10 @@ typed-channel path
 ``configure_digital_output`` -> ``configure_do_line_channel``)
 rather than the generic analog path covered by ``test_ni_hardware.py``. The
 voltage and current modes are verified through a loopback from their output
-module back into the 9219. Each test step is recorded as an event on a Nominal
-Core asset.
+module back into the 9219. Each analog mode is covered twice: once software-timed
+(single-shot ``read_analog()``, no ``start()``) and once hardware-timed
+(``configure_ai_hw_sample_rate()`` + ``start(background=False)`` + ``read()``).
+Each test step is recorded as an event on a Nominal Core asset.
 
 ============================================================================
 NI cDAQ CONFIG
@@ -88,7 +90,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "<NI DEVICE NAME>"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
+DEVICE_ID = "cDAQ5"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
 NAME = "ni_typed_channels"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -111,8 +113,8 @@ VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = f"{DEVICE_ID}Mod2/ao3", "vao0"
 CURRENT_AO_CHANNEL, CURRENT_AO_ALIAS = f"{DEVICE_ID}Mod3/ao0", "iao0"
 
 # Digital lines — one DO line looped back to one DI line (DevN/portM/lineP form).
-DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod4/port0/line16", "do20"
-DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod5/port0/line0", "di0"
+DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod3/port0/line16", "do20"
+DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod4/port0/line0", "di0"
 DIGITAL_TEST_STATES = (0, 1, 0, 1, 0)
 
 # Voltage mode — the 9219 supports ±125 mV, ±1 V, ±4 V, ±15 V, and ±60 V.
@@ -135,6 +137,12 @@ TC_CJC_SOURCE = CJCSource.INTERNAL
 # Physical configuration for TC (if connected)
 TC_RANGE_MIN, TC_RANGE_MAX = 0.0, 100.0
 AMBIENT_MIN_C, AMBIENT_MAX_C = 10.0, 40.0
+
+# Hardware-timed acquisition — the 9219 is a slow sigma-delta module (100 S/s max).
+SAMPLE_RATE_HZ = 50.0
+SAMPLES_PER_CHANNEL = 25
+HW_TIMED_VOLTAGE_V = 2.5  # DC level held on the voltage AO during hardware-timed reads.
+HW_TIMED_CURRENT_A = 0.012  # DC level held on the current AO during hardware-timed reads.
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +301,20 @@ class TestNITypedChannels(unittest.TestCase):
         daq.configure_digital_output(DO_LINE, alias=DO_ALIAS)
         daq.configure_digital_input(DI_LINE, alias=DI_ALIAS)
 
+    def _hw_timed_values(self, daq: InstroDAQ, alias: str) -> list[float]:
+        """Run one hardware-timed acquisition and return the samples fetched for ``alias``."""
+        daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+        daq.start(background=False)
+        try:
+            return daq.read(alias).values
+        finally:
+            daq.stop()
+
+    def _assert_finite_samples(self, vals: list[float], alias: str):
+        """Assert a hardware-timed fetch returned at least one sample and every sample is finite."""
+        self.assertGreaterEqual(len(vals), 1, f"no samples fetched for {alias}")
+        self.assertTrue(all(math.isfinite(v) for v in vals), f"non-finite HW-timed samples for {alias}: n={len(vals)}")
+
     def _run_step(self, name: str, description: str, fn):
         """Execute *fn*, record a Nominal event with description, and re-raise on failure."""
         start_ns = time.time_ns()
@@ -306,9 +328,9 @@ class TestNITypedChannels(unittest.TestCase):
             raise
 
     # =====================================================================
-    # 1. Voltage loopback — write the AO, verify on the 9219 voltage input
+    # 1. Voltage loopback, SW-timed — write the AO, verify on the 9219 voltage input
     # =====================================================================
-    def test_01_voltage_loopback(self):
+    def test_01_voltage_loopback_sw_timed(self):
         """Write known voltages to the AO and verify they appear on the 9219 voltage input."""
 
         def step():
@@ -349,16 +371,54 @@ class TestNITypedChannels(unittest.TestCase):
                 daq.close()
 
         self._run_step(
-            "Voltage loopback",
+            "Voltage loopback (SW-timed)",
             f"Write a sweep of voltages ({VOLTAGE_TEST_VALUES} V) to {VOLTAGE_AO_CHANNEL} and verify each "
             f"reads back on {VOLTAGE_CHANNEL} within {VOLTAGE_TOLERANCE_V} V.",
             step,
         )
 
     # =====================================================================
-    # 2. Thermocouple input
+    # 2. Voltage loopback, HW-timed — hold a DC level, fetch a buffered scan
     # =====================================================================
-    def test_02_thermocouple_input(self):
+    def test_02_voltage_loopback_hw_timed(self):
+        """Hold the AO at a DC voltage and verify a hardware-timed scan of the 9219 voltage input."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_voltage_input(daq)
+                self._configure_voltage_output(daq)
+
+                daq.write_analog_value(VOLTAGE_AO_ALIAS, HW_TIMED_VOLTAGE_V)
+                time.sleep(0.05)  # let the output settle
+                try:
+                    vals = self._hw_timed_values(daq, VOLTAGE_ALIAS)
+                finally:
+                    daq.write_analog_value(VOLTAGE_AO_ALIAS, 0.0)
+
+                self._assert_finite_samples(vals, VOLTAGE_ALIAS)
+                mean = sum(vals) / len(vals)
+                print(
+                    f"         hw-timed {VOLTAGE_ALIAS}: {len(vals)} samples @ {SAMPLE_RATE_HZ} Hz | "
+                    f"mean={mean:.4f} V (AO held at {HW_TIMED_VOLTAGE_V} V)"
+                )
+                if VOLTAGE_LOOPBACK_WIRED:
+                    self.assertAlmostEqual(mean, HW_TIMED_VOLTAGE_V, delta=VOLTAGE_TOLERANCE_V)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Voltage loopback (HW-timed)",
+            f"Hold {VOLTAGE_AO_CHANNEL} at {HW_TIMED_VOLTAGE_V} V, run a hardware-timed acquisition at "
+            f"{SAMPLE_RATE_HZ} Hz ({SAMPLES_PER_CHANNEL} samples/channel), and verify the mean of "
+            f"{VOLTAGE_CHANNEL} lands within {VOLTAGE_TOLERANCE_V} V.",
+            step,
+        )
+
+    # =====================================================================
+    # 3. Thermocouple input, SW-timed
+    # =====================================================================
+    def test_03_thermocouple_input_sw_timed(self):
         """Configure the 9219 thermocouple channel and read plausible ambient temperatures."""
 
         def step():
@@ -390,16 +450,55 @@ class TestNITypedChannels(unittest.TestCase):
                 daq.close()
 
         self._run_step(
-            "Thermocouple input",
+            "Thermocouple input (SW-timed)",
             f"Configure {TC_CHANNEL} as a type {TC_TYPE_UNDER_TEST.value} thermocouple input "
             f"and perform 3 reads, checking each lands in the plausible ambient band.",
             step,
         )
 
     # =====================================================================
-    # 3. Current loopback — write the AO, verify on the 9219 current input
+    # 4. Thermocouple input, HW-timed — fetch a buffered scan
     # =====================================================================
-    def test_03_current_loopback(self):
+    def test_04_thermocouple_input_hw_timed(self):
+        """Verify a hardware-timed scan of the 9219 thermocouple channel reads plausible ambient temperatures."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_thermocouple(daq)
+
+                vals = self._hw_timed_values(daq, TC_ALIAS)
+
+                self._assert_finite_samples(vals, TC_ALIAS)
+                mean = sum(vals) / len(vals)
+                flag = (
+                    ""
+                    if (not THERMOCOUPLE_WIRED or AMBIENT_MIN_C <= mean <= AMBIENT_MAX_C)
+                    else "  <-- outside plausible ambient range"
+                )
+                print(
+                    f"         hw-timed {TC_ALIAS}: {len(vals)} samples @ {SAMPLE_RATE_HZ} Hz | "
+                    f"mean={mean:.3f} {TC_UNIT_UNDER_TEST.value}{flag}"
+                )
+                if THERMOCOUPLE_WIRED:
+                    self.assertTrue(
+                        AMBIENT_MIN_C <= mean <= AMBIENT_MAX_C,
+                        f"hw-timed mean {mean:.3f} outside [{AMBIENT_MIN_C}, {AMBIENT_MAX_C}]",
+                    )
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Thermocouple input (HW-timed)",
+            f"Run a hardware-timed acquisition of {TC_CHANNEL} at {SAMPLE_RATE_HZ} Hz "
+            f"({SAMPLES_PER_CHANNEL} samples/channel) and check the mean lands in the plausible ambient band.",
+            step,
+        )
+
+    # =====================================================================
+    # 5. Current loopback, SW-timed — write the AO, verify on the 9219 current input
+    # =====================================================================
+    def test_05_current_loopback_sw_timed(self):
         """Write known currents to the AO and verify they appear on the 9219 current input."""
 
         def step():
@@ -440,16 +539,54 @@ class TestNITypedChannels(unittest.TestCase):
                 daq.close()
 
         self._run_step(
-            "Current loopback",
+            "Current loopback (SW-timed)",
             f"Write a sweep of currents ({CURRENT_TEST_VALUES} A) to {CURRENT_AO_CHANNEL} and verify each "
             f"reads back on {CURRENT_CHANNEL} within {CURRENT_TOLERANCE_A} A.",
             step,
         )
 
     # =====================================================================
-    # 4. Digital line loopback — drive the DO line, verify on the DI line
+    # 6. Current loopback, HW-timed — hold a DC level, fetch a buffered scan
     # =====================================================================
-    def test_04_digital_line_loopback(self):
+    def test_06_current_loopback_hw_timed(self):
+        """Hold the AO at a DC current and verify a hardware-timed scan of the 9219 current input."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_current_input(daq)
+                self._configure_current_output(daq)
+
+                daq.write_analog_value(CURRENT_AO_ALIAS, HW_TIMED_CURRENT_A)
+                time.sleep(0.05)  # let the output settle
+                try:
+                    vals = self._hw_timed_values(daq, CURRENT_ALIAS)
+                finally:
+                    daq.write_analog_value(CURRENT_AO_ALIAS, 0.0)
+
+                self._assert_finite_samples(vals, CURRENT_ALIAS)
+                mean = sum(vals) / len(vals)
+                print(
+                    f"         hw-timed {CURRENT_ALIAS}: {len(vals)} samples @ {SAMPLE_RATE_HZ} Hz | "
+                    f"mean={mean * 1000:.4f} mA (AO held at {HW_TIMED_CURRENT_A * 1000:.3f} mA)"
+                )
+                if CURRENT_LOOPBACK_WIRED:
+                    self.assertAlmostEqual(mean, HW_TIMED_CURRENT_A, delta=CURRENT_TOLERANCE_A)
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Current loopback (HW-timed)",
+            f"Hold {CURRENT_AO_CHANNEL} at {HW_TIMED_CURRENT_A} A, run a hardware-timed acquisition at "
+            f"{SAMPLE_RATE_HZ} Hz ({SAMPLES_PER_CHANNEL} samples/channel), and verify the mean of "
+            f"{CURRENT_CHANNEL} lands within {CURRENT_TOLERANCE_A} A.",
+            step,
+        )
+
+    # =====================================================================
+    # 7. Digital line loopback — drive the DO line, verify on the DI line
+    # =====================================================================
+    def test_07_digital_line_loopback(self):
         """Drive DO_LINE and verify the state on DI_LINE via single-line loopback."""
 
         def step():
