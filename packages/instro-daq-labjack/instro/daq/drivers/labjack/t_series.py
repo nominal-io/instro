@@ -146,22 +146,31 @@ class LabJackTSeriesDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures an ai channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        assert self._model is not None
-        aNames, aValues = self._model.ai_channel_configs(channel)
-
-        if aNames:
-            ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
-
-        self._ai_channels[channel.alias] = channel
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the LabJack device."""
-        # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
-        # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
-        self._ao_channels[channel.alias] = channel
+        self.configure_ao_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
 
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
         """Configure a voltage ai channel on the LabJack device."""

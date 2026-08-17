@@ -150,39 +150,31 @@ class NIDAQDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures a channel on the NI device."""
-        self._reject_channel_range_or_list(channel.physical_channel)
-        task = self._get_task(ChannelType.ANALOG_INPUT)
-        terminal_config = self._get_terminal_config(channel.terminal_config)
-
-        task.ai_channels.add_ai_voltage_chan(
-            physical_channel=channel.physical_channel,
-            min_val=channel.range_min,
-            max_val=channel.range_max,
-            terminal_config=terminal_config,
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
         )
-
-        self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the NI device."""
-        # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
-        self._reject_channel_range_or_list(channel.physical_channel)
-
-        task = self._ao_sw_tasks.get(channel.alias, None)
-        if task:
-            raise ValueError("Channel already exists and is configured")
-
-        task_name = f"{self._task_prefix}_{channel.alias}"
-        task = nidaqmx.Task(task_name)
-        self._ao_sw_tasks[channel.alias] = task
-
-        task.ao_channels.add_ao_voltage_chan(
-            physical_channel=channel.physical_channel,
-            min_val=channel.range_min,
-            max_val=channel.range_max,
+        self.configure_ao_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
         )
-
-        self._ao_channels[channel.alias] = channel
 
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
         """Configure an analog voltage input channel on the NI device."""
@@ -221,15 +213,15 @@ class NIDAQDriver(DAQDriverBase):
         if task:
             raise ValueError("Channel already exists and is configured")
 
-        task_name = f"{self._task_prefix}_{channel.alias}"
-        task = nidaqmx.Task(task_name)
-        self._ao_sw_tasks[channel.alias] = task
-
         task.ao_channels.add_ao_voltage_chan(
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
+
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+        self._ao_sw_tasks[channel.alias] = task
 
         self._ao_channels[channel.alias] = channel
 
@@ -242,46 +234,33 @@ class NIDAQDriver(DAQDriverBase):
         if task:
             raise ValueError("Channel already exists and is configured")
 
-        task_name = f"{self._task_prefix}_{channel.alias}"
-        task = nidaqmx.Task(task_name)
-        self._ao_sw_tasks[channel.alias] = task
-
         task.ao_channels.add_ao_current_chan(
             physical_channel=channel.physical_channel,
             min_val=channel.range_min,
             max_val=channel.range_max,
         )
 
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+        self._ao_sw_tasks[channel.alias] = task
+
         self._ao_channels[channel.alias] = channel
 
     @staticmethod
     def _get_ni_thermocouple_type(tc_type: TC_TYPE) -> nidaqmx.constants.ThermocoupleType:
-        """Match instro thermocouple type enum to nidaqmx thermocouple type enum."""
-        match tc_type:
-            case TC_TYPE.B:
-                return nidaqmx.constants.ThermocoupleType.B
-            case TC_TYPE.E:
-                return nidaqmx.constants.ThermocoupleType.E
-            case TC_TYPE.J:
-                return nidaqmx.constants.ThermocoupleType.J
-            case TC_TYPE.K:
-                return nidaqmx.constants.ThermocoupleType.K
-            case TC_TYPE.N:
-                return nidaqmx.constants.ThermocoupleType.N
-            case TC_TYPE.R:
-                return nidaqmx.constants.ThermocoupleType.R
-            case TC_TYPE.S:
-                return nidaqmx.constants.ThermocoupleType.S
-            case TC_TYPE.T:
-                return nidaqmx.constants.ThermocoupleType.T
-            case _:
-                raise ValueError(f"Invalid thermocouple type: {tc_type}, must be one of {[t.name for t in TC_TYPE]}")
+        """Match instro thermocouple type enum to nidaqmx thermocouple type enum; member names are identical."""
+        try:
+            return nidaqmx.constants.ThermocoupleType[tc_type.name]
+        except KeyError:
+            raise ValueError(
+                f"Invalid thermocouple type: {tc_type}, must be one of {[t.name for t in TC_TYPE]}"
+            ) from None
 
     @staticmethod
-    def _get_ni_temperature_units(unit: TC_UNIT | None) -> nidaqmx.constants.TemperatureUnits:
+    def _get_ni_temperature_units(unit: TC_UNIT) -> nidaqmx.constants.TemperatureUnits:
         """Match instro temperature unit enum to nidaqmx temperature unit enum."""
         match unit:
-            case None | TC_UNIT.CELSIUS:
+            case TC_UNIT.CELSIUS:
                 return nidaqmx.constants.TemperatureUnits.DEG_C
             case TC_UNIT.FAHRENHEIT:
                 return nidaqmx.constants.TemperatureUnits.DEG_F
