@@ -1,13 +1,81 @@
-"""Scan engines: one class per MCC hardware-timed acquisition architecture."""
+"""Device capability snapshot and scan engines (one class per MCC hardware-timed acquisition architecture)."""
 
 from ctypes import Array, c_double, c_ulong, c_ulonglong, c_ushort
+from dataclasses import dataclass
 from typing import Callable, Protocol
 
 from mcculw import ul
+from mcculw.device_info import DaqDeviceInfo
 from mcculw.enums import ChannelType, DigitalPortType, FunctionType, ScanOptions, TempScale, ULRange
 
 from instro.daq.scaling.thermocouple import TC_UNIT
-from instro.daq.types import AnalogChannelUnion, AnalogThermocoupleChannel, HWTimingConfig, TerminalConfig
+from instro.daq.types import (
+    AnalogChannelUnion,
+    AnalogCurrentChannel,
+    AnalogThermocoupleChannel,
+    HWTimingConfig,
+    TerminalConfig,
+)
+
+
+@dataclass(frozen=True)
+class MCCPortInfo:
+    type: DigitalPortType
+    num_bits: int
+
+
+@dataclass(frozen=True)
+class MCCDeviceInfo:
+    """Capabilities captured once at open; mcculw's info properties re-probe the hardware on every access."""
+
+    product_name: str
+    unique_id: str
+    ai_supported: bool
+    ai_num_chans: int
+    ai_temp_supported: bool
+    ai_num_temp_chans: int
+    ai_resolution: int
+    ai_supported_ranges: tuple[ULRange, ...]
+    ai_supports_scan: bool
+    ai_supported_scan_options: ScanOptions
+    ai_supports_gain_queue: bool
+    ao_supported: bool
+    ao_num_chans: int
+    ao_supported_ranges: tuple[ULRange, ...]
+    daqi_supported: bool
+    daqi_channel_types: tuple[ChannelType, ...]
+    dio_supported: bool
+    dio_ports: tuple[MCCPortInfo, ...]
+
+    @classmethod
+    def snapshot(cls, board_number: int) -> "MCCDeviceInfo":
+        """Read every capability once: some probes actively drive the hardware (a_in/a_out test calls)."""
+        info = DaqDeviceInfo(board_number)
+        ai = info.get_ai_info()
+        ao = info.get_ao_info()
+        daqi = info.get_daqi_info()
+        dio = info.get_dio_info()
+        supports_scan = ai.supports_scan
+        return cls(
+            product_name=info.product_name,
+            unique_id=info.unique_id,
+            ai_supported=ai.is_supported,
+            ai_num_chans=ai.num_chans,
+            ai_temp_supported=ai.temp_supported,
+            ai_num_temp_chans=ai.num_temp_chans,
+            ai_resolution=ai.resolution,
+            ai_supported_ranges=tuple(ai.supported_ranges) if ai.is_supported else (),
+            ai_supports_scan=supports_scan,
+            ai_supported_scan_options=ai.supported_scan_options if supports_scan else ScanOptions(0),
+            ai_supports_gain_queue=ai.supports_gain_queue,
+            ao_supported=ao.is_supported,
+            ao_num_chans=ao.num_chans,
+            ao_supported_ranges=tuple(ao.supported_ranges) if ao.is_supported else (),
+            daqi_supported=daqi.is_supported,
+            daqi_channel_types=tuple(daqi.supported_channel_types),
+            dio_supported=dio.is_supported,
+            dio_ports=tuple(MCCPortInfo(type=port.type, num_bits=port.num_bits) for port in dio.port_info),
+        )
 
 
 def get_temp_scale(unit: TC_UNIT) -> TempScale:
@@ -48,10 +116,9 @@ class DaqInScanEngine:
 
     function_type = FunctionType.DAQIFUNCTION
 
-    def __init__(self, board_num: int, ai_info, daqi_info):
+    def __init__(self, board_num: int, device_info: MCCDeviceInfo):
         self._board_num = board_num
-        self._ai_info = ai_info
-        self._daqi_info = daqi_info
+        self._device_info = device_info
         self._scaled = False
         self._channel_list: list[int | DigitalPortType] = []
         self._channel_type_list: list[ChannelType] = []
@@ -99,6 +166,12 @@ class DaqInScanEngine:
         for channel in channels:
             if isinstance(channel, AnalogThermocoupleChannel):
                 continue
+            if isinstance(channel, AnalogCurrentChannel):
+                # daq_in_scan boards don't support a current front end
+                raise ValueError(
+                    f"Channel '{channel.alias}': daq_in_scan devices do not support hardware-timed current "
+                    "acquisition. Use software-timed reads (read_analog) instead."
+                )
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(channel_ranges[channel.physical_channel])
@@ -136,7 +209,7 @@ class DaqInScanEngine:
         num_chans = len(channel_list)
 
         # Validate each channel type is supported for DAQ input scan on this device
-        supported_channel_types = self._daqi_info.supported_channel_types
+        supported_channel_types = self._device_info.daqi_channel_types
         for ch_type in channel_type_list:
             if ch_type not in supported_channel_types:
                 raise ValueError(
@@ -152,15 +225,15 @@ class DaqInScanEngine:
 
         # allocate a buffer for the scan based on the supported scan options and device resolution
         scan_options = ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS
-        self._scaled = ScanOptions.SCALEDATA in self._ai_info.supported_scan_options
+        self._scaled = ScanOptions.SCALEDATA in self._device_info.ai_supported_scan_options
         if self._scaled:
             scan_options |= ScanOptions.SCALEDATA
             self.memhandle = ul.scaled_win_buf_alloc(self.buffer_size)
             self.ctype, self.copy_func = c_double, ul.scaled_win_buf_to_array
-        elif self._ai_info.resolution <= 16:
+        elif self._device_info.ai_resolution <= 16:
             self.memhandle = ul.win_buf_alloc(self.buffer_size)
             self.ctype, self.copy_func = c_ushort, ul.win_buf_to_array
-        elif self._ai_info.resolution <= 32:
+        elif self._device_info.ai_resolution <= 32:
             self.memhandle = ul.win_buf_alloc_32(self.buffer_size)
             self.ctype, self.copy_func = c_ulong, ul.win_buf_to_array_32
         else:
@@ -208,7 +281,7 @@ class DaqInScanEngine:
         if self._scaled:
             return list(buffer_snapshot)
 
-        to_eng_units = ul.to_eng_units if self._ai_info.resolution <= 16 else ul.to_eng_units_32
+        to_eng_units = ul.to_eng_units if self._device_info.ai_resolution <= 16 else ul.to_eng_units_32
 
         temps: list[float] = []
         if ChannelType.TC in self._channel_type_list:
@@ -276,9 +349,9 @@ class ScaledAInScanEngine:
 
     function_type = FunctionType.AIFUNCTION
 
-    def __init__(self, board_num: int, ai_info):
+    def __init__(self, board_num: int, device_info: MCCDeviceInfo):
         self._board_num = board_num
-        self._ai_info = ai_info
+        self._device_info = device_info
         self.memhandle = 0
         self.buffer_size = 0
         self.scan_width = 0
@@ -304,7 +377,7 @@ class ScaledAInScanEngine:
 
         # Every SCALEDATA-capable AI device in the UL catalog also has a channel/gain queue; requiring
         # it gives every channel its own range instead of validating single-range corner cases.
-        if not self._ai_info.supports_gain_queue:
+        if not self._device_info.ai_supports_gain_queue:
             raise ValueError(
                 "This device has no channel/gain queue, so hardware-timed acquisition is not supported "
                 "by this driver. Use software-timed reads (read_analog) instead."

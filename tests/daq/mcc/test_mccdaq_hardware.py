@@ -326,9 +326,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 board_num = daq.driver._board_number
                 info = daq.driver.get_info()
 
-                # DaqDeviceInfo.product_name / unique_id are lazy properties that call
-                # into the UL at access time, so they must be read before daq.close()
-                # releases the board (otherwise: "Invalid board number").
+                # get_info() returns the MCCDeviceInfo snapshot captured at open()
                 product_name = info.product_name
                 unique_id = info.unique_id
 

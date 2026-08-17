@@ -33,8 +33,13 @@ MCC THERMOCOUPLE WIRING
     source +  --->  CH1H  (channel 1 high)
     source -  --->  CH1L  (channel 1 low)
 
-  Set THERMOCOUPLE_WIRED / EXTERNAL_VOLTAGE_WIRED = False to run structure-only
-  checks (no value asserts) for whichever input is not connected.
+  Current input wiring (channel 2). The device reads current through its fixed
+  +/-25 mA front end. Set the external source to EXTERNAL_CURRENT amps and wire it as:
+    source +  --->  CH2H  (channel 2 high)
+    source -  --->  CH2L  (channel 2 low)
+
+  Set THERMOCOUPLE_WIRED / EXTERNAL_VOLTAGE_WIRED / EXTERNAL_CURRENT_WIRED = False
+  to run structure-only checks (no value asserts) for whichever input is not connected.
 
 ============================================================================
 NOMINAL CORE CONFIGURATION
@@ -94,6 +99,7 @@ DATASET_RID = None
 # Physical configs. Set to false if nothing is connected
 THERMOCOUPLE_WIRED = True
 EXTERNAL_VOLTAGE_WIRED = True
+EXTERNAL_CURRENT_WIRED = True
 
 # Thermocouple mode.
 TC_CHANNEL, TC_ALIAS = "0", "tc0"
@@ -114,6 +120,14 @@ VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -4.0, 4.0
 # Voltage the external supply applies to VOLTAGE_CHANNEL, in volts (if connected)
 EXTERNAL_VOLTAGE = 3.3
 VOLTAGE_TOLERANCE_V = 0.06
+
+# Current mode. The USB-2404-UI reads current through its fixed +/-25 mA front end.
+CURRENT_CHANNEL, CURRENT_ALIAS = "2", "i2"
+CURRENT_RANGE_MIN, CURRENT_RANGE_MAX = -0.025, 0.025
+
+# Current the external source drives into CURRENT_CHANNEL, in amps (if connected)
+EXTERNAL_CURRENT = 0.010
+CURRENT_TOLERANCE_A = 0.001
 
 # Hardware-timed acquisition. TC mode caps the USB-2404-UI scan rate at 50 Hz (high-speed mode).
 HW_SAMPLE_RATE_HZ = 10
@@ -237,6 +251,15 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             alias=alias,
             range_min=VOLTAGE_RANGE_MIN,
             range_max=VOLTAGE_RANGE_MAX,
+        )
+
+    def _configure_current_input(self, daq: InstroDAQ, physical: str = CURRENT_CHANNEL, alias: str = CURRENT_ALIAS):
+        """Configure the current input channel driven by the external source."""
+        daq.configure_current_input(
+            physical,
+            alias=alias,
+            range_min=CURRENT_RANGE_MIN,
+            range_max=CURRENT_RANGE_MAX,
         )
 
     def _run_step(self, name: str, description: str, fn):
@@ -413,6 +436,92 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             "Voltage input (hardware-timed)",
             f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {VOLTAGE_CHANNEL} and check "
             f"each sample lands within {VOLTAGE_TOLERANCE_V} V of the {EXTERNAL_VOLTAGE} V external supply.",
+            step,
+        )
+
+    # =====================================================================
+    # 5. Current input — externally supplied
+    # =====================================================================
+    def test_05_current_input(self):
+        """Configure the current channel and verify it reads the externally applied current."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_current_input(daq)
+
+                channel = daq.ai_channels[CURRENT_ALIAS]
+                self.assertEqual(channel.physical_channel, CURRENT_CHANNEL)
+                self.assertEqual((channel.range_min, channel.range_max), (CURRENT_RANGE_MIN, CURRENT_RANGE_MAX))
+
+                errs = []
+                for _ in range(3):
+                    measured = daq.read_analog().latest
+                    err = measured - EXTERNAL_CURRENT
+                    flag = (
+                        ""
+                        if (not EXTERNAL_CURRENT_WIRED or abs(err) <= CURRENT_TOLERANCE_A)
+                        else "  <-- out of tolerance"
+                    )
+                    print(f"         {CURRENT_ALIAS} = {measured * 1e3:.4f} mA | err={err * 1e3:+.4f} mA{flag}")
+                    if not math.isfinite(measured):
+                        errs.append(f"non-finite current read: {measured}")
+                    if EXTERNAL_CURRENT_WIRED and abs(err) > CURRENT_TOLERANCE_A:
+                        errs.append(
+                            f"{CURRENT_ALIAS}={measured * 1e3:.4f} mA vs {EXTERNAL_CURRENT * 1e3} mA applied "
+                            f"(err {err * 1e3:+.4f} mA > {CURRENT_TOLERANCE_A * 1e3} mA)"
+                        )
+                    time.sleep(0.25)
+                self.assertFalse(errs, "; ".join(errs))
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Current input",
+            f"Configure {CURRENT_CHANNEL} as a current input and perform 3 reads, checking each lands "
+            f"within {CURRENT_TOLERANCE_A * 1e3} mA of the {EXTERNAL_CURRENT * 1e3} mA external source.",
+            step,
+        )
+
+    # =====================================================================
+    # 6. Current input — hardware-timed
+    # =====================================================================
+    def test_06_current_input_hw_timed(self):
+        """Stream the current channel and check every sample matches the externally applied current."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_current_input(daq)
+                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.start(background=False)
+                try:
+                    measured = daq.read_analog().channel_data[f"{NAME}.{CURRENT_ALIAS}"]
+                    print(
+                        f"         {CURRENT_ALIAS}: n={len(measured)} min={min(measured) * 1e3:.4f} "
+                        f"max={max(measured) * 1e3:.4f} mA"
+                    )
+                    errs = []
+                    if len(measured) != HW_SAMPLES_PER_CHANNEL:
+                        errs.append(f"expected {HW_SAMPLES_PER_CHANNEL} samples, got {len(measured)}")
+                    for sample in measured:
+                        if not math.isfinite(sample):
+                            errs.append(f"non-finite current sample: {sample}")
+                        elif EXTERNAL_CURRENT_WIRED and abs(sample - EXTERNAL_CURRENT) > CURRENT_TOLERANCE_A:
+                            errs.append(
+                                f"{sample * 1e3:.4f} mA vs {EXTERNAL_CURRENT * 1e3} mA applied "
+                                f"(err {(sample - EXTERNAL_CURRENT) * 1e3:+.4f} mA > {CURRENT_TOLERANCE_A * 1e3} mA)"
+                            )
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Current input (hardware-timed)",
+            f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {CURRENT_CHANNEL} and check "
+            f"each sample lands within {CURRENT_TOLERANCE_A * 1e3} mA of the {EXTERNAL_CURRENT * 1e3} mA external source.",
             step,
         )
 
