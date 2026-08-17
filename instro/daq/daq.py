@@ -19,7 +19,6 @@ from instro.daq.types import (
     CJCSource,
     DAQChannel,
     DigitalChannel,
-    DigitalLineChannel,
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
