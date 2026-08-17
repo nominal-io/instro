@@ -90,7 +90,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "cDAQ5"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
+DEVICE_ID = "<NI DEVICE NAME>"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
 NAME = "ni_typed_channels"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -113,8 +113,8 @@ VOLTAGE_AO_CHANNEL, VOLTAGE_AO_ALIAS = f"{DEVICE_ID}Mod2/ao3", "vao0"
 CURRENT_AO_CHANNEL, CURRENT_AO_ALIAS = f"{DEVICE_ID}Mod3/ao0", "iao0"
 
 # Digital lines — one DO line looped back to one DI line (DevN/portM/lineP form).
-DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod3/port0/line16", "do20"
-DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod4/port0/line0", "di0"
+DO_LINE, DO_ALIAS = f"{DEVICE_ID}Mod4/port0/line16", "do20"
+DI_LINE, DI_ALIAS = f"{DEVICE_ID}Mod5/port0/line0", "di0"
 DIGITAL_TEST_STATES = (0, 1, 0, 1, 0)
 
 # Voltage mode — the 9219 supports ±125 mV, ±1 V, ±4 V, ±15 V, and ±60 V.
