@@ -30,6 +30,7 @@ from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
+    AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     CJCSource,
@@ -44,6 +45,11 @@ from instro.daq.types import (
     TerminalConfig,
 )
 from instro.lib import Measurement
+
+# The range AiChanType.CURRENT reads through. The UL exposes no way to query it: on a current-mode
+# channel get_config(BoardInfo.RANGE) reports -1, ADNUMSERANGES/ADNUMDIFFRANGES report 0, and
+# ai_info.supported_ranges only probes voltage ranges. Its bounds are read back with _get_range_bounds.
+CURRENT_RANGE = ULRange.BIPPT025AMPS
 
 
 @dataclass
@@ -176,6 +182,26 @@ class MCCDriver(DAQDriverBase):
         """Range the thermocouple front end uses; it is always the device's most sensitive range."""
         return min(self._ai_supported_ranges, key=lambda ul_range: ul_range.range_max - ul_range.range_min)
 
+    def _get_range_bounds(self, ul_range: ULRange) -> tuple[float, float]:
+        """Engineering units this board resolves a range's lowest and highest counts to."""
+        resolution = self._info.get_ai_info().resolution
+        full_scale = (1 << resolution) - 1
+        to_eng_units = ul.to_eng_units if resolution <= 16 else ul.to_eng_units_32
+        return (
+            to_eng_units(self._board_number, ul_range, 0),
+            to_eng_units(self._board_number, ul_range, full_scale),
+        )
+
+    def _get_current_range(self, channel: AnalogCurrentChannel) -> ULRange:
+        """Check the channel's requested range against what the current front end reads, then return it."""
+        low, high = self._get_range_bounds(CURRENT_RANGE)
+        if channel.range_min < low or channel.range_max > high:
+            raise ValueError(
+                f"Channel '{channel.physical_channel}' requested range [{channel.range_min}, {channel.range_max}] A, "
+                f"but this device's current input covers [{low}, {high}] A."
+            )
+        return CURRENT_RANGE
+
     def _program_ai_channel(self, channel: AnalogChannelUnion, chan_type: AiChanType, ul_range: ULRange):
         """Program a channel's input type and range, then cache the range for scans."""
         try:
@@ -237,6 +263,22 @@ class MCCDriver(DAQDriverBase):
             pass
 
         self._ai_channels[channel.alias] = channel
+
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        """Configure a current input channel on the MCC DAQ device."""
+        ai_info = self._info.get_ai_info()
+        if not ai_info.is_supported:
+            raise ValueError("Analog input is not supported by this device.")
+
+        self._validate_ai_channel(channel, ai_info.num_chans)
+
+        self._program_ai_channel(channel, AiChanType.CURRENT, self._get_current_range(channel))
+
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        """Current output is not supported by this driver."""
+        raise NotImplementedError("Current output has not been implemented for the MCC driver.")
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
         """Configure a thermocouple input channel on the MCC DAQ device."""
@@ -504,13 +546,22 @@ class MCCDriver(DAQDriverBase):
             raise ValueError("No analog input channels configured")
         for channel in self._ordered_ai_channels():
             ch = int(channel.physical_channel)
+            ul_range = self._ai_channel_ranges[channel.physical_channel]
             if isinstance(channel, AnalogThermocoupleChannel):
                 # (sw timed) read thermocouple channels in their configured unit.
                 eng_value = ul.t_in(self._board_number, ch, self._get_temp_scale(channel.unit))
+            elif isinstance(channel, AnalogCurrentChannel):
+                # v_in rejects a current-mode channel, so scale the raw count against the current range
+                if ai_resolution <= 16:
+                    eng_value = ul.to_eng_units(self._board_number, ul_range, ul.a_in(self._board_number, ch, ul_range))
+                else:
+                    eng_value = ul.to_eng_units_32(
+                        self._board_number, ul_range, ul.a_in_32(self._board_number, ch, ul_range)
+                    )
             elif ai_resolution <= 16:
-                eng_value = ul.v_in(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])
+                eng_value = ul.v_in(self._board_number, ch, ul_range)
             else:
-                eng_value = ul.v_in_32(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])
+                eng_value = ul.v_in_32(self._board_number, ch, ul_range)
             data.append(eng_value)
         timestamp = time.time_ns()
 
