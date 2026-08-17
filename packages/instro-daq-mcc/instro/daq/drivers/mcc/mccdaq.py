@@ -25,6 +25,7 @@ from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
 from instro.daq.types import (
     AnalogChannel,
+    AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -174,7 +175,11 @@ class MCCDriver(DAQDriverBase):
         return channel_list, channel_type_list, gain_list
 
     def configure_ai_channel(self, channel: AnalogChannel):
-        """Configure an analog input channel on the MCC DAQ device."""
+        """Deprecated: use ``configure_ai_voltage_channel``. Configure an analog input channel on the MCC DAQ device."""
+        self.configure_ai_voltage_channel(channel)
+
+    def configure_ai_voltage_channel(self, channel: AnalogChannel | AnalogVoltageChannel):
+        """Configure a voltage analog input channel on the MCC DAQ device."""
         ai_info = self._info.get_ai_info()
         if not ai_info.is_supported:
             raise ValueError("Analog input is not supported by this device.")
@@ -223,7 +228,11 @@ class MCCDriver(DAQDriverBase):
         self._ai_channels[channel.alias] = channel
 
     def configure_ao_channel(self, channel: AnalogChannel):
-        """Configure an analog output channel on the MCC DAQ device."""
+        """Deprecated: use ``configure_ao_voltage_channel``. Configure an analog output channel on the MCC DAQ device."""
+        self.configure_ao_voltage_channel(channel)
+
+    def configure_ao_voltage_channel(self, channel: AnalogChannel | AnalogVoltageChannel):
+        """Configure a voltage analog output channel on the MCC DAQ device."""
         ao_info = self._info.get_ao_info()
         if not ao_info.is_supported:
             raise ValueError("Analog output is not supported by this device.")
@@ -252,7 +261,7 @@ class MCCDriver(DAQDriverBase):
 
         self._ao_channels[channel.alias] = channel
 
-    def _get_range(self, channel: AnalogChannel) -> ULRange:
+    def _get_range(self, channel: AnalogChannel | AnalogVoltageChannel) -> ULRange:
         # Find the tightest ULRange that includes the configured range
         valid_ranges = []
 
