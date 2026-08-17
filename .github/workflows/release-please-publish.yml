@@ -15,6 +15,7 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
+      group_pr_branch: ${{ steps.group_pr.outputs.branch }}
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
@@ -22,6 +23,48 @@ jobs:
           token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
+      - name: Resolve grouped release PR
+        id: group_pr
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        env:
+          PRS: ${{ steps.release.outputs.prs }}
+        run: |
+          branch="$(
+            jq --raw-output '
+              .[]
+              | select(.headBranchName == "release-please--branches--main")
+              | .headBranchName
+            ' <<< "$PRS"
+          )"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+  update-lockfile:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.group_pr_branch != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.group_pr_branch }}
+          token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.x"
+          enable-cache: false
+      - name: Update uv.lock
+        run: uv lock
+      - name: Commit and push uv.lock
+        run: |
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock is already up to date."
+            exit 0
+          fi
+          git config user.name "NomBot"
+          git config user.email "117409387+nominal-bot@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore: sync uv.lock with release-please version bumps"
+          git push origin "HEAD:${{ needs.release-please.outputs.group_pr_branch }}"
 
   publish-python:
     needs: release-please
