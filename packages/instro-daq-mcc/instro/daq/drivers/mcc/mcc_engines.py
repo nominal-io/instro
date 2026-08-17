@@ -1,4 +1,4 @@
-"""Device capability snapshot and scan engines (one class per MCC hardware-timed acquisition architecture)."""
+"""Logic specific to the different kinds of scanning engines an MCC DAQ can have."""
 
 from ctypes import Array, c_double, c_ulong, c_ulonglong, c_ushort
 from dataclasses import dataclass
@@ -43,7 +43,6 @@ class MCCDeviceInfo:
     ao_num_chans: int
     ao_supported_ranges: tuple[ULRange, ...]
     daqi_supported: bool
-    daqi_channel_types: tuple[ChannelType, ...]
     dio_supported: bool
     dio_ports: tuple[MCCPortInfo, ...]
 
@@ -72,7 +71,6 @@ class MCCDeviceInfo:
             ao_num_chans=ao.num_chans,
             ao_supported_ranges=tuple(ao.supported_ranges) if ao.is_supported else (),
             daqi_supported=daqi.is_supported,
-            daqi_channel_types=tuple(daqi.supported_channel_types),
             dio_supported=dio.is_supported,
             dio_ports=tuple(MCCPortInfo(type=port.type, num_bits=port.num_bits) for port in dio.port_info),
         )
@@ -205,17 +203,10 @@ class DaqInScanEngine:
         buffer_multiplier: int,
     ) -> None:
         """Validate the channel set, allocate the scan buffer, and launch the background scan."""
+        # No channel-type pre-validation: the DAQICHANTYPE config item under-reports on some boards
+        # (the USB-1616HS-4 omits TC/CJC yet scans them), so daq_in_scan itself is the authority.
         channel_list, channel_type_list, gain_list, aliases = self._build_channel_lists(channels, channel_ranges)
         num_chans = len(channel_list)
-
-        # Validate each channel type is supported for DAQ input scan on this device
-        supported_channel_types = self._device_info.daqi_channel_types
-        for ch_type in channel_type_list:
-            if ch_type not in supported_channel_types:
-                raise ValueError(
-                    f"Channel type '{ch_type.name}' is not supported for DAQ input scan on this device. "
-                    f"Supported channel types: {[t.name for t in supported_channel_types]}"
-                )
 
         fetch_size = num_chans * hw_timing_config.samples_per_channel
 
