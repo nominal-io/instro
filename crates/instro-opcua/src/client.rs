@@ -1135,7 +1135,7 @@ mod subscription_loop_tests {
 
     fn datapoint(ts: u64, value: f64) -> OpcUaDataPoint {
         OpcUaDataPoint::new(OpcUaValue::Double(value))
-            .with_server_timestamp(ts)
+            .with_server_timestamp(Some(ts))
     }
 
     /// Wraps an unbounded channel as a notification [`Stream`]; the stream ends when the sender

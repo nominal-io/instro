@@ -102,9 +102,12 @@ fn monitored_item_config() -> OpcUaMonitoredItemConfig {
 
 fn assert_timestamps_present(samples: &[OpcUaSample]) {
     for sample in samples {
+        let timestamp = sample.data.server_timestamp
+            .or(sample.data.source_timestamp);
+
         assert!(
-            sample.data.server_timestamp > 0,
-            "server timestamp should be populated for {sample:?}",
+            matches!(timestamp, Some(timestamp) if timestamp > 0),
+            "timestamp should be populated for {sample:?}",
         );
     }
 }
