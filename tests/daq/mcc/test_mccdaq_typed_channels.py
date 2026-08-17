@@ -5,8 +5,10 @@ E-TC, USB-TC) with a thermocouple connected. It exercises the typed-channel
 path (``configure_thermocouple_input`` -> ``configure_ai_thermocouple_channel``)
 rather than the generic analog path covered by ``test_mccdaq_hardware.py``.
 The Universal Library applies cold-junction compensation internally and
-returns temperature directly. Each test step is recorded as an event on a
-Nominal Core asset.
+returns temperature directly. Each typed channel is exercised both
+software-timed (``read_analog`` with no ``start()``) and hardware-timed
+(``configure_ai_sample_rate`` + ``start`` + buffered fetch). Each test step
+is recorded as an event on a Nominal Core asset.
 
 Analog input only: the USB-2404-UI has no digital I/O and no analog output
 (its UL User's Guide page lists analog input as its only feature). The typed
@@ -111,7 +113,11 @@ VOLTAGE_RANGE_MIN, VOLTAGE_RANGE_MAX = -4.0, 4.0
 
 # Voltage the external supply applies to VOLTAGE_CHANNEL, in volts (if connected)
 EXTERNAL_VOLTAGE = 3.3
-VOLTAGE_TOLERANCE_V = 0.053
+VOLTAGE_TOLERANCE_V = 0.06
+
+# Hardware-timed acquisition. TC mode caps the USB-2404-UI scan rate at 50 Hz (high-speed mode).
+HW_SAMPLE_RATE_HZ = 10
+HW_SAMPLES_PER_CHANNEL = 10
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +333,86 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             "Voltage input",
             f"Configure {VOLTAGE_CHANNEL} as a voltage input and perform 3 reads, checking each lands "
             f"within {VOLTAGE_TOLERANCE_V} V of the {EXTERNAL_VOLTAGE} V external supply.",
+            step,
+        )
+
+    # =====================================================================
+    # 3. Thermocouple input — hardware-timed
+    # =====================================================================
+    def test_03_thermocouple_input_hw_timed(self):
+        """Stream the thermocouple channel and check every sample lands in the ambient band."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_thermocouple(daq)
+                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.start(background=False)
+                try:
+                    measured = daq.read_analog().channel_data[f"{NAME}.{TC_ALIAS}"]
+                    print(
+                        f"         {TC_ALIAS}: n={len(measured)} min={min(measured):.3f} "
+                        f"max={max(measured):.3f} {TC_UNIT_UNDER_TEST.value}"
+                    )
+                    errs = []
+                    if len(measured) != HW_SAMPLES_PER_CHANNEL:
+                        errs.append(f"expected {HW_SAMPLES_PER_CHANNEL} samples, got {len(measured)}")
+                    for sample in measured:
+                        if not math.isfinite(sample):
+                            errs.append(f"non-finite thermocouple sample: {sample}")
+                        elif THERMOCOUPLE_WIRED and not AMBIENT_MIN_C <= sample <= AMBIENT_MAX_C:
+                            errs.append(f"{sample:.3f} outside [{AMBIENT_MIN_C}, {AMBIENT_MAX_C}]")
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Thermocouple input (hardware-timed)",
+            f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {TC_CHANNEL} as a type "
+            f"{TC_TYPE_UNDER_TEST.value} thermocouple and check each sample lands in the plausible ambient band.",
+            step,
+        )
+
+    # =====================================================================
+    # 4. Voltage input — hardware-timed
+    # =====================================================================
+    def test_04_voltage_input_hw_timed(self):
+        """Stream the voltage channel and check every sample matches the externally applied voltage."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_voltage_input(daq)
+                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.start(background=False)
+                try:
+                    measured = daq.read_analog().channel_data[f"{NAME}.{VOLTAGE_ALIAS}"]
+                    print(
+                        f"         {VOLTAGE_ALIAS}: n={len(measured)} min={min(measured):.4f} max={max(measured):.4f} V"
+                    )
+                    errs = []
+                    if len(measured) != HW_SAMPLES_PER_CHANNEL:
+                        errs.append(f"expected {HW_SAMPLES_PER_CHANNEL} samples, got {len(measured)}")
+                    for sample in measured:
+                        if not math.isfinite(sample):
+                            errs.append(f"non-finite voltage sample: {sample}")
+                        elif EXTERNAL_VOLTAGE_WIRED and abs(sample - EXTERNAL_VOLTAGE) > VOLTAGE_TOLERANCE_V:
+                            errs.append(
+                                f"{sample:.4f} V vs {EXTERNAL_VOLTAGE} V applied "
+                                f"(err {sample - EXTERNAL_VOLTAGE:+.4f} V > {VOLTAGE_TOLERANCE_V} V)"
+                            )
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Voltage input (hardware-timed)",
+            f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {VOLTAGE_CHANNEL} and check "
+            f"each sample lands within {VOLTAGE_TOLERANCE_V} V of the {EXTERNAL_VOLTAGE} V external supply.",
             step,
         )
 

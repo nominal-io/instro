@@ -12,20 +12,26 @@ from mcculw.enums import (
     ChannelType,
     DigitalIODirection,
     DigitalPortType,
+    ErrorCode,
     FunctionType,
     InfoType,
     InterfaceType,
     ScanOptions,
     Status,
+    TcType,
+    TempScale,
     ULRange,
 )
 from mcculw.ul import ULError
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogThermocoupleChannel,
     AnalogVoltageChannel,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -141,6 +147,14 @@ class MCCDriver(DAQDriverBase):
                 )
 
     @staticmethod
+    def _get_temp_scale(unit: TC_UNIT) -> TempScale:
+        """Map a TC_UNIT to the mcculw TempScale of the same name."""
+        try:
+            return TempScale[unit.name]
+        except KeyError:
+            raise ValueError(f"MCC DAQ does not support the {unit.name} temperature scale.") from None
+
+    @staticmethod
     def _get_analog_channel_type(terminal_config: TerminalConfig | None) -> ChannelType:
         match terminal_config:
             case None:
@@ -160,6 +174,11 @@ class MCCDriver(DAQDriverBase):
 
         # Add analog input channels
         for channel in self._ai_channels.values():
+            if isinstance(channel, AnalogThermocoupleChannel):
+                raise NotImplementedError(
+                    "Hardware-timed acquisition of thermocouple channels is not yet supported by this driver. "
+                    "Read thermocouple channels with software-timed reads (read_analog) instead."
+                )
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(self._ai_channel_ranges[channel.physical_channel])
@@ -224,6 +243,70 @@ class MCCDriver(DAQDriverBase):
             ul.a_input_mode(self._board_number, self._get_terminal_config(channel.terminal_config))
         except Exception:
             pass
+
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Configure a thermocouple input channel on the MCC DAQ device."""
+        ai_info = self._info.get_ai_info()
+        if not ai_info.temp_supported:
+            raise ValueError("Temperature input is not supported by this device.")
+
+        if not (channel.physical_channel.isdigit() and int(channel.physical_channel) < ai_info.num_temp_chans):
+            raise ValueError(
+                f"Channel '{channel}' must be in the format '#' where # is an integer less than {ai_info.num_temp_chans}"
+            )
+
+        if not channel.direction == Direction.INPUT:
+            raise ValueError(f"Channel '{channel}' must be an input channel to configure a thermocouple input channel")
+
+        if channel.cjc_source not in (None, CJCSource.INTERNAL):
+            raise ValueError("MCC DAQ applies cold-junction compensation internally; cjc_source must be INTERNAL.")
+
+        if channel.tc_input_scaler is not None:
+            raise ValueError(
+                "tc_input_scaler is not supported by the MCC driver; the device returns temperature directly."
+            )
+
+        temp_scale = self._get_temp_scale(channel.unit)
+
+        # TEMPSCALE is board-wide, so hardware-timed temperatures come back in one unit for every TC channel.
+        conflicting = [
+            other.alias
+            for other in self._ai_channels.values()
+            if isinstance(other, AnalogThermocoupleChannel) and other.unit is not channel.unit
+        ]
+        if conflicting:
+            raise ValueError(
+                f"MCC DAQ applies one board-wide temperature scale, but channels {conflicting} are already "
+                f"configured in a different unit than '{channel.alias}' ({channel.unit.name})."
+            )
+
+        # set channel to thermocouple mode
+        try:
+            ul.set_config(
+                InfoType.BOARDINFO,
+                self._board_number,
+                int(channel.physical_channel),
+                BoardInfo.ADCHANTYPE,
+                AiChanType.TC,
+            )
+        except ULError as e:
+            # dedicated MCC TC devices don't expose this config item and raise when calling this configuration
+            if e.errorcode not in (ErrorCode.BADCONFIGITEM, ErrorCode.BADBOARDTYPE):
+                raise
+
+        # set thermocouple type on channel
+        ul.set_config(
+            InfoType.BOARDINFO,
+            self._board_number,
+            int(channel.physical_channel),
+            BoardInfo.CHANTCTYPE,
+            TcType[channel.tc_type.value],
+        )
+
+        # sets the unit hardware-timed scans return for thermocouple channels; t_in takes the scale per call
+        ul.set_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.TEMPSCALE, temp_scale)
 
         self._ai_channels[channel.alias] = channel
 
@@ -420,17 +503,19 @@ class MCCDriver(DAQDriverBase):
                 self._memhandle = 0
 
     def read_analog(self) -> MCCDAQData:
-        """Read from analog input channels."""
+        """Read from analog input channels; thermocouple channels return temperature in their configured unit."""
         data = []
         ai_resolution = self._info.get_ai_info().resolution
-        channel_list, channel_type_list, gain_list = self._build_channel_lists()
-        if len(channel_list) == 0:
+        if not self._ai_channels:
             raise ValueError("No analog input channels configured")
-        for ch, ch_type, ch_gain in zip(channel_list, channel_type_list, gain_list):
-            if ai_resolution <= 16:
-                eng_value = ul.v_in(self._board_number, ch, ch_gain)
+        for channel in self._ai_channels.values():
+            ch = int(channel.physical_channel)
+            if isinstance(channel, AnalogThermocoupleChannel):
+                eng_value = ul.t_in(self._board_number, ch, self._get_temp_scale(channel.unit))
+            elif ai_resolution <= 16:
+                eng_value = ul.v_in(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])
             else:
-                eng_value = ul.v_in_32(self._board_number, ch, ch_gain)
+                eng_value = ul.v_in_32(self._board_number, ch, self._ai_channel_ranges[channel.physical_channel])
             data.append(eng_value)
         timestamp = time.time_ns()
 
