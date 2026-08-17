@@ -2001,8 +2001,8 @@ mod tests {
 
     #[test]
     fn data_point_doesnt_coerce_null_server_timestamp() {
-        let data_point = OpcUaDataPoint::new(OpcUaValue::String("test".into()))
-            .with_source_timestamp(Some(100));
+        let data_point =
+            OpcUaDataPoint::new(OpcUaValue::String("test".into())).with_source_timestamp(Some(100));
 
         assert_eq!(data_point.server_timestamp, None);
         assert_eq!(data_point.source_timestamp, Some(100));
@@ -2010,8 +2010,8 @@ mod tests {
 
     #[test]
     fn data_point_doesnt_coerce_null_source_timestamp() {
-        let data_point = OpcUaDataPoint::new(OpcUaValue::String("test".into()))
-            .with_server_timestamp(Some(100));
+        let data_point =
+            OpcUaDataPoint::new(OpcUaValue::String("test".into())).with_server_timestamp(Some(100));
 
         assert_eq!(data_point.source_timestamp, None);
         assert_eq!(data_point.server_timestamp, Some(100));

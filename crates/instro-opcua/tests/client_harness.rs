@@ -102,7 +102,9 @@ fn monitored_item_config() -> OpcUaMonitoredItemConfig {
 
 fn assert_timestamps_present(samples: &[OpcUaSample]) {
     for sample in samples {
-        let timestamp = sample.data.server_timestamp
+        let timestamp = sample
+            .data
+            .server_timestamp
             .or(sample.data.source_timestamp);
 
         assert!(
