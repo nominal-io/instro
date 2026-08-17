@@ -7,8 +7,9 @@ rather than the generic analog path covered by ``test_mccdaq_hardware.py``.
 The Universal Library applies cold-junction compensation internally and
 returns temperature directly. Each typed channel is exercised both
 software-timed (``read_analog`` with no ``start()``) and hardware-timed
-(``configure_ai_sample_rate`` + ``start`` + buffered fetch). Each test step
-is recorded as an event on a Nominal Core asset.
+(``configure_ai_sample_rate`` + ``start`` + buffered fetch). The board-wide
+thermocouple unit rules are exercised at the driver level (no wiring needed).
+Each test step is recorded as an event on a Nominal Core asset.
 
 Analog input only: the USB-2404-UI has no digital I/O and no analog output
 (its UL User's Guide page lists analog input as its only feature). The typed
@@ -68,6 +69,7 @@ RUNNING
 
 """
 
+import dataclasses
 import math
 import time
 import unittest
@@ -82,7 +84,7 @@ from nominal.core import EventType, NominalClient  # noqa: E402
 from instro.daq import InstroDAQ  # noqa: E402
 from instro.daq.drivers.mcc import MCCDriver  # noqa: E402
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT  # noqa: E402
-from instro.daq.types import CJCSource  # noqa: E402
+from instro.daq.types import AnalogThermocoupleChannel, CJCSource, Direction  # noqa: E402
 from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 
 # ---------------------------------------------------------------------------

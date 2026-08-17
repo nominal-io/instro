@@ -1,12 +1,13 @@
 """Logic specific to the different kinds of scanning engines an MCC DAQ can have."""
 
+import math
 from ctypes import Array, c_double, c_ulong, c_ulonglong, c_ushort
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
 from mcculw import ul
 from mcculw.device_info import DaqDeviceInfo
-from mcculw.enums import ChannelType, DigitalPortType, FunctionType, ScanOptions, TempScale, ULRange
+from mcculw.enums import ChannelType, DigitalPortType, ErrorCode, FunctionType, ScanOptions, TempScale, ULRange
 
 from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
@@ -31,7 +32,6 @@ class MCCDeviceInfo:
     product_name: str
     unique_id: str
     ai_supported: bool
-    ai_num_chans: int
     ai_temp_supported: bool
     ai_num_temp_chans: int
     ai_resolution: int
@@ -41,7 +41,6 @@ class MCCDeviceInfo:
     ai_supports_gain_queue: bool
     ao_supported: bool
     ao_num_chans: int
-    ao_supported_ranges: tuple[ULRange, ...]
     daqi_supported: bool
     dio_supported: bool
     dio_ports: tuple[MCCPortInfo, ...]
@@ -59,7 +58,6 @@ class MCCDeviceInfo:
             product_name=info.product_name,
             unique_id=info.unique_id,
             ai_supported=ai.is_supported,
-            ai_num_chans=ai.num_chans,
             ai_temp_supported=ai.temp_supported,
             ai_num_temp_chans=ai.num_temp_chans,
             ai_resolution=ai.resolution,
@@ -69,7 +67,6 @@ class MCCDeviceInfo:
             ai_supports_gain_queue=ai.supports_gain_queue,
             ao_supported=ao.is_supported,
             ao_num_chans=ao.num_chans,
-            ao_supported_ranges=tuple(ao.supported_ranges) if ao.is_supported else (),
             daqi_supported=daqi.is_supported,
             dio_supported=dio.is_supported,
             dio_ports=tuple(MCCPortInfo(type=port.type, num_bits=port.num_bits) for port in dio.port_info),
@@ -117,7 +114,6 @@ class DaqInScanEngine:
     def __init__(self, board_num: int, device_info: MCCDeviceInfo):
         self._board_num = board_num
         self._device_info = device_info
-        self._scaled = False
         self._channel_list: list[int | DigitalPortType] = []
         self._channel_type_list: list[ChannelType] = []
         self._gain_list: list[ULRange] = []
@@ -142,19 +138,10 @@ class DaqInScanEngine:
             case TerminalConfig.NRSE:
                 raise ValueError("MCC DAQ does not support non-referenced single-ended mode.")
 
-    @staticmethod
-    def _get_cjc_channel(tc_channel: int) -> int:
-        """CJC sensor serving a TC channel, per the UL pairing table (CJC0->TC0; CJC1->TC1,TC2; CJC2->TC3; repeats)."""
-        return 3 * (tc_channel // 4) + (0, 1, 1, 2)[tc_channel % 4]
-
     def _build_channel_lists(
         self, channels: list[AnalogChannelUnion], channel_ranges: dict[str, ULRange]
     ) -> tuple[list[int | DigitalPortType], list[ChannelType], list[ULRange], list[str]]:
-        """Return ``(channels, channel_types, gains, aliases)`` for ``ul.daq_in_scan``.
-
-        The first three lists align by scan position and include CJC entries; ``aliases`` holds the
-        user channels only, in scan order, because CJC samples never leave the driver.
-        """
+        """Return ``(channels, channel_types, gains, aliases)`` for ``ul.daq_in_scan``; aliases exclude CJC entries."""
         channel_list: list[int | DigitalPortType] = []
         channel_type_list: list[ChannelType] = []
         gain_list: list[ULRange] = []
@@ -172,23 +159,22 @@ class DaqInScanEngine:
                 )
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
-            gain_list.append(channel_ranges[channel.physical_channel])
+            gain_list.append(channel_ranges[channel.alias])
             alias_list.append(channel.alias)
 
-        # Each TC entry must immediately follow its associated CJC entry; TCs sharing a CJC share one entry.
+        # Each TC entry immediately follows its associated CJC entry, one CJC entry per TC, per MCC's convention.
         tc_channels = sorted(
             (channel for channel in channels if isinstance(channel, AnalogThermocoupleChannel)),
             key=lambda channel: int(channel.physical_channel),
         )
-        last_cjc = None
         for channel in tc_channels:
-            cjc_channel = self._get_cjc_channel(int(channel.physical_channel))
-            if cjc_channel != last_cjc:
-                channel_list.append(cjc_channel)
-                channel_type_list.append(ChannelType.CJC)
-                gain_list.append(ULRange.NOTUSED)
-                last_cjc = cjc_channel
-            channel_list.append(int(channel.physical_channel))
+            tc = int(channel.physical_channel)
+            # The UL pairing table: CJC0->TC0; CJC1->TC1,TC2; CJC2->TC3; repeating every four TCs.
+            cjc_channel = 3 * (tc // 4) + (0, 1, 1, 2)[tc % 4]
+            channel_list.append(cjc_channel)
+            channel_type_list.append(ChannelType.CJC)
+            gain_list.append(ULRange.NOTUSED)
+            channel_list.append(tc)
             channel_type_list.append(ChannelType.TC)
             gain_list.append(ULRange.NOTUSED)
             alias_list.append(channel.alias)
@@ -203,25 +189,23 @@ class DaqInScanEngine:
         buffer_multiplier: int,
     ) -> None:
         """Validate the channel set, allocate the scan buffer, and launch the background scan."""
-        # No channel-type pre-validation: the DAQICHANTYPE config item under-reports on some boards
-        # (the USB-1616HS-4 omits TC/CJC yet scans them), so daq_in_scan itself is the authority.
+        # No channel-type pre-validation: DAQICHANTYPE under-reports on some boards, so daq_in_scan is the authority.
         channel_list, channel_type_list, gain_list, aliases = self._build_channel_lists(channels, channel_ranges)
         num_chans = len(channel_list)
 
         fetch_size = num_chans * hw_timing_config.samples_per_channel
 
-        # Allocate a larger buffer to prevent overruns during timing jitter
-        # buffer_size = fetch_size * multiplier gives us (multiplier - 1) extra cycles of tolerance
+        # Oversize the buffer: (multiplier - 1) extra fetch cycles of overrun tolerance during timing jitter.
         self.buffer_size = fetch_size * buffer_multiplier
 
-        # allocate a buffer for the scan based on the supported scan options and device resolution
         scan_options = ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS
-        self._scaled = ScanOptions.SCALEDATA in self._device_info.ai_supported_scan_options
-        if self._scaled:
-            scan_options |= ScanOptions.SCALEDATA
-            self.memhandle = ul.scaled_win_buf_alloc(self.buffer_size)
-            self.ctype, self.copy_func = c_double, ul.scaled_win_buf_to_array
-        elif self._device_info.ai_resolution <= 16:
+        # HIGHRESRATE interprets the rate argument in samples per 1000 seconds, which sub-1-Hz rates need.
+        high_res = hw_timing_config.sample_rate < 1
+        if high_res:
+            scan_options |= ScanOptions.HIGHRESRATE
+        rate = int(hw_timing_config.sample_rate * 1000) if high_res else int(hw_timing_config.sample_rate)
+
+        if self._device_info.ai_resolution <= 16:
             self.memhandle = ul.win_buf_alloc(self.buffer_size)
             self.ctype, self.copy_func = c_ushort, ul.win_buf_to_array
         elif self._device_info.ai_resolution <= 32:
@@ -234,16 +218,15 @@ class DaqInScanEngine:
         if not self.memhandle:
             raise RuntimeError("Failed to allocate memory")
 
-        # If daq_in_scan fails, free the buffer we just allocated — the scan never started,
-        # so stop()/stop_background is not guaranteed to clean this up.
+        # If the scan call fails, free the buffer here: stop() is not guaranteed to run for a scan that never started.
         try:
-            actual_rate, actual_pretrig_count, actual_total_count = ul.daq_in_scan(
+            actual_rate, _, _ = ul.daq_in_scan(
                 self._board_num,
                 channel_list,
                 channel_type_list,
                 gain_list,
                 num_chans,
-                int(hw_timing_config.sample_rate),
+                rate,
                 0,
                 self.buffer_size,
                 self.memhandle,
@@ -265,13 +248,10 @@ class DaqInScanEngine:
         )
         self.scan_width = num_chans
         self.aliases = aliases
-        self.actual_rate = actual_rate
+        self.actual_rate = actual_rate / 1000 if high_res else actual_rate
 
     def convert(self, buffer_snapshot: Array, samples_per_channel: int) -> list[float]:
         """Snapshot -> user-channel engineering units in scan order, with CJC columns dropped."""
-        if self._scaled:
-            return list(buffer_snapshot)
-
         to_eng_units = ul.to_eng_units if self._device_info.ai_resolution <= 16 else ul.to_eng_units_32
 
         temps: list[float] = []
@@ -306,7 +286,7 @@ class DaqInScanEngine:
             raise RuntimeError("Failed to allocate memory")
         try:
             copy_to_buf(buffer_snapshot, scratch, 0, count)
-            _, temps = ul.get_tc_values(
+            err_code, temps = ul.get_tc_values(
                 self._board_num,
                 self._channel_list,
                 self._channel_type_list,
@@ -316,6 +296,9 @@ class DaqInScanEngine:
                 samples_per_channel,
                 get_temp_scale(self._tc_unit),
             )
+            # publish NaN for bad scan
+            if err_code == ErrorCode.OUTOFRANGE:
+                return [math.nan if temp == -9999.0 else temp for temp in temps]
             return list(temps)
         finally:
             ul.win_buf_free(scratch)
@@ -359,46 +342,53 @@ class ScaledAInScanEngine:
         buffer_multiplier: int,
     ) -> None:
         """Load the channel/gain queue, allocate the scaled buffer, and launch the background scan."""
-        # a_in_scan reads a contiguous ascending channel span, so scan in ascending physical-channel
-        # order and let the channel/gain queue narrow the span and give each channel its own range.
+        # a_in_scan reads a contiguous ascending span; the gain queue narrows it and sets per-channel ranges.
         ordered = sorted(channels, key=lambda channel: int(channel.physical_channel))
         channel_numbers = [int(channel.physical_channel) for channel in ordered]
-        gains = [channel_ranges[channel.physical_channel] for channel in ordered]
+        gains = [channel_ranges[channel.alias] for channel in ordered]
         num_chans = len(ordered)
 
-        # Every SCALEDATA-capable AI device in the UL catalog also has a channel/gain queue; requiring
-        # it gives every channel its own range instead of validating single-range corner cases.
+        # Every SCALEDATA-capable AI device in the UL catalog also has a channel/gain queue.
         if not self._device_info.ai_supports_gain_queue:
             raise ValueError(
                 "This device has no channel/gain queue, so hardware-timed acquisition is not supported "
                 "by this driver. Use software-timed reads (read_analog) instead."
             )
-        ul.a_load_queue(self._board_num, channel_numbers, gains, num_chans)
 
         fetch_size = num_chans * hw_timing_config.samples_per_channel
 
-        # Allocate a larger buffer to prevent overruns during timing jitter
-        # buffer_size = fetch_size * multiplier gives us (multiplier - 1) extra cycles of tolerance
+        # Oversize the buffer: (multiplier - 1) extra fetch cycles of overrun tolerance during timing jitter.
         self.buffer_size = fetch_size * buffer_multiplier
 
         self.memhandle = ul.scaled_win_buf_alloc(self.buffer_size)
         if not self.memhandle:
             raise RuntimeError("Failed to allocate memory")
 
-        # If a_in_scan fails, free the buffer we just allocated — the scan never started,
-        # so stop()/stop_background is not guaranteed to clean this up.
+        scan_options = ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA
+        # HIGHRESRATE interprets the rate argument in samples per 1000 seconds, which sub-1-Hz rates need.
+        high_res = hw_timing_config.sample_rate < 1
+        if high_res:
+            scan_options |= ScanOptions.HIGHRESRATE
+        rate = int(hw_timing_config.sample_rate * 1000) if high_res else int(hw_timing_config.sample_rate)
+
+        # If the scan call fails, undo the queue and buffer here: stop() only runs for a scan that started.
         try:
+            ul.a_load_queue(self._board_num, channel_numbers, gains, num_chans)
             actual_rate = ul.a_in_scan(
                 self._board_num,
                 channel_numbers[0],
                 channel_numbers[-1],
                 self.buffer_size,
-                int(hw_timing_config.sample_rate),
+                rate,
                 gains[0],  # ignored: the loaded channel/gain queue defines each channel's range
                 self.memhandle,
-                ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA,
+                scan_options,
             )
         except Exception:
+            try:
+                ul.a_load_queue(self._board_num, [], [], 0)
+            except Exception:
+                pass
             try:
                 ul.win_buf_free(self.memhandle)
             except Exception:
@@ -408,7 +398,7 @@ class ScaledAInScanEngine:
 
         self.scan_width = num_chans
         self.aliases = [channel.alias for channel in ordered]
-        self.actual_rate = actual_rate
+        self.actual_rate = actual_rate / 1000 if high_res else actual_rate
 
     def convert(self, buffer_snapshot: Array, samples_per_channel: int) -> list[float]:
         """SCALEDATA already produced engineering units per each channel's configured input type."""
@@ -418,14 +408,16 @@ class ScaledAInScanEngine:
         """Stop the background scan, clear the channel/gain queue, and free the scan buffer."""
         try:
             ul.stop_background(self._board_num, self.function_type)
-            # clear the channel/gain queue so it does not leak into later scans or software reads
+        except Exception:
+            pass
+        # clear the channel/gain queue so it does not leak into later scans or software reads
+        try:
             ul.a_load_queue(self._board_num, [], [], 0)
         except Exception:
             pass
-        finally:
-            if self.memhandle:
-                try:
-                    ul.win_buf_free(self.memhandle)
-                except Exception:
-                    pass
-                self.memhandle = 0
+        if self.memhandle:
+            try:
+                ul.win_buf_free(self.memhandle)
+            except Exception:
+                pass
+            self.memhandle = 0

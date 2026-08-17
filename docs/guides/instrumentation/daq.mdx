@@ -269,7 +269,7 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_channel` |
 
 <Note>
-**Driver support.** LabJack T-Series implements the typed voltage, thermocouple, and digital methods above. Current input/output is not supported by LabJack hardware: the driver raises `NotImplementedError` and points to the [measuring current app note](https://support.labjack.com/docs/measuring-current-app-note) (measure current as voltage across a shunt resistor with a voltage input and a scaler). The other bundled DAQ drivers (NI-DAQmx, MCC, Keysight 34980A) do not implement the typed methods yet; with those, use `configure_analog_channel` / `configure_digital_line`.
+**Driver support.** LabJack T-Series implements the typed voltage, thermocouple, and digital methods above. Current input/output is not supported by LabJack hardware: the driver raises `NotImplementedError` and points to the [measuring current app note](https://support.labjack.com/docs/measuring-current-app-note) (measure current as voltage across a shunt resistor with a voltage input and a scaler). MCC implements the typed voltage, thermocouple, current-input, and digital methods; current output is not supported. The other bundled DAQ drivers (NI-DAQmx, Keysight 34980A) do not implement the typed methods yet; with those, use `configure_analog_channel` / `configure_digital_line`.
 </Note>
 
 #### LabJack thermocouple channels
@@ -312,6 +312,18 @@ daq.configure_thermocouple_input(
     "AIN0", TC_TYPE.K, alias="tc0", unit=TC_UNIT.FAHRENHEIT, cjc_source="CONSTANT", cjc_temp=77.0
 )
 ```
+
+#### MCC thermocouple channels
+
+The MCC Universal Library converts thermocouple readings on the device and returns temperature directly. The driver therefore rejects `tc_input_scaler`, and cold-junction compensation is always internal: `cjc_source` must be `INTERNAL` (the default).
+
+```python
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
+
+daq.configure_thermocouple_input("0", TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
+```
+
+MCC devices apply one board-wide temperature scale, so every thermocouple channel must use the same `unit`; configuring a channel in a different unit raises `ValueError`. During hardware-timed acquisition an open or overranged thermocouple reads `NaN`, matching the LabJack driver.
 
 ### Hardware-Timed Sample Rate
 
