@@ -9,6 +9,9 @@ from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -57,6 +60,21 @@ _FUNC_NAME_TO_CARRIER_TYPE: dict[str, type] = {
     "PULS": Pulse,
     "DC": StaticValue,
     "ARB": Arbitrary,
+}
+
+_BURST_MODES: dict[BurstType, str] = {
+    BurstType.NCYCLE: "TRIG",
+    BurstType.GATED: "GAT",
+}
+_BURST_TYPES: dict[str, BurstType] = {mode: burst_type for burst_type, mode in _BURST_MODES.items()}
+
+_BURST_TRIGGER_SOURCES: dict[BurstTriggerSource, str] = {
+    BurstTriggerSource.INTERNAL: "IMM",
+    BurstTriggerSource.EXTERNAL: "EXT",
+    BurstTriggerSource.MANUAL: "BUS",
+}
+_BURST_TRIGGER_SOURCE_TYPES: dict[str, BurstTriggerSource] = {
+    token: source for source, token in _BURST_TRIGGER_SOURCES.items()
 }
 
 
@@ -297,9 +315,131 @@ class Keysight33521B(AWGDriverBase):
             self._check_errors()
         return result
 
+    def set_burst(self, channel: int, burst_type: BurstType) -> None:
+        _check_channel(channel)
+        if not isinstance(burst_type, BurstType):
+            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
+        if burst_type not in _BURST_MODES:
+            raise ValueError(f"the Keysight 33521B does not support {burst_type.name} burst mode")
+        with self._visa.lock():
+            carrier = self.get_waveform(channel)
+            if isinstance(carrier, StaticValue):
+                raise ValueError(f"the Keysight 33521B cannot burst a StaticValue (DC) waveform on channel {channel}")
+            self._visa.write(f"BURS:MODE {_BURST_MODES[burst_type]}")
+            self._check_errors()
+
+    def get_burst_type(self, channel: int) -> BurstType:
+        _check_channel(channel)
+        with self._visa.lock():
+            mode = self._visa.query("BURS:MODE?").strip()
+            self._check_errors()
+        if mode not in _BURST_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported burst mode '{mode}'")
+        return _BURST_TYPES[mode]
+
+    def burst_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        self._write_checked(f"BURS:STAT {'ON' if enable else 'OFF'}")
+
+    def get_burst_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = self._visa.query("BURS:STAT?").strip() == "1"
+            self._check_errors()
+        return result
+
+    def set_burst_trigger(self, channel: int, source: BurstTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, BurstTriggerSource):
+            raise TypeError(f"source must be a BurstTriggerSource, got {type(source).__name__}")
+        self._write_checked(f"TRIG:SOUR {_BURST_TRIGGER_SOURCES[source]}")
+
+    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("TRIG:SOUR?").strip()
+            self._check_errors()
+        if token not in _BURST_TRIGGER_SOURCE_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported trigger source '{token}'")
+        return _BURST_TRIGGER_SOURCE_TYPES[token]
+
+    def fire_burst_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            if not self.get_burst_state(channel):
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless burst mode is already"
+                    " enabled, call burst_enable(channel, True) first"
+                )
+            source = self.get_burst_trigger(channel)
+            if source is not BurstTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Got: {source.name}"
+                )
+            self._write_checked("*TRG")
+
+    def set_burst_delay(self, channel: int, delay_s: float) -> None:
+        _check_channel(channel)
+        if delay_s < 0:
+            raise ValueError(f"delay_s must be non-negative, got {delay_s}")
+        # the 33521B has no BURSt:TDELay; TRIGger:DELay is the shared burst/sweep/list trigger delay
+        self._write_checked(f"TRIG:DEL {delay_s}")
+
+    def get_burst_delay(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("TRIG:DEL?"))
+            self._check_errors()
+        return result
+
+    def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
+        _check_channel(channel)
+        if not isinstance(gate_polarity, GatePolarity):
+            raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
+        self._write_checked(f"BURS:GATE:POL {gate_polarity.value}")
+
+    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = GatePolarity(self._visa.query("BURS:GATE:POL?").strip())
+            self._check_errors()
+        return result
+
+    def set_burst_ncycles(self, channel: int, n_cycles: int) -> None:
+        _check_channel(channel)
+        if n_cycles <= 0:
+            raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
+        self._write_checked(f"BURS:NCYC {int(n_cycles)}")
+
+    def get_burst_ncycles(self, channel: int) -> int:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = int(float(self._visa.query("BURS:NCYC?")))
+            self._check_errors()
+        return result
+
+    def set_burst_period(self, channel: int, period: float) -> None:
+        _check_channel(channel)
+        if period <= 0:
+            raise ValueError(f"period must be positive, got {period}")
+        self._write_checked(f"BURS:INT:PER {period}")
+
+    def get_burst_period(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("BURS:INT:PER?"))
+            self._check_errors()
+        return result
+
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
         self._visa.write(f"PHAS {phase_deg % 360}")
+
+    def _write_checked(self, command: str) -> None:
+        with self._visa.lock():
+            self._visa.write(command)
+            self._check_errors()
 
     def _check_errors(self) -> None:
         """Query :SYSTem:ERRor? once and raise on a non-zero code. Does not drain the queue."""
