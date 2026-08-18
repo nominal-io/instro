@@ -315,7 +315,7 @@ daq.configure_thermocouple_input(
 
 ### Hardware-Timed Sample Rate
 
-For continuous hardware-timed acquisition, configure the sample rate with `configure_hw_sample_rate()`. It applies to every configured input channel. `configure_ai_sample_rate()` and `configure_ai_hw_sample_rate()` are aliases.
+For continuous hardware-timed acquisition, configure the sample rate with `configure_hw_sample_rate()`. It applies to every configured input channel.
 
 ```python
 daq.configure_hw_sample_rate(
@@ -345,7 +345,7 @@ A single `InstroDAQ` instance carries one analog input sample rate. To run multi
 
 ### Software-Timed Sample Rate
 
-For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` / `read_digital()` calls at `1 / sample_rate`. `configure_ai_sw_sample_rate()` is an alias.
+For continuous acquisition without a hardware sample clock, configure a software-timed polling rate instead. The background daemon then paces `read_analog()` / `read_digital()` calls at `1 / sample_rate`.
 
 ```python
 daq.configure_sw_sample_rate(
@@ -823,8 +823,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
 | `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
-| `configure_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing (`configure_ai_sample_rate` and `configure_ai_hw_sample_rate` are aliases) |
-| `configure_sw_sample_rate(sample_rate)` | Set the software-timed polling rate (`configure_ai_sw_sample_rate` is an alias) |
+| `configure_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing |
+| `configure_sw_sample_rate(sample_rate)` | Set the software-timed polling rate |
 | `start()` | Begin acquisition (device task, background daemon, or both) |
 | `stop()` | End acquisition and stop the background daemon |
 | `read_analog()` | Read analog input (SW-timed) or fetch from buffer (HW-timed) |
@@ -925,7 +925,7 @@ The analog methods below back `InstroDAQ`'s [typed channel configuration](#typed
 - **`fetch_analog() -> Any`**: Fetch samples from hardware-timed acquisition buffer
   - Used during hardware-timed acquisition to retrieve buffered samples; reads timing from `self.ai_hw_timing_config`
 
-- **`read_digital()` / `fetch_digital()`**: Sample (or fetch buffered samples for) every configured DI channel in one call, lines and ports alike, after applying each channel's `logic`. Return a vendor payload for `_read_to_measurements` to unpack, with each line carrying `0`/`1` and each port its whole N-bit integer.
+- **`read_digital()` / `fetch_digital()`**: Sample every configured DI channel in one call, lines and ports alike
 
 - **`read_digital_line(channel) -> int`**: Read a digital input line
 
