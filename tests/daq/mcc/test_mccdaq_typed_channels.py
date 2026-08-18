@@ -88,7 +88,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "297D859"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "<MCC ID>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 DEVICE_MODEL = "MCC USB-2404-UI"  # device model name; used for the Nominal asset
 NAME = "mccdaq_typed_channels"
 
