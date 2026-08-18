@@ -31,7 +31,7 @@ class MCCPortInfo:
 class MCCDeviceInfo:
     """Capabilities captured once at open.
 
-    NOTE: Omits AoInfo.supported_ranges because its probe physically drives AO0.
+    """Capabilities captured once at open; omits AoInfo.supported_ranges (its probe drives AO0)."""
     """
 
     product_name: str
