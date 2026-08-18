@@ -17,7 +17,7 @@ digital channel methods (``configure_digital_input`` /
 ``test_mccdaq_hardware.py`` instead.
 
 ============================================================================
-MCC THERMOCOUPLE WIRING
+MCC WIRING
 ============================================================================
 
   TC input wiring (channel 0; terminal labels vary by model):
@@ -37,6 +37,8 @@ MCC THERMOCOUPLE WIRING
   +/-25 mA front end. Set the external source to EXTERNAL_CURRENT amps and wire it as:
     source +  --->  CH2H  (channel 2 high)
     source -  --->  CH2L  (channel 2 low)
+
+  External signal setup was 3.3V through a 330ohm resistor (3.3V, 10mA)
 
   Set THERMOCOUPLE_WIRED / EXTERNAL_VOLTAGE_WIRED / EXTERNAL_CURRENT_WIRED = False
   to run structure-only checks (no value asserts) for whichever input is not connected.
