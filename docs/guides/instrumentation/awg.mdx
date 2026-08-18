@@ -241,7 +241,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_sweep_hold_time(channel)` | Read back the sweep hold time in seconds on a channel |
 | `set_sweep_return_time(channel, return_time)` | Set the sweep return time in seconds on a channel |
 | `get_sweep_return_time(channel)` | Read back the sweep return time in seconds on a channel |
-| `fire_sweep_trigger(channel)` | Manually trigger a sweep on a channel |
+| `fire_sweep_trigger(channel)` | Fire a sweep trigger on channel now; the trigger source must already be `MANUAL` |
 | `start()` | Begin background daemon |
 | `stop()` | End background daemon |
 
@@ -336,7 +336,7 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`set_sweep_time(channel, sweep_time)`** / **`get_sweep_time(channel)`**: Set or read the sweep time.
 - **`set_sweep_hold_time(channel, hold_time)`** / **`get_sweep_hold_time(channel)`**: Set or read the sweep hold time.
 - **`set_sweep_return_time(channel, return_time)`** / **`get_sweep_return_time(channel)`**: Set or read the sweep return time.
-- **`fire_sweep_trigger(channel)`**: Manually trigger a sweep on channel.
+- **`fire_sweep_trigger(channel)`**: Fire a sweep trigger on channel immediately. Requires the trigger source already set to `MANUAL`; call `set_sweep_trigger()` first otherwise.
 
 ### Modulation
 
