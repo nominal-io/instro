@@ -333,6 +333,9 @@ class MCCDriver(DAQDriverBase):
 
         self._ao_channels[channel.alias] = channel
 
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        raise NotImplementedError("MCC DAQ analog outputs are voltage only; current output is not supported.")
+
     def _get_range(
         self, channel: AnalogChannel | AnalogVoltageChannel, supported_ranges: tuple[ULRange, ...]
     ) -> ULRange:
