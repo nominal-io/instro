@@ -574,3 +574,34 @@ def test_38_set_burst_period_rejects_non_positive_value(driver: Keysight33521B) 
         driver.set_burst_period(CHANNEL, 0.0)
 
     driver._check_errors()
+
+
+def test_39_set_burst_on_untracked_arbitrary_carrier_raises(driver: Keysight33521B) -> None:
+    """Known limitation, not fixed: pop the cache to simulate a driver instance that never downloaded it."""
+    driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0))
+    driver._check_errors()
+    driver._arb_waveforms.pop(CHANNEL)
+
+    with pytest.raises(RuntimeError, match="not programmed by this driver"):
+        driver.set_burst(CHANNEL, BurstType.NCYCLE)
+
+    driver._check_errors()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [BurstTriggerSource.INTERNAL, BurstTriggerSource.EXTERNAL, BurstTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_40_set_burst_trigger_in_gated_mode(driver: Keysight33521B, source: BurstTriggerSource) -> None:
+    """Untested gap: confirms whether GATED mode accepts a trigger source change, or rejects it like Rigol."""
+    driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(CHANNEL, BurstType.GATED)
+    driver._check_errors()
+
+    driver.set_burst_trigger(CHANNEL, source)
+    driver._check_errors()
+
+    assert driver.get_burst_trigger(CHANNEL) is source
+
+    driver._check_errors()

@@ -1006,3 +1006,13 @@ def test_66_set_burst_period_rejects_non_positive_value_and_invalid_channel(
         keysight.set_burst_period(2, 0.1)
 
     keysight_visa.write.assert_not_called()
+
+
+def test_67_set_burst_on_untracked_arbitrary_carrier_raises(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    """Known limitation, not fixed: an untracked Arbitrary carrier still raises via get_waveform()."""
+    _query_sequence(keysight_visa, ["ARB"])
+
+    with pytest.raises(RuntimeError, match="not programmed by this driver"):
+        keysight.set_burst(1, BurstType.NCYCLE)
+
+    keysight_visa.write.assert_not_called()
