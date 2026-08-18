@@ -19,7 +19,6 @@ from instro.daq.types import (
     CJCSource,
     DAQChannel,
     DigitalChannel,
-    DigitalLineChannel,
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
@@ -266,14 +265,6 @@ class DAQDriverBase(abc.ABC):
     ):
         """Parse, program, and register a DO port channel. Override if the driver supports port-mode digital output."""
         raise NotImplementedError("Digital Output port mode has not been configured for this driver")
-
-    def configure_di_channel(self, channel: DigitalLineChannel):
-        """Register a DI line channel. Override if the driver supports digital input."""
-        raise NotImplementedError("Digital input has not been configured for this driver")
-
-    def configure_do_channel(self, channel: DigitalLineChannel):
-        """Register a DO line channel. Override if the driver supports digital output."""
-        raise NotImplementedError("Digital output has not been configured for this driver")
 
     @abc.abstractmethod
     def start(self, **kwargs):
@@ -778,14 +769,12 @@ class InstroDAQ(Instrument):
         # Channel validation
         self._reject_duplicate_channel(alias)
         self._verify_not_running(alias)
-        channel = DigitalLineChannel(
+        self._driver.configure_di_line_channel(
             physical_channel=physical_channel,
-            alias=alias,
-            direction=Direction.INPUT,
             logic=logic,
             logic_level=logic_level,
+            alias=alias,
         )
-        self._driver.configure_di_channel(channel)
         logger.info("Configured digital input channel on DAQ '%s'", self.name)
 
     def configure_digital_output(
@@ -810,14 +799,12 @@ class InstroDAQ(Instrument):
         # Channel validation
         self._reject_duplicate_channel(alias)
         self._verify_not_running(alias)
-        channel = DigitalLineChannel(
+        self._driver.configure_do_line_channel(
             physical_channel=physical_channel,
-            alias=alias,
-            direction=Direction.OUTPUT,
             logic=logic,
             logic_level=logic_level,
+            alias=alias,
         )
-        self._driver.configure_do_channel(channel)
         logger.info("Configured digital output channel on DAQ '%s'", self.name)
 
     def configure_analog_channel(

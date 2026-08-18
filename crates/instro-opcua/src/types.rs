@@ -1062,9 +1062,29 @@ impl OpcUaSample {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpcUaDataPoint {
-    pub server_timestamp: u64,
+    pub server_timestamp: Option<u64>,
     pub source_timestamp: Option<u64>,
     pub value: OpcUaValue,
+}
+
+impl OpcUaDataPoint {
+    pub const fn new(value: OpcUaValue) -> Self {
+        Self {
+            value,
+            server_timestamp: None,
+            source_timestamp: None,
+        }
+    }
+
+    pub const fn with_server_timestamp(mut self, server_timestamp: Option<u64>) -> Self {
+        self.server_timestamp = server_timestamp;
+        self
+    }
+
+    pub const fn with_source_timestamp(mut self, source_timestamp: Option<u64>) -> Self {
+        self.source_timestamp = source_timestamp;
+        self
+    }
 }
 
 impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
@@ -1073,9 +1093,7 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
     fn try_from(value: DataValue<ua::Variant>) -> Result<Self> {
         let server_timestamp = value
             .server_timestamp()
-            .or_else(|| value.source_timestamp())
-            .map(|ts| ts.as_unix_timestamp_nanos() as u64)
-            .ok_or(anyhow!("no server or source timestamp found"))?;
+            .map(|ts| ts.as_unix_timestamp_nanos() as u64);
 
         let source_timestamp = value
             .source_timestamp()
@@ -1979,5 +1997,23 @@ mod tests {
             serde_json::to_value(OpcUaUserTokenType::Anonymous).expect("serialize"),
             serde_json::json!("anonymous"),
         );
+    }
+
+    #[test]
+    fn data_point_doesnt_coerce_null_server_timestamp() {
+        let data_point =
+            OpcUaDataPoint::new(OpcUaValue::String("test".into())).with_source_timestamp(Some(100));
+
+        assert_eq!(data_point.server_timestamp, None);
+        assert_eq!(data_point.source_timestamp, Some(100));
+    }
+
+    #[test]
+    fn data_point_doesnt_coerce_null_source_timestamp() {
+        let data_point =
+            OpcUaDataPoint::new(OpcUaValue::String("test".into())).with_server_timestamp(Some(100));
+
+        assert_eq!(data_point.source_timestamp, None);
+        assert_eq!(data_point.server_timestamp, Some(100));
     }
 }

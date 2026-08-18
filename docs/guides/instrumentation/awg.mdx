@@ -16,6 +16,7 @@ description: Using InstroAWG for SCPI-based arbitrary waveform generators
 ## Supported Vendors
 
 - **Rigol**: DG1022Z (DG1000Z series) via SCPI/VISA (`RigolDG1022Z`)
+- **Keysight**: 33521B (33500B series) via SCPI/VISA (`Keysight33521B`)
 
 If your vendor or model is not listed, see [Custom Driver Development](#custom-driver-development) below.
 
@@ -295,6 +296,12 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`set_burst_gate_polarity(channel, gate_polarity)`** / **`get_burst_gate_polarity(channel)`**: Set or read back the gate polarity (`NORM`/`INV`) for GATED bursts.
 - **`set_burst_ncycles(channel, n_cycles)`** / **`get_burst_ncycles(channel)`**: Set or read back the number of cycles per trigger for NCYCLE bursts.
 - **`set_burst_period(channel, period)`** / **`get_burst_period(channel)`**: Set or read back the internal burst period in seconds.
+
+### Modulation
+
+`set_modulation()` only configures modulation on a specific channel and does not enable modulation. Only exception is the Keysight 33521B driver: set_modulation will temporarily disable modulation, if previously enabled, to change modulation type. Enable state is restored once `set_modulation` finishes successfully. In error cases, `set_modulation` could leave modulation disabled.
+To enable or disable modulation, use `modulation_enable()`. Only one modulation type is enabled at a time.
+`get_modulation_type` returns the most previous modulation type set by the user. 
 
 ### Talking to the Instrument
 
