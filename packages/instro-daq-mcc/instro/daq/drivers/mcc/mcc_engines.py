@@ -2,7 +2,7 @@
 
 import logging
 import math
-from ctypes import Array, c_double, c_ulong, c_ulonglong, c_ushort
+from ctypes import Array, c_double, c_float, c_ulong, c_ulonglong, c_ushort
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
@@ -13,7 +13,6 @@ from mcculw.enums import ChannelType, DigitalPortType, ErrorCode, FunctionType, 
 from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannelUnion,
-    AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     HWTimingConfig,
     TerminalConfig,
@@ -94,6 +93,7 @@ class ScanEngine(Protocol):
     memhandle: int
     buffer_size: int
     scan_width: int
+    samples_per_channel: int
     ctype: type
     copy_func: Callable
     aliases: list[str]
@@ -124,9 +124,13 @@ class DaqInScanEngine:
         self._channel_type_list: list[ChannelType] = []
         self._gain_list: list[ULRange] = []
         self._tc_unit: TC_UNIT | None = None
+        self._tc_scratch = 0
+        self._tc_copy_func: Callable = ul.win_array_to_buf
+        self._tc_temps: Array | None = None
         self.memhandle = 0
         self.buffer_size = 0
         self.scan_width = 0
+        self.samples_per_channel = 0
         self.ctype: type = c_ushort
         self.copy_func: Callable = ul.win_buf_to_array
         self.aliases: list[str] = []
@@ -157,12 +161,6 @@ class DaqInScanEngine:
         for channel in channels:
             if isinstance(channel, AnalogThermocoupleChannel):
                 continue
-            if isinstance(channel, AnalogCurrentChannel):
-                # daq_in_scan boards don't support a current front end
-                raise ValueError(
-                    f"Channel '{channel.alias}': daq_in_scan devices do not support hardware-timed current "
-                    "acquisition. Use software-timed reads (read_analog) instead."
-                )
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(channel_ranges[channel.alias])
@@ -222,7 +220,28 @@ class DaqInScanEngine:
         if not self.memhandle:
             raise RuntimeError("Failed to allocate memory")
 
-        # If the scan call fails, free the buffer here: stop() is not guaranteed to run for a scan that never started.
+        if ChannelType.TC in channel_type_list:
+            # Reusable TC conversion buffers: a UL copy of each fetch plus get_tc_values' output array.
+            if self.ctype is c_ushort:
+                self._tc_scratch, self._tc_copy_func = ul.win_buf_alloc(fetch_size), ul.win_array_to_buf
+            elif self.ctype is c_ulong:
+                self._tc_scratch, self._tc_copy_func = ul.win_buf_alloc_32(fetch_size), ul.win_array_to_buf_32
+            else:
+                ul.win_buf_free(self.memhandle)
+                self.memhandle = 0
+                raise NotImplementedError(
+                    "Hardware-timed thermocouple conversion is not implemented for devices with >32-bit resolution: "
+                    "the UL's get_tc_values only defines conversion for 16/32-bit scan buffers (and no daq_in_scan "
+                    "TC device above 16-bit exists today). Use software-timed reads (read_analog) instead."
+                )
+            if not self._tc_scratch:
+                ul.win_buf_free(self.memhandle)
+                self.memhandle = 0
+                raise RuntimeError("Failed to allocate memory")
+            num_tc = channel_type_list.count(ChannelType.TC)
+            self._tc_temps = (c_float * (num_tc * hw_timing_config.samples_per_channel))()
+
+        # If the scan call fails, free the buffers here: stop() is not guaranteed to run for a scan that never started.
         try:
             actual_rate, _, _ = ul.daq_in_scan(
                 self._board_num,
@@ -242,6 +261,12 @@ class DaqInScanEngine:
             except Exception:
                 pass
             self.memhandle = 0
+            if self._tc_scratch:
+                try:
+                    ul.win_buf_free(self._tc_scratch)
+                except Exception:
+                    pass
+                self._tc_scratch = 0
             raise
 
         self._channel_list = channel_list
@@ -251,6 +276,7 @@ class DaqInScanEngine:
             (channel.unit for channel in channels if isinstance(channel, AnalogThermocoupleChannel)), None
         )
         self.scan_width = num_chans
+        self.samples_per_channel = hw_timing_config.samples_per_channel
         self.aliases = aliases
         self.actual_rate = actual_rate / 1000 if high_res else actual_rate
 
@@ -277,36 +303,23 @@ class DaqInScanEngine:
 
     def _convert_tc_counts(self, buffer_snapshot: Array, samples_per_channel: int) -> list[float]:
         """Convert a snapshot's raw TC samples to temperatures; get_tc_values only reads UL buffers."""
-        count = len(buffer_snapshot)
-        if self.ctype is c_ushort:
-            scratch = ul.win_buf_alloc(count)
-            copy_to_buf = ul.win_array_to_buf
-        elif self.ctype is c_ulong:
-            scratch = ul.win_buf_alloc_32(count)
-            copy_to_buf = ul.win_array_to_buf_32
-        else:
-            raise NotImplementedError("Thermocouple conversion is not supported for >32-bit scan buffers.")
-        if not scratch:
-            raise RuntimeError("Failed to allocate memory")
-        try:
-            copy_to_buf(buffer_snapshot, scratch, 0, count)
-            err_code, temps = ul.get_tc_values(
-                self._board_num,
-                self._channel_list,
-                self._channel_type_list,
-                len(self._channel_list),
-                scratch,
-                0,
-                samples_per_channel,
-                get_temp_scale(self._tc_unit),
-            )
-            # publish NaN for bad scan (this is the only returned error code, everything else raises)
-            if err_code != ErrorCode.NOERRORS:
-                logger.warning("get_tc_values reported OUTOFRANGE (open or overranged thermocouple), returning NaN")
-                return [math.nan if temp == -9999.0 else temp for temp in temps]
-            return list(temps)
-        finally:
-            ul.win_buf_free(scratch)
+        self._tc_copy_func(buffer_snapshot, self._tc_scratch, 0, len(buffer_snapshot))
+        err_code, temps = ul.get_tc_values(
+            self._board_num,
+            self._channel_list,
+            self._channel_type_list,
+            len(self._channel_list),
+            self._tc_scratch,
+            0,
+            samples_per_channel,
+            get_temp_scale(self._tc_unit),
+            data_array=self._tc_temps,
+        )
+        # publish NaN for bad scan (this is the only returned error code, everything else raises)
+        if err_code != ErrorCode.NOERRORS:
+            logger.warning("get_tc_values reported OUTOFRANGE (open or overranged thermocouple), returning NaN")
+            return [math.nan if temp == -9999.0 else temp for temp in temps]
+        return list(temps)
 
     def stop(self) -> None:
         """Stop the background scan and free the scan buffer."""
@@ -321,6 +334,12 @@ class DaqInScanEngine:
                 except Exception:
                     pass
                 self.memhandle = 0
+            if self._tc_scratch:
+                try:
+                    ul.win_buf_free(self._tc_scratch)
+                except Exception:
+                    pass
+                self._tc_scratch = 0
 
 
 class ScaledAInScanEngine:
@@ -334,6 +353,7 @@ class ScaledAInScanEngine:
         self.memhandle = 0
         self.buffer_size = 0
         self.scan_width = 0
+        self.samples_per_channel = 0
         self.ctype: type = c_double
         self.copy_func: Callable = ul.scaled_win_buf_to_array
         self.aliases: list[str] = []
@@ -402,6 +422,7 @@ class ScaledAInScanEngine:
             raise
 
         self.scan_width = num_chans
+        self.samples_per_channel = hw_timing_config.samples_per_channel
         self.aliases = [channel.alias for channel in ordered]
         self.actual_rate = actual_rate / 1000 if high_res else actual_rate
 

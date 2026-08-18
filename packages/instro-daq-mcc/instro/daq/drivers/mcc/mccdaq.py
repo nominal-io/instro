@@ -1,3 +1,4 @@
+import logging
 import time
 from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
@@ -48,6 +49,8 @@ from instro.daq.types import (
     TerminalConfig,
 )
 from instro.lib import Measurement
+
+logger = logging.getLogger(__name__)
 
 # The range AiChanType.CURRENT reads through; the UL cannot report it (bounds checked in _get_current_range).
 CURRENT_RANGE = ULRange.BIPPT025AMPS
@@ -264,7 +267,7 @@ class MCCDriver(DAQDriverBase):
             TcType[channel.tc_type.value],
         )
 
-        # Set the temperature scale hardware-timed scans return; t_in takes the scale per call
+        # SCALEDATA scans return TC samples in this board-programmed scale; t_in/get_tc_values take it per call.
         ul.set_config(
             InfoType.BOARDINFO, self._board_number, int(channel.physical_channel), BoardInfo.TEMPSCALE, temp_scale
         )
@@ -282,6 +285,10 @@ class MCCDriver(DAQDriverBase):
         info = self.get_info()
         if not info.ai_supported:
             raise ValueError("Analog input is not supported by this device.")
+
+        # daq_in_scan boards have no current front end; reject here so a registered channel can't poison start().
+        if info.daqi_supported:
+            raise ValueError(f"Channel '{channel.alias}': daq_in_scan devices do not support current input channels.")
 
         # NUMADCHANS changes when a_input_mode switches SE/DIFF, so read it live rather than from the snapshot.
         num_chans = ul.get_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.NUMADCHANS)
@@ -381,6 +388,11 @@ class MCCDriver(DAQDriverBase):
                 "Hardware-timed acquisition requires scan capability."
             )
 
+        if self._engine is not None:
+            logger.warning(
+                "Hardware timing reconfigured mid-scan; the running scan is unaffected and the new config applies at the next start()"
+            )
+
         # TODO: mcculw supports per channel samples rates
         for channel in self._ai_channels.values():
             try:
@@ -398,6 +410,9 @@ class MCCDriver(DAQDriverBase):
 
     def start(self, **kwargs):
         """Start the MCC DAQ device for hw timed data acquisition."""
+        if self._engine is not None:
+            raise RuntimeError("A scan is already running. Call stop() before starting a new acquisition.")
+
         # Reset consumed counter and timestamper for new acquisition
         self._samples_consumed = 0
         self._raw_count_prev = 0
@@ -494,11 +509,9 @@ class MCCDriver(DAQDriverBase):
         if engine is None or not engine.memhandle:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
 
-        if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
-        samples_per_channel = self._ai_hw_timing_config.samples_per_channel
-
         # The engine defines the scan frame and buffer format; the drain loop below is engine-agnostic.
+        # Its samples_per_channel snapshot matches the buffer sizing even if the config changed mid-scan.
+        samples_per_channel = engine.samples_per_channel
         num_chans = engine.scan_width
         buffer_size = engine.buffer_size
         ctype = engine.ctype
