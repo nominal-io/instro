@@ -15,7 +15,9 @@ The 34980A driver implements no analog output and (in a mux-only frame) there is
 no digital I/O module, so those are reported as skipped. Relay control IS
 supported by this driver and is verified against ROUT:CLOS?/ROUT:OPEN?.
 
+============================================================================
 34980A WIRING / SETUP
+============================================================================
 
   Required:
     - 34922A 70-channel armature multiplexer in MUX_SLOT
@@ -36,7 +38,9 @@ supported by this driver and is verified against ROUT:CLOS?/ROUT:OPEN?.
   re-opens RELAY_CHANNEL. Point MUX_SLOT/RELAY_CHANNEL at an unused channel if a
   live source or DUT is wired in.
 
+============================================================================
 RUNNING
+============================================================================
 
     pytest -m hardware -v -s
 

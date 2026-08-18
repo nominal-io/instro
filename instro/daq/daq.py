@@ -230,31 +230,19 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Thermocouple input has not been configured for this driver")
 
     @abc.abstractmethod
-    def configure_ai_hw_timing(
-        self,
-        hw_timing_config: HWTimingConfig,
-    ):
-        """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
-
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
-        is invoked. The driver should program the sample clock and any
-        ``samples_per_channel`` buffer sizing the underlying SDK requires.
-        """
-        ...
-
     def configure_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
-        """Configure hardware-timed sampling at ``hw_timing_config.sample_rate`` for every task the driver owns.
+        """Program hardware-timed sampling at ``hw_timing_config.sample_rate`` for every task the driver owns."""
+        ...
 
-        Called before ``start()`` whenever ``InstroDAQ.configure_hw_sample_rate()``
-        is invoked — the generic successor to :meth:`configure_ai_hw_timing`, which
-        it delegates to by default so AI-only drivers need no changes. Override to
-        program every task, recording the config on each slot programmed
-        (``self._ai_hw_timing_config``, ``self._di_hw_timing_config``, …).
-        """
-        self.configure_ai_hw_timing(hw_timing_config=hw_timing_config)
+    def configure_ai_hw_timing(
+        self,
+        hw_timing_config: HWTimingConfig,
+    ):
+        """Deprecated: use ``configure_hw_timing``. Programs hardware-timed sampling."""
+        self.configure_hw_timing(hw_timing_config=hw_timing_config)
 
     @abc.abstractmethod
     def configure_di_line_channel(
@@ -1018,7 +1006,7 @@ class InstroDAQ(Instrument):
         self,
         sample_rate: float,
     ):
-        """Configure the software-timed polling rate. Preferred entry point for software timing.
+        """Configure the software-timed polling rate.
 
         Args:
             sample_rate: Rate (Hz) at which the background daemon polls configured channels.

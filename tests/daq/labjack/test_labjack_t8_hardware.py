@@ -19,7 +19,9 @@ Tests exercise:
   - NotImplementedError assertions: port-width digital I/O, relay control
   - Clean shutdown
 
+============================================================================
 LABJACK T8 LOOPBACK WIRING
+============================================================================
 
   Analog (screw terminals on DB15):
     DAC0  ──►  AIN0+   AIN0− ──► GND
@@ -36,12 +38,16 @@ LABJACK T8 LOOPBACK WIRING
 
   Set LOOPBACK_WIRED = False to run structure-only checks (no value asserts).
 
+============================================================================
 NOMINAL CORE CONFIGURATION
+============================================================================
 
   DEVICE_ID   — LabJack T8 serial number (or "ANY")
   DATASET_RID — Nominal dataset RID (optional; None to skip publishing)
 
+============================================================================
 RUNNING
+============================================================================
 
     uv run pytest -m hardware -v -s
 

@@ -11,7 +11,9 @@ FIRSTPORTB (input) with a 2-line loopback. The USB-1616HS-4 does not support
 per-line digital configuration (d_config_bit), so all digital tests use the
 port-width API (write_digital_port / read_digital_port).
 
+============================================================================
 USB-1616HS-4 LOOPBACK WIRING
+============================================================================
 
   Device specs:
     - 16 SE / 8 DIFF analog input channels, 16-bit, up to 1 MS/s
@@ -34,7 +36,9 @@ USB-1616HS-4 LOOPBACK WIRING
     DO port "FIRSTPORTA" — alias "do_port_a", 8-bit, Logic.HIGH
     DI port "FIRSTPORTB" — alias "di_port_b", 8-bit, Logic.HIGH
 
+============================================================================
 NOMINAL CORE CONFIGURATION
+============================================================================
 
   Before running, hand-edit the configuration constants below:
 
@@ -50,7 +54,9 @@ NOMINAL CORE CONFIGURATION
   creates an event on that asset with the test name, status (SUCCESS/ERROR),
   and duration. Data is streamed to the dataset via NominalCorePublisher.
 
+============================================================================
 RUNNING
+============================================================================
 
     pytest -m hardware -v -s
 

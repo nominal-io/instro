@@ -12,7 +12,9 @@ Digital I/O tests exercise single-line read/write via FIO4 (output) and FIO5
 (write_digital_port / read_digital_port) or relays through this driver, so those
 are reported as skipped.
 
+============================================================================
 LABJACK T4 LOOPBACK WIRING
+============================================================================
 
   Device specs:
     - Analog inputs AIN0-AIN3, +/-10 V (T4 high-voltage lines)
@@ -34,7 +36,9 @@ LABJACK T4 LOOPBACK WIRING
   Set LOOPBACK_WIRED = False to run structure-only checks (no value-match
   asserts).
 
+============================================================================
 NOMINAL CORE CONFIGURATION
+============================================================================
 
   Before running, configure:
 
@@ -50,7 +54,9 @@ NOMINAL CORE CONFIGURATION
   creates an event on that asset with the test name, status (SUCCESS/ERROR),
   and duration. Data is streamed to the dataset via NominalCorePublisher.
 
+============================================================================
 RUNNING
+============================================================================
 
     pytest -m hardware -v -s
 

@@ -13,7 +13,9 @@ Digital I/O tests exercise single-line read/write via a DO_LINE -> DI_LINE
 loopback. Relays are not supported by the NI driver, so that test is reported
 as skipped.
 
+============================================================================
 NI LOOPBACK WIRING
+============================================================================
 
   Device Specs:
       - Mod1: 9205 (AI)
@@ -31,7 +33,9 @@ NI LOOPBACK WIRING
   Set ANALOG_LOOPBACK_WIRED = False and/or DIGITAL_LOOPBACK_WIRED = False to
   run structure-only checks (no value-match asserts) for the unwired path.
 
+============================================================================
 NOMINAL CORE CONFIGURATION
+============================================================================
 
   Before running, configure:
 
@@ -47,7 +51,9 @@ NOMINAL CORE CONFIGURATION
   creates an event on that asset with the test name, status (SUCCESS/ERROR),
   and duration. Data is streamed to the dataset via NominalCorePublisher.
 
+============================================================================
 RUNNING
+============================================================================
 
     uv run pytest tests/daq/ni -m hardware -v -s
 
