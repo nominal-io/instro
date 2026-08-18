@@ -1,5 +1,12 @@
 """Cross-category building blocks: base instrument, transports, publishers, shared scaling types."""
 
+from instro.lib.discover import (
+    VisaInstrumentInfo,
+    VisaScanError,
+    VisaScanResult,
+    VisaUnrecognizedInstrument,
+    scan_visa_resources,
+)
 from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
 from instro.lib.instrument import Instrument
 from instro.lib.nominal import install_nominal_core_log_handler
@@ -20,5 +27,10 @@ __all__ = [
     "ScaleType",
     "VisaConfig",
     "VisaDriver",
+    "VisaInstrumentInfo",
+    "VisaScanError",
+    "VisaScanResult",
+    "VisaUnrecognizedInstrument",
     "install_nominal_core_log_handler",
+    "scan_visa_resources",
 ]

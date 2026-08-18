@@ -1,0 +1,27 @@
+{
+    "version": 1,
+    "instrument": "InstroDMM",
+    "device": {
+        "name": "simulated_dmm",
+        "description": "Bundled SCPI simulator, works with no real hardware attached",
+        "manufacturer": "Nominal",
+        "model": "SimulatedDMM"
+    },
+    "driver": {
+        "name": "SimulatedDMM",
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "TCPIP0::127.0.0.1::5026::SOCKET"
+        }
+    },
+    "measurement": {
+        "function": "DC_VOLTAGE"
+    },
+    "publishers": [
+        {
+            "type": "FilePublisher",
+            "directory": "dmm_data",
+            "format": "jsonl"
+        }
+    ]
+}

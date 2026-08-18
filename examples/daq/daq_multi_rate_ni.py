@@ -60,6 +60,9 @@ with daq_fast, daq_slow:
 
     while True:
         try:
+            # Each instance buffers into its own channel buffer; read either one.
+            print(f"fast_channel0 latest: {daq_fast.read('fast_channel0').latest}")
+            print(f"slow_channel0 latest: {daq_slow.read('slow_channel0').latest}")
             time.sleep(1)
         except KeyboardInterrupt:
             print("Exiting main loop")

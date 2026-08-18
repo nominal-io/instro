@@ -96,13 +96,11 @@ class Keysight1200X(ScopeDriverBase):
         self._visa.close()
 
     def check_errors(self) -> None:
-        """Drain ``:SYSTem:ERRor?`` and raise on the first non-zero code."""
-        while True:
-            resp = self._visa.query(":SYSTem:ERRor?")
-            parts = resp.split(",", 1)
-            code = int(parts[0])
-            if code == 0:
-                return
+        """Query ``:SYSTem:ERRor?`` once and raise on a non-zero code. Does not drain the queue."""
+        resp = self._visa.query(":SYSTem:ERRor?")
+        parts = resp.split(",", 1)
+        code = int(parts[0])
+        if code != 0:
             msg = parts[1].strip().strip('"') if len(parts) > 1 else "Unknown error"
             raise RuntimeError(f"Keysight SCPI error {code}: {msg}")
 

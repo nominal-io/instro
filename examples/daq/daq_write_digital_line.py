@@ -53,5 +53,4 @@ with daq:
         direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias="do_1", logic=Logic.LOW, logic_level=5.0
     )
 
-    daq.write_digital_line(channel="do_0", data=1)
-    daq.write_digital_line(channel="do_1", data=0)
+    daq.write_batch(["do_0", "do_1"], [1, 0])

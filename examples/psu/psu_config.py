@@ -1,0 +1,24 @@
+"""Example: build an InstroPSU from a JSON config file.
+
+Run:
+    uv run python examples/psu/psu_config.py
+"""
+
+from pathlib import Path
+
+from instro.psu import InstroPSU
+
+# Swap this for psu_config_bk9115.json or psu_config_rigol_dp800.json (after editing
+# their visa_resource) to run against real hardware instead of the simulator.
+CONFIG_PATH = Path(__file__).parent / "psu_config_simulated.json"
+
+
+def main() -> None:
+    with InstroPSU(config=CONFIG_PATH) as psu:
+        voltage = psu.get_voltage(channel=1)
+        current = psu.get_current(channel=1)
+        print(f"{psu.name}: {voltage.latest:.3f}V, {current.latest:.3f}A")
+
+
+if __name__ == "__main__":
+    main()

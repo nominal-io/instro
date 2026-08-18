@@ -1,12 +1,14 @@
 """Unit tests for DAQ driver functionality."""
 
+import logging
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
 import pytest
 
-from instro.daq import DAQDriverBase, InstroDAQ
+from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     DigitalLineChannel,
     DigitalPortChannel,
@@ -15,6 +17,7 @@ from instro.daq.types import (
     Logic,
 )
 from instro.lib import InstrumentNotOpenError, Measurement
+from instro.lib.types import Command
 
 
 class _RecordingDriver(DAQDriverBase):
@@ -65,6 +68,27 @@ class _RecordingDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel):
         self._ao_channels[channel.alias] = channel
+
+    def configure_ai_voltage_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_voltage_channel(self, channel):
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_current_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_current_channel(self, channel):
+        self._ao_channels[channel.alias] = channel
+
+    def configure_ai_thermocouple_channel(self, channel):
+        self._ai_channels[channel.alias] = channel
+
+    def configure_di_channel(self, channel):
+        self._di_channels[channel.alias] = channel
+
+    def configure_do_channel(self, channel):
+        self._do_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
@@ -332,6 +356,125 @@ def test_read_digital_port_unconfigured_channel():
         daq.read_digital_port("unconfigured_port")
 
     mock_driver.read_digital_port.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# duplicate-channel guard (new configure_* surface)
+# ---------------------------------------------------------------------------
+
+
+# Enum args are passed as plain strings so these also confirm the new methods accept string enum values.
+_NEW_CONFIGURE_CALLS = [
+    (
+        "configure_voltage_input",
+        lambda daq, alias: daq.configure_voltage_input("ai0", alias=alias, terminal_config="RSE"),
+    ),
+    ("configure_voltage_output", lambda daq, alias: daq.configure_voltage_output("ao0", alias=alias)),
+    ("configure_current_input", lambda daq, alias: daq.configure_current_input("ai1", alias=alias)),
+    ("configure_current_output", lambda daq, alias: daq.configure_current_output("ao1", alias=alias)),
+    (
+        "configure_thermocouple_input",
+        lambda daq, alias: daq.configure_thermocouple_input(
+            "ai2", "K", alias=alias, cjc_source="INTERNAL", unit="degC"
+        ),
+    ),
+    (
+        "configure_digital_input",
+        lambda daq, alias: daq.configure_digital_input("port0/line0", alias=alias, logic="HIGH"),
+    ),
+    (
+        "configure_digital_output",
+        lambda daq, alias: daq.configure_digital_output("port0/line1", alias=alias, logic="LOW"),
+    ),
+]
+
+
+@pytest.mark.parametrize("name,call", _NEW_CONFIGURE_CALLS, ids=[name for name, _ in _NEW_CONFIGURE_CALLS])
+def test_configure_same_alias_twice_raises(name, call):
+    """Every new configure_* method rejects reconfiguring an already-configured alias."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    call(daq, "dup")
+    with pytest.raises(ValueError, match="channel 'dup' is already configured"):
+        call(daq, "dup")
+
+
+def test_duplicate_channel_error_names_existing_kind_and_physical_channel():
+    """The duplicate error reports the existing channel's kind and physical channel."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_input("cDAQ1Mod1/ai0", alias="v_in")
+
+    with pytest.raises(
+        ValueError,
+        match=r"channel 'v_in' is already configured \(voltage_input on cDAQ1Mod1/ai0\); remove it before reconfiguring.",
+    ):
+        daq.configure_voltage_input("cDAQ1Mod1/ai1", alias="v_in")
+
+
+def test_duplicate_channel_guard_is_global_across_configure_methods():
+    """An alias is unique across the whole driver: a different configure_* method can't reuse it."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_input("ai0", alias="shared")
+
+    with pytest.raises(ValueError, match=r"channel 'shared' is already configured \(voltage_input on ai0\)"):
+        daq.configure_current_input("ai1", alias="shared")
+
+
+# ---------------------------------------------------------------------------
+# thermocouple units
+# ---------------------------------------------------------------------------
+
+
+def test_configure_thermocouple_input_records_requested_unit():
+    """A valid unit is recorded as a TC_UNIT and cjc_temp stays in that unit, not converted."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="degF", cjc_source="CONSTANT", cjc_temp=77.0)
+
+    channel = daq.ai_channels["tc0"]
+    assert channel.unit is TC_UNIT.FAHRENHEIT
+    assert channel.cjc_temp == 77.0
+
+
+def test_configure_thermocouple_input_rejects_unknown_unit():
+    """An unrecognized unit raises and no channel is recorded."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="unit 'CELSIUS' is not valid; choose one of"):
+        daq.configure_thermocouple_input("ai0", "K", alias="tc0", unit="CELSIUS")
+    assert not daq.ai_channels
+
+
+def test_configure_while_running_raises():
+    """A new configure_* method refuses to configure a channel while acquisition is running (nothing recorded)."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_ai_hw_sample_rate(sample_rate=1000)
+    daq.start(background=False)
+
+    with pytest.raises(RuntimeError, match=r"cannot configure channel 'v0' while 'ut' is running; call stop\(\)"):
+        daq.configure_voltage_input("ai0", alias="v0")
+    assert not daq.ai_channels
+
+    daq.stop()
+
+
+def test_configure_after_stop_succeeds():
+    """stop() clears the running guard so channels can be configured again."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_ai_hw_sample_rate(sample_rate=1000)
+    daq.start(background=False)
+    daq.stop()
+
+    daq.configure_voltage_input("ai0", alias="v0")
+
+    assert "v0" in daq.ai_channels
 
 
 # ---------------------------------------------------------------------------
@@ -816,35 +959,117 @@ def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
 # --- start(background=...) and read_analog dispatch ---
 
 
-def _hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver]:
+def _hw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     """An InstroDAQ with one AI channel and a hardware sample rate configured."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = []
-    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
     daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
-    daq.configure_ai_sample_rate(sample_rate=100, samples_per_channel=10)
+    daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
     return daq, mock_driver
 
 
-def test_start_background_false_does_not_spin_daemon():
-    """start(background=False) begins hardware acquisition without spinning the daemon thread."""
+def _sw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and a software-timed poll rate configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name=name, driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_ai_sw_sample_rate(sample_rate=100)
+    return daq, mock_driver
+
+
+def _untimed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
+    """An InstroDAQ with one AI channel and no timing mode configured."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = []
+    daq = InstroDAQ(name=name, driver=mock_driver)
+    daq.open()
+    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    return daq, mock_driver
+
+
+def test_hw_timed_start_with_background():
+    """HW timing + background=True: the device acquires and the daemon fetches its buffer."""
+    daq, mock_driver = _hw_timed_daq()
+
+    daq.start()
+    try:
+        daq.get_channel("loop_time", wait_for_new_samples=True, timeout=5)
+
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.start.assert_called_once()
+        mock_driver.fetch_analog.assert_called()
+    finally:
+        daq.stop()
+
+
+def test_hw_timed_start_without_background():
+    """HW timing + background=False: the device acquires and the caller fetches the buffer itself."""
     daq, mock_driver = _hw_timed_daq()
 
     daq.start(background=False)
-
-    mock_driver.start.assert_called_once()
-    assert daq._background_thread is None
-
-
-def test_start_background_false_read_analog_fetches_from_buffer():
-    """With no daemon running, read_analog() during HW-timed acquisition fetches the buffer."""
-    daq, mock_driver = _hw_timed_daq()
-    daq.start(background=False)
-
     daq.read_analog()
 
+    assert daq._background_thread is None
+    mock_driver.start.assert_called_once()
     mock_driver.fetch_analog.assert_called_once()
+
+
+def test_sw_timed_start_with_background():
+    """SW timing + background=True: the daemon paces read_analog() and the device is never started."""
+    daq, mock_driver = _sw_timed_daq()
+
+    daq.start()
+    try:
+        daq.get_channel("loop_time", wait_for_new_samples=True, timeout=5)
+
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.read_analog.assert_called()
+        mock_driver.start.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def test_sw_timed_start_without_background(caplog):
+    """SW timing + background=False: nothing would pace the reads, so start() logs an error and starts nothing."""
+    daq, mock_driver = _sw_timed_daq()
+
+    with caplog.at_level(logging.ERROR):
+        daq.start(background=False)
+
+    assert "with SW AI timing configured is a no-op" in caplog.text
+    assert daq._background_thread is None
+    mock_driver.start.assert_not_called()
+
+
+def test_untimed_start_with_background():
+    """No timing + background=True: start() falls back to a SW-timed daemon at the default rate."""
+    daq, mock_driver = _untimed_daq()
+
+    daq.start()
+    try:
+        assert daq.is_sw_timing_configured
+        assert daq.background_interval == pytest.approx(1 / InstroDAQ.DEFAULT_SW_SAMPLE_RATE)
+        assert daq._background_thread and daq._background_thread.is_alive()
+        mock_driver.start.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def test_untimed_start_without_background(caplog):
+    """No timing + background=False: no clock and no daemon, so start() logs an error and starts nothing."""
+    daq, mock_driver = _untimed_daq()
+
+    with caplog.at_level(logging.ERROR):
+        daq.start(background=False)
+
+    assert "without AI timing configured is unnecessary" in caplog.text
+    assert not daq.is_sw_timing_configured
+    assert daq._background_thread is None
+    mock_driver.start.assert_not_called()
 
 
 @pytest.mark.parametrize("timing", ["software", "hardware"], ids=["software-timed", "hardware-timed"])
@@ -853,7 +1078,7 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
     """Internal helpers return lists while public reads unwrap one Measurement."""
     if timing == "hardware":
         daq, mock_driver = _hw_timed_daq()
-        internal_read = daq._fetch_analog
+        internal_read = daq._fetch_analog_hw_timed
     else:
         mock_driver = _make_mock_driver()
         daq = InstroDAQ(name="ut", driver=mock_driver)
@@ -874,28 +1099,327 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
 
 
 def test_restart_registers_background_fetch_exactly_once():
-    """start() after stop() must not register a second _fetch_analog daemon function."""
+    """start() after stop() must not register a second _fetch_analog_hw_timed daemon function."""
     daq, _ = _hw_timed_daq()
     try:
         daq.start()
         daq.stop()
         daq.start()
 
-        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog]
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog_hw_timed]
         assert len(fetchers) == 1
     finally:
         daq.stop()
 
 
-def test_start_default_spins_daemon_and_read_analog_raises():
-    """Default start() spins the daemon, which owns the buffer; a manual read_analog() then raises."""
+def test_read_analog_raises_while_daemon_running():
+    """The daemon owns the buffer, so a manual read_analog() alongside it raises."""
     daq, _ = _hw_timed_daq()
 
     daq.start()
     try:
-        assert daq._background_thread is not None
-        assert daq._background_thread.is_alive()
         with pytest.raises(RuntimeError, match="background acquisition daemon is running"):
             daq.read_analog()
     finally:
         daq.stop()
+
+
+# --- unified read() / write() routing ---
+
+
+def test_read_projects_analog_batch_to_requested_alias():
+    """read(str) returns a single Measurement for only the requested analog channel, projected from the batch."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.v0": [1.0], "ut.v1": [2.0]}, timestamps=[111])
+    ]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_voltage_input(physical_channel="ai1", alias="v1")
+
+    result = daq.read("v0")
+
+    assert isinstance(result, Measurement)
+    assert result.channel_data == {"ut.v0": [1.0]}
+
+
+def test_read_routes_digital_line_by_type():
+    """read(str) routes a digital line alias to the line read, returning its Measurement."""
+    mock_driver = _make_mock_driver()
+    mock_driver.read_digital_line.return_value = 1
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    result = daq.read("di0")
+
+    assert result.channel_data == {"ut.di0": [1.0]}
+
+
+def test_read_none_channel_raises():
+    """read(None) raises ValueError pointing at read_batch() for all-channel reads."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="use read_batch"):
+        daq.read(None)
+
+
+def test_read_batch_none_reads_every_configured_input():
+    """read_batch() returns {alias: Measurement} for one of each analog type plus every DI channel."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
+    ]
+    mock_driver.read_digital_line.return_value = 1
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_current_input(physical_channel="ai1", alias="c0")
+    daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    result = daq.read_batch()
+
+    assert result["v0"].channel_data == {"ut.v0": [1.0]}
+    assert result["c0"].channel_data == {"ut.c0": [0.01]}
+    assert result["tc0"].channel_data == {"ut.tc0": [25.0]}
+    assert result["di0"].channel_data == {"ut.di0": [1.0]}
+
+
+def test_read_batch_unconfigured_channel_raises_before_reading_anything():
+    """read_batch() validates every alias up front, so a bad alias reads nothing from hardware."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+
+    with pytest.raises(KeyError, match=r"Input channel\(s\) \['nope'\] not configured"):
+        daq.read_batch(["v0", "nope"])
+    mock_driver.read_analog.assert_not_called()
+
+
+def test_write_routes_each_index_to_its_channel():
+    """write_batch(list, list) commands values[i] to channels[i], analog and digital each on their own path, in order."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    analog_cmd, digital_cmd = daq.write_batch(["ao0", "do0"], [2.5, 1])
+
+    assert analog_cmd.channel_data == {"ut.ao0.cmd": 2.5}
+    assert digital_cmd.channel_data == {"ut.do0.cmd": 1}
+
+
+def test_write_scalar_single_channel_returns_one_command():
+    """write(str, value) returns a single Command carrying the written value."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    result = daq.write("ao0", 2.5)
+
+    assert isinstance(result, Command)
+    assert result.channel_data == {"ut.ao0.cmd": 2.5}
+
+
+def test_write_none_channel_raises():
+    """write(None) raises ValueError pointing at write_batch() for multi-channel writes."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="use write_batch"):
+        daq.write(None, 2.5)
+
+
+def test_write_batch_no_channels_raises():
+    """write_batch(None or []) raises ValueError; there is no all-channels write."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="at least one channel"):
+        daq.write_batch(None, [2.5])
+    with pytest.raises(ValueError, match="at least one channel"):
+        daq.write_batch([], [])
+
+
+def test_write_coerces_value_to_int_for_digital():
+    """Digital writes coerce the value to int; the command holds an int, not a float."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    value = daq.write("do0", 1.0).channel_data["ut.do0.cmd"]
+
+    assert value == 1 and isinstance(value, int)
+
+
+def test_write_length_mismatch_raises():
+    """Mismatched channels/values lengths raise ValueError."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    with pytest.raises(ValueError, match="lengths must match"):
+        daq.write_batch(["ao0", "do0"], [2.5])
+
+
+def test_write_batch_unconfigured_channel_raises_before_writing_anything():
+    """write_batch() validates every alias up front, so a bad alias leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    with pytest.raises(KeyError, match=r"Output channel\(s\) \['nope'\] not configured"):
+        daq.write_batch(["ao0", "nope"], [2.5, 1])
+    mock_driver.write_analog_value.assert_not_called()
+
+
+def test_write_analog_rejects_bool_and_non_finite():
+    """Analog values must be finite numbers; bool and NaN raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+
+    for bad in (True, float("nan")):
+        with pytest.raises(ValueError, match="requires a finite number"):
+            daq.write("ao0", bad)
+    mock_driver.write_analog_value.assert_not_called()
+
+
+def test_write_digital_line_accepts_bool():
+    """Digital line writes accept a bool; the command holds the coerced int."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    assert daq.write("do0", True).channel_data["ut.do0.cmd"] == 1
+
+
+def test_write_digital_line_rejects_non_binary():
+    """Digital line values other than 0/1 raise ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="requires 0 or 1"):
+        daq.write("do0", 0.5)
+    mock_driver.write_digital_line.assert_not_called()
+
+
+def test_write_digital_port_requires_int():
+    """Digital port values must be ints; float raises ValueError."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_port(
+        direction=Direction.OUTPUT,
+        physical_channel="port0",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        alias="do_port",
+    )
+
+    assert daq.write("do_port", 0x0F).channel_data["ut.do_port.cmd"] == 0x0F
+    for bad in (True, 15.0):
+        with pytest.raises(ValueError, match="requires an integer"):
+            daq.write("do_port", bad)
+
+
+def test_write_batch_invalid_value_raises_before_writing_anything():
+    """write_batch() validates every value up front, so a bad value leaves earlier channels unwritten."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_output(physical_channel="ao0", alias="ao0")
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
+
+    with pytest.raises(ValueError, match="Digital line 'do0'"):
+        daq.write_batch(["ao0", "do0"], [2.5, 0.5])
+    mock_driver.write_analog_value.assert_not_called()
+
+
+# --- software-timed background daemon ---
+
+
+def test_configure_ai_sw_sample_rate_sets_loop_period_and_buffer_length():
+    """SW timing paces the daemon at 1/rate and sizes the channel buffer for ~10 s of samples."""
+    daq, _ = _sw_timed_daq()
+
+    assert daq.background_interval == pytest.approx(0.01)
+    assert daq._channel_buffer_length == 1000
+    assert daq.is_sw_timing_configured
+    assert not daq.is_hw_timing_configured
+
+
+@pytest.mark.parametrize("order", ["hw-then-sw", "sw-then-hw"])
+def test_hw_and_sw_timing_are_mutually_exclusive(order: str):
+    """A DAQ is either hardware- or software-timed; configuring the second mode raises."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    if order == "hw-then-sw":
+        daq.configure_ai_hw_sample_rate(sample_rate=100)
+        with pytest.raises(TimingConfigException, match="already configured for hardware timing"):
+            daq.configure_ai_sw_sample_rate(sample_rate=10)
+    else:
+        daq.configure_ai_sw_sample_rate(sample_rate=10)
+        with pytest.raises(TimingConfigException, match="already configured for software timing"):
+            daq.configure_ai_hw_sample_rate(sample_rate=100)
+
+
+def test_configure_ai_sw_sample_rate_rejects_nonpositive_rate():
+    """A 0 Hz poll rate has no period; the guard raises before it can poison the loop interval."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+
+    with pytest.raises(ValueError, match="greater than 0 Hz"):
+        daq.configure_ai_sw_sample_rate(sample_rate=0)
+    assert not daq.is_sw_timing_configured
+
+
+def test_sw_timed_stop_leaves_the_device_alone():
+    """SW-timed acquisition never started the device, so stop() must not issue a device stop."""
+    daq, mock_driver = _sw_timed_daq()
+    daq.start()
+
+    daq.stop()
+
+    assert daq._background_thread is not None
+    assert not daq._background_thread.is_alive()
+    mock_driver.stop.assert_not_called()
+
+
+def test_hw_and_sw_timed_daqs_run_in_parallel():
+    """One HW-timed and one SW-timed DAQ run side by side, each on its own driver, buffer, and pacing."""
+    hw_daq, hw_driver = _hw_timed_daq(name="hw")
+    sw_daq, sw_driver = _sw_timed_daq(name="sw")
+    hw_driver._read_to_measurements.return_value = [Measurement(channel_data={"hw.ai0": [1.0]}, timestamps=[1])]
+    sw_driver._read_to_measurements.return_value = [Measurement(channel_data={"sw.ai0": [2.0]}, timestamps=[2])]
+
+    hw_daq.start()
+    sw_daq.start()
+    try:
+        assert hw_daq.get_channel("ai0", wait_for_new_samples=True, timeout=5).latest == 1.0
+        assert sw_daq.get_channel("ai0", wait_for_new_samples=True, timeout=5).latest == 2.0
+
+        # Neither daemon reaches the other's driver, and each uses only its own timing path.
+        hw_driver.fetch_analog.assert_called()
+        hw_driver.read_analog.assert_not_called()
+        sw_driver.read_analog.assert_called()
+        sw_driver.fetch_analog.assert_not_called()
+
+        # Independent pacing: the HW loop free-runs on the blocking fetch, the SW loop on its interval.
+        assert hw_daq.background_interval == 0
+        assert sw_daq.background_interval == pytest.approx(0.01)
+    finally:
+        hw_daq.stop()
+        sw_daq.stop()
+
+    hw_driver.stop.assert_called_once()
+    sw_driver.stop.assert_not_called()

@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "instrument": "InstroPSU",
+    "device": {
+        "name": "bk9115_psu",
+        "description": "Bench channel 1 supply",
+        "manufacturer": "B&K Precision",
+        "model": "9115"
+    },
+    "driver": {
+        "name": "BK9115",
+        "num_channels": 1,
+        "connection_type": "visa",
+        "visa": {
+            "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR"
+        }
+    }
+}

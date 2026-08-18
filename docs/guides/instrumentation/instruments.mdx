@@ -1,6 +1,6 @@
 ---
 title: Instruments
-description: Instrument HALs for power supplies, loads, multimeters, DAQs, and oscilloscopes
+description: Instrument HALs for power supplies, loads, multimeters, DAQs, oscilloscopes, and waveform generators
 ---
 
 # Instruments
@@ -21,7 +21,7 @@ Supported hardware: [B&K Precision 85xx series](https://nominal-io.github.io/ins
   `InstroDMM`: voltage, current, resistance, and more, with per-function range and resolution control.
 </Card>
 
-Supported hardware: [Agilent/HP/Keysight 34401A and Keithley 2400](https://nominal-io.github.io/instro/instruments/dmm/).
+Supported hardware: [Agilent/HP/Keysight 34401A, Keysight 34461A, and Keithley 2400](https://nominal-io.github.io/instro/instruments/dmm/).
 
 <Card title="Data acquisition" icon="chart-line" href="/instrumentation/daq">
   `InstroDAQ`: analog and digital I/O, relays, and hardware-timed acquisition behind one API.
@@ -34,3 +34,9 @@ Supported hardware: [National Instruments, LabJack T-Series, Measurement Computi
 </Card>
 
 Supported hardware: [Keysight 1200X, Tektronix 2-series, and Siglent SDS1000X-E](https://nominal-io.github.io/instro/instruments/scope/).
+
+<Card title="Arbitrary waveform generators" icon="waveform-lines" href="/instrumentation/awg">
+  `InstroAWG`: waveform programming (sine, square, arbitrary, and more) with amplitude, offset, and phase control. **Unstable**: ships in `instro-unstable`.
+</Card>
+
+Supported hardware: [Rigol DG1022Z (unstable)](https://nominal-io.github.io/instro/instruments/awg/).

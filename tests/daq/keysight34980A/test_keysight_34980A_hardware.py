@@ -4,7 +4,8 @@ This test requires a physical 34980A mainframe reachable over VISA (LAN/USB/GPIB
 with at least one 34922A multiplexer and the optional internal DMM fitted. It
 exercises the DAQ functionality the 34980A driver implements: software-timed
 analog read (mux channel -> internal DMM), multi-channel scanning, hardware-timed
-(timer-triggered) scanning, buffer-depth telemetry, and relay open/close.
+(timer-triggered) scanning, software-timed background acquisition, buffer-depth
+telemetry, and relay open/close.
 
 Unlike the LabJack T4 there is no onboard analog output, so there is no DAC->AIN
 loopback. Analog reads are checked for structure (finite float) always, and for
@@ -45,6 +46,7 @@ RUNNING
 
 """
 
+import dataclasses
 import math
 import time
 import unittest
@@ -79,6 +81,7 @@ VOLTAGE_TOLERANCE_V = 0.05
 # The 34922A armature mux scans up to ~100 ch/s; keep timer rates modest.
 SAMPLE_RATE_HZ = 10.0
 SAMPLES_PER_CHANNEL = 5
+SW_SAMPLE_RATE_HZ = 2.0  # background daemon polling rate for software-timed acquisition
 
 # Digital I/O needs a digital module (e.g. 34950A). 34950A is in slot 8.
 HAS_DIGITAL_MODULE = True
@@ -87,6 +90,7 @@ DIGITAL_SLOT = 8
 # 001/002 are placeholders. The loopback assert only fires if DO is physically
 # jumpered to DI and DIGITAL_LOOPBACK_WIRED is True.
 DO_LINE, DO_ALIAS = "8101/0", "do0"  # slot 8, bank 1 ch 101, bit 0  -> output
+DO_LINE_2, DO_ALIAS_2 = "8101/1", "do1"  # slot 8, bank 1 ch 101, bit 1 -> output (not looped back)
 DI_LINE, DI_ALIAS = "8201/0", "di0"  # slot 8, bank 2 ch 201, bit 0  -> input
 DIGITAL_LOOPBACK_WIRED = True
 
@@ -161,7 +165,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq)
             for _ in range(3):
-                measurement = daq.read_analog()
+                measurement = daq.read(AI_ALIAS)
                 self.assertIsNotNone(measurement)
                 v = measurement.latest
                 self.assertTrue(math.isfinite(v), f"non-finite SW-timed read: {v}")
@@ -209,8 +213,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
         try:
             self._configure_ai(daq, physical=AI_CHANNEL, alias=AI_ALIAS)
             self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
-            measurement = daq.read_analog()
-            self.assertIsNotNone(measurement)
+            reads = daq.read_batch([AI_ALIAS, AI_ALIAS_2])
+            self.assertEqual(set(reads), {AI_ALIAS, AI_ALIAS_2})
             daq.driver._check_errors()  # scan of both channels left no error queued
             print(f"         scanned channels {AI_CHANNEL}, {AI_CHANNEL_2} with no SCPI error")
         finally:
@@ -232,8 +236,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             daq.start(background=False)
             try:
-                # No background daemon: read_analog() dispatches to the driver's fetch_analog().
-                measurement = daq.read_analog()
+                # No background daemon: read() dispatches to the driver's fetch_analog().
+                measurement = daq.read(AI_ALIAS)
                 self.assertIsNotNone(measurement)
                 vals = measurement.values
                 self.assertGreaterEqual(len(vals), SAMPLES_PER_CHANNEL)
@@ -270,9 +274,44 @@ class TestKeysight34980AHardware(unittest.TestCase):
             daq.close()
 
     # =====================================================================
-    # 7. Digital line write/read loopback (only with a digital module)
+    # 7. Software-timed scan with background daemon
     # =====================================================================
-    def test_07_digital_line_loopback(self):
+    def test_07_sw_timed_background_daemon(self):
+        """Poll the mux channel via the software-timed background daemon and read the buffer.
+
+        Software timing never starts the device: the daemon thread paces
+        repeated analog scans, so this covers the daemon path rather
+        than the 34980A's internal timer used by test_05.
+        """
+        if not HAS_INTERNAL_DMM:
+            self.skipTest("requires internal DMM")
+        daq = self._create_daq()
+        try:
+            self._configure_ai(daq)
+            daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+            daq.start()
+            try:
+                # wait_for_new_samples blocks until the daemon has produced 3 fresh samples.
+                ch = daq.get_channel(f"{NAME}.{AI_ALIAS}", 3, True)
+                self.assertIsNotNone(ch)
+                self.assertGreaterEqual(len(ch.values), 1)
+                self.assertTrue(all(math.isfinite(v) for v in ch.values), "non-finite samples in background buffer")
+                mean = sum(ch.values) / len(ch.values)
+                print(
+                    f"         background buffer: {len(ch.values)} samples at "
+                    f"{SW_SAMPLE_RATE_HZ} Hz, mean {AI_ALIAS} = {mean:.6f} V"
+                )
+                if KNOWN_SOURCE_WIRED:
+                    self.assertAlmostEqual(mean, EXPECTED_VOLTAGE, delta=VOLTAGE_TOLERANCE_V)
+            finally:
+                daq.stop()
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 8. Digital line write/read loopback (only with a digital module)
+    # =====================================================================
+    def test_08_digital_line_loopback(self):
         """Drive a DO line and read it back on a DI line via loopback (needs 34950A-class module)."""
         if not HAS_DIGITAL_MODULE:
             self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
@@ -286,56 +325,33 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             errs = []
             for state in (0, 1, 0, 1, 0):
-                daq.write_digital_line(DO_ALIAS, state)
+                daq.write(DO_ALIAS, state)
                 time.sleep(0.05)
-                read = int(daq.read_digital_line(DI_ALIAS).latest)
+                read = int(daq.read(DI_ALIAS).latest)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or read == state) else "  <-- mismatch"
                 print(f"         {DO_LINE}<-{state} | {DI_LINE}={read}{flag}")
                 if DIGITAL_LOOPBACK_WIRED and read != state:
                     errs.append(f"drove {DO_LINE}={state}, read {DI_LINE}={read}")
-            daq.write_digital_line(DO_ALIAS, 0)
+            daq.write(DO_ALIAS, 0)
             self.assertFalse(errs, "; ".join(errs))
         finally:
             daq.close()
 
     # =====================================================================
-    # 8. Final error sweep
+    # 9. Final error sweep
     # =====================================================================
-    def test_08_error_queue_clean(self):
+    def test_09_error_queue_clean(self):
         """After a mix of operations, the SCPI error queue should be empty."""
         daq = self._create_daq()
         try:
             if HAS_INTERNAL_DMM:
                 self._configure_ai(daq)
-                daq.read_analog()
+                daq.read(AI_ALIAS)
             relay = SimpleNamespace(physical_channel=RELAY_CHANNEL)
             daq.driver.close_relay(relay)
             daq.driver.open_relay(relay)
             daq.driver._check_errors()  # raises RuntimeError if anything is queued
             print("         SCPI error queue clean after analog + relay ops")
-        finally:
-            daq.close()
-
-    # =====================================================================
-    # 9. Analog output is unsupported — verify it is rejected, not silent
-    # =====================================================================
-    def test_09_analog_output_unsupported(self):
-        """The 34980A driver implements no analog output (no 34951A/34952A DAC).
-
-        This is a negative test: configuring an analog OUTPUT channel must raise
-        rather than silently succeed, confirming the unsupported path fails loudly.
-        """
-        daq = self._create_daq()
-        try:
-            with self.assertRaises((NotImplementedError, AttributeError, RuntimeError, ValueError, TypeError)):
-                daq.configure_analog_channel(
-                    direction=Direction.OUTPUT,
-                    physical_channel=AI_CHANNEL,
-                    alias="ao0",
-                    range_min=-10,
-                    range_max=10,
-                )
-            print("         analog output correctly rejected (no AO path on 34980A)")
         finally:
             daq.close()
 
@@ -371,16 +387,182 @@ class TestKeysight34980AHardware(unittest.TestCase):
             )
             errs = []
             for value in (0x00, 0x01, 0xFF, 0xAA, 0x00):
-                daq.write_digital_port(DO_PORT_ALIAS, value)
+                daq.write(DO_PORT_ALIAS, value)
                 time.sleep(0.05)
-                read = int(daq.read_digital_port(DI_PORT_ALIAS).latest)
+                read = int(daq.read(DI_PORT_ALIAS).latest)
                 bit0_ok = (read & 0x01) == (value & 0x01)
                 flag = "" if (not DIGITAL_LOOPBACK_WIRED or bit0_ok) else "  <-- bit0 mismatch"
                 print(f"         {DO_PORT}<-0x{value:02X} | {DI_PORT}=0x{read:02X}{flag}")
                 if DIGITAL_LOOPBACK_WIRED and not bit0_ok:
                     errs.append(f"bit0: wrote {value & 1}, read {read & 1} (full byte 0x{read:02X})")
-            daq.write_digital_port(DO_PORT_ALIAS, 0x00)
+            daq.write(DO_PORT_ALIAS, 0x00)
             self.assertFalse(errs, "; ".join(errs))
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 11. Unified write — single, batch, invalid-alias batch
+    # =====================================================================
+    def test_11_write(self):
+        """Exercise write() single-channel, write_batch() multi-channel, and write_batch() with an unknown alias."""
+        if not HAS_DIGITAL_MODULE:
+            self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
+        daq = self._create_daq()
+        try:
+            daq.configure_digital_line(
+                direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
+            )
+            daq.configure_digital_line(
+                direction=Direction.OUTPUT, physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2
+            )
+
+            # Normal commanding of a single channel.
+            cmd = daq.write(DO_ALIAS, 1)
+            self.assertIsNotNone(cmd)
+            print(f"         single write: {DO_ALIAS} <- 1")
+
+            # Normal commanding of multiple channels to multiple values.
+            commands = daq.write_batch([DO_ALIAS, DO_ALIAS_2], [1, 0])
+            self.assertEqual(len(commands), 2)
+            print("         batch write: 2 channels -> 2 commands")
+
+            # Edge case: batch containing an unconfigured alias raises KeyError, nothing written.
+            with self.assertRaises(KeyError) as ctx:
+                daq.write_batch([DO_ALIAS, "not_a_channel"], [0, 0])
+            self.assertIn("not_a_channel", str(ctx.exception))
+            print(f"         invalid batch: {ctx.exception}")
+
+            # Edge case: digital line value other than 0/1 raises ValueError, nothing written.
+            # (No AO on the 34980A, so the out-of-range and non-finite analog cases don't apply.)
+            with self.assertRaises(ValueError):
+                daq.write_batch([DO_ALIAS], [2])
+            print("         ValueError raised for non-binary digital value")
+
+            daq.write_batch([DO_ALIAS, DO_ALIAS_2], [0, 0])
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 12. Unified read — single, batch, invalid aliases
+    # =====================================================================
+    def test_12_read(self):
+        """Exercise read() single-channel, read_batch() multi-channel, and both invalid-alias paths."""
+        if not HAS_INTERNAL_DMM:
+            self.skipTest("requires internal DMM")
+        daq = self._create_daq()
+        try:
+            self._configure_ai(daq)
+            self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
+            aliases = [AI_ALIAS, AI_ALIAS_2]
+            if HAS_DIGITAL_MODULE:
+                daq.configure_digital_line(
+                    direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
+                )
+                aliases.append(DI_ALIAS)
+
+            # Reading of a single channel.
+            measurement = daq.read(AI_ALIAS)
+            self.assertTrue(math.isfinite(measurement.latest))
+            print(f"         single read: {AI_ALIAS} = {measurement.latest:.6f} V")
+
+            # Reading of multiple channels.
+            reads = daq.read_batch(aliases)
+            self.assertEqual(list(reads), aliases)
+            self.assertTrue(all(math.isfinite(reads[a].latest) for a in aliases))
+            print("         batch read: " + ", ".join(f"{a}={reads[a].latest:.4f}" for a in aliases))
+
+            # Edge case: unknown alias raises KeyError for both single and batch reads.
+            with self.assertRaises(KeyError) as single_ctx:
+                daq.read("not_a_channel")
+            self.assertIn("not_a_channel", str(single_ctx.exception))
+            with self.assertRaises(KeyError) as batch_ctx:
+                daq.read_batch([AI_ALIAS, "not_a_channel"])
+            self.assertIn("not_a_channel", str(batch_ctx.exception))
+            print("         KeyError raised for invalid single and batch reads")
+
+            # Edge case: reads while the background daemon is streaming serve analog from its buffer.
+            daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
+            daq.start()
+            try:
+                # read()'s buffered path blocks until the daemon's first sample arrives.
+                streaming = daq.read(AI_ALIAS)
+                self.assertTrue(math.isfinite(streaming.latest))
+                streaming_batch = daq.read_batch(aliases)
+                self.assertTrue(all(math.isfinite(streaming_batch[a].latest) for a in aliases))
+                print(f"         streaming read: {AI_ALIAS} = {streaming.latest:.6f} V (daemon running)")
+            finally:
+                daq.stop()
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 13. write_batch failure handling — continue_on_failed_write
+    # =====================================================================
+    def test_13_write_batch_continue_on_failed_write(self):
+        """Verify write_batch stops on a failed write by default and skips it with continue_on_failed_write=True."""
+        if not HAS_DIGITAL_MODULE:
+            self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
+        daq = self._create_daq()
+        try:
+            daq.configure_digital_line(
+                direction=Direction.OUTPUT, physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2
+            )
+            daq.configure_digital_line(
+                direction=Direction.OUTPUT, physical_channel=f"{DIGITAL_SLOT}101/2", logic=Logic.HIGH, alias="do_broken"
+            )
+            daq.configure_digital_line(
+                direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
+            )
+            daq.configure_digital_line(
+                direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
+            )
+            # Drive the DO low first so the stopped-batch check starts from a known state.
+            daq.write(DO_ALIAS, 0)
+
+            # Point the middle DO at an invalid slot so its write raises a real SCPI error mid-batch.
+            broken = dataclasses.replace(daq._driver._do_channels["do_broken"], physical_channel="9999")
+            daq._driver._do_channels["do_broken"] = broken
+            batch_channels = [DO_ALIAS_2, "do_broken", DO_ALIAS]
+
+            with self.assertRaises(RuntimeError) as ctx:
+                daq.write_batch(batch_channels, [1, 1, 1])
+            self.assertIn("do_broken", str(ctx.exception))
+            print(f"         default: {ctx.exception}")
+            if DIGITAL_LOOPBACK_WIRED:
+                time.sleep(0.05)
+                self.assertEqual(int(daq.read(DI_ALIAS).latest), 0, "batch continued past the failed write")
+
+            commands = daq.write_batch(batch_channels, [1, 1, 1], continue_on_failed_write=True)
+            self.assertEqual(len(commands), 2, f"expected 2 successful commands, got {len(commands)}")
+            print(f"         continue_on_failed_write=True: {len(commands)}/{len(batch_channels)} succeeded")
+            if DIGITAL_LOOPBACK_WIRED:
+                time.sleep(0.05)
+                self.assertEqual(int(daq.read(DI_ALIAS).latest), 1, "write after the failed channel was skipped")
+
+            daq.write_batch([DO_ALIAS_2, DO_ALIAS], [0, 0])
+        finally:
+            daq.close()
+
+    # =====================================================================
+    # 14. Analog output is unsupported — verify it is rejected, not silent
+    # =====================================================================
+    def test_14_analog_output_unsupported(self):
+        """The 34980A driver implements no analog output (no 34951A/34952A DAC).
+
+        This is a negative test: configuring an analog OUTPUT channel must raise
+        rather than silently succeed, confirming the unsupported path fails loudly.
+        """
+        daq = self._create_daq()
+        try:
+            with self.assertRaises((NotImplementedError, AttributeError, RuntimeError, ValueError, TypeError)):
+                daq.configure_analog_channel(
+                    direction=Direction.OUTPUT,
+                    physical_channel=AI_CHANNEL,
+                    alias="ao0",
+                    range_min=-10,
+                    range_max=10,
+                )
+            print("         analog output correctly rejected (no AO path on 34980A)")
         finally:
             daq.close()
 

@@ -12,6 +12,7 @@ from instro.daq.daq import (
     HWTimestamper,
     HWTimingException,
     InstroDAQ,
+    TimingConfigException,
 )
 from instro.daq.types import ChannelType, DAQVendor, RelayChannel
 
@@ -22,5 +23,6 @@ __all__ = [
     "ChannelType",
     "DAQVendor",
     "HWTimingException",
+    "TimingConfigException",
     "RelayChannel",
 ]

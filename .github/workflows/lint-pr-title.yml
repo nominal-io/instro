@@ -7,16 +7,15 @@ jobs:
   lint-pr-title:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Dependencies
-        # This release broke the default config https://github.com/conventional-changelog/commitlint/releases/tag/v18.6.1
-        # After they fix the config-conventional package we can upgrade.
-        run: npm install -g @commitlint/cli@18 @commitlint/config-conventional@18.6.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: lint pr name
         env:
           TITLE: ${{ github.event.pull_request.title }}
+        # Resolved per run via npx rather than `npm install -g`: commitlint is ESM since v19
+        # and resolves `extends` from the invoking tree, which a global install does not
+        # reliably provide. Both packages are pinned exactly and must be bumped together.
         run: |
-          echo "$TITLE" | commitlint --config .github/commitlint.config.js
+          echo "$TITLE" | npx --yes -p @commitlint/cli@21.2.1 -p @commitlint/config-conventional@21.2.0 commitlint --config .github/commitlint.config.mjs
       - name: display helpful error message
         if: failure()
         run: |

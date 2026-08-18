@@ -1,21 +1,48 @@
+import logging
+import math
 from typing import Protocol
 
-from instro.daq.types import AnalogChannel, DAQChannel, HWTimingConfig, TerminalConfig
+from instro.daq.scaling.scaling import ReverseLinearScaler, Scaler
+from instro.daq.types import (
+    AnalogChannel,
+    AnalogChannelUnion,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
+    DAQChannel,
+    HWTimingConfig,
+    TerminalConfig,
+)
+from labjack import ljm
+
+logger = logging.getLogger(__name__)
 
 
 class LJ_Model(Protocol):
     MIN_SCAN_RATE: float
     MAX_SCAN_RATE: float
+    default_tc_input_scaler: Scaler | None
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]: ...
+
+    def thermocouple_channel_configs(
+        self,
+        channel: AnalogThermocoupleChannel,
+    ) -> tuple[list[str], list[float] | list[int]]: ...
+
+    def tc_cjc_read_name(self, physical_channel: str) -> str | None: ...
+
+    def refresh_tc_cjc(self, handle: int | None) -> None: ...
+
+    def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float: ...
 
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]: ...
 
 
@@ -27,10 +54,15 @@ class LJ_T4:
     VALID_RANGES = [10]
     MIN_SCAN_RATE = 0.0157
     MAX_SCAN_RATE = 50000.0
+    # T4 thermocouples require an LJTick-InAmp; default to its x51 gain / 1.25 V offset jumpers.
+    default_tc_input_scaler: Scaler | None = ReverseLinearScaler(gain=51, offset=1.25, units="V")
+
+    def __init__(self):
+        self._cjc_k: float | None = None
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         """T4 AI channel config (RSE only; AIN# format)."""
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
@@ -45,23 +77,59 @@ class LJ_T4:
 
         return self._ai_channel_configs(channel)
 
-    def _ai_channel_configs(self, channel: AnalogChannel) -> tuple[list[str], list[float] | list[int]]:
+    def _ai_channel_configs(
+        self, channel: AnalogChannel | AnalogVoltageChannel
+    ) -> tuple[list[str], list[float] | list[int]]:
         """T4 has no per-channel AI config; returns empty names/values."""
         aNames = []  # type: ignore
         aValues = []  # type: ignore
 
         return aNames, aValues
 
+    def thermocouple_channel_configs(
+        self,
+        channel: AnalogThermocoupleChannel,
+    ) -> tuple[list[str], list[float] | list[int]]:
+        """T4 thermocouple AI config: no per-channel registers; fixed ranges only."""
+        if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
+            raise ValueError(
+                f"Channel '{channel}' must be in the format '{self.AI_CHANNEL_PREFIX}#' where # is an integer"
+            )
+
+        logger.warning(
+            "LabJack T4's 12-bit ADC cannot resolve a bare thermocouple; an LJTick-InAmp is assumed, and its "
+            "gain/offset is backed out per the channel's tc_input_scaler (default: x51 gain, 1.25 V offset)."
+        )
+
+        return [], []
+
+    def tc_cjc_read_name(self, physical_channel: str) -> str | None:
+        """T4 has no streamable CJC source; CJC comes from the snapshot taken by ``refresh_tc_cjc``.
+
+        NOTE: Because this value is only retrieved before streaming starts, it may drift over the course of a continuous stream.
+        """
+        return None
+
+    def refresh_tc_cjc(self, handle: int | None) -> None:
+        """Snapshot TEMPERATURE_DEVICE_K; Device temp (CJC) isn't streamable."""
+        self._cjc_k = ljm.eReadName(handle, "TEMPERATURE_DEVICE_K")
+
+    def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
+        """Last snapshot; during a stream that is start() time, so CJC can drift over a long session."""
+        assert self._cjc_k is not None
+        return self._cjc_k
+
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # Stream settling is 0 (default) and
         # stream resolution index is 0 (default).
 
-        aNames = ["STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX"]
-        aValues = [0, 0]
+        aNames = ["STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX", "STREAM_BUFFER_SIZE_BYTES"]
+        aValues = [0, 0, stream_buffer_bytes]
 
         return aNames, aValues
 
@@ -74,10 +142,12 @@ class LJ_T7:
     VALID_RANGES = [10.0, 1.0, 0.1, 0.01]
     MIN_SCAN_RATE = 0.0157
     MAX_SCAN_RATE = 100000.0
+    TC_RANGE = 0.1
+    default_tc_input_scaler: Scaler | None = None
 
     def ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
             raise ValueError(
@@ -108,7 +178,7 @@ class LJ_T7:
 
     def _ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         range = self._compute_range(channel.range_min, channel.range_max)
 
@@ -123,6 +193,40 @@ class LJ_T7:
 
         return aNames, aValues
 
+    def thermocouple_channel_configs(
+        self,
+        channel: AnalogThermocoupleChannel,
+    ) -> tuple[list[str], list[float] | list[int]]:
+        """T7 thermocouple AI config: ±0.1 V range, single-ended (TC- wired to GND)."""
+        if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
+            raise ValueError(
+                f"Channel '{channel}' must be in the format '{self.AI_CHANNEL_PREFIX}#' where # is an integer"
+            )
+
+        aNames: list[str] = [f"{channel.physical_channel}_RANGE"]
+        aValues: list[float] = [self.TC_RANGE]
+
+        # only write to negative channel if configured channel is even and less than 13
+        if int(channel.physical_channel[3:]) % 2 == 0 and int(channel.physical_channel[3:]) < 13:
+            aNames.append(f"{channel.physical_channel}_NEGATIVE_CH")
+            aValues.append(self._get_negative_channel(None, channel.physical_channel))
+
+        return aNames, aValues
+
+    def tc_cjc_read_name(self, physical_channel: str) -> str:
+        """AIN14 is the internal temp sensor's raw volts; streamable, unlike TEMPERATURE_DEVICE_K."""
+        return "AIN14"
+
+    def refresh_tc_cjc(self, handle: int | None) -> None:
+        """No-op; CJC is streamable."""
+
+    def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
+        """AIN14 volts → Kelvin (datasheet §18.0), minus 3 K to reflect screw-terminal temperature."""
+        samples = cjc_samples[self.tc_cjc_read_name(physical_channel)]
+        # CJC moves slowly; the most recent sample that isn't a dropped-scan sentinel is current enough.
+        volts = next((s for s in reversed(samples) if s != ljm.constants.DUMMY_VALUE), math.nan)
+        return volts * -92.6 + 467.6 - 3.0
+
     def _compute_range(self, range_min: float, range_max: float) -> float:
         abs_range_max = max(abs(range_min), abs(range_max))
 
@@ -137,7 +241,8 @@ class LJ_T7:
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         # I believe the Labjack only has one timing engine so no need to track channel_type
 
@@ -150,8 +255,9 @@ class LJ_T7:
             "STREAM_CLOCK_SOURCE",
             "STREAM_RESOLUTION_INDEX",
             "STREAM_SETTLING_US",
+            "STREAM_BUFFER_SIZE_BYTES",
         ]
-        aValues = [0, 0, 0, 0]
+        aValues = [0, 0, 0, 0, stream_buffer_bytes]
 
         return aNames, aValues
 
@@ -164,8 +270,12 @@ class LJ_T8:
     VALID_RANGES = [11.0, 9.6, 4.8, 2.4, 1.2, 0.6, 0.3, 0.15, 0.075, 0.036, 0.015]
     MIN_SCAN_RATE = 20.0
     MAX_SCAN_RATE = 40000.0
+    TC_RANGE = 0.075
+    default_tc_input_scaler: Scaler | None = None
 
-    def ai_channel_configs(self, channel: AnalogChannel) -> tuple[list[str], list[float] | list[int]]:
+    def ai_channel_configs(
+        self, channel: AnalogChannel | AnalogVoltageChannel
+    ) -> tuple[list[str], list[float] | list[int]]:
         if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
             raise ValueError(
                 f"Channel '{channel.physical_channel}' must be in the format '{self.AI_CHANNEL_PREFIX}#' where # is an integer"
@@ -178,7 +288,7 @@ class LJ_T8:
 
     def _ai_channel_configs(
         self,
-        channel: AnalogChannel,
+        channel: AnalogChannel | AnalogVoltageChannel,
     ) -> tuple[list[str], list[float] | list[int]]:
         range = self._compute_range(channel.range_min, channel.range_max)
 
@@ -198,16 +308,42 @@ class LJ_T8:
 
         return min(valid_ranges)
 
+    def thermocouple_channel_configs(
+        self,
+        channel: AnalogThermocoupleChannel,
+    ) -> tuple[list[str], list[float] | list[int]]:
+        """T8 thermocouple AI config: ±0.075 V range on the isolated differential inputs."""
+        if not (channel.physical_channel.startswith(self.AI_CHANNEL_PREFIX) and channel.physical_channel[3:].isdigit()):
+            raise ValueError(
+                f"Channel '{channel.physical_channel}' must be in the format '{self.AI_CHANNEL_PREFIX}#' where # is an integer"
+            )
+
+        return [f"{channel.physical_channel}_RANGE"], [self.TC_RANGE]
+
+    def tc_cjc_read_name(self, physical_channel: str) -> str:
+        """TEMPERATURE# is the streamable screw-terminal sensor (Kelvin) next to each AIN#."""
+        return f"TEMPERATURE{physical_channel[3:]}"
+
+    def refresh_tc_cjc(self, handle: int | None) -> None:
+        """No-op; CJC is streamable."""
+
+    def tc_cjc_kelvin(self, physical_channel: str, cjc_samples: dict[str, list[float]]) -> float:
+        samples = cjc_samples[self.tc_cjc_read_name(physical_channel)]
+        # CJC moves slowly; the most recent sample that isn't a dropped-scan sentinel is current enough.
+        return next((s for s in reversed(samples) if s != ljm.constants.DUMMY_VALUE), math.nan)
+
     def hw_timing_configs(
         self,
         hw_timing_config: HWTimingConfig,
-        channels: list[AnalogChannel],
+        channels: list[AnalogChannelUnion],
+        stream_buffer_bytes: int = 0,
     ) -> tuple[list[str], list[float] | list[int]]:
         aNames = [
             "STREAM_TRIGGER_INDEX",
             "STREAM_CLOCK_SOURCE",
             "STREAM_RESOLUTION_INDEX",
+            "STREAM_BUFFER_SIZE_BYTES",
         ]
-        aValues = [0, 0, 0]
+        aValues = [0, 0, 0, stream_buffer_bytes]
 
         return aNames, aValues

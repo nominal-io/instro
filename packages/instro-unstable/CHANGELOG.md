@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.5.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.1...instro-unstable-v1.5.0) (2026-08-13)
+
+
+### Features
+
+* **awg:** add burst to awg ([#367](https://github.com/nominal-io/instro/issues/367)) ([27fea81](https://github.com/nominal-io/instro/commit/27fea81239be095b97a8e54093a781c029263316))
+
+## [1.4.1](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.0...instro-unstable-v1.4.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **awg:** change check_errors() from required to optional in awg ([#374](https://github.com/nominal-io/instro/issues/374)) ([753ecd5](https://github.com/nominal-io/instro/commit/753ecd55d64f9c7752126fb23e357c06e91f2f11))
+* **awg:** move check_errors() into driver level instead of outer abstraction ([#381](https://github.com/nominal-io/instro/issues/381)) ([bc461b7](https://github.com/nominal-io/instro/commit/bc461b79f2e56e17a70cb7992a9bc557b85d752b))
+
+## [1.4.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.3.0...instro-unstable-v1.4.0) (2026-08-05)
+
+
+### Features
+
+* **awg:** add modulation to AWG ([#335](https://github.com/nominal-io/instro/issues/335)) ([9ea6bbd](https://github.com/nominal-io/instro/commit/9ea6bbd3548de24b809503e5adc4d2e0d1772aab))
+
+## [1.3.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.2.0...instro-unstable-v1.3.0) (2026-08-04)
+
+
+### Features
+
+* add support for alicat mc flow controller and the concept of an instro flow controller. First pass. Aimed for future compatibility for different flow control types and different vendors but expect to adapt as new vendors supported. ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* add support for alicat mc flow controller and the concept of an InstroFlowController ([#132](https://github.com/nominal-io/instro/issues/132)) ([d897ee2](https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225))
+* **awg:** add Rigol-DG1022Z driver ([#307](https://github.com/nominal-io/instro/issues/307)) ([168be78](https://github.com/nominal-io/instro/commit/168be78a092cf7847410059137f925d7cb7ea2c9))
+
 ## [1.2.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.1.0...instro-unstable-v1.2.0) (2026-07-27)
 
 
