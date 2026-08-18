@@ -272,7 +272,7 @@ def run_all() -> list:
             driver.short_output(False, channel=ch)
             time.sleep(SLEEP_TIME if SLEEP_TIME > 0 else 1)
 
-        _run("short_output: toggles short state (cofirm visually)", short_output, failures)
+        _run("short_output: toggles short state (confirm visually)", short_output, failures)
 
         def battery_discharge() -> None:
             # Tested with single 21700 Li-ion cell
