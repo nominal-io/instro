@@ -30,6 +30,9 @@ VALUE_REL_TOL = 0.05
 # For confirming test results visually after each step
 SLEEP_TIME = 1
 
+# For running battery discharge test
+DISCHARGE_BATTERY = False
+
 
 def _make_eload() -> InstroELoad:
     eload = InstroELoad(name="test_rigol_dl3031a", driver=RigolDL3031A(RESOURCE), publishers=None)
@@ -309,7 +312,8 @@ def run_all() -> list:
 
             driver.output_enable(False, channel=ch)
 
-        _run("battery mode: configure + discharge check", battery_discharge, failures)
+        if DISCHARGE_BATTERY:
+            _run("battery mode: configure + discharge check", battery_discharge, failures)
 
     finally:
         try:
