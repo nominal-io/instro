@@ -10,9 +10,15 @@ from nidaqmx.system import System as niSystem
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     AnalogChannel,
+    AnalogChannelUnion,
+    AnalogCurrentChannel,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
     ChannelType,
+    CJCSource,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -143,7 +149,35 @@ class NIDAQDriver(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Configure a channel on the NI device."""
+        """Deprecated: use ``configure_ai_voltage_channel``. Configures a channel on the NI device."""
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
+
+    def configure_ao_channel(self, channel: AnalogChannel):
+        """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the NI device."""
+        self.configure_ao_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an analog voltage input channel on the NI device."""
         self._reject_channel_range_or_list(channel.physical_channel)
         task = self._get_task(ChannelType.ANALOG_INPUT)
         terminal_config = self._get_terminal_config(channel.terminal_config)
@@ -157,7 +191,21 @@ class NIDAQDriver(DAQDriverBase):
 
         self._ai_channels[channel.alias] = channel
 
-    def configure_ao_channel(self, channel: AnalogChannel):
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        """Configure an analog current input channel on the NI device."""
+        self._reject_channel_range_or_list(channel.physical_channel)
+        task = self._get_task(ChannelType.ANALOG_INPUT)
+
+        task.ai_channels.add_ai_current_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+        )
+
+        self._ai_channels[channel.alias] = channel
+
+    def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an analog voltage output channel on the NI device."""
         # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
         self._reject_channel_range_or_list(channel.physical_channel)
 
@@ -167,7 +215,6 @@ class NIDAQDriver(DAQDriverBase):
 
         task_name = f"{self._task_prefix}_{channel.alias}"
         task = nidaqmx.Task(task_name)
-        self._ao_sw_tasks[channel.alias] = task
 
         task.ao_channels.add_ao_voltage_chan(
             physical_channel=channel.physical_channel,
@@ -175,7 +222,89 @@ class NIDAQDriver(DAQDriverBase):
             max_val=channel.range_max,
         )
 
+        self._ao_sw_tasks[channel.alias] = task
         self._ao_channels[channel.alias] = channel
+
+    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
+        """Configure an analog current output channel on the NI device."""
+        # Bypassing self._tasks in favor of our own task registry until hardware timed analog output is implemented.
+        self._reject_channel_range_or_list(channel.physical_channel)
+
+        task = self._ao_sw_tasks.get(channel.alias, None)
+        if task:
+            raise ValueError("Channel already exists and is configured")
+
+        task_name = f"{self._task_prefix}_{channel.alias}"
+        task = nidaqmx.Task(task_name)
+
+        task.ao_channels.add_ao_current_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+        )
+
+        self._ao_sw_tasks[channel.alias] = task
+        self._ao_channels[channel.alias] = channel
+
+    @staticmethod
+    def _get_ni_thermocouple_type(tc_type: TC_TYPE) -> nidaqmx.constants.ThermocoupleType:
+        """Match instro thermocouple type enum to nidaqmx thermocouple type enum; member names are identical."""
+        try:
+            return nidaqmx.constants.ThermocoupleType[tc_type.name]
+        except KeyError:
+            raise ValueError(
+                f"Invalid thermocouple type: {tc_type}, must be one of {[t.name for t in TC_TYPE]}"
+            ) from None
+
+    @staticmethod
+    def _get_ni_temperature_units(unit: TC_UNIT) -> nidaqmx.constants.TemperatureUnits:
+        """Match instro temperature unit enum to nidaqmx temperature unit enum."""
+        match unit:
+            case TC_UNIT.CELSIUS:
+                return nidaqmx.constants.TemperatureUnits.DEG_C
+            case TC_UNIT.FAHRENHEIT:
+                return nidaqmx.constants.TemperatureUnits.DEG_F
+            case TC_UNIT.KELVIN:
+                return nidaqmx.constants.TemperatureUnits.K
+            case TC_UNIT.RANKINE:
+                return nidaqmx.constants.TemperatureUnits.DEG_R
+            case _:
+                raise ValueError(f"Invalid temperature unit: {unit}, must be one of {[u.name for u in TC_UNIT]}")
+
+    @staticmethod
+    def _get_cjc_source(cjc_source: CJCSource | None) -> nidaqmx.constants.CJCSource:
+        """Match instro cold-junction compensation source enum to nidaqmx CJC source enum."""
+        match cjc_source:
+            case None | CJCSource.INTERNAL:
+                return nidaqmx.constants.CJCSource.BUILT_IN
+            case CJCSource.CONSTANT:
+                return nidaqmx.constants.CJCSource.CONSTANT_USER_VALUE
+            case CJCSource.CHANNEL:
+                return nidaqmx.constants.CJCSource.SCANNABLE_CHANNEL
+            case _:
+                raise ValueError(f"Invalid CJC source: {cjc_source}, must be one of {[s.name for s in CJCSource]}")
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Configure a thermocouple input channel on the NI device; DAQmx reads ``cjc_temp`` in ``unit``."""
+        self._reject_channel_range_or_list(channel.physical_channel)
+        if channel.cjc_source is CJCSource.CONSTANT and channel.cjc_temp is None:
+            raise ValueError(f"cjc_temp is required for channel '{channel.alias}' when cjc_source is CONSTANT.")
+        if channel.cjc_source is CJCSource.CHANNEL and not channel.cjc_channel:
+            raise ValueError(f"cjc_channel is required for channel '{channel.alias}' when cjc_source is CHANNEL.")
+        task = self._get_task(ChannelType.ANALOG_INPUT)
+
+        task.ai_channels.add_ai_thrmcpl_chan(
+            physical_channel=channel.physical_channel,
+            min_val=channel.range_min,
+            max_val=channel.range_max,
+            units=self._get_ni_temperature_units(channel.unit),
+            thermocouple_type=self._get_ni_thermocouple_type(channel.tc_type),
+            cjc_source=self._get_cjc_source(channel.cjc_source),
+            cjc_val=channel.cjc_temp if channel.cjc_temp is not None else 25.0,
+            cjc_channel=channel.cjc_channel or "",
+        )
+
+        self._ai_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(
         self,
@@ -408,7 +537,7 @@ class NIDAQDriver(DAQDriverBase):
     def get_actual_sample_rate(self) -> float | None:
         return self._actual_sample_rate
 
-    def write_analog_value(self, channel: AnalogChannel, value: float):
+    def write_analog_value(self, channel: AnalogChannelUnion, value: float):
         task = self._ao_sw_tasks[channel.alias]
 
         task.write(value)

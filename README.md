@@ -92,7 +92,7 @@ pip install "instro[nidaq,contrib]"
 |---|---|---|
 | Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keysight 34461A, Keithley 2400, Keithley 2750 (unstable), simulated |
-| Arbitrary Waveform Generator | `InstroAWG` | Rigol (DG1022Z, unstable) |
+| Arbitrary Waveform Generator | `InstroAWG` | Keysight (33521B, unstable), Rigol (DG1022Z, unstable) |
 | Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | Flow Controller | `InstroFlowController` | Alicat MC-series |

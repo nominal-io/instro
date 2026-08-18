@@ -7,6 +7,10 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "instro",
+    "python-can>=4.3",
+    "gs-usb>=0.3",
+    "libusb-package>=1.0.26",
+    "pyserial>=3.5",
 ]
 
 [build-system]
