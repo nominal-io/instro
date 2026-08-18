@@ -94,6 +94,10 @@ class DAQDriverBase(abc.ABC):
     _do_channels: dict[str, DigitalChannel]
     _relay_channels: dict[str, RelayChannel]
 
+    # Flag on driver support for hw timed and sw timed di acquisition
+    supports_read_digital: ClassVar[bool] = False
+    supports_fetch_digital: ClassVar[bool] = False
+
     _ai_hw_timing_config: HWTimingConfig | None
     _ao_hw_timing_config: HWTimingConfig | None
     _di_hw_timing_config: HWTimingConfig | None
@@ -544,6 +548,8 @@ class InstroDAQ(Instrument):
     @property
     def is_hw_timing_configured(self) -> bool:
         """True once ``configure_hw_sample_rate()`` has programmed an AI or DI sample clock."""
+        # One clock paces AI and DI. A driver records that config on every slot it programs, so the
+        # AI-only drivers set the AI slot and a DI-capable driver sets both.
         return self.ai_hw_timing_config is not None or self.di_hw_timing_config is not None
 
     @property
@@ -1145,7 +1151,7 @@ class InstroDAQ(Instrument):
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
-                "Call configure_ai_hw_sample_rate() before starting a hardware-timed acquisition."
+                "Call configure_hw_sample_rate() before starting a hardware-timed acquisition."
             )
 
         response = self._driver.fetch_analog()
@@ -1216,8 +1222,11 @@ class InstroDAQ(Instrument):
         # Digital pass
         # NOTE: Planning on ripping out port support
         digital: dict[str, Measurement] = {}
-        if digital_aliases and daemon_running:
-            # The daemon fetches DI too, so serve its buffer instead of touching hardware (see the analog branch).
+        # Serve the buffer only when the daemon actually fetches DI; otherwise it never fills and get_channel blocks.
+        di_buffered = (
+            self._driver.supports_read_digital if self.is_sw_timing_configured else self._driver.supports_fetch_digital
+        )
+        if digital_aliases and daemon_running and di_buffered:
             digital = {alias: self.get_channel(alias) for alias in digital_aliases}
         else:
             digital = {
@@ -1333,9 +1342,7 @@ class InstroDAQ(Instrument):
         if self.is_hw_timing_configured:
             measurements = self._fetch_digital_hw_timed(**kwargs)
             # Manual hw-timed reads publish depth here; in daemon mode the loop publishes it instead.
-            # Make sure we don't publish in read_analog() and here
-            if not self.ai_channels:
-                self.get_points_in_buffer()
+            self.get_points_in_buffer()
 
         else:
             measurements = self._software_timed_digital_read(**kwargs)
@@ -1550,6 +1557,7 @@ class InstroDAQ(Instrument):
     @publish_measurement
     def _fetch_digital_hw_timed(self, **kwargs) -> list[Measurement]:
         """Fetch buffered DI samples as a list."""
+        # DI rides the same clock as AI
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch digital data without hardware timing configured. "
@@ -1615,10 +1623,10 @@ class InstroDAQ(Instrument):
         fetches = []
         if self.ai_channels:
             fetches.append(self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed)
-        if self.di_channels:
-            fetches.append(
-                self._software_timed_digital_read if self.is_sw_timing_configured else self._fetch_digital_hw_timed
-            )
+        sw = self.is_sw_timing_configured
+        # TODO: Remove flag check once all drivers implement read_digital and fetch_digital
+        if self.di_channels and (self._driver.supports_read_digital if sw else self._driver.supports_fetch_digital):
+            fetches.append(self._software_timed_digital_read if sw else self._fetch_digital_hw_timed)
         # Buffer depth is one driver-wide counter, so publish it once per loop instead of per domain fetch.
         if fetches and self.is_hw_timing_configured:
             fetches.append(self.get_points_in_buffer)

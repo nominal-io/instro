@@ -29,6 +29,9 @@ class _RecordingDriver(DAQDriverBase):
     The action methods are per-instance ``Mock``s so tests can assert calls and set return values.
     """
 
+    supports_read_digital = True
+    supports_fetch_digital = True
+
     # Concrete bodies clear the abstractmethod flags; __init__ shadows these with per-instance Mocks.
     def open(self): ...
     def close(self): ...
@@ -89,6 +92,7 @@ class _RecordingDriver(DAQDriverBase):
 
     def configure_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
+        self._di_hw_timing_config = hw_timing_config
 
     def configure_di_line_channel(self, physical_channel, logic, logic_level=None, alias=None):
         key = alias or physical_channel
