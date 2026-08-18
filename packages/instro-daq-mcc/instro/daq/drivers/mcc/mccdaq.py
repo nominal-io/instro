@@ -1,5 +1,5 @@
 import time
-from ctypes import POINTER, addressof, cast, sizeof
+from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -577,10 +577,23 @@ class MCCDriver(DAQDriverBase):
             else:
                 # Wrap-around - copy in two parts
                 first_part_size = buffer_size - read_start
-                copy_func(engine.memhandle, buffer_snapshot, read_start, first_part_size)
-                # UL copy functions take a pointer to the destination, so aim one past the first part
-                second_part = cast(addressof(buffer_snapshot) + first_part_size * sizeof(ctype), POINTER(ctype))
-                copy_func(engine.memhandle, second_part, 0, fetch_size - first_part_size)
+                second_part_size = fetch_size - first_part_size
+
+                # Copy from read_start to end of buffer
+                first_part = (ctype * first_part_size)()
+                copy_func(engine.memhandle, first_part, read_start, first_part_size)
+
+                # Copy from beginning of buffer
+                second_part = (ctype * second_part_size)()
+                copy_func(engine.memhandle, second_part, 0, second_part_size)
+
+                # Combine into buffer_snapshot using memmove for performance
+                memmove(buffer_snapshot, first_part, first_part_size * sizeof(ctype))
+                memmove(
+                    addressof(buffer_snapshot) + first_part_size * sizeof(ctype),
+                    second_part,
+                    second_part_size * sizeof(ctype),
+                )
 
             # Torn-copy guard: DMA keeps writing during the copy above. If the oldest valid sample
             # has advanced past our read origin, part of this window was overwritten mid-copy.

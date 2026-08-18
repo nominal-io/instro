@@ -133,6 +133,10 @@ CURRENT_TOLERANCE_A = 0.001
 HW_SAMPLE_RATE_HZ = 10
 HW_SAMPLES_PER_CHANNEL = 10
 
+# Sub-1-Hz acquisition: below 1 Hz the driver passes the UL HIGHRESRATE option (rate in samples per 1000 s).
+SUBHZ_SAMPLE_RATE_HZ = 0.5
+SUBHZ_SAMPLES_PER_CHANNEL = 1
+
 
 # ---------------------------------------------------------------------------
 # Nominal Core event helpers
@@ -388,13 +392,44 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
                     self.assertFalse(errs, "; ".join(errs))
                 finally:
                     daq.stop()
+
+                # Sub-1-Hz section: the same acquisition at 0.5 Hz exercises the driver's HIGHRESRATE path.
+                daq.configure_ai_sample_rate(
+                    sample_rate=SUBHZ_SAMPLE_RATE_HZ, samples_per_channel=SUBHZ_SAMPLES_PER_CHANNEL
+                )
+                daq.start(background=False)
+                try:
+                    errs = []
+                    fetch_times = []
+                    for _ in range(3):
+                        measured = daq.read_analog().channel_data[f"{NAME}.{TC_ALIAS}"]
+                        fetch_times.append(time.monotonic())
+                        if len(measured) != SUBHZ_SAMPLES_PER_CHANNEL:
+                            errs.append(f"expected {SUBHZ_SAMPLES_PER_CHANNEL} samples, got {len(measured)}")
+                        for sample in measured:
+                            if not math.isfinite(sample):
+                                errs.append(f"non-finite thermocouple sample: {sample}")
+                            elif THERMOCOUPLE_WIRED and not AMBIENT_MIN_C <= sample <= AMBIENT_MAX_C:
+                                errs.append(f"{sample:.3f} outside [{AMBIENT_MIN_C}, {AMBIENT_MAX_C}]")
+                    periods = [later - earlier for earlier, later in zip(fetch_times, fetch_times[1:])]
+                    print(
+                        f"         {TC_ALIAS} @ {SUBHZ_SAMPLE_RATE_HZ} Hz: fetch periods {[f'{p:.2f}s' for p in periods]}"
+                    )
+                    expected_period = SUBHZ_SAMPLES_PER_CHANNEL / SUBHZ_SAMPLE_RATE_HZ
+                    for period in periods:
+                        if not expected_period * 0.5 <= period <= expected_period * 1.5:
+                            errs.append(f"fetch period {period:.2f}s far from the expected {expected_period:.1f}s")
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
             finally:
                 daq.close()
 
         self._run_step(
             "Thermocouple input (hardware-timed)",
             f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {TC_CHANNEL} as a type "
-            f"{TC_TYPE_UNDER_TEST.value} thermocouple and check each sample lands in the plausible ambient band.",
+            f"{TC_TYPE_UNDER_TEST.value} thermocouple and check each sample lands in the plausible ambient band, "
+            f"then re-run the acquisition at {SUBHZ_SAMPLE_RATE_HZ} Hz (HIGHRESRATE) and check the fetch cadence.",
             step,
         )
 
@@ -522,6 +557,64 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             "Current input (hardware-timed)",
             f"Stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz from {CURRENT_CHANNEL} and check "
             f"each sample lands within {CURRENT_TOLERANCE_A * 1e3} mA of the {EXTERNAL_CURRENT * 1e3} mA external source.",
+            step,
+        )
+
+    # =====================================================================
+    # 7. Combined typed channels — hardware-timed
+    # =====================================================================
+    def test_07_combined_typed_channels_hw_timed(self):
+        """Stream voltage, current, and TC channels in one scan and run each channel's band checks."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                # Configured out of scan order on purpose: the scan runs ascending (tc0, v1, i2), so any
+                # scan-order-to-alias mismatch swaps wildly different values across the band checks below.
+                self._configure_voltage_input(daq)
+                self._configure_current_input(daq)
+                self._configure_thermocouple(daq)
+                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.start(background=False)
+                try:
+                    channel_data = daq.read_analog().channel_data
+                    checks = [
+                        (TC_ALIAS, THERMOCOUPLE_WIRED, AMBIENT_MIN_C, AMBIENT_MAX_C),
+                        (
+                            VOLTAGE_ALIAS,
+                            EXTERNAL_VOLTAGE_WIRED,
+                            EXTERNAL_VOLTAGE - VOLTAGE_TOLERANCE_V,
+                            EXTERNAL_VOLTAGE + VOLTAGE_TOLERANCE_V,
+                        ),
+                        (
+                            CURRENT_ALIAS,
+                            EXTERNAL_CURRENT_WIRED,
+                            EXTERNAL_CURRENT - CURRENT_TOLERANCE_A,
+                            EXTERNAL_CURRENT + CURRENT_TOLERANCE_A,
+                        ),
+                    ]
+                    errs = []
+                    for alias, wired, low, high in checks:
+                        measured = channel_data[f"{NAME}.{alias}"]
+                        print(f"         {alias}: n={len(measured)} min={min(measured):.4f} max={max(measured):.4f}")
+                        if len(measured) != HW_SAMPLES_PER_CHANNEL:
+                            errs.append(f"{alias}: expected {HW_SAMPLES_PER_CHANNEL} samples, got {len(measured)}")
+                        for sample in measured:
+                            if not math.isfinite(sample):
+                                errs.append(f"{alias}: non-finite sample: {sample}")
+                            elif wired and not low <= sample <= high:
+                                errs.append(f"{alias}: {sample:.4f} outside [{low:.4f}, {high:.4f}]")
+                    self.assertFalse(errs, "; ".join(errs))
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Combined typed channels (hardware-timed)",
+            f"Configure voltage ({VOLTAGE_CHANNEL}), current ({CURRENT_CHANNEL}), and TC ({TC_CHANNEL}) inputs "
+            f"together, stream {HW_SAMPLES_PER_CHANNEL} samples at {HW_SAMPLE_RATE_HZ} Hz in one scan, and run "
+            f"each channel's band checks.",
             step,
         )
 

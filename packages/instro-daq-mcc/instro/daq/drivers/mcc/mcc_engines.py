@@ -1,5 +1,6 @@
 """Logic specific to the different kinds of scanning engines an MCC DAQ can have."""
 
+import logging
 import math
 from ctypes import Array, c_double, c_ulong, c_ulonglong, c_ushort
 from dataclasses import dataclass
@@ -18,6 +19,8 @@ from instro.daq.types import (
     TerminalConfig,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class MCCPortInfo:
@@ -27,7 +30,10 @@ class MCCPortInfo:
 
 @dataclass(frozen=True)
 class MCCDeviceInfo:
-    """Capabilities captured once at open; mcculw's info properties re-probe the hardware on every access."""
+    """Capabilities captured once at open.
+
+    NOTE: Omits AoInfo.supported_ranges because its probe physically drives AO0.
+    """
 
     product_name: str
     unique_id: str
@@ -47,7 +53,7 @@ class MCCDeviceInfo:
 
     @classmethod
     def snapshot(cls, board_number: int) -> "MCCDeviceInfo":
-        """Read every capability once: some probes actively drive the hardware (a_in/a_out test calls)."""
+        """Read every capability once: some probes actively drive the hardware (a_in test calls)."""
         info = DaqDeviceInfo(board_number)
         ai = info.get_ai_info()
         ao = info.get_ao_info()
@@ -162,21 +168,19 @@ class DaqInScanEngine:
             gain_list.append(channel_ranges[channel.alias])
             alias_list.append(channel.alias)
 
-        # Each TC entry immediately follows its associated CJC entry, one CJC entry per TC, per MCC's convention.
+        # Each TC entry must immediately follow its CJC (cold-junction sensor) entry, per MCC's convention:
         tc_channels = sorted(
             (channel for channel in channels if isinstance(channel, AnalogThermocoupleChannel)),
             key=lambda channel: int(channel.physical_channel),
         )
         for channel in tc_channels:
             tc = int(channel.physical_channel)
-            # The UL pairing table: CJC0->TC0; CJC1->TC1,TC2; CJC2->TC3; repeating every four TCs.
-            cjc_channel = 3 * (tc // 4) + (0, 1, 1, 2)[tc % 4]
-            channel_list.append(cjc_channel)
-            channel_type_list.append(ChannelType.CJC)
-            gain_list.append(ULRange.NOTUSED)
-            channel_list.append(tc)
-            channel_type_list.append(ChannelType.TC)
-            gain_list.append(ULRange.NOTUSED)
+            # CJC0->TC0, CJC1->TC1/TC2, CJC2->TC3 per bank of 4
+            # Tables: files.digilent.com/manuals/USB-1616HS-4.pdf p.18 and /manuals/USB-2527.pdf p.23.
+            cjc = 3 * (tc // 4) + (0, 1, 1, 2)[tc % 4]
+            channel_list += [cjc, tc]
+            channel_type_list += [ChannelType.CJC, ChannelType.TC]
+            gain_list += [ULRange.NOTUSED, ULRange.NOTUSED]
             alias_list.append(channel.alias)
 
         return channel_list, channel_type_list, gain_list, alias_list
@@ -296,8 +300,9 @@ class DaqInScanEngine:
                 samples_per_channel,
                 get_temp_scale(self._tc_unit),
             )
-            # publish NaN for bad scan
-            if err_code == ErrorCode.OUTOFRANGE:
+            # publish NaN for bad scan (this is the only returned error code, everything else raises)
+            if err_code != ErrorCode.NOERRORS:
+                logger.warning("get_tc_values reported OUTOFRANGE (open or overranged thermocouple), returning NaN")
                 return [math.nan if temp == -9999.0 else temp for temp in temps]
             return list(temps)
         finally:
