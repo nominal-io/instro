@@ -57,7 +57,7 @@ jobs:
           fetch-depth: 0
 
       - name: Review with Claude
-        uses: anthropics/claude-code-action@1623c36729ac1cd5895198cded705a287de7db79 # v1.0.187
+        uses: anthropics/claude-code-action@9d7150bc8a3dae8149739a88019d192b579ad90c # v1.0.193
         env:
           # Run subagents using cheaper, faster agents while leaving higher level thinking
           # to the higher tier model (opus 4.8)
