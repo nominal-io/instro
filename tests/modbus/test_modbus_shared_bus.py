@@ -183,6 +183,22 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
     solo.close()
 
 
+def test_modbus_unit_id_setter_rejects_reassignment_while_open(two_unit_server):
+    shared_bus = ModbusTCPTransport(host=HOST, port=TEST_PORT)
+    device = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(FLOW_UNIT), name="reassign_check")
+
+    device.modbus_unit_id = PUMP_UNIT  # closed: free to rebind
+    assert device.modbus_unit_id == PUMP_UNIT
+
+    device.open()
+    try:
+        with pytest.raises(RuntimeError, match="modbus_unit_id"):
+            device.modbus_unit_id = FLOW_UNIT
+        assert device.modbus_unit_id == PUMP_UNIT  # rejected attempt left the binding untouched
+    finally:
+        device.close()
+
+
 def test_two_devices_share_one_serial_port():
     """The RS-485 half: one ModbusRTUTransport, two devices, exactly one serial client constructed."""
     # Patched at the module attribute, not at pymodbus.client: the transport imports the client

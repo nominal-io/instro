@@ -159,7 +159,9 @@ class ModbusDevice(Instrument):
 
     @modbus_unit_id.setter
     def modbus_unit_id(self, value: int) -> None:
-        """Rebind to ``value`` (0-255) on the same transport. Intended for pre-``open()`` configuration."""
+        """Rebind to ``value`` (0-255) on the same transport. Only while closed, since a live rebind would silently redirect an open or polling connection to a different physical unit."""
+        if self._opened:
+            raise RuntimeError("modbus_unit_id cannot be changed while the device is open.")
         self._modbus = self._modbus.transport.at(value)
 
     def _require_ready_locked(self) -> None:
