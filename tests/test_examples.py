@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from instro.dmm.config import DMMConfig
+from instro.eload.config import ELoadConfig
 from instro.ethernetip import EtherNetIPConfig
 from instro.modbus import ModbusConfig
 from instro.psu.config import PSUConfig
@@ -35,6 +36,7 @@ CONFIG_LOADERS = {
 INSTRUMENT_LOADERS = {
     "InstroPSU": PSUConfig,
     "InstroDMM": DMMConfig,
+    "InstroELoad": ELoadConfig,
 }
 
 

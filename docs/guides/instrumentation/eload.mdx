@@ -68,10 +68,98 @@ eload = InstroELoad(
 
 ### Parameters
 
-- **`name`**: A name for this electronic load instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `ELoadDriverBase` instance (e.g. `BK85XXB`) configured with the connection details for that model.
-- **`publishers`**: Optional list of publishers to attach.
+- **`name`**: A name for this electronic load instance. Used as a prefix for channel names when publishing. Falls back to `config.device.name` when `config` is given.
+- **`driver`**: A concrete `ELoadDriverBase` instance (e.g. `BK85XXB`) configured with the connection details for that model. Mutually exclusive with `config`.
+- **`config`**: An `ELoadConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`. See [From a JSON Config File](#from-a-json-config-file) below.
+- **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### From a JSON Config File
+
+`InstroELoad` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
+
+```python
+from instro.eload import InstroELoad
+
+eload = InstroELoad(config="bench_eload.json")
+```
+
+Where bench_eload.json contains:
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroELoad",
+  "device": {
+    "name": "bench_eload",
+    "description": "Bench electronic load",
+    "manufacturer": "B&K Precision",
+    "model": "8514B"
+  },
+  "driver": {
+    "connection_type": "visa",
+    "name": "BK85XXB",
+    "visa": {
+      "visa_resource": "ASRL3::INSTR",
+      "serial_config": {
+        "baud_rate": 9600,
+        "data_bits": 8,
+        "parity": "N",
+        "stop_bits": 1
+      }
+    }
+  },
+  "load": {
+    "mode": "CC",
+    "level": 1.5,
+    "range": 5.0,
+    "slew_rate": {
+      "direction": "BOTH",
+      "rate": 0.5
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "publishers": [
+    {
+      "type": "NominalCorePublisher",
+      "dataset_rid": "<dataset_rid>"
+    }
+  ]
+}
+```
+
+`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+
+`driver.name` must match one of the registered vendor/model keys (currently `BK85XXB`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+
+The optional `load` block declares the initial load state. It is applied through the public setters (`set_mode`, `set_level`, ...) when `open()` runs, so it publishes the same `.cmd` channels the equivalent manual calls would:
+
+- **`mode`** (required within the block): one of `CC`, `CV`, `CP`, `CR`. Required because level and range cannot be set before a mode.
+- **`level`**: operating level in the mode's units (CC: A, CV: V, CP: W, CR: Ω). Omit to keep the instrument default.
+- **`curr_limit`**: current limit applied with the level. Only valid when `mode` is `CV`, mirroring the `set_level` signature.
+- **`range`**: operating range in the mode's units. On the `BK85XXB` driver, range applies to CC and CV only (CP and CR are auto-ranged), so a config that sets `range` with `mode` `CP` or `CR` raises `NotImplementedError` when applied.
+- **`slew_rate`**: `{"direction": "RISE" | "FALL" | "BOTH", "rate": <A/µs>}`, mapping to `set_slewrate`.
+
+<Note>
+**The config never enables the input**
+
+Loading a config file never causes the load to start sinking current or short its input. The `load` block pre-arms the setpoint; enabling the input stays an explicit runtime call (`eload.output_enable(True)`).
+</Note>
+
+`publishers` is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`, as in the example above.
+
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. The polled measurements (`get_voltage`, `get_current`) work regardless of mode, so `timing` is valid without a `load` block for passive monitoring. Pass `autostart=True` to open the connection and start polling immediately:
+
+```python
+eload = InstroELoad(config="bench_eload.json", autostart=True)
+```
+
+`config` also accepts a plain dict or an already-built `ELoadConfig`, so a config built or received elsewhere in code can construct an `InstroELoad` directly, without a JSON round-trip.
+
+JSON configs are validated strictly: `ELoadConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `load`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
@@ -241,6 +329,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | Method | Purpose |
 |--------|---------|
 | `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroELoad with a vendor driver |
+| `InstroELoad(config=..., publishers=None, autostart=False, **kwargs)` | Construct from an `ELoadConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish VISA connection to the electronic load |
 | `close()` | Disconnect from electronic load and close all publishers |
 | `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |

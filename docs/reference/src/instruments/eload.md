@@ -10,6 +10,8 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ::: instro.eload.types
 
+::: instro.eload.config
+
 ## Driver Interface
 
 ::: instro.eload.ELoadDriverBase

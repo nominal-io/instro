@@ -152,7 +152,8 @@
           {
             "group": "Electronic Load",
             "pages": [
-              "instrumentation/examples/eload/eload"
+              "instrumentation/examples/eload/eload",
+              "instrumentation/examples/eload/eload_config"
             ]
           },
           {
