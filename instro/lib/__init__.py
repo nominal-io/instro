@@ -10,7 +10,6 @@ from instro.lib.discover import (
 from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
 from instro.lib.instrument import Instrument
 from instro.lib.nominal import install_nominal_core_log_handler
-from instro.lib.transports.modbus import ModbusDriver
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Command, DeviceInfo, LinearScale, Measurement, ScaleType
 
@@ -23,7 +22,6 @@ __all__ = [
     "InstrumentNotOpenError",
     "LinearScale",
     "Measurement",
-    "ModbusDriver",
     "ScaleType",
     "VisaConfig",
     "VisaDriver",

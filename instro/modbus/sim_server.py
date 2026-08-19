@@ -51,8 +51,8 @@ def pack_int(fmt: str, value: int | float) -> list[int]:
     return [int.from_bytes(data[i * 2 : (i + 1) * 2], "big") for i in range(len(data) // 2)]
 
 
-def create_datastore() -> ModbusServerContext:
-    """Create datastore matching ``examples/modbus/simulated_modbus_device.json``."""
+def _build_device_store() -> ModbusDeviceContext:
+    """Build one unit's datastore, matching ``examples/modbus/simulated_modbus_device.json``."""
     hr = [0] * 4200
     hr[0], hr[1] = pack_float32(72.5)
     hr[2], hr[3] = pack_float32(14.7)
@@ -74,14 +74,17 @@ def create_datastore() -> ModbusServerContext:
     di[1] = False
     di[2] = True
 
-    store = ModbusDeviceContext(
+    return ModbusDeviceContext(
         di=LoggingDataBlock("discrete", 0, [False] + di),
         co=LoggingDataBlock("coil", 0, [False] + co),
         hr=LoggingDataBlock("holding", 0, [0] + hr),
         ir=LoggingDataBlock("input", 0, [0] + ir),
     )
 
-    return ModbusServerContext(devices={1: store}, single=False)
+
+def create_datastore() -> ModbusServerContext:
+    """Two addressable units (1 and 2), each with its own independent datastore."""
+    return ModbusServerContext(devices={1: _build_device_store(), 2: _build_device_store()}, single=False)
 
 
 async def run_server():

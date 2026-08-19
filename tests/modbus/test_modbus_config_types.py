@@ -5,12 +5,15 @@ Scaling tests are in test_protocol_scaling.py.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from pymodbus.framer import FramerType
 
 from instro.lib.types import DeviceInfo, LinearScale
-from instro.modbus import ModbusConfig, RegisterDef, RTUConnection, TCPConnection
+from instro.modbus import ModbusConfig, RegisterDef
+from instro.modbus.types import _RTUConnectionConfig, _TCPConnectionConfig
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
 CONFIG_PATH = CONFIGS_DIR / "test_config_types.json"
@@ -49,16 +52,16 @@ class TestConnectionDiscriminator:
     def test_tcp_from_json(self):
         config = ModbusConfig.from_json(CONFIG_PATH)
         conn = config.connection
-        assert isinstance(conn, TCPConnection)
+        assert isinstance(conn, _TCPConnectionConfig)
         assert conn.host == "127.0.0.1"
         assert conn.port == 5021
 
     def test_rtu_from_config(self):
         config = ModbusConfig(
             device=DeviceInfo(name="rtu_device"),
-            connection=RTUConnection(port="/dev/cu.usbserial-1234", baudrate=19200),
+            connection=_RTUConnectionConfig(port="/dev/cu.usbserial-1234", baudrate=19200),
         )
-        assert isinstance(config.connection, RTUConnection)
+        assert isinstance(config.connection, _RTUConnectionConfig)
         assert config.connection.port == "/dev/cu.usbserial-1234"
 
     def test_rtu_discriminator_from_dict(self):
@@ -68,11 +71,25 @@ class TestConnectionDiscriminator:
                 "connection": {"transport": "rtu", "port": "/dev/ttyUSB0"},
             }
         )
-        assert isinstance(config.connection, RTUConnection)
+        assert isinstance(config.connection, _RTUConnectionConfig)
 
     def test_no_connection_is_valid(self):
         config = ModbusConfig(device=DeviceInfo(name="no_conn"))
         assert config.connection is None
+
+    def test_rtu_build_passes_framer_through(self):
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            _RTUConnectionConfig(port="/dev/ttyUSB0", framer="ascii").build().open()
+            mock_cls.assert_called_once_with(
+                port="/dev/ttyUSB0",
+                framer=FramerType.ASCII,
+                baudrate=9600,
+                parity="N",
+                stopbits=1,
+                bytesize=8,
+                timeout=3.0,
+            )
 
 
 # ============ Timing ============
@@ -197,5 +214,5 @@ class TestProgrammaticConfig:
             }
         )
         assert config.device.name == "dict_test"
-        assert isinstance(config.connection, TCPConnection)
+        assert isinstance(config.connection, _TCPConnectionConfig)
         assert config.get_register("r1").data_type == "float32"
