@@ -17,6 +17,8 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -400,3 +402,202 @@ def test_24_modulation_enable_persists_after_set_modulation(driver: Keysight3352
 
     driver.modulation_enable(CHANNEL, False)
     driver._check_errors()
+
+
+# ---------------------------------------------------------------------------
+# Sweep
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "carrier",
+    [
+        Sine(frequency_hz=TEST_FREQUENCY_HZ),
+        Square(frequency_hz=TEST_FREQUENCY_HZ),
+        Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
+        Triangle(frequency_hz=TEST_FREQUENCY_HZ),
+        Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+    ],
+    ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary"],
+)
+def test_25_set_sweep_linear_on_every_valid_carrier(driver: Keysight33521B, carrier: Waveform) -> None:
+    driver.set_waveform(CHANNEL, carrier)
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver._check_errors()
+
+    assert driver.get_sweep_type(CHANNEL) is SweepType.LINEAR
+
+    driver.sweep_enable(CHANNEL, True)
+    driver._check_errors()
+    assert driver.get_sweep_state(CHANNEL) is True
+
+    driver.sweep_enable(CHANNEL, False)
+    driver._check_errors()
+    assert driver.get_sweep_state(CHANNEL) is False
+
+
+def test_26_set_sweep_rejects_staticvalue_carrier_and_step_spacing(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, StaticValue(value=TEST_OFFSET_V))
+
+    with pytest.raises(ValueError, match="cannot sweep a StaticValue"):
+        driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver._check_errors()
+
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    with pytest.raises(ValueError, match="does not support STEP sweep spacing"):
+        driver.set_sweep(CHANNEL, SweepType.STEP)
+    driver._check_errors()
+
+
+@pytest.mark.parametrize("sweep_type", [SweepType.LINEAR, SweepType.LOG], ids=["linear", "log"])
+def test_27_get_sweep_type_matches_configured_type(driver: Keysight33521B, sweep_type: SweepType) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(CHANNEL, sweep_type)
+    driver._check_errors()
+
+    assert driver.get_sweep_type(CHANNEL) is sweep_type
+
+
+def test_28_sweep_enable_actually_drives_frequency_mode(driver: Keysight33521B) -> None:
+    """Bench check for a manual ambiguity, not resolved from the PDF alone.
+
+    The SWEep-subsystem tutorial's last enable step is `SWEep:STATe ON`, but the FREQuency-subsystem's
+    own worked example enables sweep output via `FREQuency:MODE SWEep` alone and never touches
+    `SWEep:STATe`. This driver implements `sweep_enable`/`get_sweep_state` against `SWEep:STATe` on the
+    assumption the two registers are aliased/interlocked (mirroring how `BURSt:STATe` and every
+    modulation `:STAT` node behave elsewhere on this instrument). If `FREQuency:MODE?` does not read
+    back `SWE` here, that assumption is wrong and `sweep_enable`/`get_sweep_state` need to drive
+    `FREQuency:MODE` directly instead.
+    """
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver.sweep_enable(CHANNEL, True)
+    driver._check_errors()
+
+    freq_mode = driver._visa.query("FREQ:MODE?").strip()
+    assert freq_mode == "SWE", (
+        f"SWEep:STATe ON did not switch FREQuency:MODE to SWEep (got {freq_mode!r} instead);"
+        " sweep_enable/get_sweep_state must be reimplemented against FREQuency:MODE"
+    )
+
+    driver.sweep_enable(CHANNEL, False)
+    driver._check_errors()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [SweepTriggerSource.INTERNAL, SweepTriggerSource.EXTERNAL, SweepTriggerSource.MANUAL],
+    ids=["internal", "external", "manual"],
+)
+def test_29_sweep_trigger_roundtrip_matches_configured_source(
+    driver: Keysight33521B, source: SweepTriggerSource
+) -> None:
+    """Confirms the driver's IMM/EXT/BUS <-> INTERNAL/EXTERNAL/MANUAL mapping against real TRIGger:SOURce state."""
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver._check_errors()
+
+    driver.set_sweep_trigger(CHANNEL, source)
+    driver._check_errors()
+
+    assert driver.get_sweep_trigger(CHANNEL) is source
+
+
+def test_30_set_sweep_trigger_rejects_invalid_channel(driver: Keysight33521B) -> None:
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        driver.set_sweep_trigger(INVALID_CHANNEL, SweepTriggerSource.MANUAL)
+
+    driver._check_errors()
+
+
+def test_31_fire_sweep_trigger_fires_when_source_already_manual(driver: Keysight33521B) -> None:
+    """*TRG only fires once TRIGger:SOURce is BUS (mapped from SweepTriggerSource.MANUAL)."""
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver.set_sweep_trigger(CHANNEL, SweepTriggerSource.MANUAL)
+    driver._check_errors()
+
+    driver.output_enable(CHANNEL, True)
+    driver.sweep_enable(CHANNEL, True)
+    driver.fire_sweep_trigger(CHANNEL)
+    driver._check_errors()
+
+    driver.output_enable(CHANNEL, False)
+    driver.sweep_enable(CHANNEL, False)
+
+
+def test_32_fire_sweep_trigger_rejects_non_manual_source_and_when_not_enabled(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver.set_sweep_trigger(CHANNEL, SweepTriggerSource.EXTERNAL)
+    driver.sweep_enable(CHANNEL, True)
+    driver._check_errors()
+
+    with pytest.raises(ValueError, match="already MANUAL"):
+        driver.fire_sweep_trigger(CHANNEL)
+
+    driver.sweep_enable(CHANNEL, False)
+    driver._check_errors()
+
+    with pytest.raises(ValueError, match="sweep mode is already"):
+        driver.fire_sweep_trigger(CHANNEL)
+
+    driver._check_errors()
+
+
+def test_33_sweep_start_end_freq_roundtrip(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep_start_freq(CHANNEL, 100.0)
+    driver.set_sweep_end_freq(CHANNEL, 1000.0)
+    driver._check_errors()
+
+    assert driver.get_sweep_start_freq(CHANNEL) == pytest.approx(100.0, rel=FREQUENCY_TOLERANCE_REL)
+    assert driver.get_sweep_end_freq(CHANNEL) == pytest.approx(1000.0, rel=FREQUENCY_TOLERANCE_REL)
+
+
+def test_34_sweep_time_roundtrip(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep_time(CHANNEL, 0.5)
+    driver._check_errors()
+
+    assert driver.get_sweep_time(CHANNEL) == pytest.approx(0.5, rel=0.01)
+
+
+def test_35_set_sweep_time_rejects_non_positive_value(driver: Keysight33521B) -> None:
+    with pytest.raises(ValueError, match="sweep_time must be positive"):
+        driver.set_sweep_time(CHANNEL, 0.0)
+
+    driver._check_errors()
+
+
+def test_36_sweep_hold_and_return_time_roundtrip(driver: Keysight33521B) -> None:
+    driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_sweep_hold_time(CHANNEL, 3.4)
+    driver.set_sweep_return_time(CHANNEL, 5.6)
+    driver._check_errors()
+
+    assert driver.get_sweep_hold_time(CHANNEL) == pytest.approx(3.4, rel=0.01)
+    assert driver.get_sweep_return_time(CHANNEL) == pytest.approx(5.6, rel=0.01)
+
+
+def test_37_set_sweep_hold_and_return_time_reject_negative_value(driver: Keysight33521B) -> None:
+    with pytest.raises(ValueError, match="hold_time must be non-negative"):
+        driver.set_sweep_hold_time(CHANNEL, -0.1)
+    driver._check_errors()
+
+    with pytest.raises(ValueError, match="return_time must be non-negative"):
+        driver.set_sweep_return_time(CHANNEL, -0.1)
+    driver._check_errors()
+
+
+def test_38_set_sweep_accepts_untracked_arbitrary_carrier(driver: Keysight33521B) -> None:
+    """Regression: pop the cache to simulate a driver instance that never downloaded this Arbitrary."""
+    driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0))
+    driver._check_errors()
+    driver._arb_waveforms.pop(CHANNEL)
+
+    driver.set_sweep(CHANNEL, SweepType.LINEAR)
+    driver._check_errors()
+
+    assert driver.get_sweep_type(CHANNEL) is SweepType.LINEAR
