@@ -213,21 +213,19 @@ class TestNIDAQHardware(unittest.TestCase):
         daq.open()
         return daq
 
-    def _configure_ai(self, daq: InstroDAQ, physical: str = AI_CHANNEL, alias: str = AI_ALIAS):
-        """Configure an AI input channel (defaults to the loopback-1 pair)."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
-            physical_channel=physical,
+    def _configure_ai_voltage(self, daq: InstroDAQ, physical: str = AI_CHANNEL, alias: str = AI_ALIAS):
+        """Configure an AI voltage input channel (defaults to the loopback-1 pair)."""
+        daq.configure_voltage_input(
+            physical,
             alias=alias,
             range_min=AI_RANGE_MIN,
             range_max=AI_RANGE_MAX,
         )
 
-    def _configure_ao(self, daq: InstroDAQ, physical: str = AO_CHANNEL, alias: str = AO_ALIAS):
-        """Configure an AO output channel (defaults to the loopback-1 pair)."""
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
-            physical_channel=physical,
+    def _configure_ao_voltage(self, daq: InstroDAQ, physical: str = AO_CHANNEL, alias: str = AO_ALIAS):
+        """Configure an AO voltage output channel (defaults to the loopback-1 pair)."""
+        daq.configure_voltage_output(
+            physical,
             alias=alias,
             range_min=AO_RANGE_MIN,
             range_max=AO_RANGE_MAX,
@@ -289,7 +287,7 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
+                self._configure_ai_voltage(daq)
 
                 for _ in range(3):
                     measurement = daq.read(AI_ALIAS)
@@ -316,7 +314,7 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ao(daq)
+                self._configure_ao_voltage(daq)
 
                 for v in ANALOG_TEST_VOLTAGES:
                     daq.write(AO_ALIAS, v)
@@ -340,8 +338,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ao(daq)
+                self._configure_ai_voltage(daq)
+                self._configure_ao_voltage(daq)
 
                 errs = []
                 for v in ANALOG_TEST_VOLTAGES:
@@ -389,10 +387,10 @@ class TestNIDAQHardware(unittest.TestCase):
                 self.skipTest("ANALOG_LOOPBACK_WIRED=False")
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ai(daq, AI_CHANNEL_2, AI_ALIAS_2)
-                self._configure_ao(daq)
-                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_ai_voltage(daq)
+                self._configure_ai_voltage(daq, AI_CHANNEL_2, AI_ALIAS_2)
+                self._configure_ao_voltage(daq)
+                self._configure_ao_voltage(daq, AO_CHANNEL_2, AO_ALIAS_2)
 
                 errs = []
                 for v1, v2 in [(1.0, 4.5), (4.5, 0.5), (2.5, 3.3), (0.0, 0.0)]:
@@ -469,8 +467,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ao(daq)
+                self._configure_ai_voltage(daq)
+                self._configure_ao_voltage(daq)
                 daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
@@ -512,8 +510,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ao(daq)
+                self._configure_ai_voltage(daq)
+                self._configure_ao_voltage(daq)
                 daq.write(AO_ALIAS, HW_TIMED_DC_V)
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
@@ -558,8 +556,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ao(daq)
+                self._configure_ai_voltage(daq)
+                self._configure_ao_voltage(daq)
                 daq.write(AO_ALIAS, HW_TIMED_DC_V)  # hold a DC level before streaming
                 daq.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE_HZ)
                 daq.start()
@@ -598,7 +596,7 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
+                self._configure_ai_voltage(daq)
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -635,7 +633,7 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
+                self._configure_ai_voltage(daq)
                 daq.configure_ai_hw_sample_rate(
                     sample_rate=SAMPLE_RATE_HZ,
                     samples_per_channel=SAMPLES_PER_CHANNEL,
@@ -668,8 +666,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ao(daq)
-                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_ao_voltage(daq)
+                self._configure_ao_voltage(daq, AO_CHANNEL_2, AO_ALIAS_2)
                 self._configure_digital_lines(daq)
 
                 daq.write_batch([AO_ALIAS, AO_ALIAS_2, DO_ALIAS], [0.0, 0.0, 0])
@@ -691,8 +689,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ao(daq)
-                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_ao_voltage(daq)
+                self._configure_ao_voltage(daq, AO_CHANNEL_2, AO_ALIAS_2)
                 self._configure_digital_lines(daq)
                 # Drive the DO low first so the stopped-batch check starts from a known state.
                 daq.write(DO_ALIAS, 0)
@@ -736,8 +734,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ao(daq)
-                self._configure_ao(daq, AO_CHANNEL_2, AO_ALIAS_2)
+                self._configure_ao_voltage(daq)
+                self._configure_ao_voltage(daq, AO_CHANNEL_2, AO_ALIAS_2)
                 self._configure_digital_lines(daq)
 
                 # Normal commanding of a single channel.
@@ -789,8 +787,8 @@ class TestNIDAQHardware(unittest.TestCase):
         def step():
             daq = self._create_daq()
             try:
-                self._configure_ai(daq)
-                self._configure_ai(daq, AI_CHANNEL_2, AI_ALIAS_2)
+                self._configure_ai_voltage(daq)
+                self._configure_ai_voltage(daq, AI_CHANNEL_2, AI_ALIAS_2)
                 self._configure_digital_lines(daq)
 
                 # Reading of a single channel.

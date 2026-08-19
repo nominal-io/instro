@@ -146,22 +146,31 @@ class LabJackTSeriesDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures an ai channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        assert self._model is not None
-        aNames, aValues = self._model.ai_channel_configs(channel)
-
-        if aNames:
-            ljm.eWriteNames(self._handle, len(aNames), aNames, aValues)
-
-        self._ai_channels[channel.alias] = channel
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the LabJack device."""
-        # LabJack DACs don't need pre-configuration; write_analog_value uses ljm.eWriteName directly.
-        # Still record the channel so InstroDAQ's ao_channels proxy can resolve it.
-        self._ao_channels[channel.alias] = channel
+        self.configure_ao_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
 
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
         """Configure a voltage ai channel on the LabJack device."""
@@ -440,25 +449,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
             logic_level=logic_level,  # type: ignore
             logic=logic,
         )
-        self._do_channels[channel.alias] = channel
-
-    def configure_di_channel(self, channel: DigitalLineChannel):
-        """Register a DI line channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        self._di_channels[channel.alias] = channel
-
-    def configure_do_channel(self, channel: DigitalLineChannel):
-        """Register a DO line channel on the LabJack device."""
-        if self._model is None:
-            self._initialize_model()
-
-        # If the FIO/EIO line is an analog input, it needs to first be changed to a
-        # digital I/O by reading from the line or setting it to digital I/O with the
-        # DIO_ANALOG_ENABLE register.
-        ljm.eReadName(self._handle, channel.physical_channel)
-
         self._do_channels[channel.alias] = channel
 
     def write_digital_line(self, channel: DigitalChannel, data: int):
