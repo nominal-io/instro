@@ -375,7 +375,7 @@ class Keysight33521B(AWGDriverBase):
             if source is not BurstTriggerSource.MANUAL:
                 raise ValueError(
                     f"Cannot fire a burst trigger on channel {channel} unless the trigger source is"
-                    f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Got: {source.name}"
+                    f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Current source: {source.name}"
                 )
             self._write_checked("*TRG")
 
@@ -383,7 +383,6 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         if delay_s < 0:
             raise ValueError(f"delay_s must be non-negative, got {delay_s}")
-        # the 33521B has no BURSt:TDELay; TRIGger:DELay is the shared burst/sweep/list trigger delay
         self._write_checked(f"TRIG:DEL {delay_s}")
 
     def get_burst_delay(self, channel: int) -> float:
