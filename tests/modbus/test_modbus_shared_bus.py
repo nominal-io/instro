@@ -183,6 +183,19 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
     solo.close()
 
 
+def test_modbus_unit_id_conflict_between_constructor_and_config_is_rejected(two_unit_server):
+    config_with_address = {**DEVICE_CONFIG, "modbus_unit_id": FLOW_UNIT}
+    connection = {"transport": "tcp", "host": HOST, "port": TEST_PORT}
+
+    # Constructor kwarg disagrees with the config field: a named error, not a silent override.
+    with pytest.raises(ValueError, match="modbus_unit_id"):
+        ModbusDevice(config=config_with_address, connection=connection, modbus_unit_id=PUMP_UNIT)
+
+    # Agreeing values are not a conflict.
+    device = ModbusDevice(config=config_with_address, connection=connection, modbus_unit_id=FLOW_UNIT)
+    assert device.modbus_unit_id == FLOW_UNIT
+
+
 def test_modbus_unit_id_setter_rejects_reassignment_while_open(two_unit_server):
     shared_bus = ModbusTCPTransport(host=HOST, port=TEST_PORT)
     device = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(FLOW_UNIT), name="reassign_check")

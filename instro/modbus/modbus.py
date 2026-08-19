@@ -106,12 +106,7 @@ class ModbusDevice(Instrument):
         config: ModbusConfig,
         modbus_unit_id: int | None,
     ) -> ModbusUnit:
-        """Resolve the ``connection`` argument and the address into one address-bound ``ModbusUnit``.
-
-        Every branch binds through ``at()``, the single 0-255 validation funnel. A transport the
-        caller supplied could be shared, so its address must be stated; one this device builds
-        privately cannot be, so it may default to unit 1.
-        """
+        """Resolve ``connection`` and the address into one address-bound ``ModbusUnit``, binding through ``at()``."""
         match connection:
             case ModbusUnit():
                 if modbus_unit_id is not None or config.modbus_unit_id is not None:
@@ -122,7 +117,7 @@ class ModbusDevice(Instrument):
                     )
                 return connection
             case ModbusTransport():
-                address = modbus_unit_id if modbus_unit_id is not None else config.modbus_unit_id
+                address = ModbusDevice._resolved_unit_id(modbus_unit_id, config)
                 if address is None:
                     raise ValueError(
                         "A shared ModbusTransport needs a unit address: pass "
@@ -145,12 +140,21 @@ class ModbusDevice(Instrument):
                 )
 
     @staticmethod
+    def _resolved_unit_id(modbus_unit_id: int | None, config: ModbusConfig) -> int | None:
+        """Resolve the constructor kwarg against the config field; the kwarg wins, but a differing config value is a named error, not a silent override."""
+        if modbus_unit_id is not None and config.modbus_unit_id is not None and modbus_unit_id != config.modbus_unit_id:
+            raise ValueError(
+                f"modbus_unit_id={modbus_unit_id} (constructor) conflicts with "
+                f"config.modbus_unit_id={config.modbus_unit_id} (config). Specify only one."
+            )
+        return modbus_unit_id if modbus_unit_id is not None else config.modbus_unit_id
+
+    @staticmethod
     def _private_address(modbus_unit_id: int | None, config: ModbusConfig) -> int:
         """Address for a transport this device built privately; defaults to 1 because nobody else can reach it."""
         # `is not None` throughout: 0 is the broadcast address and must not be rewritten to 1.
-        if modbus_unit_id is not None:
-            return modbus_unit_id
-        return config.modbus_unit_id if config.modbus_unit_id is not None else 1
+        resolved = ModbusDevice._resolved_unit_id(modbus_unit_id, config)
+        return resolved if resolved is not None else 1
 
     @property
     def modbus_unit_id(self) -> int:

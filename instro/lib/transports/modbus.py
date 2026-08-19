@@ -175,12 +175,7 @@ def _modbus_op(fn):
 
 
 class ModbusTransport(TransportBase, abc.ABC):
-    """Abstract Modbus line: owns the session, locking, and every wire op. Annotate against it; construct a concrete subclass.
-
-    Holds no unit address. Every wire op takes ``unit_id`` as a required keyword, so one
-    transport serves any number of units on the line; :meth:`at` binds one of those addresses
-    to a :class:`ModbusUnit` for callers that would rather not repeat it.
-    """
+    """Abstract Modbus line: owns the session, locking, and every wire op, addressed per call or bound once via :meth:`at`. Annotate against it; construct a concrete subclass."""
 
     # Highest valid unit_id; ModbusRTUTransport narrows this to 247 (Modbus over Serial Line
     # spec 2.2 reserves 248-255 rather than assigning them to slaves).
@@ -215,13 +210,7 @@ class ModbusTransport(TransportBase, abc.ABC):
         ...
 
     def at(self, unit_id: int) -> ModbusUnit:
-        """Bind ``unit_id`` (0 to :attr:`_max_unit_id`) to this transport, returning a ``ModbusUnit`` that addresses it.
-
-        This is how one line serves several devices: build one transport, call ``at()`` once per
-        unit address, and hand each bound unit to its own device. They share the single underlying
-        session — it opens for the first holder and is released by the last — so an RS-485
-        multi-drop line, or a TCP-to-serial gateway fronting one, needs exactly one connection.
-        """
+        """Bind ``unit_id`` (0 to :attr:`_max_unit_id`) to this transport, returning a ``ModbusUnit`` that addresses it — call once per device to share one connection across several units."""
         if not 0 <= unit_id <= self._max_unit_id:
             raise ValueError(f"unit_id must be between 0 and {self._max_unit_id}, got {unit_id}")
         return ModbusUnit(self, unit_id)
