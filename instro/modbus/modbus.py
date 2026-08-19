@@ -8,7 +8,7 @@ from pathlib import Path
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.lib.transports.modbus import ModbusDriver
+from instro.lib.transports.modbus import ModbusDriver, decode_registers
 
 from .types import (
     BOOL_DATA_TYPES,
@@ -191,9 +191,7 @@ class ModbusDevice(Instrument):
                 scaled_value = raw_value
             else:
                 reg_slice = raw_regs[offset : offset + reg.register_count]
-                raw_value = self._modbus.decode_registers(
-                    reg_slice, reg.data_type, reg.byte_swap, reg.word_swap, reg.long_swap
-                )
+                raw_value = decode_registers(reg_slice, reg.data_type, reg.byte_swap, reg.word_swap, reg.long_swap)
                 scaled_value = self._apply_scaling(raw_value, reg)
 
             channel_data.update(self._build_register_channels(reg, raw_value, scaled_value))

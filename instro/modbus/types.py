@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field, model_validator
 from instro.lib.transports.modbus import (
     ConnectionType,
     DataType,
-    ModbusDriver,
     RegisterType,
     RTUConnection,
     TCPConnection,
+    register_count,
 )
 from instro.lib.types import (
     DeviceInfo,
@@ -292,7 +292,7 @@ class RegisterDef(BaseModel):
     @property
     def register_count(self) -> int:
         """Number of 16-bit registers this data type spans (uint16→1, uint32→2, uint64→4)."""
-        return ModbusDriver.register_count(self.data_type)
+        return register_count(self.data_type)
 
 
 # ============ Top-Level Config ============
