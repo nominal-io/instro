@@ -19,6 +19,8 @@ from instro.unstable.awg.types import (
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -76,6 +78,21 @@ _BURST_TRIGGER_SOURCES: dict[BurstTriggerSource, str] = {
 }
 _BURST_TRIGGER_SOURCE_TYPES: dict[str, BurstTriggerSource] = {
     token: source for source, token in _BURST_TRIGGER_SOURCES.items()
+}
+
+_SWEEP_SPACING: dict[SweepType, str] = {
+    SweepType.LINEAR: "LIN",
+    SweepType.LOG: "LOG",
+}
+_SWEEP_SPACING_TYPES: dict[str, SweepType] = {spacing: sweep_type for sweep_type, spacing in _SWEEP_SPACING.items()}
+
+_SWEEP_TRIGGER_SOURCES: dict[SweepTriggerSource, str] = {
+    SweepTriggerSource.INTERNAL: "IMM",
+    SweepTriggerSource.EXTERNAL: "EXT",
+    SweepTriggerSource.MANUAL: "BUS",
+}
+_SWEEP_TRIGGER_SOURCE_TYPES: dict[str, SweepTriggerSource] = {
+    token: source for source, token in _SWEEP_TRIGGER_SOURCES.items()
 }
 
 
@@ -199,9 +216,7 @@ class Keysight33521B(AWGDriverBase):
 
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f"VOLT:OFFS {offset}")
-            self._check_errors()
+        self._write_checked(f"VOLT:OFFS {offset}")
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)
@@ -212,9 +227,7 @@ class Keysight33521B(AWGDriverBase):
 
     def output_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write("OUTP ON" if enable else "OUTP OFF")
-            self._check_errors()
+        self._write_checked("OUTP ON" if enable else "OUTP OFF")
 
     def get_output_state(self, channel: int) -> bool:
         _check_channel(channel)
@@ -225,12 +238,7 @@ class Keysight33521B(AWGDriverBase):
 
     def set_output_load(self, channel: int, load: float | None) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            if load is None:
-                self._visa.write("OUTP:LOAD INF")
-            else:
-                self._visa.write(f"OUTP:LOAD {load}")
-            self._check_errors()
+        self._write_checked("OUTP:LOAD INF" if load is None else f"OUTP:LOAD {load}")
 
     def get_output_load(self, channel: int) -> float | None:
         _check_channel(channel)
@@ -448,6 +456,131 @@ class Keysight33521B(AWGDriverBase):
             raw = self._visa.query("BURS:INT:PER?")
             self._check_errors()
         return float(raw)
+
+    def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
+        _check_channel(channel)
+        if not isinstance(sweep_type, SweepType):
+            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
+        if sweep_type not in _SWEEP_SPACING:
+            raise ValueError(f"the Keysight 33521B does not support {sweep_type.name} sweep spacing")
+        with self._visa.lock():
+            carrier_name = self._visa.query("FUNC?").strip()
+            if carrier_name == "DC":
+                raise ValueError(f"the Keysight 33521B cannot sweep a StaticValue (DC) waveform on channel {channel}")
+            self._visa.write(f"SWE:SPAC {_SWEEP_SPACING[sweep_type]}")
+            self._check_errors()
+
+    def get_sweep_type(self, channel: int) -> SweepType:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("SWE:SPAC?").strip()
+            self._check_errors()
+        if token not in _SWEEP_SPACING_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported sweep type '{token}'")
+        return _SWEEP_SPACING_TYPES[token]
+
+    def sweep_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        self._write_checked(f"SWE:STAT {'ON' if enable else 'OFF'}")
+
+    def get_sweep_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = self._visa.query("SWE:STAT?").strip() == "1"
+            self._check_errors()
+        return result
+
+    def set_sweep_trigger(self, channel: int, source: SweepTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, SweepTriggerSource):
+            raise TypeError(f"source must be a SweepTriggerSource, got {type(source).__name__}")
+        self._write_checked(f"TRIG:SOUR {_SWEEP_TRIGGER_SOURCES[source]}")
+
+    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("TRIG:SOUR?").strip()
+            self._check_errors()
+        if token not in _SWEEP_TRIGGER_SOURCE_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported trigger source '{token}'")
+        return _SWEEP_TRIGGER_SOURCE_TYPES[token]
+
+    def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        self._write_checked(f"FREQ:STAR {frequency_hz}")
+
+    def get_sweep_start_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("FREQ:STAR?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_end_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        self._write_checked(f"FREQ:STOP {frequency_hz}")
+
+    def get_sweep_end_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("FREQ:STOP?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_time(self, channel: int, sweep_time: float) -> None:
+        _check_channel(channel)
+        if sweep_time <= 0:
+            raise ValueError(f"sweep_time must be positive, got {sweep_time}")
+        self._write_checked(f"SWE:TIME {sweep_time}")
+
+    def get_sweep_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:TIME?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
+        _check_channel(channel)
+        if hold_time < 0:
+            raise ValueError(f"hold_time must be non-negative, got {hold_time}")
+        self._write_checked(f"SWE:HTIM {hold_time}")
+
+    def get_sweep_hold_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:HTIM?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_return_time(self, channel: int, return_time: float) -> None:
+        _check_channel(channel)
+        if return_time < 0:
+            raise ValueError(f"return_time must be non-negative, got {return_time}")
+        self._write_checked(f"SWE:RTIM {return_time}")
+
+    def get_sweep_return_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:RTIM?"))
+            self._check_errors()
+        return result
+
+    def fire_sweep_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            if not self.get_sweep_state(channel):
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless sweep mode is already"
+                    " enabled, call sweep_enable(channel, True) first"
+                )
+            source = self.get_sweep_trigger(channel)
+            if source is not SweepTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_sweep_trigger(channel, SweepTriggerSource.MANUAL) first. Current source: {source.name}"
+                )
+            self._write_checked("*TRG")
 
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
