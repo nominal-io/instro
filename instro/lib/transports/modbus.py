@@ -29,7 +29,7 @@ def register_count(data_type: DataType) -> int:
         case "uint64" | "int64" | "float64":
             return 4
         case _:
-            return 1
+            raise ValueError(f"Unknown data type: {data_type}")
 
 
 def decode_registers(

@@ -374,6 +374,10 @@ class TestCodec:
         with pytest.raises(ValueError, match="Unknown data type"):
             decode_registers([0], "uint128")
 
+    def test_register_count_unknown_type_raises(self):
+        with pytest.raises(ValueError, match="Unknown data type"):
+            register_count("uint128")
+
 
 # ============ Lock ============
 
