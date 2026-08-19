@@ -16,15 +16,17 @@ Then run this script.
 
 import time
 
+from instro.lib.transports import ModbusTCPTransport
 from instro.modbus import (
     DeviceInfo,
     LinearScale,
     ModbusConfig,
     ModbusDevice,
     RegisterDef,
-    TCPConnection,
     TimingConfig,
 )
+
+transport = ModbusTCPTransport(host="127.0.0.1", port=5020, timeout=2.0)
 
 config = ModbusConfig(
     device=DeviceInfo(
@@ -33,7 +35,6 @@ config = ModbusConfig(
         manufacturer="Sim Corp",
         model="SIM-3000",
     ),
-    connection=TCPConnection(host="127.0.0.1", port=5020, unit_id=1, timeout=2.0),
     timing=TimingConfig(poll_interval=0.5),
     registers=[
         RegisterDef(
@@ -84,7 +85,7 @@ config = ModbusConfig(
 
 
 def main():
-    device = ModbusDevice(config, autostart=True)
+    device = ModbusDevice(config, connection=transport.at(1), autostart=True)
 
     try:
         print(f"Connected to {config.device.name}")

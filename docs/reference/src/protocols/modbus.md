@@ -17,7 +17,8 @@ device.close()
 Or build the config in code with full IDE autocomplete:
 
 ```python
-from instro.modbus import ModbusDevice, ModbusConfig, TCPConnection
+from instro.lib.transports import ModbusTCPTransport
+from instro.modbus import ModbusDevice, ModbusConfig
 from instro.modbus.types import (
     DeviceInfo, RegisterDef, TimingConfig,
 )
@@ -32,8 +33,8 @@ config = ModbusConfig(
                     write_value_map={"off": 0, "auto": 1, "manual": 2}),
     ],
 )
-connection = TCPConnection(host="192.168.1.10")
-device = ModbusDevice(config, connection=connection, autostart=True)
+transport = ModbusTCPTransport(host="192.168.1.10")
+device = ModbusDevice(config, connection=transport.at(1), autostart=True)
 ```
 
 ## Sample Config
@@ -66,11 +67,11 @@ description shared across environments.
 
     ```json
     {
+        "modbus_unit_id": 1,
         "connection": {
             "transport": "tcp",
             "host": "192.168.1.10",
             "port": 502,
-            "unit_id": 1,
             "timeout": 3.0
         }
     }
@@ -80,6 +81,7 @@ description shared across environments.
 
     ```json
     {
+        "modbus_unit_id": 1,
         "connection": {
             "transport": "rtu",
             "port": "/dev/ttyUSB0",
@@ -87,7 +89,6 @@ description shared across environments.
             "parity": "N",
             "stopbits": 1,
             "bytesize": 8,
-            "unit_id": 1,
             "timeout": 3.0
         }
     }
@@ -262,8 +263,6 @@ Reading `status_register` returns the raw value plus each bit as a separate chan
       members:
         - ModbusConfig
         - TimingConfig
-        - TCPConnection
-        - RTUConnection
         - RegisterDef
         - BitDef
 

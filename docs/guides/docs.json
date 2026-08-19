@@ -179,7 +179,8 @@
               "instrumentation/examples/modbus/labjack_t4_loopback_test",
               "instrumentation/examples/modbus/minimal_example",
               "instrumentation/examples/modbus/modbus_example",
-              "instrumentation/examples/modbus/programmatic_config_example"
+              "instrumentation/examples/modbus/programmatic_config_example",
+              "instrumentation/examples/modbus/shared_bus_example"
             ]
           },
           {

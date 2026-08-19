@@ -44,9 +44,9 @@ CONFIG = {
         "transport": "tcp",
         "host": HOST,
         "port": PORT,
-        "unit_id": 1,
         "timeout": 3.0,
     },
+    "modbus_unit_id": 1,
     "registers": [
         # Device identity
         {"name": "product_id", "starting_address": 60000, "register_type": "holding", "data_type": "float32"},
