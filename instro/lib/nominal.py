@@ -8,8 +8,7 @@ from typing import Any, TypedDict
 
 import requests.exceptions
 import urllib3.exceptions
-from nominal import exceptions
-from nominal.core import Dataset, NominalClient
+from nominal.core import Dataset, NominalClient, exceptions
 from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
 
 from instro.lib.types import Measurement

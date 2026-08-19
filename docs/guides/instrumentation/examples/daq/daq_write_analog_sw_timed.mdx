@@ -52,6 +52,5 @@ with daq:
         direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias="ao_1", range_min=0, range_max=5
     )
 
-    daq.write_analog_value("ao_0", 2.2)
-    daq.write_analog_value("ao_1", 3.4)
+    daq.write_batch(["ao_0", "ao_1"], [2.2, 3.4])
 ```

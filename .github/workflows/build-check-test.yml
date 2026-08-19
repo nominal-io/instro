@@ -24,21 +24,19 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.8.x"
           enable-cache: false
-          cache-dependency-glob: "uv.lock"
           python-version: ${{ matrix.python-version }}
       - name: Install just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       # `rustup` is available by default on GitHub runners
       - name: Install Rust
         run: rustup show
       - name: Cache Rust build output
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Install dependencies
         run: |
           just install
@@ -57,3 +55,31 @@ jobs:
       - name: Run unit tests
         run: |
           just test
+
+  rust-check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    # Run every step under bash so the bash-syntax steps below work on
+    # Windows runners, which default to pwsh.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      # `rustup` is available by default on GitHub runners
+      - name: Install Rust
+        run: rustup show
+      # `check-rust` runs `cargo +nightly fmt`, which needs its own toolchain + component.
+      - name: Install nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - name: Cache Rust build output
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Rust format and lint checks
+        run: |
+          just check-rust

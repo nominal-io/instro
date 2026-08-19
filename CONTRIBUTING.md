@@ -8,29 +8,29 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-What you need depends on which command you run. **`just check` is lightweight** (just + uv). **`just test` needs a full native toolchain**: it builds a maturin/PyO3 wheel and runs `cargo test` across the whole Rust workspace, which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
+What you need depends on which command you run. **`just check-python` is lightweight** (just + uv). **`just check` and `just test` need a full native toolchain**: they run `cargo clippy`/`cargo test` across the whole Rust workspace (and `just test` additionally builds a maturin/PyO3 wheel), which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
 
-| Layer | `just check` | `just test` |
+| Layer | `just check-python` | `just check` / `just test` |
 |---|:---:|:---:|
 | [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
-| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python) | ✅ | ✅ |
+| [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python), `>=0.12` | ✅ | ✅ |
 | Synced Python deps (`uv sync`) | ✅ | ✅ |
 | Git Bash (Windows only — for the `#!/usr/bin/env bash` recipes) | — | ✅ |
 | Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
 | C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation. The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
 
 <details>
 <summary><strong>Windows</strong></summary>
 
 ```powershell
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 winget install --id Casey.Just -e            # just
 winget install --id astral-sh.uv -e          # uv
 winget install --id Git.Git -e               # Git + Git Bash (the bash recipes need it)
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 winget install --id Rustlang.Rustup -e       # rustup -> installs the pinned toolchain on first use
 winget install --id Kitware.CMake -e         # cmake (open62541-sys build)
 winget install --id LLVM.LLVM -e             # libclang for bindgen
@@ -51,12 +51,12 @@ setx LIBCLANG_PATH "C:\Program Files\LLVM\bin"
 <summary><strong>macOS</strong></summary>
 
 ```bash
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 brew install just uv
 # git + the C compiler come from the Command Line Tools:
 xcode-select --install
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 brew install rustup-init && rustup-init -y   # or: brew install rustup; rustup default stable
 brew install cmake llvm                       # cmake + libclang (bindgen)
 ```
@@ -73,11 +73,11 @@ export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
 <summary><strong>Linux (Debian/Ubuntu)</strong></summary>
 
 ```bash
-# Core (covers `just check`)
+# Core (covers `just check-python`)
 curl -LsSf https://astral.sh/uv/install.sh | sh                  # uv
 sudo apt-get install -y just git                                 # or: cargo install just
 
-# Additional for `just test`
+# Additional for `just check` and `just test`
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # rustup
 sudo apt-get install -y build-essential cmake clang libclang-dev pkg-config
 ```
@@ -99,8 +99,12 @@ uv sync --extra all
 Common dev tasks (via [just](https://github.com/casey/just)):
 
 ```bash
-just check    # ruff format, mypy, ruff lint
-just test     # unit tests + Rust workspace + EtherNet/IP wheel checks (no hardware required)
+just check           # all static analysis: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy)
+just test            # all tests: python + Rust workspace + EtherNet/IP wheel checks (no hardware required)
+just check-python    # python static analysis only (no Rust toolchain needed)
+just test-python     # python unit tests only
+just check-rust      # Rust rustfmt + clippy only
+just test-rust       # Rust library/integration/doc tests only
 ```
 
 Notes:
@@ -115,7 +119,7 @@ The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, includin
 
 **Do not regenerate the lock casually.** When a dependency manifest changes, run `cargo update` at the repository root and commit the updated lock in the same PR.
 
-CI verifies the shared lock with `--locked` via `cargo clippy --locked` in `just rust`, which `just test` invokes through `just eip-test`.
+CI verifies the committed lockfile with `--locked`, as part of `just check-rust` (which `just check` runs and CI invokes directly in its Rust checks step).
 
 ### Rust crate releases
 
@@ -188,7 +192,9 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 ### Tests and checks
 
-Every PR must pass `just check` and `just test`. CI will run these automatically. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
+Every PR must pass `just check` and `just test`. CI will run these automatically against the committed `uv.lock`. A separate scheduled workflow (`.github/workflows/latest-deps-test.yml`) re-resolves all dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests, so a breaking release in an upstream dependency surfaces within a day instead of when an end user hits it; if that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
+
+GitHub Actions in `.github/workflows/` are pinned to full commit SHAs with the release version as a trailing comment (`uses: actions/checkout@11d5960a... # v4.4.0`), so a repointed upstream tag can't silently change what runs in CI. Dependabot (`.github/dependabot.yml`) opens a weekly grouped PR bumping the pins. When adding an action, pin it the same way, resolving the SHA from the upstream repo's release — never from an unverified suggestion.
 
 Write unit tests to cover the invariant or edge case under test with the least necessary complexity. Prefer targeted, high-signal cases over broad, redundant matrices, heavily abstracted helpers. Don't rewrite tests where the main effect is making tests look shareable. Don't add tests simply to increase line coverage or the number of executed cases. You're going to be working features/bug-fixes that have a clear reason test, so make sure that your tests are meaningfully addressing the real needs for test coverage. Shared test helpers are fine when they remove duplication without hiding the behavior that each test proves. A large, complicated test suite that repeats the same assertion in different shapes is almost as unhelpful as no coverage.
 

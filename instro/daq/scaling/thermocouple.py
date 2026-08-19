@@ -1,13 +1,13 @@
 """Thermocouple scaling for DAQ: voltage → °C with cold-junction compensation."""
 
-import enum
+from enum import Enum
 
 import thermocouples as tc
 
 from instro.daq.scaling.scaling import Scaler
 
 
-class TC_TYPE(enum.Enum):
+class TC_TYPE(Enum):
     B = "B"
     E = "E"
     J = "J"
@@ -16,6 +16,43 @@ class TC_TYPE(enum.Enum):
     R = "R"
     S = "S"
     T = "T"
+
+
+class TC_UNIT(Enum):
+    CELSIUS = "degC"
+    KELVIN = "K"
+    FAHRENHEIT = "degF"
+    RANKINE = "degR"
+
+
+def kelvin_to_unit(temp_k: float, unit: TC_UNIT) -> float:
+    """Convert a Kelvin temperature to ``unit``."""
+    match unit:
+        case TC_UNIT.CELSIUS:
+            return temp_k - 273.15
+        case TC_UNIT.KELVIN:
+            return temp_k
+        case TC_UNIT.FAHRENHEIT:
+            return temp_k * 9 / 5 - 459.67
+        case TC_UNIT.RANKINE:
+            return temp_k * 9 / 5
+        case _:
+            raise AssertionError(f"unhandled TC_UNIT {unit}")
+
+
+def unit_to_kelvin(temp: float, unit: TC_UNIT) -> float:
+    """Convert a temperature in ``unit`` to Kelvin."""
+    match unit:
+        case TC_UNIT.CELSIUS:
+            return temp + 273.15
+        case TC_UNIT.KELVIN:
+            return temp
+        case TC_UNIT.FAHRENHEIT:
+            return (temp + 459.67) * 5 / 9
+        case TC_UNIT.RANKINE:
+            return temp * 5 / 9
+        case _:
+            raise AssertionError(f"unhandled TC_UNIT {unit}")
 
 
 class ThermocoupleSensor(Scaler):

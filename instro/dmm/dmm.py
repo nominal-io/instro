@@ -7,10 +7,13 @@ import logging
 import threading
 import time
 from dataclasses import replace
+from pathlib import Path
 from typing import Callable
 
+from instro.dmm.config import DMMConfig, resolve_dmm_from_config
 from instro.dmm.types import DMMMeasurementConfig, MeasurementFunction, RangeMode
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 
@@ -162,15 +165,20 @@ class InstroDMM(Instrument):
 
     def __init__(
         self,
-        name: str,
-        driver: DMMDriverBase,
+        name: str | None = None,
+        driver: DMMDriverBase | None = None,
         publishers: list[Publisher] | None = None,
+        config: DMMConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroDMM.
 
+        Provide either ``config`` or ``driver``, not both.
+
         Args:
-            name: Channel-name prefix for published data.
+            name: Channel-name prefix for published data. Falls back to
+                ``config.device.name`` when ``config`` is given.
             driver: Concrete DMM driver; owns its own transport::
 
                 dmm = InstroDMM(
@@ -179,17 +187,60 @@ class InstroDMM(Instrument):
                 )
 
             publishers: Publishers that receive emitted Measurement/Command data.
+                Combined with any publishers declared in ``config``.
+            config: A ``DMMConfig``, a dict, or a path to a JSON config file. Its
+                ``measurement`` block is applied through the public setters on ``open()``.
+            autostart: When True, open the connection and start background polling.
+                Requires ``config`` with a ``measurement`` block, since polling cannot
+                start without a measurement function.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
+        poll_interval: float | None = None
+        resolved_config: DMMConfig | None = None
+        config_publishers: list[Publisher] = []
+        if config is not None:
+            if driver is not None:
+                raise ValueError(
+                    "InstroDMM(config=...) cannot be combined with driver; use one construction style or the other."
+                )
+            resolved_config = load_config(config, DMMConfig)
+            resolved_name, driver, config_publishers, poll_interval = resolve_dmm_from_config(resolved_config)
+            publishers = [*(publishers or []), *config_publishers] or None
+            if name is None:
+                name = resolved_name
+        elif name is None or driver is None:
+            raise ValueError("InstroDMM requires either config=..., or name and driver together.")
+
+        if autostart and (resolved_config is None or resolved_config.measurement is None):
+            raise ValueError(
+                "autostart=True requires a config with a measurement block; "
+                "background polling cannot start without a measurement function."
+            )
+
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
+        self._config = resolved_config
         self._resource_lock = threading.Lock()
         self._measurement_config: DMMMeasurementConfig | None = None
+        self._measurement_config_applied = False
 
         self._define_background_daemon()
+
+        if poll_interval is not None:
+            self.background_interval = poll_interval
+
+        if autostart:
+            try:
+                self.open()
+                self.start()
+            except Exception:
+                self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
+                raise
 
     def start(self) -> None:
         """Start the background daemon thread.
@@ -203,16 +254,40 @@ class InstroDMM(Instrument):
         super().start()
 
     def open(self) -> None:
-        """Open the underlying driver."""
+        """Open the underlying driver and apply any configured measurement state."""
         logger.info("Opening DMM '%s'", self.name)
         self._driver.open()
+        try:
+            self._apply_measurement_config()
+        except Exception:
+            self._measurement_config = None
+            self._measurement_config_applied = False
+            self._driver.close()
+            raise
         logger.info("Opened DMM '%s'", self.name)
+
+    def _apply_measurement_config(self) -> None:
+        """Apply the config's ``measurement`` block through the public setters, once per open, in the order the API requires."""
+        if self._config is None or self._config.measurement is None or self._measurement_config_applied:
+            return
+        measurement = self._config.measurement
+        self.set_measurement_function(measurement.function)
+        if measurement.digits is not None:
+            self.set_digits(measurement.digits)
+        if measurement.aperture_nplc is not None:
+            self.set_aperture_nplc(measurement.aperture_nplc)
+        if measurement.aperture_seconds is not None:
+            self.set_aperture_seconds(measurement.aperture_seconds)
+        if measurement.range is not None:
+            self.set_range(None if isinstance(measurement.range, str) else measurement.range)
+        self._measurement_config_applied = True
 
     def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing DMM '%s'", self.name)
         super().close()
         self._driver.close()
+        self._measurement_config_applied = False
         logger.info("Closed DMM '%s'", self.name)
 
     @publish_command

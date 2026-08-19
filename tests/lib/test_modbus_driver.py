@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import struct
 import threading
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from pymodbus.datastore import (
@@ -17,6 +18,7 @@ from pymodbus.datastore import (
 from pymodbus.exceptions import ConnectionException
 from pymodbus.server import StartAsyncTcpServer
 
+from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports import ModbusDriver, RTUConnection, TCPConnection
 
 TEST_PORT = 5031
@@ -378,6 +380,65 @@ class TestLock:
 
     def test_lock_returns_same_object(self, driver):
         assert driver.lock() is driver.lock()
+
+
+# ============ Shared Ownership ============
+
+
+class TestSharedOwnership:
+    def test_two_holders_share_one_client_last_close_closes(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a, b = object(), object()
+
+        first = drv.open(a)
+        second = drv.open(b)
+
+        assert first is True
+        assert second is False
+        assert drv.is_open
+
+        drv.close(a)
+        assert drv.is_open  # b still holds it
+
+        drv.close(b)
+
+        assert not drv.is_open
+
+    def test_one_connect_across_two_holder_opens(self):
+        with patch("pymodbus.client.ModbusTcpClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=1))
+            a, b = object(), object()
+
+            drv.open(a)
+            drv.open(b)
+
+            mock_cls.return_value.connect.assert_called_once()
+            drv.close(a)
+            drv.close(b)
+
+    def test_close_by_non_holder_raises(self, modbus_server):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a, stranger = object(), object()
+        drv.open(a)
+
+        with pytest.raises(UnknownHolderError, match="does not own this"):
+            drv.close(stranger)
+
+        assert drv.is_open
+        drv.close(a)
+
+    def test_bare_close_while_owned_declines_and_logs(self, modbus_server, caplog):
+        drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=TEST_PORT))
+        a = object()
+        drv.open(a)
+
+        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.transport_base"):
+            drv.close()
+
+        assert drv.is_open
+        assert len(caplog.records) == 1
+        drv.close(a)
 
 
 # ============ Connection Configs ============

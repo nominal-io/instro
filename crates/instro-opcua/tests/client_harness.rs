@@ -35,7 +35,7 @@ use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {
     OpcUaClientBuilder::new()
-        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned())?)
+        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned()))
         .security_mode(OpcUaSecurityMode::None)
         .security_policy(OpcUaSecurityPolicy::None)
         .timeout(LIFETIME_TIMEOUT)
@@ -102,9 +102,14 @@ fn monitored_item_config() -> OpcUaMonitoredItemConfig {
 
 fn assert_timestamps_present(samples: &[OpcUaSample]) {
     for sample in samples {
+        let timestamp = sample
+            .data
+            .server_timestamp
+            .or(sample.data.source_timestamp);
+
         assert!(
-            sample.data.server_timestamp > 0,
-            "server timestamp should be populated for {sample:?}",
+            matches!(timestamp, Some(timestamp) if timestamp > 0),
+            "timestamp should be populated for {sample:?}",
         );
     }
 }

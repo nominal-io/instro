@@ -10,6 +10,8 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ::: instro.dmm.types
 
+::: instro.dmm.config
+
 ## Driver Interface
 
 ::: instro.dmm.DMMDriverBase
@@ -25,6 +27,12 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ### Agilent 34401A
 
 ::: instro.dmm.drivers.agilent_a34401a
+    options:
+      heading_level: 4
+
+### Keysight 34461A
+
+::: instro.dmm.drivers.keysight_34461a
     options:
       heading_level: 4
 

@@ -12,6 +12,33 @@ class AmplitudeMeasurementUnit(Enum):
     DBM = "DBM"
 
 
+class ModulationType(Enum):
+    AM = "AM"
+    FM = "FM"
+    PM = "PM"
+    FSK = "FSK"
+    ASK = "ASK"
+    PSK = "PSK"
+    PWM = "PWM"
+
+
+class BurstType(Enum):
+    NCYCLE = "NCYCLE"
+    GATED = "GATED"
+    INFINITE = "INFINITE"
+
+
+class BurstTriggerSource(Enum):
+    INTERNAL = "INT"
+    EXTERNAL = "EXT"
+    MANUAL = "MAN"
+
+
+class GatePolarity(Enum):
+    NORM = "NORM"
+    INV = "INV"
+
+
 def _require_positive(name: str, value: float) -> None:
     if value <= 0:
         raise ValueError(f"{name} must be positive, got {value}")
