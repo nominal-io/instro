@@ -4,15 +4,16 @@ from __future__ import annotations
 
 from functools import cached_property
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from instro.lib.transports.modbus import (
-    ConnectionType,
     DataType,
+    ModbusRTUTransport,
+    ModbusTCPTransport,
+    ModbusTransport,
     RegisterType,
-    RTUConnection,
-    TCPConnection,
     register_count,
 )
 from instro.lib.types import (
@@ -28,13 +29,79 @@ __all__ = [
     "ScaleType",
     "ModbusConfig",
     "TimingConfig",
-    "TCPConnection",
-    "RTUConnection",
     "RegisterType",
     "DataType",
     "RegisterDef",
     "BitDef",
 ]
+
+
+# ============ Connection Config (private: the declarative path only) ============
+
+_UNIT_ID_MOVED = (
+    "unit_id has moved off the connection block and been renamed: set modbus_unit_id at "
+    "the top level of the config, or pass ModbusDevice(modbus_unit_id=...)"
+)
+
+
+def _reject_moved_unit_id(data: object) -> object:
+    """Reject a stale ``unit_id`` key inside a connection block, naming where it went."""
+    if isinstance(data, dict) and "unit_id" in data:
+        raise ValueError(_UNIT_ID_MOVED)
+    return data
+
+
+class _TCPConnectionConfig(BaseModel):
+    """Declarative Modbus TCP connection block. Private: users construct ``ModbusTCPTransport`` directly."""
+
+    transport: Literal["tcp"] = "tcp"
+    host: str
+    port: int = Field(default=502, ge=1, le=65535)
+    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_unit_id(cls, data: object) -> object:
+        """Reject the pre-rename ``connection.unit_id`` key with a message naming its new home."""
+        return _reject_moved_unit_id(data)
+
+    def build(self) -> ModbusTransport:
+        """Build the transport this block describes."""
+        return ModbusTCPTransport(host=self.host, port=self.port, timeout=self.timeout)
+
+
+class _RTUConnectionConfig(BaseModel):
+    """Declarative Modbus RTU connection block. Private: users construct ``ModbusRTUTransport`` directly."""
+
+    transport: Literal["rtu"] = "rtu"
+    port: str  # e.g., "/dev/ttyUSB0" (Linux), "/dev/cu.usbserial-1234" (macOS), "COM3" (Windows)
+    baudrate: int = 9600
+    parity: Literal["N", "E", "O"] = "N"
+    stopbits: Literal[1, 2] = 1
+    bytesize: Literal[5, 6, 7, 8] = 8
+    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
+    framer: Literal["rtu", "ascii"] = "rtu"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_unit_id(cls, data: object) -> object:
+        """Reject the pre-rename ``connection.unit_id`` key with a message naming its new home."""
+        return _reject_moved_unit_id(data)
+
+    def build(self) -> ModbusTransport:
+        """Build the transport this block describes."""
+        return ModbusRTUTransport(
+            port=self.port,
+            baudrate=self.baudrate,
+            parity=self.parity,
+            stopbits=self.stopbits,
+            bytesize=self.bytesize,
+            timeout=self.timeout,
+            framer=self.framer,
+        )
+
+
+_ConnectionConfig = Annotated[_TCPConnectionConfig | _RTUConnectionConfig, Field(discriminator="transport")]
 
 
 # ============ Bitmap Definition ============
@@ -305,7 +372,8 @@ class ModbusConfig(BaseModel):
     protocol: str = "modbus"
     device: DeviceInfo
     timing: TimingConfig | None = None
-    connection: ConnectionType | None = Field(default=None, discriminator="transport")
+    connection: _ConnectionConfig | None = None
+    modbus_unit_id: int | None = Field(default=None, ge=0, le=255)
     registers: list[RegisterDef] = Field(default_factory=list)
 
     def model_post_init(self, __context) -> None:

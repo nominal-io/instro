@@ -8,8 +8,7 @@
   "connection": {
     "transport": "tcp",
     "host": "127.0.0.1",
-    "port": 5022,
-    "unit_id": 1
+    "port": 5022
   },
   "registers": [
     { "name": "input_uint16",  "starting_address": 0,  "register_type": "input",   "data_type": "uint16" },

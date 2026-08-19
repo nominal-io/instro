@@ -5,10 +5,12 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+from pydantic import TypeAdapter
+
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.lib.transports.modbus import ModbusDriver, decode_registers
+from instro.lib.transports.modbus import ModbusTransport, ModbusUnit, decode_registers
 
 from .types import (
     BOOL_DATA_TYPES,
@@ -17,8 +19,7 @@ from .types import (
     INTEGER_RANGES,
     ModbusConfig,
     RegisterDef,
-    RTUConnection,
-    TCPConnection,
+    _ConnectionConfig,
 )
 
 
@@ -28,28 +29,35 @@ class ModbusDevice(Instrument):
     def __init__(
         self,
         config: ModbusConfig | dict | Path | str,
-        connection: TCPConnection | RTUConnection | dict | None = None,
+        connection: ModbusUnit | ModbusTransport | dict | None = None,
         name: str | None = None,
         publishers: list[Publisher] | None = None,
         autostart: bool = False,
+        modbus_unit_id: int | None = None,
         **kwargs,
     ):
         """Initialize a ModbusDevice.
 
         Args:
             config: A ``ModbusConfig``, a dict (validated via Pydantic), or a path to a JSON config.
-            connection: Overrides ``config.connection``. Accepts a ``TCPConnection``,
-                ``RTUConnection``, or a dict (with ``transport`` = ``"tcp"`` / ``"rtu"``).
+            connection: Overrides ``config.connection``. Accepts a ``ModbusUnit`` from
+                ``transport.at(unit_id)`` (the way to share one line across devices), a bare
+                ``ModbusTransport`` (then ``modbus_unit_id`` is required), or a dict (with
+                ``transport`` = ``"tcp"`` / ``"rtu"``), which builds a private transport.
                 Required if the config has no ``connection`` section.
             name: Channel-name prefix; falls back to ``config.device.name``.
             publishers: Publishers that receive emitted Measurement/Command data.
             autostart: When True, open the connection and start background polling.
                 Requires a ``timing`` section (with ``poll_interval``) — passing
                 ``autostart=True`` without one is an error.
+            modbus_unit_id: Modbus unit/slave address (0-255). Required alongside a bare
+                shared transport; rejected alongside an already-bound ``ModbusUnit``.
+                Defaults to 1 only when this device builds its own private transport.
             **kwargs: Default tags applied to every emitted Measurement/Command.
 
         Raises:
-            ValueError: No connection in args or config, or ``autostart=True`` with no ``timing`` section.
+            ValueError: No connection in args or config, an address that is missing, doubly
+                supplied, or out of range, or ``autostart=True`` with no ``timing`` section.
         """
         if isinstance(config, ModbusConfig):
             resolved_config = config
@@ -58,31 +66,14 @@ class ModbusDevice(Instrument):
         else:
             resolved_config = ModbusConfig.from_json(config)
 
-        # Resolve connection: explicit parameter > config > error
-        if connection is not None:
-            if isinstance(connection, dict):
-                transport = connection.get("transport")
-                if transport == "tcp":
-                    resolved_connection: TCPConnection | RTUConnection = TCPConnection(**connection)
-                elif transport == "rtu":
-                    resolved_connection = RTUConnection(**connection)
-                else:
-                    raise ValueError(f"Connection dict must include 'transport' as 'tcp' or 'rtu'; got {transport!r}.")
-            else:
-                resolved_connection = connection
-        elif resolved_config.connection is not None:
-            resolved_connection = resolved_config.connection
-        else:
-            raise ValueError(
-                "No connection configuration provided. Either include a 'connection' section "
-                "in the config or pass a 'connection' argument to ModbusDevice()."
-            )
+        bound_unit = self._resolve_connection(connection, resolved_config, modbus_unit_id)
 
         instrument_name = name or resolved_config.device.name
         super().__init__(name=instrument_name, publishers=publishers, **kwargs)
 
         self._config = resolved_config
-        self._modbus = ModbusDriver(resolved_connection)
+        self._modbus = bound_unit
+        self._opened = False
 
         self._define_background_daemon()
 
@@ -109,30 +100,90 @@ class ModbusDevice(Instrument):
             if reg.poll and reg.name not in grouped_registers:
                 self.add_background_daemon_function(self.read, reg.name)
 
+    @staticmethod
+    def _resolve_connection(
+        connection: ModbusUnit | ModbusTransport | dict | None,
+        config: ModbusConfig,
+        modbus_unit_id: int | None,
+    ) -> ModbusUnit:
+        """Resolve the ``connection`` argument and the address into one address-bound ``ModbusUnit``.
+
+        Every branch binds through ``at()``, the single 0-255 validation funnel. A transport the
+        caller supplied could be shared, so its address must be stated; one this device builds
+        privately cannot be, so it may default to unit 1.
+        """
+        match connection:
+            case ModbusUnit():
+                if modbus_unit_id is not None or config.modbus_unit_id is not None:
+                    raise ValueError(
+                        "connection is already bound to a unit address, so modbus_unit_id is "
+                        "ambiguous. Drop modbus_unit_id, or pass the bare transport instead of "
+                        "transport.at(...)."
+                    )
+                return connection
+            case ModbusTransport():
+                address = modbus_unit_id if modbus_unit_id is not None else config.modbus_unit_id
+                if address is None:
+                    raise ValueError(
+                        "A shared ModbusTransport needs a unit address: pass "
+                        "connection=transport.at(unit_id), or set modbus_unit_id on the "
+                        "constructor or in the config."
+                    )
+                return connection.at(address)
+            case dict():
+                # Pydantic owns the tcp/rtu dispatch and the bad-`transport` error; there is no
+                # hand-written branch on the "transport" key.
+                built: ModbusTransport = TypeAdapter(_ConnectionConfig).validate_python(connection).build()
+                return built.at(ModbusDevice._private_address(modbus_unit_id, config))
+            case None if config.connection is not None:
+                built = config.connection.build()
+                return built.at(ModbusDevice._private_address(modbus_unit_id, config))
+            case _:
+                raise ValueError(
+                    "No connection configuration provided. Either include a 'connection' section "
+                    "in the config or pass a 'connection' argument to ModbusDevice()."
+                )
+
+    @staticmethod
+    def _private_address(modbus_unit_id: int | None, config: ModbusConfig) -> int:
+        """Address for a transport this device built privately; defaults to 1 because nobody else can reach it."""
+        # `is not None` throughout: 0 is the broadcast address and must not be rewritten to 1.
+        if modbus_unit_id is not None:
+            return modbus_unit_id
+        return config.modbus_unit_id if config.modbus_unit_id is not None else 1
+
     @property
-    def unit_id(self) -> int:
-        """Modbus unit/slave ID from the active connection config."""
+    def modbus_unit_id(self) -> int:
+        """Modbus unit/slave address this device is bound to."""
         return self._modbus.unit_id
 
+    @modbus_unit_id.setter
+    def modbus_unit_id(self, value: int) -> None:
+        """Rebind to ``value`` (0-255) on the same transport. Intended for pre-``open()`` configuration."""
+        self._modbus = self._modbus.transport.at(value)
+
     def _require_ready_locked(self) -> None:
-        """Reject I/O during shutdown or before the transport is open. Call under ``self._modbus.lock()``."""
+        """Reject I/O during shutdown, before this device opened, or before the transport is open."""
         if self._background_stop_event.is_set():
             raise RuntimeError("Instrument is shutting down.")
-        if not self._modbus.is_open:
+        if not self._opened or not self._modbus.is_open:
             raise RuntimeError("Modbus client not connected. Call open() first.")
 
     # ============ Connection Management ============
 
     def open(self) -> None:
-        """Open the Modbus TCP/RTU connection."""
+        """Open the Modbus TCP/RTU connection, registering this device as an owner of the transport."""
         self._background_stop_event.clear()
-        self._modbus.open()
+        self._modbus.open(self)
+        self._opened = True
 
     def close(self) -> None:
-        """Close the connection and stop the daemon."""
+        """Release this device's hold on the transport and stop the daemon; the line closes when the last device leaves."""
         self._background_stop_event.set()
         super().close()
-        self._modbus.close()
+        if self._opened:
+            self._modbus.close(self)
+            self._opened = False
 
     # ============ Semantic Access (by alias) ============
 

@@ -8,37 +8,11 @@ import struct
 import threading
 from typing import Literal
 
-from pydantic import BaseModel, Field
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 from pymodbus.exceptions import ConnectionException as PymodbusConnectionException
+from pymodbus.framer import FramerType
 
 from instro.lib.transports.transport_base import TransportBase
-
-
-class TCPConnection(BaseModel):
-    """Modbus TCP connection configuration."""
-
-    transport: Literal["tcp"] = "tcp"
-    host: str
-    port: int = Field(default=502, ge=1, le=65535)
-    unit_id: int = Field(default=1, ge=0, le=255)
-    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-
-
-class RTUConnection(BaseModel):
-    """Modbus RTU (serial) connection configuration."""
-
-    transport: Literal["rtu"] = "rtu"
-    port: str  # e.g., "/dev/ttyUSB0" (Linux), "/dev/cu.usbserial-1234" (macOS), "COM3" (Windows)
-    baudrate: int = 9600
-    parity: Literal["N", "E", "O"] = "N"
-    stopbits: Literal[1, 2] = 1
-    bytesize: Literal[5, 6, 7, 8] = 8
-    unit_id: int = Field(default=1, ge=0, le=255)
-    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-
-
-ConnectionType = TCPConnection | RTUConnection
 
 # Modbus protocol vocabulary. Single source of truth; ``instro.modbus.types`` re-exports these.
 RegisterType = Literal["holding", "input", "coil", "discrete"]
@@ -200,206 +174,6 @@ def _modbus_op(fn):
     return wrapper
 
 
-class ModbusDriver(TransportBase):
-    """Transport for Modbus TCP/RTU instruments. Composed by concrete drivers, not extended.
-
-    Supports shared ownership: a device serving several categories holds one connection for
-    all of them, passing each category view as the holder to :meth:`open`/:meth:`close`, and
-    it closes only when the last owner closes it. Thread-safe at the I/O level via an internal
-    lock; use :meth:`lock` to keep a multi-step Modbus sequence atomic. Raw
-    function-code ops return/accept the 16-bit register words or coil bits on the
-    wire; :meth:`read_typed` / :meth:`write_typed` add typed encode/decode across registers.
-    """
-
-    def __init__(self, connection: TCPConnection | RTUConnection) -> None:
-        """Construct from a ``TCPConnection`` or ``RTUConnection``."""
-        super().__init__()
-        self._connection = connection
-        self._client: ModbusTcpClient | ModbusSerialClient | None = None
-
-    @property
-    def is_open(self) -> bool:
-        """Whether the client has been opened and not closed. Stays ``True`` across a dropped socket, which the next op reconnects."""
-        return self._client is not None
-
-    @property
-    def unit_id(self) -> int:
-        """Modbus unit/slave ID from the connection config."""
-        return self._connection.unit_id
-
-    def _open_session(self) -> None:
-        """Open the Modbus TCP/RTU connection. Idempotent. Called by open()."""
-        with self._lock:
-            if self._client is not None:
-                return
-
-            connection = self._connection
-            if isinstance(connection, TCPConnection):
-                client: ModbusTcpClient | ModbusSerialClient = ModbusTcpClient(
-                    host=connection.host,
-                    port=connection.port,
-                    timeout=connection.timeout,
-                )
-            elif isinstance(connection, RTUConnection):
-                client = ModbusSerialClient(
-                    port=connection.port,
-                    baudrate=connection.baudrate,
-                    parity=connection.parity,
-                    stopbits=connection.stopbits,
-                    bytesize=connection.bytesize,
-                    timeout=connection.timeout,
-                )
-            else:
-                raise ValueError(f"Unknown connection type: {type(connection)}")
-
-            if not client.connect():
-                target = (
-                    f"{connection.host}:{connection.port}" if isinstance(connection, TCPConnection) else connection.port
-                )
-                client.close()
-                raise ConnectionError(f"Failed to connect to Modbus device at {target}")
-
-            self._client = client
-
-    def _teardown_session(self) -> None:
-        """Tear down the Modbus session."""
-        if self._client is not None:
-            self._client.close()
-            self._client = None
-
-    @_modbus_op
-    def read_holding_registers(self, address: int, count: int) -> list[int]:
-        """Read holding registers by address (FC03)."""
-        assert self._client is not None
-        result = self._client.read_holding_registers(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"reading holding registers at addr={address}", result))
-        return list(result.registers)
-
-    @_modbus_op
-    def read_input_registers(self, address: int, count: int) -> list[int]:
-        """Read input registers by address (FC04)."""
-        assert self._client is not None
-        result = self._client.read_input_registers(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"reading input registers at addr={address}", result))
-        return list(result.registers)
-
-    @_modbus_op
-    def write_holding_register(self, address: int, value: int) -> None:
-        """Write a single holding register by address (FC06)."""
-        assert self._client is not None
-        result = self._client.write_register(address, value, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"writing holding register at addr={address}", result))
-
-    @_modbus_op
-    def write_holding_registers(self, address: int, values: list[int]) -> None:
-        """Write multiple holding registers by address (FC16)."""
-        assert self._client is not None
-        result = self._client.write_registers(address, values, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"writing holding registers at addr={address}", result))
-
-    @_modbus_op
-    def read_coils(self, address: int, count: int) -> list[bool]:
-        """Read coils by address (FC01)."""
-        assert self._client is not None
-        result = self._client.read_coils(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"reading coils at addr={address}", result))
-        return list(result.bits[:count])
-
-    @_modbus_op
-    def write_coil(self, address: int, value: bool) -> None:
-        """Write a single coil by address (FC05)."""
-        assert self._client is not None
-        result = self._client.write_coil(address, value, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"writing coil at addr={address}", result))
-
-    @_modbus_op
-    def write_coils(self, address: int, values: list[bool]) -> None:
-        """Write multiple coils by address (FC15)."""
-        assert self._client is not None
-        result = self._client.write_coils(address, values, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"writing coils at addr={address}", result))
-
-    @_modbus_op
-    def read_discrete_inputs(self, address: int, count: int) -> list[bool]:
-        """Read discrete inputs by address (FC02)."""
-        assert self._client is not None
-        result = self._client.read_discrete_inputs(address, count=count, device_id=self.unit_id)
-        if result.isError():
-            raise RuntimeError(_format_modbus_error(f"reading discrete inputs at addr={address}", result))
-        return list(result.bits[:count])
-
-    def read_typed(
-        self,
-        register_type: RegisterType,
-        address: int,
-        data_type: DataType,
-        *,
-        byte_swap: bool = False,
-        word_swap: bool = False,
-        long_swap: bool = False,
-    ) -> int | float | bool:
-        """Read ``address`` as ``data_type``, dispatching by ``register_type`` and decoding across registers.
-
-        Coils and discrete inputs are single-bit, so ``data_type`` must be ``"bool"`` and the read returns a ``bool``.
-        """
-        match register_type:
-            case "holding":
-                raw_regs = self.read_holding_registers(address, register_count(data_type))
-            case "input":
-                raw_regs = self.read_input_registers(address, register_count(data_type))
-            case "coil":
-                if data_type != "bool":
-                    raise ValueError(f"coil registers are single-bit; data_type must be 'bool', got '{data_type}'")
-                return bool(self.read_coils(address, 1)[0])
-            case "discrete":
-                if data_type != "bool":
-                    raise ValueError(f"discrete registers are single-bit; data_type must be 'bool', got '{data_type}'")
-                return bool(self.read_discrete_inputs(address, 1)[0])
-            case _:
-                raise ValueError(f"Unknown register type: {register_type}")
-        return decode_registers(raw_regs, data_type, byte_swap, word_swap, long_swap)
-
-    def write_typed(
-        self,
-        register_type: RegisterType,
-        address: int,
-        value: int | float | bool,
-        data_type: DataType,
-        *,
-        byte_swap: bool = False,
-        word_swap: bool = False,
-        long_swap: bool = False,
-    ) -> None:
-        """Encode ``value`` as ``data_type`` and write it to ``address``, dispatching by ``register_type``.
-
-        Coils are single-bit, so ``data_type`` must be ``"bool"`` and ``value`` must be a ``bool`` (no numeric coercion).
-        """
-        match register_type:
-            case "holding":
-                encoded = encode_value(value, data_type, byte_swap, word_swap, long_swap)
-                if len(encoded) == 1:
-                    self.write_holding_register(address, encoded[0])
-                else:
-                    self.write_holding_registers(address, encoded)
-            case "coil":
-                if data_type != "bool":
-                    raise ValueError(f"coil registers are single-bit; data_type must be 'bool', got '{data_type}'")
-                if not isinstance(value, bool):
-                    raise ValueError(f"coil writes require a bool value, got {type(value).__name__} {value!r}")
-                self.write_coil(address, value)
-            case "input" | "discrete":
-                raise ValueError(f"Cannot write to read-only register type: {register_type}")
-            case _:
-                raise ValueError(f"Unknown register type: {register_type}")
-
-
 class ModbusTransport(TransportBase, abc.ABC):
     """Abstract Modbus line: owns the session, locking, and every wire op. Annotate against it; construct a concrete subclass.
 
@@ -407,6 +181,10 @@ class ModbusTransport(TransportBase, abc.ABC):
     transport serves any number of units on the line; :meth:`at` binds one of those addresses
     to a :class:`ModbusUnit` for callers that would rather not repeat it.
     """
+
+    # Highest valid unit_id; ModbusRTUTransport narrows this to 247 (Modbus over Serial Line
+    # spec 2.2 reserves 248-255 rather than assigning them to slaves).
+    _max_unit_id: int = 255
 
     def __init__(self) -> None:
         """Initialize holder tracking, the lock, and the (not yet connected) client slot."""
@@ -437,15 +215,15 @@ class ModbusTransport(TransportBase, abc.ABC):
         ...
 
     def at(self, unit_id: int) -> ModbusUnit:
-        """Bind ``unit_id`` (0-255) to this transport, returning a ``ModbusUnit`` that addresses it.
+        """Bind ``unit_id`` (0 to :attr:`_max_unit_id`) to this transport, returning a ``ModbusUnit`` that addresses it.
 
         This is how one line serves several devices: build one transport, call ``at()`` once per
         unit address, and hand each bound unit to its own device. They share the single underlying
         session — it opens for the first holder and is released by the last — so an RS-485
         multi-drop line, or a TCP-to-serial gateway fronting one, needs exactly one connection.
         """
-        if not 0 <= unit_id <= 255:
-            raise ValueError(f"unit_id must be between 0 and 255, got {unit_id}")
+        if not 0 <= unit_id <= self._max_unit_id:
+            raise ValueError(f"unit_id must be between 0 and {self._max_unit_id}, got {unit_id}")
         return ModbusUnit(self, unit_id)
 
     @_modbus_op
@@ -607,7 +385,9 @@ class ModbusTCPTransport(ModbusTransport):
 
 
 class ModbusRTUTransport(ModbusTransport):
-    """A Modbus RTU serial line. One port, addressed per wire op or through ``at()``."""
+    """A Modbus serial line (RTU or ASCII framing). One port, addressed per wire op or through ``at()``."""
+
+    _max_unit_id = 247
 
     def __init__(
         self,
@@ -617,6 +397,7 @@ class ModbusRTUTransport(ModbusTransport):
         stopbits: Literal[1, 2] = 1,
         bytesize: Literal[5, 6, 7, 8] = 8,
         timeout: float = 3.0,
+        framer: Literal["rtu", "ascii"] = "rtu",
     ) -> None:
         """Construct from the serial port's own fields; no unit address lives here."""
         super().__init__()
@@ -632,17 +413,21 @@ class ModbusRTUTransport(ModbusTransport):
             raise ValueError(f"bytesize must be one of 5, 6, 7, 8, got {bytesize!r}")
         if timeout <= 0:
             raise ValueError(f"timeout must be greater than 0, got {timeout}")
+        if framer not in ("rtu", "ascii"):
+            raise ValueError(f"framer must be 'rtu' or 'ascii', got {framer!r}")
         self._port = port
         self._baudrate = baudrate
         self._parity = parity
         self._stopbits = stopbits
         self._bytesize = bytesize
         self._timeout = timeout
+        self._framer = FramerType.RTU if framer == "rtu" else FramerType.ASCII
 
     def _connect(self) -> ModbusSerialClient:
         """Build and connect a ``ModbusSerialClient``, raising ``ConnectionError`` naming the port on failure."""
         client = ModbusSerialClient(
             port=self._port,
+            framer=self._framer,
             baudrate=self._baudrate,
             parity=self._parity,
             stopbits=self._stopbits,
