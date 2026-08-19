@@ -27,8 +27,6 @@ def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
 class RigolDL3031A(ELoadDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
-        # track short status since not tracked in questionable status register
-        self._short_enabled = False
 
     def open(self) -> None:
         self._visa.open()
@@ -38,10 +36,11 @@ class RigolDL3031A(ELoadDriverBase):
         self._visa.close()
 
     def short_output(self, enable: bool, channel: int) -> None:
-        """Verified in both Toggle/Hold modes."""
-        if enable != self._short_enabled:
-            self._write_checked("SYSTem:KEY 33")
-            self._short_enabled = enable
+        raise NotImplementedError(
+            "Shorting output can't be safely implemented because "
+            "no SCPI command exists to get current short state + "
+            ":SYSTem:KEY 33 only toggles short state."
+        )
 
     def set_mode(self, mode: LoadMode, channel: int) -> None:
         self._write_checked(f"FUNC {loadmode_to_rigol(mode)}")

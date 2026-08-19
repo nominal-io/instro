@@ -149,16 +149,10 @@ def test_output_enable_writes(rigol: RigolDL3031A, visa_mock: MagicMock) -> None
     visa_mock.write.assert_called_once_with("INPut 1")
 
 
-def test_short_output_toggles_only_on_state_change(rigol: RigolDL3031A, visa_mock: MagicMock) -> None:
-    rigol.short_output(True, channel=1)
-    visa_mock.write.assert_called_once_with("SYSTem:KEY 33")
-
-    visa_mock.reset_mock()
-    rigol.short_output(True, channel=1)  # already enabled, so don't call
+def test_short_output_raises_not_implemented(rigol: RigolDL3031A, visa_mock: MagicMock) -> None:
+    with pytest.raises(NotImplementedError):
+        rigol.short_output(True, channel=1)
     visa_mock.write.assert_not_called()
-
-    rigol.short_output(False, channel=1)  # toggle off
-    visa_mock.write.assert_called_once_with("SYSTem:KEY 33")
 
 
 def test_get_current_parses_response(rigol: RigolDL3031A, visa_mock: MagicMock) -> None:

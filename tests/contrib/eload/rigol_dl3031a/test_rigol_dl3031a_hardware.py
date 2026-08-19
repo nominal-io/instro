@@ -263,20 +263,6 @@ def run_all() -> list:
 
         _run("set_sense_state: enable + disable", sense, failures)
 
-        # Set output short
-        def short_output() -> None:
-            """Confirm visually bc no way to query short state."""
-            print("Confirm SHORT toggle visually")
-            print("Toggling short ON")  # SHORT button should light up
-            driver.short_output(True, channel=ch)
-            time.sleep(SLEEP_TIME if SLEEP_TIME > 0 else 1)
-
-            print("Toggling short OFF")
-            driver.short_output(False, channel=ch)
-            time.sleep(SLEEP_TIME if SLEEP_TIME > 0 else 1)
-
-        _run("short_output: toggles short state (confirm visually)", short_output, failures)
-
         def battery_discharge() -> None:
             # Tested with single 21700 Li-ion cell
             driver.output_enable(False, channel=ch)
