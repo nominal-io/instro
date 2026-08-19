@@ -20,8 +20,20 @@ from pymodbus.server import StartAsyncTcpServer
 
 from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports import ModbusDriver, RTUConnection, TCPConnection
+from instro.lib.transports.modbus import (
+    ModbusRTUTransport,
+    ModbusTCPTransport,
+    ModbusTransport,
+    decode_registers,
+    encode_value,
+    register_count,
+)
 
 TEST_PORT = 5031
+
+# A second simulated unit answering on the same socket, holding a different value at address 100.
+SECOND_UNIT = 2
+SECOND_UNIT_HOLDING = 11111
 
 TEST_DATA = {
     "input_uint16": 12345,
@@ -72,7 +84,13 @@ def _create_datastore() -> ModbusServerContext:
         hr=ModbusSequentialDataBlock(0, [0] + hr),
         ir=ModbusSequentialDataBlock(0, [0] + ir),
     )
-    return ModbusServerContext(devices={1: store}, single=False)
+    # A second unit on the same listening socket, so tests can prove unit_id actually
+    # routes rather than being ignored: same address, deliberately different value.
+    second_hr = [0] * 200
+    second_hr[100] = SECOND_UNIT_HOLDING
+    second_store = ModbusDeviceContext(hr=ModbusSequentialDataBlock(0, [0] + second_hr))
+
+    return ModbusServerContext(devices={1: store, SECOND_UNIT: second_store}, single=False)
 
 
 @pytest.fixture(scope="module")
@@ -317,7 +335,7 @@ class TestCodec:
         [("uint16", 1), ("int16", 1), ("bool", 1), ("uint32", 2), ("float32", 2), ("uint64", 4), ("float64", 4)],
     )
     def test_register_count(self, data_type, expected):
-        assert ModbusDriver.register_count(data_type) == expected
+        assert register_count(data_type) == expected
 
     @pytest.mark.parametrize(
         "data_type,value",
@@ -331,19 +349,19 @@ class TestCodec:
         ],
     )
     def test_int_roundtrip(self, data_type, value):
-        encoded = ModbusDriver.encode_value(value, data_type)
-        assert ModbusDriver.decode_registers(encoded, data_type) == value
+        encoded = encode_value(value, data_type)
+        assert decode_registers(encoded, data_type) == value
 
     @pytest.mark.parametrize("data_type,rel", [("float32", 1e-6), ("float64", 1e-12)])
     def test_float_roundtrip(self, data_type, rel):
-        encoded = ModbusDriver.encode_value(3.14159265, data_type)
-        assert ModbusDriver.decode_registers(encoded, data_type) == pytest.approx(3.14159265, rel=rel)
+        encoded = encode_value(3.14159265, data_type)
+        assert decode_registers(encoded, data_type) == pytest.approx(3.14159265, rel=rel)
 
     @pytest.mark.parametrize("word_swap", [False, True])
     @pytest.mark.parametrize("byte_swap", [False, True])
     def test_swap_roundtrip(self, word_swap, byte_swap):
-        encoded = ModbusDriver.encode_value(0xDEADBEEF, "uint32", byte_swap=byte_swap, word_swap=word_swap)
-        decoded = ModbusDriver.decode_registers(encoded, "uint32", byte_swap=byte_swap, word_swap=word_swap)
+        encoded = encode_value(0xDEADBEEF, "uint32", byte_swap=byte_swap, word_swap=word_swap)
+        decoded = decode_registers(encoded, "uint32", byte_swap=byte_swap, word_swap=word_swap)
         assert decoded == 0xDEADBEEF
 
     @pytest.mark.parametrize("long_swap", [False, True])
@@ -352,21 +370,17 @@ class TestCodec:
     def test_swap_roundtrip_64bit(self, long_swap, word_swap, byte_swap):
         # long_swap only applies to 64-bit types; exercise it across every swap combination.
         value = 0x1337BEEFCAFEBABE
-        encoded = ModbusDriver.encode_value(
-            value, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap
-        )
-        decoded = ModbusDriver.decode_registers(
-            encoded, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap
-        )
+        encoded = encode_value(value, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap)
+        decoded = decode_registers(encoded, "uint64", byte_swap=byte_swap, word_swap=word_swap, long_swap=long_swap)
         assert decoded == value
 
     def test_encode_unknown_type_raises(self):
         with pytest.raises(ValueError, match="Unknown data type"):
-            ModbusDriver.encode_value(1, "uint128")
+            encode_value(1, "uint128")
 
     def test_decode_unknown_type_raises(self):
         with pytest.raises(ValueError, match="Unknown data type"):
-            ModbusDriver.decode_registers([0], "uint128")
+            decode_registers([0], "uint128")
 
 
 # ============ Lock ============
@@ -405,7 +419,7 @@ class TestSharedOwnership:
         assert not drv.is_open
 
     def test_one_connect_across_two_holder_opens(self):
-        with patch("pymodbus.client.ModbusTcpClient") as mock_cls:
+        with patch("instro.lib.transports.modbus.ModbusTcpClient") as mock_cls:
             mock_cls.return_value.connect.return_value = True
             drv = ModbusDriver(TCPConnection(host="127.0.0.1", port=1))
             a, b = object(), object()
@@ -459,7 +473,7 @@ class TestRTUOpen:
 
     def test_open_builds_serial_client_from_connection(self):
         conn = RTUConnection(port="/dev/ttyUSB0", baudrate=19200, parity="E", stopbits=2, bytesize=7, unit_id=3)
-        with patch("pymodbus.client.ModbusSerialClient") as mock_cls:
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
             mock_cls.return_value.connect.return_value = True
             drv = ModbusDriver(conn)
             drv.open()
@@ -472,10 +486,200 @@ class TestRTUOpen:
             mock_cls.return_value.close.assert_called()
 
     def test_connect_failure_raises_with_serial_port(self):
-        with patch("pymodbus.client.ModbusSerialClient") as mock_cls:
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
             mock_cls.return_value.connect.return_value = False
             drv = ModbusDriver(RTUConnection(port="/dev/ttyUSB0"))
             with pytest.raises(ConnectionError, match="/dev/ttyUSB0"):
                 drv.open()
             assert not drv.is_open
+            mock_cls.return_value.close.assert_called_once()
+
+
+# ============ ModbusTransport / ModbusUnit ============
+
+
+@pytest.fixture
+def bus(modbus_server):
+    """An open ModbusTCPTransport against the sim server."""
+    transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
+    transport.open()
+    yield transport
+    transport.close()
+
+
+class TestTransportConstruction:
+    def test_abstract_base_cannot_be_constructed(self):
+        with pytest.raises(TypeError):
+            ModbusTransport()  # type: ignore[abstract]
+
+    def test_no_unit_id_on_the_transport_surface(self):
+        with pytest.raises(TypeError):
+            ModbusTCPTransport(host="h", unit_id=5)  # type: ignore[call-arg]
+
+    def test_tcp_defaults_reach_the_client(self):
+        with patch("instro.lib.transports.modbus.ModbusTcpClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            ModbusTCPTransport(host="192.168.1.10").open()
+            mock_cls.assert_called_once_with(host="192.168.1.10", port=502, timeout=3.0)
+
+    def test_rtu_defaults_reach_the_client(self):
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            ModbusRTUTransport(port="/dev/ttyUSB0").open()
+            mock_cls.assert_called_once_with(
+                port="/dev/ttyUSB0", baudrate=9600, parity="N", stopbits=1, bytesize=8, timeout=3.0
+            )
+
+    @pytest.mark.parametrize("port", [0, 65536])
+    def test_tcp_rejects_out_of_range_port(self, port):
+        with pytest.raises(ValueError, match="port"):
+            ModbusTCPTransport(host="h", port=port)
+
+    def test_tcp_rejects_non_positive_timeout(self):
+        with pytest.raises(ValueError, match="timeout"):
+            ModbusTCPTransport(host="h", timeout=0)
+
+    def test_rtu_rejects_unknown_parity(self):
+        # mypy rejects this statically too; the runtime check is for dict-fed callers.
+        with pytest.raises(ValueError, match="parity"):
+            ModbusRTUTransport(port="/dev/ttyUSB0", parity="X")  # type: ignore[arg-type]
+
+    def test_rtu_rejects_unknown_stopbits(self):
+        with pytest.raises(ValueError, match="stopbits"):
+            ModbusRTUTransport(port="/dev/ttyUSB0", stopbits=3)  # type: ignore[arg-type]
+
+    def test_rtu_rejects_unknown_bytesize(self):
+        with pytest.raises(ValueError, match="bytesize"):
+            ModbusRTUTransport(port="/dev/ttyUSB0", bytesize=9)  # type: ignore[arg-type]
+
+
+class TestPerCallAddressing:
+    def test_unit_id_routes_to_the_addressed_unit(self, bus):
+        assert bus.read_holding_registers(100, 1, unit_id=1) == [TEST_DATA["holding_uint16"]]
+        assert bus.read_holding_registers(100, 1, unit_id=SECOND_UNIT) == [SECOND_UNIT_HOLDING]
+
+    def test_wire_op_requires_unit_id(self, bus):
+        with pytest.raises(TypeError):
+            bus.read_holding_registers(100, 1)  # type: ignore[call-arg]
+
+    def test_read_typed_requires_unit_id(self, bus):
+        with pytest.raises(TypeError):
+            bus.read_typed("holding", 100, "uint16")  # type: ignore[call-arg]
+
+    def test_op_before_open_raises_before_the_missing_unit_id(self):
+        # The connectivity check fires first, so the TypeError gate above only holds once open.
+        transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
+        with pytest.raises(RuntimeError, match="not connected"):
+            transport.read_holding_registers(100, 1, unit_id=1)
+
+
+class TestBoundUnit:
+    def test_at_binds_an_address_that_routes(self, bus):
+        assert bus.at(1).read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
+        assert bus.at(SECOND_UNIT).read_holding_registers(100, 1) == [SECOND_UNIT_HOLDING]
+
+    def test_two_bound_units_share_one_transport(self, bus):
+        first, second = bus.at(1), bus.at(SECOND_UNIT)
+        assert first.transport is second.transport is bus
+        assert first.lock() is bus.lock()
+
+    def test_at_exposes_its_binding(self, bus):
+        unit = bus.at(7)
+        assert (unit.transport, unit.unit_id) == (bus, 7)
+
+    @pytest.mark.parametrize("unit_id", [-1, 256])
+    def test_at_rejects_out_of_range(self, unit_id):
+        with pytest.raises(ValueError, match="unit_id"):
+            ModbusTCPTransport(host="h").at(unit_id)
+
+    def test_bound_unit_refuses_a_second_address(self, bus):
+        with pytest.raises(TypeError):
+            bus.at(1).read_holding_registers(100, 1, unit_id=SECOND_UNIT)  # type: ignore[call-arg]
+
+    def test_bound_unit_typed_roundtrip(self, bus):
+        unit = bus.at(1)
+        unit.write_typed("holding", 180, 3.14159, "float32")
+        assert unit.read_typed("holding", 180, "float32") == pytest.approx(3.14159, rel=1e-5)
+
+    def test_bound_unit_writes_reach_only_its_own_unit(self, bus):
+        bus.at(SECOND_UNIT).write_holding_register(101, 777)
+        assert bus.at(SECOND_UNIT).read_holding_registers(101, 1) == [777]
+        assert bus.at(1).read_holding_registers(101, 1) == [0]
+
+    def test_bound_unit_passes_holder_identity_through(self, modbus_server):
+        transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
+        first, second = transport.at(1), transport.at(SECOND_UNIT)
+        holder_a, holder_b = object(), object()
+
+        assert first.open(holder_a) is True
+        assert second.open(holder_b) is False  # the session was already up
+        assert transport.is_open and first.is_open
+
+        first.close(holder_a)
+        assert transport.is_open  # holder_b still owns it
+
+        second.close(holder_b)
+        assert not transport.is_open
+
+    def test_a_rebound_unit_does_not_strand_a_holder(self, modbus_server):
+        # Reassigning an address builds a new ModbusUnit; because the unit forwards the
+        # caller's identity rather than its own, the original holder still closes the session.
+        transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
+        holder = object()
+        transport.at(1).open(holder)
+
+        transport.at(SECOND_UNIT).close(holder)
+
+        assert not transport.is_open
+
+
+class TestTransportConnect:
+    def test_tcp_connect_failure_names_host_and_port(self):
+        transport = ModbusTCPTransport(host="127.0.0.1", port=1, timeout=0.2)
+        with pytest.raises(ConnectionError, match="127.0.0.1:1"):
+            transport.open()
+        assert not transport.is_open
+
+    def test_connect_failure_closes_the_half_open_client(self):
+        with patch("instro.lib.transports.modbus.ModbusTcpClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = False
+            with pytest.raises(ConnectionError):
+                ModbusTCPTransport(host="h", port=502).open()
+            mock_cls.return_value.close.assert_called_once()
+
+    def test_rtu_builds_serial_client_from_its_own_fields(self):
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            transport = ModbusRTUTransport(
+                port="/dev/ttyUSB0", baudrate=19200, parity="E", stopbits=2, bytesize=7, timeout=1.5
+            )
+            transport.open()
+
+            assert transport.is_open
+            mock_cls.assert_called_once_with(
+                port="/dev/ttyUSB0", baudrate=19200, parity="E", stopbits=2, bytesize=7, timeout=1.5
+            )
+            transport.close()
+
+    def test_rtu_opens_one_serial_client_across_two_bound_units(self):
+        # pymodbus opens serial exclusive=True, so a second construction is the bug this fixes.
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            transport = ModbusRTUTransport(port="/dev/ttyUSB0")
+            holder_a, holder_b = object(), object()
+
+            transport.at(3).open(holder_a)
+            transport.at(7).open(holder_b)
+
+            assert mock_cls.call_count == 1
+            transport.close(holder_a)
+            transport.close(holder_b)
+
+    def test_rtu_connect_failure_names_the_serial_port(self):
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = False
+            transport = ModbusRTUTransport(port="/dev/ttyUSB0")
+            with pytest.raises(ConnectionError, match="/dev/ttyUSB0"):
+                transport.open()
+            assert not transport.is_open
             mock_cls.return_value.close.assert_called_once()
