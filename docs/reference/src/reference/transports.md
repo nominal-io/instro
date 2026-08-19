@@ -18,6 +18,6 @@ implementing a new transport.
 
 ::: instro.lib.transports.visa
 
-## ModbusDriver
+## Modbus transport
 
 ::: instro.lib.transports.modbus

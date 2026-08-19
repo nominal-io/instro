@@ -12,7 +12,7 @@ Concrete instrument drivers compose a transport in their constructor rather than
 ## Available transports
 
 - **[`VisaDriver`](/instrumentation/transports/visa)**: VISA-attached instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. The transport every shipped SCPI driver sits on.
-- **[`ModbusDriver`](/instrumentation/transports/modbus)**: Modbus TCP and RTU, with raw function-code access and typed register encode and decode.
+- **[`ModbusTCPTransport`/`ModbusRTUTransport`](/instrumentation/transports/modbus)**: Modbus TCP and RTU, with raw function-code access, typed register encode and decode, and `.at(unit_id)` to address multiple units over one shared line.
 
 For a protocol neither one covers, [implement a transport](#implementing-a-transport) by subclassing `TransportBase`.
 
@@ -139,7 +139,7 @@ A driver that serves a single category owns its transport outright and never pas
 
 ## Implementing a transport
 
-`instro` ships `VisaDriver` and `ModbusDriver`, and EtherNet/IP, OPC UA, and raw socket transports are planned, so check whether one already covers your protocol before writing your own. When none does, `TransportBase` is the only class a new transport subclasses: implement three members and everything above on this page comes from the base.
+`instro` ships `VisaDriver` and the Modbus transports (`ModbusTCPTransport`, `ModbusRTUTransport`), and EtherNet/IP, OPC UA, and raw socket transports are planned, so check whether one already covers your protocol before writing your own. When none does, `TransportBase` is the only class a new transport subclasses: implement three members and everything above on this page comes from the base.
 
 ### What `TransportBase` provides
 
