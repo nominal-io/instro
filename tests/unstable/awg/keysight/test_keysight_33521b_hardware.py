@@ -560,7 +560,23 @@ def test_36_set_burst_ncycles_rejects_non_positive_value(driver: Keysight33521B)
     driver._check_errors()
 
 
-def test_37_burst_period_roundtrip(driver: Keysight33521B) -> None:
+def test_37_set_burst_ncycles_silently_rounds_non_integer_value(driver: Keysight33521B) -> None:
+    """Hardware-confirmed: BURS:NCYC 10.5 is accepted with no SCPI error and silently rounds to 10.
+
+    The 33521B itself does not reject a fractional cycle count, so the driver cannot rely on
+    :SYST:ERR? to catch it; if this needs to be rejected, it has to be validated in software.
+    """
+    driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(CHANNEL, BurstType.NCYCLE)
+
+    # driver.set_burst_ncycles(CHANNEL, 10.5)  # type: ignore[arg-type]
+    driver._visa.write("BURS:NCYC 10.5")
+    driver._check_errors()
+
+    assert driver.get_burst_ncycles(CHANNEL) == 10
+
+
+def test_38_burst_period_roundtrip(driver: Keysight33521B) -> None:
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.NCYCLE)
     driver.set_burst_period(CHANNEL, 0.05)
@@ -569,23 +585,23 @@ def test_37_burst_period_roundtrip(driver: Keysight33521B) -> None:
     assert driver.get_burst_period(CHANNEL) == pytest.approx(0.05, rel=0.01)
 
 
-def test_38_set_burst_period_rejects_non_positive_value(driver: Keysight33521B) -> None:
+def test_39_set_burst_period_rejects_non_positive_value(driver: Keysight33521B) -> None:
     with pytest.raises(ValueError, match="period must be positive"):
         driver.set_burst_period(CHANNEL, 0.0)
 
     driver._check_errors()
 
 
-def test_39_set_burst_on_untracked_arbitrary_carrier_raises(driver: Keysight33521B) -> None:
-    """Known limitation, not fixed: pop the cache to simulate a driver instance that never downloaded it."""
+def test_40_set_burst_accepts_untracked_arbitrary_carrier(driver: Keysight33521B) -> None:
+    """Regression: pop the cache to simulate a driver instance that never downloaded this Arbitrary."""
     driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0))
     driver._check_errors()
     driver._arb_waveforms.pop(CHANNEL)
 
-    with pytest.raises(RuntimeError, match="not programmed by this driver"):
-        driver.set_burst(CHANNEL, BurstType.NCYCLE)
-
+    driver.set_burst(CHANNEL, BurstType.NCYCLE)
     driver._check_errors()
+
+    assert driver.get_burst_type(CHANNEL) is BurstType.NCYCLE
 
 
 @pytest.mark.parametrize(
@@ -593,7 +609,7 @@ def test_39_set_burst_on_untracked_arbitrary_carrier_raises(driver: Keysight3352
     [BurstTriggerSource.INTERNAL, BurstTriggerSource.EXTERNAL, BurstTriggerSource.MANUAL],
     ids=["internal", "external", "manual"],
 )
-def test_40_set_burst_trigger_in_gated_mode(driver: Keysight33521B, source: BurstTriggerSource) -> None:
+def test_41_set_burst_trigger_in_gated_mode(driver: Keysight33521B, source: BurstTriggerSource) -> None:
     """Untested gap: confirms whether GATED mode accepts a trigger source change, or rejects it like Rigol."""
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.GATED)

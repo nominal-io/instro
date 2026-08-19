@@ -757,7 +757,7 @@ def test_46_set_modulation_warns_when_reconfigure_fails_while_disabled(
 def test_47_set_burst_writes_mode_for_each_supported_type(
     keysight: Keysight33521B, keysight_visa: MagicMock, burst_type: BurstType, expected_mode: str
 ) -> None:
-    _query_sequence(keysight_visa, ["SIN", "1.000000E+03", "0.000000E+00"])
+    _query_sequence(keysight_visa, ["SIN"])
 
     keysight.set_burst(1, burst_type)
 
@@ -776,9 +776,9 @@ def test_48_set_burst_rejects_infinite_mode(keysight: Keysight33521B, keysight_v
 @pytest.mark.parametrize(
     ("channel", "burst_type", "carrier_responses", "match"),
     [
-        (2, BurstType.NCYCLE, ["SIN", "1.000000E+03", "0.000000E+00"], "only supports 1 channel"),
+        (2, BurstType.NCYCLE, [], "only supports 1 channel"),
         (1, "NCYCLE", [], "burst_type must be a BurstType"),
-        (1, BurstType.NCYCLE, ["DC", "1.500000E+00"], "cannot burst a StaticValue"),
+        (1, BurstType.NCYCLE, ["DC"], "cannot burst a StaticValue"),
     ],
     ids=["invalid_channel", "invalid_burst_type", "staticvalue_carrier"],
 )
@@ -1008,11 +1008,10 @@ def test_66_set_burst_period_rejects_non_positive_value_and_invalid_channel(
     keysight_visa.write.assert_not_called()
 
 
-def test_67_set_burst_on_untracked_arbitrary_carrier_raises(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    """Known limitation, not fixed: an untracked Arbitrary carrier still raises via get_waveform()."""
+def test_67_set_burst_accepts_untracked_arbitrary_carrier(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid burst carrier."""
     _query_sequence(keysight_visa, ["ARB"])
 
-    with pytest.raises(RuntimeError, match="not programmed by this driver"):
-        keysight.set_burst(1, BurstType.NCYCLE)
+    keysight.set_burst(1, BurstType.NCYCLE)
 
-    keysight_visa.write.assert_not_called()
+    assert keysight_visa.write.call_args_list == [call("BURS:MODE TRIG")]

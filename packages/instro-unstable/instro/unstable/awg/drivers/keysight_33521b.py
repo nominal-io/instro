@@ -322,8 +322,8 @@ class Keysight33521B(AWGDriverBase):
         if burst_type not in _BURST_MODES:
             raise ValueError(f"the Keysight 33521B does not support {burst_type.name} burst mode")
         with self._visa.lock():
-            carrier = self.get_waveform(channel)
-            if isinstance(carrier, StaticValue):
+            carrier_name = self._visa.query("FUNC?").strip()
+            if carrier_name == "DC":
                 raise ValueError(f"the Keysight 33521B cannot burst a StaticValue (DC) waveform on channel {channel}")
             self._visa.write(f"BURS:MODE {_BURST_MODES[burst_type]}")
             self._check_errors()
@@ -409,7 +409,7 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         if n_cycles <= 0:
             raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
-        self._write_checked(f"BURS:NCYC {int(n_cycles)}")
+        self._write_checked(f"BURS:NCYC {n_cycles}")
 
     def get_burst_ncycles(self, channel: int) -> int:
         _check_channel(channel)
