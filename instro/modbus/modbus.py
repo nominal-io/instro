@@ -158,15 +158,8 @@ class ModbusDevice(Instrument):
 
     @property
     def modbus_unit_id(self) -> int:
-        """Modbus unit/slave address this device is bound to."""
+        """Modbus unit/slave address this device is bound to. Read-only: set once at construction, via the constructor kwarg, the config field, or an already-bound ``ModbusUnit``."""
         return self._modbus.unit_id
-
-    @modbus_unit_id.setter
-    def modbus_unit_id(self, value: int) -> None:
-        """Rebind to ``value`` (0-255) on the same transport. Only while closed, since a live rebind would silently redirect an open or polling connection to a different physical unit."""
-        if self._opened:
-            raise RuntimeError("modbus_unit_id cannot be changed while the device is open.")
-        self._modbus = self._modbus.transport.at(value)
 
     def _require_ready_locked(self) -> None:
         """Reject I/O during shutdown, before this device opened, or before the transport is open."""
