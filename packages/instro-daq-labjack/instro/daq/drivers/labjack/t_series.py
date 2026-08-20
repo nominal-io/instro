@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import Mapping
 
+from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
+
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
-from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
 from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
@@ -132,7 +133,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
     def close(self):
         """Disconnect from LabJack device."""
-        self.stop()
         if self._handle is not None:
             ljm.close(self._handle)
             self._handle = None
@@ -376,9 +376,13 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._actual_sample_rate = actual_scan_rate
         self._actual_sample_period = round(1e9 / actual_scan_rate)
 
-        ljm.setStreamCallback(self._handle, self._stream_callback)
-
         self._streaming_active = True
+        try:
+            ljm.setStreamCallback(self._handle, self._stream_callback)
+        except ljm.LJMError:
+            self._streaming_active = False
+            self._stop_stream()
+            raise
 
     def _stream_callback(self, arg):
         # The lock keeps this read strictly before stop()'s eStreamStop, so it cannot fail.
