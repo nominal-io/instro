@@ -196,20 +196,17 @@ def test_modbus_unit_id_conflict_between_constructor_and_config_is_rejected(two_
     assert device.modbus_unit_id == FLOW_UNIT
 
 
-def test_modbus_unit_id_setter_rejects_reassignment_while_open(two_unit_server):
+def test_modbus_unit_id_is_read_only(two_unit_server):
+    # No public setter at all: the address is bound once at construction (constructor kwarg,
+    # config field, or an already-bound ModbusUnit) and never reassignable afterward, open or
+    # closed. Reassigning it, even to redirect a live/polling connection, is not an API this
+    # class offers, rather than an error path within one.
     shared_bus = ModbusTCPTransport(host=HOST, port=TEST_PORT)
     device = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(FLOW_UNIT), name="reassign_check")
 
-    device.modbus_unit_id = PUMP_UNIT  # closed: free to rebind
-    assert device.modbus_unit_id == PUMP_UNIT
-
-    device.open()
-    try:
-        with pytest.raises(RuntimeError, match="modbus_unit_id"):
-            device.modbus_unit_id = FLOW_UNIT
-        assert device.modbus_unit_id == PUMP_UNIT  # rejected attempt left the binding untouched
-    finally:
-        device.close()
+    with pytest.raises(AttributeError):
+        device.modbus_unit_id = PUMP_UNIT
+    assert device.modbus_unit_id == FLOW_UNIT
 
 
 def test_two_devices_share_one_serial_port():

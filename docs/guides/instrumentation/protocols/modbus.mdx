@@ -920,7 +920,7 @@ finally:
 | `close()` | Close connection and stop background polling |
 | `read(alias, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
 | `write(alias, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
-| `modbus_unit_id` | Property (settable pre-`open()`): the Modbus unit/slave address this device is bound to |
+| `modbus_unit_id` | Property (read-only): the Modbus unit/slave address this device is bound to |
 | `get_channel(channel_name, length=1, wait_for_new_samples=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
 | `start()` | Start background polling daemon |
 | `stop()` | Stop background polling daemon |
