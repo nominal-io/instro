@@ -207,7 +207,7 @@ class InstroELoad(Instrument):
             self.set_slewrate(load.slew_rate.direction, load.slew_rate.rate)
         self._load_config_applied = True
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing E-Load '%s'", self.name)
         super().close()
