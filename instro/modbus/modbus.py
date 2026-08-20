@@ -50,9 +50,9 @@ class ModbusDevice(Instrument):
                 Requires a ``timing`` section (with ``poll_interval``) — passing
                 ``autostart=True`` without one is an error.
             unit_id: Modbus unit/slave address (0-255; 0-247 on serial). May also come
-                from the config (top-level ``unit_id`` or ``connection.unit_id``); values
-                given in more than one place must agree. Required alongside a shared transport;
-                defaults to 1 when this device builds its own private transport.
+                from the connection block's ``unit_id`` field; values given in both places
+                must agree. Required alongside a shared transport; defaults to 1 when this
+                device builds its own private transport.
             **kwargs: Default tags applied to every emitted Measurement/Command.
 
         Raises:
@@ -131,7 +131,6 @@ class ModbusDevice(Instrument):
 
         candidates = {
             "unit_id (constructor)": unit_id,
-            "unit_id (config)": config.unit_id,
             "connection.unit_id": connection_unit_id,
         }
         given: dict[str, int] = {source: value for source, value in candidates.items() if value is not None}

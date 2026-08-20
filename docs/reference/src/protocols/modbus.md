@@ -67,12 +67,12 @@ description shared across environments.
 
     ```json
     {
-        "unit_id": 1,
         "connection": {
             "transport": "tcp",
             "host": "192.168.1.10",
             "port": 502,
-            "timeout": 3.0
+            "timeout": 3.0,
+            "unit_id": 1
         }
     }
     ```
@@ -81,7 +81,6 @@ description shared across environments.
 
     ```json
     {
-        "unit_id": 1,
         "connection": {
             "transport": "rtu",
             "port": "/dev/ttyUSB0",
@@ -89,7 +88,8 @@ description shared across environments.
             "parity": "N",
             "stopbits": 1,
             "bytesize": 8,
-            "timeout": 3.0
+            "timeout": 3.0,
+            "unit_id": 1
         }
     }
     ```

@@ -40,8 +40,8 @@ CONFIG = {
         "host": HOST,
         "port": PORT,
         "timeout": 3.0,
+        "unit_id": 1,
     },
-    "unit_id": 1,
     "registers": [
         # Device identity
         {"name": "product_id", "starting_address": 60000, "register_type": "holding", "data_type": "float32"},
