@@ -1,6 +1,7 @@
 import atexit
 import logging
 import math
+import threading
 import time
 import weakref
 from dataclasses import dataclass
@@ -83,6 +84,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._global_scan_rate: float | None = None
         self._global_scans_per_read: int | None = None
         self._streaming_active: bool = False
+        self._stream_lock = threading.Lock()  # orders the LJM callback's read against stop()
         self._actual_sample_period: int | None = None
         self._actual_sample_rate: float | None = None
         self._timestamper: HWTimestamper | None = None  # None until first hw-timed read
@@ -102,20 +104,35 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._stop_stream()
 
     def _stop_stream(self):
+        """Stop the stream, tolerating a handle with no stream running."""
         try:
             ljm.eStreamStop(self._handle)
-        except ljm.LJMError as e:
-            pass
+        except ljm.LJMError as error:
+            logger.debug("eStreamStop on handle %s reported: %s", self._handle, error)
 
     def stop(self, **kwargs):
         """Stop the DAQ device."""
-        if self._streaming_active:
-            # TODO add debug logger
-            # ljm.eStreamStop(self._handle)
+        with self._stream_lock:
+            if not self._streaming_active:
+                return
             self._streaming_active = False
+        # Released before unregistering: LJM waits on an in-flight callback, which wants this lock.
+        ljm.setStreamCallback(self._handle, None)
+        self._stop_stream()
+        self._timestamper = None
+        self._drain_stream_queue()
+
+    def _drain_stream_queue(self):
+        """Discard scans the callback queued before the stream stopped."""
+        while True:
+            try:
+                self._data_queue.get_nowait()
+            except Empty:
+                break
 
     def close(self):
         """Disconnect from LabJack device."""
+        self.stop()
         if self._handle is not None:
             ljm.close(self._handle)
             self._handle = None
@@ -364,7 +381,11 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._streaming_active = True
 
     def _stream_callback(self, arg):
-        response = ljm.eStreamRead(self._handle)
+        # The lock keeps this read strictly before stop()'s eStreamStop, so it cannot fail.
+        with self._stream_lock:
+            if not self._streaming_active:
+                return
+            response = ljm.eStreamRead(self._handle)
         ai_timestamp = time.time_ns()  # TODO read from labjack. It has some capabilities here.
 
         self._data_queue.put_nowait((response, ai_timestamp))
@@ -391,6 +412,8 @@ class LabJackTSeriesDriver(DAQDriverBase):
     def fetch_analog(
         self,
     ) -> LabJackData:
+        if not self._streaming_active:
+            raise RuntimeError("No active scan. Call start() before fetch_analog().")
         # Is receiving data from the ljm registered callback.
         try:
             callback_data = self._data_queue.get(timeout=5)
@@ -398,7 +421,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
             samples, self._points_in_fifo, self.points_in_buffer = labjack_data[0], labjack_data[1], labjack_data[2]
             return LabJackData(data=samples, timestamp=timestamp, dt=self._actual_sample_period)
         except Empty:
-            raise TimeoutError(f"LabJack timeout. No data received.")
+            raise TimeoutError("LabJack timeout. No data received.")
 
     def get_actual_sample_rate(self) -> float | None:
         return self._actual_sample_rate
