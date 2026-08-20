@@ -561,11 +561,7 @@ def test_36_set_burst_ncycles_rejects_non_positive_value(driver: Keysight33521B)
 
 
 def test_37_set_burst_ncycles_silently_rounds_non_integer_value(driver: Keysight33521B) -> None:
-    """Hardware-confirmed: BURS:NCYC 10.5 is accepted with no SCPI error and silently rounds to 10.
-
-    The 33521B itself does not reject a fractional cycle count, so the driver cannot rely on
-    :SYST:ERR? to catch it; if this needs to be rejected, it has to be validated in software.
-    """
+    """Hardware-confirmed: BURS:NCYC 10.5 is accepted with no SCPI error and silently rounds to 10."""
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.NCYCLE)
 
@@ -621,3 +617,17 @@ def test_41_set_burst_trigger_in_gated_mode(driver: Keysight33521B, source: Burs
     assert driver.get_burst_trigger(CHANNEL) is source
 
     driver._check_errors()
+
+
+def test_42_fire_burst_trigger_rejected_by_hardware_in_gated_mode(driver: Keysight33521B) -> None:
+    """Hardware-confirmed: GATED mode is level-triggered, so *TRG raises -211 "Trigger ignored"."""
+    driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
+    driver.set_burst(CHANNEL, BurstType.GATED)
+    driver.set_burst_trigger(CHANNEL, BurstTriggerSource.MANUAL)
+    driver.burst_enable(CHANNEL, True)
+    driver._check_errors()
+
+    with pytest.raises(RuntimeError, match=r'-211,"Trigger ignored"'):
+        driver.fire_burst_trigger(CHANNEL)
+
+    driver.burst_enable(CHANNEL, False)

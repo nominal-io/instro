@@ -779,8 +779,9 @@ def test_48_set_burst_rejects_infinite_mode(keysight: Keysight33521B, keysight_v
         (2, BurstType.NCYCLE, [], "only supports 1 channel"),
         (1, "NCYCLE", [], "burst_type must be a BurstType"),
         (1, BurstType.NCYCLE, ["DC"], "cannot burst a StaticValue"),
+        (1, BurstType.NCYCLE, ["NOIS"], "unsupported waveform 'NOIS'"),
     ],
-    ids=["invalid_channel", "invalid_burst_type", "staticvalue_carrier"],
+    ids=["invalid_channel", "invalid_burst_type", "staticvalue_carrier", "unrecognized_carrier"],
 )
 def test_49_set_burst_rejects_invalid_input(
     keysight: Keysight33521B,
