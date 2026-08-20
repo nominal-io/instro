@@ -4,14 +4,6 @@ from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
 from typing import Mapping
 
-from instro.daq.drivers.mcc.mcc_engines import (
-    DaqInScanEngine,
-    MCCDeviceInfo,
-    MCCPortInfo,
-    ScaledAInScanEngine,
-    ScanEngine,
-    get_temp_scale,
-)
 from mcculw import ul
 from mcculw.device_info import AoInfo
 from mcculw.enums import (
@@ -32,6 +24,14 @@ from mcculw.ul import ULError
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
+from instro.daq.drivers.mcc.mcc_engines import (
+    DaqInScanEngine,
+    MCCDeviceInfo,
+    MCCPortInfo,
+    ScaledAInScanEngine,
+    ScanEngine,
+    get_temp_scale,
+)
 from instro.daq.types import (
     AnalogChannel,
     AnalogCurrentChannel,
