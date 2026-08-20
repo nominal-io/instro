@@ -216,6 +216,7 @@ class InstroELoad(Instrument):
         super().close()
         self._driver.close()
         self._load_config_applied = False
+        self._mode = None
         logger.info("Closed E-Load '%s'", self.name)
 
     @publish_command
