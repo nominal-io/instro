@@ -8,10 +8,9 @@ from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import Mapping
 
-from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
-
 from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.drivers import HWTimestamper
+from instro.daq.drivers.labjack.t_series_models import LJ_T4, LJ_T7, LJ_T8, LJ_Model
 from instro.daq.scaling.thermocouple import kelvin_to_unit, unit_to_kelvin
 from instro.daq.types import (
     AnalogChannel,
