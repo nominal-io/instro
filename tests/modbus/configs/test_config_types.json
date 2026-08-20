@@ -12,7 +12,7 @@
     "host": "127.0.0.1",
     "port": 5021
   },
-  "modbus_unit_id": 1,
+  "unit_id": 1,
   "timing": {
     "poll_interval": 0.5,
     "write_delay_ms": 50

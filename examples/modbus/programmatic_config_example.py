@@ -80,7 +80,7 @@ config = ModbusConfig(
 
 
 def main():
-    device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=True)
+    device = ModbusDevice(config, connection=transport, unit_id=1, autostart=True)
 
     try:
         print(f"Connected to {config.device.name}")

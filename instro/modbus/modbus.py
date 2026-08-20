@@ -33,7 +33,7 @@ class ModbusDevice(Instrument):
         name: str | None = None,
         publishers: list[Publisher] | None = None,
         autostart: bool = False,
-        modbus_unit_id: int | None = None,
+        unit_id: int | None = None,
         **kwargs,
     ):
         """Initialize a ModbusDevice.
@@ -41,7 +41,7 @@ class ModbusDevice(Instrument):
         Args:
             config: A ``ModbusConfig``, a dict (validated via Pydantic), or a path to a JSON config.
             connection: Overrides ``config.connection``. Accepts a ``ModbusTransport`` (pass the
-                same instance to several devices to share one line; ``modbus_unit_id`` is then
+                same instance to several devices to share one line; ``unit_id`` is then
                 required), or a dict (with ``transport`` = ``"tcp"`` / ``"rtu"``), which builds a
                 private transport. Required if the config has no ``connection`` section.
             name: Channel-name prefix; falls back to ``config.device.name``.
@@ -49,8 +49,8 @@ class ModbusDevice(Instrument):
             autostart: When True, open the connection and start background polling.
                 Requires a ``timing`` section (with ``poll_interval``) — passing
                 ``autostart=True`` without one is an error.
-            modbus_unit_id: Modbus unit/slave address (0-255; 0-247 on serial). May also come
-                from the config (top-level ``modbus_unit_id`` or ``connection.unit_id``); values
+            unit_id: Modbus unit/slave address (0-255; 0-247 on serial). May also come
+                from the config (top-level ``unit_id`` or ``connection.unit_id``); values
                 given in more than one place must agree. Required alongside a shared transport;
                 defaults to 1 when this device builds its own private transport.
             **kwargs: Default tags applied to every emitted Measurement/Command.
@@ -66,14 +66,14 @@ class ModbusDevice(Instrument):
         else:
             resolved_config = ModbusConfig.from_json(config)
 
-        transport, unit_id = self._resolve_connection(connection, resolved_config, modbus_unit_id)
+        transport, unit_id = self._resolve_connection(connection, resolved_config, unit_id)
 
         instrument_name = name or resolved_config.device.name
         super().__init__(name=instrument_name, publishers=publishers, **kwargs)
 
         self._config = resolved_config
         self._transport = transport
-        self._modbus_unit_id = unit_id
+        self._unit_id = unit_id
         self._opened = False
 
         self._define_background_daemon()
@@ -105,7 +105,7 @@ class ModbusDevice(Instrument):
     def _resolve_connection(
         connection: ModbusTransport | dict | None,
         config: ModbusConfig,
-        modbus_unit_id: int | None,
+        unit_id: int | None,
     ) -> tuple[ModbusTransport, int]:
         """Resolve ``connection`` into a transport and the unit address this device talks at."""
         shared = False
@@ -130,8 +130,8 @@ class ModbusDevice(Instrument):
                 )
 
         candidates = {
-            "modbus_unit_id (constructor)": modbus_unit_id,
-            "modbus_unit_id (config)": config.modbus_unit_id,
+            "unit_id (constructor)": unit_id,
+            "unit_id (config)": config.unit_id,
             "connection.unit_id": connection_unit_id,
         }
         given: dict[str, int] = {source: value for source, value in candidates.items() if value is not None}
@@ -142,7 +142,7 @@ class ModbusDevice(Instrument):
             unit_id = next(iter(given.values()))
         elif shared:
             raise ValueError(
-                "A shared ModbusTransport needs an explicit unit address: pass modbus_unit_id "
+                "A shared ModbusTransport needs an explicit unit address: pass unit_id "
                 "to the constructor or set it in the config."
             )
         else:
@@ -152,9 +152,9 @@ class ModbusDevice(Instrument):
         return transport, transport.check_unit_id(unit_id)
 
     @property
-    def modbus_unit_id(self) -> int:
+    def unit_id(self) -> int:
         """Modbus unit/slave address this device is bound to. Read-only: set once at construction, via the constructor kwarg or the config."""
-        return self._modbus_unit_id
+        return self._unit_id
 
     def _require_ready_locked(self) -> None:
         """Reject I/O during shutdown, before this device opened, or before the transport is open."""
@@ -191,7 +191,7 @@ class ModbusDevice(Instrument):
                 reg.register_type,
                 reg.starting_address,
                 reg.data_type,
-                unit_id=self._modbus_unit_id,
+                unit_id=self._unit_id,
                 byte_swap=reg.byte_swap,
                 word_swap=reg.word_swap,
                 long_swap=reg.long_swap,
@@ -218,19 +218,13 @@ class ModbusDevice(Instrument):
             self._require_ready_locked()
             match first.register_type:
                 case "holding":
-                    raw_regs = self._transport.read_holding_registers(
-                        start_address, total_count, unit_id=self._modbus_unit_id
-                    )
+                    raw_regs = self._transport.read_holding_registers(start_address, total_count, unit_id=self._unit_id)
                 case "input":
-                    raw_regs = self._transport.read_input_registers(
-                        start_address, total_count, unit_id=self._modbus_unit_id
-                    )
+                    raw_regs = self._transport.read_input_registers(start_address, total_count, unit_id=self._unit_id)
                 case "coil":
-                    raw_bits = self._transport.read_coils(start_address, total_count, unit_id=self._modbus_unit_id)
+                    raw_bits = self._transport.read_coils(start_address, total_count, unit_id=self._unit_id)
                 case "discrete":
-                    raw_bits = self._transport.read_discrete_inputs(
-                        start_address, total_count, unit_id=self._modbus_unit_id
-                    )
+                    raw_bits = self._transport.read_discrete_inputs(start_address, total_count, unit_id=self._unit_id)
                 case _:
                     raise ValueError(f"Unknown register type: {first.register_type}")
 
@@ -319,7 +313,7 @@ class ModbusDevice(Instrument):
                 reg.starting_address,
                 wire_value,
                 reg.data_type,
-                unit_id=self._modbus_unit_id,
+                unit_id=self._unit_id,
                 byte_swap=reg.byte_swap,
                 word_swap=reg.word_swap,
                 long_swap=reg.long_swap,

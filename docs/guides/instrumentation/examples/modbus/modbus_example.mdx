@@ -32,7 +32,7 @@ CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 
 
 def main():
-    device = ModbusDevice(str(CONFIG_PATH), connection=CONNECTION, modbus_unit_id=1, autostart=True)
+    device = ModbusDevice(str(CONFIG_PATH), connection=CONNECTION, unit_id=1, autostart=True)
     device.add_publisher(
         NominalCorePublisher("ri.catalog.cerulean-staging.dataset.056356ba-5c64-479c-9fc8-da0eba27ae0b")
     )

@@ -34,7 +34,7 @@ config = ModbusConfig(
     ],
 )
 transport = ModbusTCPTransport(host="192.168.1.10")
-device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=True)
+device = ModbusDevice(config, connection=transport, unit_id=1, autostart=True)
 ```
 
 ## Sample Config
@@ -67,7 +67,7 @@ description shared across environments.
 
     ```json
     {
-        "modbus_unit_id": 1,
+        "unit_id": 1,
         "connection": {
             "transport": "tcp",
             "host": "192.168.1.10",
@@ -81,7 +81,7 @@ description shared across environments.
 
     ```json
     {
-        "modbus_unit_id": 1,
+        "unit_id": 1,
         "connection": {
             "transport": "rtu",
             "port": "/dev/ttyUSB0",
