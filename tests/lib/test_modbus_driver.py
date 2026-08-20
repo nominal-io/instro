@@ -1,4 +1,4 @@
-"""Tests for the Modbus transports and bound units against a simulated Modbus TCP server."""
+"""Tests for the Modbus transports against a simulated Modbus TCP server."""
 
 from __future__ import annotations
 
@@ -136,12 +136,6 @@ def bus(modbus_server):
     transport.close()
 
 
-@pytest.fixture
-def unit(bus):
-    """A ModbusUnit bound to the sim server's unit 1."""
-    return bus.at(1)
-
-
 # ============ Lifecycle ============
 
 
@@ -202,110 +196,110 @@ class TestLifecycle:
 
 
 class TestRawOps:
-    def test_read_holding_registers(self, unit):
-        assert unit.read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
+    def test_read_holding_registers(self, bus):
+        assert bus.read_holding_registers(100, 1, unit_id=1) == [TEST_DATA["holding_uint16"]]
 
-    def test_read_input_registers(self, unit):
-        assert unit.read_input_registers(0, 1) == [TEST_DATA["input_uint16"]]
+    def test_read_input_registers(self, bus):
+        assert bus.read_input_registers(0, 1, unit_id=1) == [TEST_DATA["input_uint16"]]
 
-    def test_read_coils(self, unit):
-        assert unit.read_coils(0, 2) == [TEST_DATA["coil_1"], TEST_DATA["coil_2"]]
+    def test_read_coils(self, bus):
+        assert bus.read_coils(0, 2, unit_id=1) == [TEST_DATA["coil_1"], TEST_DATA["coil_2"]]
 
-    def test_read_discrete_inputs(self, unit):
-        assert unit.read_discrete_inputs(0, 2) == [TEST_DATA["discrete_1"], TEST_DATA["discrete_2"]]
+    def test_read_discrete_inputs(self, bus):
+        assert bus.read_discrete_inputs(0, 2, unit_id=1) == [TEST_DATA["discrete_1"], TEST_DATA["discrete_2"]]
 
-    def test_write_holding_register_readback(self, unit):
-        unit.write_holding_register(150, 4242)
-        assert unit.read_holding_registers(150, 1) == [4242]
+    def test_write_holding_register_readback(self, bus):
+        bus.write_holding_register(150, 4242, unit_id=1)
+        assert bus.read_holding_registers(150, 1, unit_id=1) == [4242]
 
-    def test_write_holding_registers_readback(self, unit):
-        unit.write_holding_registers(160, [11, 22, 33])
-        assert unit.read_holding_registers(160, 3) == [11, 22, 33]
+    def test_write_holding_registers_readback(self, bus):
+        bus.write_holding_registers(160, [11, 22, 33], unit_id=1)
+        assert bus.read_holding_registers(160, 3, unit_id=1) == [11, 22, 33]
 
-    def test_write_coil_readback(self, unit):
-        unit.write_coil(5, True)
-        assert unit.read_coils(5, 1) == [True]
+    def test_write_coil_readback(self, bus):
+        bus.write_coil(5, True, unit_id=1)
+        assert bus.read_coils(5, 1, unit_id=1) == [True]
 
-    def test_write_coils_readback(self, unit):
-        unit.write_coils(6, [True, False, True])
-        assert unit.read_coils(6, 3) == [True, False, True]
+    def test_write_coils_readback(self, bus):
+        bus.write_coils(6, [True, False, True], unit_id=1)
+        assert bus.read_coils(6, 3, unit_id=1) == [True, False, True]
 
-    def test_read_beyond_datastore_raises_modbus_error(self, unit):
+    def test_read_beyond_datastore_raises_modbus_error(self, bus):
         # Valid Modbus address, but past the sim datastore -> device returns IllegalDataAddress.
         with pytest.raises(RuntimeError, match="Modbus error"):
-            unit.read_holding_registers(500, 1)
+            bus.read_holding_registers(500, 1, unit_id=1)
 
 
 # ============ Typed Access ============
 
 
 class TestTypedAccess:
-    def test_read_typed_input_uint16(self, unit):
-        assert unit.read_typed("input", 0, "uint16") == TEST_DATA["input_uint16"]
+    def test_read_typed_input_uint16(self, bus):
+        assert bus.read_typed("input", 0, "uint16", unit_id=1) == TEST_DATA["input_uint16"]
 
-    def test_read_typed_input_int16(self, unit):
-        assert unit.read_typed("input", 1, "int16") == TEST_DATA["input_int16"]
+    def test_read_typed_input_int16(self, bus):
+        assert bus.read_typed("input", 1, "int16", unit_id=1) == TEST_DATA["input_int16"]
 
-    def test_read_typed_input_uint32(self, unit):
-        assert unit.read_typed("input", 10, "uint32") == TEST_DATA["input_uint32"]
+    def test_read_typed_input_uint32(self, bus):
+        assert bus.read_typed("input", 10, "uint32", unit_id=1) == TEST_DATA["input_uint32"]
 
-    def test_read_typed_input_float32(self, unit):
-        assert unit.read_typed("input", 30, "float32") == pytest.approx(TEST_DATA["input_float32"], rel=1e-5)
+    def test_read_typed_input_float32(self, bus):
+        assert bus.read_typed("input", 30, "float32", unit_id=1) == pytest.approx(TEST_DATA["input_float32"], rel=1e-5)
 
-    def test_read_typed_input_float64(self, unit):
-        assert unit.read_typed("input", 40, "float64") == pytest.approx(TEST_DATA["input_float64"], rel=1e-10)
+    def test_read_typed_input_float64(self, bus):
+        assert bus.read_typed("input", 40, "float64", unit_id=1) == pytest.approx(TEST_DATA["input_float64"], rel=1e-10)
 
-    def test_read_typed_holding_word_swap(self, unit):
-        assert unit.read_typed("holding", 130, "uint32", word_swap=True) == TEST_DATA["holding_word_swap"]
+    def test_read_typed_holding_word_swap(self, bus):
+        assert bus.read_typed("holding", 130, "uint32", unit_id=1, word_swap=True) == TEST_DATA["holding_word_swap"]
 
-    def test_read_typed_coil_returns_bool(self, unit):
-        result = unit.read_typed("coil", 1, "bool")
+    def test_read_typed_coil_returns_bool(self, bus):
+        result = bus.read_typed("coil", 1, "bool", unit_id=1)
         assert result is True
 
-    def test_read_typed_discrete_returns_bool(self, unit):
-        result = unit.read_typed("discrete", 1, "bool")
+    def test_read_typed_discrete_returns_bool(self, bus):
+        result = bus.read_typed("discrete", 1, "bool", unit_id=1)
         assert result is False
 
-    def test_read_typed_coil_rejects_non_bool_dtype(self, unit):
+    def test_read_typed_coil_rejects_non_bool_dtype(self, bus):
         with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
-            unit.read_typed("coil", 1, "uint16")
+            bus.read_typed("coil", 1, "uint16", unit_id=1)
 
-    def test_read_typed_discrete_rejects_non_bool_dtype(self, unit):
+    def test_read_typed_discrete_rejects_non_bool_dtype(self, bus):
         with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
-            unit.read_typed("discrete", 1, "uint16")
+            bus.read_typed("discrete", 1, "uint16", unit_id=1)
 
-    def test_read_typed_unknown_register_type_raises(self, unit):
+    def test_read_typed_unknown_register_type_raises(self, bus):
         with pytest.raises(ValueError, match="Unknown register type"):
-            unit.read_typed("bogus", 0, "uint16")
+            bus.read_typed("bogus", 0, "uint16", unit_id=1)
 
-    def test_write_typed_holding_single_register_readback(self, unit):
-        unit.write_typed("holding", 170, 4321, "uint16")
-        assert unit.read_typed("holding", 170, "uint16") == 4321
+    def test_write_typed_holding_single_register_readback(self, bus):
+        bus.write_typed("holding", 170, 4321, "uint16", unit_id=1)
+        assert bus.read_typed("holding", 170, "uint16", unit_id=1) == 4321
 
-    def test_write_typed_holding_multi_register_readback(self, unit):
-        unit.write_typed("holding", 172, -123456789, "int32")
-        assert unit.read_typed("holding", 172, "int32") == -123456789
+    def test_write_typed_holding_multi_register_readback(self, bus):
+        bus.write_typed("holding", 172, -123456789, "int32", unit_id=1)
+        assert bus.read_typed("holding", 172, "int32", unit_id=1) == -123456789
 
-    def test_write_typed_holding_float_roundtrip(self, unit):
-        unit.write_typed("holding", 176, 3.14159, "float32")
-        assert unit.read_typed("holding", 176, "float32") == pytest.approx(3.14159, rel=1e-5)
+    def test_write_typed_holding_float_roundtrip(self, bus):
+        bus.write_typed("holding", 176, 3.14159, "float32", unit_id=1)
+        assert bus.read_typed("holding", 176, "float32", unit_id=1) == pytest.approx(3.14159, rel=1e-5)
 
-    def test_write_typed_coil_readback(self, unit):
-        unit.write_typed("coil", 8, True, "bool")
-        assert unit.read_typed("coil", 8, "bool") is True
+    def test_write_typed_coil_readback(self, bus):
+        bus.write_typed("coil", 8, True, "bool", unit_id=1)
+        assert bus.read_typed("coil", 8, "bool", unit_id=1) is True
 
-    def test_write_typed_coil_rejects_non_bool_dtype(self, unit):
+    def test_write_typed_coil_rejects_non_bool_dtype(self, bus):
         with pytest.raises(ValueError, match="single-bit; data_type must be 'bool'"):
-            unit.write_typed("coil", 8, True, "uint16")
+            bus.write_typed("coil", 8, True, "uint16", unit_id=1)
 
-    def test_write_typed_coil_rejects_non_bool_value(self, unit):
+    def test_write_typed_coil_rejects_non_bool_value(self, bus):
         # Strict: no numeric coercion. Even 1/0 must be passed as real booleans.
         with pytest.raises(ValueError, match="coil writes require a bool value"):
-            unit.write_typed("coil", 8, 1, "bool")
+            bus.write_typed("coil", 8, 1, "bool", unit_id=1)
 
-    def test_write_typed_read_only_raises(self, unit):
+    def test_write_typed_read_only_raises(self, bus):
         with pytest.raises(ValueError, match="read-only"):
-            unit.write_typed("input", 0, 1, "uint16")
+            bus.write_typed("input", 0, 1, "uint16", unit_id=1)
 
 
 # ============ Pure Codec ============
@@ -383,13 +377,13 @@ class TestCodec:
 
 
 class TestLock:
-    def test_lock_is_reentrant_and_serializes_ops(self, unit):
+    def test_lock_is_reentrant_and_serializes_ops(self, bus):
         # Holding the lock lets the same thread issue ops inside the with-block (RLock).
-        with unit.lock():
-            assert unit.read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
+        with bus.lock():
+            assert bus.read_holding_registers(100, 1, unit_id=1) == [TEST_DATA["holding_uint16"]]
 
-    def test_lock_returns_same_object(self, unit):
-        assert unit.lock() is unit.lock()
+    def test_lock_returns_same_object(self, bus):
+        assert bus.lock() is bus.lock()
 
 
 # ============ Shared Ownership ============
@@ -451,7 +445,7 @@ class TestSharedOwnership:
         transport.close(a)
 
 
-# ============ ModbusTransport / ModbusUnit ============
+# ============ ModbusTransport ============
 
 
 class TestTransportConstruction:
@@ -544,74 +538,26 @@ class TestPerCallAddressing:
             transport.read_holding_registers(100, 1, unit_id=1)
 
 
-class TestBoundUnit:
-    def test_at_binds_an_address_that_routes(self, bus):
-        assert bus.at(1).read_holding_registers(100, 1) == [TEST_DATA["holding_uint16"]]
-        assert bus.at(SECOND_UNIT).read_holding_registers(100, 1) == [SECOND_UNIT_HOLDING]
-
-    def test_two_bound_units_share_one_transport(self, bus):
-        first, second = bus.at(1), bus.at(SECOND_UNIT)
-        assert first.transport is second.transport is bus
-        assert first.lock() is bus.lock()
-
-    def test_at_exposes_its_binding(self, bus):
-        unit = bus.at(7)
-        assert (unit.transport, unit.unit_id) == (bus, 7)
-
+class TestUnitIdValidation:
     @pytest.mark.parametrize("unit_id", [-1, 256])
-    def test_at_rejects_out_of_range(self, unit_id):
+    def test_check_unit_id_rejects_out_of_range(self, unit_id):
         with pytest.raises(ValueError, match="unit_id"):
-            ModbusTCPTransport(host="h").at(unit_id)
+            ModbusTCPTransport(host="h").check_unit_id(unit_id)
 
     @pytest.mark.parametrize("unit_id", [248, 255])
-    def test_rtu_at_rejects_reserved_addresses(self, unit_id):
+    def test_rtu_rejects_reserved_addresses(self, unit_id):
         # Modbus over Serial Line spec 2.2: 248-255 are reserved, not individual slave addresses.
         with pytest.raises(ValueError, match="unit_id"):
-            ModbusRTUTransport(port="/dev/ttyUSB0").at(unit_id)
+            ModbusRTUTransport(port="/dev/ttyUSB0").check_unit_id(unit_id)
 
     @pytest.mark.parametrize("unit_id", [0, 247])
-    def test_rtu_at_accepts_boundary_addresses(self, unit_id):
-        assert ModbusRTUTransport(port="/dev/ttyUSB0").at(unit_id).unit_id == unit_id
+    def test_rtu_accepts_boundary_addresses(self, unit_id):
+        assert ModbusRTUTransport(port="/dev/ttyUSB0").check_unit_id(unit_id) == unit_id
 
-    def test_bound_unit_refuses_a_second_address(self, bus):
-        with pytest.raises(TypeError):
-            bus.at(1).read_holding_registers(100, 1, unit_id=SECOND_UNIT)  # type: ignore[call-arg]
-
-    def test_bound_unit_typed_roundtrip(self, bus):
-        unit = bus.at(1)
-        unit.write_typed("holding", 180, 3.14159, "float32")
-        assert unit.read_typed("holding", 180, "float32") == pytest.approx(3.14159, rel=1e-5)
-
-    def test_bound_unit_writes_reach_only_its_own_unit(self, bus):
-        bus.at(SECOND_UNIT).write_holding_register(101, 777)
-        assert bus.at(SECOND_UNIT).read_holding_registers(101, 1) == [777]
-        assert bus.at(1).read_holding_registers(101, 1) == [0]
-
-    def test_bound_unit_passes_holder_identity_through(self, modbus_server):
-        transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
-        first, second = transport.at(1), transport.at(SECOND_UNIT)
-        holder_a, holder_b = object(), object()
-
-        assert first.open(holder_a) is True
-        assert second.open(holder_b) is False  # the session was already up
-        assert transport.is_open and first.is_open
-
-        first.close(holder_a)
-        assert transport.is_open  # holder_b still owns it
-
-        second.close(holder_b)
-        assert not transport.is_open
-
-    def test_a_rebound_unit_does_not_strand_a_holder(self, modbus_server):
-        # Reassigning an address builds a new ModbusUnit; because the unit forwards the
-        # caller's identity rather than its own, the original holder still closes the session.
-        transport = ModbusTCPTransport(host="127.0.0.1", port=TEST_PORT)
-        holder = object()
-        transport.at(1).open(holder)
-
-        transport.at(SECOND_UNIT).close(holder)
-
-        assert not transport.is_open
+    def test_writes_reach_only_the_addressed_unit(self, bus):
+        bus.write_holding_register(101, 777, unit_id=SECOND_UNIT)
+        assert bus.read_holding_registers(101, 1, unit_id=SECOND_UNIT) == [777]
+        assert bus.read_holding_registers(101, 1, unit_id=1) == [0]
 
 
 class TestTransportConnect:
@@ -648,15 +594,15 @@ class TestTransportConnect:
             )
             transport.close()
 
-    def test_rtu_opens_one_serial_client_across_two_bound_units(self):
+    def test_rtu_opens_one_serial_client_across_two_holders(self):
         # pymodbus opens serial exclusive=True, so a second construction is the bug this fixes.
         with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
             mock_cls.return_value.connect.return_value = True
             transport = ModbusRTUTransport(port="/dev/ttyUSB0")
             holder_a, holder_b = object(), object()
 
-            transport.at(3).open(holder_a)
-            transport.at(7).open(holder_b)
+            transport.open(holder_a)
+            transport.open(holder_b)
 
             assert mock_cls.call_count == 1
             transport.close(holder_a)

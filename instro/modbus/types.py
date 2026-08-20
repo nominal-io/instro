@@ -38,18 +38,6 @@ __all__ = [
 
 # ============ Connection Config (private: the declarative path only) ============
 
-_UNIT_ID_MOVED = (
-    "unit_id has moved off the connection block and been renamed: set modbus_unit_id at "
-    "the top level of the config, or pass ModbusDevice(modbus_unit_id=...)"
-)
-
-
-def _reject_moved_unit_id(data: object) -> object:
-    """Reject a stale ``unit_id`` key inside a connection block, naming where it went."""
-    if isinstance(data, dict) and "unit_id" in data:
-        raise ValueError(_UNIT_ID_MOVED)
-    return data
-
 
 class _TCPConnectionConfig(BaseModel):
     """Declarative Modbus TCP connection block. Private: users construct ``ModbusTCPTransport`` directly."""
@@ -58,12 +46,7 @@ class _TCPConnectionConfig(BaseModel):
     host: str
     port: int = Field(default=502, ge=1, le=65535)
     timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_unit_id(cls, data: object) -> object:
-        """Reject the pre-rename ``connection.unit_id`` key with a message naming its new home."""
-        return _reject_moved_unit_id(data)
+    unit_id: int | None = Field(default=None, ge=0, le=255)
 
     def build(self) -> ModbusTransport:
         """Build the transport this block describes."""
@@ -81,12 +64,8 @@ class _RTUConnectionConfig(BaseModel):
     bytesize: Literal[5, 6, 7, 8] = 8
     timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
     framer: Literal["rtu", "ascii"] = "rtu"
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_unit_id(cls, data: object) -> object:
-        """Reject the pre-rename ``connection.unit_id`` key with a message naming its new home."""
-        return _reject_moved_unit_id(data)
+    # 248-255 are reserved per Modbus over Serial Line spec 2.2, so the serial block caps at 247.
+    unit_id: int | None = Field(default=None, ge=0, le=247)
 
     def build(self) -> ModbusTransport:
         """Build the transport this block describes."""

@@ -12,7 +12,7 @@ Concrete instrument drivers compose a transport in their constructor rather than
 ## Available transports
 
 - **[`VisaDriver`](/instrumentation/transports/visa)**: VISA-attached instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. The transport every shipped SCPI driver sits on.
-- **[`ModbusTCPTransport`/`ModbusRTUTransport`](/instrumentation/transports/modbus)**: Modbus TCP and RTU, with raw function-code access, typed register encode and decode, and `.at(unit_id)` to address multiple units over one shared line.
+- **[`ModbusTCPTransport`/`ModbusRTUTransport`](/instrumentation/transports/modbus)**: Modbus TCP and RTU, with raw function-code access, typed register encode and decode, and per-call `unit_id` addressing so multiple units share one line.
 
 For a protocol neither one covers, [implement a transport](#implementing-a-transport) by subclassing `TransportBase`.
 

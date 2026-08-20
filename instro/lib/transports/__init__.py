@@ -5,7 +5,6 @@ from instro.lib.transports.modbus import (
     ModbusRTUTransport,
     ModbusTCPTransport,
     ModbusTransport,
-    ModbusUnit,
     RegisterType,
 )
 from instro.lib.transports.transport_base import TransportBase
@@ -26,7 +25,6 @@ __all__ = [
     "ModbusRTUTransport",
     "ModbusTCPTransport",
     "ModbusTransport",
-    "ModbusUnit",
     "Parity",
     "RegisterType",
     "SerialConfig",

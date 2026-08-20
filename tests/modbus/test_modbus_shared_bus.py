@@ -1,9 +1,10 @@
-"""Feature test: two ModbusDevices share one transport, each bound to its own unit via at() (GH #262).
+"""Feature test: two ModbusDevices share one transport, each with its own unit address (GH #262).
 
-Encodes the primary user story end-to-end: construct one ModbusTCPTransport, bind an address to it
-per device with ``bus.at(...)``, and have each read and write only its own unit over the one session
-— surviving the first device's close and released by the last. Also pins the shape the addresses now
-live in: no unit_id on a transport, ``modbus_unit_id`` on the device, and no
+Encodes the primary user story end-to-end: construct one ModbusTCPTransport, pass it to several
+devices each with its own ``modbus_unit_id``, and have each read and write only its own unit over
+the one session — surviving the first device's close and released by the last. Also pins the shape
+the addresses now live in: no unit_id on a transport, ``modbus_unit_id`` on the device (with the
+pre-existing ``connection.unit_id`` config key still accepted), and no
 ModbusDriver/TCPConnection/RTUConnection. A second, narrow scenario proves the same one-session
 invariant on the serial path with a mocked pymodbus client, since CI has no RS-485 line.
 Fails until the transport classes exist.
@@ -15,7 +16,6 @@ import time
 from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
 from pymodbus.datastore import (
     ModbusDeviceContext,
     ModbusSequentialDataBlock,
@@ -100,8 +100,8 @@ def two_unit_server():
     thread.join(timeout=2.0)
 
 
-def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
-    for retired in ("ModbusDriver", "TCPConnection", "RTUConnection", "ConnectionType"):
+def test_two_devices_share_one_connection(two_unit_server):
+    for retired in ("ModbusDriver", "TCPConnection", "RTUConnection", "ConnectionType", "ModbusUnit"):
         assert not hasattr(modbus_transport, retired)
     for retired in ("TCPConnection", "RTUConnection"):
         assert not hasattr(modbus_package, retired)
@@ -113,30 +113,21 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
     assert not hasattr(shared_bus, "unit_id")
     assert not hasattr(shared_bus, "modbus_unit_id")
 
-    # A stale connection-block unit_id must name where it moved, not just fail as an extra key.
-    with pytest.raises(ValidationError, match="moved") as stale:
-        ModbusDevice(
-            config=DEVICE_CONFIG,
-            connection={"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": 5},
-        )
-    assert "modbus_unit_id" in str(stale.value)
-
-    # A bare (possibly shared) transport with no address is an error, never a silent unit 1.
-    # ValidationError subclasses ValueError, so match= is what makes this a "named error" gate.
+    # A shared transport with no address is an error, never a silent unit 1.
     with pytest.raises(ValueError, match="modbus_unit_id"):
         ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus, name="unaddressed")
 
-    # Binding the address twice over is ambiguous about which one wins.
-    with pytest.raises(ValueError, match="modbus_unit_id"):
+    # Disagreeing addresses from two sources are a named error, never a silent pick.
+    with pytest.raises(ValueError, match="unit"):
         ModbusDevice(
             config=DEVICE_CONFIG,
-            connection=shared_bus.at(FLOW_UNIT),
+            connection={"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": FLOW_UNIT},
             name="doubly_addressed",
             modbus_unit_id=PUMP_UNIT,
         )
 
-    flow_meter = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(FLOW_UNIT), name="flow_meter")
-    pump = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(PUMP_UNIT), name="pump")
+    flow_meter = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus, modbus_unit_id=FLOW_UNIT, name="flow_meter")
+    pump = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus, modbus_unit_id=PUMP_UNIT, name="pump")
 
     flow_meter.open()
     pump.open()
@@ -149,12 +140,6 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
         shared_bus.read_holding_registers(SETPOINT_ADDRESS, 1)
     with pytest.raises(TypeError):
         shared_bus.read_typed("holding", SETPOINT_ADDRESS, "uint16")
-
-    # A bound unit carries its address and refuses a second one.
-    bound_flow = shared_bus.at(FLOW_UNIT)
-    assert bound_flow.read_holding_registers(SETPOINT_ADDRESS, 1) == [FLOW_VALUE]
-    with pytest.raises(TypeError):
-        bound_flow.read_holding_registers(SETPOINT_ADDRESS, 1, unit_id=PUMP_UNIT)
 
     assert flow_meter.read("setpoint").latest == FLOW_VALUE
     assert pump.read("setpoint").latest == PUMP_VALUE
@@ -171,7 +156,7 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
     pump.close()
     assert not shared_bus.is_open
 
-    # A device that builds its own private transport may default to unit 1's stand-in address.
+    # A device that builds its own private transport may take its address from the constructor.
     solo = ModbusDevice(
         config=DEVICE_CONFIG,
         connection={"transport": "tcp", "host": HOST, "port": TEST_PORT},
@@ -181,6 +166,32 @@ def test_two_devices_share_one_connection_bound_by_at(two_unit_server):
     solo.open()
     assert solo.read("setpoint").latest == FLOW_VALUE
     solo.close()
+
+
+def test_pre_rename_connection_unit_id_still_works(two_unit_server):
+    # Regression gate for existing configs: the connection-block unit_id predates the
+    # top-level modbus_unit_id field and must keep loading and routing, not raise.
+    legacy = ModbusDevice(
+        config=DEVICE_CONFIG,
+        connection={"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": PUMP_UNIT},
+        name="legacy",
+    )
+    assert legacy.modbus_unit_id == PUMP_UNIT
+    legacy.open()
+    legacy.write("setpoint", 3333)
+    assert legacy.read("setpoint").latest == 3333
+    legacy.close()
+
+    config_with_nested = {
+        **DEVICE_CONFIG,
+        "connection": {"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": FLOW_UNIT},
+    }
+    from_config = ModbusDevice(config=config_with_nested, name="legacy_config")
+    assert from_config.modbus_unit_id == FLOW_UNIT
+    from_config.open()
+    # The nested address routes: this device sees the flow unit, not the 3333 just written at pump.
+    assert from_config.read("setpoint").latest != 3333
+    from_config.close()
 
 
 def test_modbus_unit_id_conflict_between_constructor_and_config_is_rejected(two_unit_server):
@@ -197,12 +208,12 @@ def test_modbus_unit_id_conflict_between_constructor_and_config_is_rejected(two_
 
 
 def test_modbus_unit_id_is_read_only(two_unit_server):
-    # No public setter at all: the address is bound once at construction (constructor kwarg,
-    # config field, or an already-bound ModbusUnit) and never reassignable afterward, open or
-    # closed. Reassigning it, even to redirect a live/polling connection, is not an API this
-    # class offers, rather than an error path within one.
+    # No public setter at all: the address is bound once at construction (constructor kwarg
+    # or config) and never reassignable afterward, open or closed. Reassigning it, even to
+    # redirect a live/polling connection, is not an API this class offers, rather than an
+    # error path within one.
     shared_bus = ModbusTCPTransport(host=HOST, port=TEST_PORT)
-    device = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus.at(FLOW_UNIT), name="reassign_check")
+    device = ModbusDevice(config=DEVICE_CONFIG, connection=shared_bus, modbus_unit_id=FLOW_UNIT, name="reassign_check")
 
     with pytest.raises(AttributeError):
         device.modbus_unit_id = PUMP_UNIT
@@ -218,8 +229,8 @@ def test_two_devices_share_one_serial_port():
         serial_client.return_value.connect.return_value = True
 
         bus = ModbusRTUTransport(port="/dev/ttyUSB0", baudrate=19200)
-        flow = ModbusDevice(config=DEVICE_CONFIG, connection=bus.at(FLOW_UNIT), name="flow_meter")
-        pump = ModbusDevice(config=DEVICE_CONFIG, connection=bus.at(PUMP_UNIT), name="pump")
+        flow = ModbusDevice(config=DEVICE_CONFIG, connection=bus, modbus_unit_id=FLOW_UNIT, name="flow_meter")
+        pump = ModbusDevice(config=DEVICE_CONFIG, connection=bus, modbus_unit_id=PUMP_UNIT, name="pump")
 
         flow.open()
         pump.open()

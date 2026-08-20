@@ -10,7 +10,7 @@ from pydantic import TypeAdapter
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.lib.transports.modbus import ModbusTransport, ModbusUnit, decode_registers
+from instro.lib.transports.modbus import ModbusTransport, decode_registers
 
 from .types import (
     BOOL_DATA_TYPES,
@@ -29,7 +29,7 @@ class ModbusDevice(Instrument):
     def __init__(
         self,
         config: ModbusConfig | dict | Path | str,
-        connection: ModbusUnit | ModbusTransport | dict | None = None,
+        connection: ModbusTransport | dict | None = None,
         name: str | None = None,
         publishers: list[Publisher] | None = None,
         autostart: bool = False,
@@ -40,24 +40,24 @@ class ModbusDevice(Instrument):
 
         Args:
             config: A ``ModbusConfig``, a dict (validated via Pydantic), or a path to a JSON config.
-            connection: Overrides ``config.connection``. Accepts a ``ModbusUnit`` from
-                ``transport.at(unit_id)`` (the way to share one line across devices), a bare
-                ``ModbusTransport`` (then ``modbus_unit_id`` is required), or a dict (with
-                ``transport`` = ``"tcp"`` / ``"rtu"``), which builds a private transport.
-                Required if the config has no ``connection`` section.
+            connection: Overrides ``config.connection``. Accepts a ``ModbusTransport`` (pass the
+                same instance to several devices to share one line; ``modbus_unit_id`` is then
+                required), or a dict (with ``transport`` = ``"tcp"`` / ``"rtu"``), which builds a
+                private transport. Required if the config has no ``connection`` section.
             name: Channel-name prefix; falls back to ``config.device.name``.
             publishers: Publishers that receive emitted Measurement/Command data.
             autostart: When True, open the connection and start background polling.
                 Requires a ``timing`` section (with ``poll_interval``) — passing
                 ``autostart=True`` without one is an error.
-            modbus_unit_id: Modbus unit/slave address (0-255). Required alongside a bare
-                shared transport; rejected alongside an already-bound ``ModbusUnit``.
-                Defaults to 1 only when this device builds its own private transport.
+            modbus_unit_id: Modbus unit/slave address (0-255; 0-247 on serial). May also come
+                from the config (top-level ``modbus_unit_id`` or ``connection.unit_id``); values
+                given in more than one place must agree. Required alongside a shared transport;
+                defaults to 1 when this device builds its own private transport.
             **kwargs: Default tags applied to every emitted Measurement/Command.
 
         Raises:
-            ValueError: No connection in args or config, an address that is missing, doubly
-                supplied, or out of range, or ``autostart=True`` with no ``timing`` section.
+            ValueError: No connection in args or config, an address that is missing, conflicting,
+                or out of range, or ``autostart=True`` with no ``timing`` section.
         """
         if isinstance(config, ModbusConfig):
             resolved_config = config
@@ -66,13 +66,14 @@ class ModbusDevice(Instrument):
         else:
             resolved_config = ModbusConfig.from_json(config)
 
-        bound_unit = self._resolve_connection(connection, resolved_config, modbus_unit_id)
+        transport, unit_id = self._resolve_connection(connection, resolved_config, modbus_unit_id)
 
         instrument_name = name or resolved_config.device.name
         super().__init__(name=instrument_name, publishers=publishers, **kwargs)
 
         self._config = resolved_config
-        self._modbus = bound_unit
+        self._transport = transport
+        self._modbus_unit_id = unit_id
         self._opened = False
 
         self._define_background_daemon()
@@ -102,70 +103,64 @@ class ModbusDevice(Instrument):
 
     @staticmethod
     def _resolve_connection(
-        connection: ModbusUnit | ModbusTransport | dict | None,
+        connection: ModbusTransport | dict | None,
         config: ModbusConfig,
         modbus_unit_id: int | None,
-    ) -> ModbusUnit:
-        """Resolve ``connection`` and the address into one address-bound ``ModbusUnit``, binding through ``at()``."""
+    ) -> tuple[ModbusTransport, int]:
+        """Resolve ``connection`` into a transport and the unit address this device talks at."""
+        shared = False
+        connection_unit_id: int | None = None
         match connection:
-            case ModbusUnit():
-                if modbus_unit_id is not None or config.modbus_unit_id is not None:
-                    raise ValueError(
-                        "connection is already bound to a unit address, so modbus_unit_id is "
-                        "ambiguous. Drop modbus_unit_id, or pass the bare transport instead of "
-                        "transport.at(...)."
-                    )
-                return connection
             case ModbusTransport():
-                address = ModbusDevice._resolved_unit_id(modbus_unit_id, config)
-                if address is None:
-                    raise ValueError(
-                        "A shared ModbusTransport needs a unit address: pass "
-                        "connection=transport.at(unit_id), or set modbus_unit_id on the "
-                        "constructor or in the config."
-                    )
-                return connection.at(address)
+                shared = True
+                transport = connection
             case dict():
                 # Pydantic owns the tcp/rtu dispatch and the bad-`transport` error; there is no
                 # hand-written branch on the "transport" key.
-                built: ModbusTransport = TypeAdapter(_ConnectionConfig).validate_python(connection).build()
-                return built.at(ModbusDevice._private_address(modbus_unit_id, config))
+                block: _ConnectionConfig = TypeAdapter(_ConnectionConfig).validate_python(connection)
+                transport = block.build()
+                connection_unit_id = block.unit_id
             case None if config.connection is not None:
-                built = config.connection.build()
-                return built.at(ModbusDevice._private_address(modbus_unit_id, config))
+                transport = config.connection.build()
+                connection_unit_id = config.connection.unit_id
             case _:
                 raise ValueError(
                     "No connection configuration provided. Either include a 'connection' section "
                     "in the config or pass a 'connection' argument to ModbusDevice()."
                 )
 
-    @staticmethod
-    def _resolved_unit_id(modbus_unit_id: int | None, config: ModbusConfig) -> int | None:
-        """Resolve the constructor kwarg against the config field; the kwarg wins, but a differing config value is a named error, not a silent override."""
-        if modbus_unit_id is not None and config.modbus_unit_id is not None and modbus_unit_id != config.modbus_unit_id:
+        candidates = {
+            "modbus_unit_id (constructor)": modbus_unit_id,
+            "modbus_unit_id (config)": config.modbus_unit_id,
+            "connection.unit_id": connection_unit_id,
+        }
+        given: dict[str, int] = {source: value for source, value in candidates.items() if value is not None}
+        if len(set(given.values())) > 1:
+            listed = ", ".join(f"{source}={value}" for source, value in given.items())
+            raise ValueError(f"Conflicting unit addresses: {listed}. Specify only one.")
+        if given:
+            unit_id = next(iter(given.values()))
+        elif shared:
             raise ValueError(
-                f"modbus_unit_id={modbus_unit_id} (constructor) conflicts with "
-                f"config.modbus_unit_id={config.modbus_unit_id} (config). Specify only one."
+                "A shared ModbusTransport needs an explicit unit address: pass modbus_unit_id "
+                "to the constructor or set it in the config."
             )
-        return modbus_unit_id if modbus_unit_id is not None else config.modbus_unit_id
-
-    @staticmethod
-    def _private_address(modbus_unit_id: int | None, config: ModbusConfig) -> int:
-        """Address for a transport this device built privately; defaults to 1 because nobody else can reach it."""
-        # `is not None` throughout: 0 is the broadcast address and must not be rewritten to 1.
-        resolved = ModbusDevice._resolved_unit_id(modbus_unit_id, config)
-        return resolved if resolved is not None else 1
+        else:
+            # `is not None` throughout: 0 is the broadcast address and must not be rewritten to 1.
+            # Defaulting is safe only here, on a transport nobody else can reach.
+            unit_id = 1
+        return transport, transport.check_unit_id(unit_id)
 
     @property
     def modbus_unit_id(self) -> int:
-        """Modbus unit/slave address this device is bound to. Read-only: set once at construction, via the constructor kwarg, the config field, or an already-bound ``ModbusUnit``."""
-        return self._modbus.unit_id
+        """Modbus unit/slave address this device is bound to. Read-only: set once at construction, via the constructor kwarg or the config."""
+        return self._modbus_unit_id
 
     def _require_ready_locked(self) -> None:
         """Reject I/O during shutdown, before this device opened, or before the transport is open."""
         if self._background_stop_event.is_set():
             raise RuntimeError("Instrument is shutting down.")
-        if not self._opened or not self._modbus.is_open:
+        if not self._opened or not self._transport.is_open:
             raise RuntimeError("Modbus client not connected. Call open() first.")
 
     # ============ Connection Management ============
@@ -173,7 +168,7 @@ class ModbusDevice(Instrument):
     def open(self) -> None:
         """Open the Modbus TCP/RTU connection, registering this device as an owner of the transport."""
         self._background_stop_event.clear()
-        self._modbus.open(self)
+        self._transport.open(self)
         self._opened = True
 
     def close(self) -> None:
@@ -181,7 +176,7 @@ class ModbusDevice(Instrument):
         self._background_stop_event.set()
         super().close()
         if self._opened:
-            self._modbus.close(self)
+            self._transport.close(self)
             self._opened = False
 
     # ============ Semantic Access (by alias) ============
@@ -190,12 +185,13 @@ class ModbusDevice(Instrument):
     def read(self, alias: str, **kwargs) -> Measurement:
         """Read the register named ``alias`` and return the scaled value."""
         reg = self._config.get_register(alias)
-        with self._modbus.lock():
+        with self._transport.lock():
             self._require_ready_locked()
-            raw_value = self._modbus.read_typed(
+            raw_value = self._transport.read_typed(
                 reg.register_type,
                 reg.starting_address,
                 reg.data_type,
+                unit_id=self._modbus_unit_id,
                 byte_swap=reg.byte_swap,
                 word_swap=reg.word_swap,
                 long_swap=reg.long_swap,
@@ -218,17 +214,23 @@ class ModbusDevice(Instrument):
         else:
             total_count = (last.starting_address + last.register_count) - start_address
 
-        with self._modbus.lock():
+        with self._transport.lock():
             self._require_ready_locked()
             match first.register_type:
                 case "holding":
-                    raw_regs = self._modbus.read_holding_registers(start_address, total_count)
+                    raw_regs = self._transport.read_holding_registers(
+                        start_address, total_count, unit_id=self._modbus_unit_id
+                    )
                 case "input":
-                    raw_regs = self._modbus.read_input_registers(start_address, total_count)
+                    raw_regs = self._transport.read_input_registers(
+                        start_address, total_count, unit_id=self._modbus_unit_id
+                    )
                 case "coil":
-                    raw_bits = self._modbus.read_coils(start_address, total_count)
+                    raw_bits = self._transport.read_coils(start_address, total_count, unit_id=self._modbus_unit_id)
                 case "discrete":
-                    raw_bits = self._modbus.read_discrete_inputs(start_address, total_count)
+                    raw_bits = self._transport.read_discrete_inputs(
+                        start_address, total_count, unit_id=self._modbus_unit_id
+                    )
                 case _:
                     raise ValueError(f"Unknown register type: {first.register_type}")
 
@@ -310,13 +312,14 @@ class ModbusDevice(Instrument):
         # already constrained the value to bool or 0/1, so coercing here is safe.
         wire_value = bool(raw_value) if reg.register_type == "coil" else raw_value
 
-        with self._modbus.lock():
+        with self._transport.lock():
             self._require_ready_locked()
-            self._modbus.write_typed(
+            self._transport.write_typed(
                 reg.register_type,
                 reg.starting_address,
                 wire_value,
                 reg.data_type,
+                unit_id=self._modbus_unit_id,
                 byte_swap=reg.byte_swap,
                 word_swap=reg.word_swap,
                 long_swap=reg.long_swap,
