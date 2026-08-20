@@ -376,11 +376,14 @@ class LabJackTSeriesDriver(DAQDriverBase):
         self._actual_sample_rate = actual_scan_rate
         self._actual_sample_period = round(1e9 / actual_scan_rate)
 
-        self._streaming_active = True
+        with self._stream_lock:
+            self._streaming_active = True
+
         try:
             ljm.setStreamCallback(self._handle, self._stream_callback)
         except ljm.LJMError:
-            self._streaming_active = False
+            with self._stream_lock:
+                self._streaming_active = False
             self._stop_stream()
             raise
 
