@@ -199,7 +199,6 @@ class InstroELoad(Instrument):
             return
         load = self._config.load
         self.set_mode(load.mode)
-        if load.level is not None:
         if load.range is not None:
             self.set_range(load.range)
         if load.level is not None:
