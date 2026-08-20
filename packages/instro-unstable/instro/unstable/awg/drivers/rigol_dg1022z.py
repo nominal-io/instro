@@ -402,6 +402,7 @@ class RigolDG1022Z(AWGDriverBase):
             raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
         with self._visa.lock():
             carrier = self._visa.query(f":SOUR{channel}:FUNC?").strip()
+            self._check_errors()
             if carrier == "DC":
                 raise ValueError(f"the DG1022Z cannot sweep a StaticValue (DC) waveform on channel {channel}")
             self._visa.write(f":SOUR{channel}:SWE:SPAC {sweep_type.value}")
@@ -419,9 +420,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def sweep_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:SWE:STAT {'ON' if enable else 'OFF'}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:SWE:STAT {'ON' if enable else 'OFF'}")
 
     def get_sweep_state(self, channel: int) -> bool:
         _check_channel(channel)
@@ -441,9 +440,9 @@ class RigolDG1022Z(AWGDriverBase):
     def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
         _check_channel(channel)
         with self._visa.lock():
-            result = SweepTriggerSource(self._visa.query(f":SOUR{channel}:SWE:TRIG:SOUR?").strip())
+            resp = self._visa.query(f":SOUR{channel}:SWE:TRIG:SOUR?").strip()
             self._check_errors()
-        return result
+        return SweepTriggerSource(resp)
 
     def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
         _check_channel(channel)
