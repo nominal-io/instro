@@ -42,8 +42,10 @@ class VisaScanResult:
 
 
 # Key: (vendor, model) substrings matched case-insensitively against the *IDN? response.
-# Value: (category, driver_class_name, num_channels). num_channels is the instrument's real
-# channel count where known; left None where it isn't tracked (dmm, eload).
+# Value: (category, driver_class_name, num_channels). num_channels is the count of
+# SCPI-programmable channels where known, not necessarily the instrument's physical output
+# count (e.g. SiglentSPD3303's CH3 has no SCPI voltage/current access); left None where it
+# isn't tracked (dmm, eload).
 _IDN_MAP: dict[tuple[str, str], tuple[str, str, int | None]] = {
     ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None),
     ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None),
