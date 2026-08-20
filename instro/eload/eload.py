@@ -180,7 +180,7 @@ class InstroELoad(Instrument):
         descriptor = f"ch{channel}_{legacy_suffix}" if self.legacy_naming else f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
-    def open(self):
+    def open(self) -> None:
         """Open the underlying driver and apply any configured load state."""
         logger.info("Opening E-Load '%s'", self.name)
         self._driver.open()
