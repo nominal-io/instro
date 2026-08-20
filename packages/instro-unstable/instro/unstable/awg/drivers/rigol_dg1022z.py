@@ -433,9 +433,7 @@ class RigolDG1022Z(AWGDriverBase):
         _check_channel(channel)
         if not isinstance(source, SweepTriggerSource):
             raise TypeError(f"source must be a SweepTriggerSource, got {type(source).__name__}")
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:SWE:TRIG:SOUR {source.value}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:SWE:TRIG:SOUR {source.value}")
 
     def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
         _check_channel(channel)
@@ -446,9 +444,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:FREQ:STAR {frequency_hz}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:FREQ:STAR {frequency_hz}")
 
     def get_sweep_start_freq(self, channel: int) -> float:
         _check_channel(channel)
@@ -459,9 +455,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep_end_freq(self, channel: int, frequency_hz: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:FREQ:STOP {frequency_hz}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:FREQ:STOP {frequency_hz}")
 
     def get_sweep_end_freq(self, channel: int) -> float:
         _check_channel(channel)
@@ -472,9 +466,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep_time(self, channel: int, sweep_time: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:SWE:TIME {sweep_time}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:SWE:TIME {sweep_time}")
 
     def get_sweep_time(self, channel: int) -> float:
         _check_channel(channel)
@@ -485,9 +477,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:SWE:HTIM {hold_time}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:SWE:HTIM {hold_time}")
 
     def get_sweep_hold_time(self, channel: int) -> float:
         _check_channel(channel)
@@ -498,9 +488,7 @@ class RigolDG1022Z(AWGDriverBase):
 
     def set_sweep_return_time(self, channel: int, return_time: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f":SOUR{channel}:SWE:RTIM {return_time}")
-            self._check_errors()
+        self._write_checked(f":SOUR{channel}:SWE:RTIM {return_time}")
 
     def get_sweep_return_time(self, channel: int) -> float:
         _check_channel(channel)
