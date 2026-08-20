@@ -315,7 +315,7 @@ class DaqInScanEngine:
         # publish NaN for bad scan (this is the only returned error code, everything else raises)
         if err_code != ErrorCode.NOERRORS:
             logger.warning("get_tc_values reported OUTOFRANGE (open or overranged thermocouple), returning NaN")
-            return [math.nan if temp == -9999.0 else temp for temp in temps]
+            return [math.nan] * len(temps)
         return list(temps)
 
     def stop(self) -> None:

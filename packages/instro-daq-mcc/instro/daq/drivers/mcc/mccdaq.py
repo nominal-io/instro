@@ -4,6 +4,14 @@ from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
 from typing import Mapping
 
+from instro.daq.drivers.mcc.mcc_engines import (
+    DaqInScanEngine,
+    MCCDeviceInfo,
+    MCCPortInfo,
+    ScaledAInScanEngine,
+    ScanEngine,
+    get_temp_scale,
+)
 from mcculw import ul
 from mcculw.device_info import AoInfo
 from mcculw.enums import (
@@ -24,14 +32,6 @@ from mcculw.ul import ULError
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
-from instro.daq.drivers.mcc.mcc_engines import (
-    DaqInScanEngine,
-    MCCDeviceInfo,
-    MCCPortInfo,
-    ScaledAInScanEngine,
-    ScanEngine,
-    get_temp_scale,
-)
 from instro.daq.types import (
     AnalogChannel,
     AnalogCurrentChannel,
@@ -169,15 +169,27 @@ class MCCDriver(DAQDriverBase):
         if not info.ai_supported:
             raise ValueError("Analog input is not supported by this device.")
 
-        # NUMADCHANS changes when a_input_mode switches SE/DIFF, so read it live rather than from the snapshot.
-        num_chans = ul.get_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.NUMADCHANS)
-        if not (channel.physical_channel.isdigit() and int(channel.physical_channel) < num_chans):
-            raise ValueError(
-                f"Channel '{channel}' must be in the format '#' where # is an integer less than {num_chans}"
-            )
-
         if not channel.direction == Direction.INPUT:
             raise ValueError(f"Channel '{channel}' must be an input channel to configure an analog input channel")
+
+        if not channel.physical_channel.isdigit():
+            raise ValueError(f"Channel '{channel}' must be in the format '#' where # is an integer")
+
+        input_mode = self._get_terminal_config(channel.terminal_config)
+        if input_mode is not None:
+            try:
+                # Try to configure channel inputs mode (DIFF/SE) per channel. This is only supported by some boards
+                ul.a_chan_input_mode(self._board_number, int(channel.physical_channel), input_mode)
+            except ULError as e:
+                if e.errorcode != ErrorCode.BADBOARDTYPE:
+                    raise
+                # Skip the write when the board already holds the mode.
+                # Trying to configure the board in a mode it's already in leads to a misleading error
+                if ul.get_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.ADAIMODE) != input_mode:
+                    # If per channel configuration fails, we can only configure all of the channels on the board to the same input type
+                    # NOTE: When configuring multiple different input modes for different channels for these boards,
+                    # only the last terminal configuration holds
+                    ul.a_input_mode(self._board_number, input_mode)
 
         # set channel to voltage mode
         try:
@@ -195,16 +207,6 @@ class MCCDriver(DAQDriverBase):
 
         # The range is never programmed as config: every read and scan call carries it as an argument.
         self._ai_channel_ranges[channel.alias] = self._get_range(channel, info.ai_supported_ranges)
-
-        # Set the board-wide input mode; software-timed reads don't support per-channel terminal config
-        input_mode = self._get_terminal_config(channel.terminal_config)
-        if input_mode is not None:
-            try:
-                ul.a_input_mode(self._board_number, input_mode)
-            except ULError as e:
-                # fixed-input-mode devices (e.g. USB-2404 series) reject input mode changes
-                if e.errorcode != ErrorCode.AIINPUTMODENOTCONFIGURABLE:
-                    raise
 
         self._ai_channels[channel.alias] = channel
 
@@ -290,12 +292,9 @@ class MCCDriver(DAQDriverBase):
         if info.daqi_supported:
             raise ValueError(f"Channel '{channel.alias}': daq_in_scan devices do not support current input channels.")
 
-        # NUMADCHANS changes when a_input_mode switches SE/DIFF, so read it live rather than from the snapshot.
-        num_chans = ul.get_config(InfoType.BOARDINFO, self._board_number, 0, BoardInfo.NUMADCHANS)
-        if not (channel.physical_channel.isdigit() and int(channel.physical_channel) < num_chans):
-            raise ValueError(
-                f"Channel '{channel}' must be in the format '#' where # is an integer less than {num_chans}"
-            )
+        # No channel-number bound, for the same reason as configure_ai_voltage_channel: the scan call is the authority.
+        if not channel.physical_channel.isdigit():
+            raise ValueError(f"Channel '{channel}' must be in the format '#' where # is an integer")
 
         if not channel.direction == Direction.INPUT:
             raise ValueError(f"Channel '{channel}' must be an input channel to configure a current input channel")
