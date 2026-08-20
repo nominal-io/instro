@@ -83,7 +83,7 @@ def test_open_applies_load_config_in_order(valid_config):
     eload.open()
 
     method_order = [name for name, _, _ in mock_driver.mock_calls]
-    assert method_order == ["open", "set_mode", "set_level", "set_range", "set_slewrate"]
+    assert method_order == ["open", "set_mode", "set_range", "set_level", "set_slewrate"]
     mock_driver.set_mode.assert_called_once_with(mode=LoadMode.CC, channel=1)
     mock_driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.5, channel=1, curr_limit=None)
     mock_driver.set_range.assert_called_once_with(mode=LoadMode.CC, value=5.0, channel=1)

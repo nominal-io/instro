@@ -203,8 +203,6 @@ class InstroELoad(Instrument):
             self.set_range(load.range)
         if load.level is not None:
             self.set_level(load.level, curr_limit=load.curr_limit)
-        if load.range is not None:
-            self.set_range(load.range)
         if load.slew_rate is not None:
             self.set_slewrate(load.slew_rate.direction, load.slew_rate.rate)
         self._load_config_applied = True
