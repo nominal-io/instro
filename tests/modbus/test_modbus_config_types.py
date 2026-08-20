@@ -77,6 +77,14 @@ class TestConnectionDiscriminator:
         config = ModbusConfig(device=DeviceInfo(name="no_conn"))
         assert config.connection is None
 
+    def test_connection_unit_id_accepted(self):
+        assert _TCPConnectionConfig(host="127.0.0.1", unit_id=5).unit_id == 5
+
+    def test_rtu_connection_rejects_reserved_unit_id(self):
+        # Modbus over Serial Line spec 2.2: 248-255 are reserved, not individual slave addresses.
+        with pytest.raises(ValidationError):
+            _RTUConnectionConfig(port="/dev/ttyUSB0", unit_id=248)
+
     def test_rtu_build_passes_framer_through(self):
         with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
             mock_cls.return_value.connect.return_value = True

@@ -34,7 +34,7 @@ config = ModbusConfig(
     ],
 )
 transport = ModbusTCPTransport(host="192.168.1.10")
-device = ModbusDevice(config, connection=transport.at(1), autostart=True)
+device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=True)
 ```
 
 ## Sample Config

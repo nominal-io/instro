@@ -514,7 +514,7 @@ Metadata about the physical device. The `name` field is used as a prefix for cha
 
 ### Connection Section
 
-The unit/slave address is not part of the connection block: set it with the top-level `modbus_unit_id` field (see [Parameters](#parameters)), or pass `modbus_unit_id` to the `ModbusDevice` constructor. Keeping the address off the connection block is what lets several devices share one transport; see [Sharing one connection across unit addresses](#sharing-one-connection-across-unit-addresses).
+The unit/slave address belongs to the device, not the connection: set it with the top-level `modbus_unit_id` field (see [Parameters](#parameters)), or pass `modbus_unit_id` to the `ModbusDevice` constructor. The connection block also accepts a `unit_id` field for compatibility with existing configs; it means the same thing, and an address given in more than one place must agree. When the device shares a transport with others, the address is required; see [Sharing One Bus Across Multiple Units](#sharing-one-bus-across-multiple-units).
 
 #### TCP Connection
 
@@ -524,6 +524,7 @@ The unit/slave address is not part of the connection block: set it with the top-
 | `host` | Yes | | IP address or hostname |
 | `port` | No | `502` | TCP port (1 to 65535) |
 | `timeout` | No | `3.0` | Response timeout in seconds |
+| `unit_id` | No | | Unit/slave address (0 to 255). Equivalent to the top-level `modbus_unit_id` |
 
 #### RTU (Serial) Connection
 
@@ -537,6 +538,7 @@ The unit/slave address is not part of the connection block: set it with the top-
 | `bytesize` | No | `8` | Data bits: `5`, `6`, `7`, or `8` |
 | `timeout` | No | `3.0` | Response timeout in seconds |
 | `framer` | No | `"rtu"` | Serial transmission mode: `"rtu"` or `"ascii"` |
+| `unit_id` | No | | Unit/slave address (0 to 247; 248-255 are reserved on a serial line). Equivalent to the top-level `modbus_unit_id` |
 
 **Common serial port paths:**
 
@@ -628,7 +630,7 @@ device = ModbusDevice(
 
 ## Sharing One Bus Across Multiple Units
 
-An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several physical devices at different unit addresses over what is one physical connection. Build a single transport, bind one unit address per device with `.at()`, and pass the resulting `ModbusUnit` as each device's `connection`:
+An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several physical devices at different unit addresses over what is one physical connection. Build a single transport and pass it as each device's `connection`, with each device's own `modbus_unit_id`:
 
 ```python
 from instro.lib.transports import ModbusTCPTransport
@@ -636,8 +638,8 @@ from instro.modbus import ModbusDevice
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
 
-flow_meter = ModbusDevice(config="flow_meter.json", connection=transport.at(1))
-level_sensor = ModbusDevice(config="level_sensor.json", connection=transport.at(2))
+flow_meter = ModbusDevice(config="flow_meter.json", connection=transport, modbus_unit_id=1)
+level_sensor = ModbusDevice(config="level_sensor.json", connection=transport, modbus_unit_id=2)
 
 flow_meter.open()
 level_sensor.open()   # shares the connection flow_meter already opened
@@ -646,7 +648,7 @@ flow_meter.close()    # connection stays open: level_sensor still holds it
 level_sensor.close()  # last owner leaves: connection tears down
 ```
 
-The connection opens for the first device and stays open until the last one closes, the same shared-ownership rule every `instro` transport follows. See [Sharing one connection across unit addresses](/instrumentation/transports/modbus#sharing-one-connection-across-unit-addresses) for the transport-level detail, including `.at()`'s docstring for the unit-address validation and holder accounting.
+The connection opens for the first device and stays open until the last one closes, the same shared-ownership rule every `instro` transport follows. A shared transport requires an explicit `modbus_unit_id` per device: two devices silently defaulting to the same address on one line is the failure this guards against. See [Sharing one connection across unit addresses](/instrumentation/transports/modbus#sharing-one-connection-across-unit-addresses) for the transport-level detail.
 
 ## Creating a ModbusDevice Instance
 
@@ -708,7 +710,7 @@ config = ModbusConfig(
 )
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
-device = ModbusDevice(config, connection=transport.at(1), autostart=True)
+device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=True)
 ```
 
 </Tab>
@@ -720,8 +722,8 @@ device = ModbusDevice(config, connection=transport.at(1), autostart=True)
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `config` | Yes | | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
-| `connection` | No | | A `ModbusUnit` (from `transport.at(unit_id)`), a bare `ModbusTransport`, or a `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
-| `modbus_unit_id` | No | | Unit/slave address (0 to 255 at this field's own boundary; narrowed to 0-247 once bound to an RTU/ASCII transport via `.at()`, since 248-255 are reserved on a real serial line). Required alongside a bare shared `ModbusTransport`; rejected alongside an already-bound `ModbusUnit`. Defaults to 1 only when the device builds its own private transport. |
+| `connection` | No | | A `ModbusTransport` (pass the same instance to several devices to share one line) or a `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
+| `modbus_unit_id` | No | | Unit/slave address (0 to 255; 0 to 247 on an RTU/ASCII transport, since 248-255 are reserved on a real serial line). May also come from the config (top-level `modbus_unit_id` or `connection.unit_id`); values given in more than one place must agree. Required alongside a shared `ModbusTransport`. Defaults to 1 only when the device builds its own private transport. |
 | `name` | No | `device.name` | Override the instrument name used for channel naming |
 | `publishers` | No | `None` | List of publishers to attach at construction time |
 | `autostart` | No | `False` | If `True` and the config contains a `timing` section, opens the connection and starts background polling on instantiation |

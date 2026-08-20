@@ -5,7 +5,6 @@ from __future__ import annotations
 import abc
 import functools
 import struct
-import threading
 from typing import Literal
 
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
@@ -175,7 +174,7 @@ def _modbus_op(fn):
 
 
 class ModbusTransport(TransportBase, abc.ABC):
-    """Abstract Modbus line: owns the session, locking, and every wire op, addressed per call or bound once via :meth:`at`. Annotate against it; construct a concrete subclass."""
+    """Abstract Modbus line: owns the session, locking, and every wire op, addressed per call via ``unit_id``. Annotate against it; construct a concrete subclass."""
 
     # Highest valid unit_id; ModbusRTUTransport narrows this to 247 (Modbus over Serial Line
     # spec 2.2 reserves 248-255 rather than assigning them to slaves).
@@ -209,11 +208,11 @@ class ModbusTransport(TransportBase, abc.ABC):
         """Build, connect, and return this physical layer's pymodbus client; raise ``ConnectionError`` naming the target on failure."""
         ...
 
-    def at(self, unit_id: int) -> ModbusUnit:
-        """Bind ``unit_id`` (0 to :attr:`_max_unit_id`) to this transport, returning a ``ModbusUnit`` that addresses it — call once per device to share one connection across several units."""
+    def check_unit_id(self, unit_id: int) -> int:
+        """Validate ``unit_id`` against this physical layer's range (0 to :attr:`_max_unit_id`) and return it."""
         if not 0 <= unit_id <= self._max_unit_id:
             raise ValueError(f"unit_id must be between 0 and {self._max_unit_id}, got {unit_id}")
-        return ModbusUnit(self, unit_id)
+        return unit_id
 
     @_modbus_op
     def read_holding_registers(self, address: int, count: int, *, unit_id: int) -> list[int]:
@@ -351,7 +350,7 @@ class ModbusTransport(TransportBase, abc.ABC):
 
 
 class ModbusTCPTransport(ModbusTransport):
-    """A Modbus TCP line. One socket, addressed per wire op or through ``at()``."""
+    """A Modbus TCP line. One socket, addressed per wire op via ``unit_id``."""
 
     def __init__(self, host: str, port: int = 502, timeout: float = 3.0) -> None:
         """Construct from the socket's own fields; no unit address lives here."""
@@ -374,7 +373,7 @@ class ModbusTCPTransport(ModbusTransport):
 
 
 class ModbusRTUTransport(ModbusTransport):
-    """A Modbus serial line (RTU or ASCII framing). One port, addressed per wire op or through ``at()``."""
+    """A Modbus serial line (RTU or ASCII framing). One port, addressed per wire op via ``unit_id``."""
 
     _max_unit_id = 247
 
@@ -427,115 +426,3 @@ class ModbusRTUTransport(ModbusTransport):
             client.close()
             raise ConnectionError(f"Failed to connect to Modbus device at {self._port}")
         return client
-
-
-class ModbusUnit:
-    """A ``ModbusTransport`` bound to one unit address by ``at()``; forwards every wire op with that address supplied."""
-
-    def __init__(self, transport: ModbusTransport, unit_id: int) -> None:
-        """Bind ``unit_id`` to ``transport``. Obtain one from ``transport.at(unit_id)``, which validates the range."""
-        self._transport = transport
-        self._unit_id = unit_id
-
-    @property
-    def transport(self) -> ModbusTransport:
-        """The transport this unit is bound to; rebinding to another address goes through it."""
-        return self._transport
-
-    @property
-    def unit_id(self) -> int:
-        """The bound unit address."""
-        return self._unit_id
-
-    def open(self, holder: object | None = None) -> bool:
-        """Open the underlying transport, passing the caller's own holder identity through."""
-        return self._transport.open(holder)
-
-    def close(self, holder: object | None = None) -> None:
-        """Close the underlying transport, passing the caller's own holder identity through."""
-        self._transport.close(holder)
-
-    @property
-    def is_open(self) -> bool:
-        """Whether the underlying transport is open."""
-        return self._transport.is_open
-
-    def lock(self) -> threading.RLock:
-        """The underlying transport's reentrant lock, shared by every unit bound to it."""
-        return self._transport.lock()
-
-    def read_holding_registers(self, address: int, count: int) -> list[int]:
-        """Read holding registers by address (FC03) at the bound unit."""
-        return self._transport.read_holding_registers(address, count, unit_id=self._unit_id)
-
-    def read_input_registers(self, address: int, count: int) -> list[int]:
-        """Read input registers by address (FC04) at the bound unit."""
-        return self._transport.read_input_registers(address, count, unit_id=self._unit_id)
-
-    def write_holding_register(self, address: int, value: int) -> None:
-        """Write a single holding register by address (FC06) at the bound unit."""
-        self._transport.write_holding_register(address, value, unit_id=self._unit_id)
-
-    def write_holding_registers(self, address: int, values: list[int]) -> None:
-        """Write multiple holding registers by address (FC16) at the bound unit."""
-        self._transport.write_holding_registers(address, values, unit_id=self._unit_id)
-
-    def read_coils(self, address: int, count: int) -> list[bool]:
-        """Read coils by address (FC01) at the bound unit."""
-        return self._transport.read_coils(address, count, unit_id=self._unit_id)
-
-    def write_coil(self, address: int, value: bool) -> None:
-        """Write a single coil by address (FC05) at the bound unit."""
-        self._transport.write_coil(address, value, unit_id=self._unit_id)
-
-    def write_coils(self, address: int, values: list[bool]) -> None:
-        """Write multiple coils by address (FC15) at the bound unit."""
-        self._transport.write_coils(address, values, unit_id=self._unit_id)
-
-    def read_discrete_inputs(self, address: int, count: int) -> list[bool]:
-        """Read discrete inputs by address (FC02) at the bound unit."""
-        return self._transport.read_discrete_inputs(address, count, unit_id=self._unit_id)
-
-    def read_typed(
-        self,
-        register_type: RegisterType,
-        address: int,
-        data_type: DataType,
-        *,
-        byte_swap: bool = False,
-        word_swap: bool = False,
-        long_swap: bool = False,
-    ) -> int | float | bool:
-        """Read ``address`` as ``data_type`` at the bound unit."""
-        return self._transport.read_typed(
-            register_type,
-            address,
-            data_type,
-            unit_id=self._unit_id,
-            byte_swap=byte_swap,
-            word_swap=word_swap,
-            long_swap=long_swap,
-        )
-
-    def write_typed(
-        self,
-        register_type: RegisterType,
-        address: int,
-        value: int | float | bool,
-        data_type: DataType,
-        *,
-        byte_swap: bool = False,
-        word_swap: bool = False,
-        long_swap: bool = False,
-    ) -> None:
-        """Encode ``value`` as ``data_type`` and write it to ``address`` at the bound unit."""
-        self._transport.write_typed(
-            register_type,
-            address,
-            value,
-            data_type,
-            unit_id=self._unit_id,
-            byte_swap=byte_swap,
-            word_swap=word_swap,
-            long_swap=long_swap,
-        )
