@@ -3,9 +3,8 @@
 Encodes the primary user story end-to-end: construct one ModbusTCPTransport, pass it to several
 devices each with its own ``unit_id``, and have each read and write only its own unit over
 the one session — surviving the first device's close and released by the last. Also pins the shape
-the addresses now live in: no unit_id on a transport, ``unit_id`` on the device (with the
-pre-existing ``connection.unit_id`` config key still accepted), and no
-ModbusDriver/TCPConnection/RTUConnection. A second, narrow scenario proves the same one-session
+the addresses live in: no unit_id on a transport, ``unit_id`` on the device (from the constructor
+kwarg or the config's ``connection.unit_id``), and no ModbusDriver/TCPConnection/RTUConnection. A second, narrow scenario proves the same one-session
 invariant on the serial path with a mocked pymodbus client, since CI has no RS-485 line.
 Fails until the transport classes exist.
 """
@@ -167,9 +166,9 @@ def test_two_devices_share_one_connection(two_unit_server):
     solo.close()
 
 
-def test_pre_rename_connection_unit_id_still_works(two_unit_server):
-    # Regression gate for existing configs: the connection-block unit_id predates the
-    # top-level unit_id field and must keep loading and routing, not raise.
+def test_connection_block_unit_id_addresses_the_device(two_unit_server):
+    # Regression gate for existing configs: connection.unit_id is the canonical config
+    # location for the address and must keep loading and routing, not raise.
     legacy = ModbusDevice(
         config=DEVICE_CONFIG,
         connection={"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": PUMP_UNIT},
@@ -194,15 +193,18 @@ def test_pre_rename_connection_unit_id_still_works(two_unit_server):
 
 
 def test_unit_id_conflict_between_constructor_and_config_is_rejected(two_unit_server):
-    config_with_address = {**DEVICE_CONFIG, "unit_id": FLOW_UNIT}
-    connection = {"transport": "tcp", "host": HOST, "port": TEST_PORT}
+    config_with_address = {
+        **DEVICE_CONFIG,
+        "connection": {"transport": "tcp", "host": HOST, "port": TEST_PORT, "unit_id": FLOW_UNIT},
+    }
 
-    # Constructor kwarg disagrees with the config field: a named error, not a silent override.
+    # Constructor kwarg disagrees with the config's connection block: a named error, not a
+    # silent override.
     with pytest.raises(ValueError, match="unit_id"):
-        ModbusDevice(config=config_with_address, connection=connection, unit_id=PUMP_UNIT)
+        ModbusDevice(config=config_with_address, unit_id=PUMP_UNIT)
 
     # Agreeing values are not a conflict.
-    device = ModbusDevice(config=config_with_address, connection=connection, unit_id=FLOW_UNIT)
+    device = ModbusDevice(config=config_with_address, unit_id=FLOW_UNIT)
     assert device.unit_id == FLOW_UNIT
 
 

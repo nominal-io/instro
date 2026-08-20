@@ -58,9 +58,9 @@ modbus_device.close()
     "transport": "tcp",
     "host": "<device ip address>",
     "port": 502,
-    "timeout": 3.0
+    "timeout": 3.0,
+    "unit_id": 1
   },
-  "unit_id": 1,
   "timing": {
     "poll_interval": 1.0
   },
@@ -422,9 +422,9 @@ ModbusDevice is configured through a JSON file. Every config file must include:
     "transport": "tcp",
     "host": "<device ip address>",
     "port": 502,
-    "timeout": 3.0
+    "timeout": 3.0,
+    "unit_id": 1
   },
-  "unit_id": 1,
   "timing": {
     "poll_interval": 1.0,
     "write_delay_ms": 100
@@ -514,7 +514,7 @@ Metadata about the physical device. The `name` field is used as a prefix for cha
 
 ### Connection Section
 
-The unit/slave address belongs to the device, not the connection: set it with the top-level `unit_id` field (see [Parameters](#parameters)), or pass `unit_id` to the `ModbusDevice` constructor. The connection block also accepts a `unit_id` field for compatibility with existing configs; it means the same thing, and an address given in more than one place must agree. When the device shares a transport with others, the address is required; see [Sharing One Bus Across Multiple Units](#sharing-one-bus-across-multiple-units).
+Set the unit/slave address with the connection block's `unit_id` field, or pass `unit_id` to the `ModbusDevice` constructor; an address given in both places must agree. When the device shares a transport with others, the constructor argument is required; see [Sharing One Bus Across Multiple Units](#sharing-one-bus-across-multiple-units).
 
 #### TCP Connection
 
@@ -524,7 +524,7 @@ The unit/slave address belongs to the device, not the connection: set it with th
 | `host` | Yes | | IP address or hostname |
 | `port` | No | `502` | TCP port (1 to 65535) |
 | `timeout` | No | `3.0` | Response timeout in seconds |
-| `unit_id` | No | | Unit/slave address (0 to 255). Equivalent to the top-level `unit_id` |
+| `unit_id` | No | `1` | Unit/slave address (0 to 255) |
 
 #### RTU (Serial) Connection
 
@@ -538,7 +538,7 @@ The unit/slave address belongs to the device, not the connection: set it with th
 | `bytesize` | No | `8` | Data bits: `5`, `6`, `7`, or `8` |
 | `timeout` | No | `3.0` | Response timeout in seconds |
 | `framer` | No | `"rtu"` | Serial transmission mode: `"rtu"` or `"ascii"` |
-| `unit_id` | No | | Unit/slave address (0 to 247; 248-255 are reserved on a serial line). Equivalent to the top-level `unit_id` |
+| `unit_id` | No | `1` | Unit/slave address (0 to 247; 248-255 are reserved on a serial line) |
 
 **Common serial port paths:**
 
@@ -723,7 +723,7 @@ device = ModbusDevice(config, connection=transport, unit_id=1, autostart=True)
 |-----------|----------|---------|-------------|
 | `config` | Yes | | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
 | `connection` | No | | A `ModbusTransport` (pass the same instance to several devices to share one line) or a `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
-| `unit_id` | No | | Unit/slave address (0 to 255; 0 to 247 on an RTU/ASCII transport, since 248-255 are reserved on a real serial line). May also come from the config (top-level `unit_id` or `connection.unit_id`); values given in more than one place must agree. Required alongside a shared `ModbusTransport`. Defaults to 1 only when the device builds its own private transport. |
+| `unit_id` | No | | Unit/slave address (0 to 255; 0 to 247 on an RTU/ASCII transport, since 248-255 are reserved on a real serial line). May also come from the connection block's `unit_id` field; values given in both places must agree. Required alongside a shared `ModbusTransport`. Defaults to 1 only when the device builds its own private transport. |
 | `name` | No | `device.name` | Override the instrument name used for channel naming |
 | `publishers` | No | `None` | List of publishers to attach at construction time |
 | `autostart` | No | `False` | If `True` and the config contains a `timing` section, opens the connection and starts background polling on instantiation |
@@ -864,9 +864,9 @@ The only difference for RTU is in the config file. The Python code is identical:
     "parity": "N",
     "stopbits": 1,
     "bytesize": 8,
-    "timeout": 2.0
+    "timeout": 2.0,
+    "unit_id": 1
   },
-  "unit_id": 1,
   "registers": [
     {
       "name": "temperature",
