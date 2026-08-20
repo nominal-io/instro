@@ -352,7 +352,7 @@ class ModbusConfig(BaseModel):
     device: DeviceInfo
     timing: TimingConfig | None = None
     connection: _ConnectionConfig | None = None
-    modbus_unit_id: int | None = Field(default=None, ge=0, le=255)
+    unit_id: int | None = Field(default=None, ge=0, le=255)
     registers: list[RegisterDef] = Field(default_factory=list)
 
     def model_post_init(self, __context) -> None:

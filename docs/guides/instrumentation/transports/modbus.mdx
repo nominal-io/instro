@@ -134,7 +134,7 @@ modbus.close(level_sensor)  # last owner leaves: connection tears down
 
 The valid `unit_id` range is 0 to 255 on `ModbusTCPTransport` and 0 to 247 on `ModbusRTUTransport` (Modbus over Serial Line reserves 248-255, so a real RTU/ASCII slave will never have one of those addresses); `check_unit_id()` validates an address against the transport's range up front. This is the same shared-ownership mechanism described in [Transports: shared ownership](/instrumentation/transports/overview#shared-ownership), applied to one line instead of one device with two categories.
 
-For config-driven devices, [`ModbusDevice`](/instrumentation/protocols/modbus) wraps this pattern: pass the same transport to several devices, each with its own `modbus_unit_id`.
+For config-driven devices, [`ModbusDevice`](/instrumentation/protocols/modbus) wraps this pattern: pass the same transport to several devices, each with its own `unit_id`.
 
 ## Configuration
 

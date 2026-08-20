@@ -60,7 +60,7 @@ modbus_device.close()
     "port": 502,
     "timeout": 3.0
   },
-  "modbus_unit_id": 1,
+  "unit_id": 1,
   "timing": {
     "poll_interval": 1.0
   },
@@ -424,7 +424,7 @@ ModbusDevice is configured through a JSON file. Every config file must include:
     "port": 502,
     "timeout": 3.0
   },
-  "modbus_unit_id": 1,
+  "unit_id": 1,
   "timing": {
     "poll_interval": 1.0,
     "write_delay_ms": 100
@@ -514,7 +514,7 @@ Metadata about the physical device. The `name` field is used as a prefix for cha
 
 ### Connection Section
 
-The unit/slave address belongs to the device, not the connection: set it with the top-level `modbus_unit_id` field (see [Parameters](#parameters)), or pass `modbus_unit_id` to the `ModbusDevice` constructor. The connection block also accepts a `unit_id` field for compatibility with existing configs; it means the same thing, and an address given in more than one place must agree. When the device shares a transport with others, the address is required; see [Sharing One Bus Across Multiple Units](#sharing-one-bus-across-multiple-units).
+The unit/slave address belongs to the device, not the connection: set it with the top-level `unit_id` field (see [Parameters](#parameters)), or pass `unit_id` to the `ModbusDevice` constructor. The connection block also accepts a `unit_id` field for compatibility with existing configs; it means the same thing, and an address given in more than one place must agree. When the device shares a transport with others, the address is required; see [Sharing One Bus Across Multiple Units](#sharing-one-bus-across-multiple-units).
 
 #### TCP Connection
 
@@ -524,7 +524,7 @@ The unit/slave address belongs to the device, not the connection: set it with th
 | `host` | Yes | | IP address or hostname |
 | `port` | No | `502` | TCP port (1 to 65535) |
 | `timeout` | No | `3.0` | Response timeout in seconds |
-| `unit_id` | No | | Unit/slave address (0 to 255). Equivalent to the top-level `modbus_unit_id` |
+| `unit_id` | No | | Unit/slave address (0 to 255). Equivalent to the top-level `unit_id` |
 
 #### RTU (Serial) Connection
 
@@ -538,7 +538,7 @@ The unit/slave address belongs to the device, not the connection: set it with th
 | `bytesize` | No | `8` | Data bits: `5`, `6`, `7`, or `8` |
 | `timeout` | No | `3.0` | Response timeout in seconds |
 | `framer` | No | `"rtu"` | Serial transmission mode: `"rtu"` or `"ascii"` |
-| `unit_id` | No | | Unit/slave address (0 to 247; 248-255 are reserved on a serial line). Equivalent to the top-level `modbus_unit_id` |
+| `unit_id` | No | | Unit/slave address (0 to 247; 248-255 are reserved on a serial line). Equivalent to the top-level `unit_id` |
 
 **Common serial port paths:**
 
@@ -630,7 +630,7 @@ device = ModbusDevice(
 
 ## Sharing One Bus Across Multiple Units
 
-An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several physical devices at different unit addresses over what is one physical connection. Build a single transport and pass it as each device's `connection`, with each device's own `modbus_unit_id`:
+An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several physical devices at different unit addresses over what is one physical connection. Build a single transport and pass it as each device's `connection`, with each device's own `unit_id`:
 
 ```python
 from instro.lib.transports import ModbusTCPTransport
@@ -638,8 +638,8 @@ from instro.modbus import ModbusDevice
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
 
-flow_meter = ModbusDevice(config="flow_meter.json", connection=transport, modbus_unit_id=1)
-level_sensor = ModbusDevice(config="level_sensor.json", connection=transport, modbus_unit_id=2)
+flow_meter = ModbusDevice(config="flow_meter.json", connection=transport, unit_id=1)
+level_sensor = ModbusDevice(config="level_sensor.json", connection=transport, unit_id=2)
 
 flow_meter.open()
 level_sensor.open()   # shares the connection flow_meter already opened
@@ -648,7 +648,7 @@ flow_meter.close()    # connection stays open: level_sensor still holds it
 level_sensor.close()  # last owner leaves: connection tears down
 ```
 
-The connection opens for the first device and stays open until the last one closes, the same shared-ownership rule every `instro` transport follows. A shared transport requires an explicit `modbus_unit_id` per device: two devices silently defaulting to the same address on one line is the failure this guards against. See [Sharing one connection across unit addresses](/instrumentation/transports/modbus#sharing-one-connection-across-unit-addresses) for the transport-level detail.
+The connection opens for the first device and stays open until the last one closes, the same shared-ownership rule every `instro` transport follows. A shared transport requires an explicit `unit_id` per device: two devices silently defaulting to the same address on one line is the failure this guards against. See [Sharing one connection across unit addresses](/instrumentation/transports/modbus#sharing-one-connection-across-unit-addresses) for the transport-level detail.
 
 ## Creating a ModbusDevice Instance
 
@@ -710,7 +710,7 @@ config = ModbusConfig(
 )
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
-device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=True)
+device = ModbusDevice(config, connection=transport, unit_id=1, autostart=True)
 ```
 
 </Tab>
@@ -723,7 +723,7 @@ device = ModbusDevice(config, connection=transport, modbus_unit_id=1, autostart=
 |-----------|----------|---------|-------------|
 | `config` | Yes | | Path to a JSON file, a `dict`, or a `ModbusConfig` instance |
 | `connection` | No | | A `ModbusTransport` (pass the same instance to several devices to share one line) or a `dict`. Takes precedence over the connection in the config. Required if the config does not include a connection section. |
-| `modbus_unit_id` | No | | Unit/slave address (0 to 255; 0 to 247 on an RTU/ASCII transport, since 248-255 are reserved on a real serial line). May also come from the config (top-level `modbus_unit_id` or `connection.unit_id`); values given in more than one place must agree. Required alongside a shared `ModbusTransport`. Defaults to 1 only when the device builds its own private transport. |
+| `unit_id` | No | | Unit/slave address (0 to 255; 0 to 247 on an RTU/ASCII transport, since 248-255 are reserved on a real serial line). May also come from the config (top-level `unit_id` or `connection.unit_id`); values given in more than one place must agree. Required alongside a shared `ModbusTransport`. Defaults to 1 only when the device builds its own private transport. |
 | `name` | No | `device.name` | Override the instrument name used for channel naming |
 | `publishers` | No | `None` | List of publishers to attach at construction time |
 | `autostart` | No | `False` | If `True` and the config contains a `timing` section, opens the connection and starts background polling on instantiation |
@@ -866,7 +866,7 @@ The only difference for RTU is in the config file. The Python code is identical:
     "bytesize": 8,
     "timeout": 2.0
   },
-  "modbus_unit_id": 1,
+  "unit_id": 1,
   "registers": [
     {
       "name": "temperature",
@@ -916,13 +916,13 @@ finally:
 
 | Method | Purpose |
 |--------|---------|
-| `ModbusDevice(config, connection=None, name=None, publishers=None, autostart=False, modbus_unit_id=None)` | Create a new Modbus client from a JSON config file, `dict`, or `ModbusConfig` instance. Optionally pass a separate connection and/or unit address. |
+| `ModbusDevice(config, connection=None, name=None, publishers=None, autostart=False, unit_id=None)` | Create a new Modbus client from a JSON config file, `dict`, or `ModbusConfig` instance. Optionally pass a separate connection and/or unit address. |
 | `add_publisher(publisher)` | Attach a publisher for automatic data streaming |
 | `open()` | Open connection to the Modbus device (TCP or RTU) |
 | `close()` | Close connection and stop background polling |
 | `read(alias, **kwargs)` | Read a register by alias, apply scaling, return `Measurement` |
 | `write(alias, value, **kwargs)` | Write a value to a register by alias (accepts strings for `write_value_map` registers), apply reverse scaling, return `Command` |
-| `modbus_unit_id` | Property (read-only): the Modbus unit/slave address this device is bound to |
+| `unit_id` | Property (read-only): the Modbus unit/slave address this device is bound to |
 | `get_channel(channel_name, length=1, wait_for_new_samples=False, timeout=10.0)` | Retrieve buffered poll data for a channel |
 | `start()` | Start background polling daemon |
 | `stop()` | Stop background polling daemon |
