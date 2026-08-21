@@ -330,7 +330,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 |--------|---------|
 | `InstroELoad(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroELoad with a vendor driver |
 | `InstroELoad(config=..., publishers=None, autostart=False, **kwargs)` | Construct from an `ELoadConfig`, a dict, or a path to a JSON config file |
-| `open()` | Establish VISA connection to the electronic load |
+| `open()` | Establish VISA connection and apply the config's `load` block (if any) through the public setters |
 | `close()` | Disconnect from electronic load and close all publishers |
 | `set_mode(mode, channel=1)` | Set operating mode (CC, CV, CR, or CP) |
 | `set_level(value, channel=1, curr_limit=None)` | Set the operating level (A, V, Ω, or W depending on mode) |

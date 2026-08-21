@@ -41,19 +41,13 @@ def test_init_with_config_dict(valid_config):
 
 
 def test_init_with_config_dict_and_timing_sets_background_interval(valid_config):
+    # Decision 3 in INSTRO-566: polled measurements work regardless of mode,
+    # so timing standalone (no load block) must stay valid for passive monitoring.
     config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
     with patch("instro.eload.drivers.bk_85xxb.VisaDriver"):
         eload = InstroELoad(config=config_with_timing)
 
     assert eload.background_interval == 0.5
-
-
-def test_init_with_config_dict_timing_is_valid_without_load_block(valid_config):
-    # Decision 3 in INSTRO-566: polled measurements work regardless of mode,
-    # so timing standalone must stay valid for passive monitoring.
-    with patch("instro.eload.drivers.bk_85xxb.VisaDriver"):
-        eload = InstroELoad(config={**valid_config, "timing": {"poll_interval": 0.5}})
-
     assert eload._config.load is None
 
 
@@ -88,6 +82,10 @@ def test_open_applies_load_config_in_order(valid_config):
     mock_driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.5, channel=1, curr_limit=None)
     mock_driver.set_range.assert_called_once_with(mode=LoadMode.CC, value=5.0, channel=1)
     mock_driver.set_slewrate.assert_called_once_with(direction=SlewRateDirection.BOTH, rate=0.5, channel=1)
+    # Decision 2 in INSTRO-566: loading a config must never start sinking current or
+    # short the input (implied by the exact order equality, asserted here explicitly).
+    mock_driver.output_enable.assert_not_called()
+    mock_driver.short_output.assert_not_called()
 
 
 def test_open_applies_cv_level_with_curr_limit(valid_config):
@@ -118,22 +116,6 @@ def test_open_without_load_block_touches_nothing(valid_config):
     assert method_order == ["open"]
 
 
-def test_open_never_enables_input_or_short_from_config(valid_config):
-    # Decision 2 in INSTRO-566: loading a config must never start sinking
-    # current or short the input.
-    eload, mock_driver = _make_eload_with_mock_driver(
-        {
-            **valid_config,
-            "load": {"mode": "CC", "level": 1.5, "range": 5.0, "slew_rate": {"direction": "BOTH", "rate": 0.5}},
-        }
-    )
-
-    eload.open()
-
-    mock_driver.output_enable.assert_not_called()
-    mock_driver.short_output.assert_not_called()
-
-
 def test_open_closes_driver_and_rolls_back_state_when_load_apply_fails(valid_config):
     eload, mock_driver = _make_eload_with_mock_driver({**valid_config, "load": {"mode": "CP", "range": 5.0}})
     mock_driver.set_range.side_effect = NotImplementedError("only exposes :RANGe for CC and CV")
@@ -145,6 +127,21 @@ def test_open_closes_driver_and_rolls_back_state_when_load_apply_fails(valid_con
     # The partial apply must not leave a stale mode that lets set_level run against a closed driver.
     with pytest.raises(ValueError, match="Mode must be set"):
         eload.set_level(1.0)
+
+
+def test_close_releases_driver_and_resets_apply_flag_when_publisher_close_raises(valid_config):
+    eload, mock_driver = _make_eload_with_mock_driver({**valid_config, "load": {"mode": "CC"}})
+    failing_publisher = MagicMock()
+    failing_publisher.close.side_effect = OSError("disk full")
+    eload.publishers = [failing_publisher]
+
+    eload.open()
+    with pytest.raises(OSError):
+        eload.close()
+
+    mock_driver.close.assert_called_once()
+    eload.open()
+    assert mock_driver.set_mode.call_count == 2, "load block must be re-applied on reopen after a failed close"
 
 
 def test_reopen_without_close_does_not_reapply_load_config(valid_config):
@@ -223,13 +220,12 @@ def test_init_with_no_config_and_missing_direct_args_raises():
 
 
 def test_init_with_autostart_opens_and_starts(valid_config):
-    config_with_timing = {**valid_config, "timing": {"poll_interval": 0.5}}
     with (
         patch("instro.eload.drivers.bk_85xxb.VisaDriver"),
         patch.object(InstroELoad, "open") as mock_open,
         patch.object(InstroELoad, "start") as mock_start,
     ):
-        InstroELoad(config=config_with_timing, autostart=True)
+        InstroELoad(config=valid_config, autostart=True)
 
     mock_open.assert_called_once()
     mock_start.assert_called_once()

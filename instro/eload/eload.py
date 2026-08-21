@@ -188,7 +188,6 @@ class InstroELoad(Instrument):
             self._apply_load_config()
         except Exception:
             self._mode = None
-            self._load_config_applied = False
             self._driver.close()
             raise
         logger.info("Opened E-Load '%s'", self.name)
@@ -210,9 +209,13 @@ class InstroELoad(Instrument):
     def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing E-Load '%s'", self.name)
-        super().close()
-        self._driver.close()
+        # Reset before teardown: a failing publisher close must not strand the flag,
+        # or a later reopen would silently skip re-applying the configured load state.
         self._load_config_applied = False
+        try:
+            super().close()
+        finally:
+            self._driver.close()
         logger.info("Closed E-Load '%s'", self.name)
 
     @publish_command

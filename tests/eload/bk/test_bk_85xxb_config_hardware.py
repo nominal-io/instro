@@ -160,6 +160,18 @@ def _assert_polled(capture: _CapturePublisher, since: int, context: str) -> None
     print(f"         {context}: {len(polled)} measurements published")
 
 
+def _check_reopen_reapplies(eload: InstroELoad) -> None:
+    eload.close()
+    eload.open()
+    driver = eload._driver
+    assert isinstance(driver, BK85XXB)
+    function = driver._visa.query("FUNCtion?").strip().upper()
+    prot = float(driver._visa.query("CURRent:PROTection?"))
+    print(f"         after reopen: FUNC? -> {function}, CURR:PROT? -> {prot:g} A")
+    assert function.startswith("VOLT"), f"mode {function!r} not re-applied on reopen"
+    assert prot == pytest.approx(CURR_LIMIT_A), f"curr_limit {prot:g} not re-applied on reopen"
+
+
 def _check_polling(eload: InstroELoad, capture: _CapturePublisher) -> None:
     before = len(capture.measurements)
     eload.start()
@@ -191,6 +203,7 @@ def run_all() -> list:
         _run(
             "start()/stop() background polling publishes measurements", lambda: _check_polling(eload, capture), failures
         )
+        _run("close()/open() re-applies configured load block", lambda: _check_reopen_reapplies(eload), failures)
     finally:
         try:
             eload.output_enable(False, channel=CHANNEL)

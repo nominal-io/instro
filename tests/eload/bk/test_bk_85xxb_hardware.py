@@ -53,6 +53,7 @@ CR_LEVEL_OHM = 100.0
 CP_LEVEL_W = 1.0
 CC_RANGE_A = 1.0
 CV_RANGE_V = 10.0
+CURR_LIMIT_A = 0.5
 SLEW_RATE_A_PER_US = 0.1
 
 # Strict value check (open terminals -> leave None). Set to the source you feed
@@ -136,6 +137,17 @@ def run_all() -> list:
             eload.set_mode(LoadMode.CC, channel=ch)
 
         _run("set_level (CC/CV/CR/CP)", levels, failures)
+
+        # --- set_level with curr_limit arms CURR:PROT (over-current trip) ---
+        def cv_curr_limit() -> None:
+            eload.set_mode(LoadMode.CV, channel=ch)
+            eload.set_level(value=CV_LEVEL_V, channel=ch, curr_limit=CURR_LIMIT_A)
+            prot = float(eload._driver._visa.query("CURRent:PROTection?"))
+            print(f"         CURR:PROT? -> {prot} A")
+            assert math.isclose(prot, CURR_LIMIT_A, rel_tol=0.01), f"protection {prot} != {CURR_LIMIT_A}"
+            eload.set_mode(LoadMode.CC, channel=ch)
+
+        _run("set_level curr_limit -> CURR:PROT", cv_curr_limit, failures)
 
         # --- set_range for CC and CV ---
         def range_cc_cv() -> None:
