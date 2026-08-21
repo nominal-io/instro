@@ -158,6 +158,8 @@ class DaqInScanEngine:
         for channel in channels:
             if isinstance(channel, AnalogThermocoupleChannel):
                 continue
+            if isinstance(channel, AnalogCurrentChannel):
+                raise ValueError(f"'{channel.alias}': daq_in_scan does not support current channels.")
             channel_list.append(int(channel.physical_channel))
             channel_type_list.append(self._get_analog_channel_type(channel.terminal_config))
             gain_list.append(channel_ranges[channel.alias])
