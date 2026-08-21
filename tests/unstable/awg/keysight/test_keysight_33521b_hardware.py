@@ -723,13 +723,7 @@ def test_25_set_sweep_linear_on_every_valid_carrier(driver: Keysight33521B, carr
     assert driver.get_sweep_state(CHANNEL) is False
 
 
-def test_26_set_sweep_rejects_staticvalue_carrier_and_step_spacing(driver: Keysight33521B) -> None:
-    driver.set_waveform(CHANNEL, StaticValue(value=TEST_OFFSET_V))
-
-    with pytest.raises(ValueError, match="cannot sweep a StaticValue"):
-        driver.set_sweep(CHANNEL, SweepType.LINEAR)
-    driver._check_errors()
-
+def test_26_set_sweep_rejects_step_spacing(driver: Keysight33521B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     with pytest.raises(ValueError, match="does not support STEP sweep spacing"):
         driver.set_sweep(CHANNEL, SweepType.STEP)
@@ -746,21 +740,15 @@ def test_27_get_sweep_type_matches_configured_type(driver: Keysight33521B, sweep
 
 
 def test_28_sweep_enable_actually_drives_frequency_mode(driver: Keysight33521B) -> None:
-    """Bench check for a manual ambiguity, not resolved from the PDF alone.
-
-    The SWEep-subsystem tutorial's last enable step is `SWEep:STATe ON`, but the FREQuency-subsystem's
-    own worked example enables sweep output via `FREQuency:MODE SWEep` alone and never touches
-    `SWEep:STATe`. This driver implements `sweep_enable`/`get_sweep_state` against `SWEep:STATe` on the
-    assumption the two registers are aliased/interlocked (mirroring how `BURSt:STATe` and every
-    modulation `:STAT` node behave elsewhere on this instrument). If `FREQuency:MODE?` does not read
-    back `SWE` here, that assumption is wrong and `sweep_enable`/`get_sweep_state` need to drive
-    `FREQuency:MODE` directly instead.
-    """
+    """Bench check for a manual ambiguity: does SWEep:STATe ON actually alias to FREQuency:MODE SWEep?"""
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_sweep(CHANNEL, SweepType.LINEAR)
     driver.sweep_enable(CHANNEL, True)
     driver._check_errors()
 
+    # The SWEep tutorial ends in SWEep:STATe ON; the FREQuency tutorial enables sweep via
+    # FREQuency:MODE SWEep alone and never touches SWEep:STATe. This assumes the two are
+    # aliased, mirroring how BURSt:STATe behaves elsewhere on this instrument.
     freq_mode = driver._visa.query("FREQ:MODE?").strip()
     assert freq_mode == "SWE", (
         f"SWEep:STATe ON did not switch FREQuency:MODE to SWEep (got {freq_mode!r} instead);"
@@ -877,13 +865,13 @@ def test_37_set_sweep_hold_and_return_time_reject_negative_value(driver: Keysigh
     driver._check_errors()
 
 
-def test_38_set_sweep_accepts_untracked_arbitrary_carrier(driver: Keysight33521B) -> None:
-    """Regression: pop the cache to simulate a driver instance that never downloaded this Arbitrary."""
-    driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0))
-    driver._check_errors()
-    driver._arb_waveforms.pop(CHANNEL)
-
+def test_38_set_sweep_accepts_staticvalue_but_enable_is_rejected_by_hardware(driver: Keysight33521B) -> None:
+    """Hardware-confirmed: SWE:SPAC accepts a DC carrier, but SWE:STAT ON on it raises -221 "Settings conflict"."""
+    driver.set_waveform(CHANNEL, StaticValue(value=TEST_OFFSET_V))
     driver.set_sweep(CHANNEL, SweepType.LINEAR)
     driver._check_errors()
 
     assert driver.get_sweep_type(CHANNEL) is SweepType.LINEAR
+
+    with pytest.raises(RuntimeError, match=r'-221,"Settings conflict; not able to sweep this function"'):
+        driver.sweep_enable(CHANNEL, True)

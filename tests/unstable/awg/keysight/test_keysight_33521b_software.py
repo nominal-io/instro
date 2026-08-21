@@ -1093,8 +1093,6 @@ def test_67_set_burst_accepts_untracked_arbitrary_carrier(keysight: Keysight3352
 def test_47_set_sweep_writes_spacing_for_each_supported_type(
     keysight: Keysight33521B, keysight_visa: MagicMock, sweep_type: SweepType, expected_spacing: str
 ) -> None:
-    _query_sequence(keysight_visa, ["SIN"])
-
     keysight.set_sweep(1, sweep_type)
 
     assert keysight_visa.write.call_args_list == [call(f"SWE:SPAC {expected_spacing}")]
@@ -1110,24 +1108,20 @@ def test_48_set_sweep_rejects_step_spacing(keysight: Keysight33521B, keysight_vi
 
 
 @pytest.mark.parametrize(
-    ("channel", "sweep_type", "carrier_responses", "match"),
+    ("channel", "sweep_type", "match"),
     [
-        (2, SweepType.LINEAR, [], "only supports 1 channel"),
-        (1, "LINEAR", [], "sweep_type must be a SweepType"),
-        (1, SweepType.LINEAR, ["DC"], "cannot sweep a StaticValue"),
+        (2, SweepType.LINEAR, "only supports 1 channel"),
+        (1, "LINEAR", "sweep_type must be a SweepType"),
     ],
-    ids=["invalid_channel", "invalid_sweep_type", "staticvalue_carrier"],
+    ids=["invalid_channel", "invalid_sweep_type"],
 )
 def test_49_set_sweep_rejects_invalid_input(
     keysight: Keysight33521B,
     keysight_visa: MagicMock,
     channel: int,
     sweep_type: SweepType,
-    carrier_responses: list[str],
     match: str,
 ) -> None:
-    _query_sequence(keysight_visa, carrier_responses)
-
     with pytest.raises((ValueError, TypeError), match=match):
         keysight.set_sweep(channel, sweep_type)
 
@@ -1311,12 +1305,3 @@ def test_63_set_sweep_hold_and_return_time_reject_negative_value_and_invalid_cha
         keysight.set_sweep_return_time(2, 0.1)
 
     keysight_visa.write.assert_not_called()
-
-
-def test_64_set_sweep_accepts_untracked_arbitrary_carrier(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid sweep carrier."""
-    _query_sequence(keysight_visa, ["ARB"])
-
-    keysight.set_sweep(1, SweepType.LINEAR)
-
-    assert keysight_visa.write.call_args_list == [call("SWE:SPAC LIN")]
