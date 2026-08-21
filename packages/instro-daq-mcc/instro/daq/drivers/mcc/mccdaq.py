@@ -4,6 +4,14 @@ from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
 from typing import Mapping
 
+from instro.daq.drivers.mcc.mcc_engines import (
+    DaqInScanEngine,
+    MCCDeviceInfo,
+    MCCPortInfo,
+    ScaledAInScanEngine,
+    ScanEngine,
+    get_temp_scale,
+)
 from mcculw import ul
 from mcculw.device_info import AoInfo
 from mcculw.enums import (
@@ -24,14 +32,6 @@ from mcculw.ul import ULError
 
 from instro.daq import DAQDriverBase
 from instro.daq.drivers import HWTimestamper
-from instro.daq.drivers.mcc.mcc_engines import (
-    DaqInScanEngine,
-    MCCDeviceInfo,
-    MCCPortInfo,
-    ScaledAInScanEngine,
-    ScanEngine,
-    get_temp_scale,
-)
 from instro.daq.types import (
     AnalogChannel,
     AnalogCurrentChannel,
@@ -518,11 +518,15 @@ class MCCDriver(DAQDriverBase):
         fetch_size = num_chans * samples_per_channel
 
         loop_start = time.monotonic()
+        # fetch time deadline, floored at 5s and dynamic to support low-rate, high-res reads
+        deadline = max(5.0, 2 * samples_per_channel * self._actual_sample_period * 1e-9)
 
         # Outer loop retries if a near-overrun corrupts the copy (see torn-copy guard below).
         while True:
-            if time.monotonic() - loop_start > 5:
-                raise TimeoutError("fetch_analog timed out after 5s waiting for an uncorrupted sample window.")
+            if time.monotonic() - loop_start > deadline:
+                raise TimeoutError(
+                    f"fetch_analog timed out after {deadline:.3g}s waiting for an uncorrupted sample window."
+                )
 
             # Block until enough new samples are available. _samples_consumed tracks how many
             # samples we've already consumed from the stream.
@@ -532,8 +536,10 @@ class MCCDriver(DAQDriverBase):
 
                 # Wait for DAQ to be running
                 if status == Status.IDLE or curr_index == -1:
-                    if time.monotonic() - loop_start > 5:
-                        raise TimeoutError("fetch_analog timed out after 5s waiting for DAQ to start producing data.")
+                    if time.monotonic() - loop_start > deadline:
+                        raise TimeoutError(
+                            f"fetch_analog timed out after {deadline:.3g}s waiting for DAQ to start producing data."
+                        )
                     time.sleep(0.01)
                     continue
 
@@ -544,9 +550,9 @@ class MCCDriver(DAQDriverBase):
                 # Wait until enough NEW samples beyond what we've already consumed.
                 self.points_in_buffer = curr_count - self._samples_consumed
                 if curr_count < samples_needed:
-                    if time.monotonic() - loop_start > 5:
+                    if time.monotonic() - loop_start > deadline:
                         raise TimeoutError(
-                            f"fetch_analog timed out after 5s waiting for {fetch_size} samples "
+                            f"fetch_analog timed out after {deadline:.3g}s waiting for {fetch_size} samples "
                             f"(got {curr_count - (samples_needed - fetch_size)})."
                         )
                     time.sleep(0.01)
