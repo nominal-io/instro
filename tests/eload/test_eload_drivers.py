@@ -203,6 +203,16 @@ def test_nominal_eload_set_level_delegates_with_current_mode() -> None:
     driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.0, channel=1, curr_limit=None)
 
 
+def test_nominal_eload_cached_mode_survives_close_and_reopen() -> None:
+    driver = _stub_driver()
+    eload = InstroELoad(name="ut", driver=driver)
+    eload.set_mode(LoadMode.CC)
+    eload.close()
+    eload.open()
+    eload.set_level(value=1.0, channel=1)
+    driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.0, channel=1, curr_limit=None)
+
+
 def test_nominal_eload_get_current_returns_measurement() -> None:
     driver = _stub_driver()
     eload = InstroELoad(name="ut", driver=driver)
