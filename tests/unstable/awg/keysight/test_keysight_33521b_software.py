@@ -11,6 +11,9 @@ from instro.unstable.awg.drivers import Keysight33521B
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
@@ -739,3 +742,277 @@ def test_46_set_modulation_warns_when_reconfigure_fails_while_disabled(
 
     assert "modulation remains disabled" in caplog.text
     assert call("AM:STAT ON") not in keysight_visa.write.call_args_list
+
+
+# ---------------------------------------------------------------------------
+# Burst
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("burst_type", "expected_mode"),
+    [(BurstType.NCYCLE, "TRIG"), (BurstType.GATED, "GAT")],
+    ids=["ncycle", "gated"],
+)
+def test_47_set_burst_writes_mode_for_each_supported_type(
+    keysight: Keysight33521B, keysight_visa: MagicMock, burst_type: BurstType, expected_mode: str
+) -> None:
+    _query_sequence(keysight_visa, ["SIN"])
+
+    keysight.set_burst(1, burst_type)
+
+    assert keysight_visa.write.call_args_list == [call(f"BURS:MODE {expected_mode}")]
+
+
+def test_48_set_burst_rejects_infinite_mode(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    """The 33521B has no third BURSt:MODE value; infinite cycles is a BURSt:NCYCles parameter, not a mode."""
+    with pytest.raises(ValueError, match="does not support INFINITE burst mode"):
+        keysight.set_burst(1, BurstType.INFINITE)
+
+    keysight_visa.write.assert_not_called()
+    keysight_visa.query.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("channel", "burst_type", "carrier_responses", "match"),
+    [
+        (2, BurstType.NCYCLE, [], "only supports 1 channel"),
+        (1, "NCYCLE", [], "burst_type must be a BurstType"),
+        (1, BurstType.NCYCLE, ["DC"], "cannot burst a StaticValue"),
+        (1, BurstType.NCYCLE, ["NOIS"], "unsupported waveform 'NOIS'"),
+    ],
+    ids=["invalid_channel", "invalid_burst_type", "staticvalue_carrier", "unrecognized_carrier"],
+)
+def test_49_set_burst_rejects_invalid_input(
+    keysight: Keysight33521B,
+    keysight_visa: MagicMock,
+    channel: int,
+    burst_type: BurstType,
+    carrier_responses: list[str],
+    match: str,
+) -> None:
+    _query_sequence(keysight_visa, carrier_responses)
+
+    with pytest.raises((ValueError, TypeError), match=match):
+        keysight.set_burst(channel, burst_type)
+
+    keysight_visa.write.assert_not_called()
+
+
+def test_50_get_burst_type_parses_every_mode_and_rejects_unknown(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    _query_sequence(keysight_visa, ["TRIG"])
+    assert keysight.get_burst_type(1) is BurstType.NCYCLE
+
+    _query_sequence(keysight_visa, ["GAT"])
+    assert keysight.get_burst_type(1) is BurstType.GATED
+
+    _query_sequence(keysight_visa, ["NOIS"])
+    with pytest.raises(ValueError, match="unsupported burst mode 'NOIS'"):
+        keysight.get_burst_type(1)
+
+
+def test_51_burst_enable_writes_burs_stat_and_get_burst_state_parses_it(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    keysight.burst_enable(1, True)
+    keysight.burst_enable(1, False)
+    assert keysight_visa.write.call_args_list == [call("BURS:STAT ON"), call("BURS:STAT OFF")]
+
+    _query_sequence(keysight_visa, ["1"])
+    assert keysight.get_burst_state(1) is True
+
+    _query_sequence(keysight_visa, ["0"])
+    assert keysight.get_burst_state(1) is False
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_token"),
+    [
+        (BurstTriggerSource.INTERNAL, "IMM"),
+        (BurstTriggerSource.EXTERNAL, "EXT"),
+        (BurstTriggerSource.MANUAL, "BUS"),
+    ],
+    ids=["internal", "external", "manual"],
+)
+def test_52_set_burst_trigger_writes_mapped_source_token(
+    keysight: Keysight33521B, keysight_visa: MagicMock, source: BurstTriggerSource, expected_token: str
+) -> None:
+    """The 33521B has no BURSt:TRIG:SOUR; it's the shared TRIGger:SOURce node with IMM/EXT/BUS tokens."""
+    keysight.set_burst_trigger(1, source)
+
+    keysight_visa.write.assert_called_once_with(f"TRIG:SOUR {expected_token}")
+
+
+def test_53_set_burst_trigger_rejects_invalid_source_and_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    with pytest.raises(TypeError, match="source must be a BurstTriggerSource"):
+        keysight.set_burst_trigger(1, "INT")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.set_burst_trigger(2, BurstTriggerSource.INTERNAL)
+
+    keysight_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("token", "expected_source"),
+    [("IMM", BurstTriggerSource.INTERNAL), ("EXT", BurstTriggerSource.EXTERNAL), ("BUS", BurstTriggerSource.MANUAL)],
+    ids=["internal", "external", "manual"],
+)
+def test_54_get_burst_trigger_parses_every_mapped_source(
+    keysight: Keysight33521B, keysight_visa: MagicMock, token: str, expected_source: BurstTriggerSource
+) -> None:
+    _query_sequence(keysight_visa, [token])
+
+    assert keysight.get_burst_trigger(1) is expected_source
+    assert _real_query_calls(keysight_visa) == [call("TRIG:SOUR?")]
+
+
+def test_55_get_burst_trigger_rejects_unknown_source_and_invalid_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """Regression guard: TIMer is a real TRIGger:SOURce value with no BurstTriggerSource counterpart."""
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.get_burst_trigger(2)
+    keysight_visa.query.assert_not_called()
+
+    _query_sequence(keysight_visa, ["TIM"])
+    with pytest.raises(ValueError, match="unsupported trigger source 'TIM'"):
+        keysight.get_burst_trigger(1)
+
+
+def test_56_fire_burst_trigger_fires_when_source_already_manual(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """*TRG, not TRIGger:IMMediate, is the documented software-trigger command for this instrument."""
+    _query_sequence(keysight_visa, ["1", "BUS"])
+
+    keysight.fire_burst_trigger(1)
+
+    assert _real_query_calls(keysight_visa) == [call("BURS:STAT?"), call("TRIG:SOUR?")]
+    assert keysight_visa.write.call_args_list == [call("*TRG")]
+
+
+def test_57_fire_burst_trigger_rejects_non_manual_source_and_invalid_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    _query_sequence(keysight_visa, ["1", "EXT"])
+
+    with pytest.raises(ValueError, match="already MANUAL"):
+        keysight.fire_burst_trigger(1)
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.fire_burst_trigger(2)
+
+    keysight_visa.write.assert_not_called()
+
+
+def test_58_fire_burst_trigger_rejects_when_burst_not_enabled(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    _query_sequence(keysight_visa, ["0"])
+
+    with pytest.raises(ValueError, match="burst mode is already"):
+        keysight.fire_burst_trigger(1)
+
+    assert _real_query_calls(keysight_visa) == [call("BURS:STAT?")]
+    keysight_visa.write.assert_not_called()
+
+
+def test_59_burst_delay_roundtrip_uses_shared_trigger_delay_node(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """The 33521B has no BURSt:TDELay; TRIGger:DELay is the shared burst/sweep/list trigger delay."""
+    keysight.set_burst_delay(1, 0.5)
+    keysight_visa.write.assert_called_once_with("TRIG:DEL 0.5")
+
+    _query_sequence(keysight_visa, ["5.000000E-01"])
+    assert keysight.get_burst_delay(1) == pytest.approx(0.5)
+    assert _real_query_calls(keysight_visa) == [call("TRIG:DEL?")]
+
+
+def test_60_set_burst_delay_rejects_negative_value_and_invalid_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="delay_s must be non-negative"):
+        keysight.set_burst_delay(1, -0.1)
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.set_burst_delay(2, 0.1)
+
+    keysight_visa.write.assert_not_called()
+
+
+@pytest.mark.parametrize("gate_polarity", [GatePolarity.NORM, GatePolarity.INV], ids=["norm", "inv"])
+def test_61_burst_gate_polarity_roundtrip(
+    keysight: Keysight33521B, keysight_visa: MagicMock, gate_polarity: GatePolarity
+) -> None:
+    keysight.set_burst_gate_polarity(1, gate_polarity)
+    keysight_visa.write.assert_called_once_with(f"BURS:GATE:POL {gate_polarity.value}")
+
+    _query_sequence(keysight_visa, [gate_polarity.value])
+    assert keysight.get_burst_gate_polarity(1) is gate_polarity
+
+
+def test_62_set_burst_gate_polarity_rejects_invalid_type_and_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    with pytest.raises(TypeError, match="gate_polarity must be a GatePolarity"):
+        keysight.set_burst_gate_polarity(1, "NORM")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.set_burst_gate_polarity(2, GatePolarity.NORM)
+
+    keysight_visa.write.assert_not_called()
+
+
+def test_63_burst_ncycles_roundtrip(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    keysight.set_burst_ncycles(1, 10)
+    keysight_visa.write.assert_called_once_with("BURS:NCYC 10")
+
+    _query_sequence(keysight_visa, ["1.000000E+01"])
+    assert keysight.get_burst_ncycles(1) == 10
+
+
+def test_64_set_burst_ncycles_rejects_non_positive_value_and_invalid_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="n_cycles must be >= 1"):
+        keysight.set_burst_ncycles(1, 0)
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.set_burst_ncycles(2, 10)
+
+    keysight_visa.write.assert_not_called()
+
+
+def test_65_burst_period_roundtrip(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    keysight.set_burst_period(1, 0.25)
+    keysight_visa.write.assert_called_once_with("BURS:INT:PER 0.25")
+
+    _query_sequence(keysight_visa, ["2.500000E-01"])
+    assert keysight.get_burst_period(1) == pytest.approx(0.25)
+
+
+def test_66_set_burst_period_rejects_non_positive_value_and_invalid_channel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    with pytest.raises(ValueError, match="period must be positive"):
+        keysight.set_burst_period(1, 0.0)
+
+    with pytest.raises(ValueError, match="only supports 1 channel"):
+        keysight.set_burst_period(2, 0.1)
+
+    keysight_visa.write.assert_not_called()
+
+
+def test_67_set_burst_accepts_untracked_arbitrary_carrier(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    """Regression: an Arbitrary carrier this driver instance never downloaded is still a valid burst carrier."""
+    _query_sequence(keysight_visa, ["ARB"])
+
+    keysight.set_burst(1, BurstType.NCYCLE)
+
+    assert keysight_visa.write.call_args_list == [call("BURS:MODE TRIG")]
