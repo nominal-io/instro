@@ -85,10 +85,9 @@ def test_set_level_uses_parameter_mode(bk: BK85XXB, visa_mock: MagicMock) -> Non
     visa_mock.query.assert_called_once_with("SYST:ERR?")
 
 
-def test_set_level_rejects_unimplemented_curr_limit(bk: BK85XXB, visa_mock: MagicMock) -> None:
-    with pytest.raises(NotImplementedError, match="curr_limit"):
-        bk.set_level(mode=LoadMode.CV, value=12.0, channel=1, curr_limit=2.0)
-    visa_mock.write.assert_not_called()
+def test_set_level_with_curr_limit_arms_protection_before_level(bk: BK85XXB, visa_mock: MagicMock) -> None:
+    bk.set_level(mode=LoadMode.CV, value=12.0, channel=1, curr_limit=2.0)
+    assert visa_mock.write.call_args_list == [call("CURRent:PROTection 2.0"), call("VOLT 12.0")]
 
 
 @pytest.mark.parametrize(

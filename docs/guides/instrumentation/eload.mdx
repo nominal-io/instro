@@ -139,7 +139,7 @@ The optional `load` block declares the initial load state. It is applied through
 
 - **`mode`** (required within the block): one of `CC`, `CV`, `CP`, `CR`. Required because level and range cannot be set before a mode.
 - **`level`**: operating level in the mode's units (CC: A, CV: V, CP: W, CR: Ω). Omit to keep the instrument default.
-- **`curr_limit`**: current limit applied with the level. Only valid when `mode` is `CV`, mirroring the `set_level` signature. Not yet implemented on the `BK85XXB` driver: a config that sets `curr_limit` raises `NotImplementedError` when applied, rather than silently arming no protection.
+- **`curr_limit`**: current limit applied with the level. Only valid when `mode` is `CV`, mirroring the `set_level` signature. On the `BK85XXB` driver this programs the over-current protection (`CURR:PROT`), which is a latching trip — current exceeding the limit for the protection delay turns the input off — rather than a continuous CV→CC crossover limit, which the 8500B series does not expose over SCPI.
 - **`range`**: operating range in the mode's units. On the `BK85XXB` driver, range applies to CC and CV only (CP and CR are auto-ranged), so a config that sets `range` with `mode` `CP` or `CR` raises `NotImplementedError` when applied.
 - **`slew_rate`**: `{"direction": "RISE" | "FALL" | "BOTH", "rate": <A/µs>}`, mapping to `set_slewrate`.
 
@@ -479,9 +479,10 @@ class BK85XXB(ELoadDriverBase):
         self._visa.write(f"FUNCtion {loadmode_to_unit(mode)}")
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        # Refuse rather than silently drop an unsupported protective limit.
+        # The 8500B's only SCPI current ceiling is the over-current protection trip (input
+        # off once exceeded); it offers no continuous CV->CC crossover limit over SCPI.
         if curr_limit is not None:
-            raise NotImplementedError("BK85XXB does not implement CV current limiting yet; omit curr_limit")
+            self._visa.write(f"CURRent:PROTection {curr_limit}")
         self._visa.write(f"{loadmode_to_unit(mode)} {value}")
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
