@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/nominal-io/instro/compare/instro-v1.11.0...instro-v1.12.0) (2026-08-21)
+
+
+### Features
+
+* **awg:** add sweep to Rigol DG1022Z driver ([#412](https://github.com/nominal-io/instro/issues/412)) ([bd18a1b](https://github.com/nominal-io/instro/commit/bd18a1b454cc91d7327808405c1700f2f811268a))
+
 ## [1.11.0](https://github.com/nominal-io/instro/compare/instro-v1.10.0...instro-v1.11.0) (2026-08-21)
 
 
