@@ -13,6 +13,7 @@ from mcculw.enums import ChannelType, DigitalPortType, ErrorCode, FunctionType, 
 from instro.daq.scaling.thermocouple import TC_UNIT
 from instro.daq.types import (
     AnalogChannelUnion,
+    AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     HWTimingConfig,
     TerminalConfig,
