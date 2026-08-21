@@ -325,6 +325,8 @@ daq.configure_thermocouple_input("0", TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSI
 
 MCC devices apply one board-wide temperature scale, so every thermocouple channel must use the same `unit`; configuring a channel in a different unit raises `ValueError`. During hardware-timed acquisition an open or overranged thermocouple reads `NaN`, matching the LabJack driver.
 
+Thermocouple channels on MCC expansion boards (the CIO-EXP and EXP-GP families) are not supported. The driver configures thermocouple channels on the base board only.
+
 Setting the channel type to thermocouple fixes the input range in hardware at plus or minus 125 mV, and the MCC Universal Library exposes no call to change it. `range_min` and `range_max` are therefore ignored on MCC thermocouple channels. They do not clip readings and they do not raise. Use `unit` to control the temperatures the driver returns.
 
 #### MCC input mode

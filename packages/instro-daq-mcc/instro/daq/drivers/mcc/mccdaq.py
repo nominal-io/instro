@@ -212,6 +212,7 @@ class MCCDriver(DAQDriverBase):
 
     def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
         """Configure a thermocouple input channel on the MCC DAQ device."""
+        # Thermocouple channels on MCC expansion boards (CIO-EXP/EXP-GP) are not supported: base-board channels only.
         info = self.get_info()
         if not info.ai_temp_supported:
             raise ValueError("Temperature input is not supported by this device.")
