@@ -39,6 +39,18 @@ class GatePolarity(Enum):
     INV = "INV"
 
 
+class SweepType(Enum):
+    LINEAR = "LINEAR"
+    LOG = "LOG"
+    STEP = "STEP"
+
+
+class SweepTriggerSource(Enum):
+    INTERNAL = "INT"
+    EXTERNAL = "EXT"
+    MANUAL = "MAN"
+
+
 def _require_positive(name: str, value: float) -> None:
     if value <= 0:
         raise ValueError(f"{name} must be positive, got {value}")
