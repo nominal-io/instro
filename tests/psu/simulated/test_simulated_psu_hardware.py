@@ -108,6 +108,32 @@ def test_get_current(driver: SimulatedPSU, channel: int, current_limit: float, v
 
 
 @pytest.mark.parametrize(
+    ("channel", "voltage"),
+    [
+        (1, 6.0),
+        (2, 7.5),
+    ],
+)
+def test_get_voltage_setpoint(driver: SimulatedPSU, channel: int, voltage: float) -> None:
+    driver.set_voltage(voltage, channel=channel)
+
+    assert driver.get_voltage_setpoint(channel=channel) == pytest.approx(voltage)
+
+
+@pytest.mark.parametrize(
+    ("channel", "current_limit"),
+    [
+        (1, 1.0),
+        (2, 1.5),
+    ],
+)
+def test_get_current_setpoint(driver: SimulatedPSU, channel: int, current_limit: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+
+    assert driver.get_current_setpoint(channel=channel) == pytest.approx(current_limit)
+
+
+@pytest.mark.parametrize(
     ("channel", "enabled", "disabled"),
     [
         (1, True, False),
@@ -455,6 +481,18 @@ def test_set_current_limit_invalid_channel(driver: SimulatedPSU, invalid_channel
 def test_get_current_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_current(channel=invalid_channel)
+
+
+@pytest.mark.parametrize("invalid_channel", [3])
+def test_get_voltage_setpoint_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+    with pytest.raises(RuntimeError, match="Header suffix out of range"):
+        driver.get_voltage_setpoint(channel=invalid_channel)
+
+
+@pytest.mark.parametrize("invalid_channel", [3])
+def test_get_current_setpoint_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+    with pytest.raises(RuntimeError, match="Header suffix out of range"):
+        driver.get_current_setpoint(channel=invalid_channel)
 
 
 @pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])
