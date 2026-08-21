@@ -6,7 +6,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from instro.lib.transports.modbus import (
     DataType,
@@ -46,7 +46,7 @@ class _TCPConnectionConfig(BaseModel):
     host: str
     port: int = Field(default=502, ge=1, le=65535)
     timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
-    unit_id: int | None = Field(default=None, ge=0, le=255)
+    unit_id: int | None = Field(default=None, ge=0, le=ModbusTCPTransport._max_unit_id)
 
     def build(self) -> ModbusTransport:
         """Build the transport this block describes."""
@@ -64,8 +64,8 @@ class _RTUConnectionConfig(BaseModel):
     bytesize: Literal[5, 6, 7, 8] = 8
     timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
     framer: Literal["rtu", "ascii"] = "rtu"
-    # 248-255 are reserved per Modbus over Serial Line spec 2.2, so the serial block caps at 247.
-    unit_id: int | None = Field(default=None, ge=0, le=247)
+    # 248-255 are reserved per Modbus over Serial Line spec 2.2, so the serial block caps lower than TCP.
+    unit_id: int | None = Field(default=None, ge=0, le=ModbusRTUTransport._max_unit_id)
 
     def build(self) -> ModbusTransport:
         """Build the transport this block describes."""
@@ -81,6 +81,7 @@ class _RTUConnectionConfig(BaseModel):
 
 
 _ConnectionConfig = Annotated[_TCPConnectionConfig | _RTUConnectionConfig, Field(discriminator="transport")]
+_CONNECTION_ADAPTER: TypeAdapter[_TCPConnectionConfig | _RTUConnectionConfig] = TypeAdapter(_ConnectionConfig)
 
 
 # ============ Bitmap Definition ============

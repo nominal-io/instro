@@ -1,13 +1,4 @@
-"""Feature test: two ModbusDevices share one transport, each with its own unit address (GH #262).
-
-Encodes the primary user story end-to-end: construct one ModbusTCPTransport, pass it to several
-devices each with its own ``unit_id``, and have each read and write only its own unit over
-the one session — surviving the first device's close and released by the last. Also pins the shape
-the addresses live in: no unit_id on a transport, ``unit_id`` on the device (from the constructor
-kwarg or the config's ``connection.unit_id``), and no ModbusDriver/TCPConnection/RTUConnection. A second, narrow scenario proves the same one-session
-invariant on the serial path with a mocked pymodbus client, since CI has no RS-485 line.
-Fails until the transport classes exist.
-"""
+"""Feature test: two ModbusDevices share one transport, each addressed by its own unit_id (GH #262); a second scenario covers the same over a mocked RTU/serial connection."""
 
 import asyncio
 import threading

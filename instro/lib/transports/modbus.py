@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import functools
+import logging
 import struct
 from typing import Literal
 
@@ -12,6 +13,8 @@ from pymodbus.exceptions import ConnectionException as PymodbusConnectionExcepti
 from pymodbus.framer import FramerType
 
 from instro.lib.transports.transport_base import TransportBase
+
+logger = logging.getLogger(__name__)
 
 # Modbus protocol vocabulary. Single source of truth; ``instro.modbus.types`` re-exports these.
 RegisterType = Literal["holding", "input", "coil", "discrete"]
@@ -150,7 +153,7 @@ def _format_modbus_error(operation: str, result: object) -> str:
 
 
 def _modbus_op(fn):
-    """Acquire the lock, run the operation, and clear dead sockets on failure.
+    """Validate ``unit_id``, acquire the lock, run the operation, and clear dead sockets on failure.
 
     The pymodbus sync client does not auto-reconnect between operations
     (``reconnect_delay`` is async-only). It does call ``connect()`` before every
@@ -161,6 +164,8 @@ def _modbus_op(fn):
 
     @functools.wraps(fn)
     def wrapper(self, *args, **kwargs):
+        if "unit_id" in kwargs:
+            self.check_unit_id(kwargs["unit_id"])
         with self._lock:
             if self._client is None:
                 raise RuntimeError("Modbus client not connected. Call open() first.")
@@ -212,6 +217,10 @@ class ModbusTransport(TransportBase, abc.ABC):
         """Validate ``unit_id`` against this physical layer's range (0 to :attr:`_max_unit_id`) and return it."""
         if not 0 <= unit_id <= self._max_unit_id:
             raise ValueError(f"unit_id must be between 0 and {self._max_unit_id}, got {unit_id}")
+        if unit_id == 0:
+            logger.warning(
+                "unit_id=0 is the Modbus broadcast address: every slave on the line executes the request and none reply. Only use it for writes."
+            )
         return unit_id
 
     @_modbus_op
@@ -353,8 +362,10 @@ class ModbusTCPTransport(ModbusTransport):
     """A Modbus TCP line. One socket, addressed per wire op via ``unit_id``."""
 
     def __init__(self, host: str, port: int = 502, timeout: float = 3.0) -> None:
-        """Construct from the socket's own fields; no unit address lives here."""
+        """Validate and store host, port, and timeout."""
         super().__init__()
+        # Duplicates _TCPConnectionConfig.port's Field bound: a direct ModbusTCPTransport(...)
+        # call bypasses pydantic entirely, so this needs its own guard.
         if not 1 <= port <= 65535:
             raise ValueError(f"port must be between 1 and 65535, got {port}")
         if timeout <= 0:
@@ -387,7 +398,7 @@ class ModbusRTUTransport(ModbusTransport):
         timeout: float = 3.0,
         framer: Literal["rtu", "ascii"] = "rtu",
     ) -> None:
-        """Construct from the serial port's own fields; no unit address lives here."""
+        """Validate and store the serial port's fields."""
         super().__init__()
         # mypy rejects a bad Literal statically; these guard dict-fed and untyped callers,
         # which is the validation the retired pydantic connection models used to carry.

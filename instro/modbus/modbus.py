@@ -5,14 +5,13 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from pydantic import TypeAdapter
-
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.transports.modbus import ModbusTransport, decode_registers
 
 from .types import (
+    _CONNECTION_ADAPTER,
     BOOL_DATA_TYPES,
     FLOAT_DATA_TYPES,
     INTEGER_DATA_TYPES,
@@ -108,16 +107,14 @@ class ModbusDevice(Instrument):
         unit_id: int | None,
     ) -> tuple[ModbusTransport, int]:
         """Resolve ``connection`` into a transport and the unit address this device talks at."""
-        shared = False
         connection_unit_id: int | None = None
         match connection:
             case ModbusTransport():
-                shared = True
                 transport = connection
             case dict():
                 # Pydantic owns the tcp/rtu dispatch and the bad-`transport` error; there is no
                 # hand-written branch on the "transport" key.
-                block: _ConnectionConfig = TypeAdapter(_ConnectionConfig).validate_python(connection)
+                block: _ConnectionConfig = _CONNECTION_ADAPTER.validate_python(connection)
                 transport = block.build()
                 connection_unit_id = block.unit_id
             case None if config.connection is not None:
@@ -129,24 +126,21 @@ class ModbusDevice(Instrument):
                     "in the config or pass a 'connection' argument to ModbusDevice()."
                 )
 
-        candidates = {
-            "unit_id (constructor)": unit_id,
-            "connection.unit_id": connection_unit_id,
-        }
-        given: dict[str, int] = {source: value for source, value in candidates.items() if value is not None}
-        if len(set(given.values())) > 1:
-            listed = ", ".join(f"{source}={value}" for source, value in given.items())
-            raise ValueError(f"Conflicting unit addresses: {listed}. Specify only one.")
-        if given:
-            unit_id = next(iter(given.values()))
-        elif shared:
+        if unit_id is not None and connection_unit_id is not None and unit_id != connection_unit_id:
             raise ValueError(
-                "A shared ModbusTransport needs an explicit unit address: pass unit_id "
-                "to the constructor or set it in the config."
+                f"unit_id={unit_id} (constructor) conflicts with connection.unit_id={connection_unit_id}. "
+                "Specify only one."
             )
-        else:
-            # `is not None` throughout: 0 is the broadcast address and must not be rewritten to 1.
-            # Defaulting is safe only here, on a transport nobody else can reach.
+        if unit_id is None:
+            unit_id = connection_unit_id
+        if unit_id is None:
+            if isinstance(connection, ModbusTransport):
+                raise ValueError(
+                    "A shared ModbusTransport needs an explicit unit address: pass unit_id "
+                    "to the constructor or set it in the config."
+                )
+            # 0 is the broadcast address and must not be rewritten to 1; defaulting is safe
+            # only here, on a transport nobody else can reach.
             unit_id = 1
         return transport, transport.check_unit_id(unit_id)
 

@@ -554,10 +554,40 @@ class TestUnitIdValidation:
     def test_rtu_accepts_boundary_addresses(self, unit_id):
         assert ModbusRTUTransport(port="/dev/ttyUSB0").check_unit_id(unit_id) == unit_id
 
+    def test_check_unit_id_warns_on_broadcast_address(self, caplog):
+        # unit_id=0 is valid (the Modbus broadcast address), but easy to hit by accident,
+        # so it gets a log warning rather than passing through silently like any other address.
+        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.modbus"):
+            ModbusTCPTransport(host="h").check_unit_id(0)
+        assert len(caplog.records) == 1
+        assert "broadcast" in caplog.records[0].message
+
+    @pytest.mark.parametrize("unit_id", [1, 255])
+    def test_check_unit_id_does_not_warn_on_non_broadcast_address(self, unit_id, caplog):
+        with caplog.at_level(logging.WARNING, logger="instro.lib.transports.modbus"):
+            ModbusTCPTransport(host="h").check_unit_id(unit_id)
+        assert len(caplog.records) == 0
+
     def test_writes_reach_only_the_addressed_unit(self, bus):
         bus.write_holding_register(101, 777, unit_id=SECOND_UNIT)
         assert bus.read_holding_registers(101, 1, unit_id=SECOND_UNIT) == [777]
         assert bus.read_holding_registers(101, 1, unit_id=1) == [0]
+
+    @pytest.mark.parametrize("unit_id", [-1, 256])
+    def test_raw_wire_op_rejects_out_of_range_unit_id(self, bus, unit_id):
+        # No ModbusDevice involved: the transport itself must guard this on every raw op.
+        with pytest.raises(ValueError, match="unit_id"):
+            bus.read_holding_registers(100, 1, unit_id=unit_id)
+
+    @pytest.mark.parametrize("unit_id", [248, 255])
+    def test_rtu_raw_wire_op_rejects_reserved_unit_id(self, unit_id):
+        with patch("instro.lib.transports.modbus.ModbusSerialClient") as mock_cls:
+            mock_cls.return_value.connect.return_value = True
+            transport = ModbusRTUTransport(port="/dev/ttyUSB0")
+            transport.open()
+            with pytest.raises(ValueError, match="unit_id"):
+                transport.read_holding_registers(100, 1, unit_id=unit_id)
+            transport.close()
 
 
 class TestTransportConnect:
