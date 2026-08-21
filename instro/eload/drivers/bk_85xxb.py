@@ -43,8 +43,10 @@ class BK85XXB(ELoadDriverBase):
         self._write_checked(f"FUNCtion {loadmode_to_unit(mode)}")
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        if mode is LoadMode.CV:
-            pass  # TODO add CV→CC protection based off curr_limit
+        if curr_limit is not None:
+            raise NotImplementedError(
+                "BK85XXB does not implement CV current limiting yet (see nominal-io/instro#419); omit curr_limit"
+            )
         self._write_checked(f"{loadmode_to_unit(mode)} {value}")
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
