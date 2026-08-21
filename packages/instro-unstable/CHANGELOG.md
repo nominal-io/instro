@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.5.0...instro-unstable-v1.6.0) (2026-08-21)
+
+
+### Features
+
+* **awg:** add keysight 33500b awg driver ([#359](https://github.com/nominal-io/instro/issues/359)) ([4d36ade](https://github.com/nominal-io/instro/commit/4d36ade00313184e8aa202bd3a58e88cd3ec2393))
+* **awg:** add sweep functions to AWG base ([#388](https://github.com/nominal-io/instro/issues/388)) ([2b6227a](https://github.com/nominal-io/instro/commit/2b6227ac07ff3ac6f2a1538a750a8b5fb65dc58e))
+* **unstable:** add a shared CAN transport on TransportBase ([#396](https://github.com/nominal-io/instro/issues/396)) ([18da653](https://github.com/nominal-io/instro/commit/18da653ae41097b7f930e11d3ac3145d670a7691))
+
 ## [1.5.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.1...instro-unstable-v1.5.0) (2026-08-13)
 
 
