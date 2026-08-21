@@ -38,6 +38,12 @@ class SimulatedPSU(PSUDriverBase):
             self._check_errors()
         return resp.strip() == "1"
 
+    def get_voltage_setpoint(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:VOLT?")
+
+    def get_current_setpoint(self, channel: int) -> float:
+        return self._query_checked_float(f":SOUR{channel}:CURR?")
+
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         self._write_checked(f":SOUR{channel}:VOLT:PROT {voltage:.3f}")
 
