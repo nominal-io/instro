@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0](https://github.com/nominal-io/instro/compare/instro-v1.10.0...instro-v1.11.0) (2026-08-21)
+
+
+### Features
+
+* **awg:** add keysight 33500b awg driver ([#359](https://github.com/nominal-io/instro/issues/359)) ([4d36ade](https://github.com/nominal-io/instro/commit/4d36ade00313184e8aa202bd3a58e88cd3ec2393))
+* **awg:** add sweep functions to AWG base ([#388](https://github.com/nominal-io/instro/issues/388)) ([2b6227a](https://github.com/nominal-io/instro/commit/2b6227ac07ff3ac6f2a1538a750a8b5fb65dc58e))
+* **daq:** ni typed channel support ([#382](https://github.com/nominal-io/instro/issues/382)) ([8675855](https://github.com/nominal-io/instro/commit/867585557101deca2efc03c9b9d82ea038a95217))
+* **eload:** json config-driven instrument creation ([#411](https://github.com/nominal-io/instro/issues/411)) ([d1da228](https://github.com/nominal-io/instro/commit/d1da228d2c280365c277f43b0bff22bdc5adb846))
+* **modbus:** share one connection across multiple unit addresses ([#409](https://github.com/nominal-io/instro/issues/409)) ([765b9ea](https://github.com/nominal-io/instro/commit/765b9eac3c28e949ca5bd08d83e14340949d6105))
+* **unstable:** add a shared CAN transport on TransportBase ([#396](https://github.com/nominal-io/instro/issues/396)) ([18da653](https://github.com/nominal-io/instro/commit/18da653ae41097b7f930e11d3ac3145d670a7691))
+
+
+### Bug Fixes
+
+* **ljm:** stop() stops the stream ([#413](https://github.com/nominal-io/instro/issues/413)) ([ec77591](https://github.com/nominal-io/instro/commit/ec77591977bf7335b29c82d6080a30ce107de88a))
+
 ## [1.10.0](https://github.com/nominal-io/instro/compare/instro-v1.9.1...instro-v1.10.0) (2026-08-13)
 
 
