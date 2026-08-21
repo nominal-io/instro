@@ -86,7 +86,7 @@ class DAQDriverBase(abc.ABC):
     same snapshots for user introspection — it does not keep its own copies.
     """
 
-    points_in_buffer: int
+    _buffer_depths: dict[str, int]
 
     _ai_channels: dict[str, AnalogChannelUnion]
     _ao_channels: dict[str, AnalogChannelUnion]
@@ -94,13 +94,17 @@ class DAQDriverBase(abc.ABC):
     _do_channels: dict[str, DigitalChannel]
     _relay_channels: dict[str, RelayChannel]
 
+    # Flag on driver support for hw timed and sw timed di acquisition
+    supports_read_digital: ClassVar[bool] = False
+    supports_fetch_digital: ClassVar[bool] = False
+
     _ai_hw_timing_config: HWTimingConfig | None
     _ao_hw_timing_config: HWTimingConfig | None
     _di_hw_timing_config: HWTimingConfig | None
     _do_hw_timing_config: HWTimingConfig | None
 
     def __init__(self) -> None:
-        self.points_in_buffer = 0
+        self._buffer_depths = {}
 
         self._ai_channels = {}
         self._ao_channels = {}
@@ -164,6 +168,26 @@ class DAQDriverBase(abc.ABC):
     def do_hw_timing_config(self) -> HWTimingConfig | None:
         return self._do_hw_timing_config
 
+    @property
+    def buffer_depths(self) -> Mapping[str, int]:
+        """Frozen snapshot of hardware buffer backlogs, keyed by published channel suffix.
+
+        Fetch implementations record one entry per acquisition buffer the
+        hardware actually has: single shared-engine drivers set ``"buffer"``
+        (via the :attr:`points_in_buffer` alias), per-task drivers like NI
+        set one entry per task (``"ai_buffer"``, ``"di_buffer"``, …).
+        """
+        return MappingProxyType(dict(self._buffer_depths))
+
+    @property
+    def points_in_buffer(self) -> int:
+        """Depth of the single shared buffer; alias for ``buffer_depths["buffer"]``."""
+        return self._buffer_depths.get("buffer", 0)
+
+    @points_in_buffer.setter
+    def points_in_buffer(self, depth: int) -> None:
+        self._buffer_depths["buffer"] = depth
+
     @abc.abstractmethod
     def open(self):
         """Open the underlying transport (or verify the device is present, for handle-less SDKs)."""
@@ -210,17 +234,19 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Thermocouple input has not been configured for this driver")
 
     @abc.abstractmethod
+    def configure_hw_timing(
+        self,
+        hw_timing_config: HWTimingConfig,
+    ):
+        """Program hardware-timed sampling at ``hw_timing_config.sample_rate`` for every task the driver owns."""
+        ...
+
     def configure_ai_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
-        """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
-
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
-        is invoked. The driver should program the sample clock and any
-        ``samples_per_channel`` buffer sizing the underlying SDK requires.
-        """
-        ...
+        """Deprecated: use ``configure_hw_timing``. Programs hardware-timed sampling."""
+        self.configure_hw_timing(hw_timing_config=hw_timing_config)
 
     @abc.abstractmethod
     def configure_di_line_channel(
@@ -304,6 +330,37 @@ class DAQDriverBase(abc.ABC):
         build contiguous timestamps via ``HWTimestamper``.
         """
         ...
+
+    def read_digital(
+        self,
+    ) -> Any:
+        """Software-timed read of every configured DI channel, line and port alike.
+
+        Digital mirror of :meth:`read_analog`: returns a vendor-specific payload
+        that ``_read_to_measurements`` then unpacks into ``Measurement``s.
+        ``response.dt`` should be ``None`` so the wrapper timestamps with
+        wall-clock time. Override if the driver supports batched digital input.
+
+        Each ``DigitalLineChannel`` carries 0/1; each ``DigitalPortChannel``
+        carries its whole N-bit integer, as ``read_digital_port`` would return.
+        """
+        raise NotImplementedError("Batched digital input has not been implemented for this driver")
+
+    def fetch_digital(
+        self,
+    ) -> Any:
+        """Block until ``samples_per_channel`` new DI samples are available, then return them.
+
+        Digital mirror of :meth:`fetch_analog`: drivers with per-task buffers
+        should record backlog on ``self._buffer_depths`` (e.g. ``"di_buffer"``)
+        and return ``dt`` (ns per sample) so the wrapper can build contiguous
+        timestamps via ``HWTimestamper``. Override if the driver supports
+        hardware-timed digital input.
+
+        Covers every configured DI channel, line and port alike, with the same
+        per-channel sample shape as :meth:`read_digital`.
+        """
+        raise NotImplementedError("Hardware-timed digital input has not been configured for this driver")
 
     def get_actual_sample_rate(self) -> float | None:
         """Actual hardware sample rate achieved after ``start()``.
@@ -490,13 +547,20 @@ class InstroDAQ(Instrument):
 
     @property
     def is_hw_timing_configured(self) -> bool:
-        """True once ``configure_ai_hw_sample_rate()`` has programmed the AI sample clock."""
-        return self.ai_hw_timing_config is not None
+        """True once ``configure_hw_sample_rate()`` has programmed an AI or DI sample clock."""
+        # One clock paces AI and DI. A driver records that config on every slot it programs, so the
+        # AI-only drivers set the AI slot and a DI-capable driver sets both.
+        return self.ai_hw_timing_config is not None or self.di_hw_timing_config is not None
 
     @property
     def is_sw_timing_configured(self) -> bool:
-        """True once ``configure_ai_sw_sample_rate()`` has set a software-timed polling rate."""
+        """True once ``configure_sw_sample_rate()`` has set a software-timed polling rate."""
         return self._is_sw_timing_configured
+
+    @property
+    def _is_timing_configured(self) -> bool:
+        """True when continuous timing is configured, hardware or software."""
+        return self.is_hw_timing_configured or self.is_sw_timing_configured
 
     # Need to ensure background interval never adds a wait for hardware-timed InstroDAQ
     @property
@@ -513,6 +577,22 @@ class InstroDAQ(Instrument):
         """Guard device I/O: raise if a method is called before ``open()``."""
         if not self._is_open:
             raise InstrumentNotOpenError(f"InstroDAQ '{self.name}' is not open. Call open() first.")
+
+    def _require_no_sw_timing(self) -> None:
+        """Guard a hardware-timing config call: the two modes can't share one InstroDAQ."""
+        if self.is_sw_timing_configured:
+            raise TimingConfigException(
+                f"DAQ '{self.name}' is already configured for software timing. "
+                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
+            )
+
+    def _require_no_hw_timing(self) -> None:
+        """Guard a software-timing config call: the two modes can't share one InstroDAQ."""
+        if self.is_hw_timing_configured:
+            raise TimingConfigException(
+                f"DAQ '{self.name}' is already configured for hardware timing. "
+                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
+            )
 
     def _reject_duplicate_channel(self, alias: str) -> None:
         """Raise if ``alias`` is already configured on the driver, so a channel can't be silently reconfigured."""
@@ -873,19 +953,43 @@ class InstroDAQ(Instrument):
         sample_rate: float,
         samples_per_channel: int | None = None,
     ):
-        """Configure the hardware sample clock for AI channels.
+        """Configure the hardware sample clock for AI channels. Prefer ``configure_hw_sample_rate()``.
 
         Args:
             sample_rate: Sample rate (Hz). Applies to all AI channels.
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
+        self.configure_hw_sample_rate(
+            sample_rate=sample_rate,
+            samples_per_channel=samples_per_channel,
+        )
+
+    def configure_ai_sw_sample_rate(
+        self,
+        sample_rate: float,
+    ):
+        """Configure the software-timed polling rate for AI channels. Prefer ``configure_sw_sample_rate()``.
+
+        Args:
+            sample_rate: Rate (Hz) at which the background daemon polls AI channels.
+        """
+        self.configure_sw_sample_rate(sample_rate=sample_rate)
+
+    def configure_hw_sample_rate(
+        self,
+        sample_rate: float,
+        samples_per_channel: int | None = None,
+    ):
+        """Configure the hardware sample clock. Preferred entry point for hardware timing.
+
+        Args:
+            sample_rate: Sample rate (Hz). Applies to every configured channel.
+            samples_per_channel: Samples per channel per read;
+                defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
+        """
         self._require_open()
-        if self.is_sw_timing_configured:
-            raise TimingConfigException(
-                f"DAQ '{self.name}' is already configured for software timing. "
-                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
-            )
+        self._require_no_sw_timing()
         if not samples_per_channel:
             samples_per_channel = max(1, int(sample_rate // 10))
 
@@ -895,30 +999,26 @@ class InstroDAQ(Instrument):
             samples_per_channel=samples_per_channel,
         )
 
-        self._driver.configure_ai_hw_timing(hw_timing_config=hw_timing_config)
+        self._driver.configure_hw_timing(hw_timing_config=hw_timing_config)
         self._background_config.interval = (
             0  # DAQ reads block so set this to zero because they implicitly time the loop
         )
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
-        logger.info("Configured AI hardware timing on DAQ '%s'", self.name)
+        logger.info("Configured hardware timing on DAQ '%s'", self.name)
 
-    def configure_ai_sw_sample_rate(
+    def configure_sw_sample_rate(
         self,
         sample_rate: float,
     ):
-        """Configure the software-timed polling rate for AI channels.
+        """Configure the software-timed polling rate.
 
         Args:
-            sample_rate: Rate (Hz) at which the background daemon polls AI channels.
+            sample_rate: Rate (Hz) at which the background daemon polls configured channels.
         """
         self._require_open()
-        if self.is_hw_timing_configured:
-            raise TimingConfigException(
-                f"DAQ '{self.name}' is already configured for hardware timing. "
-                "Hardware and software timing are mutually exclusive; build a separate InstroDAQ instead."
-            )
+        self._require_no_hw_timing()
         if sample_rate <= 0:
             raise ValueError(f"Software-timed sample rate must be greater than 0 Hz, got {sample_rate}.")
 
@@ -928,42 +1028,42 @@ class InstroDAQ(Instrument):
 
         # Set buffer length to 10 seconds or the default Instrument length, whichever is greater
         self._channel_buffer_length = max(int(sample_rate * 10), self._channel_buffer_length)
-        logger.info("Configured AI software timing on DAQ '%s' at %s Hz", self.name, sample_rate)
+        logger.info("Configured software timing on DAQ '%s' at %s Hz", self.name, sample_rate)
 
     def start(self, background: bool = True, **kwargs):
         """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
 
-        With no AI timing configured, ``background=True`` falls back to software timing at
+        With no AI or DI timing configured, ``background=True`` falls back to software timing at
         1 Hz.
 
         Args:
             background: When True (default), spin the daemon thread to continuously
                 fetch the buffer. When False, begin hardware acquisition only and
-                fetch the buffer yourself by calling ``read_analog()``. Software-timed
-                acquisition requires True — the daemon is what does the timing — so False
+                fetch the buffer yourself by calling ``read_analog()`` / ``read_digital()``.
+                Software-timed acquisition requires True — the daemon is what does the timing — so False
                 logs an error and starts nothing.
             **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
         """
         self._require_open()
-        if not self.is_hw_timing_configured and not self.is_sw_timing_configured:
+        if not self._is_timing_configured:
             if not background:
                 # Nothing would pace the reads, so start nothing
                 logger.error(
-                    "Calling start(background=False) without AI timing configured is unnecessary. "
-                    "Call read_analog() directly instead."
+                    "Calling start(background=False) without AI or DI timing configured is unnecessary. "
+                    "Call read_analog() / read_digital() directly instead."
                 )
                 return
 
             # If no timing configured and start called, resort to sw timed daemon at default rate
-            self.configure_ai_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
+            self.configure_sw_sample_rate(sample_rate=self.DEFAULT_SW_SAMPLE_RATE)
 
         if self.is_sw_timing_configured:
             if not background:
                 # The background daemon is the software clock, so start nothing
                 logger.error(
-                    "Calling start(background=False) with SW AI timing configured is a no-op because the "
+                    "Calling start(background=False) with SW timing configured is a no-op because the "
                     "background daemon paces software reads. Call start(background=True) to start continuous "
-                    "software-timed acquisition, or read_analog() directly instead."
+                    "software-timed acquisition, or read_analog() / read_digital() directly instead."
                 )
                 return
 
@@ -1023,6 +1123,8 @@ class InstroDAQ(Instrument):
 
         if self.is_hw_timing_configured:
             measurements = self._fetch_analog_hw_timed(**kwargs)
+            # Manual hw-timed reads publish depth here; in daemon mode the loop publishes it instead.
+            self.get_points_in_buffer()
 
         else:
             measurements = self._software_timed_read(**kwargs)
@@ -1045,11 +1147,11 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def _fetch_analog_hw_timed(self, **kwargs) -> list[Measurement]:
-        """Fetch buffered samples as a list; also publish buffer depth on ``{name}.buffer``."""
+        """Fetch buffered samples as a list."""
         if not self.is_hw_timing_configured:
             raise RuntimeError(
                 "Cannot fetch analog data without hardware timing configured. "
-                "Call configure_ai_hw_sample_rate() before starting a hardware-timed acquisition."
+                "Call configure_hw_sample_rate() before starting a hardware-timed acquisition."
             )
 
         response = self._driver.fetch_analog()
@@ -1060,12 +1162,7 @@ class InstroDAQ(Instrument):
             default_tags=self.default_tags,
             **kwargs,
         )
-        measurements = self._scale_analog_measurement(measurements)
-
-        # HW-timed acquisition: also publish current buffer depth as telemetry.
-        self.get_points_in_buffer()
-
-        return measurements
+        return self._scale_analog_measurement(measurements)
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
         for measurement in measurements:
@@ -1089,7 +1186,7 @@ class InstroDAQ(Instrument):
         channels: list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` (or the daemon buffer while it runs), digital per line/port."""
+        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` and digital per line/port, or the daemon buffer while it runs."""
         self._require_open()
         ai, di = self.ai_channels, self.di_channels
         daemon_running = bool(self._background_thread and self._background_thread.is_alive())
@@ -1124,13 +1221,20 @@ class InstroDAQ(Instrument):
 
         # Digital pass
         # NOTE: Planning on ripping out port support
-        # TODO: Handle digital read when background daemon is running (when continuos di feature lands)
-        digital = {
-            alias: self.read_digital_port(alias, **kwargs)
-            if isinstance(di[alias], DigitalPortChannel)
-            else self.read_digital_line(alias, **kwargs)
-            for alias in digital_aliases
-        }
+        digital: dict[str, Measurement] = {}
+        # Serve the buffer only when the daemon actually fetches DI; otherwise it never fills and get_channel blocks.
+        di_buffered = (
+            self._driver.supports_read_digital if self.is_sw_timing_configured else self._driver.supports_fetch_digital
+        )
+        if digital_aliases and daemon_running and di_buffered:
+            digital = {alias: self.get_channel(alias) for alias in digital_aliases}
+        else:
+            digital = {
+                alias: self.read_digital_port(alias, **kwargs)
+                if isinstance(di[alias], DigitalPortChannel)
+                else self.read_digital_line(alias, **kwargs)
+                for alias in digital_aliases
+            }
 
         measurements = analog | digital
         return {alias: measurements[alias] for alias in aliases}
@@ -1219,6 +1323,31 @@ class InstroDAQ(Instrument):
             # Digital lines accept only 0 or 1, in bool, int, or float form.
             elif not isinstance(value, (bool, int, float)) or value not in (0, 1):
                 raise ValueError(f"Digital line '{alias}' requires 0 or 1 (as float, int, or bool), got {value!r}.")
+
+    def read_digital(
+        self,
+        **kwargs,
+    ) -> Measurement | list[Measurement]:
+        """Dispatch a hardware-timed buffer fetch or a software-timed sample of every DI channel.
+
+        Each branch publishes its own Measurements; this dispatcher does not.
+        Either timing mode with the background daemon running raises — the daemon owns the reads.
+        Returns a single Measurement when channels share a timebase, otherwise one Measurement per timebase cluster.
+        """
+        self._require_open()
+        if self._background_thread and self._background_thread.is_alive():
+            # Background daemon running. The user can't pull from the buffer mid-flight.
+            raise RuntimeError("Cannot read digital data while background acquisition daemon is running")
+
+        if self.is_hw_timing_configured:
+            measurements = self._fetch_digital_hw_timed(**kwargs)
+            # Manual hw-timed reads publish depth here; in daemon mode the loop publishes it instead.
+            self.get_points_in_buffer()
+
+        else:
+            measurements = self._software_timed_digital_read(**kwargs)
+
+        return measurements[0] if len(measurements) == 1 else measurements
 
     @publish_command
     def write_analog_value(self, channel: str, value: float, **kwargs) -> Command:
@@ -1413,6 +1542,37 @@ class InstroDAQ(Instrument):
             )
         return self._package_measurement(digital_channel.alias, response, timestamp, **kwargs)
 
+    @publish_measurement
+    def _software_timed_digital_read(self, **kwargs) -> list[Measurement]:
+        """Initiate a software-timed digital sample and return the resulting Measurements."""
+        response = self._driver.read_digital()
+        return self._driver._read_to_measurements(
+            response=response,
+            channel_list=self.di_channels,
+            daq_name=self.name,
+            default_tags=self.default_tags,
+            **kwargs,
+        )
+
+    @publish_measurement
+    def _fetch_digital_hw_timed(self, **kwargs) -> list[Measurement]:
+        """Fetch buffered DI samples as a list."""
+        # DI rides the same clock as AI
+        if not self.is_hw_timing_configured:
+            raise RuntimeError(
+                "Cannot fetch digital data without hardware timing configured. "
+                "Call configure_hw_sample_rate() before starting a hardware-timed acquisition."
+            )
+
+        response = self._driver.fetch_digital()
+        return self._driver._read_to_measurements(
+            response=response,
+            channel_list=self.di_channels,
+            daq_name=self.name,
+            default_tags=self.default_tags,
+            **kwargs,
+        )
+
     def configure_relay_channel(
         self,
         physical_channel: str,
@@ -1459,21 +1619,43 @@ class InstroDAQ(Instrument):
         return self._package_command(f"{relay_channel.alias}.cmd", "OPEN", timestamp, **kwargs)
 
     def _define_background_daemon(self):
-        """Register the fetch matching the configured timing mode when AI channels exist."""
-        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
-        already_registered = any(method == fetch for method, _, _ in self._background_methods)
-        if self.ai_channels and not already_registered:
-            self.add_background_daemon_function(fetch)
+        """Register each channel domain's fetch, matching the configured timing mode, when channels exist."""
+        fetches = []
+        if self.ai_channels:
+            fetches.append(self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed)
+        sw = self.is_sw_timing_configured
+        # TODO: Remove flag check once all drivers implement read_digital and fetch_digital
+        if self.di_channels and (self._driver.supports_read_digital if sw else self._driver.supports_fetch_digital):
+            fetches.append(self._software_timed_digital_read if sw else self._fetch_digital_hw_timed)
+        # Buffer depth is one driver-wide counter, so publish it once per loop instead of per domain fetch.
+        if fetches and self.is_hw_timing_configured:
+            fetches.append(self.get_points_in_buffer)
+
+        for fetch in fetches:
+            if not any(method == fetch for method, _, _ in self._background_methods):
+                self.add_background_daemon_function(fetch)
 
     def get_actual_sample_rate(self) -> float | None:
         """Hardware's actual sample rate after ``start()``; ``None`` if unsupported or not started."""
         return self._driver.get_actual_sample_rate()
 
     @publish_measurement
-    def get_points_in_buffer(self, **kwargs) -> Measurement:
-        """Publish the current DAQ buffer depth on channel ``{name}.buffer``."""
+    def get_points_in_buffer(self, **kwargs) -> Measurement | None:
+        """Publish each hardware buffer's backlog depth on ``{name}.<key>`` (e.g. ``{name}.buffer``).
+
+        The driver owns the depth values (``driver.buffer_depths``); this method
+        reads the snapshot and publishes one channel per buffer. Returns ``None``
+        (publishing nothing) until a fetch has recorded a depth.
+        """
         self._require_open()
-        return self._package_measurement("buffer", self._driver.points_in_buffer, time.time_ns(), **kwargs)
+        if not (depths := self._driver.buffer_depths):
+            return None
+        timestamp = time.time_ns()
+        return Measurement(
+            channel_data={f"{self.name}.{key}": [float(depth)] for key, depth in depths.items()},
+            timestamps=[timestamp],
+            tags={**self.default_tags, **kwargs},
+        )
 
 
 class HWTimingException(InstroError): ...

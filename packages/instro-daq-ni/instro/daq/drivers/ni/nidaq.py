@@ -306,7 +306,7 @@ class NIDAQDriver(DAQDriverBase):
 
         self._ai_channels[channel.alias] = channel
 
-    def configure_ai_hw_timing(
+    def configure_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):
@@ -530,6 +530,7 @@ class NIDAQDriver(DAQDriverBase):
         if isinstance(data[0], float):
             data = [data]
 
+        # TODO: record on _buffer_depths["ai_buffer"] once fetch_digital lands — each DAQmx task has its own buffer.
         self.points_in_buffer = task.in_stream.avail_samp_per_chan
         return DAQmxData(data=data, timestamp=timestamp, dt=self._actual_sample_period)
 

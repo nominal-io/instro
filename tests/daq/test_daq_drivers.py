@@ -1,6 +1,7 @@
 """Unit tests for DAQ driver functionality."""
 
 import logging
+import warnings
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
@@ -28,6 +29,9 @@ class _RecordingDriver(DAQDriverBase):
     The action methods are per-instance ``Mock``s so tests can assert calls and set return values.
     """
 
+    supports_read_digital = True
+    supports_fetch_digital = True
+
     # Concrete bodies clear the abstractmethod flags; __init__ shadows these with per-instance Mocks.
     def open(self): ...
     def close(self): ...
@@ -53,6 +57,8 @@ class _RecordingDriver(DAQDriverBase):
         "read_digital_line",
         "write_digital_port",
         "read_digital_port",
+        "read_digital",
+        "fetch_digital",
         "close_relay",
         "open_relay",
         "_read_to_measurements",
@@ -84,8 +90,9 @@ class _RecordingDriver(DAQDriverBase):
     def configure_ai_thermocouple_channel(self, channel):
         self._ai_channels[channel.alias] = channel
 
-    def configure_ai_hw_timing(self, hw_timing_config):
+    def configure_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
+        self._di_hw_timing_config = hw_timing_config
 
     def configure_di_line_channel(self, physical_channel, logic, logic_level=None, alias=None):
         key = alias or physical_channel
@@ -1034,7 +1041,7 @@ def test_sw_timed_start_without_background(caplog):
     with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
-    assert "with SW AI timing configured is a no-op" in caplog.text
+    assert "with SW timing configured is a no-op" in caplog.text
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()
 
@@ -1060,7 +1067,7 @@ def test_untimed_start_without_background(caplog):
     with caplog.at_level(logging.ERROR):
         daq.start(background=False)
 
-    assert "without AI timing configured is unnecessary" in caplog.text
+    assert "without AI or DI timing configured is unnecessary" in caplog.text
     assert not daq.is_sw_timing_configured
     assert daq._background_thread is None
     mock_driver.start.assert_not_called()
@@ -1338,6 +1345,70 @@ def test_write_batch_invalid_value_raises_before_writing_anything():
     mock_driver.write_analog_value.assert_not_called()
 
 
+# --- batched read_digital() ---
+
+
+def test_read_digital_unpacks_the_software_timed_driver_payload():
+    """read_digital() with no timing configured takes the SW path and hands every DI channel to _read_to_measurements."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.di0": [0.0], "ut.di1": [1.0]}, timestamps=[111])
+    ]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    for line in range(2):
+        daq.configure_digital_input(physical_channel=f"port0/line{line}", alias=f"di{line}", logic=Logic.HIGH)
+
+    measurement = daq.read_digital()
+
+    mock_driver.read_digital.assert_called_once_with()
+    mock_driver.fetch_digital.assert_not_called()
+    assert [*mock_driver._read_to_measurements.call_args.kwargs["channel_list"]] == ["di0", "di1"]
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data == {"ut.di0": [0.0], "ut.di1": [1.0]}
+
+
+def test_read_digital_hw_timed_fetches_the_buffer():
+    """read_digital() with HW timing configured fetches the buffer instead of doing a software-timed read."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.di0": [0.0, 1.0]}, timestamps=[111, 222])
+    ]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_hw_sample_rate(sample_rate=1000)
+
+    measurement = daq.read_digital()
+
+    mock_driver.fetch_digital.assert_called_once_with()
+    mock_driver.read_digital.assert_not_called()
+    assert measurement.channel_data == {"ut.di0": [0.0, 1.0]}
+
+
+def test_read_digital_covers_line_and_port_channels():
+    """A batched digital read spans DI lines and DI ports, not just lines."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.di0": [1.0], "ut.di_port": [15.0]}, timestamps=[111])
+    ]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_digital_port(
+        direction=Direction.INPUT,
+        physical_channel="port0",
+        logic=Logic.HIGH,
+        port_width=DigitalPortWidth.WIDTH_8,
+        alias="di_port",
+    )
+
+    measurement = daq.read_digital()
+
+    assert [*mock_driver._read_to_measurements.call_args.kwargs["channel_list"]] == ["di0", "di_port"]
+    assert measurement.channel_data == {"ut.di0": [1.0], "ut.di_port": [15.0]}
+
+
 # --- software-timed background daemon ---
 
 
@@ -1417,3 +1488,89 @@ def test_hw_and_sw_timed_daqs_run_in_parallel():
 
     hw_driver.stop.assert_called_once()
     sw_driver.stop.assert_not_called()
+
+
+# --- continuous digital input acquisition ---
+
+
+class _CapturePublisher:
+    """Collects every published channel key so tests can count publishes."""
+
+    def __init__(self):
+        self.keys: list[str] = []
+
+    def publish(self, data, **kwargs):
+        self.keys.extend(data.channel_data)
+
+    def close(self): ...
+
+
+def test_configure_hw_sample_rate_flows_through_generic_driver_hook():
+    """configure_hw_sample_rate() programs the driver via configure_hw_timing, which defaults to the AI hook."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+
+    daq.configure_hw_sample_rate(sample_rate=1000)
+
+    assert daq.is_hw_timing_configured
+    assert daq.ai_hw_timing_config.sample_rate == 1000
+
+
+def test_sw_timed_daemon_polls_digital_channels():
+    """With SW timing on a DI-only DAQ, the daemon registers the digital poll and publishes DI samples."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.return_value = [Measurement(channel_data={"ut.di0": [1.0]}, timestamps=[1])]
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_sw_sample_rate(sample_rate=100)
+
+    daq.start()
+    try:
+        assert daq.get_channel("di0", wait_for_new_samples=True, timeout=5).latest == 1.0
+        mock_driver.read_digital.assert_called()
+        mock_driver.fetch_digital.assert_not_called()
+    finally:
+        daq.stop()
+
+
+def _mixed_hw_timed_daq() -> tuple[InstroDAQ, _RecordingDriver, _CapturePublisher]:
+    """A hw-timed InstroDAQ with one AI and one DI channel and a capturing publisher."""
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.side_effect = lambda **kwargs: [
+        Measurement(channel_data={f"ut.{alias}": [1.0] for alias in kwargs["channel_list"]}, timestamps=[1])
+    ]
+    capture = _CapturePublisher()
+    daq = InstroDAQ(name="ut", driver=mock_driver, publishers=[capture])
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_hw_sample_rate(sample_rate=1000)
+    return daq, mock_driver, capture
+
+
+def test_mixed_hw_daemon_registers_each_domain_fetch_and_one_buffer_publish():
+    """A hw-timed DAQ with AI and DI channels registers one fetch per domain plus a single depth publish."""
+    daq, mock_driver, _ = _mixed_hw_timed_daq()
+
+    daq.start()
+    try:
+        registered = [method.__name__ for method, _, _ in daq._background_methods]
+        assert registered.count("_fetch_analog_hw_timed") == 1
+        assert registered.count("_fetch_digital_hw_timed") == 1
+        assert registered.count("get_points_in_buffer") == 1
+    finally:
+        daq.stop()
+
+
+def test_mixed_read_publishes_buffer_depth_once():
+    """A unified read_batch() spanning AI and DI on a hw-timed DAQ emits exactly one buffer-depth publish."""
+    daq, mock_driver, capture = _mixed_hw_timed_daq()
+    mock_driver._buffer_depths["buffer"] = 5
+    mock_driver.read_digital_line.return_value = 1
+
+    result = daq.read_batch()
+
+    assert set(result) == {"v0", "di0"}
+    assert capture.keys.count("ut.buffer") == 1

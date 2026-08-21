@@ -51,8 +51,8 @@ with daq_fast, daq_slow:
         )
 
     # Each instance gets its own hardware sample rate.
-    daq_fast.configure_ai_sample_rate(sample_rate=FAST_SAMPLE_RATE)
-    daq_slow.configure_ai_sample_rate(sample_rate=SLOW_SAMPLE_RATE)
+    daq_fast.configure_hw_sample_rate(sample_rate=FAST_SAMPLE_RATE)
+    daq_slow.configure_hw_sample_rate(sample_rate=SLOW_SAMPLE_RATE)
 
     # Each start() launches that instance's own background daemon.
     daq_fast.start()

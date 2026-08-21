@@ -294,7 +294,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
                 temps.append(math.nan)  # open/overranged input or dropped-scan sentinel; keep the batch flowing
         return temps
 
-    def configure_ai_hw_timing(
+    def configure_hw_timing(
         self,
         hw_timing_config: HWTimingConfig,
     ):

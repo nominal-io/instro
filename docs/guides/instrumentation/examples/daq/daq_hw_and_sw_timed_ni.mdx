@@ -57,8 +57,8 @@ with daq_hw, daq_sw:
         )
 
     # One instance is hardware-timed, the other software-timed.
-    daq_hw.configure_ai_hw_sample_rate(sample_rate=HW_SAMPLE_RATE)
-    daq_sw.configure_ai_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
+    daq_hw.configure_hw_sample_rate(sample_rate=HW_SAMPLE_RATE)
+    daq_sw.configure_sw_sample_rate(sample_rate=SW_SAMPLE_RATE)
 
     # Each start() launches that instance's own background daemon. Software timing
     # requires the daemon, so background=False starts nothing on daq_sw.
