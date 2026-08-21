@@ -302,8 +302,9 @@ class DaqInScanEngine:
 
     def _convert_tc_counts(self, buffer_snapshot: Array, samples_per_channel: int) -> list[float]:
         """Convert a snapshot's raw TC samples to temperatures; get_tc_values only reads UL buffers."""
-        if self._tc_unit is None: 
-            raise RuntimeError("TC conversion invoked with no thermocouple channels"))
+        if self._tc_unit is None:
+            raise RuntimeError("TC conversion invoked with no thermocouple channels")
+
         self._tc_copy_func(buffer_snapshot, self._tc_scratch, 0, len(buffer_snapshot))
         err_code, temps = ul.get_tc_values(
             self._board_num,
