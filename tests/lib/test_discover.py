@@ -45,6 +45,22 @@ def test_scan_recognized_psu() -> None:
     assert info.num_channels == 1
 
 
+def test_scan_recognized_siglent_spd3303_reports_two_programmable_channels() -> None:
+    # Channel 3 is a front-panel-only switch with no SCPI programming interface
+    # (SiglentSPD3303._require_programmable_channel raises for it), so discovery
+    # must report 2, not the 3 physical output channels.
+    mock_rm = _rm_mock(("USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = "SIGLENT TECHNOLOGIES,SPD3303X,12345,1.0"
+            result = scan_visa_resources()
+
+    assert len(result.instruments) == 1
+    info = result.instruments[0]
+    assert info.driver_class_name == "SiglentSPD3303"
+    assert info.num_channels == 2
+
+
 def test_scan_recognized_dmm() -> None:
     mock_rm = _rm_mock(("USB0::0x05E6::0x2400::INSTR",))
     with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
