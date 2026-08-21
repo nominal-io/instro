@@ -3,8 +3,7 @@
 Complements ``test_bk_85xxb_hardware.py``: that file validates the driver's methods;
 this one validates that a JSON config builds a working ``InstroELoad`` against the
 real instrument — driver/timing resolution from a config file, the ``load`` block
-actually programmed on ``open()`` (CV mode/level/range/slew plus ``curr_limit``,
-which BK85XXB arms as the CURR:PROT over-current trip) with the input left
+actually programmed on ``open()`` (CV mode/level/range/slew) with the input left
 DISABLED, config-driven background polling producing measurements, and the
 ``autostart=True`` lifecycle. Schema-validation and constructor rejection cases are
 unit-tested in ``tests/eload/test_eload_config.py`` and are not repeated here.
@@ -42,7 +41,6 @@ BAUD_RATE = 9600
 
 CHANNEL = 1
 CV_LEVEL_V = 5.0
-CURR_LIMIT_A = 0.5
 CV_RANGE_V = 10.0
 SLEW_RATE_A_PER_US = 0.1
 POLL_SECONDS = 3.0
@@ -68,7 +66,6 @@ CONFIG: dict[str, Any] = {
     "load": {
         "mode": "CV",
         "level": CV_LEVEL_V,
-        "curr_limit": CURR_LIMIT_A,
         "range": CV_RANGE_V,
         "slew_rate": {"direction": "BOTH", "rate": SLEW_RATE_A_PER_US},
     },
@@ -119,13 +116,11 @@ def _check_load_applied(eload: InstroELoad) -> None:
     function = driver._visa.query("FUNCtion?").strip().upper()
     level = float(driver._visa.query("VOLTage?"))
     vrange = float(driver._visa.query("VOLTage:RANGe?"))
-    prot = float(driver._visa.query("CURRent:PROTection?"))
-    print(f"         FUNC? -> {function}, level -> {level:g} V, range -> {vrange:g} V, CURR:PROT? -> {prot:g} A")
+    print(f"         FUNC? -> {function}, level -> {level:g} V, range -> {vrange:g} V")
     assert function.startswith("VOLT"), f"mode {function!r} != CV"
     assert eload._mode is LoadMode.CV, f"HAL mode cache {eload._mode!r}"
     assert level == pytest.approx(CV_LEVEL_V), f"CV level {level:g}"
     assert vrange >= CV_RANGE_V, f"range {vrange:g} does not cover configured {CV_RANGE_V:g}"
-    assert prot == pytest.approx(CURR_LIMIT_A), f"protection level {prot:g} != configured curr_limit"
 
 
 def _check_input_disabled(eload: InstroELoad) -> None:
@@ -166,10 +161,10 @@ def _check_reopen_reapplies(eload: InstroELoad) -> None:
     driver = eload._driver
     assert isinstance(driver, BK85XXB)
     function = driver._visa.query("FUNCtion?").strip().upper()
-    prot = float(driver._visa.query("CURRent:PROTection?"))
-    print(f"         after reopen: FUNC? -> {function}, CURR:PROT? -> {prot:g} A")
+    level = float(driver._visa.query("VOLTage?"))
+    print(f"         after reopen: FUNC? -> {function}, level -> {level:g} V")
     assert function.startswith("VOLT"), f"mode {function!r} not re-applied on reopen"
-    assert prot == pytest.approx(CURR_LIMIT_A), f"curr_limit {prot:g} not re-applied on reopen"
+    assert level == pytest.approx(CV_LEVEL_V), f"level {level:g} not re-applied on reopen"
 
 
 def _check_polling(eload: InstroELoad, capture: _CapturePublisher) -> None:
@@ -197,7 +192,7 @@ def run_all() -> list:
     _run("config file resolves name/driver/poll_interval", lambda: _check_resolution(eload), failures)
     eload.open()
     try:
-        _run("open() applied load block (CV, level, range, curr_limit)", lambda: _check_load_applied(eload), failures)
+        _run("open() applied load block (CV, level, range)", lambda: _check_load_applied(eload), failures)
         _run("input left disabled by config", lambda: _check_input_disabled(eload), failures)
         _run("get_current/get_voltage (open terminals, structural)", lambda: _check_readback(eload), failures)
         _run(

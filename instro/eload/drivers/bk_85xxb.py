@@ -43,11 +43,8 @@ class BK85XXB(ELoadDriverBase):
         self._write_checked(f"FUNCtion {loadmode_to_unit(mode)}")
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        if curr_limit is not None:
-            # CURR:PROT is a latching trip (input off once exceeded for the protection delay),
-            # the only SCPI current ceiling the 8500B offers; a continuous CV->CC crossover
-            # limit is not exposed over SCPI (nominal-io/instro#419). Armed before the level.
-            self._write_checked(f"CURRent:PROTection {curr_limit}")
+        if mode is LoadMode.CV:
+            pass  # TODO add CV→CC protection based off curr_limit
         self._write_checked(f"{loadmode_to_unit(mode)} {value}")
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:

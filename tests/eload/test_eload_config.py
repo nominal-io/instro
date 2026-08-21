@@ -51,14 +51,11 @@ def test_init_with_config_dict_and_timing_sets_background_interval(valid_config)
     assert eload._config.load is None
 
 
-def test_init_with_config_dict_curr_limit_outside_cv_raises(valid_config):
-    with pytest.raises(Exception, match="only meaningful in CV mode"):
-        InstroELoad(config={**valid_config, "load": {"mode": "CC", "level": 1.0, "curr_limit": 2.0}})
-
-
-def test_init_with_config_dict_curr_limit_without_level_raises(valid_config):
-    with pytest.raises(Exception, match="curr_limit requires a level"):
-        InstroELoad(config={**valid_config, "load": {"mode": "CV", "curr_limit": 2.0}})
+def test_init_with_config_dict_curr_limit_field_rejected(valid_config):
+    # curr_limit was removed from LoadConfig (no driver implements it); the strict
+    # schema must reject it rather than silently accept a protective-sounding field.
+    with pytest.raises(Exception):
+        InstroELoad(config={**valid_config, "load": {"mode": "CV", "level": 1.0, "curr_limit": 2.0}})
 
 
 def test_init_with_config_dict_load_block_without_mode_raises(valid_config):
@@ -86,16 +83,6 @@ def test_open_applies_load_config_in_order(valid_config):
     # short the input (implied by the exact order equality, asserted here explicitly).
     mock_driver.output_enable.assert_not_called()
     mock_driver.short_output.assert_not_called()
-
-
-def test_open_applies_cv_level_with_curr_limit(valid_config):
-    eload, mock_driver = _make_eload_with_mock_driver(
-        {**valid_config, "load": {"mode": "CV", "level": 12.0, "curr_limit": 2.0}}
-    )
-
-    eload.open()
-
-    mock_driver.set_level.assert_called_once_with(mode=LoadMode.CV, value=12.0, channel=1, curr_limit=2.0)
 
 
 def test_open_with_mode_only_load_block_applies_only_mode(valid_config):

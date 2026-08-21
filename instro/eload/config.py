@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.config import (
@@ -52,23 +52,11 @@ class LoadConfig(BaseModel):
         default=None,
         description="Operating level in the mode's units (CC: A, CV: V, CP: W, CR: Ω); omit to keep the instrument default.",
     )
-    curr_limit: float | None = Field(
-        default=None, description="Current limit applied with the level; only meaningful in CV mode."
-    )
     range: float | None = Field(
         default=None,
         description="Operating range in the mode's units; omit to keep the instrument default.",
     )
     slew_rate: SlewRateConfig | None = Field(default=None, description="Per-edge current slew rate.")
-
-    @model_validator(mode="after")
-    def _curr_limit_requires_cv_and_level(self) -> LoadConfig:
-        if self.curr_limit is not None:
-            if self.mode is not LoadMode.CV:
-                raise ValueError("curr_limit is only meaningful in CV mode")
-            if self.level is None:
-                raise ValueError("curr_limit requires a level: it is applied through set_level")
-        return self
 
 
 class VisaDriverConfig(BaseModel):
