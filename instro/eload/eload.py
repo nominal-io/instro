@@ -6,10 +6,13 @@ import abc
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Callable
 
+from instro.eload.config import ELoadConfig, resolve_eload_from_config
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 
@@ -90,15 +93,20 @@ class InstroELoad(Instrument):
 
     def __init__(
         self,
-        name: str,
-        driver: ELoadDriverBase,
+        name: str | None = None,
+        driver: ELoadDriverBase | None = None,
         publishers: list[Publisher] | None = None,
+        config: ELoadConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroELoad.
 
+        Provide either ``config`` or ``driver``, not both.
+
         Args:
-            name: Channel-name prefix for published data.
+            name: Channel-name prefix for published data. Falls back to
+                ``config.device.name`` when ``config`` is given.
             driver: Concrete E-Load driver; owns its own transport::
 
                 eload = InstroELoad(
@@ -107,17 +115,53 @@ class InstroELoad(Instrument):
                 )
 
             publishers: Publishers that receive emitted Measurement/Command data.
+                Combined with any publishers declared in ``config``.
+            config: An ``ELoadConfig``, a dict, or a path to a JSON config file. Its
+                ``load`` block is applied through the public setters on ``open()``;
+                the input is never enabled from config.
+            autostart: When True, open the connection and start background polling.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
+        poll_interval: float | None = None
+        resolved_config: ELoadConfig | None = None
+        config_publishers: list[Publisher] = []
+        if config is not None:
+            if driver is not None:
+                raise ValueError(
+                    "InstroELoad(config=...) cannot be combined with driver; use one construction style or the other."
+                )
+            resolved_config = load_config(config, ELoadConfig)
+            resolved_name, driver, config_publishers, poll_interval = resolve_eload_from_config(resolved_config)
+            publishers = [*(publishers or []), *config_publishers] or None
+            if name is None:
+                name = resolved_name
+        elif name is None or driver is None:
+            raise ValueError("InstroELoad requires either config=..., or name and driver together.")
+
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
+        self._config = resolved_config
         self._define_background_daemon()
         self._resource_lock = threading.Lock()
 
         self._mode: LoadMode | None = None
+        self._load_config_applied = False
+
+        if poll_interval is not None:
+            self.background_interval = poll_interval
+
+        if autostart:
+            try:
+                self.open()
+                self.start()
+            except Exception:
+                self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
+                raise
 
     @publish_measurement
     def _execute_measurement(
@@ -136,17 +180,42 @@ class InstroELoad(Instrument):
         descriptor = f"ch{channel}_{legacy_suffix}" if self.legacy_naming else f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
 
-    def open(self):
-        """Open the underlying driver."""
+    def open(self) -> None:
+        """Open the underlying driver and apply any configured load state."""
         logger.info("Opening E-Load '%s'", self.name)
         self._driver.open()
+        try:
+            self._apply_load_config()
+        except Exception:
+            self._mode = None
+            self._driver.close()
+            raise
         logger.info("Opened E-Load '%s'", self.name)
 
-    def close(self):
+    def _apply_load_config(self) -> None:
+        """Apply the config's ``load`` block through the public setters, once per open, in the order the API requires."""
+        if self._config is None or self._config.load is None or self._load_config_applied:
+            return
+        load = self._config.load
+        self.set_mode(load.mode)
+        if load.range is not None:
+            self.set_range(load.range)
+        if load.level is not None:
+            self.set_level(load.level)
+        if load.slew_rate is not None:
+            self.set_slewrate(load.slew_rate.direction, load.slew_rate.rate)
+        self._load_config_applied = True
+
+    def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing E-Load '%s'", self.name)
-        super().close()
-        self._driver.close()
+        # Reset before teardown: a failing publisher close must not strand the flag,
+        # or a later reopen would silently skip re-applying the configured load state.
+        self._load_config_applied = False
+        try:
+            super().close()
+        finally:
+            self._driver.close()
         logger.info("Closed E-Load '%s'", self.name)
 
     @publish_command

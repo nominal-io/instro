@@ -1,0 +1,41 @@
+{
+    "version": 1,
+    "instrument": "InstroELoad",
+    "device": {
+        "name": "bench_eload",
+        "description": "Bench electronic load",
+        "manufacturer": "B&K Precision",
+        "model": "8514B"
+    },
+    "driver": {
+        "connection_type": "visa",
+        "name": "BK85XXB",
+        "visa": {
+            "visa_resource": "ASRL3::INSTR",
+            "serial_config": {
+                "baud_rate": 9600,
+                "data_bits": 8,
+                "parity": "N",
+                "stop_bits": 1
+            }
+        }
+    },
+    "load": {
+        "mode": "CC",
+        "level": 1.5,
+        "range": 5.0,
+        "slew_rate": {
+            "direction": "BOTH",
+            "rate": 0.5
+        }
+    },
+    "timing": {
+        "poll_interval": 1.0
+    },
+    "publishers": [
+        {
+            "type": "NominalCorePublisher",
+            "dataset_rid": "<dataset_rid>"
+        }
+    ]
+}
