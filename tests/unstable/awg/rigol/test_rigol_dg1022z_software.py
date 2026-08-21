@@ -1030,20 +1030,24 @@ def test_55_sweep_frequency_bounds_roundtrip(rigol: RigolDG1022Z, rigol_visa: Ma
 
 def test_56_sweep_timing_roundtrip(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
     rigol.set_sweep_time(2, 5.0)
-    rigol.set_sweep_hold_time(2, 1.0)
+    rigol.set_sweep_start_hold_time(2, 1.0)
+    rigol.set_sweep_stop_hold_time(2, 1.5)
     rigol.set_sweep_return_time(2, 0.5)
     assert rigol_visa.write.call_args_list == [
         call(":SOUR2:SWE:TIME 5.0"),
-        call(":SOUR2:SWE:HTIM 1.0"),
+        call(":SOUR2:SWE:HTIM:STAR 1.0"),
+        call(":SOUR2:SWE:HTIM 1.5"),
         call(":SOUR2:SWE:RTIM 0.5"),
     ]
 
-    _query_sequence(rigol_visa, ["5.000000E+00", "1.000000E+00", "5.000000E-01"])
+    _query_sequence(rigol_visa, ["5.000000E+00", "1.000000E+00", "1.500000E+00", "5.000000E-01"])
     assert rigol.get_sweep_time(2) == pytest.approx(5.0)
-    assert rigol.get_sweep_hold_time(2) == pytest.approx(1.0)
+    assert rigol.get_sweep_start_hold_time(2) == pytest.approx(1.0)
+    assert rigol.get_sweep_stop_hold_time(2) == pytest.approx(1.5)
     assert rigol.get_sweep_return_time(2) == pytest.approx(0.5)
     assert _real_query_calls(rigol_visa) == [
         call(":SOUR2:SWE:TIME?"),
+        call(":SOUR2:SWE:HTIM:STAR?"),
         call(":SOUR2:SWE:HTIM?"),
         call(":SOUR2:SWE:RTIM?"),
     ]
@@ -1090,3 +1094,10 @@ def test_60_set_sweep_succeeds_on_untracked_arbitrary_carrier(rigol: RigolDG1022
     rigol.set_sweep(1, SweepType.LINEAR)
 
     rigol_visa.write.assert_called_once_with(":SOUR1:SWE:SPAC LINEAR")
+
+
+def test_61_set_sweep_start_freq_forwards_negative_value(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    # No client-side range check: the driver defers frequency validation to the instrument's error queue.
+    rigol.set_sweep_start_freq(1, -100.0)
+
+    rigol_visa.write.assert_called_once_with(":SOUR1:FREQ:STAR -100.0")

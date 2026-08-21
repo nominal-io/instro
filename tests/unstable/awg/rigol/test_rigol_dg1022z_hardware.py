@@ -55,7 +55,8 @@ PHASE_TOLERANCE_DEG = 0.1
 TEST_SWEEP_START_HZ = 100.0
 TEST_SWEEP_END_HZ = 900.0
 TEST_SWEEP_TIME_S = 1.0
-TEST_SWEEP_HOLD_TIME_S = 0.1
+TEST_SWEEP_START_HOLD_TIME_S = 0.1
+TEST_SWEEP_STOP_HOLD_TIME_S = 0.1
 TEST_SWEEP_RETURN_TIME_S = 0.1
 SWEEP_TIME_TOLERANCE_REL = 0.01
 
@@ -617,10 +618,16 @@ def test_30_sweep_timing_roundtrip(driver: RigolDG1022Z) -> None:
     driver.set_waveform(1, Sine(frequency_hz=TEST_FREQUENCY_HZ))
 
     driver.set_sweep_time(1, TEST_SWEEP_TIME_S)
-    driver.set_sweep_hold_time(1, TEST_SWEEP_HOLD_TIME_S)
+    driver.set_sweep_start_hold_time(1, TEST_SWEEP_START_HOLD_TIME_S)
+    driver.set_sweep_stop_hold_time(1, TEST_SWEEP_STOP_HOLD_TIME_S)
     driver.set_sweep_return_time(1, TEST_SWEEP_RETURN_TIME_S)
     driver._check_errors()
 
     assert driver.get_sweep_time(1) == pytest.approx(TEST_SWEEP_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)
-    assert driver.get_sweep_hold_time(1) == pytest.approx(TEST_SWEEP_HOLD_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)
+    assert driver.get_sweep_start_hold_time(1) == pytest.approx(
+        TEST_SWEEP_START_HOLD_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL
+    )
+    assert driver.get_sweep_stop_hold_time(1) == pytest.approx(
+        TEST_SWEEP_STOP_HOLD_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL
+    )
     assert driver.get_sweep_return_time(1) == pytest.approx(TEST_SWEEP_RETURN_TIME_S, rel=SWEEP_TIME_TOLERANCE_REL)

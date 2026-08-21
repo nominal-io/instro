@@ -213,13 +213,21 @@ class AWGDriverBase(abc.ABC):
         """Get the sweep time (seconds) on channel."""
         raise NotImplementedError(f"get_sweep_time is not implemented for {type(self).__name__}")
 
-    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
-        """Set the sweep hold time (seconds) on channel."""
-        raise NotImplementedError(f"set_sweep_hold_time is not implemented for {type(self).__name__}")
+    def set_sweep_start_hold_time(self, channel: int, hold_time: float) -> None:
+        """Set the sweep start hold time (seconds) on channel."""
+        raise NotImplementedError(f"set_sweep_start_hold_time is not implemented for {type(self).__name__}")
 
-    def get_sweep_hold_time(self, channel: int) -> float:
-        """Get the sweep hold time (seconds) on channel."""
-        raise NotImplementedError(f"get_sweep_hold_time is not implemented for {type(self).__name__}")
+    def set_sweep_stop_hold_time(self, channel: int, hold_time: float) -> None:
+        """Set the sweep stop hold time (seconds) on channel."""
+        raise NotImplementedError(f"set_sweep_stop_hold_time is not implemented for {type(self).__name__}")
+
+    def get_sweep_start_hold_time(self, channel: int) -> float:
+        """Get the sweep start hold time (seconds) on channel."""
+        raise NotImplementedError(f"get_sweep_start_hold_time is not implemented for {type(self).__name__}")
+
+    def get_sweep_stop_hold_time(self, channel: int) -> float:
+        """Get the sweep stop hold time (seconds) on channel."""
+        raise NotImplementedError(f"get_sweep_stop_hold_time is not implemented for {type(self).__name__}")
 
     def set_sweep_return_time(self, channel: int, return_time: float) -> None:
         """Set the sweep return time (seconds) on channel."""
@@ -712,15 +720,33 @@ class InstroAWG(Instrument):
         self._check_channel(channel)
         return self._execute_measurement(self._driver.get_sweep_time, channel, "sweep_time", **kwargs)
 
-    def set_sweep_hold_time(self, channel: int, hold_time: float, **kwargs) -> Command:
-        """Set the sweep hold time (seconds) on channel."""
+    def set_sweep_start_hold_time(self, channel: int, hold_time: float, **kwargs) -> Command:
+        """Set the sweep start hold time (seconds) on channel."""
         self._check_channel(channel)
-        return self._execute_command(self._driver.set_sweep_hold_time, channel, hold_time, "sweep_hold_time", **kwargs)
+        return self._execute_command(
+            self._driver.set_sweep_start_hold_time, channel, hold_time, "sweep_start_hold_time", **kwargs
+        )
 
-    def get_sweep_hold_time(self, channel: int, **kwargs) -> Measurement | None:
-        """Read back the sweep hold time (seconds) on channel."""
+    def get_sweep_start_hold_time(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep start hold time (seconds) on channel."""
         self._check_channel(channel)
-        return self._execute_measurement(self._driver.get_sweep_hold_time, channel, "sweep_hold_time", **kwargs)
+        return self._execute_measurement(
+            self._driver.get_sweep_start_hold_time, channel, "sweep_start_hold_time", **kwargs
+        )
+
+    def set_sweep_stop_hold_time(self, channel: int, hold_time: float, **kwargs) -> Command:
+        """Set the sweep stop hold time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_command(
+            self._driver.set_sweep_stop_hold_time, channel, hold_time, "sweep_stop_hold_time", **kwargs
+        )
+
+    def get_sweep_stop_hold_time(self, channel: int, **kwargs) -> Measurement | None:
+        """Read back the sweep stop hold time (seconds) on channel."""
+        self._check_channel(channel)
+        return self._execute_measurement(
+            self._driver.get_sweep_stop_hold_time, channel, "sweep_stop_hold_time", **kwargs
+        )
 
     def set_sweep_return_time(self, channel: int, return_time: float, **kwargs) -> Command:
         """Set the sweep return time (seconds) on channel."""

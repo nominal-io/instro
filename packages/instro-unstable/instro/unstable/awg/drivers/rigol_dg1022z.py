@@ -51,6 +51,13 @@ _SWEEP_SPACING_READBACK: dict[str, SweepType] = {
     "STE": SweepType.STEP,
 }
 
+# :FUNC? mnemonic -> user-facing waveform name, for carriers the DG1022Z cannot sweep.
+_INVALID_SWEEPS: dict[str, str] = {
+    "DC": StaticValue.__name__,
+    "NOIS": "Noise",
+    "PULS": Pulse.__name__,
+}
+
 
 class RigolDG1022Z(AWGDriverBase):
     """SCPI driver for the Rigol DG1022Z two-channel arbitrary waveform generator."""
@@ -403,8 +410,9 @@ class RigolDG1022Z(AWGDriverBase):
         with self._visa.lock():
             carrier = self._visa.query(f":SOUR{channel}:FUNC?").strip()
             self._check_errors()
-            if carrier == "DC":
-                raise ValueError(f"the DG1022Z cannot sweep a StaticValue (DC) waveform on channel {channel}")
+            invalid_name = _INVALID_SWEEPS.get(carrier)
+            if invalid_name is not None:
+                raise ValueError(f"the DG1022Z cannot sweep a {invalid_name} on channel {channel}")
             self._visa.write(f":SOUR{channel}:SWE:SPAC {sweep_type.value}")
             self._check_errors()
 
@@ -475,14 +483,25 @@ class RigolDG1022Z(AWGDriverBase):
             self._check_errors()
         return result
 
-    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
+    def set_sweep_stop_hold_time(self, channel: int, hold_time: float) -> None:
         _check_channel(channel)
         self._write_checked(f":SOUR{channel}:SWE:HTIM {hold_time}")
 
-    def get_sweep_hold_time(self, channel: int) -> float:
+    def get_sweep_stop_hold_time(self, channel: int) -> float:
         _check_channel(channel)
         with self._visa.lock():
             result = float(self._visa.query(f":SOUR{channel}:SWE:HTIM?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_start_hold_time(self, channel: int, hold_time: float) -> None:
+        _check_channel(channel)
+        self._write_checked(f":SOUR{channel}:SWE:HTIM:STAR {hold_time}")
+
+    def get_sweep_start_hold_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query(f":SOUR{channel}:SWE:HTIM:STAR?"))
             self._check_errors()
         return result
 
