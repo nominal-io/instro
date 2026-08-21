@@ -311,12 +311,7 @@ class Keysight33521B(AWGDriverBase):
             raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
         if sweep_type not in _SWEEP_SPACING:
             raise ValueError(f"the Keysight 33521B does not support {sweep_type.name} sweep spacing")
-        with self._visa.lock():
-            carrier_name = self._visa.query("FUNC?").strip()
-            if carrier_name == "DC":
-                raise ValueError(f"the Keysight 33521B cannot sweep a StaticValue (DC) waveform on channel {channel}")
-            self._visa.write(f"SWE:SPAC {_SWEEP_SPACING[sweep_type]}")
-            self._check_errors()
+        self._write_checked(f"SWE:SPAC {_SWEEP_SPACING[sweep_type]}")
 
     def get_sweep_type(self, channel: int) -> SweepType:
         _check_channel(channel)
