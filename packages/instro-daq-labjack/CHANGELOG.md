@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v1.0.1...instro-daq-labjack-v1.1.0) (2026-08-22)
+
+
+### Features
+
+* **daq:** ni typed channel support ([#382](https://github.com/nominal-io/instro/issues/382)) ([8675855](https://github.com/nominal-io/instro/commit/867585557101deca2efc03c9b9d82ea038a95217))
+
+
+### Bug Fixes
+
+* **ljm:** stop() stops the stream ([#413](https://github.com/nominal-io/instro/issues/413)) ([ec77591](https://github.com/nominal-io/instro/commit/ec77591977bf7335b29c82d6080a30ce107de88a))
+
 ## [1.0.1](https://github.com/nominal-io/instro/compare/instro-daq-labjack-v1.0.0...instro-daq-labjack-v1.0.1) (2026-08-11)
 
 
