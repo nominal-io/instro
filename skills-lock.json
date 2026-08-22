@@ -6,16 +6,16 @@
       "derivedPaths": [
         ".claude/skills/add-instrument-driver/SKILL.md"
       ],
-      "hash": "59a916e18aeb6a913b77c2c1de0ef2776d91c98a2df6240f80266205ce7f324d",
-      "lastSynced": "2026-06-12T04:47:22.109Z"
+      "hash": "5993575ad1de4f09c829b5f084d87f3ddb1e17b111db8c0bd46940653f0b2612",
+      "lastSynced": "2026-08-22T04:26:03.773Z"
     },
     "validate-driver-hardware": {
       "canonicalPath": ".agents/skills/validate-driver-hardware/SKILL.md",
       "derivedPaths": [
-        ".claude/skills/validate-driver-hardware/SKILL.md"
+        ".claude/skills/validate-driver-hardware"
       ],
-      "hash": "bf2567faf7ee026527b41b5aa73439deaa2e49057dbef0d73748fbb100c26e5f",
-      "lastSynced": "2026-06-12T04:47:22.110Z"
+      "hash": "bdf79db08acdfd52baebe4c908f8cfa0402697cc473950e0d0455ce878c84566",
+      "lastSynced": "2026-08-22T04:26:03.773Z"
     }
   }
 }
