@@ -320,30 +320,33 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         if not isinstance(burst_type, BurstType):
             raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
-        scpi_mode = _BURST_MODES[BurstType.NCYCLE] if burst_type is BurstType.INFINITE else _BURST_MODES.get(burst_type)
-        if scpi_mode is None:
+        mode = _BURST_MODES[BurstType.NCYCLE] if burst_type is BurstType.INFINITE else _BURST_MODES.get(burst_type)
+        if mode is None:
             raise ValueError(f"the Keysight 33521B does not support {burst_type.name} burst mode")
         with self._visa.lock():
             carrier_name = self._visa.query("FUNC?").strip()
             carrier_type = _FUNC_NAME_TO_CARRIER_TYPE.get(carrier_name)
+            self._check_errors()
             if carrier_type is None:
-                self._check_errors()
                 raise ValueError(f"Keysight 33521B reported unsupported waveform '{carrier_name}'")
             if carrier_type is StaticValue:
-                self._check_errors()
                 raise ValueError(f"the Keysight 33521B cannot burst a StaticValue (DC) waveform on channel {channel}")
-            self._visa.write(f"BURS:MODE {scpi_mode}")
+            self._visa.write(f"BURS:MODE {mode}")
             if burst_type is BurstType.INFINITE:
                 self._visa.write("BURS:NCYC INF")
             self._check_errors()
 
     def get_burst_type(self, channel: int) -> BurstType:
+        """NCYCLE reads back as INFINITE when BURS:NCYC is the hardware's high-water sentinel for INF."""
         _check_channel(channel)
         with self._visa.lock():
             mode = self._visa.query("BURS:MODE?").strip()
+            ncycles_raw = self._visa.query("BURS:NCYC?") if mode == _BURST_MODES[BurstType.NCYCLE] else None
             self._check_errors()
         if mode not in _BURST_TYPES:
             raise ValueError(f"Keysight 33521B reported unsupported burst mode '{mode}'")
+        if ncycles_raw is not None and float(ncycles_raw) >= _HIGH_Z_SENTINEL:
+            return BurstType.INFINITE
         return _BURST_TYPES[mode]
 
     def burst_enable(self, channel: int, enable: bool) -> None:
@@ -381,7 +384,7 @@ class Keysight33521B(AWGDriverBase):
                     " enabled, call burst_enable(channel, True) first"
                 )
             burst_type = self.get_burst_type(channel)
-            if burst_type is not BurstType.NCYCLE:
+            if burst_type not in (BurstType.NCYCLE, BurstType.INFINITE):
                 raise ValueError(
                     f"fire_burst_trigger fires a single N-cycle burst; channel {channel} is in {burst_type.name} mode"
                 )

@@ -459,7 +459,9 @@ def test_27_set_burst_accepts_untracked_arbitrary_carrier(driver: Keysight33521B
     assert driver.get_burst_type(CHANNEL) is BurstType.NCYCLE
 
 
-@pytest.mark.parametrize("burst_type", [BurstType.NCYCLE, BurstType.GATED], ids=["ncycle", "gated"])
+@pytest.mark.parametrize(
+    "burst_type", [BurstType.NCYCLE, BurstType.GATED, BurstType.INFINITE], ids=["ncycle", "gated", "infinite"]
+)
 def test_28_get_burst_type_matches_configured_type(driver: Keysight33521B, burst_type: BurstType) -> None:
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, burst_type)
@@ -468,13 +470,13 @@ def test_28_get_burst_type_matches_configured_type(driver: Keysight33521B, burst
     assert driver.get_burst_type(CHANNEL) is burst_type
 
 
-def test_29_set_burst_infinite_maps_to_ncycle_with_max_ncycles(driver: Keysight33521B) -> None:
-    """The 33521B has no third BURSt:MODE value: INFINITE is programmed as BURS:MODE TRIG + BURS:NCYC INF."""
+def test_29_set_burst_infinite_reports_infinite_type_and_max_ncycles(driver: Keysight33521B) -> None:
+    """get_burst_type infers INFINITE from the BURS:NCYC sentinel; the 33521B has no third BURS:MODE value."""
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.INFINITE)
     driver._check_errors()
 
-    assert driver.get_burst_type(CHANNEL) is BurstType.NCYCLE
+    assert driver.get_burst_type(CHANNEL) is BurstType.INFINITE
     assert driver.get_burst_ncycles(CHANNEL) == sys.maxsize
 
 
@@ -486,16 +488,22 @@ def test_30_set_burst_infinite_rejects_staticvalue_carrier(driver: Keysight33521
     driver._check_errors()
 
 
-def test_31_switching_back_to_ncycle_after_infinite_clears_max_ncycles(driver: Keysight33521B) -> None:
-    """Confirms BURS:NCYC INF isn't sticky once a finite count is programmed on top of it."""
+def test_31_set_burst_ncycle_leaves_a_prior_infinite_sentinel_until_ncycles_is_set(driver: Keysight33521B) -> None:
+    """set_burst(NCYCLE) only rewrites BURS:MODE; a leftover BURS:NCYC INF is the caller's to clear."""
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.INFINITE)
     driver._check_errors()
     assert driver.get_burst_ncycles(CHANNEL) == sys.maxsize
 
     driver.set_burst(CHANNEL, BurstType.NCYCLE)
+    driver._check_errors()
+    assert driver.get_burst_type(CHANNEL) is BurstType.INFINITE
+
     driver.set_burst_ncycles(CHANNEL, 10)
     driver._check_errors()
+
+    assert driver.get_burst_type(CHANNEL) is BurstType.NCYCLE
+    assert driver.get_burst_ncycles(CHANNEL) == 10
 
     assert driver.get_burst_ncycles(CHANNEL) == 10
 
@@ -598,7 +606,7 @@ def test_37_fire_burst_trigger_rejects_gated_mode_before_touching_hardware(drive
 
 
 def test_38_fire_burst_trigger_fires_when_configured_via_infinite(driver: Keysight33521B) -> None:
-    """INFINITE reads back as NCYCLE (same wire mode), so the fire_burst_trigger guard does not reject it."""
+    """The NCYCLE guard also allows INFINITE, since firing is wire-identical to a plain NCYCLE burst."""
     driver.set_waveform(CHANNEL, Square(frequency_hz=TEST_FREQUENCY_HZ))
     driver.set_burst(CHANNEL, BurstType.INFINITE)
     driver.set_burst_trigger(CHANNEL, BurstTriggerSource.MANUAL)

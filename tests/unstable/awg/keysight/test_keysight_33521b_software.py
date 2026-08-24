@@ -776,6 +776,17 @@ def test_48_set_burst_infinite_uses_ncycle_mode_with_max_cycles(
     assert keysight_visa.write.call_args_list == [call("BURS:MODE TRIG"), call("BURS:NCYC INF")]
 
 
+def test_set_burst_ncycle_does_not_touch_a_prior_infinite_ncycles_sentinel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """set_burst(NCYCLE) only writes BURS:MODE; BURS:NCYC is caller-owned via set_burst_ncycles, not auto-reset."""
+    _query_sequence(keysight_visa, ["SIN"])
+
+    keysight.set_burst(1, BurstType.NCYCLE)
+
+    assert keysight_visa.write.call_args_list == [call("BURS:MODE TRIG")]
+
+
 @pytest.mark.parametrize(
     ("channel", "burst_type", "carrier_responses", "match"),
     [
@@ -805,7 +816,7 @@ def test_49_set_burst_rejects_invalid_input(
 def test_50_get_burst_type_parses_every_mode_and_rejects_unknown(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
-    _query_sequence(keysight_visa, ["TRIG"])
+    _query_sequence(keysight_visa, ["TRIG", "1.000000E+01"])
     assert keysight.get_burst_type(1) is BurstType.NCYCLE
 
     _query_sequence(keysight_visa, ["GAT"])
@@ -814,6 +825,16 @@ def test_50_get_burst_type_parses_every_mode_and_rejects_unknown(
     _query_sequence(keysight_visa, ["NOIS"])
     with pytest.raises(ValueError, match="unsupported burst mode 'NOIS'"):
         keysight.get_burst_type(1)
+
+
+def test_get_burst_type_reports_infinite_when_ncycles_is_the_high_water_sentinel(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """NCYCLE mode + a BURS:NCYC readback at the 9.9E37 sentinel reports as INFINITE, not NCYCLE."""
+    _query_sequence(keysight_visa, ["TRIG", "9.900000E+37"])
+
+    assert keysight.get_burst_type(1) is BurstType.INFINITE
+    assert _real_query_calls(keysight_visa) == [call("BURS:MODE?"), call("BURS:NCYC?")]
 
 
 def test_51_burst_enable_writes_burs_stat_and_get_burst_state_parses_it(
@@ -891,18 +912,34 @@ def test_56_fire_burst_trigger_fires_when_source_already_manual(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     """*TRG, not TRIGger:IMMediate, is the documented software-trigger command for this instrument."""
-    _query_sequence(keysight_visa, ["1", "TRIG", "BUS"])
+    _query_sequence(keysight_visa, ["1", "TRIG", "1.000000E+01", "BUS"])
 
     keysight.fire_burst_trigger(1)
 
-    assert _real_query_calls(keysight_visa) == [call("BURS:STAT?"), call("BURS:MODE?"), call("TRIG:SOUR?")]
+    assert _real_query_calls(keysight_visa) == [
+        call("BURS:STAT?"),
+        call("BURS:MODE?"),
+        call("BURS:NCYC?"),
+        call("TRIG:SOUR?"),
+    ]
+    assert keysight_visa.write.call_args_list == [call("*TRG")]
+
+
+def test_fire_burst_trigger_fires_when_configured_via_infinite(
+    keysight: Keysight33521B, keysight_visa: MagicMock
+) -> None:
+    """INFINITE is wire-identical to NCYCLE (same BURS:MODE token); the guard must allow both."""
+    _query_sequence(keysight_visa, ["1", "TRIG", "9.900000E+37", "BUS"])
+
+    keysight.fire_burst_trigger(1)
+
     assert keysight_visa.write.call_args_list == [call("*TRG")]
 
 
 def test_57_fire_burst_trigger_rejects_non_manual_source_and_invalid_channel(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
-    _query_sequence(keysight_visa, ["1", "TRIG", "EXT"])
+    _query_sequence(keysight_visa, ["1", "TRIG", "1.000000E+01", "EXT"])
 
     with pytest.raises(ValueError, match="already MANUAL"):
         keysight.fire_burst_trigger(1)
@@ -934,7 +971,6 @@ def test_fire_burst_trigger_rejects_gated_mode_before_reading_trigger_source(
         keysight.fire_burst_trigger(1)
 
     assert _real_query_calls(keysight_visa) == [call("BURS:STAT?"), call("BURS:MODE?")]
-    keysight_visa.write.assert_not_called()
     keysight_visa.write.assert_not_called()
 
 
