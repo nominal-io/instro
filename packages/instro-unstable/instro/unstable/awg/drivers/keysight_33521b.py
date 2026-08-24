@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.awg.awg import AWGDriverBase
@@ -319,7 +320,8 @@ class Keysight33521B(AWGDriverBase):
         _check_channel(channel)
         if not isinstance(burst_type, BurstType):
             raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
-        if burst_type not in _BURST_MODES:
+        scpi_mode = _BURST_MODES[BurstType.NCYCLE] if burst_type is BurstType.INFINITE else _BURST_MODES.get(burst_type)
+        if scpi_mode is None:
             raise ValueError(f"the Keysight 33521B does not support {burst_type.name} burst mode")
         with self._visa.lock():
             carrier_name = self._visa.query("FUNC?").strip()
@@ -330,7 +332,9 @@ class Keysight33521B(AWGDriverBase):
             if carrier_type is StaticValue:
                 self._check_errors()
                 raise ValueError(f"the Keysight 33521B cannot burst a StaticValue (DC) waveform on channel {channel}")
-            self._visa.write(f"BURS:MODE {_BURST_MODES[burst_type]}")
+            self._visa.write(f"BURS:MODE {scpi_mode}")
+            if burst_type is BurstType.INFINITE:
+                self._visa.write("BURS:NCYC INF")
             self._check_errors()
 
     def get_burst_type(self, channel: int) -> BurstType:
@@ -376,6 +380,11 @@ class Keysight33521B(AWGDriverBase):
                     f"Cannot fire a burst trigger on channel {channel} unless burst mode is already"
                     " enabled, call burst_enable(channel, True) first"
                 )
+            burst_type = self.get_burst_type(channel)
+            if burst_type is not BurstType.NCYCLE:
+                raise ValueError(
+                    f"fire_burst_trigger fires a single N-cycle burst; channel {channel} is in {burst_type.name} mode"
+                )
             source = self.get_burst_trigger(channel)
             if source is not BurstTriggerSource.MANUAL:
                 raise ValueError(
@@ -393,9 +402,9 @@ class Keysight33521B(AWGDriverBase):
     def get_burst_delay(self, channel: int) -> float:
         _check_channel(channel)
         with self._visa.lock():
-            result = float(self._visa.query("TRIG:DEL?"))
+            raw = self._visa.query("TRIG:DEL?")
             self._check_errors()
-        return result
+        return float(raw)
 
     def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
         _check_channel(channel)
@@ -419,9 +428,10 @@ class Keysight33521B(AWGDriverBase):
     def get_burst_ncycles(self, channel: int) -> int:
         _check_channel(channel)
         with self._visa.lock():
-            result = int(float(self._visa.query("BURS:NCYC?")))
+            raw = self._visa.query("BURS:NCYC?")
             self._check_errors()
-        return result
+        value = float(raw)
+        return sys.maxsize if value >= _HIGH_Z_SENTINEL else int(value)
 
     def set_burst_period(self, channel: int, period: float) -> None:
         _check_channel(channel)
@@ -432,9 +442,9 @@ class Keysight33521B(AWGDriverBase):
     def get_burst_period(self, channel: int) -> float:
         _check_channel(channel)
         with self._visa.lock():
-            result = float(self._visa.query("BURS:INT:PER?"))
+            raw = self._visa.query("BURS:INT:PER?")
             self._check_errors()
-        return result
+        return float(raw)
 
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
