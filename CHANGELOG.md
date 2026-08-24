@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.13.0](https://github.com/nominal-io/instro/compare/instro-v1.12.0...instro-v1.13.0) (2026-08-24)
+
+
+### Features
+
+* **mcc:** typed channel support for mcc daqs ([#403](https://github.com/nominal-io/instro/issues/403)) ([df59d2f](https://github.com/nominal-io/instro/commit/df59d2f4173ff145dac003dc7f1544e669f201c4))
+* **psu:** implement get_voltage_setpoint and get_current_setpoint for SimulatedPSU ([#421](https://github.com/nominal-io/instro/issues/421)) ([e6bfd57](https://github.com/nominal-io/instro/commit/e6bfd5730f0c2128176f91aa52477e1c7da6cc60))
+
+
+### Bug Fixes
+
+* **discover:** report 2 programmable channels for SiglentSPD3303 ([#407](https://github.com/nominal-io/instro/issues/407)) ([d69d000](https://github.com/nominal-io/instro/commit/d69d000747000103cd9152c9d1ff4e149878a31e))
+
 ## [1.12.0](https://github.com/nominal-io/instro/compare/instro-v1.11.0...instro-v1.12.0) (2026-08-21)
 
 
