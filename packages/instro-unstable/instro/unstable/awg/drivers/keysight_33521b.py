@@ -535,13 +535,14 @@ class Keysight33521B(AWGDriverBase):
             self._check_errors()
         return result
 
-    def set_sweep_hold_time(self, channel: int, hold_time: float) -> None:
+    def set_sweep_stop_hold_time(self, channel: int, hold_time: float) -> None:
+        """The 33521B has no SWEep:HTIMe:STARt; HTIMe only holds at the stop frequency."""
         _check_channel(channel)
         if hold_time < 0:
             raise ValueError(f"hold_time must be non-negative, got {hold_time}")
         self._write_checked(f"SWE:HTIM {hold_time}")
 
-    def get_sweep_hold_time(self, channel: int) -> float:
+    def get_sweep_stop_hold_time(self, channel: int) -> float:
         _check_channel(channel)
         with self._visa.lock():
             result = float(self._visa.query("SWE:HTIM?"))

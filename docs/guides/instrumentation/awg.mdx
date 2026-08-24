@@ -165,7 +165,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_sweep_start_freq(channel=N)` | `ch{N}.sweep_start_freq.cmd` | command |
 | `set_sweep_end_freq(channel=N)` | `ch{N}.sweep_end_freq.cmd` | command |
 | `set_sweep_time(channel=N)` | `ch{N}.sweep_time.cmd` | command |
-| `set_sweep_hold_time(channel=N)` | `ch{N}.sweep_hold_time.cmd` | command |
+| `set_sweep_start_hold_time(channel=N)` | `ch{N}.sweep_start_hold_time.cmd` | command |
+| `set_sweep_stop_hold_time(channel=N)` | `ch{N}.sweep_stop_hold_time.cmd` | command |
 | `set_sweep_return_time(channel=N)` | `ch{N}.sweep_return_time.cmd` | command |
 | `fire_sweep_trigger(channel=N)` | `ch{N}.sweep_trigger_forced.cmd` | command |
 | `get_offset(channel=N)` | `ch{N}.offset` | telemetry |
@@ -180,7 +181,8 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_sweep_start_freq(channel=N)` | `ch{N}.sweep_start_freq` | telemetry |
 | `get_sweep_end_freq(channel=N)` | `ch{N}.sweep_end_freq` | telemetry |
 | `get_sweep_time(channel=N)` | `ch{N}.sweep_time` | telemetry |
-| `get_sweep_hold_time(channel=N)` | `ch{N}.sweep_hold_time` | telemetry |
+| `get_sweep_start_hold_time(channel=N)` | `ch{N}.sweep_start_hold_time` | telemetry |
+| `get_sweep_stop_hold_time(channel=N)` | `ch{N}.sweep_stop_hold_time` | telemetry |
 | `get_sweep_return_time(channel=N)` | `ch{N}.sweep_return_time` | telemetry |
 
 <Note>
@@ -237,8 +239,10 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_sweep_end_freq(channel)` | Read back the sweep end frequency in Hz on a channel |
 | `set_sweep_time(channel, sweep_time)` | Set the sweep time in seconds on a channel |
 | `get_sweep_time(channel)` | Read back the sweep time in seconds on a channel |
-| `set_sweep_hold_time(channel, hold_time)` | Set the sweep hold time in seconds on a channel |
-| `get_sweep_hold_time(channel)` | Read back the sweep hold time in seconds on a channel |
+| `set_sweep_start_hold_time(channel, hold_time)` | Set the sweep start hold time in seconds on a channel |
+| `get_sweep_start_hold_time(channel)` | Read back the sweep start hold time in seconds on a channel |
+| `set_sweep_stop_hold_time(channel, hold_time)` | Set the sweep stop hold time in seconds on a channel |
+| `get_sweep_stop_hold_time(channel)` | Read back the sweep stop hold time in seconds on a channel |
 | `set_sweep_return_time(channel, return_time)` | Set the sweep return time in seconds on a channel |
 | `get_sweep_return_time(channel)` | Read back the sweep return time in seconds on a channel |
 | `fire_sweep_trigger(channel)` | Fire a sweep trigger on channel now; the trigger source must already be `MANUAL` |
@@ -334,7 +338,8 @@ Optional overrides (raise `NotImplementedError` if not supported):
 - **`set_sweep_start_freq(channel, frequency_hz)`** / **`get_sweep_start_freq(channel)`**: Set or read the sweep start frequency.
 - **`set_sweep_end_freq(channel, frequency_hz)`** / **`get_sweep_end_freq(channel)`**: Set or read the sweep end frequency.
 - **`set_sweep_time(channel, sweep_time)`** / **`get_sweep_time(channel)`**: Set or read the sweep time.
-- **`set_sweep_hold_time(channel, hold_time)`** / **`get_sweep_hold_time(channel)`**: Set or read the sweep hold time.
+- **`set_sweep_start_hold_time(channel, hold_time)`** / **`get_sweep_start_hold_time(channel)`**: Set or read the sweep start hold time.
+- **`set_sweep_stop_hold_time(channel, hold_time)`** / **`get_sweep_stop_hold_time(channel)`**: Set or read the sweep stop hold time.
 - **`set_sweep_return_time(channel, return_time)`** / **`get_sweep_return_time(channel)`**: Set or read the sweep return time.
 - **`fire_sweep_trigger(channel)`**: Fire a sweep trigger on channel immediately. Requires the trigger source already set to `MANUAL`; call `set_sweep_trigger()` first otherwise.
 

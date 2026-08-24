@@ -1281,23 +1281,23 @@ def test_61_set_sweep_time_rejects_non_positive_value_and_invalid_channel(
     keysight_visa.write.assert_not_called()
 
 
-def test_62_sweep_hold_and_return_time_roundtrip(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    keysight.set_sweep_hold_time(1, 3.4)
+def test_62_sweep_stop_hold_and_return_time_roundtrip(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    keysight.set_sweep_stop_hold_time(1, 3.4)
     keysight.set_sweep_return_time(1, 5.6)
     assert keysight_visa.write.call_args_list == [call("SWE:HTIM 3.4"), call("SWE:RTIM 5.6")]
 
     _query_sequence(keysight_visa, ["3.400000E+00", "5.600000E+00"])
-    assert keysight.get_sweep_hold_time(1) == pytest.approx(3.4)
+    assert keysight.get_sweep_stop_hold_time(1) == pytest.approx(3.4)
     assert keysight.get_sweep_return_time(1) == pytest.approx(5.6)
 
 
-def test_63_set_sweep_hold_and_return_time_reject_negative_value_and_invalid_channel(
+def test_63_set_sweep_stop_hold_and_return_time_reject_negative_value_and_invalid_channel(
     keysight: Keysight33521B, keysight_visa: MagicMock
 ) -> None:
     with pytest.raises(ValueError, match="hold_time must be non-negative"):
-        keysight.set_sweep_hold_time(1, -0.1)
+        keysight.set_sweep_stop_hold_time(1, -0.1)
     with pytest.raises(ValueError, match="only supports 1 channel"):
-        keysight.set_sweep_hold_time(2, 0.1)
+        keysight.set_sweep_stop_hold_time(2, 0.1)
 
     with pytest.raises(ValueError, match="return_time must be non-negative"):
         keysight.set_sweep_return_time(1, -0.1)

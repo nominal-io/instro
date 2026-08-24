@@ -845,19 +845,19 @@ def test_35_set_sweep_time_rejects_non_positive_value(driver: Keysight33521B) ->
     driver._check_errors()
 
 
-def test_36_sweep_hold_and_return_time_roundtrip(driver: Keysight33521B) -> None:
+def test_36_sweep_stop_hold_and_return_time_roundtrip(driver: Keysight33521B) -> None:
     driver.set_waveform(CHANNEL, Sine(frequency_hz=TEST_FREQUENCY_HZ))
-    driver.set_sweep_hold_time(CHANNEL, 3.4)
+    driver.set_sweep_stop_hold_time(CHANNEL, 3.4)
     driver.set_sweep_return_time(CHANNEL, 5.6)
     driver._check_errors()
 
-    assert driver.get_sweep_hold_time(CHANNEL) == pytest.approx(3.4, rel=0.01)
+    assert driver.get_sweep_stop_hold_time(CHANNEL) == pytest.approx(3.4, rel=0.01)
     assert driver.get_sweep_return_time(CHANNEL) == pytest.approx(5.6, rel=0.01)
 
 
-def test_37_set_sweep_hold_and_return_time_reject_negative_value(driver: Keysight33521B) -> None:
+def test_37_set_sweep_stop_hold_and_return_time_reject_negative_value(driver: Keysight33521B) -> None:
     with pytest.raises(ValueError, match="hold_time must be non-negative"):
-        driver.set_sweep_hold_time(CHANNEL, -0.1)
+        driver.set_sweep_stop_hold_time(CHANNEL, -0.1)
     driver._check_errors()
 
     with pytest.raises(ValueError, match="return_time must be non-negative"):
