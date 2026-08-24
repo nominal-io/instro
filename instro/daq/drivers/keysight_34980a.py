@@ -9,8 +9,6 @@ from typing import Mapping, cast
 from instro.daq import DAQDriverBase
 from instro.daq.types import (
     AnalogChannel,
-    AnalogCurrentChannel,
-    AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
@@ -160,15 +158,6 @@ class Keysight34980A(DAQDriverBase):
             self._check_errors()
 
         self._ai_channels[channel.alias] = channel
-
-    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
-        raise NotImplementedError("Analog current input is not implemented for the Keysight 34980A driver.")
-
-    def configure_ao_current_channel(self, channel: AnalogCurrentChannel):
-        raise NotImplementedError("Analog current output is not implemented for the Keysight 34980A driver.")
-
-    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
-        raise NotImplementedError("Thermocouple input is not implemented for the Keysight 34980A driver.")
 
     def configure_ai_hw_timing(
         self,
