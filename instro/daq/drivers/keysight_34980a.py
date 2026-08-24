@@ -134,8 +134,8 @@ class Keysight34980A(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Deprecated: use ``configure_ai_voltage_channel``. Configures an AI channel on the Keysight device."""
         """Deprecated: use ``configure_ai_voltage_channel``."""
+        self.configure_ai_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
                 alias=channel.alias,
