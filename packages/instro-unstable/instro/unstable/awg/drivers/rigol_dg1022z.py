@@ -26,6 +26,7 @@ _HIGH_Z_SENTINEL = 9.9e37
 
 _ARB_MIN_POINTS = 9
 _ARB_MAX_POINTS = 16384
+_ARB_BULK_COMMAND_MAX_BYTES = 32 * 1024
 
 _SAWTOOTH_SYMMETRY_PCT = 100
 _TRIANGLE_SYMMETRY_PCT = 50
@@ -63,7 +64,10 @@ class RigolDG1022Z(AWGDriverBase):
     """SCPI driver for the Rigol DG1022Z two-channel arbitrary waveform generator."""
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
+        config = visa_resource if isinstance(visa_resource, VisaConfig) else VisaConfig(visa_resource=visa_resource)
         self._visa = VisaDriver(visa_resource)
+        self._arb_bulk_supported = config.visa_resource.upper().startswith("TCPIP")
+        self._write_terminator = config.terminator.write
         self._arb_waveforms: dict[int, Arbitrary] = {}
 
     def open(self) -> None:
@@ -105,11 +109,21 @@ class RigolDG1022Z(AWGDriverBase):
                         f" per download, got {num_points}"
                     )
                 self._write_checked(f":SOUR{channel}:APPL:ARB {waveform.sample_rate_hz}")
-                self._write_checked(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
-                for point, sample in enumerate(waveform.samples, start=1):
-                    decimal_value = round((sample + 1) / 2 * 16383)
-                    # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
-                    self._write_checked(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
+                bulk_command = None
+                if self._arb_bulk_supported:
+                    data = ",".join(str(sample) for sample in waveform.samples)
+                    bulk_command = f":SOUR{channel}:TRAC:DATA VOLATILE,{data}"
+                if (
+                    bulk_command is not None
+                    and len((bulk_command + self._write_terminator).encode()) < _ARB_BULK_COMMAND_MAX_BYTES
+                ):
+                    self._write_checked(bulk_command)
+                else:
+                    self._write_checked(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
+                    for point, sample in enumerate(waveform.samples, start=1):
+                        decimal_value = round((sample + 1) / 2 * 16383)
+                        # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
+                        self._write_checked(f":SOUR{channel}:TRAC:DATA:VAL VOLATILE,{point},{decimal_value}")
                 self._arb_waveforms[channel] = waveform
             elif isinstance(waveform, StaticValue):
                 self._visa.write(f":SOUR{channel}:FUNC DC")
