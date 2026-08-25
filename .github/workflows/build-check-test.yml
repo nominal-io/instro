@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [depot-ubuntu-latest-4, depot-windows-2022-4, depot-macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     # Run every step under bash so the bash-syntax steps below (e.g. the
     # `uv lock --check` guard) work on Windows runners, which default to pwsh.
     defaults:
