@@ -11,7 +11,7 @@ name: release-please-publish
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
@@ -26,7 +26,7 @@ jobs:
   publish-python:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -72,7 +72,7 @@ jobs:
   publish-crates:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest-4
     environment: crates-io-release
 
     permissions:
@@ -122,15 +122,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: depot-ubuntu-latest-4
             target: x86_64
-          - os: ubuntu-latest
+          - os: depot-ubuntu-latest-4
             target: aarch64
-          - os: macos-latest
+          - os: depot-macos-latest
             target: x86_64
-          - os: macos-latest
+          - os: depot-macos-latest
             target: aarch64
-          - os: windows-latest
+          - os: depot-windows-2022-4
             target: x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -151,7 +151,7 @@ jobs:
   build-eip-sdist:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build EtherNet/IP sdist
@@ -181,7 +181,7 @@ jobs:
       - build-eip-wheels
       - build-eip-sdist
     if: ${{ needs.release-please.outputs.releases_created == 'true' && contains(needs.release-please.outputs.paths_released, 'packages/instro-ethernetip') }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     permissions:
       actions: read
       id-token: write
