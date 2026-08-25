@@ -349,13 +349,13 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
-| `get_voltage(channel=N)` | Read measured output voltage in volts |
+| `get_voltage(channel=N)` | Read measured output voltage in volts. May vary from the voltage setpoint outside of constant voltage mode |
 | `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |
-| `get_current(channel=N)` | Read measured output current in amperes |
+| `get_current(channel=N)` | Read measured output current in amperes. May vary from the current-limit setpoint outside of constant current mode |
 | `output_enable(enable, channel=N)` | Enable (True) or disable (False) the output |
 | `get_output_status(channel=N)` | Query output enable state (returns Measurement with bool value) |
-| `get_voltage_setpoint(channel=N)` | Read the configured voltage setpoint in volts (not the measured output) |
-| `get_current_setpoint(channel=N)` | Read the configured current-limit setpoint in amperes (not the measured output) |
+| `get_voltage_setpoint(channel=N)` | Read the configured voltage setpoint in volts (not the measured output). May vary from the actual measured voltage outside of constant voltage mode |
+| `get_current_setpoint(channel=N)` | Read the configured current-limit setpoint in amperes (not the measured output). May vary from the actual measured current outside of constant current mode |
 | `set_overvoltage_protection_level(voltage, channel=N)` | Set the overvoltage protection threshold in volts |
 | `get_overvoltage_protection_level(channel=N)` | Read the overvoltage protection threshold in volts |
 | `set_overvoltage_protection_enabled(enabled, channel=N)` | Enable or disable overvoltage protection |
@@ -420,13 +420,13 @@ def set_voltage(self, voltage: float, channel: int) -> None:
     """Set the output voltage (volts) on `channel`."""
 
 def get_voltage(self, channel: int) -> float:
-    """Query and return the measured output voltage in volts."""
+    """Query and return the measured output voltage in volts. Output may vary from voltage setpoint outside of constant voltage mode."""
 
 def set_current_limit(self, current_limit: float, channel: int) -> None:
     """Set the current limit (amperes) on `channel`."""
 
 def get_current(self, channel: int) -> float:
-    """Query and return the measured output current in amperes."""
+    """Query and return the measured output current in amperes. Output may vary from current-limit setpoint outside of constant current mode."""
 
 def output_enable(self, enable: bool, channel: int) -> None:
     """Enable or disable the output on `channel`."""
@@ -435,10 +435,10 @@ def get_output_status(self, channel: int) -> bool:
     """Query and return the output enable status on `channel`."""
 
 def get_voltage_setpoint(self, channel: int) -> float:
-    """Query and return the configured voltage setpoint in volts (not the measured output)."""
+    """Query and return the configured voltage setpoint in volts (not the measured output). Output may vary from actual measured voltage outside of constant voltage mode."""
 
 def get_current_setpoint(self, channel: int) -> float:
-    """Query and return the configured current-limit setpoint in amperes (not the measured output)."""
+    """Query and return the configured current-limit setpoint in amperes (not the measured output). Output may vary from actual measured current outside of constant current mode."""
 
 def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
     """Set the overvoltage protection threshold (volts) on `channel`."""
