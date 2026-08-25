@@ -41,6 +41,7 @@ impl From<BatchError> for BatchReadError {
             BatchError::SerializationError(msg) => Self::Serialization(msg),
             BatchError::Timeout => Self::Timeout,
             BatchError::Other(msg) => Self::Other(msg),
+            other => Self::Other(other.to_string()),
         }
     }
 }
