@@ -1,6 +1,6 @@
 """Example: stream live DewesoftX channels to a Nominal Core dataset.
 
-Requires a running DewesoftX instance on this machine that is acquiring and storing.
+Requires a running DewesoftX instance on this machine that is acquiring.
 """
 
 import logging
@@ -17,10 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 # DewesoftX channel names as shown in the channel setup, set to "Used".
 CHANNELS = ["AI 1", "AI 2"]
 
-# Nominal Core dataset to send data to as the instrument is operated.
-DATASET_RID = (
-    "ri.catalog.cerulean-staging.dataset.cc35d3b9-9862-46c5-9bef-7ac76455c97d"  # Replace with your dataset RID.
-)
+DATASET_RID = "ri.catalog.cerulean-staging.dataset.cc35d3b9-9862-46c5-9bef-7ac76455c97d"
 
 daq = InstroDAQ(name="dewesoft", driver=DewesoftX())
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
@@ -29,12 +26,11 @@ with daq:
     for channel in CHANNELS:
         daq.configure_analog_channel(direction=Direction.INPUT, physical_channel=channel)
 
-    # DewesoftX owns the hardware sample clock; this rate only paces the polling daemon,
-    # and every poll drains all new samples with their absolute timestamps.
-    daq.configure_ai_sw_sample_rate(sample_rate=5)
+    # Input sample rate is discarded and the sample rate from DewesoftX is used
+    daq.configure_ai_sample_rate(sample_rate=5000)
 
-    # Software-timed acquisition: start() spins the background daemon, which drains the
-    # DewesoftX buffers every period and publishes each batch to the dataset.
+    # Start "hardware timed" acquisition of data from DewesoftX
+    # We treat DewesoftX as the hardware buffer here
     daq.start()
 
     print("Streaming to Nominal Core; press Ctrl+C to stop.")
@@ -45,4 +41,5 @@ with daq:
             print("Exiting")
             break
 
+    # Halts the daemon, then routes to the driver, which ends the stored session.
     daq.stop()
