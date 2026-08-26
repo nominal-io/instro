@@ -7,7 +7,6 @@ import logging
 import time
 
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.daq.drivers import DewesoftX
 
@@ -24,7 +23,7 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
     for channel in CHANNELS:
-        daq.configure_analog_channel(direction=Direction.INPUT, physical_channel=channel)
+        daq.configure_voltage_input(channel)
 
     # Input sample rate is discarded and the sample rate from DewesoftX is used
     daq.configure_ai_sample_rate(sample_rate=5000)

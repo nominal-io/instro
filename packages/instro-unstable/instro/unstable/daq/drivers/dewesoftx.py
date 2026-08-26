@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from instro.daq import DAQDriverBase
-from instro.daq.types import AnalogChannel, DAQChannel, DigitalChannel, HWTimingConfig, Logic
+from instro.daq.types import AnalogChannel, AnalogVoltageChannel, DAQChannel, DigitalChannel, HWTimingConfig, Logic
 from instro.lib.types import Measurement
 
 logger = logging.getLogger(__name__)
@@ -100,8 +100,9 @@ class DewesoftX(DAQDriverBase):
 
     # ====== Configuration ======
 
-    def configure_ai_channel(self, channel: AnalogChannel):
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
         """Bind an existing DewesoftX channel by name; DewesoftX owns all channel setup."""
+        # range_min/range_max are ignored: DewesoftX owns scaling (a user scaler still applies HAL-side)
         com_channel = self._find_used_channel(channel.physical_channel)
         # TODO: Add support for async channels
         if com_channel.Async:
@@ -118,6 +119,9 @@ class DewesoftX(DAQDriverBase):
         self._cursors[channel.alias] = self._seed_cursor(com_channel)
         self._ai_channels[channel.alias] = channel
 
+    def configure_ai_channel(self, channel: AnalogChannel):
+        raise NotImplementedError("configure_analog_channel is deprecated; use configure_voltage_input instead")
+
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
         """Discard the requested config and rebuild it from the device's actual sample rate."""
         # Use configured DewesoftX sample rate instead of user passed one
@@ -128,6 +132,10 @@ class DewesoftX(DAQDriverBase):
             sample_period=round(1e9 / rate),
             samples_per_channel=max(1, rate // 10),
         )
+
+    def get_actual_sample_rate(self) -> float | None:
+        """The device's rate captured at configure time; None before configure_ai_sample_rate()."""
+        return self._ai_hw_timing_config.sample_rate if self._ai_hw_timing_config else None
 
     # ====== Reading ======
 
