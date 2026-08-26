@@ -327,6 +327,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_output_status(channel=N)` | `ch{N}.enabled` | telemetry |
 | `get_voltage_setpoint(channel=N)` | `ch{N}.voltage.setpoint` | telemetry |
 | `get_current_setpoint(channel=N)` | `ch{N}.current.setpoint` | telemetry |
+| `get_operating_mode(channel=N)` | `ch{N}.operating_mode.cmd` | command |
 | `set_overvoltage_protection_level(channel=N)` | `ch{N}.ovp.cmd` | command |
 | `get_overvoltage_protection_level(channel=N)` | `ch{N}.ovp` | telemetry |
 | `set_overvoltage_protection_enabled(channel=N)` | `ch{N}.ovp.enabled.cmd` | command |
@@ -356,6 +357,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_output_status(channel=N)` | Query output enable state (returns Measurement with bool value) |
 | `get_voltage_setpoint(channel=N)` | Read the configured voltage setpoint in volts (not the measured output). May vary from the actual measured voltage outside of constant voltage mode |
 | `get_current_setpoint(channel=N)` | Read the configured current-limit setpoint in amperes (not the measured output). May vary from the actual measured current outside of constant current mode |
+| `get_operating_mode(channel=N)` | Query the regulation mode (returns Command with value `CV`, `CC`, or `OFF`) |
 | `set_overvoltage_protection_level(voltage, channel=N)` | Set the overvoltage protection threshold in volts |
 | `get_overvoltage_protection_level(channel=N)` | Read the overvoltage protection threshold in volts |
 | `set_overvoltage_protection_enabled(enabled, channel=N)` | Enable or disable overvoltage protection |
@@ -439,6 +441,9 @@ def get_voltage_setpoint(self, channel: int) -> float:
 
 def get_current_setpoint(self, channel: int) -> float:
     """Query and return the configured current-limit setpoint in amperes (not the measured output). Output may vary from actual measured current outside of constant current mode."""
+
+def get_operating_mode(self, channel: int) -> OperatingMode:
+    """Query whether `channel` is regulating in constant voltage, constant current, or off."""
 
 def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
     """Set the overvoltage protection threshold (volts) on `channel`."""

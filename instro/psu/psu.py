@@ -14,6 +14,7 @@ from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.psu.config import PSUConfig, resolve_psu_from_config
+from instro.psu.types import OperatingMode
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ class PSUDriverBase(abc.ABC):
     def get_current_setpoint(self, channel: int) -> float:
         """Query the configured current-limit setpoint (amperes) on `channel`. Output may vary from actual measured current outside of constant current mode."""
         raise NotImplementedError(f"get_current_setpoint is not implemented for {type(self).__name__}")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        """Query whether `channel` is regulating in constant voltage, constant current, or off."""
+        raise NotImplementedError(f"get_operating_mode is not implemented for {type(self).__name__}")
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         """Set the overvoltage protection threshold (volts) on `channel`."""
@@ -314,6 +319,15 @@ class InstroPSU(Instrument):
             legacy_suffix="v_set",
             **kwargs,
         )
+
+    @publish_command
+    def get_operating_mode(self, channel: int, **kwargs) -> Command:
+        """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
+        with self._resource_lock:
+            mode = self._driver.get_operating_mode(channel=channel)
+            timestamp = time.time_ns()
+
+        return self._package_command(f"ch{channel}.operating_mode.cmd", mode.value, timestamp, **kwargs)
 
     def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
         """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""

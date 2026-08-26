@@ -7,6 +7,7 @@ import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
+from instro.psu import OperatingMode
 from instro.psu.drivers.simulated import SimulatedPSU
 
 
@@ -89,6 +90,13 @@ def test_simulated_get_current_setpoint_queries_channel_command(sim: SimulatedPS
 
     assert sim.get_current_setpoint(channel=1) == pytest.approx(0.5)
     assert sim_visa.query.call_args_list == [call(":SOUR1:CURR?"), call(":SYST:ERR?")]
+
+
+def test_simulated_get_operating_mode_queries_channel_command(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["CV", '0,"No error"']
+
+    assert sim.get_operating_mode(channel=2) == OperatingMode.CONSTANT_VOLTAGE
+    assert sim_visa.query.call_args_list == [call(":OUTP2:MODE?"), call(":SYST:ERR?")]
 
 
 def test_simulated_output_enable_writes_on_and_off(sim: SimulatedPSU, sim_visa: MagicMock) -> None:

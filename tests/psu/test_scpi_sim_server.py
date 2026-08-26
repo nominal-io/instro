@@ -745,6 +745,27 @@ def test_infinite_resistance_load_stays_in_cv_mode(psu: SimulatedPSU) -> None:
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
 
 
+def test_mode_query_reports_off_when_output_disabled(psu: SimulatedPSU) -> None:
+    assert psu.process_scpi_command(":OUTP:MODE?") == OperatingMode.OFF.value
+
+
+def test_mode_query_reports_cv_when_voltage_regulated(psu: SimulatedPSU) -> None:
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.process_scpi_command(":OUTP:MODE?") == OperatingMode.CV.value
+
+
+def test_mode_query_reports_cc_when_current_clamped(psu: SimulatedPSU) -> None:
+    psu.channels[0].load = SimulatedLoad(resistance=0.1, probe_resistance=0.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.process_scpi_command(":OUTP:MODE?") == OperatingMode.CC.value
+
+
 @pytest.mark.parametrize(
     "command",
     [
