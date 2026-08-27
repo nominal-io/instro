@@ -25,7 +25,8 @@ class _ChannelCursor:
     # Cursors are per-channel in DCOM (IChannel.CreateConnection); each tracks its channel's own unread position
     connection: Any
     buf_size: int
-    pos: int
+    sr_div: int
+    # Absolute samples consumed since store start; the ring read offset is total % buf_size
     total: int
     dt_ns: float
 
@@ -149,22 +150,29 @@ class DewesoftXDriver(DAQDriverBase):
             return DewesoftXData(channels={})
         drained: dict[str, tuple[list[float], list[int]]] = {}
 
+        master = self._samples_acquired()
         for alias, cursor in self._cursors.items():
-            # Count new samples from the ring write index (DBPos wraps at buf_size)
-            new = (cursor.com_channel.DBPos - cursor.pos) % cursor.buf_size
-            if new == 0:
+            # The ring offset aliases whole wraps to zero; snap it onto the device's absolute counter
+            delta = (cursor.com_channel.DBPos - cursor.total) % cursor.buf_size
+            expected = master / cursor.sr_div - cursor.total
+            new = delta + round((expected - delta) / cursor.buf_size) * cursor.buf_size
+            if new <= 0:
+                continue
+            # Check if the buffer was overrun
+            # NOTE: At high sample rates is this a problem?
+            if new > cursor.buf_size:
+                logger.warning("DewesoftX channel '%s' overran its buffer; dropping %d pending samples", alias, new)
+                self._cursors[alias] = self._seed_cursor(cursor.com_channel)
                 continue
             # Get new values from cursor
             data = cursor.connection.GetDataValues(new)
             if data is None:
                 continue
             values = list(data)
-            # Derive timestamps
             # Sync channels stream with buffer ring index, so we need to convert index -> relative -> absolute time
             timestamps = [self._t0_ns + round((cursor.total + k) * cursor.dt_ns) for k in range(len(values))]
             drained[alias] = (values, timestamps)
             cursor.total += len(values)
-            cursor.pos = (cursor.pos + len(values)) % cursor.buf_size
         # Discard a batch that straddles a store restart
         if not self._resync_session():
             return DewesoftXData(channels={})
@@ -182,7 +190,8 @@ class DewesoftXDriver(DAQDriverBase):
         rate = self._ai_hw_timing_config.sample_rate
         last_resync = time.monotonic()
         while True:
-            available = [(c.com_channel.DBPos - c.pos) % c.buf_size for c in self._cursors.values()]
+            # Raw ring offset (a whole-buffer wrap aliases to 0; read_analog resolves that with the sample counter)
+            available = [(c.com_channel.DBPos - c.total) % c.buf_size for c in self._cursors.values()]
             self.points_in_buffer = max(available)
             # Drain buffers through read_analog
             if min(available) >= target:
@@ -220,8 +229,7 @@ class DewesoftXDriver(DAQDriverBase):
         connection = com_channel.CreateConnection()
         connection.AType = _CT_NEW
         # The device's own sample count since store start; DBPos alone loses count at every wrap
-        blocks, partial = self._app.Data.GetSamplesAcquired()
-        acquired = (blocks * self._app.Data.Samples + partial) / com_channel.SRDiv
+        acquired = self._samples_acquired() / com_channel.SRDiv
         # Snap that count onto the ring position
         pos = com_channel.DBPos
         total = pos + round((acquired - pos) / com_channel.DBBufSize) * com_channel.DBBufSize
@@ -229,10 +237,15 @@ class DewesoftXDriver(DAQDriverBase):
             com_channel=com_channel,
             connection=connection,
             buf_size=com_channel.DBBufSize,
-            pos=pos,
+            sr_div=com_channel.SRDiv,
             total=total,
             dt_ns=1e9 * com_channel.SRDiv / self._app.Data.SampleRate,
         )
+
+    def _samples_acquired(self) -> int:
+        """Master-rate sample count acquired since store start."""
+        blocks, partial = self._app.Data.GetSamplesAcquired()
+        return blocks * self._app.Data.Samples + partial
 
     def _resync_session(self) -> bool:
         """Return True while the store session is unchanged; re-anchor everything on a restart."""
