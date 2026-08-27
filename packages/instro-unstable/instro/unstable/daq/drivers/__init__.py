@@ -1,5 +1,5 @@
 """Unstable DAQ drivers."""
 
-from instro.unstable.daq.drivers.dewesoftx import DewesoftX
+from instro.unstable.daq.drivers.dewesoftx import DewesoftXDriver
 
-__all__ = ["DewesoftX"]
+__all__ = ["DewesoftXDriver"]

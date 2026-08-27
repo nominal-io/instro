@@ -37,7 +37,7 @@ class DewesoftXData:
     channels: dict[str, tuple[list[float], list[int]]]
 
 
-class DewesoftX(DAQDriverBase):
+class DewesoftXDriver(DAQDriverBase):
     """Streams live synchronous channels from a running DewesoftX instance over DCOM."""
 
     def __init__(self) -> None:
@@ -75,8 +75,7 @@ class DewesoftX(DAQDriverBase):
 
     def start(self, **kwargs):
         """Start a stored session named run_<date>_<time>, or attach to one already running."""
-        if threading.get_ident() != self._thread_id:
-            self._attach_current_thread()
+        self._attach_current_thread()
         # Attach to exsiting storing session
         if self._app.StoreEngine.Storing:
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
@@ -91,8 +90,7 @@ class DewesoftX(DAQDriverBase):
         """Stop the stored session; a no-op when not storing so InstroDAQ teardown stays safe."""
         if self._app is None:
             return
-        if threading.get_ident() != self._thread_id:
-            self._attach_current_thread()
+        self._attach_current_thread()
         if not self._app.StoreEngine.Storing:
             return
         self._app.StopStoring()
@@ -124,8 +122,12 @@ class DewesoftX(DAQDriverBase):
 
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
         """Discard the requested config and rebuild it from the device's actual sample rate."""
-        # Use configured DewesoftX sample rate instead of user passed one
         rate = self._app.Data.SampleRate
+        logger.info(
+            "Discarding requested AI sample rate %s Hz; using DewesoftX sample rate %s Hz",
+            hw_timing_config.sample_rate,
+            rate,
+        )
         # Mirror the InstroDAQ samples_per_channel default
         self._ai_hw_timing_config = HWTimingConfig(
             sample_rate=rate,
@@ -141,14 +143,12 @@ class DewesoftX(DAQDriverBase):
 
     def read_analog(self) -> DewesoftXData:
         """Drain every new sample from each bound channel."""
-        # Re-attach if there's a new thread
-        if threading.get_ident() != self._thread_id:
-            self._attach_current_thread()
+        self._attach_current_thread()
         # Re-anchor (and skip this batch) when the store session changed under us
         if not self._resync_session():
             return DewesoftXData(channels={})
         drained: dict[str, tuple[list[float], list[int]]] = {}
-        # Sync channels stream with buffer ring index, so we need to convert index -> relative -> absolute time
+
         for alias, cursor in self._cursors.items():
             # Count new samples from the ring write index (DBPos wraps at buf_size)
             new = (cursor.com_channel.DBPos - cursor.pos) % cursor.buf_size
@@ -174,24 +174,25 @@ class DewesoftX(DAQDriverBase):
         """Block until ``samples_per_channel`` new samples arrive on every channel, then drain."""
         if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
-        if threading.get_ident() != self._thread_id:
-            self._attach_current_thread()
+        self._attach_current_thread()
         if not self._cursors:
             return DewesoftXData(channels={})
         # Wait until every bound channel has a full batch pending
         target = self._ai_hw_timing_config.samples_per_channel
-        waited = 0
+        rate = self._ai_hw_timing_config.sample_rate
+        last_resync = time.monotonic()
         while True:
             available = [(c.com_channel.DBPos - c.pos) % c.buf_size for c in self._cursors.values()]
             self.points_in_buffer = max(available)
             # Drain buffers through read_analog
             if min(available) >= target:
                 return self.read_analog()
-            time.sleep(0.001)
-            waited += 1
-
-            if waited % 500 == 0 and not self._resync_session():
-                return DewesoftXData(channels={})
+            # Sleep about half the expected fill time; cap it so restart detection stays responsive
+            time.sleep(min(0.5, max(0.001, (target - min(available)) / rate / 2)))
+            if time.monotonic() - last_resync >= 0.5:
+                last_resync = time.monotonic()
+                if not self._resync_session():
+                    return DewesoftXData(channels={})
 
     def _read_to_measurements(
         self,
@@ -251,7 +252,9 @@ class DewesoftX(DAQDriverBase):
         return False
 
     def _attach_current_thread(self):
-        """Rebuild every COM reference on the calling thread."""
+        """Rebuild every COM reference on the calling thread; no-op when already attached."""
+        if threading.get_ident() == self._thread_id:
+            return
         import pythoncom  # type: ignore[import-untyped, import-not-found]
         import win32com.client  # type: ignore[import-untyped, import-not-found]
 
