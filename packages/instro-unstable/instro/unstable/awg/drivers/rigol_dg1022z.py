@@ -106,7 +106,9 @@ class RigolDG1022Z(AWGDriverBase):
                     )
                 self._write_checked(f":SOUR{channel}:FUNCtion:ARBitrary:MODE SRATE")
                 self._write_checked(f":SOUR{channel}:FUNC:ARB:SRAT {waveform.sample_rate_sas}")
-                self._write_checked(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")     # sets waveform to ARB automatically
+                self._write_checked(
+                    f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}"
+                )  # sets waveform to ARB automatically
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)
                     # error queue is not drained, so checking every point avoids lost error messages in exchange for a longer runtime
