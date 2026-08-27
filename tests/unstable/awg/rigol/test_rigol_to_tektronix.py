@@ -289,11 +289,11 @@ def test_06_static_value_dc_level_matches_scope(rigol: RigolDG1022Z, scope: Inst
 
 
 def test_07_arbitrary_waveform_signal_present(rigol: RigolDG1022Z, scope: InstroScope) -> None:
-    # Whether the driver's sample_rate_hz maps to the arbitrary waveform's output frequency
+    # Whether the driver's sample_rate_sas maps to the arbitrary waveform's output frequency
     # directly, or needs dividing by the sample count for this vendor's :SOUR:APPL:ARB form, isn't
     # confirmed against the programming manual — asserting a specific expected frequency here would
     # risk baking in a guess, so this is a loose sanity check only.
-    _drive_waveform(rigol, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=_ARB_SAMPLE_RATE_HZ))
+    _drive_waveform(rigol, Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=_ARB_SAMPLE_RATE_HZ))
     try:
         _enable_and_settle(rigol, scope, TEST_AMPLITUDE_VPP / 4.0, STANDARD_HORIZONTAL_S_PER_DIV, trigger_level=0.0)
         measured_freq = _measure(scope, ScopeMeasurementType.FREQUENCY)

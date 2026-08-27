@@ -104,7 +104,8 @@ class RigolDG1022Z(AWGDriverBase):
                         f"the DG1022Z accepts {_ARB_MIN_POINTS} to {_ARB_MAX_POINTS} arbitrary points"
                         f" per download, got {num_points}"
                     )
-                self._write_checked(f":SOUR{channel}:APPL:ARB {waveform.sample_rate_hz}")
+                self._write_checked(f":SOUR{channel}:FUNCtion:ARBitrary:MODE SRATE")
+                self._write_checked(f":SOUR{channel}:FUNC:ARB:SRAT {waveform.sample_rate_sas}")
                 self._write_checked(f":SOUR{channel}:TRAC:DATA:POIN VOLATILE,{num_points}")
                 for point, sample in enumerate(waveform.samples, start=1):
                     decimal_value = round((sample + 1) / 2 * 16383)

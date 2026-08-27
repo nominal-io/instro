@@ -202,7 +202,7 @@ def test_12_set_waveform_arbitrary_downloads_normalized_samples(
 ) -> None:
     keysight_visa.query.return_value = '0,"No error"'
 
-    keysight.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0))
+    keysight.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=1000000.0))
 
     assert keysight_visa.write.call_args_list == [
         call("DATA:ARB INSTRO_ARB, 0.0,0.5,1.0,-1.0,0.25,-0.25,0.75,-0.75,0.125"),
@@ -218,7 +218,7 @@ def test_13_set_waveform_arbitrary_rejects_bad_point_counts(
     keysight_visa: MagicMock,
     num_points: int,
 ) -> None:
-    waveform = Arbitrary(samples=(0.0,) * num_points, sample_rate_hz=1000000.0)
+    waveform = Arbitrary(samples=(0.0,) * num_points, sample_rate_sas=1000000.0)
 
     with pytest.raises(ValueError, match="8 to 65536 arbitrary points"):
         keysight.set_waveform(1, waveform)
@@ -310,7 +310,7 @@ def test_20_get_waveform_parses_static_value(keysight: Keysight33521B, keysight_
 
 
 def test_21_get_waveform_returns_cached_arbitrary(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
-    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=1000000.0)
+    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=1000000.0)
     keysight.set_waveform(1, arbitrary)
     _query_sequence(keysight_visa, ["ARB"])
 

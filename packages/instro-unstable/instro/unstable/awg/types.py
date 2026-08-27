@@ -221,12 +221,12 @@ class Arbitrary:
     """Arbitrary waveform definition; samples are normalized to [-1, 1] and scaled by amplitude/offset."""
 
     samples: tuple[float, ...]
-    sample_rate_hz: float
+    sample_rate_sas: float
 
     def __post_init__(self) -> None:
         """Validate shape parameters at definition time."""
         object.__setattr__(self, "samples", tuple(self.samples))
-        _require_positive("sample_rate_hz", self.sample_rate_hz)
+        _require_positive("sample_rate_sas", self.sample_rate_sas)
         if len(self.samples) < 2:
             raise ValueError(f"Arbitrary waveform must contain at least 2 samples, got {len(self.samples)}")
         if any(not -1.0 <= s <= 1.0 for s in self.samples):

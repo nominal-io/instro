@@ -204,7 +204,7 @@ def test_03_set_waveform_rejects_invalid_input(
 
 
 def test_04_arbitrary_waveform_download_and_cached_readback(driver: RigolDG1022Z) -> None:
-    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
+    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0)
     driver.set_waveform(1, arbitrary)
     driver._check_errors()
 
@@ -402,7 +402,7 @@ def test_14_modulation_enable_re_arms_after_disable_without_remodulating(driver:
         Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
         Triangle(frequency_hz=TEST_FREQUENCY_HZ),
         Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
-        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0),
     ],
     ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary"],
 )

@@ -258,7 +258,7 @@ def _waveform_tags(waveform: Waveform) -> dict[str, str]:
     if isinstance(waveform, Arbitrary):
         return {
             "num_samples": str(len(waveform.samples)),
-            "sample_rate_hz": str(waveform.sample_rate_hz),
+            "sample_rate_sas": str(waveform.sample_rate_sas),
         }
     return {f.name: str(getattr(waveform, f.name)) for f in fields(waveform)}
 
@@ -266,7 +266,7 @@ def _waveform_tags(waveform: Waveform) -> dict[str, str]:
 def _waveform_param_channels(waveform: Waveform) -> dict[str, float]:
     """Numeric shape parameters, one publishable channel each; Arbitrary samples are summarized."""
     if isinstance(waveform, Arbitrary):
-        return {"sample_rate_hz": waveform.sample_rate_hz, "num_samples": float(len(waveform.samples))}
+        return {"sample_rate_sas": waveform.sample_rate_sas, "num_samples": float(len(waveform.samples))}
     return {f.name: float(getattr(waveform, f.name)) for f in fields(waveform)}
 
 

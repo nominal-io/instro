@@ -48,6 +48,8 @@ The typical InstroAWG workflow:
 
 InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.unstable.awg`. 
 
+`Arbitrary` uses a sample rate (`sample_rate_sas`, in samples per second), not a frequency.
+
 <Note>
 **Driver support varies**
 

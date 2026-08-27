@@ -115,7 +115,7 @@ def test_02_cycle_through_waveforms(driver: Keysight33521B) -> None:
         Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
         Triangle(frequency_hz=TEST_FREQUENCY_HZ),
         Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
-        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0),
         StaticValue(value=TEST_OFFSET_V),
     ]
 
@@ -192,7 +192,7 @@ def test_09_static_value_roundtrip(driver: Keysight33521B) -> None:
 
 
 def test_10_arbitrary_download_and_cached_readback(driver: Keysight33521B) -> None:
-    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0)
+    arbitrary = Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0)
     driver.set_waveform(CHANNEL, arbitrary)
     driver._check_errors()
 
@@ -421,7 +421,7 @@ def test_24_modulation_enable_persists_after_set_modulation(driver: Keysight3352
         Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
         Triangle(frequency_hz=TEST_FREQUENCY_HZ),
         Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
-        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0),
     ],
     ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary"],
 )
@@ -451,7 +451,7 @@ def test_26_set_burst_rejects_staticvalue_carrier(driver: Keysight33521B) -> Non
 
 def test_27_set_burst_accepts_untracked_arbitrary_carrier(driver: Keysight33521B) -> None:
     """Regression: pop the cache to simulate a driver instance that never downloaded this Arbitrary."""
-    driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0))
+    driver.set_waveform(CHANNEL, Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0))
     driver._check_errors()
     driver._arb_waveforms.pop(CHANNEL)
 
@@ -703,7 +703,7 @@ def test_46_set_burst_period_rejects_non_positive_value(driver: Keysight33521B) 
         Sawtooth(frequency_hz=TEST_FREQUENCY_HZ),
         Triangle(frequency_hz=TEST_FREQUENCY_HZ),
         Pulse(frequency_hz=TEST_FREQUENCY_HZ, width_s=0.0002),
-        Arbitrary(samples=_ARB_SAMPLES, sample_rate_hz=100_000.0),
+        Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=100_000.0),
     ],
     ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary"],
 )

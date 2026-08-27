@@ -141,7 +141,7 @@ class Keysight33521B(AWGDriverBase):
                     )
                 samples_csv = ",".join(str(sample) for sample in waveform.samples)
                 self._visa.write(f"DATA:ARB {_ARB_NAME}, {samples_csv}")
-                self._visa.write(f"FUNC:ARB:SRAT {waveform.sample_rate_hz}")
+                self._visa.write(f"FUNC:ARB:SRAT {waveform.sample_rate_sas}")
                 self._visa.write(f"FUNC:ARB {_ARB_NAME}")
                 self._visa.write("FUNC ARB")
                 self._check_errors()
