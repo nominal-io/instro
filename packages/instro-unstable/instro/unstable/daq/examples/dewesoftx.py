@@ -14,12 +14,12 @@ from instro.unstable.daq.drivers import DewesoftX
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 # DewesoftX channel names as shown in the channel setup, set to "Used".
-CHANNELS = ["AI 1", "AI 2"]
+CHANNELS = ["EGT1", "EGT2", "EGT3", "EGT4", "Engine RPM"]
 
-DATASET_RID = "ri.catalog.cerulean-staging.dataset.cc35d3b9-9862-46c5-9bef-7ac76455c97d"
+DATASET_RID = "ri.catalog.gov-staging.dataset.fe8c2982-e631-4727-b1c3-0a5402e4858d"
 
 daq = InstroDAQ(name="dewesoft", driver=DewesoftX())
-daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID, profile="staging"))
 
 with daq:
     for channel in CHANNELS:
