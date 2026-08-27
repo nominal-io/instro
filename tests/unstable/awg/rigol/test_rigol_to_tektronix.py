@@ -74,7 +74,7 @@ MEASUREMENT_RETRY_DELAY_S = 1.0
 STANDARD_HORIZONTAL_S_PER_DIV = 2e-4
 
 _ARB_SAMPLES = (0.0, 0.5, 1.0, 0.5, 0.0, -0.5, -1.0, -0.5, 0.25)
-_ARB_SAMPLE_RATE_HZ = 100_000.0
+_ARB_SAMPLE_RATE_SAS = 100_000.0
 
 
 # ---------------------------------------------------------------------------
