@@ -348,9 +348,8 @@ class LabJackTSeriesDriver(DAQDriverBase):
         if self._global_scan_rate is None:
             raise HWTimingException("No hardware timing configuration exists. Can not call Start")
 
-        if self._streaming_active is True:
-            # TODO add debug logger
-            return
+        if self._streaming_active:
+            raise RuntimeError("A stream is already running. Call stop() before starting a new acquisition.")
 
         # For LabJack, we need to know the channels to start streaming
         channels = self._ai_channels.values()
@@ -420,14 +419,17 @@ class LabJackTSeriesDriver(DAQDriverBase):
     ) -> LabJackData:
         if not self._streaming_active:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
+        assert self._global_scans_per_read is not None and self._actual_sample_period is not None
+        # fetch time deadline, floored at 5s and dynamic to support low-rate, high-res reads
+        deadline = max(5.0, 2 * self._global_scans_per_read * self._actual_sample_period * 1e-9)
         # Is receiving data from the ljm registered callback.
         try:
-            callback_data = self._data_queue.get(timeout=5)
+            callback_data = self._data_queue.get(timeout=deadline)
             labjack_data, timestamp = callback_data[0], callback_data[1]
             samples, self._points_in_fifo, self.points_in_buffer = labjack_data[0], labjack_data[1], labjack_data[2]
             return LabJackData(data=samples, timestamp=timestamp, dt=self._actual_sample_period)
         except Empty:
-            raise TimeoutError("LabJack timeout. No data received.")
+            raise TimeoutError(f"LabJack timeout. No data received after {deadline:.3g}s.")
 
     def get_actual_sample_rate(self) -> float | None:
         return self._actual_sample_rate
