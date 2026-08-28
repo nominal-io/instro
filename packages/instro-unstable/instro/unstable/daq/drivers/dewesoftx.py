@@ -48,6 +48,8 @@ class DewesoftXDriver(DAQDriverBase):
         self._cursors: dict[str, _ChannelCursor] = {}
         # Thread that owns the COM proxies; COM refuses cross-thread calls (see _attach_current_thread)
         self._thread_id = 0
+        # True after warning that storing stopped; keeps the warning to one line per outage
+        self._storing_paused = False
 
     # ====== Lifecycle ======
 
@@ -80,12 +82,15 @@ class DewesoftXDriver(DAQDriverBase):
         # Attach to exsiting storing session
         if self._app.StoreEngine.Storing:
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
-            return
+        else:
+            # Start a storing session
+            name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+            self._app.StartStoring(name)
+            if not self._app.StoreEngine.Storing:
+                raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
+            logger.info("Started DewesoftX stored session '%s'", name)
 
-        # Start a storing session
-        name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
-        self._app.StartStoring(name)
-        logger.info("Started DewesoftX stored session '%s'", name)
+        self._resync_session()
 
     def stop(self, **kwargs):
         """Stop the stored session; a no-op when not storing so InstroDAQ teardown stays safe."""
@@ -133,7 +138,7 @@ class DewesoftXDriver(DAQDriverBase):
         self._ai_hw_timing_config = HWTimingConfig(
             sample_rate=rate,
             sample_period=round(1e9 / rate),
-            samples_per_channel=max(1, rate // 10),
+            samples_per_channel=max(1, int(rate // 10)),
         )
 
     def get_actual_sample_rate(self) -> float | None:
@@ -188,8 +193,15 @@ class DewesoftXDriver(DAQDriverBase):
         # Wait until every bound channel has a full batch pending
         target = self._ai_hw_timing_config.samples_per_channel
         rate = self._ai_hw_timing_config.sample_rate
-        last_resync = time.monotonic()
+        last_resync = time.monotonic() - 0.5
         while True:
+            # Gate on session health first so a stopped session cannot spin the drain path below
+            if time.monotonic() - last_resync >= 0.5:
+                last_resync = time.monotonic()
+                if not self._resync_session():
+                    # Pace the empty return so the daemon regains control (and its stop event) without spinning
+                    time.sleep(0.5)
+                    return DewesoftXData(channels={})
             # Raw ring offset (a whole-buffer wrap aliases to 0; read_analog resolves that with the sample counter)
             available = [(c.com_channel.DBPos - c.total) % c.buf_size for c in self._cursors.values()]
             self.points_in_buffer = max(available)
@@ -198,10 +210,6 @@ class DewesoftXDriver(DAQDriverBase):
                 return self.read_analog()
             # Sleep about half the expected fill time; cap it so restart detection stays responsive
             time.sleep(min(0.5, max(0.001, (target - min(available)) / rate / 2)))
-            if time.monotonic() - last_resync >= 0.5:
-                last_resync = time.monotonic()
-                if not self._resync_session():
-                    return DewesoftXData(channels={})
 
     def _read_to_measurements(
         self,
@@ -248,10 +256,15 @@ class DewesoftXDriver(DAQDriverBase):
         return blocks * self._app.Data.Samples + partial
 
     def _resync_session(self) -> bool:
-        """Return True while the store session is unchanged; re-anchor everything on a restart."""
+        """Return True while the store session is unchanged; False (skip the batch) when storing is off or restarted."""
         # StartStoreTimeUTC keeps its stale value after a stop; Storing is the reliable signal
         if not self._app.StoreEngine.Storing:
-            raise RuntimeError("DewesoftX stopped storing; timestamps have no anchor until storing restarts.")
+            # Warn once; reads return empty batches until storing resumes and the anchor change below re-anchors
+            if not self._storing_paused:
+                logger.warning("DewesoftX stopped storing; discarding samples until storing resumes")
+                self._storing_paused = True
+            return False
+        self._storing_paused = False
         # A changed store-start anchor means the session restarted
         anchor = self._app.Data.StartStoreTimeUTC
         t0_ns = int(anchor.replace(tzinfo=timezone.utc).timestamp() * 1e9)
