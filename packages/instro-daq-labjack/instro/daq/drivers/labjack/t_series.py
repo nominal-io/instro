@@ -419,7 +419,10 @@ class LabJackTSeriesDriver(DAQDriverBase):
     ) -> LabJackData:
         if not self._streaming_active:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
-        assert self._global_scans_per_read is not None and self._actual_sample_period is not None
+        if self._global_scans_per_read is None or self._actual_sample_period is None:
+            raise RuntimeError(
+                "Hardware timing was never configured; call configure_ai_sample_rate() before fetch_analog()."
+            )
         # fetch time deadline, floored at 5s and dynamic to support low-rate, high-res reads
         deadline = max(5.0, 2 * self._global_scans_per_read * self._actual_sample_period * 1e-9)
         # Is receiving data from the ljm registered callback.
