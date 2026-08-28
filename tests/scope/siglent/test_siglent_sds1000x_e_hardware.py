@@ -119,9 +119,9 @@ def run_all() -> list:
         # --- Coupling roundtrip ---
         def coupling() -> None:
             scope.set_coupling(Coupling.DC, channel=ch)
-            assert _cmd_value(scope.get_coupling(channel=ch)) == Coupling.DC.value
+            assert scope.get_coupling(channel=ch).latest == Coupling.DC.value
             scope.set_coupling(Coupling.AC, channel=ch)
-            assert _cmd_value(scope.get_coupling(channel=ch)) == Coupling.AC.value
+            assert scope.get_coupling(channel=ch).latest == Coupling.AC.value
             scope.set_coupling(Coupling.DC, channel=ch)  # restore
 
         _run("coupling set/get roundtrip (AC/DC)", coupling, failures)

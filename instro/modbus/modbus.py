@@ -221,7 +221,7 @@ class ModbusDevice(Instrument):
                 case _:
                     raise ValueError(f"Unknown register type: {first.register_type}")
 
-        channel_data: dict[str, list[float | int]] = {}
+        channel_data: dict[str, list[float] | list[str]] = {}
 
         for reg in regs:
             offset = reg.starting_address - start_address
@@ -239,16 +239,16 @@ class ModbusDevice(Instrument):
 
     def _build_register_channels(
         self, reg: "RegisterDef", raw_value: int | float, scaled_value: int | float
-    ) -> dict[str, list[int | float]]:
+    ) -> dict[str, list[float] | list[str]]:
         """Channel dict for ``reg``; emits one entry per bitmap bit when configured."""
-        channel_data: dict[str, list[int | float]] = {f"{self.name}.{reg.name}": [scaled_value]}
+        channel_data: dict[str, list[float] | list[str]] = {f"{self.name}.{reg.name}": [scaled_value]}
         if reg.bitmap:
             int_value = int(raw_value)
             for bit in reg.bitmap:
-                channel_data[f"{self.name}.{bit.name}"] = [(int_value >> bit.bit_index) & 1]
+                channel_data[f"{self.name}.{bit.name}"] = [float((int_value >> bit.bit_index) & 1)]
         return channel_data
 
-    def _package_register_measurement(self, channel_data: dict[str, list[int | float]], **kwargs) -> Measurement:
+    def _package_register_measurement(self, channel_data: dict[str, list[float] | list[str]], **kwargs) -> Measurement:
         """Wrap a register-read ``channel_data`` dict in a multi-channel Measurement."""
         return Measurement(
             channel_data=channel_data,

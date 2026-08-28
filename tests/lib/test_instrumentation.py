@@ -1,8 +1,12 @@
 import logging
 import time
+from enum import Enum
 from importlib.metadata import version
 
+import pytest
+
 from instro.lib import Instrument
+from instro.lib.instrument import publish_measurement
 from instro.lib.publishers.channel_buffer import DequeInMemoryPublisher
 from instro.lib.types import BackgroundDaemonConfig, Measurement
 from instro.psu import InstroPSU
@@ -116,6 +120,18 @@ def test_channel_names_raises_when_daemon_not_running():
         assert "No channel buffer exists" in str(e)
 
 
+def test_get_single_channel_value_accepts_an_unprefixed_channel_name():
+    instrument = _make_publishing_instrument()
+    try:
+        instrument.start()
+        instrument.get_channel("ut.v", wait_for_new_samples=True, timeout=2.0)
+
+        assert instrument.get_single_channel_value("v") == 1.0
+        assert instrument.get_single_channel_value("ut.v") == 1.0
+    finally:
+        instrument.stop()
+
+
 def test_channel_names_includes_published_channels():
     instrument = _make_publishing_instrument()
     try:
@@ -127,6 +143,86 @@ def test_channel_names_includes_published_channels():
         assert "ut.loop_time" in names
     finally:
         instrument.stop()
+
+
+def test_measurement_can_carry_a_float_channel_and_a_string_channel_together():
+    instrument = Instrument(name="ut", background_config=BackgroundDaemonConfig(interval=0.01))
+    instrument.add_background_daemon_function(
+        lambda: instrument.publish(
+            Measurement(
+                channel_data={"ut.numeric": [1.0], "ut.categorical": ["DC"]},
+                timestamps=[time.time_ns()],
+            )
+        )
+    )
+    instrument.start()
+    try:
+        assert instrument.get_channel("ut.numeric").latest == 1.0
+        assert instrument.get_channel("ut.categorical").latest == "DC"
+        assert instrument.get_single_channel_value("numeric") == 1.0
+        assert instrument.get_single_channel_value("categorical") == "DC"
+    finally:
+        instrument.stop()
+
+
+def test_package_measurement_passes_a_string_value_through():
+    instrument = Instrument(name="ut")
+
+    measurement = instrument._package_measurement("ch1.coupling", "DC", 123)
+
+    assert measurement.channel_data == {"ut.ch1.coupling": ["DC"]}
+
+
+def test_package_measurement_still_coerces_bool_and_int_to_float():
+    instrument = Instrument(name="ut")
+
+    assert instrument._package_measurement("x", True, 123).channel_data == {"ut.x": [1.0]}
+    assert instrument._package_measurement("x", 3, 123).channel_data == {"ut.x": [3.0]}
+
+
+def test_publish_measurement_rejects_a_non_int_float_str_value():
+    instrument = Instrument(name="ut")
+
+    class _Unpublishable(Enum):
+        MEMBER = "member"
+
+    @publish_measurement
+    def bad_reading(self):
+        return Measurement(channel_data={"ut.x": [_Unpublishable.MEMBER]}, timestamps=[123])
+
+    with pytest.raises(TypeError):
+        bad_reading(instrument)
+
+
+def test_publish_measurement_does_not_scan_bulk_channels():
+    """A forgotten `.value` can only happen on a single-value publish; bulk channels (waveforms,
+    DAQ samples) skip the scan entirely rather than pay an O(n) cost for a mistake that can't
+    occur there."""
+    instrument = Instrument(name="ut")
+
+    @publish_measurement
+    def waveform_reading(self):
+        return Measurement(channel_data={"ut.wf": [0.0] * 100_000}, timestamps=list(range(100_000)))
+
+    waveform_reading(instrument)  # must not raise, and must not scan 100k values
+
+
+def test_publish_measurement_does_not_catch_a_bad_value_inside_a_bulk_channel():
+    """Documented, accepted gap: the guard only checks single-value channels (see the comment in
+    publish_measurement). A stray non-numeric value inside a multi-value channel is not caught
+    here -- no current or plausible getter constructs a multi-value channel from anything but
+    driver-numeric samples, so this trades a near-zero risk for avoiding an O(n) scan on every
+    bulk publish."""
+    instrument = Instrument(name="ut")
+
+    class _Unpublishable(Enum):
+        MEMBER = "member"
+
+    @publish_measurement
+    def bad_bulk_reading(self):
+        return Measurement(channel_data={"ut.wf": [0.0, _Unpublishable.MEMBER]}, timestamps=[0, 1])
+
+    bad_bulk_reading(instrument)  # does not raise -- the accepted trade-off above
 
 
 def test_warns_only_when_requested_interval_is_unachievable(caplog):

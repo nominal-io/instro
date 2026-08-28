@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+from instro.lib.types import Measurement
 from instro.scope import InstroScope, ScopeDriverBase
 from instro.scope.types import (
     AcquisitionMode,
@@ -48,6 +49,14 @@ def test_default_naming_measure_uses_dot_separator() -> None:
     scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
     measurement = scope.measure(ScopeMeasurementType.VRMS, channel=1)
     assert "ut.ch1.vrms" in measurement.channel_data  # type: ignore[union-attr]
+
+
+def test_default_naming_get_coupling_publishes_a_measurement_with_no_cmd_suffix() -> None:
+    scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
+    measurement = scope.get_coupling(channel=1)
+    assert isinstance(measurement, Measurement)
+    assert "ut.ch1.coupling" in measurement.channel_data
+    assert "ut.ch1.coupling.cmd" not in measurement.channel_data
 
 
 # --- Legacy naming ---
@@ -99,3 +108,21 @@ def test_legacy_naming_fetch_waveform_uses_underscore_separator() -> None:
     measurement = scope.fetch_waveform(channel=1)
     assert "ut.ch1_waveform" in measurement.channel_data
     assert "ut.ch1.waveform" not in measurement.channel_data
+
+
+def test_legacy_naming_get_coupling_uses_underscore_separator() -> None:
+    scope = InstroScope(
+        name="ut",
+        driver=_stub_driver(),
+        num_channels=2,
+        legacy_naming=True,
+    )
+    measurement = scope.get_coupling(channel=1)
+    assert "ut.ch1_coupling" in measurement.channel_data
+    assert "ut.ch1.coupling" not in measurement.channel_data
+
+
+def test_get_coupling_publishes_the_enum_value_not_the_member() -> None:
+    scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
+    measurement = scope.get_coupling(channel=1)
+    assert measurement.channel_data["ut.ch1.coupling"] == ["DC"]

@@ -426,8 +426,8 @@ class InstroScope(Instrument):
         descriptor = f"ch{channel}_coupling.cmd" if self.legacy_naming else f"ch{channel}.coupling.cmd"
         return self._package_command(descriptor, coupling.value, timestamp, **kwargs)
 
-    @publish_command
-    def get_coupling(self, channel: int, **kwargs) -> Command:
+    @publish_measurement
+    def get_coupling(self, channel: int, **kwargs) -> Measurement:
         """Query the input coupling mode on ``channel`` (published as a string)."""
         with self._resource_lock:
             val = self._driver.get_coupling(channel=channel)
@@ -436,8 +436,8 @@ class InstroScope(Instrument):
 
         self._get_channel_config(channel).coupling = val
 
-        descriptor = f"ch{channel}_coupling.cmd" if self.legacy_naming else f"ch{channel}.coupling.cmd"
-        return self._package_command(descriptor, val.value, timestamp, **kwargs)
+        descriptor = f"ch{channel}_coupling" if self.legacy_naming else f"ch{channel}.coupling"
+        return self._package_measurement(descriptor, val.value, timestamp, **kwargs)
 
     @publish_command
     def set_probe_attenuation(self, factor: float, channel: int, **kwargs) -> Command:

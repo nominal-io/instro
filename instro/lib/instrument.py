@@ -53,6 +53,19 @@ def publish_measurement(func: Callable) -> Callable:
                     f"@publish_measurement on {func.__qualname__} must return Measurement or list[Measurement], "
                     f"got {type(item).__name__}"
                 )
+            for channel, values in item.channel_data.items():
+                # A forgotten `.value` on an Enum can only happen at a single-value categorical
+                # publish (every such getter emits exactly one value per channel). Bulk channels
+                # (waveforms, DAQ samples) are never Enum-sourced, so skip them rather than pay an
+                # O(n) isinstance scan on every publish for a mistake that can't occur there.
+                if len(values) != 1:
+                    continue
+                value = values[0]
+                if not isinstance(value, (int, float, str)):
+                    raise TypeError(
+                        f"@publish_measurement on {func.__qualname__} got a non-int/float/str value "
+                        f"{value!r} ({type(value).__name__}) on channel '{channel}'"
+                    )
             self.publish(item)
         return result
 
@@ -175,14 +188,18 @@ class Instrument:
             tags={**self.default_tags, **kwargs},
         )
 
-    def _package_measurement(self, channel: str, data: float | bool, timestamp: int, **kwargs) -> Measurement:
+    def _package_measurement(self, channel: str, data: float | bool | str, timestamp: int, **kwargs) -> Measurement:
         """Build a single-channel `Measurement` namespaced under this instrument.
 
         The published channel key is ``{self.name}.{channel}``. The caller writes the
         full descriptor, so the literal published name appears at the call site.
         """
+        if isinstance(data, str):
+            values: list[float] | list[str] = [data]
+        else:
+            values = [float(data)]
         return Measurement(
-            channel_data={f"{self.name}.{channel}": [float(data)]},
+            channel_data={f"{self.name}.{channel}": values},
             timestamps=[timestamp],
             tags={**self.default_tags, **kwargs},
         )
@@ -328,7 +345,7 @@ class Instrument:
 
         raise RuntimeError("No channel buffer exists. Ensure start() was called on this instrument.")
 
-    def get_single_channel_value(self, channel_name: str) -> float | None:
+    def get_single_channel_value(self, channel_name: str) -> float | str | None:
         """Return the most recent sample for ``channel_name`` from the in-memory buffer.
 
         This will not wait, if data is not available then ``None`` is returned.
@@ -341,7 +358,7 @@ class Instrument:
         """
         try:
             cached_measurement = self.get_channel(channel_name, length=1, wait_for_new_samples=False, timeout=0)
-            return cached_measurement.channel_data[channel_name][0]
+            return cached_measurement.latest
         except RuntimeError:  # expect: this means instrument not started, good to report
             raise
         except:  # other exceptions just mean data isn't available
