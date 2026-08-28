@@ -189,9 +189,10 @@ class DAQDriverBase(abc.ABC):
         """Register an AO channel. Override if the driver supports analog output."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
 
+    @abc.abstractmethod
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
-        """Register an AI voltage channel. Override if the driver supports analog voltage input."""
-        raise NotImplementedError("Analog voltage input has not been configured for this driver")
+        """Register an AI voltage channel with the underlying driver."""
+        ...
 
     def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
         """Register an AO voltage channel. Override if the driver supports analog voltage output."""
