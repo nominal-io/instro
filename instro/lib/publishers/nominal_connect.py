@@ -44,29 +44,32 @@ class NominalConnectPublisher:
 
     def publish(self, data: Measurement | Command, **kwargs):
         """Publish ``data`` to Nominal Connect, one stream_batch per channel. Strings are skipped."""
-        if isinstance(next(iter(data.channel_data.values())), str):
-            # Connect doesn't support strings
-            return
-        elif isinstance(data, Measurement):
+        if isinstance(data, Measurement):
             self.__publish_measurement(data)
         elif isinstance(data, Command):
             self.__publish_command(data)
 
     def __publish_measurement(self, data):
-        for channel in data.channel_data:
+        for channel, values in data.channel_data.items():
+            if values and isinstance(values[0], str):
+                # Connect doesn't support strings
+                continue
             self._client.stream_batch(
                 stream_id=self._stream_id,
                 timestamps=data.timestamps,
-                values=data.channel_data[channel],
+                values=values,
                 name=channel,
             )
 
     def __publish_command(self, data):
-        for channel in data.channel_data:
+        for channel, value in data.channel_data.items():
+            if isinstance(value, str):
+                # Connect doesn't support strings
+                continue
             self._client.stream_batch(
                 stream_id=self._stream_id,
                 timestamps=[data.timestamp],
-                values=[data.channel_data[channel]],
+                values=[value],
                 name=channel,
             )
 

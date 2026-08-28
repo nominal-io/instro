@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import cast
 
 from instro.lib import Command, Instrument, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
@@ -245,7 +246,11 @@ class ModbusDevice(Instrument):
         if reg.bitmap:
             int_value = int(raw_value)
             for bit in reg.bitmap:
-                channel_data[f"{self.name}.{bit.name}"] = [float((int_value >> bit.bit_index) & 1)]
+                # A type-only assertion, not a cast to float: the published bit stays a plain
+                # int (0 or 1), matching modbus.mdx's documented `0`/`1` values. A subscript
+                # assignment's list literal doesn't get the same contextual type inference a
+                # dict-literal construction does, so mypy needs this spelled out explicitly.
+                channel_data[f"{self.name}.{bit.name}"] = cast(list[float], [(int_value >> bit.bit_index) & 1])
         return channel_data
 
     def _package_register_measurement(self, channel_data: dict[str, list[float] | list[str]], **kwargs) -> Measurement:

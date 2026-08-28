@@ -194,25 +194,8 @@ def test_publish_measurement_rejects_a_non_int_float_str_value():
         bad_reading(instrument)
 
 
-def test_publish_measurement_does_not_scan_bulk_channels():
-    """A forgotten `.value` can only happen on a single-value publish; bulk channels (waveforms,
-    DAQ samples) skip the scan entirely rather than pay an O(n) cost for a mistake that can't
-    occur there."""
-    instrument = Instrument(name="ut")
-
-    @publish_measurement
-    def waveform_reading(self):
-        return Measurement(channel_data={"ut.wf": [0.0] * 100_000}, timestamps=list(range(100_000)))
-
-    waveform_reading(instrument)  # must not raise, and must not scan 100k values
-
-
 def test_publish_measurement_does_not_catch_a_bad_value_inside_a_bulk_channel():
-    """Documented, accepted gap: the guard only checks single-value channels (see the comment in
-    publish_measurement). A stray non-numeric value inside a multi-value channel is not caught
-    here -- no current or plausible getter constructs a multi-value channel from anything but
-    driver-numeric samples, so this trades a near-zero risk for avoiding an O(n) scan on every
-    bulk publish."""
+    """Documented, accepted gap: the guard only scans single-value channels, so a bad value inside a bulk (multi-value) channel is not caught."""
     instrument = Instrument(name="ut")
 
     class _Unpublishable(Enum):
