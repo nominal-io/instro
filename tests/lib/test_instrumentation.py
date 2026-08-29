@@ -194,6 +194,28 @@ def test_publish_measurement_rejects_a_non_int_float_str_value():
         bad_reading(instrument)
 
 
+def test_publish_measurement_does_not_publish_earlier_items_when_a_later_item_in_the_list_is_bad():
+    """list[Measurement] must be fully validated before any item is published."""
+    instrument = Instrument(name="ut")
+    published: list[Measurement] = []
+    instrument.add_publisher(type("_Spy", (), {"publish": lambda self, data, **kw: published.append(data)})())
+
+    class _Unpublishable(Enum):
+        MEMBER = "member"
+
+    good = Measurement(channel_data={"ut.good": [1.0]}, timestamps=[123])
+    bad = Measurement(channel_data={"ut.bad": [_Unpublishable.MEMBER]}, timestamps=[123])
+
+    @publish_measurement
+    def bad_list_reading(self):
+        return [good, bad]
+
+    with pytest.raises(TypeError):
+        bad_list_reading(instrument)
+
+    assert published == []
+
+
 def test_publish_measurement_does_not_catch_a_bad_value_inside_a_bulk_channel():
     """Documented, accepted gap: the guard only scans single-value channels, so a bad value inside a bulk (multi-value) channel is not caught."""
     instrument = Instrument(name="ut")

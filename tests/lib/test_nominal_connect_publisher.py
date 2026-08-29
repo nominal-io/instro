@@ -86,6 +86,16 @@ def test_publish_sends_the_numeric_channel_and_drops_the_string_channel_from_one
     client.stream_batch.assert_called_once_with(stream_id="stream-123", timestamps=[1], values=[1.0], name="ut.numeric")
 
 
+def test_publish_drops_an_empty_valued_measurement_channel():
+    client = Mock()
+    publisher = NominalConnectPublisher(client=client, stream_id="stream-123")
+    measurement = Measurement(channel_data={"ut.mode": []}, timestamps=[])
+
+    publisher.publish(measurement)
+
+    client.stream_batch.assert_not_called()
+
+
 def test_publish_drops_a_string_valued_command_channel():
     client = Mock()
     publisher = NominalConnectPublisher(client=client, stream_id="stream-123")

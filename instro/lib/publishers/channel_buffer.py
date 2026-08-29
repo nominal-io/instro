@@ -261,8 +261,11 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
         if channel_name not in self._values:
             if values and isinstance(values[0], str):
                 self._values[channel_name] = deque(maxlen=self.maxlen)
-            else:
+            elif values:
                 self._values[channel_name] = NumpyRingBuffer(self.maxlen, self._value_dtype)
+            else:
+                # No values yet: defer store-kind selection until a non-empty batch arrives.
+                return
         self._values[channel_name].extend(values)
 
     def _extend_timestamps(self, channel_name: str, timestamps) -> None:
@@ -288,8 +291,13 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
         """Return the current memory in bytes."""
         size = sys.getsizeof(self._values) + sys.getsizeof(self._timestamps)
 
-        # Add size of each channel's store and its elements
+        # Add size of each channel's store and its elements. `_values` and `_timestamps` are
+        # populated by separate calls (_extend_values / _extend_timestamps); guard against a
+        # channel present in one but not yet the other (e.g. an allocation failure between the
+        # two calls) rather than assuming the invariant always holds.
         for channel_name in self._values:
+            if channel_name not in self._timestamps:
+                continue
             values_store = self._values[channel_name]
             timestamps_buffer = self._timestamps[channel_name]
 

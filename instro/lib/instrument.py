@@ -47,6 +47,8 @@ def publish_measurement(func: Callable) -> Callable:
         if result is None:
             return None
         items = result if isinstance(result, list) else [result]
+        # Validate every item before publishing any of them: a later item failing a check must
+        # not leave an earlier item already sent to every publisher with no way to undo it.
         for item in items:
             if not isinstance(item, Measurement):
                 raise TypeError(
@@ -66,6 +68,7 @@ def publish_measurement(func: Callable) -> Callable:
                         f"@publish_measurement on {func.__qualname__} got a non-int/float/str value "
                         f"{value!r} ({type(value).__name__}) on channel '{channel}'"
                     )
+        for item in items:
             self.publish(item)
         return result
 

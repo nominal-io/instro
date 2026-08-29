@@ -37,3 +37,21 @@ def test_numpy_publisher_size_bytes_does_not_crash_with_a_string_channel():
     publisher.publish(Measurement(channel_data={"ut.ch1.coupling": ["DC"]}, timestamps=[time.time_ns()]))
 
     assert publisher.size_bytes > 0
+
+
+def test_numpy_publisher_defers_store_choice_on_an_empty_first_batch():
+    """An empty first publish must not lock a channel into the numeric store; a later string publish to the same channel must still work."""
+    publisher = NumpyInMemoryPublisher(maxlen=10)
+    publisher.publish(Measurement(channel_data={"ut.mode": []}, timestamps=[]))
+    publisher.publish(Measurement(channel_data={"ut.mode": ["CV"]}, timestamps=[time.time_ns()]))
+
+    assert publisher.get("ut.mode").latest == "CV"
+
+
+def test_numpy_publisher_size_bytes_survives_a_values_timestamps_desync():
+    """A channel present in the values store but not yet the timestamps store must not raise."""
+    publisher = NumpyInMemoryPublisher(maxlen=10)
+    publisher.publish(Measurement(channel_data={"ut.v": [1.0]}, timestamps=[time.time_ns()]))
+    del publisher._timestamps["ut.v"]  # simulate the desync directly
+
+    assert publisher.size_bytes >= 0

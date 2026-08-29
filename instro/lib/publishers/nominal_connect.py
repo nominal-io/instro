@@ -51,8 +51,8 @@ class NominalConnectPublisher:
 
     def __publish_measurement(self, data):
         for channel, values in data.channel_data.items():
-            if values and isinstance(values[0], str):
-                # Connect doesn't support strings
+            if not values or isinstance(values[0], str):
+                # Connect doesn't support strings; nothing to publish for an empty channel either
                 continue
             self._client.stream_batch(
                 stream_id=self._stream_id,
