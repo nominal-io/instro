@@ -320,14 +320,14 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    @publish_command
-    def get_operating_mode(self, channel: int, **kwargs) -> Command:
+    @publish_measurement
+    def get_operating_mode(self, channel: int, **kwargs) -> Measurement:
         """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
         with self._resource_lock:
             mode = self._driver.get_operating_mode(channel=channel)
             timestamp = time.time_ns()
 
-        return self._package_command(f"ch{channel}.operating_mode.cmd", mode.value, timestamp, **kwargs)
+        return self._package_measurement(f"ch{channel}.operating_mode", mode.value, timestamp, **kwargs)
 
     def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
         """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""

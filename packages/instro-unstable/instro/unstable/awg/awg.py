@@ -521,12 +521,15 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.modulation_enabled.cmd"
         return self._package_command(descriptor, enable, timestamp, **kwargs)
 
-    def get_modulation_type(self, channel: int) -> ModulationType:
+    @publish_measurement
+    def get_modulation_type(self, channel: int, **kwargs) -> Measurement:
         """Read back the modulation type currently active on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             mod_type = self._driver.get_modulation_type(channel=channel)
-        return mod_type
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.modulation_type"
+        return self._package_measurement(descriptor, mod_type.value, timestamp, **kwargs)
 
     def get_modulation_state(self, channel: int, **kwargs) -> Measurement | None:
         """Read back whether modulation is enabled on channel."""
@@ -550,12 +553,15 @@ class InstroAWG(Instrument):
         self._check_channel(channel)
         return self._execute_command(self._driver.burst_enable, channel, enable, "burst_enabled", **kwargs)
 
-    def get_burst_type(self, channel: int) -> BurstType:
+    @publish_measurement
+    def get_burst_type(self, channel: int, **kwargs) -> Measurement:
         """Read back the burst type currently active on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             burst_type = self._driver.get_burst_type(channel=channel)
-        return burst_type
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.burst_type"
+        return self._package_measurement(descriptor, burst_type.value, timestamp, **kwargs)
 
     def get_burst_state(self, channel: int, **kwargs) -> Measurement | None:
         """Read back whether burst mode is enabled on channel."""
@@ -574,12 +580,15 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.burst_trigger.cmd"
         return self._package_command(descriptor, source.value, timestamp, **kwargs)
 
-    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+    @publish_measurement
+    def get_burst_trigger(self, channel: int, **kwargs) -> Measurement:
         """Read back the burst trigger source on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             source = self._driver.get_burst_trigger(channel=channel)
-        return source
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.burst_trigger"
+        return self._package_measurement(descriptor, source.value, timestamp, **kwargs)
 
     @publish_command
     def fire_burst_trigger(self, channel: int, **kwargs) -> Command:
@@ -613,12 +622,15 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.burst_gate_polarity.cmd"
         return self._package_command(descriptor, gate_polarity.value, timestamp, **kwargs)
 
-    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
+    @publish_measurement
+    def get_burst_gate_polarity(self, channel: int, **kwargs) -> Measurement:
         """Read back the gate polarity for GATED bursts on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             gate_polarity = self._driver.get_burst_gate_polarity(channel=channel)
-        return gate_polarity
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.burst_gate_polarity"
+        return self._package_measurement(descriptor, gate_polarity.value, timestamp, **kwargs)
 
     def set_burst_ncycles(self, channel: int, n_cycles: int, **kwargs) -> Command:
         """Set the number of cycles per trigger for NCYCLE bursts on channel."""
@@ -652,12 +664,15 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.sweep.cmd"
         return self._package_command(descriptor, sweep_type.value, timestamp, **kwargs)
 
-    def get_sweep_type(self, channel: int) -> SweepType:
+    @publish_measurement
+    def get_sweep_type(self, channel: int, **kwargs) -> Measurement:
         """Read back the sweep type currently configured on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             sweep_type = self._driver.get_sweep_type(channel=channel)
-        return sweep_type
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.sweep_type"
+        return self._package_measurement(descriptor, sweep_type.value, timestamp, **kwargs)
 
     def sweep_enable(self, channel: int, enable: bool, **kwargs) -> Command:
         """Enable or disable sweep mode on channel."""
@@ -681,12 +696,15 @@ class InstroAWG(Instrument):
         descriptor = f"ch{channel}.sweep_trigger.cmd"
         return self._package_command(descriptor, source.value, timestamp, **kwargs)
 
-    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+    @publish_measurement
+    def get_sweep_trigger(self, channel: int, **kwargs) -> Measurement:
         """Read back the sweep trigger source on channel."""
         self._check_channel(channel)
         with self._resource_lock:
             source = self._driver.get_sweep_trigger(channel=channel)
-        return source
+            timestamp = time.time_ns()
+        descriptor = f"ch{channel}.sweep_trigger"
+        return self._package_measurement(descriptor, source.value, timestamp, **kwargs)
 
     def set_sweep_start_freq(self, channel: int, frequency_hz: float, **kwargs) -> Command:
         """Set the sweep start frequency (Hz) on channel."""

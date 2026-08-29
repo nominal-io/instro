@@ -518,8 +518,8 @@ class InstroScope(Instrument):
 
         return self._package_command("acquisition_mode.cmd", mode.value, timestamp, **kwargs)
 
-    @publish_command
-    def get_acquisition_mode(self, **kwargs) -> Command:
+    @publish_measurement
+    def get_acquisition_mode(self, **kwargs) -> Measurement:
         """Query the current acquisition mode (published as a string)."""
         with self._resource_lock:
             val = self._driver.get_acquisition_mode()
@@ -528,7 +528,7 @@ class InstroScope(Instrument):
 
         self._config.acquisition_mode = val
 
-        return self._package_command("acquisition_mode.cmd", val.value, timestamp, **kwargs)
+        return self._package_measurement("acquisition_mode", val.value, timestamp, **kwargs)
 
     @publish_command
     def set_average_count(self, count: int, **kwargs) -> Command:
@@ -590,8 +590,8 @@ class InstroScope(Instrument):
 
         return self._package_command("acquisition_control.cmd", "SINGLE", timestamp, **kwargs)
 
-    @publish_command
-    def get_acquisition_state(self, **kwargs) -> Command:
+    @publish_measurement
+    def get_acquisition_state(self, **kwargs) -> Measurement:
         """Query RUNNING/STOPPED. If STOPPED while armed, records the acquisition timestamp."""
         with self._resource_lock:
             val = self._driver.get_acquisition_state()
@@ -602,7 +602,7 @@ class InstroScope(Instrument):
             self._last_acquisition_ts = timestamp
             self._acquisition_armed = False
 
-        return self._package_command("acquisition_state.cmd", val.value, timestamp, **kwargs)
+        return self._package_measurement("acquisition_state", val.value, timestamp, **kwargs)
 
     def _wait_for_acquisition(self, timeout: float) -> None:
         """If armed, block via the driver's ``digitize()`` until the acquisition completes or ``TimeoutError``.
@@ -745,15 +745,15 @@ class InstroScope(Instrument):
 
         return self._package_command("trigger_control.cmd", "FORCE", timestamp, **kwargs)
 
-    @publish_command
-    def get_trigger_status(self, **kwargs) -> Command:
+    @publish_measurement
+    def get_trigger_status(self, **kwargs) -> Measurement:
         """Query the trigger status (published as a string)."""
         with self._resource_lock:
             val = self._driver.get_trigger_status()
             timestamp = time.time_ns()
             self._check_errors()
 
-        return self._package_command("trigger_status.cmd", val.value, timestamp, **kwargs)
+        return self._package_measurement("trigger_status", val.value, timestamp, **kwargs)
 
     # --- File operations ---
 

@@ -237,11 +237,11 @@ Every call produces a channel keyed under `{name}.{descriptor}`, where `{name}` 
 | `get_horizontal_scale()` | `hscale` | telemetry |
 | `get_sample_rate()` | `sample_rate` | telemetry |
 | `set_acquisition_mode()` | `acquisition_mode.cmd` | command |
-| `get_acquisition_mode()` | `acquisition_mode.cmd` | command |
+| `get_acquisition_mode()` | `acquisition_mode` | telemetry |
 | `set_average_count()` | `average_count.cmd` | command |
 | `get_average_count()` | `average_count` | telemetry |
 | `run()` / `stop_acquisition()` / `single()` | `acquisition_control.cmd` | command |
-| `get_acquisition_state()` | `acquisition_state.cmd` | command |
+| `get_acquisition_state()` | `acquisition_state` | telemetry |
 | `fetch_waveform(channel=N)` | `ch{N}.waveform` | telemetry |
 | `measure(type, channel=N)` | `ch{N}.{type}` (e.g. `ch{N}.vpp`) | telemetry |
 | `set_trigger_source()` | `trigger_source.cmd` | command |
@@ -250,7 +250,7 @@ Every call produces a channel keyed under `{name}.{descriptor}`, where `{name}` 
 | `set_trigger_slope()` | `trigger_slope.cmd` | command |
 | `set_trigger_mode()` | `trigger_mode.cmd` | command |
 | `force_trigger()` | `trigger_control.cmd` | command |
-| `get_trigger_status()` | `trigger_status.cmd` | command |
+| `get_trigger_status()` | `trigger_status` | telemetry |
 | `save_screenshot()` | `screenshot.cmd` | command |
 | `save_settings()` | `save_settings.cmd` | command |
 | `load_settings()` | `load_settings.cmd` | command |

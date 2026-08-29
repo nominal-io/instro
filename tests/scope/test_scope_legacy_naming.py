@@ -9,6 +9,7 @@ from instro.scope.types import (
     AcquisitionState,
     Coupling,
     ScopeMeasurementType,
+    TriggerStatus,
     WaveformData,
 )
 
@@ -25,6 +26,7 @@ def _stub_driver() -> MagicMock:
     driver.get_acquisition_mode.return_value = AcquisitionMode.NORMAL
     driver.get_average_count.return_value = 4
     driver.get_acquisition_state.return_value = AcquisitionState.STOPPED
+    driver.get_trigger_status.return_value = TriggerStatus.TRIGGERED
     driver.measure.return_value = 1.23
     driver.fetch_waveform.return_value = WaveformData(times=[0, 1, 2], voltages=[0.0, 0.1, 0.2])
     return driver
@@ -57,6 +59,28 @@ def test_default_naming_get_coupling_publishes_a_measurement_with_no_cmd_suffix(
     assert isinstance(measurement, Measurement)
     assert "ut.ch1.coupling" in measurement.channel_data
     assert "ut.ch1.coupling.cmd" not in measurement.channel_data
+
+
+def test_get_acquisition_mode_publishes_a_measurement_no_cmd_suffix() -> None:
+    scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
+    measurement = scope.get_acquisition_mode()
+    assert isinstance(measurement, Measurement)
+    assert "ut.acquisition_mode" in measurement.channel_data
+    assert "ut.acquisition_mode.cmd" not in measurement.channel_data
+
+
+def test_get_acquisition_state_publishes_a_measurement_no_cmd_suffix() -> None:
+    scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
+    measurement = scope.get_acquisition_state()
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data["ut.acquisition_state"] == ["STOPPED"]
+
+
+def test_get_trigger_status_publishes_a_measurement_no_cmd_suffix() -> None:
+    scope = InstroScope(name="ut", driver=_stub_driver(), num_channels=2)
+    measurement = scope.get_trigger_status()
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data["ut.trigger_status"] == ["TRIGGERED"]
 
 
 # --- Legacy naming ---

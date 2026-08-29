@@ -29,7 +29,7 @@ from collections.abc import Callable
 
 import pytest
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Measurement
 from instro.scope import (
     AcquisitionMode,
     Coupling,
@@ -55,11 +55,6 @@ REL_TOL = 0.05  # relative tolerance for snapped setting readbacks
 FREQ_REL_TOL = 0.10
 DUTY_ABS_TOL = 10.0  # percent
 MIN_VPP_V = 0.1  # the comp signal must show at least this much amplitude
-
-
-def _cmd_value(cmd: Command) -> float | str:
-    """Unwrap the single value a HAL command-getter packages."""
-    return next(iter(cmd.channel_data.values()))
 
 
 def _make_scope() -> InstroScope:
@@ -154,9 +149,9 @@ def run_all() -> list:
         def acq_mode() -> None:
             scope.run()  # the scope only applies ACQW/AVGA changes while acquiring
             scope.set_acquisition_mode(AcquisitionMode.NORMAL)
-            assert _cmd_value(scope.get_acquisition_mode()) == AcquisitionMode.NORMAL.value
+            assert scope.get_acquisition_mode().latest == AcquisitionMode.NORMAL.value
             scope.set_acquisition_mode(AcquisitionMode.AVERAGE)
-            assert _cmd_value(scope.get_acquisition_mode()) == AcquisitionMode.AVERAGE.value
+            assert scope.get_acquisition_mode().latest == AcquisitionMode.AVERAGE.value
             scope.set_average_count(16)
             assert int(scope.get_average_count().latest) == 16
             scope.set_acquisition_mode(AcquisitionMode.NORMAL)  # restore
@@ -186,10 +181,10 @@ def run_all() -> list:
         def run_stop() -> None:
             scope.run()
             time.sleep(0.3)
-            assert _cmd_value(scope.get_acquisition_state()) == "RUNNING"
+            assert scope.get_acquisition_state().latest == "RUNNING"
             scope.stop_acquisition()
             time.sleep(0.2)
-            assert _cmd_value(scope.get_acquisition_state()) == "STOPPED"
+            assert scope.get_acquisition_state().latest == "STOPPED"
 
         _run("run -> RUNNING, stop -> STOPPED", run_stop, failures)
 
@@ -250,7 +245,7 @@ def run_all() -> list:
         def trigger_status() -> None:
             scope.run()
             time.sleep(0.2)
-            status = _cmd_value(scope.get_trigger_status())
+            status = scope.get_trigger_status().latest
             assert isinstance(status, str) and status, f"bad trigger status: {status!r}"
 
         _run("get_trigger_status", trigger_status, failures)
