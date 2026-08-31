@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.unstable.awg import AWGConfig, InstroAWG
-from instro.unstable.awg.types import Arbitrary, ModulationType, Sine, Square
+from instro.unstable.awg.types import Arbitrary, Sine
 
 
 @pytest.fixture
@@ -250,6 +250,13 @@ def test_channels_rejects_duplicate_channel_numbers(valid_config):
         InstroAWG(config={**valid_config, "channels": {"1": channel_config, "01": channel_config}})
 
 
+def test_channels_rejects_channel_number_outside_num_channels(valid_config):
+    channel_config = valid_config["channels"]["1"]
+    for key in ("3", "0", "-1"):
+        with pytest.raises(Exception, match="out of range"):
+            InstroAWG(config={**valid_config, "channels": {key: channel_config}})
+
+
 def test_channel_config_rejects_output_enable_field(valid_config):
     channel_config = {**valid_config["channels"]["1"], "output_enable": True}
     with pytest.raises(Exception):
@@ -275,89 +282,6 @@ def test_open_applies_waveform_amplitude_and_offset(valid_config):
     mock_driver.set_waveform.assert_called_once_with(channel=1, waveform=Sine(frequency_hz=1000.0, phase_deg=0.0))
     mock_driver.set_amplitude.assert_called_once()
     mock_driver.set_offset.assert_called_once_with(1, 0.1)
-
-
-def test_open_applies_modulation(valid_config):
-    config = {
-        **valid_config,
-        "channels": {
-            "1": {
-                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
-                "modulation": {
-                    "type": {"name": "AM", "magnitude": 50.0},
-                    "baseband_shape": {
-                        "shape": "square",
-                        "frequency_hz": 1000.0,
-                        "duty_cycle_pct": 50.0,
-                        "phase_deg": 0.0,
-                    },
-                    "enable": True,
-                },
-            }
-        },
-    }
-    with _patch_driver() as mock_cls:
-        awg = InstroAWG(config=config)
-        awg.open()
-
-    mock_driver = mock_cls.return_value
-    mock_driver.set_modulation.assert_called_once_with(
-        channel=1,
-        mod_type=ModulationType.AM,
-        shape=Square(frequency_hz=1000.0, duty_cycle_pct=50.0, phase_deg=0.0),
-        magnitude=50.0,
-    )
-    mock_driver.modulation_enable.assert_called_once_with(channel=1, enable=True)
-
-
-def test_open_applies_burst_partial_fields_skip_none_setters(valid_config):
-    config = {
-        **valid_config,
-        "channels": {
-            "1": {
-                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
-                "burst": {"type": "NCYCLE", "enable": True, "ncycles": 5},
-            }
-        },
-    }
-    with _patch_driver() as mock_cls:
-        awg = InstroAWG(config=config)
-        awg.open()
-
-    mock_driver = mock_cls.return_value
-    mock_driver.set_burst.assert_called_once()
-    mock_driver.set_burst_ncycles.assert_called_once_with(1, 5)
-    mock_driver.burst_enable.assert_called_once_with(1, True)
-    mock_driver.set_burst_trigger.assert_not_called()
-    mock_driver.set_burst_delay.assert_not_called()
-    mock_driver.set_burst_gate_polarity.assert_not_called()
-    mock_driver.set_burst_period.assert_not_called()
-
-
-def test_open_applies_sweep_partial_fields_skip_none_setters(valid_config):
-    config = {
-        **valid_config,
-        "channels": {
-            "1": {
-                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
-                "sweep": {"type": "LINEAR", "enable": True, "start_frequency": 100.0, "end_frequency": 200.0},
-            }
-        },
-    }
-    with _patch_driver() as mock_cls:
-        awg = InstroAWG(config=config)
-        awg.open()
-
-    mock_driver = mock_cls.return_value
-    mock_driver.set_sweep.assert_called_once()
-    mock_driver.set_sweep_start_freq.assert_called_once_with(1, 100.0)
-    mock_driver.set_sweep_end_freq.assert_called_once_with(1, 200.0)
-    mock_driver.sweep_enable.assert_called_once_with(1, True)
-    mock_driver.set_sweep_trigger.assert_not_called()
-    mock_driver.set_sweep_time.assert_not_called()
-    mock_driver.set_sweep_start_hold_time.assert_not_called()
-    mock_driver.set_sweep_stop_hold_time.assert_not_called()
-    mock_driver.set_sweep_return_time.assert_not_called()
 
 
 def test_arbitrary_waveform_samples_inline(valid_config):
@@ -396,3 +320,87 @@ def test_arbitrary_waveform_samples_from_csv_file(valid_config, tmp_path):
     mock_driver.set_waveform.assert_called_once_with(
         channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
     )
+
+
+def test_arbitrary_samples_relative_path_resolves_against_config_file(valid_config, tmp_path, monkeypatch):
+    (tmp_path / "samples.csv").write_text("-1.0\n0.0\n1.0\n0.0\n")
+    config_path = tmp_path / "awg.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                **valid_config,
+                "channels": {
+                    "1": {"waveform": {"shape": "arbitrary", "samples": "samples.csv", "sample_rate_sas": 50.0}}
+                },
+            }
+        )
+    )
+    monkeypatch.chdir(tmp_path.parent)
+
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=str(config_path))
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+    )
+
+
+def test_arbitrary_samples_missing_file_rejected_at_validation(valid_config):
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": "no_such.csv", "sample_rate_sas": 50.0}}},
+    }
+    with pytest.raises(Exception, match="samples file not found"):
+        InstroAWG(config=config)
+
+
+def test_arbitrary_samples_path_round_trips_verbatim(valid_config, tmp_path, monkeypatch):
+    (tmp_path / "samples.csv").write_text("-1.0\n0.0\n1.0\n0.0\n")
+    config_path = tmp_path / "awg.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                **valid_config,
+                "channels": {
+                    "1": {"waveform": {"shape": "arbitrary", "samples": "samples.csv", "sample_rate_sas": 50.0}}
+                },
+            }
+        )
+    )
+    monkeypatch.chdir(tmp_path.parent)
+
+    with _patch_driver():
+        awg = InstroAWG(config=str(config_path))
+
+    dumped = awg._config.model_dump(mode="json")
+    assert dumped["channels"]["1"]["waveform"]["samples"] == "samples.csv"
+
+
+def test_malformed_waveform_rejected_at_validation(valid_config):
+    """types.py's shape bounds must apply when the config is parsed, not partway through open()."""
+    bad_waveforms = [
+        ({"shape": "sine", "frequency_hz": -5.0, "phase_deg": 0.0}, "frequency_hz must be positive"),
+        (
+            {"shape": "square", "frequency_hz": 1.0, "duty_cycle_pct": 500.0, "phase_deg": 0.0},
+            "duty_cycle_pct must be between 0 and 100",
+        ),
+        ({"shape": "pulse", "frequency_hz": 1000.0, "width_s": 1.0, "delay_s": 0.0}, "must fit within the period"),
+        ({"shape": "arbitrary", "samples": [0.1, 0.2], "sample_rate_sas": 0.0}, "sample_rate_hz must be positive"),
+        ({"shape": "arbitrary", "samples": [0.5], "sample_rate_sas": 50.0}, "at least 2 samples"),
+        ({"shape": "arbitrary", "samples": [5.0, -9.0], "sample_rate_sas": 50.0}, "normalized to"),
+    ]
+    for waveform, expected in bad_waveforms:
+        with pytest.raises(Exception, match=expected):
+            InstroAWG(config={**valid_config, "channels": {"1": {"waveform": waveform}}})
+
+
+def test_malformed_csv_samples_error_names_the_file(valid_config, tmp_path):
+    samples_file = tmp_path / "samples.csv"
+    samples_file.write_text("0.1,0.2\n0.3,oops\n")
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
+    }
+    with pytest.raises(Exception, match=r"samples\.csv: could not convert string to float"):
+        InstroAWG(config=config)

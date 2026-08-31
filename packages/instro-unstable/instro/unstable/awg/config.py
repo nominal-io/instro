@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator, model_validator
 
 from instro.lib.config import (
     FilePublisherConfig,
@@ -19,17 +20,11 @@ from instro.lib.types import DeviceInfo
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
-    BurstTriggerSource,
-    BurstType,
-    GatePolarity,
-    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
-    SweepTriggerSource,
-    SweepType,
     Triangle,
     Waveform,
 )
@@ -42,19 +37,15 @@ __all__ = [
     "AWGConfig",
     "AmplitudeConfig",
     "ArbitraryConfig",
-    "BurstConfig",
     "ChannelConfig",
     "DeviceInfo",
     "FilePublisherConfig",
-    "ModulationConfig",
-    "ModulationTypeConfig",
     "NominalCorePublisherConfig",
     "PulseConfig",
     "SawtoothConfig",
     "SineConfig",
     "SquareConfig",
     "StaticValueConfig",
-    "SweepConfig",
     "TimingConfig",
     "TriangleConfig",
     "VisaDriverConfig",
@@ -139,9 +130,26 @@ class ArbitraryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     shape: Literal["arbitrary"] = "arbitrary"
     samples: tuple[float, ...] | str = Field(
-        description="Sample values normalized to [-1.0, 1.0], or a path to a CSV file containing them."
+        description="At least 2 sample values normalized to [-1.0, 1.0], or a path to a CSV file containing "
+        "them. A relative path resolves against the directory of the config file it came from."
     )
     sample_rate_sas: float = Field(description="Sample rate in samples per second.")
+
+    _samples_path: Path | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _locate_samples_file(self, info: ValidationInfo) -> ArbitraryConfig:
+        """Require a samples path to exist, so a bad path fails here rather than partway through ``open()``."""
+        if not isinstance(self.samples, str):
+            return self
+        path = Path(self.samples)
+        if not path.is_absolute():
+            base_dir = (info.context or {}).get("config_dir")
+            path = (Path(base_dir) if base_dir is not None else Path.cwd()) / path
+        if not path.is_file():
+            raise ValueError(f"arbitrary samples file not found: {path}")
+        self._samples_path = path
+        return self
 
 
 class StaticValueConfig(BaseModel):
@@ -158,12 +166,16 @@ WaveformConfigType = Annotated[
 ]
 
 
-def _parse_arbitrary_samples(samples: tuple[float, ...] | str) -> tuple[float, ...]:
-    """Return ``samples`` as-is, or read and flatten a CSV file's numeric values if given a path."""
-    if isinstance(samples, str):
-        with open(samples, newline="") as f:
+def _parse_arbitrary_samples(config: ArbitraryConfig) -> tuple[float, ...]:
+    """Return inline ``samples`` as-is, or read and flatten the CSV file they name."""
+    if not isinstance(config.samples, str):
+        return config.samples
+    assert config._samples_path is not None
+    with open(config._samples_path, newline="") as f:
+        try:
             return tuple(float(value) for row in csv.reader(f) for value in row if value.strip())
-    return samples
+        except ValueError as e:
+            raise ValueError(f"{config._samples_path}: {e}") from e
 
 
 def build_waveform(config: WaveformConfigType) -> Waveform:
@@ -182,7 +194,7 @@ def build_waveform(config: WaveformConfigType) -> Waveform:
         case PulseConfig():
             return Pulse(frequency_hz=config.frequency_hz, width_s=config.width_s, delay_s=config.delay_s)
         case ArbitraryConfig():
-            return Arbitrary(samples=_parse_arbitrary_samples(config.samples), sample_rate_hz=config.sample_rate_sas)
+            return Arbitrary(samples=_parse_arbitrary_samples(config), sample_rate_hz=config.sample_rate_sas)
         case StaticValueConfig():
             return StaticValue(value=config.value)
         case _:
@@ -197,72 +209,23 @@ class AmplitudeConfig(BaseModel):
     unit: AmplitudeMeasurementUnit = AmplitudeMeasurementUnit.VPP
 
 
-class ModulationTypeConfig(BaseModel):
-    """Modulation type and its magnitude; magnitude's meaning varies by ``name`` (see ``InstroAWG.set_modulation``)."""
-
-    model_config = ConfigDict(extra="forbid")
-    name: ModulationType
-    magnitude: float
-
-
-class ModulationConfig(BaseModel):
-    """Carrier modulation config; maps to ``InstroAWG.set_modulation``/``modulation_enable``."""
-
-    model_config = ConfigDict(extra="forbid")
-    type: ModulationTypeConfig
-    baseband_shape: WaveformConfigType
-    enable: bool
-
-
-class BurstConfig(BaseModel):
-    """Burst config; maps to InstroAWG's ``set_burst*``/``burst_enable`` setters.
-
-    ``trigger_source``/``delay``/``gate_polarity``/``ncycles``/``period`` are mode-specific
-    (e.g. ``gate_polarity`` only applies to GATED bursts) and are skipped when omitted.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-    type: BurstType
-    enable: bool
-    trigger_source: BurstTriggerSource | None = None
-    delay: float | None = None
-    gate_polarity: GatePolarity | None = None
-    ncycles: int | None = None
-    period: float | None = None
-
-
-class SweepConfig(BaseModel):
-    """Sweep config; maps to InstroAWG's ``set_sweep*``/``sweep_enable`` setters.
-
-    All fields besides ``type``/``enable`` are optional and skipped when omitted.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-    type: SweepType
-    enable: bool
-    trigger_source: SweepTriggerSource | None = None
-    start_frequency: float | None = None
-    end_frequency: float | None = None
-    sweep_time: float | None = None
-    start_hold_time: float | None = None
-    stop_hold_time: float | None = None
-    return_time: float | None = None
-
-
 class ChannelConfig(BaseModel):
     """Initial per-channel state, applied through the InstroAWG setters on ``open()``.
 
-    ``output_enable`` cannot be set here: enabling modulation/burst/sweep never turns
-    on the physical output on its own.
+    ``output_enable`` cannot be set here: a configured channel stays silent until its
+    output is explicitly enabled.
     """
 
     model_config = ConfigDict(extra="forbid")
     waveform: WaveformConfigType
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None
-    modulation: ModulationConfig | None = None
-    burst: BurstConfig | None = None
-    sweep: SweepConfig | None = None
+
+    @model_validator(mode="after")
+    def _validate_waveform(self) -> ChannelConfig:
+        """Build the waveform now so ``types.py``'s shape-parameter bounds reject a bad config here, not mid-``open()``."""
+        build_waveform(self.waveform)
+        return self
 
 
 class AWGConfig(BaseModel):
@@ -280,13 +243,18 @@ class AWGConfig(BaseModel):
     publishers: list[PublisherConfigType] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _no_duplicate_channel_numbers(self) -> AWGConfig:
+    def _validate_channel_keys(self) -> AWGConfig:
         seen: dict[int, str] = {}
         for key in self.channels:
             try:
                 channel_number = int(key)
             except ValueError as e:
                 raise ValueError(f"channel key {key!r} is not a valid channel number") from e
+            if not 1 <= channel_number <= self.driver.num_channels:
+                raise ValueError(
+                    f"channel key {key!r} is out of range for a {self.driver.num_channels}-channel AWG "
+                    f"(1-{self.driver.num_channels})"
+                )
             if channel_number in seen:
                 raise ValueError(
                     f"channels contains duplicate channel number {channel_number} "

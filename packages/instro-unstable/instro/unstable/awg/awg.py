@@ -437,47 +437,6 @@ class InstroAWG(Instrument):
                 self.set_amplitude(channel, channel_config.amplitude.value, channel_config.amplitude.unit)
             if channel_config.offset is not None:
                 self.set_offset(channel, channel_config.offset)
-            if channel_config.modulation is not None:
-                modulation = channel_config.modulation
-                self.set_modulation(
-                    channel,
-                    modulation.type.name,
-                    build_waveform(modulation.baseband_shape),
-                    modulation.type.magnitude,
-                )
-                self.modulation_enable(channel, modulation.enable)
-            if channel_config.burst is not None:
-                burst = channel_config.burst
-                self.set_burst(channel, burst.type)
-                if burst.trigger_source is not None:
-                    self.set_burst_trigger(channel, burst.trigger_source)
-                if burst.delay is not None:
-                    self.set_burst_delay(channel, burst.delay)
-                if burst.gate_polarity is not None:
-                    self.set_burst_gate_polarity(channel, burst.gate_polarity)
-                if burst.ncycles is not None:
-                    self.set_burst_ncycles(channel, burst.ncycles)
-                if burst.period is not None:
-                    self.set_burst_period(channel, burst.period)
-                self.burst_enable(channel, burst.enable)
-            if channel_config.sweep is not None:
-                sweep = channel_config.sweep
-                self.set_sweep(channel, sweep.type)
-                if sweep.trigger_source is not None:
-                    self.set_sweep_trigger(channel, sweep.trigger_source)
-                if sweep.start_frequency is not None:
-                    self.set_sweep_start_freq(channel, sweep.start_frequency)
-                if sweep.end_frequency is not None:
-                    self.set_sweep_end_freq(channel, sweep.end_frequency)
-                if sweep.sweep_time is not None:
-                    self.set_sweep_time(channel, sweep.sweep_time)
-                if sweep.start_hold_time is not None:
-                    self.set_sweep_start_hold_time(channel, sweep.start_hold_time)
-                if sweep.stop_hold_time is not None:
-                    self.set_sweep_stop_hold_time(channel, sweep.stop_hold_time)
-                if sweep.return_time is not None:
-                    self.set_sweep_return_time(channel, sweep.return_time)
-                self.sweep_enable(channel, sweep.enable)
         self._channel_config_applied = True
 
     def close(self) -> None:
