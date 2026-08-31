@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/nominal-io/instro/compare/instro-v1.14.0...instro-v1.15.0) (2026-08-31)
+
+
+### Features
+
+* publish categorical instrument reads as Measurement ([#445](https://github.com/nominal-io/instro/issues/445)) ([6ccce83](https://github.com/nominal-io/instro/commit/6ccce834b59f67753c192374c4154d0901d8bb3a))
+
 ## [1.14.0](https://github.com/nominal-io/instro/compare/instro-v1.13.0...instro-v1.14.0) (2026-08-28)
 
 
