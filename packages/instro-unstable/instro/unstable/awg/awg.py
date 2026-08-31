@@ -287,32 +287,7 @@ class InstroAWG(Instrument):
         autostart: bool = False,
         **kwargs,
     ):
-        """Initialize an InstroAWG.
-
-        Provide either ``config`` or ``driver``/``num_channels`` together, not both.
-
-        Args:
-            name: Channel-name prefix for published data. Falls back to
-                ``config.device.name`` when ``config`` is given.
-            driver: Concrete AWG driver; owns its own transport::
-
-                awg = InstroAWG(
-                    name="main",
-                    driver=RigolDG1022Z("USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"),
-                    num_channels=2,
-                )
-
-            num_channels: Number of output channels on this AWG.
-            publishers: Publishers that receive emitted Measurement/Command data.
-                Combined with any publishers declared in ``config``.
-            config: An ``AWGConfig``, a dict, or a path to a JSON config file. Its
-                ``channels`` block is applied through the public setters on ``open()``.
-            autostart: When True, open the connection and start background polling.
-                Requires ``config``, since polling cannot start without a configured channel.
-            **kwargs: Default tags applied to every emitted Measurement/Command.
-                Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
-                (uses the on-disk 'default' Nominal credential).
-        """
+        """Initialize an InstroAWG. Provide either ``config`` or ``driver``/``num_channels`` together, not both."""
         poll_interval: float | None = None
         resolved_config: AWGConfig | None = None
         config_publishers: list[Publisher] = []
