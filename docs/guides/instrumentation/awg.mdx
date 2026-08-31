@@ -73,11 +73,84 @@ awg = InstroAWG(
 
 ### Parameters
 
-- **`name`**: A name for this AWG instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `AWGDriverBase` instance (e.g. `RigolDG1022Z`) configured with the connection details for that model.
-- **`num_channels`**: Number of output channels on the waveform generator.
-- **`publishers`**: Optional list of publishers to attach.
+- **`name`**: A name for this AWG instance. Used as a prefix for channel names when publishing. Falls back to `config.device.name` when `config` is given.
+- **`driver`**: A concrete `AWGDriverBase` instance (e.g. `RigolDG1022Z`) configured with the connection details for that model. Mutually exclusive with `config`.
+- **`num_channels`**: Number of output channels on the waveform generator. Mutually exclusive with `config`.
+- **`config`**: An `AWGConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`/`num_channels`. See [From a JSON Config File](#from-a-json-config-file) below.
+- **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately. Requires `config`, since polling can't start without a configured channel.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
+
+### From a JSON Config File
+
+`InstroAWG` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
+
+```python
+from instro.unstable.awg import InstroAWG
+
+awg = InstroAWG(config="bench_awg.json")
+```
+
+Where bench_awg.json contains:
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroAWG",
+  "device": {
+    "name": "bench_awg",
+    "description": "Bench waveform generator",
+    "manufacturer": "Rigol",
+    "model": "DG1022Z"
+  },
+  "driver": {
+    "connection_type": "visa",
+    "name": "RigolDG1022Z",
+    "num_channels": 2,
+    "visa": {
+      "visa_resource": "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
+    }
+  },
+  "channels": {
+    "1": {
+      "waveform": { "shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0 },
+      "amplitude": { "value": 2.0, "unit": "VPP" },
+      "offset": 0.0
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "publishers": [
+    { "type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>" }
+  ]
+}
+```
+
+`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+
+`driver.name` must match one of the registered vendor/model keys (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+
+`channels` is required and must have at least one entry, keyed by 1-indexed channel number. Each entry is applied through the same public setters shown in [Basic Usage](#basic-usage) — `set_waveform`, `set_amplitude`, `set_offset`, `set_modulation`/`modulation_enable`, `set_burst*`/`burst_enable`, `set_sweep*`/`sweep_enable` — once, the first time `open()` is called:
+
+- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second.
+- **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
+- **`offset`** (optional): DC offset in volts.
+- **`modulation`** (optional): `{"type": {"name": <ModulationType>, "magnitude": <float>}, "baseband_shape": <waveform>, "enable": <bool>}`. `magnitude`'s meaning depends on `name` (depth for AM, frequency deviation for FM, etc. — see `set_modulation`).
+- **`burst`** (optional): `{"type": <BurstType>, "enable": <bool>, "trigger_source": ..., "delay": ..., "gate_polarity": ..., "ncycles": ..., "period": ...}`. Only `type` and `enable` are required; the rest are mode-specific and skipped when omitted (e.g. `gate_polarity` only applies to `GATED` bursts).
+- **`sweep`** (optional): `{"type": <SweepType>, "enable": <bool>, "trigger_source": ..., "start_frequency": ..., "end_frequency": ..., "sweep_time": ..., "start_hold_time": ..., "stop_hold_time": ..., "return_time": ...}`. Only `type` and `enable` are required; the rest are skipped when omitted.
+
+`output_enable` cannot be set from config — enabling modulation/burst/sweep never turns on the physical output by itself, so a freshly-configured channel stays silent until you explicitly call `output_enable(channel, True)`.
+
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to open the connection, apply the `channels` config, and start polling immediately:
+
+```python
+awg = InstroAWG(config="bench_awg.json", autostart=True)
+```
+
+`config` also accepts a plain dict or an already-built `AWGConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroAWG` directly, without a JSON round-trip.
+
+JSON configs are validated strictly: `AWGConfig` and its nested blocks forbid any field not listed above, so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
@@ -204,6 +277,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | Method | Purpose |
 |--------|---------|
 | `InstroAWG(name, driver, num_channels, publishers=None, **kwargs)` | Construct an InstroAWG with a vendor driver |
+| `InstroAWG(config=..., publishers=None, autostart=False, **kwargs)` | Construct from an `AWGConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish connection to the AWG |
 | `close()` | Disconnect from the AWG and close all publishers |
 | `set_waveform(channel, waveform)` | Program a channel with a `Waveform` definition |
