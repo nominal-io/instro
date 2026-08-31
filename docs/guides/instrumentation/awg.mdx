@@ -129,19 +129,22 @@ from instro.unstable.awg import InstroAWG
 awg = InstroAWG(config="bench_awg.json")
 ```
 
-`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+`device.name` is required and used as the channel-name prefix when publishing. `description`, `manufacturer`, and `model` are optional descriptions about the physical instrument.
 
-`driver.name` must match one of the registered vendor/model keys (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+`driver.name` must match one of existing drivers supported by Instro (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so the backend, timeout, or serial setting can be set from JSON too.
 
-`channels` is required and must have at least one entry, keyed by 1-indexed channel number. Keys are validated against `driver.num_channels`, so a channel the instrument doesn't have is rejected when the config is parsed rather than partway through applying it to hardware. Each entry is applied through the same public setters shown in [Basic Usage](#basic-usage) — `set_waveform`, `set_amplitude`, `set_offset` — once, the first time `open()` is called:
+`channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Keys are validated against `driver.num_channels`, so a channel the instrument doesn't have is rejected. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
-- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. The path is used exactly as written — a relative one resolves against the process working directory, the same way `FilePublisher`'s `directory` does — so prefer an absolute path unless you control where the process starts. A path that can't be read, or a CSV that doesn't parse, is rejected when the config is parsed; the file is read once at that point, so later edits to it do not affect an already-built config.
+Each entry is applied on the first call to `open()`, through the same public setters shown in [Basic Usage](#basic-usage): `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not touch the instrument unless you pass `autostart=True`.
+
+Inside each `ChannelConfig` object, the following fields are filled:
+- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. A CSV path is used as written. A relative path resolves against the working directory of the process, not the config file, so use an absolute path unless you control where the process starts. The file is read when the config is parsed, so later edits to it do not affect a config you already built.
 - **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
 - **`offset`** (optional): DC offset in volts.
 
-Shape parameters carry the same bounds the Python `Waveform` definitions enforce (positive `frequency_hz`, `duty_cycle_pct` within 0–100, a pulse whose `width_s + delay_s` fits inside the period, and so on), and they are checked when the config is parsed — so a malformed config fails before the instrument is opened rather than after earlier channels have already been programmed.
+Shape parameters carry the same bounds the Python `Waveform` definitions enforce (positive `frequency_hz`, `duty_cycle_pct` within 0–100, a pulse whose `width_s + delay_s` fits inside the period, and so on). These are checked when the config is parsed. A malformed config raises before the instrument is opened, not partway through applying it.
 
-`output_enable` cannot be set from config — a freshly-configured channel stays silent until you explicitly call `output_enable(channel, True)`.
+`output_enable` cannot be set from the configuration file. You must explicitly call `output_enable(channel, True)` to enable output.
 
 An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to open the connection, apply the `channels` config, and start polling immediately:
 

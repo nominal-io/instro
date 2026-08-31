@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
@@ -203,8 +202,6 @@ class ChannelConfig(BaseModel):
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None
 
-    # Built once at validation so ``types.py``'s shape bounds apply at parse time and the
-    # samples CSV is read once; kept off the model so it never reaches ``model_dump()``.
     _waveform_definition: Waveform | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
@@ -264,7 +261,7 @@ def resolve_awg_from_config(
 
     module_path, class_name = AWG_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
     driver_cls = getattr(importlib.import_module(module_path), class_name)
-    driver: AWGDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    driver: AWGDriverBase = driver_cls(config.driver.visa)
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None
