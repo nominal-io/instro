@@ -58,9 +58,7 @@ def publish_measurement(func: Callable) -> Callable:
             for channel, values in item.channel_data.items():
                 if not values:
                     continue
-                # Checking only index 0 costs the same as checking `len(values) == 1` (both are
-                # O(1)), but also catches a forgotten `.value` on an Enum at the head of a bulk
-                # channel (waveforms, DAQ samples) instead of skipping bulk channels outright.
+                # Keeps things performant by only checking the first value, but raises if the first value is not a valid type.
                 if not isinstance(values[0], (int, float, str)):
                     raise TypeError(
                         f"@publish_measurement on {func.__qualname__} got a non-int/float/str value "
