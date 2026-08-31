@@ -83,15 +83,9 @@ awg = InstroAWG(
 
 ### From a JSON Config File
 
-`InstroAWG` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
+`InstroAWG` can also be constructed directly from a JSON config file. See below for an example Rigol DG1022Z JSON configuration.
 
-```python
-from instro.unstable.awg import InstroAWG
-
-awg = InstroAWG(config="bench_awg.json")
-```
-
-Where bench_awg.json contains:
+Write a config file:
 
 ```json
 {
@@ -125,6 +119,14 @@ Where bench_awg.json contains:
     { "type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>" }
   ]
 }
+```
+
+In your test file, initialize an InstroAWG using the `config`:
+
+```python
+from instro.unstable.awg import InstroAWG
+
+awg = InstroAWG(config="bench_awg.json")
 ```
 
 `device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
