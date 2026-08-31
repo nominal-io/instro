@@ -31,8 +31,8 @@ class ChannelBufferPublisher(ABC):
         self._closed = False
 
     @abstractmethod
-    def _ensure_channel(self, channel_name: str) -> None:
-        """Ensure a channel exists in the buffers. Must be implemented by subclasses."""
+    def _ensure_channel(self, channel_name: str, values) -> None:
+        """Ensure a channel exists in the buffers, sized/typed for ``values``. Must be implemented by subclasses."""
 
     @abstractmethod
     def _extend_values(self, channel_name: str, values) -> None:
@@ -59,7 +59,7 @@ class ChannelBufferPublisher(ABC):
         if isinstance(data, Measurement):
             with self._condition:
                 for channel_name, values in data.channel_data.items():
-                    self._ensure_channel(channel_name)
+                    self._ensure_channel(channel_name, values)
                     n_new = len(values)
                     self._extend_values(channel_name, values)
                     self._extend_timestamps(channel_name, data.timestamps)
@@ -203,7 +203,7 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
     def __init__(self, maxlen: int):
         super().__init__(maxlen)
 
-    def _ensure_channel(self, channel_name: str) -> None:
+    def _ensure_channel(self, channel_name: str, values) -> None:
         if channel_name not in self._values:
             self._values[channel_name] = deque(maxlen=self.maxlen)
             self._timestamps[channel_name] = deque(maxlen=self.maxlen)
@@ -252,20 +252,20 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
         super().__init__(maxlen)
         self._value_dtype = value_dtype
 
-    def _ensure_channel(self, channel_name: str) -> None:
-        # The store kind (numeric ring vs. string deque) isn't known until the first value
-        # arrives, so it's created lazily in _extend_values; nothing to do here.
-        pass
+    def _ensure_channel(self, channel_name: str, values) -> None:
+        if channel_name in self._values:
+            return
+        if not values:
+            # No values yet: defer store-kind selection until a non-empty batch arrives.
+            return
+        if isinstance(values[0], str):
+            self._values[channel_name] = deque(maxlen=self.maxlen)
+        else:
+            self._values[channel_name] = NumpyRingBuffer(self.maxlen, self._value_dtype)
 
     def _extend_values(self, channel_name: str, values) -> None:
         if channel_name not in self._values:
-            if values and isinstance(values[0], str):
-                self._values[channel_name] = deque(maxlen=self.maxlen)
-            elif values:
-                self._values[channel_name] = NumpyRingBuffer(self.maxlen, self._value_dtype)
-            else:
-                # No values yet: defer store-kind selection until a non-empty batch arrives.
-                return
+            return
         self._values[channel_name].extend(values)
 
     def _extend_timestamps(self, channel_name: str, timestamps) -> None:

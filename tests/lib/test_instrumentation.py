@@ -217,7 +217,7 @@ def test_publish_measurement_does_not_publish_earlier_items_when_a_later_item_in
 
 
 def test_publish_measurement_does_not_catch_a_bad_value_inside_a_bulk_channel():
-    """Documented, accepted gap: the guard only scans single-value channels, so a bad value inside a bulk (multi-value) channel is not caught."""
+    """Documented, accepted gap: the guard only checks each channel's first value, so a bad value elsewhere in a bulk (multi-value) channel is not caught."""
     instrument = Instrument(name="ut")
 
     class _Unpublishable(Enum):

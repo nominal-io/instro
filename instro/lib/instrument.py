@@ -56,17 +56,15 @@ def publish_measurement(func: Callable) -> Callable:
                     f"got {type(item).__name__}"
                 )
             for channel, values in item.channel_data.items():
-                # A forgotten `.value` on an Enum can only happen at a single-value categorical
-                # publish (every such getter emits exactly one value per channel). Bulk channels
-                # (waveforms, DAQ samples) are never Enum-sourced, so skip them rather than pay an
-                # O(n) isinstance scan on every publish for a mistake that can't occur there.
-                if len(values) != 1:
+                if not values:
                     continue
-                value = values[0]
-                if not isinstance(value, (int, float, str)):
+                # Checking only index 0 costs the same as checking `len(values) == 1` (both are
+                # O(1)), but also catches a forgotten `.value` on an Enum at the head of a bulk
+                # channel (waveforms, DAQ samples) instead of skipping bulk channels outright.
+                if not isinstance(values[0], (int, float, str)):
                     raise TypeError(
                         f"@publish_measurement on {func.__qualname__} got a non-int/float/str value "
-                        f"{value!r} ({type(value).__name__}) on channel '{channel}'"
+                        f"{values[0]!r} ({type(values[0]).__name__}) on channel '{channel}'"
                     )
         for item in items:
             self.publish(item)
@@ -197,8 +195,9 @@ class Instrument:
         The published channel key is ``{self.name}.{channel}``. The caller writes the
         full descriptor, so the literal published name appears at the call site.
         """
+        values: list[float] | list[str]
         if isinstance(data, str):
-            values: list[float] | list[str] = [data]
+            values = [data]
         else:
             values = [float(data)]
         return Measurement(

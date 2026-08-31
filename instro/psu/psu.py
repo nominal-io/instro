@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
@@ -235,6 +236,7 @@ class InstroPSU(Instrument):
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
+        val = val.value if isinstance(val, Enum) else val
 
         if self.legacy_naming:
             descriptor = f"ch{channel}_{legacy_suffix}"
@@ -320,14 +322,15 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    @publish_measurement
-    def get_operating_mode(self, channel: int, **kwargs) -> Measurement:
+    def get_operating_mode(self, channel: int, **kwargs) -> Measurement | None:
         """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
-        with self._resource_lock:
-            mode = self._driver.get_operating_mode(channel=channel)
-            timestamp = time.time_ns()
-
-        return self._package_measurement(f"ch{channel}.operating_mode", mode.value, timestamp, **kwargs)
+        return self._execute_measurement(
+            self._driver.get_operating_mode,
+            channel=channel,
+            channel_suffix="operating_mode",
+            legacy_suffix="operating_mode",
+            **kwargs,
+        )
 
     def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
         """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""
