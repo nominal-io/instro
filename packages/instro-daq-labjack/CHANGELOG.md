@@ -6,6 +6,7 @@
 ### Features
 
 * **daq:** ni typed channel support ([#382](https://github.com/nominal-io/instro/issues/382)) ([8675855](https://github.com/nominal-io/instro/commit/867585557101deca2efc03c9b9d82ea038a95217))
+* **ljm:** add typed channel support for LabJackTSeriesDriver ([#383](https://github.com/nominal-io/instro/issues/383)) ([b7358f4](https://github.com/nominal-io/instro/commit/b7358f4f3817bd18bca9d7ae7d60678376aa0863))
 
 
 ### Bug Fixes
