@@ -6,7 +6,7 @@ import csv
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from instro.lib.config import (
     FilePublisherConfig,
@@ -130,26 +130,9 @@ class ArbitraryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     shape: Literal["arbitrary"] = "arbitrary"
     samples: tuple[float, ...] | str = Field(
-        description="At least 2 sample values normalized to [-1.0, 1.0], or a path to a CSV file containing "
-        "them. A relative path resolves against the directory of the config file it came from."
+        description="At least 2 sample values normalized to [-1.0, 1.0], or a path to a CSV file containing them."
     )
     sample_rate_sas: float = Field(description="Sample rate in samples per second.")
-
-    _samples_path: Path | None = PrivateAttr(default=None)
-
-    @model_validator(mode="after")
-    def _locate_samples_file(self, info: ValidationInfo) -> ArbitraryConfig:
-        """Require a samples path to exist, so a bad path fails here rather than partway through ``open()``."""
-        if not isinstance(self.samples, str):
-            return self
-        path = Path(self.samples)
-        if not path.is_absolute():
-            base_dir = (info.context or {}).get("config_dir")
-            path = (Path(base_dir) if base_dir is not None else Path.cwd()) / path
-        if not path.is_file():
-            raise ValueError(f"arbitrary samples file not found: {path}")
-        self._samples_path = path
-        return self
 
 
 class StaticValueConfig(BaseModel):
@@ -170,12 +153,11 @@ def _parse_arbitrary_samples(config: ArbitraryConfig) -> tuple[float, ...]:
     """Return inline ``samples`` as-is, or read and flatten the CSV file they name."""
     if not isinstance(config.samples, str):
         return config.samples
-    assert config._samples_path is not None
-    with open(config._samples_path, newline="") as f:
-        try:
+    try:
+        with open(config.samples, newline="") as f:
             return tuple(float(value) for row in csv.reader(f) for value in row if value.strip())
-        except ValueError as e:
-            raise ValueError(f"{config._samples_path}: {e}") from e
+    except (OSError, ValueError) as e:
+        raise ValueError(f"could not read arbitrary samples from {config.samples!r}: {e}") from e
 
 
 def build_waveform(config: WaveformConfigType) -> Waveform:
@@ -221,11 +203,21 @@ class ChannelConfig(BaseModel):
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None
 
+    # Built once at validation so ``types.py``'s shape bounds apply at parse time and the
+    # samples CSV is read once; kept off the model so it never reaches ``model_dump()``.
+    _waveform_definition: Waveform | None = PrivateAttr(default=None)
+
     @model_validator(mode="after")
-    def _validate_waveform(self) -> ChannelConfig:
+    def _build_waveform_definition(self) -> ChannelConfig:
         """Build the waveform now so ``types.py``'s shape-parameter bounds reject a bad config here, not mid-``open()``."""
-        build_waveform(self.waveform)
+        self._waveform_definition = build_waveform(self.waveform)
         return self
+
+    @property
+    def waveform_definition(self) -> Waveform:
+        """The runtime ``Waveform`` this channel describes, built when the config was validated."""
+        assert self._waveform_definition is not None
+        return self._waveform_definition
 
 
 class AWGConfig(BaseModel):

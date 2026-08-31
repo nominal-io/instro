@@ -28,11 +28,8 @@ def load_config(config: ConfigT | dict | Path | str, model_cls: type[ConfigT]) -
     if isinstance(config, dict):
         return model_cls.model_validate(config)
     if isinstance(config, (Path, str)):
-        path = Path(config)
-        with open(path) as f:
-            # config_dir lets models resolve relative file references against the config file
-            # that named them rather than against the process working directory.
-            return model_cls.model_validate(json.load(f), context={"config_dir": path.parent.resolve()})
+        with open(Path(config)) as f:
+            return model_cls.model_validate(json.load(f))
     return config.model_copy(deep=True)
 
 

@@ -135,7 +135,7 @@ awg = InstroAWG(config="bench_awg.json")
 
 `channels` is required and must have at least one entry, keyed by 1-indexed channel number. Keys are validated against `driver.num_channels`, so a channel the instrument doesn't have is rejected when the config is parsed rather than partway through applying it to hardware. Each entry is applied through the same public setters shown in [Basic Usage](#basic-usage) — `set_waveform`, `set_amplitude`, `set_offset` — once, the first time `open()` is called:
 
-- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. A relative CSV path resolves against the directory of the config file that named it (not the process working directory), and a path that doesn't exist — or a CSV that doesn't parse — is rejected when the config is parsed.
+- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. The path is used exactly as written — a relative one resolves against the process working directory, the same way `FilePublisher`'s `directory` does — so prefer an absolute path unless you control where the process starts. A path that can't be read, or a CSV that doesn't parse, is rejected when the config is parsed; the file is read once at that point, so later edits to it do not affect an already-built config.
 - **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
 - **`offset`** (optional): DC offset in volts.
 
@@ -151,7 +151,7 @@ awg = InstroAWG(config="bench_awg.json", autostart=True)
 
 `config` also accepts a plain dict or an already-built `AWGConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroAWG` directly, without a JSON round-trip.
 
-JSON configs are validated strictly: `AWGConfig` and its nested blocks forbid any field not listed above, so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
+JSON configs are validated strictly: `AWGConfig` and its nested blocks forbid any field not listed above, so there is no `**kwargs`-style escape hatch from JSON. Default tags are still available: pass them as `**kwargs` to the constructor alongside `config`.
 
 ### Choosing a Driver
 

@@ -322,59 +322,13 @@ def test_arbitrary_waveform_samples_from_csv_file(valid_config, tmp_path):
     )
 
 
-def test_arbitrary_samples_relative_path_resolves_against_config_file(valid_config, tmp_path, monkeypatch):
-    (tmp_path / "samples.csv").write_text("-1.0\n0.0\n1.0\n0.0\n")
-    config_path = tmp_path / "awg.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                **valid_config,
-                "channels": {
-                    "1": {"waveform": {"shape": "arbitrary", "samples": "samples.csv", "sample_rate_sas": 50.0}}
-                },
-            }
-        )
-    )
-    monkeypatch.chdir(tmp_path.parent)
-
-    with _patch_driver() as mock_cls:
-        awg = InstroAWG(config=str(config_path))
-        awg.open()
-
-    mock_cls.return_value.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
-    )
-
-
 def test_arbitrary_samples_missing_file_rejected_at_validation(valid_config):
     config = {
         **valid_config,
         "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": "no_such.csv", "sample_rate_sas": 50.0}}},
     }
-    with pytest.raises(Exception, match="samples file not found"):
+    with pytest.raises(Exception, match="could not read arbitrary samples"):
         InstroAWG(config=config)
-
-
-def test_arbitrary_samples_path_round_trips_verbatim(valid_config, tmp_path, monkeypatch):
-    (tmp_path / "samples.csv").write_text("-1.0\n0.0\n1.0\n0.0\n")
-    config_path = tmp_path / "awg.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                **valid_config,
-                "channels": {
-                    "1": {"waveform": {"shape": "arbitrary", "samples": "samples.csv", "sample_rate_sas": 50.0}}
-                },
-            }
-        )
-    )
-    monkeypatch.chdir(tmp_path.parent)
-
-    with _patch_driver():
-        awg = InstroAWG(config=str(config_path))
-
-    dumped = awg._config.model_dump(mode="json")
-    assert dumped["channels"]["1"]["waveform"]["samples"] == "samples.csv"
 
 
 def test_malformed_waveform_rejected_at_validation(valid_config):
@@ -402,5 +356,41 @@ def test_malformed_csv_samples_error_names_the_file(valid_config, tmp_path):
         **valid_config,
         "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
     }
-    with pytest.raises(Exception, match=r"samples\.csv: could not convert string to float"):
+    with pytest.raises(Exception, match=r"samples\.csv.*could not convert string to float"):
         InstroAWG(config=config)
+
+
+def test_arbitrary_samples_csv_read_once_at_validation(valid_config, tmp_path):
+    """Samples are read when the config is validated, so open() does not re-read the file."""
+    samples_file = tmp_path / "samples.csv"
+    samples_file.write_text("-1.0\n0.0\n1.0\n0.0\n")
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        samples_file.unlink()
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+    )
+
+
+def test_arbitrary_samples_relative_path_resolves_against_cwd(valid_config, tmp_path, monkeypatch):
+    """Paths are used as written, the way FilePublisherConfig.directory is; nothing rewrites them."""
+    (tmp_path / "samples.csv").write_text("-1.0\n0.0\n1.0\n0.0\n")
+    monkeypatch.chdir(tmp_path)
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": "samples.csv", "sample_rate_sas": 50.0}}},
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+    )
+    assert awg._config.model_dump(mode="json")["channels"]["1"]["waveform"]["samples"] == "samples.csv"

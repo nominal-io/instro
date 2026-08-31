@@ -15,7 +15,7 @@ from instro.lib.config import load_config
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
-from instro.unstable.awg.config import AWGConfig, build_waveform, resolve_awg_from_config
+from instro.unstable.awg.config import AWGConfig, resolve_awg_from_config
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
@@ -432,7 +432,7 @@ class InstroAWG(Instrument):
             return
         for channel_key, channel_config in self._config.channels.items():
             channel = int(channel_key)
-            self.set_waveform(channel, build_waveform(channel_config.waveform))
+            self.set_waveform(channel, channel_config.waveform_definition)
             if channel_config.amplitude is not None:
                 self.set_amplitude(channel, channel_config.amplitude.value, channel_config.amplitude.unit)
             if channel_config.offset is not None:
