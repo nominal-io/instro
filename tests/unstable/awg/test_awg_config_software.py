@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,6 +108,18 @@ def test_init_with_config_file_path_str(valid_config, tmp_path):
     assert awg.name == "test_awg"
 
 
+def test_init_with_config_file_path_object(valid_config, tmp_path):
+    """A pathlib.Path is accepted as well as a str path; only the malformed-JSON case covered Path before."""
+    config_file = tmp_path / "awg.json"
+    config_file.write_text(json.dumps(valid_config))
+
+    with _patch_driver():
+        awg = InstroAWG(config=Path(config_file))
+
+    assert awg.name == "test_awg"
+    assert awg._config.driver.name == "RigolDG1022Z"
+
+
 def test_init_with_config_name_override(valid_config):
     with _patch_driver():
         awg = InstroAWG(config=valid_config, name="overridden")
@@ -130,6 +143,18 @@ def test_init_with_config_awgconfig_object_does_not_alias_caller_instance(valid_
 
     assert awg._config is not awg_config
     assert awg._config.device.name == "test_awg"
+
+
+def test_init_with_config_awgconfig_object_applies_channels_on_open(valid_config):
+    """load_config deep-copies an AWGConfig; the copy must keep the private waveform built at validation."""
+    awg_config = AWGConfig.model_validate(valid_config)
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=awg_config)
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(
+        channel=1, waveform=Sine(frequency_hz=1000.0, phase_deg=0.0)
+    )
 
 
 def test_init_with_config_and_driver_raises(valid_config):

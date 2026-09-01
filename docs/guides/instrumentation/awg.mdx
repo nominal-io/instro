@@ -147,15 +147,17 @@ Shape parameters carry the same bounds the Python `Waveform` definitions enforce
 
 `output_enable` cannot be set from the configuration file. You must explicitly call `output_enable(channel, True)` to enable output.
 
-An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to open the connection, apply the `channels` config, and start polling immediately:
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to start the connection, apply the `channels` config, and start polling immediately:
 
 ```python
 awg = InstroAWG(config="bench_awg.json", autostart=True)
 ```
 
-`config` also accepts a plain dict or an already-built `AWGConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroAWG` directly, without a JSON round-trip.
+`config` does not have to be a file path. It also accepts a plain dict or an already-built `AWGConfig` object, so when the configuration comes from somewhere other than a file, you can pass it straight to `InstroAWG` instead of writing it out to JSON and reading it back.
 
-JSON configs are validated strictly: `AWGConfig` and its nested blocks forbid any field not listed above, so there is no `**kwargs`-style escape hatch from JSON. Default tags are still available: pass them as `**kwargs` to the constructor alongside `config`.
+```python
+awg = InstroAWG(config="bench_awg.json", test_run="run_42")
+```
 
 ### Choosing a Driver
 
