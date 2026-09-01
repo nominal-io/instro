@@ -78,7 +78,7 @@ awg = InstroAWG(
 - **`num_channels`**: Number of output channels on the waveform generator. Mutually exclusive with `config`.
 - **`config`**: An `AWGConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`/`num_channels`. See [From a JSON Config File](#from-a-json-config-file) below.
 - **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
-- **`autostart`**: When `True`, opens the connection and starts background polling immediately. Requires `config`, since polling can't start without a configured channel.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately. Requires `config`: `start()` refuses to begin polling until at least one channel has a waveform programmed, and the config's `channels` block is what guarantees that.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
 ### From a JSON Config File
@@ -131,15 +131,17 @@ awg = InstroAWG(config="bench_awg.json")
 
 `device.name` is required and used as the channel-name prefix when publishing. `description`, `manufacturer`, and `model` are optional descriptions about the physical instrument.
 
-`driver.name` must match one of existing drivers supported by Instro (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so the backend, timeout, or serial setting can be set from JSON too.
+`driver.name` must match one of the drivers supported by Instro (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so the backend, timeout, or serial setting can be set from JSON too.
 
 `channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
 Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not `start()` the instrument unless you pass `autostart=True`.
 
 Inside each `ChannelConfig` object, the following fields are filled:
-- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. 
-A CSV path is used as written. A relative path resolves against the working directory of the process, not the config file, so use an absolute path unless you control where the process starts. The file is read when the config is parsed, so later edits to it do not affect a config you already built.
+- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second.
+
+  A CSV path is used as written. A relative path resolves against the working directory of the process, not the config file, so use an absolute path unless you control where the process starts. The file is read when the config is parsed, so later edits to it do not affect a config you already built.
+
 - **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
 - **`offset`** (optional): DC offset in volts.
 
@@ -153,11 +155,37 @@ An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the backg
 awg = InstroAWG(config="bench_awg.json", autostart=True)
 ```
 
-`config` does not have to be a file path. It also accepts a plain dict or an already-built `AWGConfig` object, so when the configuration comes from somewhere other than a file, you can pass it straight to `InstroAWG` instead of writing it out to JSON and reading it back.
+`config` also accepts a plain dict or an already-built `AWGConfig`, so a config built or received elsewhere in code (a UI form, a discovery scan) can construct an `InstroAWG` directly, without a JSON round-trip:
 
 ```python
-awg = InstroAWG(config="bench_awg.json", test_run="run_42")
+# instantiating InstroAWG with a plain dict config
+awg = InstroAWG(config={
+    "device": {
+        "name": "bench_awg",
+        "description": "Bench waveform generator",
+        "manufacturer": "Rigol",
+        "model": "DG1022Z",
+    },
+    "driver": {
+        "name": "RigolDG1022Z",
+        "num_channels": 2,
+        "connection_type": "visa",
+        "visa": {"visa_resource": "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"},
+    },
+    "channels": {
+        "1": {"waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0}},
+    },
+    "timing": {"poll_interval": 1.0},
+    "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>"}],
+})
+
+# instantiating InstroAWG with a pre-built AWGConfig object
+awg = InstroAWG(config=my_awg_config)
 ```
+
+A passed-in `AWGConfig` is copied up front, so later edits to the object you passed don't reach the AWG.
+
+JSON configs are validated strictly: `AWGConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `channels`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 

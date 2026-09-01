@@ -155,7 +155,7 @@ def _parse_arbitrary_samples(config: ArbitraryConfig) -> tuple[float, ...]:
     try:
         with open(config.samples, newline="") as f:
             return tuple(float(value) for row in csv.reader(f) for value in row if value.strip())
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, csv.Error) as e:
         raise ValueError(f"could not read arbitrary samples from {config.samples!r}: {e}") from e
 
 

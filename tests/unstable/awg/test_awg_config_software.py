@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -9,7 +10,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.unstable.awg import AWGConfig, InstroAWG
-from instro.unstable.awg.types import Arbitrary, Sine
+from instro.unstable.awg.types import (
+    AmplitudeMeasurementUnit,
+    Arbitrary,
+    Pulse,
+    Sawtooth,
+    Sine,
+    Square,
+    StaticValue,
+    Triangle,
+)
 
 
 @pytest.fixture
@@ -305,8 +315,136 @@ def test_open_applies_waveform_amplitude_and_offset(valid_config):
 
     mock_driver = mock_cls.return_value
     mock_driver.set_waveform.assert_called_once_with(channel=1, waveform=Sine(frequency_hz=1000.0, phase_deg=0.0))
-    mock_driver.set_amplitude.assert_called_once()
+    mock_driver.set_amplitude.assert_called_once_with(channel=1, amplitude=2.0, unit=AmplitudeMeasurementUnit.VPP)
     mock_driver.set_offset.assert_called_once_with(1, 0.1)
+
+
+def test_repeated_open_applies_channel_config_once(valid_config):
+    """The channels block is applied once per open, so a redundant open() does not reprogram the instrument."""
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=valid_config)
+        awg.open()
+        awg.open()
+
+    assert mock_cls.return_value.set_waveform.call_count == 1
+
+
+def test_close_then_open_reapplies_channel_config(valid_config):
+    """close() clears the applied flag, so a reconnected AWG is reprogrammed instead of left bare."""
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=valid_config)
+        awg.open()
+        awg.close()
+        awg.open()
+
+    assert mock_cls.return_value.set_waveform.call_count == 2
+
+
+def test_open_failure_while_applying_config_closes_driver(valid_config):
+    """A driver that fails partway through the channels block must not leave the session open."""
+    with _patch_driver() as mock_cls:
+        mock_cls.return_value.set_waveform.side_effect = RuntimeError("driver rejected the waveform")
+        awg = InstroAWG(config=valid_config)
+        with pytest.raises(RuntimeError, match="driver rejected the waveform"):
+            awg.open()
+
+        mock_cls.return_value.close.assert_called_once()
+
+        # The flag was reset, so a retry after the driver recovers reprograms the channel.
+        mock_cls.return_value.set_waveform.side_effect = None
+        awg.open()
+
+    assert mock_cls.return_value.set_waveform.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("waveform_config", "expected"),
+    [
+        (
+            {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 90.0},
+            Sine(frequency_hz=1000.0, phase_deg=90.0),
+        ),
+        (
+            {"shape": "square", "frequency_hz": 2000.0, "duty_cycle_pct": 25.0, "phase_deg": 45.0},
+            Square(frequency_hz=2000.0, duty_cycle_pct=25.0, phase_deg=45.0),
+        ),
+        (
+            {"shape": "sawtooth", "frequency_hz": 500.0, "phase_deg": 10.0},
+            Sawtooth(frequency_hz=500.0, phase_deg=10.0),
+        ),
+        (
+            {"shape": "triangle", "frequency_hz": 250.0, "phase_deg": 180.0},
+            Triangle(frequency_hz=250.0, phase_deg=180.0),
+        ),
+        (
+            {"shape": "pulse", "frequency_hz": 1000.0, "width_s": 100e-6, "delay_s": 50e-6},
+            Pulse(frequency_hz=1000.0, width_s=100e-6, delay_s=50e-6),
+        ),
+        (
+            {"shape": "arbitrary", "samples": [-1.0, -0.5, 0.5, 1.0], "sample_rate_sas": 1000.0},
+            Arbitrary(samples=(-1.0, -0.5, 0.5, 1.0), sample_rate_hz=1000.0),
+        ),
+        (
+            {"shape": "static_value", "value": -0.75},
+            StaticValue(value=-0.75),
+        ),
+    ],
+    ids=["sine", "square", "sawtooth", "triangle", "pulse", "arbitrary", "static_value"],
+)
+def test_open_applies_every_waveform_shape(valid_config, waveform_config, expected):
+    """Every ``shape`` in the config union reaches the driver as its runtime Waveform, parameters intact."""
+    config = {**valid_config, "channels": {"1": {"waveform": waveform_config}}}
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(channel=1, waveform=expected)
+
+
+@pytest.mark.parametrize(
+    ("unit_name", "expected_unit"),
+    [
+        ("VPP", AmplitudeMeasurementUnit.VPP),
+        ("VP", AmplitudeMeasurementUnit.VP),
+        ("VRMS", AmplitudeMeasurementUnit.VRMS),
+        ("DBM", AmplitudeMeasurementUnit.DBM),
+    ],
+)
+def test_open_applies_every_amplitude_unit(valid_config, unit_name, expected_unit):
+    """``amplitude.unit`` reaches the driver as the matching AmplitudeMeasurementUnit member."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "amplitude": {"value": 1.5, "unit": unit_name},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_cls.return_value.set_amplitude.assert_called_once_with(channel=1, amplitude=1.5, unit=expected_unit)
+
+
+def test_amplitude_unit_defaults_to_vpp(valid_config):
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "amplitude": {"value": 1.5},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_cls.return_value.set_amplitude.assert_called_once_with(
+        channel=1, amplitude=1.5, unit=AmplitudeMeasurementUnit.VPP
+    )
 
 
 def test_arbitrary_waveform_samples_inline(valid_config):
@@ -382,6 +520,18 @@ def test_malformed_csv_samples_error_names_the_file(valid_config, tmp_path):
         "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
     }
     with pytest.raises(Exception, match=r"samples\.csv.*could not convert string to float"):
+        InstroAWG(config=config)
+
+
+def test_unreadable_csv_samples_error_names_the_file(valid_config, tmp_path):
+    """A CSV the reader itself rejects raises csv.Error, which is not a ValueError; it must still be wrapped."""
+    samples_file = tmp_path / "samples.csv"
+    samples_file.write_text("1" * (csv.field_size_limit() + 1))
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
+    }
+    with pytest.raises(Exception, match=r"could not read arbitrary samples from .*samples\.csv"):
         InstroAWG(config=config)
 
 
