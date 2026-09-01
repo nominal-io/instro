@@ -133,9 +133,9 @@ awg = InstroAWG(config="bench_awg.json")
 
 `driver.name` must match one of existing drivers supported by Instro (`RigolDG1022Z`, `Keysight33521B`). The `visa` block accepts every `VisaConfig` field, so the backend, timeout, or serial setting can be set from JSON too.
 
-`channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Keys are validated against `driver.num_channels`, so a channel the instrument doesn't have is rejected. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
+`channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
-Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not touch the instrument unless you pass `autostart=True`.
+Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not `start()` the instrument unless you pass `autostart=True`.
 
 Inside each `ChannelConfig` object, the following fields are filled:
 - **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second. 
