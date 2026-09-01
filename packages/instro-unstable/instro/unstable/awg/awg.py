@@ -21,7 +21,6 @@ from instro.unstable.awg.types import (
     Arbitrary,
     BurstTriggerSource,
     BurstType,
-    convert_amplitude,
     GatePolarity,
     ModulationType,
     Pulse,
@@ -33,6 +32,7 @@ from instro.unstable.awg.types import (
     SweepType,
     Triangle,
     Waveform,
+    convert_amplitude,
 )
 
 logger = logging.getLogger(__name__)
