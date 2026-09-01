@@ -56,6 +56,8 @@ InstroAWG supports programming a channel with the following waveforms: `Sine`, `
 Certain features are only available on particular waveforms. Driver's own their implementation of features in InstroAWG. Consult your specific driver for exact support.
 </Note>
 
+`RigolDG1022Z` uses a bulk transfer for arbitrary waveforms over TCPIP when the complete command is smaller than 32 KiB. USB connections and larger TCPIP payloads use per-point transfers because bulk writes can hang the instrument firmware in those cases.
+
 ## Creating an InstroAWG Instance
 
 ```python

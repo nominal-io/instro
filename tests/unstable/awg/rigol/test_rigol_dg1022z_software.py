@@ -26,6 +26,7 @@ from instro.unstable.awg.types import (
 )
 
 _ARB_SAMPLES = (0.0, 0.5, 1.0, -1.0, 0.25, -0.25, 0.75, -0.75, 0.125)
+_OVERSIZED_ARB_SAMPLES = (-0.12345678901234568,) * 1600
 
 _SINE_CARRIER_APPL_RESPONSE = '"SIN,1.000000E+03,5.000000E+00,0.000000E+00,0.000000E+00"'
 _PULSE_CARRIER_APPL_RESPONSE = '"PULSE,1.000000E+03,1.000000E+00,0.000000E+00,0.000000E+00"'
@@ -220,11 +221,27 @@ def test_06_set_waveform_rejects_invalid_input(
     rigol_visa.write.assert_not_called()
 
 
-def test_07_set_waveform_arbitrary_writes_points_individually(
+def test_07_set_waveform_arbitrary_uses_bulk_download_for_small_lan_payload(
     rigol: RigolDG1022Z,
     rigol_visa: MagicMock,
 ) -> None:
     rigol_visa.query.return_value = '0,"No error"'
+
+    rigol.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=1000000.0))
+
+    assert rigol_visa.write.call_args_list == [
+        call(":SOUR1:FUNCtion:ARBitrary:MODE SRATE"),
+        call(":SOUR1:FUNC:ARB:SRAT 1000000.0"),
+        call(":SOUR1:TRAC:DATA VOLATILE,0.0,0.5,1.0,-1.0,0.25,-0.25,0.75,-0.75,0.125"),
+    ]
+    assert rigol_visa.query.call_count == 3
+
+
+def test_set_waveform_arbitrary_uses_per_point_download_for_usb(
+    rigol_visa_cls: MagicMock,
+    rigol_visa: MagicMock,
+) -> None:
+    rigol = RigolDG1022Z("USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR")
 
     rigol.set_waveform(1, Arbitrary(samples=_ARB_SAMPLES, sample_rate_sas=1000000.0))
 
@@ -243,6 +260,23 @@ def test_07_set_waveform_arbitrary_writes_points_individually(
         call(":SOUR1:TRAC:DATA:VAL VOLATILE,9,9215"),
     ]
     assert rigol_visa.query.call_count == 12
+
+
+def test_set_waveform_arbitrary_uses_per_point_download_for_oversized_lan_payload(
+    rigol: RigolDG1022Z,
+    rigol_visa: MagicMock,
+) -> None:
+    rigol.set_waveform(1, Arbitrary(samples=_OVERSIZED_ARB_SAMPLES, sample_rate_sas=1000000.0))
+
+    commands = rigol_visa.write.call_args_list
+    assert commands[:3] == [
+        call(":SOUR1:FUNCtion:ARBitrary:MODE SRATE"),
+        call(":SOUR1:FUNC:ARB:SRAT 1000000.0"),
+        call(":SOUR1:TRAC:DATA:POIN VOLATILE,1600"),
+    ]
+    assert len(commands) == 1603
+    assert all(":TRAC:DATA VOLATILE," not in command.args[0] for command in commands)
+    assert rigol_visa.query.call_count == 1603
 
 
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])
