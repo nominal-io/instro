@@ -1,4 +1,4 @@
-"""DewesoftX DCOM DAQ driver: streams live synchronous channels from a running DewesoftX instance."""
+"""DewesoftX DCOM DAQ driver: streams live sync and async channels from a running DewesoftX instance."""
 
 import logging
 import threading
@@ -18,8 +18,8 @@ _CT_NEW = 3  # IChannelConnection.AType: each read returns only samples not read
 
 
 @dataclass
-class _ChannelCursor:
-    """Read cursor for one bound DewesoftX channel."""
+class _SyncChannelCursor:
+    """Read cursor for one bound synchronous DewesoftX channel."""
 
     com_channel: Any
     # Cursors are per-channel in DCOM (IChannel.CreateConnection); each tracks its channel's own unread position
@@ -32,6 +32,15 @@ class _ChannelCursor:
 
 
 @dataclass
+class _AsyncChannelCursor:
+    """Read cursor for one bound asynchronous DewesoftX channel (per-sample timestamps, no fixed rate)."""
+
+    com_channel: Any
+    connection: Any
+    buf_size: int
+
+
+@dataclass
 class DewesoftXData:
     """Per-alias ``(values, timestamps_ns)`` drained from the DewesoftX ring buffers."""
 
@@ -39,13 +48,13 @@ class DewesoftXData:
 
 
 class DewesoftXDriver(DAQDriverBase):
-    """Streams live synchronous channels from a running DewesoftX instance over DCOM."""
+    """Streams live sync and async channels from a running DewesoftX instance over DCOM."""
 
     def __init__(self) -> None:
         super().__init__()
         self._app: Any = None
         self._t0_ns = 0
-        self._cursors: dict[str, _ChannelCursor] = {}
+        self._cursors: dict[str, _SyncChannelCursor | _AsyncChannelCursor] = {}
         # Thread that owns the COM proxies; COM refuses cross-thread calls (see _attach_current_thread)
         self._thread_id = 0
         # True after warning that storing stopped; keeps the warning to one line per outage
@@ -108,12 +117,6 @@ class DewesoftXDriver(DAQDriverBase):
         """Bind an existing DewesoftX channel by name; DewesoftX owns all channel setup."""
         # range_min/range_max are ignored: DewesoftX owns scaling (a user scaler still applies HAL-side)
         com_channel = self._find_used_channel(channel.physical_channel)
-        # TODO: Add support for async channels
-        if com_channel.Async:
-            raise ValueError(
-                f"DewesoftX channel '{channel.physical_channel}' is asynchronous; "
-                "only synchronous channels are supported."
-            )
         # A zero-size direct buffer means the channel is not acquiring
         if com_channel.DBBufSize == 0:
             raise ValueError(
@@ -157,7 +160,27 @@ class DewesoftXDriver(DAQDriverBase):
 
         master = self._samples_acquired()
         for alias, cursor in self._cursors.items():
-            # The ring offset aliases whole wraps to zero; snap it onto the device's absolute counter
+            # Async channels: the server-side cursor tracks the unread count; no ring math needed
+            if isinstance(cursor, _AsyncChannelCursor):
+                pending = cursor.connection.NumValues
+                if pending <= 0:
+                    continue
+                # More pending than the ring holds means the oldest were overwritten
+                if pending > cursor.buf_size:
+                    logger.warning(
+                        "DewesoftX channel '%s' overran its buffer; dropping %d pending samples", alias, pending
+                    )
+                    self._cursors[alias] = self._seed_cursor(cursor.com_channel)
+                    continue
+                # GetTSValues peeks the oldest samples; GetDataValues consumes them, so timestamps read first
+                rel_ts = cursor.connection.GetTSValues(pending)
+                data = cursor.connection.GetDataValues(pending)
+                if data is None:
+                    continue
+                # Async timestamps are seconds since store start, the same epoch as the anchor
+                drained[alias] = (list(data), [self._t0_ns + round(t * 1e9) for t in rel_ts])
+                continue
+            # Sync channels: the ring offset aliases whole wraps to zero; snap it onto the device's absolute counter
             delta = (cursor.com_channel.DBPos - cursor.total) % cursor.buf_size
             expected = master / cursor.sr_div - cursor.total
             new = delta + round((expected - delta) / cursor.buf_size) * cursor.buf_size
@@ -184,15 +207,16 @@ class DewesoftXDriver(DAQDriverBase):
         return DewesoftXData(channels=drained)
 
     def fetch_analog(self) -> DewesoftXData:
-        """Block until ``samples_per_channel`` new samples arrive on every channel, then drain."""
+        """Block until ``samples_per_channel`` new samples arrive on every sync channel, then drain."""
         if self._ai_hw_timing_config is None:
             raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
         self._attach_current_thread()
         if not self._cursors:
             return DewesoftXData(channels={})
-        # Wait until every bound channel has a full batch pending
+        # Wait until every bound sync channel has a full batch pending; async channels have no rate to pace on
         target = self._ai_hw_timing_config.samples_per_channel
         rate = self._ai_hw_timing_config.sample_rate
+        sync_cursors = [c for c in self._cursors.values() if isinstance(c, _SyncChannelCursor)]
         last_resync = time.monotonic() - 0.5
         while True:
             # Gate on session health first so a stopped session cannot spin the drain path below
@@ -202,8 +226,12 @@ class DewesoftXDriver(DAQDriverBase):
                     # Pace the empty return so the daemon regains control (and its stop event) without spinning
                     time.sleep(0.5)
                     return DewesoftXData(channels={})
+            # With only async channels bound, drain once per batch period instead
+            if not sync_cursors:
+                time.sleep(min(0.5, target / rate))
+                return self.read_analog()
             # Raw ring offset (a whole-buffer wrap aliases to 0; read_analog resolves that with the sample counter)
-            available = [(c.com_channel.DBPos - c.total) % c.buf_size for c in self._cursors.values()]
+            available = [(c.com_channel.DBPos - c.total) % c.buf_size for c in sync_cursors]
             self.points_in_buffer = max(available)
             # Drain buffers through read_analog
             if min(available) >= target:
@@ -231,17 +259,20 @@ class DewesoftXDriver(DAQDriverBase):
 
     # ====== Internals ======
 
-    def _seed_cursor(self, com_channel: Any) -> _ChannelCursor:
+    def _seed_cursor(self, com_channel: Any) -> _SyncChannelCursor | _AsyncChannelCursor:
         """Create a channel's read cursor: a server-side connection plus wrap-proof sample indexing."""
         # Ring-index bulk reads slide with acquisition, so all data flows through a server-side cursor
         connection = com_channel.CreateConnection()
         connection.AType = _CT_NEW
+        # A fresh ctNew connection starts at "now", so an async cursor needs no position seeding
+        if com_channel.Async:
+            return _AsyncChannelCursor(com_channel=com_channel, connection=connection, buf_size=com_channel.DBBufSize)
         # The device's own sample count since store start; DBPos alone loses count at every wrap
         acquired = self._samples_acquired() / com_channel.SRDiv
         # Snap that count onto the ring position
         pos = com_channel.DBPos
         total = pos + round((acquired - pos) / com_channel.DBBufSize) * com_channel.DBBufSize
-        return _ChannelCursor(
+        return _SyncChannelCursor(
             com_channel=com_channel,
             connection=connection,
             buf_size=com_channel.DBBufSize,
@@ -292,11 +323,12 @@ class DewesoftXDriver(DAQDriverBase):
         self._thread_id = threading.get_ident()
 
     def _find_used_channel(self, name: str) -> Any:
-        """Find a channel by name among the ones set to "Used" in DewesoftX."""
+        """Find a channel by Name or LongName among the ones set to "Used" in DewesoftX."""
         channels = self._app.Data.UsedChannels
         for i in range(channels.Count):
             com_channel = channels.Item(i)
-            if com_channel.Name == name:
+            # CAN channels share a generic Name ('Message', 'Channel'); LongName carries the full path
+            if name in (com_channel.Name, com_channel.LongName):
                 return com_channel
         raise ValueError(f"DewesoftX has no used channel named '{name}'.")
 
