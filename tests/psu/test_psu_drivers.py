@@ -215,12 +215,16 @@ def test_nominal_psu_get_current_setpoint_returns_measurement() -> None:
     assert measurement.channel_data["ut.ch1.current.setpoint"] == [1.5]
 
 
-def test_nominal_psu_get_operating_mode_returns_command() -> None:
+def test_nominal_psu_get_operating_mode_returns_measurement() -> None:
+    from instro.lib import Measurement
+
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-    command = psu.get_operating_mode(channel=1)
+    measurement = psu.get_operating_mode(channel=1)
     driver.get_operating_mode.assert_called_once_with(channel=1)
-    assert command.channel_data["ut.ch1.operating_mode.cmd"] == "CV"
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data["ut.ch1.operating_mode"] == ["CV"]
+    assert "ut.ch1.operating_mode.cmd" not in measurement.channel_data
 
 
 def test_nominal_psu_set_current_limit_delegates() -> None:

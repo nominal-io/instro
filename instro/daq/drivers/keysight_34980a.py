@@ -431,7 +431,7 @@ class Keysight34980A(DAQDriverBase):
 
         measurements: list[Measurement] = []
         for i, ch in enumerate(scan_list):
-            channel_data = {}
+            channel_data: dict[str, list[float] | list[str]] = {}
             channel_data[f"{daq_name}.{ch.alias}"] = readings[i::num_channels]
             measurement = Measurement(
                 channel_data=channel_data,

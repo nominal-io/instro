@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.7.0...instro-unstable-v1.8.0) (2026-08-31)
+
+
+### Features
+
+* **awg:** add burst to Keysight 33521B driver ([#405](https://github.com/nominal-io/instro/issues/405)) ([bc38a6b](https://github.com/nominal-io/instro/commit/bc38a6b183904c00718d92b8f407dda031fa6e43))
+* **awg:** add sweep to Keysight 33521B driver ([#410](https://github.com/nominal-io/instro/issues/410)) ([a55974c](https://github.com/nominal-io/instro/commit/a55974c1cbecc561e721440556dc2031dd3d0faa))
+* **awg:** use bulk download for small LAN waveforms ([#432](https://github.com/nominal-io/instro/issues/432)) ([bde7b1e](https://github.com/nominal-io/instro/commit/bde7b1ee24a9ef77b0c1332a3d4700c8185dbef2))
+* publish categorical instrument reads as Measurement ([#445](https://github.com/nominal-io/instro/issues/445)) ([6ccce83](https://github.com/nominal-io/instro/commit/6ccce834b59f67753c192374c4154d0901d8bb3a))
+
 ## [1.7.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.6.0...instro-unstable-v1.7.0) (2026-08-21)
 
 

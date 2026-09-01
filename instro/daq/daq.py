@@ -6,7 +6,7 @@ import math
 import time
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, ClassVar, Mapping, TypeVar
+from typing import Any, ClassVar, Mapping, TypeVar, cast
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
@@ -1071,11 +1071,9 @@ class InstroDAQ(Instrument):
         for measurement in measurements:
             for ch_name, ch_config in self.ai_channels.items():
                 if ch_config.scaler:
-                    ch_meas = measurement._get_channel(f"{self.name}.{ch_name}")
-                    scaled_values = [
-                        ch_config.scaler.scale(val) for val in ch_meas.channel_data[f"{self.name}.{ch_name}"]
-                    ]
-                    measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
+                    key = f"{self.name}.{ch_name}"
+                    raw_values = cast(list[float], measurement.channel_data[key])
+                    measurement.channel_data[key] = [ch_config.scaler.scale(val) for val in raw_values]
         return measurements
 
     def read(self, channel: str, **kwargs) -> Measurement:

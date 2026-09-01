@@ -188,9 +188,15 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `get_sweep_start_hold_time(channel=N)` | `ch{N}.sweep_start_hold_time` | telemetry |
 | `get_sweep_stop_hold_time(channel=N)` | `ch{N}.sweep_stop_hold_time` | telemetry |
 | `get_sweep_return_time(channel=N)` | `ch{N}.sweep_return_time` | telemetry |
+| `get_modulation_type(channel=N)` | `ch{N}.modulation_type` | telemetry |
+| `get_burst_type(channel=N)` | `ch{N}.burst_type` | telemetry |
+| `get_burst_trigger(channel=N)` | `ch{N}.burst_trigger` | telemetry |
+| `get_burst_gate_polarity(channel=N)` | `ch{N}.burst_gate_polarity` | telemetry |
+| `get_sweep_type(channel=N)` | `ch{N}.sweep_type` | telemetry |
+| `get_sweep_trigger(channel=N)` | `ch{N}.sweep_trigger` | telemetry |
 
 <Note>
-`get_waveform()`, `get_amplitude()`, `convert_amplitude()`, `get_modulation_type()`, `get_burst_type()`, `get_burst_trigger()`, `get_burst_gate_polarity()`, `get_sweep_type()`, and `get_sweep_trigger()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`, `ModulationType`, `BurstType`, `BurstTriggerSource`, `GatePolarity`, `SweepType`, `SweepTriggerSource`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
+`get_waveform()`, `get_amplitude()`, and `convert_amplitude()` return a plain Python value (`Waveform`, `tuple[float, AmplitudeMeasurementUnit]`, `float`) directly rather than a `Measurement`, and don't publish. Every other readback listed above publishes a `Measurement` on the descriptor shown.
 </Note>
 
 ## Method Reference

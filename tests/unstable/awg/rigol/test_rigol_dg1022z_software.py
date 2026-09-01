@@ -279,6 +279,23 @@ def test_set_waveform_arbitrary_uses_per_point_download_for_oversized_lan_payloa
     assert rigol_visa.query.call_count == 1603
 
 
+def test_set_waveform_arbitrary_uses_per_point_download_for_oversized_lan_payload(
+    rigol: RigolDG1022Z,
+    rigol_visa: MagicMock,
+) -> None:
+    rigol.set_waveform(1, Arbitrary(samples=_OVERSIZED_ARB_SAMPLES, sample_rate_sas=1000000.0))
+
+    commands = rigol_visa.write.call_args_list
+    assert commands[:3] == [
+        call(":SOUR1:FUNCtion:ARBitrary:MODE SRATE"),
+        call(":SOUR1:FUNC:ARB:SRAT 1000000.0"),
+        call(":SOUR1:TRAC:DATA:POIN VOLATILE,1600"),
+    ]
+    assert len(commands) == 1603
+    assert all(":TRAC:DATA VOLATILE," not in command.args[0] for command in commands)
+    assert rigol_visa.query.call_count == 1603
+
+
 @pytest.mark.parametrize("num_points", [2, 16385], ids=["too_few", "too_many"])
 def test_08_set_waveform_arbitrary_rejects_bad_point_counts(
     rigol: RigolDG1022Z,
