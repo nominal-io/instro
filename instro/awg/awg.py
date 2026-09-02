@@ -11,12 +11,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable
 
-from instro.lib.config import load_config
-from instro.lib.instrument import Instrument, publish_command, publish_measurement
-from instro.lib.publishers import Publisher
-from instro.lib.types import Command, Measurement
-from instro.unstable.awg.config import AWGConfig, build_waveform, resolve_awg_from_config
-from instro.unstable.awg.types import (
+from instro.awg.config import AWGConfig, build_waveform, resolve_awg_from_config
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -34,6 +30,10 @@ from instro.unstable.awg.types import (
     Waveform,
     convert_amplitude,
 )
+from instro.lib.config import load_config
+from instro.lib.instrument import Instrument, publish_command, publish_measurement
+from instro.lib.publishers import Publisher
+from instro.lib.types import Command, Measurement
 
 logger = logging.getLogger(__name__)
 

@@ -16,11 +16,11 @@ from collections.abc import Iterator
 
 import pytest
 
+from instro.awg import InstroAWG
+from instro.awg.config import build_waveform
+from instro.awg.types import Sine, Square
 from instro.lib.transports import VisaConfig, VisaDriver
 from instro.lib.types import Measurement
-from instro.unstable.awg import InstroAWG
-from instro.unstable.awg.config import build_waveform
-from instro.unstable.awg.types import Sine, Square
 
 pytestmark = pytest.mark.hardware
 
