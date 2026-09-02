@@ -250,6 +250,10 @@
       {
         "label": "Community",
         "href": "https://community.instro.nominal.io"
+      },
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/nN4RzhQkr"
       }
     ],
     "primary": {
@@ -273,6 +277,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/nominal_io",
+      "discord": "https://discord.gg/nN4RzhQkr",
       "github": "https://github.com/nominal-io/instro",
       "linkedin": "https://linkedin.com/company/nominal-io"
     }
