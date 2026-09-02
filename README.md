@@ -15,6 +15,7 @@ Python library for talking to test instrumentation (power supplies, multimeters,
 [![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
 [![SDK](https://img.shields.io/badge/sdk-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
 [![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
+[![Discord](https://img.shields.io/badge/discord-join-419B55?logo=discord&logoColor=white)](https://discord.gg/nN4RzhQkr)
 
 ## Quickstart
 
