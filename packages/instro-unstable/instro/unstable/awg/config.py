@@ -79,7 +79,7 @@ class VisaDriverConfig(BaseModel):
 class SineConfig(BaseModel):
     """Sine waveform config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["sine"] = "sine"
     frequency_hz: float
     phase_deg: float
@@ -88,7 +88,7 @@ class SineConfig(BaseModel):
 class SquareConfig(BaseModel):
     """Square waveform config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["square"] = "square"
     frequency_hz: float
     duty_cycle_pct: float
@@ -98,7 +98,7 @@ class SquareConfig(BaseModel):
 class SawtoothConfig(BaseModel):
     """Sawtooth waveform config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["sawtooth"] = "sawtooth"
     frequency_hz: float
     phase_deg: float
@@ -107,7 +107,7 @@ class SawtoothConfig(BaseModel):
 class TriangleConfig(BaseModel):
     """Triangle waveform config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["triangle"] = "triangle"
     frequency_hz: float
     phase_deg: float
@@ -116,7 +116,7 @@ class TriangleConfig(BaseModel):
 class PulseConfig(BaseModel):
     """Pulse waveform config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["pulse"] = "pulse"
     frequency_hz: float
     width_s: float
@@ -126,7 +126,7 @@ class PulseConfig(BaseModel):
 class ArbitraryConfig(BaseModel):
     """Arbitrary waveform config; samples are either given inline or read from a CSV file path."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["arbitrary"] = "arbitrary"
     samples: tuple[float, ...] | str = Field(
         description="At least 2 sample values normalized to [-1.0, 1.0], or a path to a CSV file containing them."
@@ -137,7 +137,7 @@ class ArbitraryConfig(BaseModel):
 class StaticValueConfig(BaseModel):
     """Static (DC) value config."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     shape: Literal["static_value"] = "static_value"
     value: float
 
@@ -175,7 +175,7 @@ def build_waveform(config: WaveformConfigType) -> Waveform:
         case PulseConfig():
             return Pulse(frequency_hz=config.frequency_hz, width_s=config.width_s, delay_s=config.delay_s)
         case ArbitraryConfig():
-            return Arbitrary(samples=_parse_arbitrary_samples(config), sample_rate_hz=config.sample_rate_sas)
+            return Arbitrary(samples=_parse_arbitrary_samples(config), sample_rate_sas=config.sample_rate_sas)
         case StaticValueConfig():
             return StaticValue(value=config.value)
         case _:
@@ -191,13 +191,9 @@ class AmplitudeConfig(BaseModel):
 
 
 class ChannelConfig(BaseModel):
-    """Initial per-channel state, applied through the InstroAWG setters on ``open()``.
+    """Initial per-channel state applied on ``open()``; the channel stays silent until its output is explicitly enabled."""
 
-    ``output_enable`` cannot be set here: a configured channel stays silent until its
-    output is explicitly enabled.
-    """
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     waveform: WaveformConfigType
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None

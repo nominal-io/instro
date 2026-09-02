@@ -357,6 +357,34 @@ def test_open_failure_while_applying_config_closes_driver(valid_config):
     assert mock_cls.return_value.set_waveform.call_count == 2
 
 
+def test_open_failure_after_a_channel_succeeds_drops_the_configured_channels(valid_config):
+    """Channels programmed before the failure must not stay defined, or start() would run a half-configured AWG."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "amplitude": {"value": 2.0, "unit": "VPP"},
+            },
+            "2": {"waveform": {"shape": "square", "frequency_hz": 500.0, "duty_cycle_pct": 50.0, "phase_deg": 0.0}},
+        },
+    }
+    with _patch_driver() as mock_cls:
+        mock_cls.return_value.set_amplitude.side_effect = RuntimeError("driver rejected the amplitude")
+        awg = InstroAWG(config=config)
+        with pytest.raises(RuntimeError, match="driver rejected the amplitude"):
+            awg.open()
+
+        # channel 1's set_waveform had already landed before set_amplitude blew up
+        mock_cls.return_value.set_waveform.assert_called_once_with(
+            channel=1, waveform=Sine(frequency_hz=1000.0, phase_deg=0.0)
+        )
+        assert awg._channel_waveforms == {}
+        assert awg._channel_config_applied is False
+        with pytest.raises(ValueError, match="set_waveform must be called"):
+            awg.start()
+
+
 @pytest.mark.parametrize(
     ("waveform_config", "expected"),
     [
@@ -382,7 +410,7 @@ def test_open_failure_while_applying_config_closes_driver(valid_config):
         ),
         (
             {"shape": "arbitrary", "samples": [-1.0, -0.5, 0.5, 1.0], "sample_rate_sas": 1000.0},
-            Arbitrary(samples=(-1.0, -0.5, 0.5, 1.0), sample_rate_hz=1000.0),
+            Arbitrary(samples=(-1.0, -0.5, 0.5, 1.0), sample_rate_sas=1000.0),
         ),
         (
             {"shape": "static_value", "value": -0.75},
@@ -460,7 +488,7 @@ def test_arbitrary_waveform_samples_inline(valid_config):
 
     mock_driver = mock_cls.return_value
     mock_driver.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
     )
 
 
@@ -481,7 +509,7 @@ def test_arbitrary_waveform_samples_from_csv_file(valid_config, tmp_path):
 
     mock_driver = mock_cls.return_value
     mock_driver.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
     )
 
 
@@ -503,13 +531,28 @@ def test_malformed_waveform_rejected_at_validation(valid_config):
             "duty_cycle_pct must be between 0 and 100",
         ),
         ({"shape": "pulse", "frequency_hz": 1000.0, "width_s": 1.0, "delay_s": 0.0}, "must fit within the period"),
-        ({"shape": "arbitrary", "samples": [0.1, 0.2], "sample_rate_sas": 0.0}, "sample_rate_hz must be positive"),
+        ({"shape": "arbitrary", "samples": [0.1, 0.2], "sample_rate_sas": 0.0}, "sample_rate_sas must be positive"),
         ({"shape": "arbitrary", "samples": [0.5], "sample_rate_sas": 50.0}, "at least 2 samples"),
         ({"shape": "arbitrary", "samples": [5.0, -9.0], "sample_rate_sas": 50.0}, "normalized to"),
     ]
     for waveform, expected in bad_waveforms:
         with pytest.raises(Exception, match=expected):
             InstroAWG(config={**valid_config, "channels": {"1": {"waveform": waveform}}})
+
+
+def test_channel_config_is_frozen_so_the_built_waveform_cannot_drift(valid_config):
+    """waveform_definition is built once at validation, so the blocks it was built from must not be mutable."""
+    config = AWGConfig.model_validate(valid_config)
+    channel = config.channels["1"]
+
+    with pytest.raises(Exception):
+        channel.offset = 0.5
+    with pytest.raises(Exception):
+        channel.waveform = channel.waveform
+    with pytest.raises(Exception):
+        channel.waveform.frequency_hz = 999.0
+
+    assert channel.waveform_definition == Sine(frequency_hz=1000.0, phase_deg=0.0)
 
 
 def test_malformed_csv_samples_error_names_the_file(valid_config, tmp_path):
@@ -549,7 +592,7 @@ def test_arbitrary_samples_csv_read_once_at_validation(valid_config, tmp_path):
         awg.open()
 
     mock_cls.return_value.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
     )
 
 
@@ -566,6 +609,6 @@ def test_arbitrary_samples_relative_path_resolves_against_cwd(valid_config, tmp_
         awg.open()
 
     mock_cls.return_value.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_hz=50.0)
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
     )
     assert awg._config.model_dump(mode="json")["channels"]["1"]["waveform"]["samples"] == "samples.csv"

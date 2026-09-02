@@ -396,7 +396,6 @@ class InstroAWG(Instrument):
         try:
             self._apply_channel_config()
         except Exception:
-            self._channel_config_applied = False
             self._driver.close()
             raise
         logger.info("Opened AWG '%s'", self.name)
@@ -405,21 +404,32 @@ class InstroAWG(Instrument):
         """Apply the config's ``channels`` block through the public setters, once per open."""
         if self._config is None or self._channel_config_applied:
             return
-        for channel_key, channel_config in self._config.channels.items():
-            channel = int(channel_key)
-            self.set_waveform(channel, channel_config.waveform_definition)
-            if channel_config.amplitude is not None:
-                self.set_amplitude(channel, channel_config.amplitude.value, channel_config.amplitude.unit)
-            if channel_config.offset is not None:
-                self.set_offset(channel, channel_config.offset)
+        configured: list[int] = []
+        try:
+            for channel_key, channel_config in self._config.channels.items():
+                channel = int(channel_key)
+                self.set_waveform(channel, channel_config.waveform_definition)
+                configured.append(channel)
+                if channel_config.amplitude is not None:
+                    self.set_amplitude(channel, channel_config.amplitude.value, channel_config.amplitude.unit)
+                if channel_config.offset is not None:
+                    self.set_offset(channel, channel_config.offset)
+        except Exception:
+            # channels programmed before the failure would otherwise stay defined and satisfy start()'s guard
+            with self._resource_lock:
+                for channel in configured:
+                    self._channel_waveforms.pop(channel, None)
+            raise
         self._channel_config_applied = True
 
     def close(self) -> None:
         """Close the underlying driver."""
         logger.info("Closing AWG '%s'", self.name)
-        super().close()
-        self._driver.close()
         self._channel_config_applied = False
+        try:
+            super().close()
+        finally:
+            self._driver.close()
         logger.info("Closed AWG '%s'", self.name)
 
     @publish_command
