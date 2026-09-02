@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.0](https://github.com/nominal-io/instro/compare/instro-v1.15.0...instro-v1.16.0) (2026-09-02)
+
+
+### Features
+
+* **unstable:** add VNA category and NanoVNA driver ([#439](https://github.com/nominal-io/instro/issues/439)) ([20dc3ea](https://github.com/nominal-io/instro/commit/20dc3eaea5d3dca60b99cab01dd7502a1394f7e4))
+
+
+### Bug Fixes
+
+* **awg:** standardize sample_rate in arbitrary waveforms ([#442](https://github.com/nominal-io/instro/issues/442)) ([f0e2432](https://github.com/nominal-io/instro/commit/f0e2432e747fcc66964b5b16311b3b95cad90bae))
+
 ## [1.15.0](https://github.com/nominal-io/instro/compare/instro-v1.14.0...instro-v1.15.0) (2026-08-31)
 
 
