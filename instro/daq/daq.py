@@ -1118,8 +1118,17 @@ class InstroDAQ(Instrument):
                     )
                 analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
         elif analog_aliases:
-            # Just use the get_channel defaults here. Directly call get_channel for more customization
-            analog = {alias: self.get_channel(alias) for alias in analog_aliases}
+            # Size get_channel params to wait for one full batch of samples based on
+            hw_timing = self.ai_hw_timing_config
+            length = hw_timing.samples_per_channel if hw_timing else 1
+            batch_duration_s = length / hw_timing.sample_rate if hw_timing else self.background_interval
+            timeout = max(10.0, 2 * batch_duration_s)
+
+            # Block once for a fresh batch, then get data for all other channels from that batch
+            analog = {
+                alias: self.get_channel(alias, length, wait_for_new_samples=(i == 0), timeout=timeout)
+                for i, alias in enumerate(analog_aliases)
+            }
 
         # Digital pass
         # NOTE: Planning on ripping out port support
