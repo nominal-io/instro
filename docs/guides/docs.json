@@ -212,6 +212,12 @@
             ]
           },
           {
+            "group": "Vna",
+            "pages": [
+              "instrumentation/examples/vna/vna"
+            ]
+          },
+          {
             "group": "Flowcontroller (Unstable)",
             "pages": [
               "instrumentation/examples/unstable/flowcontroller/flowcontroller",
