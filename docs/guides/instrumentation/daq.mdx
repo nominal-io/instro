@@ -268,9 +268,23 @@ Alongside the generic `configure_analog_channel` / `configure_digital_line`, `In
 | `configure_digital_input(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_di_line_channel` |
 | `configure_digital_output(physical_channel, *, logic, logic_level, alias)` | `DigitalLineChannel` | `configure_do_line_channel` |
 
-<Note>
-**Driver support.** NI-DAQmx implements every typed method above. LabJack T-Series implements the typed voltage, thermocouple, and digital methods; current input/output is not supported by LabJack hardware, so the driver points to the [measuring current app note](https://support.labjack.com/docs/measuring-current-app-note). MCC implements the typed voltage, thermocouple, current-input, and digital methods; current output is not supported.
-</Note>
+Analog driver support:
+
+| Driver | Voltage input | Voltage output | Current input | Current output | Thermocouple input |
+|--------|:---:|:---:|:---:|:---:|:---:|
+| NI-DAQmx | ✅ | ✅ | ✅ | ✅ | ✅ |
+| LabJack T-Series | ✅ | ✅ | ❌ | ❌ | ✅ |
+| MCC | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Keysight 34980A | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+Digital driver support:
+
+| Driver | Line input | Line output | Port input | Port output |
+|--------|:---:|:---:|:---:|:---:|
+| NI-DAQmx | ✅ | ✅ | ✅ | ✅ |
+| LabJack T-Series | ✅ | ✅ | ❌ | ❌ |
+| MCC | ✅ | ✅ | ✅ | ✅ |
+| Keysight 34980A | ✅ | ✅ | ✅ | ✅ |
 
 #### LabJack thermocouple channels
 
@@ -911,7 +925,7 @@ Each of the methods below must (a) program the device and (b) record the resulti
 - **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self._di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 - **`configure_do_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital output port. Record on `self._do_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
 
-The analog methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration). Of the packaged drivers, only NI-DAQmx and LabJack T-Series implement them.
+The analog methods below back `InstroDAQ`'s [typed channel configuration](#typed-channel-configuration); the support matrix there lists per-driver support. `configure_ai_voltage_channel` is required; the others default to `NotImplementedError` for hardware that lacks the capability.
 
 - **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.

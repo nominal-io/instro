@@ -9,6 +9,7 @@ from typing import Mapping, cast
 from instro.daq import DAQDriverBase
 from instro.daq.types import (
     AnalogChannel,
+    AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -133,7 +134,21 @@ class Keysight34980A(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Configure an AI channel: ``CONF:VOLT:DC`` at computed range, then add to ``ROUT:SCAN`` and enable timestamps."""
+        """Deprecated: use ``configure_ai_voltage_channel``."""
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an AI voltage channel: ``CONF:VOLT:DC`` at computed range, then add to ``ROUT:SCAN`` and enable timestamps."""
         range = self._compute_ai_range(channel)
 
         with self._visa.lock():
@@ -407,7 +422,7 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write(f"SYST:TIME {now.hour},{now.minute},{now.second + now.microsecond * 1e-6:.3f}")
             self._check_errors()
 
-    def _compute_ai_range(self, channel: AnalogChannel) -> float:
+    def _compute_ai_range(self, channel: AnalogChannel | AnalogVoltageChannel) -> float:
         ranges = [0.1, 1.0, 10.0, 100.0, 300.0]
         highest_abs = max(abs(channel.range_min), abs(channel.range_max))
 

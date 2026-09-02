@@ -127,8 +127,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         range_max: float = 10,
     ):
         """Configure a mux input channel measured by the internal DMM (DC volts)."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=physical,
             alias=alias,
             range_min=range_min,
@@ -555,8 +554,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         daq = self._create_daq()
         try:
             with self.assertRaises((NotImplementedError, AttributeError, RuntimeError, ValueError, TypeError)):
-                daq.configure_analog_channel(
-                    direction=Direction.OUTPUT,
+                daq.configure_voltage_output(
                     physical_channel=AI_CHANNEL,
                     alias="ao0",
                     range_min=-10,
