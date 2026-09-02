@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from instro.psu import InstroPSU, PSUDriverBase
+from instro.psu.types import OperatingMode
 
 # --- PSUDriverBase ---
 
@@ -54,6 +55,13 @@ def test_psu_driver_base_setpoint_getters_raise_not_implemented(
 ) -> None:
     with pytest.raises(NotImplementedError, match=f"{method_name} is not implemented for _BaseOnlyPSUDriver"):
         getattr(base_only_psu_driver, method_name)(*args, channel=1)
+
+
+def test_psu_driver_base_get_operating_mode_raises_not_implemented(
+    base_only_psu_driver: _BaseOnlyPSUDriver,
+) -> None:
+    with pytest.raises(NotImplementedError, match="get_operating_mode is not implemented for _BaseOnlyPSUDriver"):
+        base_only_psu_driver.get_operating_mode(channel=1)
 
 
 @pytest.mark.parametrize(
@@ -120,6 +128,7 @@ def _stub_driver() -> MagicMock:
     driver.get_output_status.return_value = True
     driver.get_voltage_setpoint.return_value = 5.0
     driver.get_current_setpoint.return_value = 1.5
+    driver.get_operating_mode.return_value = OperatingMode.CONSTANT_VOLTAGE
     driver.get_overvoltage_protection_level.return_value = 15.0
     driver.get_overvoltage_protection_enabled.return_value = True
     driver.get_overvoltage_protection_delay.return_value = 0.25
@@ -204,6 +213,18 @@ def test_nominal_psu_get_current_setpoint_returns_measurement() -> None:
     driver.get_current_setpoint.assert_called_once_with(channel=1)
     assert measurement is not None
     assert measurement.channel_data["ut.ch1.current.setpoint"] == [1.5]
+
+
+def test_nominal_psu_get_operating_mode_returns_measurement() -> None:
+    from instro.lib import Measurement
+
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_operating_mode(channel=1)
+    driver.get_operating_mode.assert_called_once_with(channel=1)
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data["ut.ch1.operating_mode"] == ["CV"]
+    assert "ut.ch1.operating_mode.cmd" not in measurement.channel_data
 
 
 def test_nominal_psu_set_current_limit_delegates() -> None:

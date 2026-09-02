@@ -21,7 +21,7 @@ class BackgroundDaemonConfig:
 class Measurement:
     """Data structure to hold measurement data. All channels have a common timebase."""
 
-    channel_data: dict[str, list[float]]
+    channel_data: dict[str, list[float] | list[str]]
     timestamps: list[int]
     tags: dict[str, str] | None = None
 

@@ -612,9 +612,9 @@ mod tests {
     fn route_path_from_slots_adds_each_backplane_slot() {
         let route_path = route_path_from_slots(&[2, 0]);
 
-        assert_eq!(route_path.slots, vec![2, 0]);
-        assert_eq!(route_path.ports, Vec::<u8>::new());
-        assert_eq!(route_path.addresses, Vec::<String>::new());
+        assert_eq!(route_path.slots(), vec![2, 0]);
+        assert_eq!(route_path.ports(), Vec::<u8>::new());
+        assert_eq!(route_path.addresses(), Vec::<String>::new());
         assert_eq!(route_path.to_cip_bytes(), vec![0x01, 0x02, 0x01, 0x00]);
     }
 

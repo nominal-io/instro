@@ -53,11 +53,7 @@ class EspecGL(Instrument):
     @publish_measurement
     def identify(self) -> Measurement:
         text = f"{self._monitor('ROM?')} / {self._monitor('TYPE?')}"
-        return Measurement(
-            channel_data={f"{self.name}.identity": [text]},
-            timestamps=[time.time_ns()],
-            tags={**self.default_tags},
-        )
+        return self._package_measurement("identity", text, time.time_ns())
 
     @publish_measurement
     def get_temperature(self) -> Measurement:
@@ -87,11 +83,7 @@ class EspecGL(Instrument):
     @publish_measurement
     def get_operation_mode(self) -> Measurement:
         mode = OperationMode(self._monitor("MODE?").strip().upper())
-        return Measurement(
-            channel_data={f"{self.name}.operation_mode": [mode.value]},
-            timestamps=[time.time_ns()],
-            tags={**self.default_tags},
-        )
+        return self._package_measurement("operation_mode", mode.value, time.time_ns())
 
     @publish_command
     def set_operation_mode(self, mode: OperationMode) -> Command:

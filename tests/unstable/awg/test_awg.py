@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from instro.lib.types import Measurement
 from instro.unstable.awg.awg import AWGDriverBase, InstroAWG
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
@@ -294,3 +295,27 @@ def test_05_channel_scoped_methods_respect_channel_bounds(
     else:
         with pytest.raises(ValueError, match=f"channel {channel} out of range"):
             getattr(awg, method_name)(channel, *args)
+
+
+# ---------------------------------------------------------------------------
+# Categorical getters publish a Measurement carrying the enum's `.value`
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("method_name", "descriptor", "expected_value"),
+    [
+        ("get_modulation_type", "modulation_type", ModulationType.AM.value),
+        ("get_burst_type", "burst_type", BurstType.NCYCLE.value),
+        ("get_burst_trigger", "burst_trigger", BurstTriggerSource.INTERNAL.value),
+        ("get_burst_gate_polarity", "burst_gate_polarity", GatePolarity.NORM.value),
+        ("get_sweep_type", "sweep_type", SweepType.LINEAR.value),
+        ("get_sweep_trigger", "sweep_trigger", SweepTriggerSource.INTERNAL.value),
+    ],
+)
+def test_06_categorical_getters_publish_a_measurement_with_the_enum_value(
+    awg: InstroAWG, method_name: str, descriptor: str, expected_value: str
+) -> None:
+    measurement = getattr(awg, method_name)(1)
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data[f"test_awg.ch1.{descriptor}"] == [expected_value]

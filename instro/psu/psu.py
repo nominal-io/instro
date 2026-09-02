@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
@@ -14,6 +15,7 @@ from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.psu.config import PSUConfig, resolve_psu_from_config
+from instro.psu.types import OperatingMode
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class PSUDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def get_voltage(self, channel: int) -> float:
-        """Query the measured output voltage (volts) on `channel`."""
+        """Query the measured output voltage (volts) on `channel`. Output may vary from voltage setpoint outside of constant voltage mode."""
         raise NotImplementedError(f"get_voltage is not implemented for {type(self).__name__}")
 
     @abc.abstractmethod
@@ -48,7 +50,7 @@ class PSUDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def get_current(self, channel: int) -> float:
-        """Query the measured output current (amperes) on `channel`."""
+        """Query the measured output current (amperes) on `channel`. Output may vary from current-limit setpoint outside of constant current mode."""
         raise NotImplementedError(f"get_current is not implemented for {type(self).__name__}")
 
     @abc.abstractmethod
@@ -62,12 +64,16 @@ class PSUDriverBase(abc.ABC):
         raise NotImplementedError(f"get_output_status is not implemented for {type(self).__name__}")
 
     def get_voltage_setpoint(self, channel: int) -> float:
-        """Query the configured voltage setpoint (volts) on `channel`."""
+        """Query the configured voltage setpoint (volts) on `channel`. Output may vary from actual measured voltage outside of constant voltage mode."""
         raise NotImplementedError(f"get_voltage_setpoint is not implemented for {type(self).__name__}")
 
     def get_current_setpoint(self, channel: int) -> float:
-        """Query the configured current-limit setpoint (amperes) on `channel`."""
+        """Query the configured current-limit setpoint (amperes) on `channel`. Output may vary from actual measured current outside of constant current mode."""
         raise NotImplementedError(f"get_current_setpoint is not implemented for {type(self).__name__}")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        """Query whether `channel` is regulating in constant voltage, constant current, or off."""
+        raise NotImplementedError(f"get_operating_mode is not implemented for {type(self).__name__}")
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         """Set the overvoltage protection threshold (volts) on `channel`."""
@@ -230,6 +236,7 @@ class InstroPSU(Instrument):
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
+        val = val.value if isinstance(val, Enum) else val
 
         if self.legacy_naming:
             descriptor = f"ch{channel}_{legacy_suffix}"
@@ -262,7 +269,7 @@ class InstroPSU(Instrument):
         )
 
     def get_voltage(self, channel: int, **kwargs) -> Measurement | None:
-        """Measure the voltage (volts) sensed at ``channel`` terminals. Returns ``None`` if unavailable."""
+        """Measure the voltage (volts) sensed at ``channel`` terminals. Output may vary from voltage setpoint outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage, channel=channel, channel_suffix="voltage", legacy_suffix="v", **kwargs
         )
@@ -279,7 +286,7 @@ class InstroPSU(Instrument):
         )
 
     def get_current(self, channel: int, **kwargs) -> Measurement | None:
-        """Measure the current (amperes) flowing through ``channel``. Returns ``None`` if unavailable."""
+        """Measure the current (amperes) flowing through ``channel``. Output may vary from current-limit setpoint outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current, channel=channel, channel_suffix="current", legacy_suffix="i", **kwargs
         )
@@ -306,7 +313,7 @@ class InstroPSU(Instrument):
         )
 
     def get_voltage_setpoint(self, channel: int, **kwargs) -> Measurement | None:
-        """Query the configured voltage setpoint (volts) on ``channel``. Returns ``None`` if unavailable."""
+        """Query the configured voltage setpoint (volts) on ``channel``. Output may vary from actual measured voltage outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage_setpoint,
             channel=channel,
@@ -315,8 +322,18 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
+    def get_operating_mode(self, channel: int, **kwargs) -> Measurement | None:
+        """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
+        return self._execute_measurement(
+            self._driver.get_operating_mode,
+            channel=channel,
+            channel_suffix="operating_mode",
+            legacy_suffix="operating_mode",
+            **kwargs,
+        )
+
     def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
-        """Query the configured current-limit setpoint (amperes) on ``channel``. Returns ``None`` if unavailable."""
+        """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current_setpoint,
             channel=channel,

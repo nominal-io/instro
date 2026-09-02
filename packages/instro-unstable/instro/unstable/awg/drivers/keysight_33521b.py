@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import logging
+import sys
 
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.unstable.awg.awg import AWGDriverBase
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
     ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -57,6 +63,36 @@ _FUNC_NAME_TO_CARRIER_TYPE: dict[str, type] = {
     "PULS": Pulse,
     "DC": StaticValue,
     "ARB": Arbitrary,
+}
+
+_BURST_MODES: dict[BurstType, str] = {
+    BurstType.NCYCLE: "TRIG",
+    BurstType.GATED: "GAT",
+}
+_BURST_TYPES: dict[str, BurstType] = {mode: burst_type for burst_type, mode in _BURST_MODES.items()}
+
+_BURST_TRIGGER_SOURCES: dict[BurstTriggerSource, str] = {
+    BurstTriggerSource.INTERNAL: "IMM",
+    BurstTriggerSource.EXTERNAL: "EXT",
+    BurstTriggerSource.MANUAL: "BUS",
+}
+_BURST_TRIGGER_SOURCE_TYPES: dict[str, BurstTriggerSource] = {
+    token: source for source, token in _BURST_TRIGGER_SOURCES.items()
+}
+
+_SWEEP_SPACING: dict[SweepType, str] = {
+    SweepType.LINEAR: "LIN",
+    SweepType.LOG: "LOG",
+}
+_SWEEP_SPACING_TYPES: dict[str, SweepType] = {spacing: sweep_type for sweep_type, spacing in _SWEEP_SPACING.items()}
+
+_SWEEP_TRIGGER_SOURCES: dict[SweepTriggerSource, str] = {
+    SweepTriggerSource.INTERNAL: "IMM",
+    SweepTriggerSource.EXTERNAL: "EXT",
+    SweepTriggerSource.MANUAL: "BUS",
+}
+_SWEEP_TRIGGER_SOURCE_TYPES: dict[str, SweepTriggerSource] = {
+    token: source for source, token in _SWEEP_TRIGGER_SOURCES.items()
 }
 
 
@@ -180,9 +216,7 @@ class Keysight33521B(AWGDriverBase):
 
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write(f"VOLT:OFFS {offset}")
-            self._check_errors()
+        self._write_checked(f"VOLT:OFFS {offset}")
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)
@@ -193,9 +227,7 @@ class Keysight33521B(AWGDriverBase):
 
     def output_enable(self, channel: int, enable: bool) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            self._visa.write("OUTP ON" if enable else "OUTP OFF")
-            self._check_errors()
+        self._write_checked("OUTP ON" if enable else "OUTP OFF")
 
     def get_output_state(self, channel: int) -> bool:
         _check_channel(channel)
@@ -206,12 +238,7 @@ class Keysight33521B(AWGDriverBase):
 
     def set_output_load(self, channel: int, load: float | None) -> None:
         _check_channel(channel)
-        with self._visa.lock():
-            if load is None:
-                self._visa.write("OUTP:LOAD INF")
-            else:
-                self._visa.write(f"OUTP:LOAD {load}")
-            self._check_errors()
+        self._write_checked("OUTP:LOAD INF" if load is None else f"OUTP:LOAD {load}")
 
     def get_output_load(self, channel: int) -> float | None:
         _check_channel(channel)
@@ -297,9 +324,268 @@ class Keysight33521B(AWGDriverBase):
             self._check_errors()
         return result
 
+    def set_burst(self, channel: int, burst_type: BurstType) -> None:
+        _check_channel(channel)
+        if not isinstance(burst_type, BurstType):
+            raise TypeError(f"burst_type must be a BurstType, got {type(burst_type).__name__}")
+        mode = _BURST_MODES[BurstType.NCYCLE] if burst_type is BurstType.INFINITE else _BURST_MODES.get(burst_type)
+        if mode is None:
+            raise ValueError(f"the Keysight 33521B does not support {burst_type.name} burst mode")
+        with self._visa.lock():
+            carrier_name = self._visa.query("FUNC?").strip()
+            carrier_type = _FUNC_NAME_TO_CARRIER_TYPE.get(carrier_name)
+            self._check_errors()
+            if carrier_type is None:
+                raise ValueError(f"Keysight 33521B reported unsupported waveform '{carrier_name}'")
+            if carrier_type is StaticValue:
+                raise ValueError(f"the Keysight 33521B cannot burst a StaticValue (DC) waveform on channel {channel}")
+            self._visa.write(f"BURS:MODE {mode}")
+            if burst_type is BurstType.INFINITE:
+                self._visa.write("BURS:NCYC INF")
+            self._check_errors()
+
+    def get_burst_type(self, channel: int) -> BurstType:
+        """NCYCLE reads back as INFINITE when BURS:NCYC is the hardware's high-water sentinel for INF."""
+        _check_channel(channel)
+        with self._visa.lock():
+            mode = self._visa.query("BURS:MODE?").strip()
+            ncycles_raw = self._visa.query("BURS:NCYC?") if mode == _BURST_MODES[BurstType.NCYCLE] else None
+            self._check_errors()
+        if mode not in _BURST_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported burst mode '{mode}'")
+        if ncycles_raw is not None and float(ncycles_raw) >= _HIGH_Z_SENTINEL:
+            return BurstType.INFINITE
+        return _BURST_TYPES[mode]
+
+    def burst_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        self._write_checked(f"BURS:STAT {'ON' if enable else 'OFF'}")
+
+    def get_burst_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = self._visa.query("BURS:STAT?").strip() == "1"
+            self._check_errors()
+        return result
+
+    def set_burst_trigger(self, channel: int, source: BurstTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, BurstTriggerSource):
+            raise TypeError(f"source must be a BurstTriggerSource, got {type(source).__name__}")
+        self._write_checked(f"TRIG:SOUR {_BURST_TRIGGER_SOURCES[source]}")
+
+    def get_burst_trigger(self, channel: int) -> BurstTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("TRIG:SOUR?").strip()
+            self._check_errors()
+        if token not in _BURST_TRIGGER_SOURCE_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported trigger source '{token}'")
+        return _BURST_TRIGGER_SOURCE_TYPES[token]
+
+    def fire_burst_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            if not self.get_burst_state(channel):
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless burst mode is already"
+                    " enabled, call burst_enable(channel, True) first"
+                )
+            burst_type = self.get_burst_type(channel)
+            if burst_type not in (BurstType.NCYCLE, BurstType.INFINITE):
+                raise ValueError(
+                    f"fire_burst_trigger fires a single N-cycle burst; channel {channel} is in {burst_type.name} mode"
+                )
+            source = self.get_burst_trigger(channel)
+            if source is not BurstTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a burst trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_burst_trigger(channel, BurstTriggerSource.MANUAL) first. Current source: {source.name}"
+                )
+            self._write_checked("*TRG")
+
+    def set_burst_delay(self, channel: int, delay_s: float) -> None:
+        _check_channel(channel)
+        if delay_s < 0:
+            raise ValueError(f"delay_s must be non-negative, got {delay_s}")
+        self._write_checked(f"TRIG:DEL {delay_s}")
+
+    def get_burst_delay(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            raw = self._visa.query("TRIG:DEL?")
+            self._check_errors()
+        return float(raw)
+
+    def set_burst_gate_polarity(self, channel: int, gate_polarity: GatePolarity) -> None:
+        _check_channel(channel)
+        if not isinstance(gate_polarity, GatePolarity):
+            raise TypeError(f"gate_polarity must be a GatePolarity, got {type(gate_polarity).__name__}")
+        self._write_checked(f"BURS:GATE:POL {gate_polarity.value}")
+
+    def get_burst_gate_polarity(self, channel: int) -> GatePolarity:
+        _check_channel(channel)
+        with self._visa.lock():
+            raw = self._visa.query("BURS:GATE:POL?").strip()
+            self._check_errors()
+        return GatePolarity(raw)
+
+    def set_burst_ncycles(self, channel: int, n_cycles: int) -> None:
+        _check_channel(channel)
+        if n_cycles <= 0:
+            raise ValueError(f"n_cycles must be >= 1, got {n_cycles}")
+        self._write_checked(f"BURS:NCYC {n_cycles}")
+
+    def get_burst_ncycles(self, channel: int) -> int:
+        _check_channel(channel)
+        with self._visa.lock():
+            raw = self._visa.query("BURS:NCYC?")
+            self._check_errors()
+        value = float(raw)
+        return sys.maxsize if value >= _HIGH_Z_SENTINEL else int(value)
+
+    def set_burst_period(self, channel: int, period: float) -> None:
+        _check_channel(channel)
+        if period <= 0:
+            raise ValueError(f"period must be positive, got {period}")
+        self._write_checked(f"BURS:INT:PER {period}")
+
+    def get_burst_period(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            raw = self._visa.query("BURS:INT:PER?")
+            self._check_errors()
+        return float(raw)
+
+    def set_sweep(self, channel: int, sweep_type: SweepType) -> None:
+        _check_channel(channel)
+        if not isinstance(sweep_type, SweepType):
+            raise TypeError(f"sweep_type must be a SweepType, got {type(sweep_type).__name__}")
+        if sweep_type not in _SWEEP_SPACING:
+            raise ValueError(f"the Keysight 33521B does not support {sweep_type.name} sweep spacing")
+        self._write_checked(f"SWE:SPAC {_SWEEP_SPACING[sweep_type]}")
+
+    def get_sweep_type(self, channel: int) -> SweepType:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("SWE:SPAC?").strip()
+            self._check_errors()
+        if token not in _SWEEP_SPACING_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported sweep type '{token}'")
+        return _SWEEP_SPACING_TYPES[token]
+
+    def sweep_enable(self, channel: int, enable: bool) -> None:
+        _check_channel(channel)
+        self._write_checked(f"SWE:STAT {'ON' if enable else 'OFF'}")
+
+    def get_sweep_state(self, channel: int) -> bool:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = self._visa.query("SWE:STAT?").strip() == "1"
+            self._check_errors()
+        return result
+
+    def set_sweep_trigger(self, channel: int, source: SweepTriggerSource) -> None:
+        _check_channel(channel)
+        if not isinstance(source, SweepTriggerSource):
+            raise TypeError(f"source must be a SweepTriggerSource, got {type(source).__name__}")
+        self._write_checked(f"TRIG:SOUR {_SWEEP_TRIGGER_SOURCES[source]}")
+
+    def get_sweep_trigger(self, channel: int) -> SweepTriggerSource:
+        _check_channel(channel)
+        with self._visa.lock():
+            token = self._visa.query("TRIG:SOUR?").strip()
+            self._check_errors()
+        if token not in _SWEEP_TRIGGER_SOURCE_TYPES:
+            raise ValueError(f"Keysight 33521B reported unsupported trigger source '{token}'")
+        return _SWEEP_TRIGGER_SOURCE_TYPES[token]
+
+    def set_sweep_start_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        self._write_checked(f"FREQ:STAR {frequency_hz}")
+
+    def get_sweep_start_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("FREQ:STAR?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_end_freq(self, channel: int, frequency_hz: float) -> None:
+        _check_channel(channel)
+        self._write_checked(f"FREQ:STOP {frequency_hz}")
+
+    def get_sweep_end_freq(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("FREQ:STOP?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_time(self, channel: int, sweep_time: float) -> None:
+        _check_channel(channel)
+        if sweep_time <= 0:
+            raise ValueError(f"sweep_time must be positive, got {sweep_time}")
+        self._write_checked(f"SWE:TIME {sweep_time}")
+
+    def get_sweep_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:TIME?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_stop_hold_time(self, channel: int, hold_time: float) -> None:
+        """The 33521B has no SWEep:HTIMe:STARt; HTIMe only holds at the stop frequency."""
+        _check_channel(channel)
+        if hold_time < 0:
+            raise ValueError(f"hold_time must be non-negative, got {hold_time}")
+        self._write_checked(f"SWE:HTIM {hold_time}")
+
+    def get_sweep_stop_hold_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:HTIM?"))
+            self._check_errors()
+        return result
+
+    def set_sweep_return_time(self, channel: int, return_time: float) -> None:
+        _check_channel(channel)
+        if return_time < 0:
+            raise ValueError(f"return_time must be non-negative, got {return_time}")
+        self._write_checked(f"SWE:RTIM {return_time}")
+
+    def get_sweep_return_time(self, channel: int) -> float:
+        _check_channel(channel)
+        with self._visa.lock():
+            result = float(self._visa.query("SWE:RTIM?"))
+            self._check_errors()
+        return result
+
+    def fire_sweep_trigger(self, channel: int) -> None:
+        _check_channel(channel)
+        with self._visa.lock():
+            if not self.get_sweep_state(channel):
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless sweep mode is already"
+                    " enabled, call sweep_enable(channel, True) first"
+                )
+            source = self.get_sweep_trigger(channel)
+            if source is not SweepTriggerSource.MANUAL:
+                raise ValueError(
+                    f"Cannot fire a sweep trigger on channel {channel} unless the trigger source is"
+                    f" already MANUAL, call set_sweep_trigger(channel, SweepTriggerSource.MANUAL) first. Current source: {source.name}"
+                )
+            self._write_checked("*TRG")
+
     def _write_frequency_and_phase(self, frequency_hz: float, phase_deg: float) -> None:
         self._visa.write(f"FREQ {frequency_hz}")
         self._visa.write(f"PHAS {phase_deg % 360}")
+
+    def _write_checked(self, command: str) -> None:
+        with self._visa.lock():
+            self._visa.write(command)
+            self._check_errors()
 
     def _check_errors(self) -> None:
         """Query :SYSTem:ERRor? once and raise on a non-zero code. Does not drain the queue."""
