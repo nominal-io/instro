@@ -25,7 +25,8 @@ _ACQ_MODE_TO_SCPI = {
     AcquisitionMode.PEAK_DETECT: "PEAK",
 }
 
-_SCPI_TO_ACQ_MODE = {v.upper(): k for k, v in _ACQ_MODE_TO_SCPI.items()}
+# The scope answers :ACQuire:TYPE? with the 4-character short form (NORM, AVER, HRES, PEAK).
+_SCPI_TO_ACQ_MODE = {v[:4].upper(): k for k, v in _ACQ_MODE_TO_SCPI.items()}
 
 _COUPLING_TO_SCPI = {
     Coupling.AC: "AC",
@@ -155,7 +156,7 @@ class Keysight1200X(ScopeDriverBase):
 
     def get_acquisition_mode(self) -> AcquisitionMode:
         resp = self._visa.query(":ACQuire:TYPE?").strip().upper()
-        return _SCPI_TO_ACQ_MODE.get(resp, AcquisitionMode.NORMAL)
+        return _SCPI_TO_ACQ_MODE.get(resp[:4], AcquisitionMode.NORMAL)
 
     def set_average_count(self, count: int) -> None:
         self._visa.write(f":ACQuire:COUNt {count}")

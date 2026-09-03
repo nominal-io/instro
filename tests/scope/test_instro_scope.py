@@ -123,6 +123,17 @@ def test_keysight_acquisition_mode_envelope_rejected(keysight: Keysight1200X) ->
         keysight.set_acquisition_mode(AcquisitionMode.ENVELOPE)
 
 
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [("NORM", AcquisitionMode.NORMAL), ("AVER", AcquisitionMode.AVERAGE), ("HRES", AcquisitionMode.HIGH_RESOLUTION)],
+)
+def test_keysight_get_acquisition_mode_parses_short_form_response(
+    keysight: Keysight1200X, keysight_visa: MagicMock, response: str, expected: AcquisitionMode
+) -> None:
+    keysight_visa.query.return_value = response
+    assert keysight.get_acquisition_mode() == expected
+
+
 def test_keysight_digitize_uses_cached_source_and_temp_timeout(
     keysight: Keysight1200X, keysight_visa: MagicMock
 ) -> None:

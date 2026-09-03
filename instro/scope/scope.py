@@ -401,26 +401,19 @@ class InstroScope(Instrument):
         logger.info("Opened scope '%s'", self.name)
 
     def _apply_config(self) -> None:
-        """Apply the config's ``channels`` → ``acquisition`` → ``trigger`` blocks through the public setters, once per open."""
+        """Apply the config through the public setters, once per open, in the order the hardware needs."""
         if self._config is None or self._config_applied:
             return
+        # Coupling and probe first: the probe factor rescales the channel's probe-referred scale and offset.
         for channel, channel_config in sorted(self._config.channels.items()):
-            if channel_config.vertical_scale is not None:
-                self.set_vertical_scale(channel_config.vertical_scale, channel=channel)
-            if channel_config.vertical_offset is not None:
-                self.set_vertical_offset(channel_config.vertical_offset, channel=channel)
             if channel_config.coupling is not None:
                 self.set_coupling(channel_config.coupling, channel=channel)
             if channel_config.probe_attenuation is not None:
                 self.set_probe_attenuation(channel_config.probe_attenuation, channel=channel)
-        acquisition = self._config.acquisition
-        if acquisition is not None:
-            if acquisition.mode is not None:
-                self.set_acquisition_mode(acquisition.mode)
-            if acquisition.average_count is not None:
-                self.set_average_count(acquisition.average_count)
-            if acquisition.horizontal_scale is not None:
-                self.set_horizontal_scale(acquisition.horizontal_scale)
+            if channel_config.vertical_scale is not None:
+                self.set_vertical_scale(channel_config.vertical_scale, channel=channel)
+            if channel_config.vertical_offset is not None:
+                self.set_vertical_offset(channel_config.vertical_offset, channel=channel)
         trigger = self._config.trigger
         if trigger is not None:
             self.set_trigger_source(trigger.source)
@@ -432,8 +425,21 @@ class InstroScope(Instrument):
                 self.set_trigger_level(trigger.level)
             if trigger.mode is not None:
                 self.set_trigger_mode(trigger.mode)
-        # Vendors that compute measurements during acquisition (Tektronix) need the slot
-        # installed before the scope triggers, so prepare every polled measurement before run().
+        acquisition = self._config.acquisition
+        # Start acquiring before the acquisition block: Siglent only applies acquisition-mode
+        # changes while running, and Tektronix measurement slots only settle against a live acquisition.
+        if acquisition is not None and acquisition.start_acquisition_on_open:
+            self.run()
+        if acquisition is not None:
+            # Count before mode: Siglent's mode command carries the average count inline.
+            if acquisition.average_count is not None:
+                self.set_average_count(acquisition.average_count)
+            if acquisition.mode is not None:
+                self.set_acquisition_mode(acquisition.mode)
+            if acquisition.horizontal_scale is not None:
+                self.set_horizontal_scale(acquisition.horizontal_scale)
+        # Vendors that compute measurements during acquisition (Tektronix) need the slot installed
+        # before the first poll, so prepare every configured measurement here.
         with self._resource_lock:
             for channel, channel_config in sorted(self._config.channels.items()):
                 for measurement_type in channel_config.measurements:
@@ -441,9 +447,19 @@ class InstroScope(Instrument):
                     self._check_errors()
         self.sync_configuration()
         self._warn_on_snapped_values()
-        if acquisition is not None and acquisition.start_acquisition_on_open:
-            self.run()
         self._config_applied = True
+
+    def start(self) -> None:
+        """Start the background daemon; warns when nothing is registered to poll."""
+        # Not an error: start() with no methods still creates the in-memory channel buffer that
+        # get_channel()/get_single_channel_value() read from after direct getter calls.
+        if not self._background_methods:
+            logger.warning(
+                "Background daemon for scope '%s' has no measurements to poll; declare channels.<n>.measurements "
+                "in the config or call add_background_daemon_function to register some.",
+                self.name,
+            )
+        super().start()
 
     def _warn_on_snapped_values(self) -> None:
         """Log one warning per config field the instrument reports differently after ``sync_configuration()``."""

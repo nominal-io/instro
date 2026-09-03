@@ -135,32 +135,35 @@ def test_init_with_config_dict_duplicate_measurements_raises(valid_config):
         InstroScope(config={**valid_config, "channels": {"1": {"measurements": ["VPP", "VPP"]}}})
 
 
-def test_open_applies_config_in_order_then_syncs_then_runs(full_config, caplog):
+def test_open_applies_config_in_hardware_order(full_config, caplog):
     scope, mock_driver = _make_scope_with_mock_driver(full_config)
 
     with caplog.at_level(logging.WARNING, logger="instro.scope.scope"):
         scope.open()
 
+    # Probe before scale (probe rescales the channel), trigger before run() (trigger in place when
+    # acquisition starts), run() before the acquisition block (Siglent applies ACQW only while
+    # running), count before mode (Siglent's mode command carries the count), slots before sync.
     assert _driver_calls(mock_driver) == [
         "open",
-        "set_vertical_scale",
-        "set_vertical_offset",
         "set_coupling",
         "set_probe_attenuation",
-        "set_acquisition_mode",
-        "set_average_count",
-        "set_horizontal_scale",
+        "set_vertical_scale",
+        "set_vertical_offset",
         "set_trigger_source",
         "set_trigger_type",
         "set_trigger_slope",
         "set_trigger_level",
         "set_trigger_mode",
+        "run",
+        "set_average_count",
+        "set_acquisition_mode",
+        "set_horizontal_scale",
         *["setup_measurement"] * 3,
         *["get_vertical_scale", "get_vertical_offset", "get_coupling", "get_probe_attenuation"] * 2,
         "get_horizontal_scale",
         "get_acquisition_mode",
         "get_average_count",
-        "run",
     ]
     mock_driver.set_vertical_scale.assert_called_once_with(1.0, channel=1)
     mock_driver.set_probe_attenuation.assert_called_once_with(10.0, channel=1)
@@ -222,7 +225,7 @@ def test_open_does_not_warn_on_three_significant_figure_readback_rounding(full_c
     assert caplog.records == []
 
 
-def test_open_closes_driver_when_config_apply_fails(full_config):
+def test_open_closes_driver_when_config_apply_fails_and_retries_on_reopen(full_config):
     scope, mock_driver = _make_scope_with_mock_driver(full_config)
     mock_driver.set_acquisition_mode.side_effect = NotImplementedError("no AVERAGE mode")
 
@@ -230,7 +233,26 @@ def test_open_closes_driver_when_config_apply_fails(full_config):
         scope.open()
 
     mock_driver.close.assert_called_once()
-    mock_driver.run.assert_not_called()
+    mock_driver.get_vertical_scale.assert_not_called()
+
+    # The failed apply must not leave the flag set, or this reopen would skip the config entirely.
+    mock_driver.set_acquisition_mode.side_effect = None
+    scope.open()
+    assert mock_driver.set_acquisition_mode.call_count == 2
+    mock_driver.get_vertical_scale.assert_called()
+
+
+def test_start_without_measurements_warns(valid_config, caplog):
+    scope, _ = _make_scope_with_mock_driver(valid_config)
+
+    with caplog.at_level(logging.WARNING, logger="instro.scope.scope"):
+        scope.start()
+    scope.stop()
+
+    assert [r.getMessage() for r in caplog.records] == [
+        "Background daemon for scope 'test_scope' has no measurements to poll; declare channels.<n>.measurements "
+        "in the config or call add_background_daemon_function to register some."
+    ]
 
 
 def test_reopen_without_close_does_not_reapply_config(full_config):

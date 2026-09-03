@@ -31,7 +31,7 @@ InstroScope("name", driver=Keysight1200X("<visa_resource>"), num_channels=4)
 ### Lifecycle
 
 1. **Construct**: instantiate the vendor driver and pass it to `InstroScope`.
-2. **`open()`**: establish the VISA connection.
+2. **`open()`**: establish the VISA connection. When constructed from a config, `open()` also applies the configured state, resyncs the tracked state, and optionally starts acquisition.
 3. **Configure**: set vertical (per channel), horizontal, acquisition, and trigger settings.
 4. **Acquire**: arm a single-shot with `single()`, or free-run with `run()`.
 5. **Read**: fetch a waveform with `fetch_waveform()` or take a built-in measurement with `measure()`.
@@ -154,7 +154,7 @@ Where `bench_scope.json` contains:
 
 `driver.name` must match one of the registered vendor/model keys (`Keysight1200X`, `SiglentSDS1000XE`, `Tektronix2SeriesMSO`). `driver.num_channels` is the analog-input channel count. The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
 
-The three optional initial-state blocks are applied through the public setters when `open()` runs, so they publish the same `.cmd` channels the equivalent manual calls would. Blocks apply in order: `channels`, then `acquisition`, then `trigger`. Every configured measurement is then prepared on the instrument, so vendors that compute measurements during acquisition (Tektronix) have their slots in place before the scope triggers. If any setter raises, the driver is closed and the error propagates.
+The three optional initial-state blocks are applied through the public setters when `open()` runs, so they publish the same `.cmd` channels the equivalent manual calls would. The apply order follows what the hardware needs. Within each `channels` entry, `coupling` and `probe_attenuation` apply before `vertical_scale` and `vertical_offset`, because the probe factor rescales the channel's probe-referred scale. The `trigger` block applies next. If `start_acquisition_on_open` is set, `run()` fires here, before the `acquisition` block, because some scopes (Siglent) only accept acquisition-mode changes while running. Within `acquisition`, `average_count` applies before `mode`, then `horizontal_scale`. Every configured measurement is then prepared on the instrument, so vendors that compute measurements during acquisition (Tektronix) have their slots in place before the first poll. If any setter raises, the driver is closed and the error propagates.
 
 - **`channels`**: per-channel initial state keyed by 1-based channel number (JSON string keys). Every key must fall within `1..driver.num_channels`. Each entry accepts optional `vertical_scale` (V/div), `vertical_offset` (V), `coupling` (`"AC"` or `"DC"`), and `probe_attenuation`, plus a `measurements` list of built-in measurement names (`VPP`, `VMAX`, `VMIN`, `VAVG`, `VRMS`, `FREQUENCY`, `PERIOD`, `DUTY_CYCLE`) to poll from the background daemon. Duplicate names within one list are rejected. An entry with only `measurements` polls a channel without touching its front-panel settings.
 - **`acquisition`**: optional `mode` (`NORMAL`, `AVERAGE`, `HIGH_RESOLUTION`, `PEAK_DETECT`, `ENVELOPE`), `average_count` (requires `mode: "AVERAGE"`), `horizontal_scale` (s/div), and `start_acquisition_on_open` (default `false`).
@@ -164,7 +164,7 @@ Options the concrete driver doesn't support raise `NotImplementedError` when the
 
 After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config, for example `config requested ch1.vertical_scale=0.3 but instrument reports 0.2`. Floats compare within 1% (`instro.scope.scope.SNAP_REL_TOL`, with `SNAP_ABS_TOL` as the floor near zero), so a read-back rounded to three significant figures stays quiet while any real 1-2-5 step snap still warns. Trigger fields are not checked, since `sync_configuration()` does not read them back.
 
-Config never starts acquisition by default. Set `acquisition.start_acquisition_on_open: true` to call `run()` as the last step of `open()`, once the configured trigger is in place. Without it, background-polled `measure()` calls return `NaN` until you call `scope.run()` or the operator starts the scope from the front panel, which keeps passive monitoring of an operator-driven scope a first-class workflow. One-shot arming (`single()`) and waveform, screenshot, and settings-file operations stay runtime-only.
+Config never starts acquisition by default. Set `acquisition.start_acquisition_on_open: true` to call `run()` during `open()`, after the channel and trigger blocks are in place and before the acquisition block applies. Without it, background-polled `measure()` calls return `NaN` until you call `scope.run()` or the operator starts the scope from the front panel, which keeps passive monitoring of an operator-driven scope a first-class workflow. One-shot arming (`single()`) and waveform, screenshot, and settings-file operations stay runtime-only.
 
 `publishers` is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`, as in the example above.
 
