@@ -135,12 +135,12 @@ awg = InstroAWG(config="bench_awg.json")
 
 `channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
-Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not `start()` the instrument unless you pass `autostart=True`.
+Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not `open()` or `start()` the instrument unless you pass `autostart=True`.
 
 Inside each `ChannelConfig` object, the following fields are filled:
 - **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second.
 
-  A CSV path is used as written. A relative path resolves against the working directory of the process, not the config file, so use an absolute path unless you control where the process starts. The file is read when the config is parsed, so later edits to it do not affect a config you already built.
+  A CSV path is used as written. A relative path resolves against the working directory of the process, not the config file, so use an absolute path unless you control where the process starts. The file is read each time the waveform is built, which includes `open()`, so it must still be present then and later edits to it do take effect.
 
 - **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
 - **`offset`** (optional): DC offset in volts.

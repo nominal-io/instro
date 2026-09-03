@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.unstable.awg import AWGConfig, InstroAWG
+from instro.unstable.awg.config import build_waveform
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
@@ -540,9 +541,20 @@ def test_malformed_waveform_rejected_at_validation(valid_config):
             InstroAWG(config={**valid_config, "channels": {"1": {"waveform": waveform}}})
 
 
-def test_channel_config_is_frozen_so_the_built_waveform_cannot_drift(valid_config):
-    """waveform_definition is built once at validation, so the blocks it was built from must not be mutable."""
-    config = AWGConfig.model_validate(valid_config)
+def test_channel_config_is_immutable_after_validation(valid_config):
+    """A validated ChannelConfig must stay immutable all the way down, so it cannot be edited past its own bounds checks."""
+    config = AWGConfig.model_validate(
+        {
+            **valid_config,
+            "channels": {
+                "1": {
+                    "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                    "amplitude": {"value": 2.0, "unit": "VPP"},
+                    "offset": 0.1,
+                }
+            },
+        }
+    )
     channel = config.channels["1"]
 
     with pytest.raises(Exception):
@@ -551,8 +563,10 @@ def test_channel_config_is_frozen_so_the_built_waveform_cannot_drift(valid_confi
         channel.waveform = channel.waveform
     with pytest.raises(Exception):
         channel.waveform.frequency_hz = 999.0
+    with pytest.raises(Exception):
+        channel.amplitude.value = 3.0
 
-    assert channel.waveform_definition == Sine(frequency_hz=1000.0, phase_deg=0.0)
+    assert build_waveform(channel.waveform) == Sine(frequency_hz=1000.0, phase_deg=0.0)
 
 
 def test_malformed_csv_samples_error_names_the_file(valid_config, tmp_path):
@@ -578,8 +592,25 @@ def test_unreadable_csv_samples_error_names_the_file(valid_config, tmp_path):
         InstroAWG(config=config)
 
 
-def test_arbitrary_samples_csv_read_once_at_validation(valid_config, tmp_path):
-    """Samples are read when the config is validated, so open() does not re-read the file."""
+def test_arbitrary_samples_csv_is_read_when_the_config_is_applied(valid_config, tmp_path):
+    """The config keeps the path it was given, so the CSV is read again each time the waveform is built."""
+    samples_file = tmp_path / "samples.csv"
+    samples_file.write_text("-1.0\n0.0\n1.0\n0.0\n")
+    config = {
+        **valid_config,
+        "channels": {"1": {"waveform": {"shape": "arbitrary", "samples": str(samples_file), "sample_rate_sas": 50.0}}},
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_cls.return_value.set_waveform.assert_called_once_with(
+        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
+    )
+
+
+def test_arbitrary_samples_csv_removed_before_open_fails_at_open(valid_config, tmp_path):
+    """Building at apply time means open() depends on the file, and says so rather than programming stale samples."""
     samples_file = tmp_path / "samples.csv"
     samples_file.write_text("-1.0\n0.0\n1.0\n0.0\n")
     config = {
@@ -589,11 +620,11 @@ def test_arbitrary_samples_csv_read_once_at_validation(valid_config, tmp_path):
     with _patch_driver() as mock_cls:
         awg = InstroAWG(config=config)
         samples_file.unlink()
-        awg.open()
+        with pytest.raises(ValueError, match="could not read arbitrary samples"):
+            awg.open()
 
-    mock_cls.return_value.set_waveform.assert_called_once_with(
-        channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
-    )
+        mock_cls.return_value.set_waveform.assert_not_called()
+        mock_cls.return_value.close.assert_called_once()
 
 
 def test_arbitrary_samples_relative_path_resolves_against_cwd(valid_config, tmp_path, monkeypatch):

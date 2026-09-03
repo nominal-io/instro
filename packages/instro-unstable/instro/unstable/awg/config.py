@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from instro.lib.config import (
     FilePublisherConfig,
@@ -185,7 +185,7 @@ def build_waveform(config: WaveformConfigType) -> Waveform:
 class AmplitudeConfig(BaseModel):
     """Output amplitude config; maps to ``InstroAWG.set_amplitude``."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     value: float
     unit: AmplitudeMeasurementUnit = AmplitudeMeasurementUnit.VPP
 
@@ -198,19 +198,11 @@ class ChannelConfig(BaseModel):
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None
 
-    _waveform_definition: Waveform | None = PrivateAttr(default=None)
-
     @model_validator(mode="after")
-    def _build_waveform_definition(self) -> ChannelConfig:
-        """Build the waveform now so ``types.py``'s shape-parameter bounds reject a bad config here, not mid-``open()``."""
-        self._waveform_definition = build_waveform(self.waveform)
+    def _check_waveform_is_buildable(self) -> ChannelConfig:
+        """Build and discard the waveform so ``types.py``'s shape-parameter bounds reject a bad config here, not mid-``open()``."""
+        build_waveform(self.waveform)
         return self
-
-    @property
-    def waveform_definition(self) -> Waveform:
-        """The runtime ``Waveform`` this channel describes, built when the config was validated."""
-        assert self._waveform_definition is not None
-        return self._waveform_definition
 
 
 class AWGConfig(BaseModel):
