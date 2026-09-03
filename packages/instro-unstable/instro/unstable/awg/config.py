@@ -62,7 +62,7 @@ AWG_VENDOR_REGISTRY: dict[str, str] = {
 class VisaDriverConfig(BaseModel):
     """Driver config for a VISA-connected AWG."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     connection_type: Literal["visa"] = "visa"
     name: str = Field(description="AWG vendor/model key.")
     num_channels: int = Field(ge=1, description="Number of output channels.")
@@ -208,7 +208,7 @@ class ChannelConfig(BaseModel):
 class AWGConfig(BaseModel):
     """Validated config for constructing an InstroAWG from JSON."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
     version: Literal[1] = 1
     instrument: Literal["InstroAWG"] = "InstroAWG"
     device: DeviceInfo

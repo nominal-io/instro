@@ -386,6 +386,54 @@ def test_open_failure_after_a_channel_succeeds_drops_the_configured_channels(val
             awg.start()
 
 
+def test_open_failure_in_a_publisher_drops_the_configured_channel(valid_config):
+    """set_waveform records the channel before it publishes, so a publisher raising must still roll the channel back."""
+    bad_publisher = MagicMock()
+    bad_publisher.publish.side_effect = RuntimeError("publisher backend unreachable")
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=valid_config, publishers=[bad_publisher])
+        with pytest.raises(RuntimeError, match="publisher backend unreachable"):
+            awg.open()
+
+        # the driver call landed and cached the waveform before the publish blew up
+        mock_cls.return_value.set_waveform.assert_called_once()
+        assert awg._channel_waveforms == {}
+        assert awg._channel_config_applied is False
+        with pytest.raises(ValueError, match="set_waveform must be called"):
+            awg.start()
+
+
+def test_close_drops_the_cached_waveforms(valid_config):
+    """A closed session knows nothing about what is still programmed, so start() must not pass on last session's state."""
+    with _patch_driver():
+        awg = InstroAWG(config=valid_config)
+        awg.open()
+        assert awg._channel_waveforms != {}
+        awg.close()
+
+        assert awg._channel_waveforms == {}
+        with pytest.raises(ValueError, match="set_waveform must be called"):
+            awg.start()
+
+
+def test_awg_config_and_driver_config_are_frozen(valid_config):
+    """Assignment is blocked on the driver and top-level blocks too, not just the channel blocks.
+
+    Pydantic's frozen is shallow: the ``channels`` dict, the ``publishers`` list and the plain-dataclass
+    ``driver.visa`` stay mutable, so this pins the assignment guard, not deep immutability.
+    """
+    config = AWGConfig.model_validate(valid_config)
+
+    with pytest.raises(Exception):
+        config.version = 2
+    with pytest.raises(Exception):
+        config.channels = {}
+    with pytest.raises(Exception):
+        config.driver.num_channels = 8
+    with pytest.raises(Exception):
+        config.driver.name = "Keysight33521B"
+
+
 @pytest.mark.parametrize(
     ("waveform_config", "expected"),
     [

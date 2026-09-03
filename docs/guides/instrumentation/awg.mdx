@@ -135,7 +135,7 @@ awg = InstroAWG(config="bench_awg.json")
 
 `channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
-Each entry is applied on the first call to `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. Building an `InstroAWG` does not `open()` or `start()` the instrument unless you pass `autostart=True`.
+Each entry is applied on `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. It is applied once per session: repeated `open()` calls do not reapply it. A `close()` followed by another `open()` does reapply it, overwriting any channel state you set manually in between, but note that `close()` also closes the instance's publishers — so reuse after `close()` is only safe with no publishers attached. Construct a new `InstroAWG` to reconnect. Building an `InstroAWG` does not `open()` or `start()` the instrument unless you pass `autostart=True`.
 
 Inside each `ChannelConfig` object, the following fields are filled:
 - **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second.
