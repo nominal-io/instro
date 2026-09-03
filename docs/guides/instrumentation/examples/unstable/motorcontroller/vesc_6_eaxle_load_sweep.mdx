@@ -18,8 +18,8 @@ motor's own rotation, so the two loads cannot fight through the differential.
 Telemetry is collected by each instrument's background daemon, so the test loop
 only has to keep re-sending setpoints (the VESC releases its motor ~0.5 s after
 the last command). Every telemetry sample and setpoint streams to one Nominal
-Core dataset through a publisher shared by all three instruments; channels are
-prefixed by instrument name (dut.velocity, load_left.motor_current, ...).
+Core dataset; each instrument owns its own publisher, and channels are prefixed
+by instrument name (dut.velocity, load_left.motor_current, ...).
 
 VESC Tool prerequisites: a distinct VESC ID per controller, CAN baud 500 kbps,
 CAN status message mode including statuses 1/4/5 on every controller, and FOC
@@ -32,21 +32,19 @@ Run:
 import statistics
 import time
 
-from instro.lib.publishers import NominalCorePublisher, SharedPublisher
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 from instro.unstable.transports import CanConfig, CanDriver
 
 DATASET_RID = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"  # replace with the stand's dataset RID
 
-nominal = SharedPublisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 bus = CanDriver(CanConfig(channel=0, interface="gs_usb"))
-dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0), publishers=[nominal])
+dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0), dataset_rid=DATASET_RID)
 load_left = InstroMotorController(
-    "load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1), publishers=[nominal.clone()]
+    "load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1), dataset_rid=DATASET_RID
 )
 load_right = InstroMotorController(
-    "load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2), publishers=[nominal.clone()]
+    "load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2), dataset_rid=DATASET_RID
 )
 motors = (dut, load_left, load_right)
 
