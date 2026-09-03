@@ -46,7 +46,7 @@ InstroScope("name", driver=Keysight1200X("<visa_resource>"), num_channels=4)
 
 ### Configuration Tracking
 
-`InstroScope` tracks vertical, horizontal, acquisition, and trigger state locally as you issue commands. Call `sync_configuration()` after `open()` (or after `load_settings()`) to bulk-query the instrument and overwrite the tracked state.
+`InstroScope` tracks vertical, horizontal, acquisition, and trigger state locally as you issue commands, in a `ScopeState` dataclass. Call `sync_configuration()` after `open()` (or after `load_settings()`) to bulk-query the instrument and overwrite the tracked state with what the hardware reports. Scopes snap requested values to the nearest supported step, so the tracked value can differ from what you asked for until you resync.
 
 <Note>
 `sync_configuration()` does not bulk-query trigger source, type, level, slope, or mode. Not all scopes expose those through a simple query, so set them explicitly to populate the tracked state.
@@ -71,11 +71,114 @@ scope = InstroScope(
 
 ### Parameters
 
-- **`name`**: A name for this scope instance. Used as a prefix for channel names when publishing.
-- **`driver`**: A concrete `ScopeDriverBase` instance configured with the connection details for that model.
-- **`num_channels`**: Number of analog-input channels on the oscilloscope.
-- **`publishers`**: Optional list of publishers to attach.
+- **`name`**: A name for this scope instance. Used as a prefix for channel names when publishing. Falls back to `config.device.name` when `config` is given.
+- **`driver`**: A concrete `ScopeDriverBase` instance configured with the connection details for that model. Mutually exclusive with `config`.
+- **`num_channels`**: Number of analog-input channels on the oscilloscope. Mutually exclusive with `config`.
+- **`config`**: A `ScopeConfig`, a dict, or a path to a JSON config file, as an alternative to `driver`/`num_channels`. See [From a JSON Config File](#from-a-json-config-file) below.
+- **`publishers`**: Optional list of publishers to attach. Combined with any publishers declared in `config`.
+- **`autostart`**: When `True`, opens the connection and starts background polling immediately. Requires `config` with at least one `measurements` entry, since the daemon has nothing to poll otherwise.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`). Pass [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) here to publish pre-v1.0 channel names.
+
+### From a JSON Config File
+
+`InstroScope` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
+
+```python
+from instro.scope import InstroScope
+
+scope = InstroScope(config="bench_scope.json")
+```
+
+Where `bench_scope.json` contains:
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroScope",
+  "device": {
+    "name": "bench_scope",
+    "description": "Bench oscilloscope",
+    "manufacturer": "Keysight",
+    "model": "DSOX1204A"
+  },
+  "driver": {
+    "connection_type": "visa",
+    "name": "Keysight1200X",
+    "num_channels": 4,
+    "visa": {
+      "visa_resource": "TCPIP0::192.168.1.50::INSTR"
+    }
+  },
+  "channels": {
+    "1": {
+      "vertical_scale": 1.0,
+      "vertical_offset": 0.0,
+      "coupling": "DC",
+      "probe_attenuation": 10.0,
+      "measurements": ["VRMS", "FREQUENCY"]
+    },
+    "2": {
+      "vertical_scale": 0.5,
+      "coupling": "AC",
+      "probe_attenuation": 1.0,
+      "measurements": ["VPP"]
+    }
+  },
+  "acquisition": {
+    "mode": "AVERAGE",
+    "average_count": 16,
+    "horizontal_scale": 0.001,
+    "start_acquisition_on_open": true
+  },
+  "trigger": {
+    "source": 1,
+    "type": "EDGE",
+    "level": 0.5,
+    "slope": "RISING",
+    "mode": "NORMAL"
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "publishers": [
+    {
+      "type": "FilePublisher",
+      "directory": "scope_captures",
+      "format": "csv"
+    }
+  ]
+}
+```
+
+`device.name` is required and used as the channel-name prefix when publishing; `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+
+`driver.name` must match one of the registered vendor/model keys (`Keysight1200X`, `SiglentSDS1000XE`, `Tektronix2SeriesMSO`). `driver.num_channels` is the analog-input channel count. The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+
+The three optional initial-state blocks are applied through the public setters when `open()` runs, so they publish the same `.cmd` channels the equivalent manual calls would. Blocks apply in order: `channels`, then `acquisition`, then `trigger`. If any setter raises, the driver is closed and the error propagates.
+
+- **`channels`**: per-channel initial state keyed by 1-based channel number (JSON string keys). Every key must fall within `1..driver.num_channels`. Each entry accepts optional `vertical_scale` (V/div), `vertical_offset` (V), `coupling` (`"AC"` or `"DC"`), and `probe_attenuation`, plus a `measurements` list of built-in measurement names (`VPP`, `VMAX`, `VMIN`, `VAVG`, `VRMS`, `FREQUENCY`, `PERIOD`, `DUTY_CYCLE`) to poll from the background daemon. Duplicate names within one list are rejected. An entry with only `measurements` polls a channel without touching its front-panel settings.
+- **`acquisition`**: optional `mode` (`NORMAL`, `AVERAGE`, `HIGH_RESOLUTION`, `PEAK_DETECT`, `ENVELOPE`), `average_count` (requires `mode: "AVERAGE"`), `horizontal_scale` (s/div), and `start_acquisition_on_open` (default `false`).
+- **`trigger`**: `source` is required within the block and is range-checked against `num_channels`, because the level and slope setters apply to the configured source. `type` (`EDGE`, `PULSE`), `level` (V), `slope` (`RISING`, `FALLING`, `EITHER`), and `mode` (`AUTO`, `NORMAL`) are optional. Fields apply as source, type, slope, level, mode.
+
+Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
+
+After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config, for example `config requested ch1.vertical_scale=0.3 but instrument reports 0.2`. Floats compare with a loose relative tolerance, so formatting differences stay quiet. Trigger fields are not checked, since `sync_configuration()` does not read them back.
+
+Config never starts acquisition by default. Set `acquisition.start_acquisition_on_open: true` to call `run()` as the last step of `open()`, once the configured trigger is in place. Without it, background-polled `measure()` calls return `NaN` until you call `scope.run()` or the operator starts the scope from the front panel, which keeps passive monitoring of an operator-driven scope a first-class workflow. One-shot arming (`single()`) and waveform, screenshot, and settings-file operations stay runtime-only.
+
+`publishers` is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`, as in the example above.
+
+An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Because the daemon has nothing to do without measurements, a config that declares `timing` must declare at least one channel with a non-empty `measurements` list. Pass `autostart=True` to open the connection and start polling immediately:
+
+```python
+scope = InstroScope(config="bench_scope.json", autostart=True)
+```
+
+`autostart` and `start_acquisition_on_open` are independent. `autostart` opens the connection and starts the host-side daemon; `start_acquisition_on_open` starts the instrument acquiring. A config with `autostart=True` and no `start_acquisition_on_open` is a valid setup for a script that arms one-shot captures itself.
+
+`config` also accepts a plain dict or an already-built `ScopeConfig`, so a config built or received elsewhere in code can construct an `InstroScope` directly, without a JSON round-trip.
+
+JSON configs are validated strictly: `ScopeConfig` forbids any field not listed above (`version`, `instrument`, `device`, `driver`, `channels`, `acquisition`, `trigger`, `timing`, `publishers`), so there is no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 
 ### Choosing a Driver
 
@@ -260,7 +363,8 @@ Every call produces a channel keyed under `{name}.{descriptor}`, where `{name}` 
 | Method | Purpose |
 |--------|---------|
 | `InstroScope(name, driver, num_channels, publishers=None, **kwargs)` | Construct an InstroScope with a vendor driver |
-| `open()` | Establish the VISA connection to the scope |
+| `InstroScope(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `ScopeConfig`, a dict, or a path to a JSON config file |
+| `open()` | Establish the VISA connection to the scope and apply any configured initial state |
 | `close()` | Disconnect from scope and close all publishers |
 | `sync_configuration()` | Bulk-query the instrument and overwrite the tracked configuration |
 | `set_vertical_scale(volts_per_div, channel=N)` | Set the vertical scale in volts/div |

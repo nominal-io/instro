@@ -852,14 +852,14 @@ def test_instro_scope_set_vertical_scale_delegates_and_updates_config(
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
     scope.set_vertical_scale(0.25, channel=1)
     assert ("set_vertical_scale", 0.25, 1) in stub_driver.calls
-    assert scope._config.channels[1].vertical_scale == 0.25
+    assert scope._state.channels[1].vertical_scale == 0.25
 
 
 def test_instro_scope_set_trigger_source_delegates(stub_driver: _StubScopeDriver) -> None:
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
     scope.set_trigger_source(channel=2)
     assert ("set_trigger_source", 2) in stub_driver.calls
-    assert scope._config.trigger.source == 2
+    assert scope._state.trigger.source == 2
 
 
 def test_instro_scope_check_errors_calls_driver(stub_driver: _StubScopeDriver) -> None:
@@ -871,7 +871,7 @@ def test_instro_scope_check_errors_calls_driver(stub_driver: _StubScopeDriver) -
 
 def test_instro_scope_initializes_channel_configs(stub_driver: _StubScopeDriver) -> None:
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=4)
-    assert set(scope._config.channels.keys()) == {1, 2, 3, 4}
+    assert set(scope._state.channels.keys()) == {1, 2, 3, 4}
 
 
 def test_instro_scope_get_coupling_publishes_a_measurement_and_is_readable_from_the_buffer(

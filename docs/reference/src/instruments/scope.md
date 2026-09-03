@@ -10,6 +10,8 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 
 ::: instro.scope.types
 
+::: instro.scope.config
+
 ## Driver Interface
 
 ::: instro.scope.ScopeDriverBase

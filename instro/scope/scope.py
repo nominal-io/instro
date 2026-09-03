@@ -3,25 +3,33 @@
 from __future__ import annotations
 
 import abc
+import logging
+import math
 import threading
 import time
+from enum import Enum
+from pathlib import Path
 
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.scope.config import ScopeConfig, resolve_scope_from_config
 from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
-    ChannelConfig,
+    ChannelState,
     Coupling,
-    ScopeConfig,
     ScopeMeasurementType,
+    ScopeState,
     TriggerMode,
     TriggerSlope,
     TriggerStatus,
     TriggerType,
     WaveformData,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ScopeDriverBase(abc.ABC):
@@ -265,7 +273,7 @@ class ScopeDriverBase(abc.ABC):
         With ``from_instrument=True`` the scope reads from its own filesystem;
         otherwise the host reads ``name`` and pushes the bytes to the scope.
         After loading, the calling ``InstroScope`` should invalidate its
-        tracked ``ScopeConfig`` and resync if a fresh view is needed.
+        tracked ``ScopeState`` and resync if a fresh view is needed.
         """
 
 
@@ -274,16 +282,21 @@ class InstroScope(Instrument):
 
     def __init__(
         self,
-        name: str,
-        driver: ScopeDriverBase,
-        num_channels: int,
+        name: str | None = None,
+        driver: ScopeDriverBase | None = None,
+        num_channels: int | None = None,
         publishers: list[Publisher] | None = None,
+        config: ScopeConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an InstroScope.
 
+        Provide either ``config`` or ``driver``/``num_channels`` together, not both.
+
         Args:
-            name: Channel-name prefix for published data.
+            name: Channel-name prefix for published data. Falls back to
+                ``config.device.name`` when ``config`` is given.
             driver: Concrete scope driver; owns its own transport::
 
                 scope = InstroScope(
@@ -294,42 +307,152 @@ class InstroScope(Instrument):
 
             num_channels: Analog-input channel count.
             publishers: Publishers that receive emitted Measurement/Command data.
+                Combined with any publishers declared in ``config``.
+            config: A ``ScopeConfig``, a dict, or a path to a JSON config file. Its
+                ``channels``, ``acquisition``, and ``trigger`` blocks are applied through
+                the public setters on ``open()``; each channel's ``measurements`` are
+                registered as background daemon functions.
+            autostart: When True, open the connection and start background polling.
+                Requires ``config`` with at least one ``measurements`` entry, since the
+                daemon has nothing to poll otherwise.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
+        poll_interval: float | None = None
+        resolved_config: ScopeConfig | None = None
+        config_publishers: list[Publisher] = []
+        if config is not None:
+            if driver is not None or num_channels is not None:
+                raise ValueError(
+                    "InstroScope(config=...) cannot be combined with driver/num_channels; "
+                    "use one construction style or the other."
+                )
+            resolved_config = load_config(config, ScopeConfig)
+            resolved_name, driver, num_channels, config_publishers, poll_interval = resolve_scope_from_config(
+                resolved_config
+            )
+            publishers = [*(publishers or []), *config_publishers] or None
+            if name is None:
+                name = resolved_name
+        elif name is None or driver is None or num_channels is None:
+            raise ValueError("InstroScope requires either config=..., or name, driver, and num_channels together.")
+
         super().__init__(name, publishers=publishers, **kwargs)
 
         self._driver = driver
         self._num_channels = num_channels
+        self._config = resolved_config
+        self._config_applied = False
         self._resource_lock = threading.Lock()
-        self._config = ScopeConfig(
-            channels={ch: ChannelConfig() for ch in range(1, num_channels + 1)},
+        self._state = ScopeState(
+            channels={ch: ChannelState() for ch in range(1, num_channels + 1)},
         )
         self._acquisition_armed: bool = False
         self._last_acquisition_ts: int | None = None
 
-    def _get_channel_config(self, channel: int) -> ChannelConfig:
-        """Return (creating if missing) the ``ChannelConfig`` for ``channel``."""
-        if channel not in self._config.channels:
-            self._config.channels[channel] = ChannelConfig()
-        return self._config.channels[channel]
+        if resolved_config is not None:
+            for channel, channel_config in sorted(resolved_config.channels.items()):
+                for measurement_type in channel_config.measurements:
+                    self.add_background_daemon_function(self.measure, measurement_type, channel=channel)
+
+        if poll_interval is not None:
+            self.background_interval = poll_interval
+
+        if autostart:
+            if not self._background_methods:
+                raise ValueError(
+                    "autostart=True requires a config with at least one channels.<n>.measurements entry; "
+                    "background polling has nothing to do otherwise."
+                )
+            try:
+                self.open()
+                self.start()
+            except Exception:
+                self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
+                raise
+
+    def _get_channel_state(self, channel: int) -> ChannelState:
+        """Return (creating if missing) the ``ChannelState`` for ``channel``."""
+        if channel not in self._state.channels:
+            self._state.channels[channel] = ChannelState()
+        return self._state.channels[channel]
 
     def open(self) -> None:
-        """Open the underlying driver."""
+        """Open the underlying driver and apply any configured initial state."""
         self._driver.open()
+        try:
+            self._apply_config()
+        except Exception:
+            self._config_applied = False
+            self._driver.close()
+            raise
+
+    def _apply_config(self) -> None:
+        """Apply the config's ``channels`` → ``acquisition`` → ``trigger`` blocks through the public setters, once per open."""
+        if self._config is None or self._config_applied:
+            return
+        for channel, channel_config in sorted(self._config.channels.items()):
+            if channel_config.vertical_scale is not None:
+                self.set_vertical_scale(channel_config.vertical_scale, channel=channel)
+            if channel_config.vertical_offset is not None:
+                self.set_vertical_offset(channel_config.vertical_offset, channel=channel)
+            if channel_config.coupling is not None:
+                self.set_coupling(channel_config.coupling, channel=channel)
+            if channel_config.probe_attenuation is not None:
+                self.set_probe_attenuation(channel_config.probe_attenuation, channel=channel)
+        acquisition = self._config.acquisition
+        if acquisition is not None:
+            if acquisition.mode is not None:
+                self.set_acquisition_mode(acquisition.mode)
+            if acquisition.average_count is not None:
+                self.set_average_count(acquisition.average_count)
+            if acquisition.horizontal_scale is not None:
+                self.set_horizontal_scale(acquisition.horizontal_scale)
+        trigger = self._config.trigger
+        if trigger is not None:
+            self.set_trigger_source(trigger.source)
+            if trigger.type is not None:
+                self.set_trigger_type(trigger.type)
+            if trigger.slope is not None:
+                self.set_trigger_slope(trigger.slope)
+            if trigger.level is not None:
+                self.set_trigger_level(trigger.level)
+            if trigger.mode is not None:
+                self.set_trigger_mode(trigger.mode)
+        self.sync_configuration()
+        self._warn_on_snapped_values()
+        if acquisition is not None and acquisition.start_acquisition_on_open:
+            self.run()
+        self._config_applied = True
+
+    def _warn_on_snapped_values(self) -> None:
+        """Log one warning per config field the instrument reports differently after ``sync_configuration()``."""
+        assert self._config is not None
+        for channel, requested in sorted(self._config.channels.items()):
+            actual = self._state.channels[channel]
+            for attr in ("vertical_scale", "vertical_offset", "coupling", "probe_attenuation"):
+                _warn_if_snapped(f"ch{channel}.{attr}", getattr(requested, attr), getattr(actual, attr))
+        acquisition = self._config.acquisition
+        if acquisition is not None:
+            _warn_if_snapped("acquisition.mode", acquisition.mode, self._state.acquisition_mode)
+            _warn_if_snapped("acquisition.average_count", acquisition.average_count, self._state.average_count)
+            _warn_if_snapped("acquisition.horizontal_scale", acquisition.horizontal_scale, self._state.horizontal_scale)
 
     def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         self._driver.close()
         super().close()
+        self._config_applied = False
 
     def _check_errors(self) -> None:
         """Raise if the driver's SCPI error queue holds anything."""
         self._driver.check_errors()
 
-    def sync_configuration(self) -> ScopeConfig:
-        """Bulk-query the instrument and overwrite the tracked ``ScopeConfig`` with live state.
+    def sync_configuration(self) -> ScopeState:
+        """Bulk-query the instrument and overwrite the tracked ``ScopeState`` with live state.
 
         Note that trigger source/type/level/slope/mode aren't bulk-queried — not all scopes expose
         every trigger field, so call the per-field getters where supported.
@@ -337,18 +460,18 @@ class InstroScope(Instrument):
         with self._resource_lock:
             # Per-channel state
             for ch in range(1, self._num_channels + 1):
-                ch_cfg = self._get_channel_config(ch)
+                ch_cfg = self._get_channel_state(ch)
                 ch_cfg.vertical_scale = self._driver.get_vertical_scale(channel=ch)
                 ch_cfg.vertical_offset = self._driver.get_vertical_offset(channel=ch)
                 ch_cfg.coupling = self._driver.get_coupling(channel=ch)
                 ch_cfg.probe_attenuation = self._driver.get_probe_attenuation(channel=ch)
 
             # Timebase
-            self._config.horizontal_scale = self._driver.get_horizontal_scale()
+            self._state.horizontal_scale = self._driver.get_horizontal_scale()
 
             # Acquisition
-            self._config.acquisition_mode = self._driver.get_acquisition_mode()
-            self._config.average_count = self._driver.get_average_count()
+            self._state.acquisition_mode = self._driver.get_acquisition_mode()
+            self._state.average_count = self._driver.get_average_count()
 
             # Trigger
             # Note: trigger source/type/level/slope/mode are not bulk-queried here
@@ -357,7 +480,7 @@ class InstroScope(Instrument):
 
             self._check_errors()
 
-        return self._config
+        return self._state
 
     # --- Channel vertical settings ---
 
@@ -369,7 +492,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).vertical_scale = volts_per_div
+        self._get_channel_state(channel).vertical_scale = volts_per_div
 
         descriptor = f"ch{channel}_vscale.cmd" if self.legacy_naming else f"ch{channel}.vscale.cmd"
         return self._package_command(descriptor, volts_per_div, timestamp, **kwargs)
@@ -382,7 +505,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).vertical_scale = val
+        self._get_channel_state(channel).vertical_scale = val
 
         descriptor = f"ch{channel}_vscale" if self.legacy_naming else f"ch{channel}.vscale"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
@@ -395,7 +518,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).vertical_offset = offset
+        self._get_channel_state(channel).vertical_offset = offset
 
         descriptor = f"ch{channel}_voffset.cmd" if self.legacy_naming else f"ch{channel}.voffset.cmd"
         return self._package_command(descriptor, offset, timestamp, **kwargs)
@@ -408,7 +531,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).vertical_offset = val
+        self._get_channel_state(channel).vertical_offset = val
 
         descriptor = f"ch{channel}_voffset" if self.legacy_naming else f"ch{channel}.voffset"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
@@ -421,7 +544,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).coupling = coupling
+        self._get_channel_state(channel).coupling = coupling
 
         descriptor = f"ch{channel}_coupling.cmd" if self.legacy_naming else f"ch{channel}.coupling.cmd"
         return self._package_command(descriptor, coupling.value, timestamp, **kwargs)
@@ -434,7 +557,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).coupling = val
+        self._get_channel_state(channel).coupling = val
 
         descriptor = f"ch{channel}_coupling" if self.legacy_naming else f"ch{channel}.coupling"
         return self._package_measurement(descriptor, val.value, timestamp, **kwargs)
@@ -447,7 +570,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).probe_attenuation = factor
+        self._get_channel_state(channel).probe_attenuation = factor
 
         # Legacy descriptor abbreviated probe_attenuation → probe_atten.
         descriptor = f"ch{channel}_probe_atten.cmd" if self.legacy_naming else f"ch{channel}.probe_attenuation.cmd"
@@ -461,7 +584,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._get_channel_config(channel).probe_attenuation = val
+        self._get_channel_state(channel).probe_attenuation = val
 
         descriptor = f"ch{channel}_probe_atten" if self.legacy_naming else f"ch{channel}.probe_attenuation"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
@@ -476,7 +599,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.horizontal_scale = seconds_per_div
+        self._state.horizontal_scale = seconds_per_div
 
         return self._package_command("hscale.cmd", seconds_per_div, timestamp, **kwargs)
 
@@ -488,7 +611,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.horizontal_scale = val
+        self._state.horizontal_scale = val
 
         return self._package_measurement("hscale", val, timestamp, **kwargs)
 
@@ -514,7 +637,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.acquisition_mode = mode
+        self._state.acquisition_mode = mode
 
         return self._package_command("acquisition_mode.cmd", mode.value, timestamp, **kwargs)
 
@@ -526,7 +649,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.acquisition_mode = val
+        self._state.acquisition_mode = val
 
         return self._package_measurement("acquisition_mode", val.value, timestamp, **kwargs)
 
@@ -538,7 +661,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.average_count = count
+        self._state.average_count = count
 
         return self._package_command("average_count.cmd", count, timestamp, **kwargs)
 
@@ -550,7 +673,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.average_count = val
+        self._state.average_count = val
 
         return self._package_measurement("average_count", float(val), timestamp, **kwargs)
 
@@ -683,7 +806,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.trigger.source = channel
+        self._state.trigger.source = channel
 
         return self._package_command("trigger_source.cmd", channel, timestamp, **kwargs)
 
@@ -695,7 +818,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.trigger.type = trigger_type
+        self._state.trigger.type = trigger_type
 
         return self._package_command("trigger_type.cmd", trigger_type.value, timestamp, **kwargs)
 
@@ -707,7 +830,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.trigger.level = level
+        self._state.trigger.level = level
 
         return self._package_command("trigger_level.cmd", level, timestamp, **kwargs)
 
@@ -719,7 +842,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.trigger.slope = slope
+        self._state.trigger.slope = slope
 
         return self._package_command("trigger_slope.cmd", slope.value, timestamp, **kwargs)
 
@@ -731,7 +854,7 @@ class InstroScope(Instrument):
             timestamp = time.time_ns()
             self._check_errors()
 
-        self._config.trigger.mode = mode
+        self._state.trigger.mode = mode
 
         return self._package_command("trigger_mode.cmd", mode.value, timestamp, **kwargs)
 
@@ -781,7 +904,7 @@ class InstroScope(Instrument):
     def load_settings(self, name: str, from_instrument: bool = False, **kwargs) -> Command:
         """Recall a scope setup. ``from_instrument=True`` reads from the scope's filesystem; otherwise from the host.
 
-        Invalidates the tracked ``ScopeConfig`` since instrument state changed externally;
+        Invalidates the tracked ``ScopeState`` since instrument state changed externally;
         call ``sync_configuration()`` to refresh.
         """
         with self._resource_lock:
@@ -790,8 +913,24 @@ class InstroScope(Instrument):
             self._check_errors()
 
         # Invalidate tracked state since the instrument config changed externally
-        self._config = ScopeConfig(
-            channels={ch: ChannelConfig() for ch in range(1, self._num_channels + 1)},
+        self._state = ScopeState(
+            channels={ch: ChannelState() for ch in range(1, self._num_channels + 1)},
         )
 
         return self._package_command("load_settings.cmd", name, timestamp, **kwargs)
+
+
+def _warn_if_snapped(field: str, requested: object, actual: object) -> None:
+    """Warn when the instrument reports a different value than the config requested for ``field``."""
+    if requested is None:
+        return
+    if isinstance(requested, float) and isinstance(actual, (int, float)):
+        matches = math.isclose(requested, actual, rel_tol=1e-3, abs_tol=1e-9)
+    else:
+        matches = requested == actual
+    if not matches:
+        logger.warning("config requested %s=%s but instrument reports %s", field, _fmt(requested), _fmt(actual))
+
+
+def _fmt(value: object) -> object:
+    return value.value if isinstance(value, Enum) else value
