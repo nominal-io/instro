@@ -822,3 +822,80 @@ def test_malformed_modulation_baseband_rejected_at_validation(valid_config):
     }
     with pytest.raises(Exception, match="duty_cycle_pct must be between 0 and 100"):
         InstroAWG(config=config)
+
+
+_MODULATION_BLOCK = {
+    "type": {"name": "AM", "magnitude": 50.0},
+    "baseband_shape": {"shape": "sine", "frequency_hz": 100.0, "phase_deg": 0.0},
+    "enable": True,
+}
+_BURST_BLOCK = {"type": "NCYCLE", "enable": True}
+_SWEEP_BLOCK = {"type": "LINEAR", "enable": True}
+
+
+@pytest.mark.parametrize(
+    ("blocks", "expected"),
+    [
+        ({"modulation": _MODULATION_BLOCK, "burst": _BURST_BLOCK}, "modulation and burst"),
+        ({"modulation": _MODULATION_BLOCK, "sweep": _SWEEP_BLOCK}, "modulation and sweep"),
+        ({"burst": _BURST_BLOCK, "sweep": _SWEEP_BLOCK}, "burst and sweep"),
+        (
+            {"modulation": _MODULATION_BLOCK, "burst": _BURST_BLOCK, "sweep": _SWEEP_BLOCK},
+            "modulation and burst and sweep",
+        ),
+    ],
+)
+def test_multiple_enabled_modes_rejected_at_validation(valid_config, blocks, expected):
+    """open() applies modulation, burst, then sweep, so enabling more than one silently drops all but the last."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {"waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0}, **blocks},
+        },
+    }
+    with pytest.raises(
+        Exception, match=f"only one of modulation, burst, or sweep can be enabled per channel, got {expected}"
+    ):
+        InstroAWG(config=config)
+
+
+def test_one_enabled_mode_alongside_disabled_modes_is_accepted(valid_config):
+    """Only `enable` counts: a configured-but-disabled block still gets its setters applied."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "modulation": {**_MODULATION_BLOCK, "enable": False},
+                "burst": {**_BURST_BLOCK, "enable": True},
+                "sweep": {**_SWEEP_BLOCK, "enable": False},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.modulation_enable.assert_called_once_with(channel=1, enable=False)
+    mock_driver.burst_enable.assert_called_once_with(1, True)
+    mock_driver.sweep_enable.assert_called_once_with(1, False)
+
+
+def test_modes_are_validated_per_channel_not_across_channels(valid_config):
+    """One enabled mode on each of two channels is fine; the limit is per channel."""
+    waveform = {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0}
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {"waveform": waveform, "burst": _BURST_BLOCK},
+            "2": {"waveform": waveform, "sweep": _SWEEP_BLOCK},
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.burst_enable.assert_called_once_with(1, True)
+    mock_driver.sweep_enable.assert_called_once_with(2, True)

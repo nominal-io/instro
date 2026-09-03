@@ -150,6 +150,8 @@ Inside each `ChannelConfig` object, the following fields are filled:
 
 Shape parameters carry the same bounds the Python `Waveform` definitions enforce (positive `frequency_hz`, `duty_cycle_pct` within 0–100, a pulse whose `width_s + delay_s` fits inside the period, and so on). A modulation `baseband_shape` carries the same bounds as a carrier waveform. These are checked when the config is parsed.
 
+A channel may enable at most one of `modulation`, `burst`, or `sweep`. All three blocks can be present together, but only one may carry `"enable": true` — more than one is rejected when the config is parsed. A block with `"enable": false` still has its other settings applied.
+
 `output_enable` cannot be set from the configuration file. You must explicitly call `output_enable(channel, True)` to enable output. Enabling `modulation`, `burst`, or `sweep` from the config does not turn the output on.
 
 An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to start the connection, apply the `channels` config, and start polling immediately:

@@ -275,6 +275,17 @@ class ChannelConfig(BaseModel):
         build_waveform(self.waveform)
         return self
 
+    @model_validator(mode="after")
+    def _check_at_most_one_mode_enabled(self) -> ChannelConfig:
+        """Reject more than one enabled mode, since ``open()`` applies them in order and only the last one survives."""
+        modes = {"modulation": self.modulation, "burst": self.burst, "sweep": self.sweep}
+        enabled = [name for name, mode in modes.items() if mode is not None and mode.enable]
+        if len(enabled) > 1:
+            raise ValueError(
+                f"only one of modulation, burst, or sweep can be enabled per channel, got {' and '.join(enabled)}"
+            )
+        return self
+
 
 class AWGConfig(BaseModel):
     """Validated config for constructing an InstroAWG from JSON."""
