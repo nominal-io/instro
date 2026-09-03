@@ -1,12 +1,12 @@
 [project]
 name = "instro-unstable"
-version = "1.9.0"
+version = "1.10.0"
 description = "Unstable modules for instro (in-development features)"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.15"
 dependencies = [
-    "instro",
+    "instro>=1.10.0",
     "scikit-rf>=2.1.0",
     "python-can>=4.3",
     "gs-usb>=0.3",

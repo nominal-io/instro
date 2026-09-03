@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.9.0...instro-unstable-v1.10.0) (2026-09-03)
+
+
+### Features
+
+* **unstable:** add motor-controller HAL and VESC 6 CAN driver ([#386](https://github.com/nominal-io/instro/issues/386)) ([e7f9627](https://github.com/nominal-io/instro/commit/e7f9627cefb8c48e7e2f50c45b488ec6a0e02f68))
+
 ## [1.9.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.8.0...instro-unstable-v1.9.0) (2026-09-02)
 
 
