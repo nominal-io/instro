@@ -1118,7 +1118,7 @@ class InstroDAQ(Instrument):
                     )
                 analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
         elif analog_aliases:
-            # Size get_channel params to wait for one full batch of samples based on
+            # Size get_channel params to wait for one full batch of samples based on timing config
             hw_timing = self.ai_hw_timing_config
             length = hw_timing.samples_per_channel if hw_timing else 1
             batch_duration_s = length / hw_timing.sample_rate if hw_timing else self.background_interval
