@@ -31,6 +31,14 @@ from instro.scope.types import (
 
 logger = logging.getLogger(__name__)
 
+# Tolerances for the post-open snapped-value check (config request vs. sync_configuration() read-back).
+# Read-backs are formatted to as few as 3 significant figures (Siglent returns e.g. "2.00E-01"), so
+# rounding alone can move a value by up to 0.5%; 1% absorbs that with margin, while real snaps are far
+# coarser (1-2-5 scale steps change the value by >= 25%). The absolute floor only matters at or near
+# zero, where float parsing noise (1e-12) would otherwise defeat a relative tolerance.
+SNAP_REL_TOL = 1e-2
+SNAP_ABS_TOL = 1e-9
+
 
 class ScopeDriverBase(abc.ABC):
     """Vendor scope driver contract. Concrete drivers compose a transport (typically ``VisaDriver``).
@@ -940,7 +948,7 @@ def _warn_if_snapped(field: str, requested: object, actual: object) -> None:
     if requested is None:
         return
     if isinstance(requested, float) and isinstance(actual, (int, float)):
-        matches = math.isclose(requested, actual, rel_tol=1e-3, abs_tol=1e-9)
+        matches = math.isclose(requested, actual, rel_tol=SNAP_REL_TOL, abs_tol=SNAP_ABS_TOL)
     else:
         matches = requested == actual
     if not matches:

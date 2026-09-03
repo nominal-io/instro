@@ -211,6 +211,17 @@ def test_open_warns_when_instrument_snaps_requested_values(full_config, caplog):
     ]
 
 
+def test_open_does_not_warn_on_three_significant_figure_readback_rounding(full_config, caplog):
+    full_config["channels"]["1"]["vertical_scale"] = 0.1236
+    scope, mock_driver = _make_scope_with_mock_driver(full_config)
+    mock_driver.get_vertical_scale.return_value = float("1.24E-01")
+
+    with caplog.at_level(logging.WARNING, logger="instro.scope.scope"):
+        scope.open()
+
+    assert caplog.records == []
+
+
 def test_open_closes_driver_when_config_apply_fails(full_config):
     scope, mock_driver = _make_scope_with_mock_driver(full_config)
     mock_driver.set_acquisition_mode.side_effect = NotImplementedError("no AVERAGE mode")

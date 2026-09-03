@@ -162,7 +162,7 @@ The three optional initial-state blocks are applied through the public setters w
 
 Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
 
-After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config, for example `config requested ch1.vertical_scale=0.3 but instrument reports 0.2`. Floats compare with a loose relative tolerance, so formatting differences stay quiet. Trigger fields are not checked, since `sync_configuration()` does not read them back.
+After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config, for example `config requested ch1.vertical_scale=0.3 but instrument reports 0.2`. Floats compare within 1% (`instro.scope.scope.SNAP_REL_TOL`, with `SNAP_ABS_TOL` as the floor near zero), so a read-back rounded to three significant figures stays quiet while any real 1-2-5 step snap still warns. Trigger fields are not checked, since `sync_configuration()` does not read them back.
 
 Config never starts acquisition by default. Set `acquisition.start_acquisition_on_open: true` to call `run()` as the last step of `open()`, once the configured trigger is in place. Without it, background-polled `measure()` calls return `NaN` until you call `scope.run()` or the operator starts the scope from the front panel, which keeps passive monitoring of an operator-driven scope a first-class workflow. One-shot arming (`single()`) and waveform, screenshot, and settings-file operations stay runtime-only.
 
