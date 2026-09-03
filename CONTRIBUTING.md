@@ -121,6 +121,10 @@ The root [`Cargo.lock`](Cargo.lock) covers every Rust workspace member, includin
 
 CI verifies the committed lockfile with `--locked`, as part of `just check-rust` (which `just check` runs and CI invokes directly in its Rust checks step).
 
+### Release PRs
+
+release-please opens a single `chore(main): release` PR that carries every pending package bump (root `instro`, the `packages/` members, and the `crates/` members). Each package is still versioned and tagged independently; the PR is just the one place to merge them. Do not set `separate-pull-requests` in [`.github/release-please-config.json`](.github/release-please-config.json): per-package release PRs were tried and walked back because they multiplied the bot PRs to babysit (#466).
+
 ### Rust crate releases
 
 Pure-Rust crates under `crates/` that are published to crates.io are managed by release-please with `release-type: rust`. They are versioned independently from the Python packages and from each other. The public crate names are their Cargo package names, but release-please component names may differ to avoid GitHub tag collisions with Python packages; for example, the Rust EtherNet/IP crate uses `instro-ethernetip-rs` tags while the Python wrapper keeps `instro-ethernetip` tags.
