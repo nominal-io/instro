@@ -23,6 +23,7 @@ Run:
 import statistics
 import time
 
+from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
 from instro.unstable.transports import CanConfig, CanDriver
@@ -30,14 +31,14 @@ from instro.unstable.transports import CanConfig, CanDriver
 DATASET_RID = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"  # replace with the stand's dataset RID
 
 bus = CanDriver(CanConfig(channel=0, interface="gs_usb"))
-dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0), dataset_rid=DATASET_RID)
-load_left = InstroMotorController(
-    "load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1), dataset_rid=DATASET_RID
-)
-load_right = InstroMotorController(
-    "load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2), dataset_rid=DATASET_RID
-)
+dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0))
+load_left = InstroMotorController("load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1))
+load_right = InstroMotorController("load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2))
 motors = (dut, load_left, load_right)
+
+dut.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+load_left.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+load_right.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 DUT_RPM = 1200.0
 BRAKE_STEPS_A = (0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 0.0)  # unloaded baseline, the sweep, then release
