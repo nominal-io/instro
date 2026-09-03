@@ -1093,14 +1093,14 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
 
 
 def test_restart_registers_background_fetch_exactly_once():
-    """start() after stop() must not register a second _fetch_analog_hw_timed daemon function."""
+    """start() after stop() must not register a second AI fetch daemon function."""
     daq, _ = _hw_timed_daq()
     try:
         daq.start()
         daq.stop()
         daq.start()
 
-        fetchers = [method for method, _, _ in daq._background_methods if method == daq._fetch_analog_hw_timed]
+        fetchers = [method for method, _, _ in daq._background_methods if method == daq._daemon_analog_fetch]
         assert len(fetchers) == 1
     finally:
         daq.stop()

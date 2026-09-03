@@ -465,7 +465,7 @@ daq.stop()
 daq.close()
 ```
 
-While the daemon is running, `read()` and `read_batch()` serve analog channels from the daemon's channel buffer, so the same read code works whether or not the daemon is running. Both block until the daemon publishes a fresh batch, so a buffered read returns new samples instead of the last cached value. `read_analog()` raises instead: the daemon owns the hardware reads. Call `get_channel()` directly for more control over buffered reads (sample count, blocking for new samples, timeouts). See the [software-timed example](/instrumentation/examples/daq/daq_read_analog_sw_timed).
+While the daemon is running, `read()` and `read_batch()` serve analog channels from the acquisition the daemon just completed, so the same read code works whether or not the daemon is running. Both block until the next acquisition arrives, so a read returns new samples instead of the last cached value. `read_analog()` raises instead: the daemon owns the hardware reads. Call `get_channel()` to read the channel buffer, which keeps per-channel sample history and the daemon's own timing channels. See the [software-timed example](/instrumentation/examples/daq/daq_read_analog_sw_timed).
 
 ### Hardware-Timed Acquisition with Background Fetching
 See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more information regarding background fetching of measurements.
@@ -687,14 +687,7 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 `read()` accepts a single alias and returns that channel's `Measurement`. `read_batch()` accepts a list of aliases, or `None` for every configured input channel, and returns a `dict` keyed by alias, with each value the channel's `Measurement`. Analog aliases are served from one batched analog read; digital aliases are read per line or port.
 
-While the background daemon is running, analog aliases are served from the daemon's channel buffer instead of triggering a hardware read. The call blocks for one fresh batch: `samples_per_channel` samples per alias when hardware timing is configured, or one sample per alias per daemon poll when software timing is configured. The timeout scales to two batch durations, with a floor of 10 seconds, so a slow acquisition does not time out. Call `get_channel()` directly when you need a different sample count, blocking behavior, or timeout.
-
-<Warning>
-**Keysight 34980A: buffered batch reads can mix adjacent scans**
-
-The 34980A scans channels one at a time and publishes one `Measurement` per channel, so a buffered `read_batch()` of two or more analog aliases can return the previous scan for the later aliases, with timestamps one scan period apart.
-Read one alias at a time with `read()` when cross-channel time alignment matters. Other DAQ drivers publish every analog channel in one `Measurement` and are not affected.
-</Warning>
+While the background daemon is running, analog aliases are served from the acquisition the daemon just completed instead of triggering a hardware read. The call blocks until the next acquisition arrives, and every alias comes from that same acquisition, so channels never span batches. One acquisition carries `samples_per_channel` samples per alias when hardware timing is configured, or one sample per alias when software timing is configured. The wait times out at two acquisition durations, with a floor of 10 seconds, so a slow acquisition does not time out. Call `get_channel()` when you need sample history, a specific sample count, or a read that does not block.
 
 ```python
 daq.configure_voltage_input(physical_channel="ai0", alias="v0")
