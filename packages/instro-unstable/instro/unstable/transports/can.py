@@ -24,6 +24,15 @@ def _prime_gs_usb_backend() -> None:
     usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
 
 
+def _release_gs_usb_device(bus: can.BusABC) -> None:
+    """Free the libusb handle python-can's gs_usb shutdown leaks; without this a reopen in the same process fails with EACCES."""
+    import usb.util
+
+    device = getattr(getattr(bus, "gs_usb", None), "gs_usb", None)
+    if device is not None:
+        usb.util.dispose_resources(device)
+
+
 @dataclasses.dataclass
 class CanConfig:
     """Connection parameters for a python-can bus.
@@ -100,6 +109,8 @@ class CanDriver(TransportBase):
             return
         try:
             self._bus.shutdown()
+            if self._config.interface == "gs_usb":
+                _release_gs_usb_device(self._bus)
         finally:
             self._bus = None
             for subscription in self._subscriptions:

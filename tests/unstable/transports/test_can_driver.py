@@ -74,6 +74,17 @@ def test_gs_usb_open_primes_the_libusb_backend(bus: MagicMock, prime_backend: Ma
     prime_backend.assert_not_called()
 
 
+def test_gs_usb_close_releases_the_libusb_device(transport: CanDriver, bus: MagicMock) -> None:
+    bus.gs_usb = MagicMock()
+    transport.open()
+
+    with patch("usb.util.dispose_resources", autospec=True) as dispose:
+        transport.close()
+
+    bus.shutdown.assert_called_once_with()
+    dispose.assert_called_once_with(bus.gs_usb.gs_usb)
+
+
 def test_gs_usb_open_failure_raises_a_teaching_error(bus_cls: MagicMock) -> None:
     bus_cls.side_effect = can.exceptions.CanInitializationError("Cannot find device 0. Devices found: 0")
     transport = CanDriver(CanConfig(channel=0, interface="gs_usb"))
