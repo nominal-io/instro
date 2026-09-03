@@ -382,6 +382,7 @@ class InstroScope(Instrument):
 
     def open(self) -> None:
         """Open the underlying driver and apply any configured initial state."""
+        logger.info("Opening scope '%s'", self.name)
         self._driver.open()
         try:
             self._apply_config()
@@ -389,6 +390,7 @@ class InstroScope(Instrument):
             self._config_applied = False
             self._driver.close()
             raise
+        logger.info("Opened scope '%s'", self.name)
 
     def _apply_config(self) -> None:
         """Apply the config's ``channels`` → ``acquisition`` → ``trigger`` blocks through the public setters, once per open."""
@@ -449,10 +451,16 @@ class InstroScope(Instrument):
             _warn_if_snapped("acquisition.horizontal_scale", acquisition.horizontal_scale, self._state.horizontal_scale)
 
     def close(self) -> None:
-        """Close the underlying driver and stop the daemon."""
-        self._driver.close()
-        super().close()
+        """Stop the daemon and publishers, then close the underlying driver."""
+        logger.info("Closing scope '%s'", self.name)
+        # Reset before teardown: a failing publisher close must not strand the flag,
+        # or a later reopen would silently skip re-applying the configured state.
         self._config_applied = False
+        try:
+            super().close()
+        finally:
+            self._driver.close()
+        logger.info("Closed scope '%s'", self.name)
 
     def _check_errors(self) -> None:
         """Raise if the driver's SCPI error queue holds anything."""
