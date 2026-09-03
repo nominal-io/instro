@@ -4,6 +4,7 @@ from instro.unstable.awg.awg import (
     AWGDriverBase,
     InstroAWG,
 )
+from instro.unstable.awg.config import AWGConfig
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
@@ -25,6 +26,7 @@ from instro.unstable.awg.types import (
 
 __all__ = [
     "InstroAWG",
+    "AWGConfig",
     "AWGDriverBase",
     "Waveform",
     "Sine",
