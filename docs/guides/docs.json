@@ -223,6 +223,14 @@
               "instrumentation/examples/unstable/flowcontroller/flowcontroller",
               "instrumentation/examples/unstable/flowcontroller/alicat_mc"
             ]
+          },
+          {
+            "group": "Motorcontroller (Unstable)",
+            "pages": [
+              "instrumentation/examples/unstable/motorcontroller/vesc_6",
+              "instrumentation/examples/unstable/motorcontroller/vesc_6_single_motor",
+              "instrumentation/examples/unstable/motorcontroller/vesc_6_eaxle_load_sweep"
+            ]
           }
         ]
       }

@@ -594,7 +594,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.15.0"
+version = "1.16.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -817,7 +817,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-unstable"
-version = "1.8.0"
+version = "1.9.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "gs-usb" },
