@@ -8,7 +8,7 @@ import can
 import pytest
 
 from instro.unstable.motorcontroller.drivers import VESC6
-from instro.unstable.transports import CanConfig, CanDriver
+from instro.unstable.transports import CanConfig, CanTransport
 
 _CONTROLLER_ID = 42
 
@@ -183,7 +183,7 @@ def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, bu
 
 
 def test_two_drivers_share_one_transport(bus_cls: MagicMock, bus: MagicMock) -> None:
-    transport = CanDriver(CanConfig(channel=0, interface="gs_usb"))
+    transport = CanTransport(CanConfig(channel=0, interface="gs_usb"))
     left = VESC6(channel=transport, pole_pairs=1, controller_id=1)
     right = VESC6(channel=transport, pole_pairs=1, controller_id=2)
 

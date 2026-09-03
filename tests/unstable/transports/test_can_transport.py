@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import can
 import pytest
 
-from instro.unstable.transports import CanConfig, CanDriver
+from instro.unstable.transports import CanConfig, CanTransport
 
 
 def _frame(arbitration_id: int, data: bytes = b"\x00", extended: bool = True) -> can.Message:
@@ -33,12 +33,12 @@ def bus(bus_cls: MagicMock) -> MagicMock:
 
 
 @pytest.fixture
-def transport(bus: MagicMock) -> CanDriver:
-    return CanDriver(CanConfig(channel=0, interface="gs_usb"))
+def transport(bus: MagicMock) -> CanTransport:
+    return CanTransport(CanConfig(channel=0, interface="gs_usb"))
 
 
 def test_open_builds_bus_from_config_and_close_shuts_down(bus_cls: MagicMock, bus: MagicMock) -> None:
-    transport = CanDriver(CanConfig(channel="COM4", interface="slcan", bitrate=250_000, bus_kwargs={"index": 1}))
+    transport = CanTransport(CanConfig(channel="COM4", interface="slcan", bitrate=250_000, bus_kwargs={"index": 1}))
     bus_cls.assert_not_called()
 
     transport.open()
@@ -51,7 +51,7 @@ def test_open_builds_bus_from_config_and_close_shuts_down(bus_cls: MagicMock, bu
 
 
 def test_shared_holders_open_once_and_teardown_on_last_close(
-    transport: CanDriver, bus_cls: MagicMock, bus: MagicMock
+    transport: CanTransport, bus_cls: MagicMock, bus: MagicMock
 ) -> None:
     first, second = object(), object()
 
@@ -66,15 +66,15 @@ def test_shared_holders_open_once_and_teardown_on_last_close(
 
 
 def test_gs_usb_open_primes_the_libusb_backend(bus: MagicMock, prime_backend: MagicMock) -> None:
-    CanDriver(CanConfig(channel=0, interface="gs_usb")).open()
+    CanTransport(CanConfig(channel=0, interface="gs_usb")).open()
     prime_backend.assert_called_once_with()
 
     prime_backend.reset_mock()
-    CanDriver(CanConfig(channel="COM4", interface="slcan")).open()
+    CanTransport(CanConfig(channel="COM4", interface="slcan")).open()
     prime_backend.assert_not_called()
 
 
-def test_gs_usb_close_releases_the_libusb_device(transport: CanDriver, bus: MagicMock) -> None:
+def test_gs_usb_close_releases_the_libusb_device(transport: CanTransport, bus: MagicMock) -> None:
     bus.gs_usb = MagicMock()
     transport.open()
 
@@ -87,20 +87,20 @@ def test_gs_usb_close_releases_the_libusb_device(transport: CanDriver, bus: Magi
 
 def test_gs_usb_open_failure_raises_a_teaching_error(bus_cls: MagicMock) -> None:
     bus_cls.side_effect = can.exceptions.CanInitializationError("Cannot find device 0. Devices found: 0")
-    transport = CanDriver(CanConfig(channel=0, interface="gs_usb"))
+    transport = CanTransport(CanConfig(channel=0, interface="gs_usb"))
 
     with pytest.raises(can.exceptions.CanInitializationError, match="candleLight") as excinfo:
         transport.open()
     assert isinstance(excinfo.value.__cause__, can.exceptions.CanInitializationError)
 
 
-def test_send_before_open_raises(transport: CanDriver, bus: MagicMock) -> None:
+def test_send_before_open_raises(transport: CanTransport, bus: MagicMock) -> None:
     with pytest.raises(RuntimeError, match="not open"):
         transport.send(0x123, b"\x01")
     bus.send.assert_not_called()
 
 
-def test_send_builds_wire_frame(transport: CanDriver, bus: MagicMock) -> None:
+def test_send_builds_wire_frame(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
 
     transport.send(0x966, b"\x01\x02", is_extended_id=True)
@@ -111,7 +111,7 @@ def test_send_builds_wire_frame(transport: CanDriver, bus: MagicMock) -> None:
     assert frame.is_extended_id
 
 
-def test_drain_routes_frames_to_all_matching_subscriptions(transport: CanDriver, bus: MagicMock) -> None:
+def test_drain_routes_frames_to_all_matching_subscriptions(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
     sub_a = transport.subscribe(lambda m: m.arbitration_id & 0xFF == 1)
     sub_b = transport.subscribe(lambda m: m.arbitration_id & 0xFF == 2)
@@ -124,7 +124,7 @@ def test_drain_routes_frames_to_all_matching_subscriptions(transport: CanDriver,
     assert [f.arbitration_id for f in sub_b.drain()] == [0x902]
 
 
-def test_drain_hands_over_the_buffer(transport: CanDriver, bus: MagicMock) -> None:
+def test_drain_hands_over_the_buffer(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
     subscription = transport.subscribe(lambda m: True)
     bus.recv.side_effect = [_frame(0x901), None, None]
@@ -133,7 +133,7 @@ def test_drain_hands_over_the_buffer(transport: CanDriver, bus: MagicMock) -> No
     assert subscription.drain() == []
 
 
-def test_full_subscription_drops_oldest_frames(transport: CanDriver, bus: MagicMock) -> None:
+def test_full_subscription_drops_oldest_frames(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
     subscription = transport.subscribe(lambda m: True, depth=2)
     bus.recv.side_effect = [_frame(1), _frame(2), _frame(3), None]
@@ -141,7 +141,7 @@ def test_full_subscription_drops_oldest_frames(transport: CanDriver, bus: MagicM
     assert [f.arbitration_id for f in subscription.drain()] == [2, 3]
 
 
-def test_reopen_does_not_replay_frames_from_the_previous_session(transport: CanDriver, bus: MagicMock) -> None:
+def test_reopen_does_not_replay_frames_from_the_previous_session(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
     keeper = transport.subscribe(lambda m: True)
     router = transport.subscribe(lambda m: True)
@@ -154,7 +154,7 @@ def test_reopen_does_not_replay_frames_from_the_previous_session(transport: CanD
     assert keeper.drain() == []
 
 
-def test_unsubscribed_subscription_no_longer_receives(transport: CanDriver, bus: MagicMock) -> None:
+def test_unsubscribed_subscription_no_longer_receives(transport: CanTransport, bus: MagicMock) -> None:
     transport.open()
     dropped = transport.subscribe(lambda m: True)
     kept = transport.subscribe(lambda m: True)

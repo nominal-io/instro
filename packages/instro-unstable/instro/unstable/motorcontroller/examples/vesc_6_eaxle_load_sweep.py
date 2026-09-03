@@ -2,7 +2,7 @@
 
 Stand: the motor under test (DUT) drives a reduction to an axle, and a load motor
 on each axle output brakes it. All three VESCs hang off one gs_usb adapter, so
-the three drivers share one CanDriver. The DUT holds a velocity setpoint while
+the three drivers share one CanTransport. The DUT holds a velocity setpoint while
 both load motors step through brake-current levels; brake current opposes each
 motor's own rotation, so the two loads cannot fight through the differential.
 
@@ -26,11 +26,11 @@ import time
 from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.motorcontroller import InstroMotorController
 from instro.unstable.motorcontroller.drivers import VESC6
-from instro.unstable.transports import CanConfig, CanDriver
+from instro.unstable.transports import CanConfig, CanTransport
 
 DATASET_RID = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"  # replace with the stand's dataset RID
 
-bus = CanDriver(CanConfig(channel=0, interface="gs_usb"))
+bus = CanTransport(CanConfig(channel=0, interface="gs_usb"))
 dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0))
 load_left = InstroMotorController("load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1))
 load_right = InstroMotorController("load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2))

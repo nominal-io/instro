@@ -51,7 +51,7 @@ class CanConfig:
 class CanSubscription:
     """A subscriber's view of the shared bus: drained frames matching its filter, oldest dropped when full."""
 
-    def __init__(self, transport: CanDriver, frame_filter: Callable[[can.Message], bool], depth: int) -> None:
+    def __init__(self, transport: CanTransport, frame_filter: Callable[[can.Message], bool], depth: int) -> None:
         self._transport = transport
         self._filter = frame_filter
         self._frames: collections.deque[can.Message] = collections.deque(maxlen=depth)
@@ -61,7 +61,7 @@ class CanSubscription:
         return self._transport._drain_for(self)
 
 
-class CanDriver(TransportBase):
+class CanTransport(TransportBase):
     """Transport for CAN-bus instruments. Composed by concrete drivers, not extended.
 
     CAN is a broadcast bus, so this differs from request/response transports in two ways.
@@ -153,5 +153,5 @@ class CanDriver(TransportBase):
 
     def _require_open_locked(self) -> can.BusABC:
         if self._bus is None:
-            raise RuntimeError(f"CanDriver is not open. Call open() first. Channel: {self._config.channel}")
+            raise RuntimeError(f"CanTransport is not open. Call open() first. Channel: {self._config.channel}")
         return self._bus

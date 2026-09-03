@@ -1,4 +1,4 @@
-"""VESC 6 motor controller driver (CAN bus via CanDriver, extended-ID simple command frames)."""
+"""VESC 6 motor controller driver (CAN bus via CanTransport, extended-ID simple command frames)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import can
 
 from instro.unstable.motorcontroller.motorcontroller import MotorControllerDriverBase
 from instro.unstable.motorcontroller.types import MotorTelemetry
-from instro.unstable.transports.can import CanConfig, CanDriver, CanSubscription
+from instro.unstable.transports.can import CanConfig, CanSubscription, CanTransport
 
 logger = logging.getLogger(__name__)
 
@@ -40,24 +40,24 @@ class VESC6(MotorControllerDriverBase):
 
     def __init__(
         self,
-        channel: str | int | CanDriver,
+        channel: str | int | CanTransport,
         pole_pairs: int,
         controller_id: int = 0,
         interface: str = "gs_usb",
         bitrate: int = 500_000,
         bus_kwargs: dict[str, Any] | None = None,
     ) -> None:
-        """Pass channel as an adapter channel (a private bus is constructed) or a shared CanDriver for several drivers on one adapter (interface/bitrate/bus_kwargs then come from the shared transport); pole_pairs converts mechanical RPM to VESC ERPM (ERPM = RPM x pole_pairs)."""
+        """Pass channel as an adapter channel (a private bus is constructed) or a shared CanTransport for several drivers on one adapter (interface/bitrate/bus_kwargs then come from the shared transport); pole_pairs converts mechanical RPM to VESC ERPM (ERPM = RPM x pole_pairs)."""
         if not 0 <= controller_id <= 255:
             raise ValueError(f"controller_id must be 0-255, got {controller_id}")
         if pole_pairs < 1:
             raise ValueError(f"pole_pairs must be >= 1, got {pole_pairs}")
         self._pole_pairs = pole_pairs
         self._controller_id = controller_id
-        if isinstance(channel, CanDriver):
+        if isinstance(channel, CanTransport):
             self._can = channel
         else:
-            self._can = CanDriver(
+            self._can = CanTransport(
                 CanConfig(channel=channel, interface=interface, bitrate=bitrate, bus_kwargs=bus_kwargs or {})
             )
         self._subscription: CanSubscription | None = None
