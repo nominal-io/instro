@@ -155,6 +155,7 @@ def test_open_applies_config_in_order_then_syncs_then_runs(full_config, caplog):
         "set_trigger_slope",
         "set_trigger_level",
         "set_trigger_mode",
+        *["setup_measurement"] * 3,
         *["get_vertical_scale", "get_vertical_offset", "get_coupling", "get_probe_attenuation"] * 2,
         "get_horizontal_scale",
         "get_acquisition_mode",
@@ -168,6 +169,11 @@ def test_open_applies_config_in_order_then_syncs_then_runs(full_config, caplog):
     mock_driver.set_trigger_type.assert_called_once_with(TriggerType.EDGE)
     mock_driver.set_trigger_slope.assert_called_once_with(TriggerSlope.RISING)
     mock_driver.set_trigger_mode.assert_called_once_with(TriggerMode.NORMAL)
+    assert [c.args + (c.kwargs["channel"],) for c in mock_driver.setup_measurement.call_args_list] == [
+        (ScopeMeasurementType.VRMS, 1),
+        (ScopeMeasurementType.FREQUENCY, 1),
+        (ScopeMeasurementType.VPP, 2),
+    ]
     assert caplog.records == []
 
 

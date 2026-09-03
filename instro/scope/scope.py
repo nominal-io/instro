@@ -422,6 +422,13 @@ class InstroScope(Instrument):
                 self.set_trigger_level(trigger.level)
             if trigger.mode is not None:
                 self.set_trigger_mode(trigger.mode)
+        # Vendors that compute measurements during acquisition (Tektronix) need the slot
+        # installed before the scope triggers, so prepare every polled measurement before run().
+        with self._resource_lock:
+            for channel, channel_config in sorted(self._config.channels.items()):
+                for measurement_type in channel_config.measurements:
+                    self._driver.setup_measurement(measurement_type, channel=channel)
+                    self._check_errors()
         self.sync_configuration()
         self._warn_on_snapped_values()
         if acquisition is not None and acquisition.start_acquisition_on_open:
