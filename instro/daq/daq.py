@@ -440,10 +440,11 @@ class InstroDAQ(Instrument):
         self._is_sw_timing_configured = False
         self._running = False
 
-        # The daemon's latest analog acquisition, replaced by a new list every iteration, so a
-        # reader either holds the previous acquisition or the next one, never a mix of the two.
+        # The daemon's latest analog acquisition. Readers wait on the count, so a reader always
+        # holds one whole acquisition, never a mix of two.
         self._acquisition_ready = threading.Condition()
         self._acquisition: list[Measurement] = []
+        self._acquisition_count = 0
 
     @property
     def driver(self) -> DAQDriverBase:
@@ -1000,6 +1001,9 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        # super().stop() joined the daemon, so wake readers parked for an acquisition that won't come.
+        with self._acquisition_ready:
+            self._acquisition_ready.notify_all()
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
@@ -1029,13 +1033,14 @@ class InstroDAQ(Instrument):
             # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-        if self.is_hw_timing_configured:
-            measurements = self._fetch_analog_hw_timed(**kwargs)
-
-        else:
-            measurements = self._software_timed_read(**kwargs)
-
+        measurements = self._acquire_analog(**kwargs)
         return measurements[0] if len(measurements) == 1 else measurements
+
+    def _acquire_analog(self, **kwargs) -> list[Measurement]:
+        """Run the fetch matching the configured timing mode; one Measurement per timebase cluster."""
+        if self.is_hw_timing_configured:
+            return self._fetch_analog_hw_timed(**kwargs)
+        return self._software_timed_read(**kwargs)
 
     @publish_measurement
     def _software_timed_read(self, **kwargs) -> list[Measurement]:
@@ -1113,8 +1118,8 @@ class InstroDAQ(Instrument):
         # Analog pass
         analog: dict[str, Measurement] = {}
         if analog_aliases:
-            batch = self._wait_for_acquisition() if daemon_running else self.read_analog(**kwargs)
-            by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
+            batch = self._wait_for_acquisition() if daemon_running else self._acquire_analog(**kwargs)
+            by_key = {key: m for m in batch for key in m.channel_data}
             for alias in analog_aliases:
                 key = f"{self.name}.{alias}"
                 source = by_key.get(key)
@@ -1467,11 +1472,11 @@ class InstroDAQ(Instrument):
             self.add_background_daemon_function(self._daemon_analog_fetch)
 
     def _daemon_analog_fetch(self):
-        """Run the fetch matching the configured timing mode, then keep the acquisition it produced."""
-        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
-        measurements = fetch()
+        """Run the configured fetch, then hand the whole acquisition to waiting readers."""
+        measurements = self._acquire_analog()
         with self._acquisition_ready:
             self._acquisition = measurements
+            self._acquisition_count += 1
             self._acquisition_ready.notify_all()
 
     def _wait_for_acquisition(self) -> list[Measurement]:
@@ -1479,12 +1484,17 @@ class InstroDAQ(Instrument):
         hw = self.ai_hw_timing_config
         one_acquisition_s = hw.samples_per_channel / hw.sample_rate if hw else self.background_interval
         timeout = max(10.0, 2 * one_acquisition_s)
+        daemon = self._background_thread
 
         with self._acquisition_ready:
-            seen = self._acquisition
-            if not self._acquisition_ready.wait_for(lambda: self._acquisition is not seen, timeout):
+            seen = self._acquisition_count
+            self._acquisition_ready.wait_for(
+                lambda: self._acquisition_count > seen or not (daemon and daemon.is_alive()), timeout
+            )
+            if self._acquisition_count == seen:
                 raise ChannelValueTimeoutError(
-                    f"InstroDAQ '{self.name}' published no new analog acquisition within {timeout} seconds."
+                    f"InstroDAQ '{self.name}' published no new analog acquisition; the daemon stopped "
+                    f"or did not complete one within {timeout} seconds."
                 )
             return self._acquisition
 
