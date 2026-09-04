@@ -102,6 +102,7 @@ def test_scan_recognized_scope(idn: str, driver_class: str) -> None:
         ("Rigol Technologies,DG1022Z,DG1ZA000000000,03.01.12", "RigolDG1022Z", 2),
         ("Rigol Technologies,DG1062Z,DG1ZA000000000,03.01.12", "RigolDG1022Z", 2),
         ("Agilent Technologies,33521B,MY52702203,3.03-1.19-2.00-52-00", "Keysight33521B", 1),
+        ("Keysight Technologies,33521B,MY52702203,3.03-1.19-2.00-52-00", "Keysight33521B", 1),
     ],
 )
 def test_scan_recognized_awg(idn: str, driver_class: str, num_channels: int) -> None:
