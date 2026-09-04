@@ -67,6 +67,9 @@ _IDN_MAP: dict[tuple[str, str], tuple[str, str, int | None]] = {
     ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE", 4),
     ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE", 2),
     ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE", 4),
+    ("RIGOL TECHNOLOGIES", "DG1022Z"): ("awg", "RigolDG1022Z", 2),
+    ("RIGOL TECHNOLOGIES", "DG1062Z"): ("awg", "RigolDG1022Z", 2),
+    ("AGILENT TECHNOLOGIES", "33521B"): ("awg", "Keysight33521B", 1),
 }
 
 
