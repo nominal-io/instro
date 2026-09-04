@@ -7,16 +7,7 @@ from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from instro.lib.config import (
-    FilePublisherConfig,
-    NominalCorePublisherConfig,
-    PublisherConfigType,
-    TimingConfig,
-    build_publisher,
-)
-from instro.lib.transports.visa import VisaConfig
-from instro.lib.types import DeviceInfo
-from instro.unstable.awg.types import (
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -33,10 +24,19 @@ from instro.unstable.awg.types import (
     Triangle,
     Waveform,
 )
+from instro.lib.config import (
+    FilePublisherConfig,
+    NominalCorePublisherConfig,
+    PublisherConfigType,
+    TimingConfig,
+    build_publisher,
+)
+from instro.lib.transports.visa import VisaConfig
+from instro.lib.types import DeviceInfo
 
 if TYPE_CHECKING:
+    from instro.awg.awg import AWGDriverBase
     from instro.lib.publishers import Publisher
-    from instro.unstable.awg.awg import AWGDriverBase
 
 __all__ = [
     "AWGConfig",
@@ -64,8 +64,8 @@ __all__ = [
 ]
 
 AWG_VENDOR_REGISTRY: dict[str, str] = {
-    "Keysight33521B": "instro.unstable.awg.drivers.keysight_33521b.Keysight33521B",
-    "RigolDG1022Z": "instro.unstable.awg.drivers.rigol_dg1022z.RigolDG1022Z",
+    "Keysight33521B": "instro.awg.drivers.keysight_33521b.Keysight33521B",
+    "RigolDG1022Z": "instro.awg.drivers.rigol_dg1022z.RigolDG1022Z",
 }
 
 

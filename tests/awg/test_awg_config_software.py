@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.unstable.awg import AWGConfig, InstroAWG
-from instro.unstable.awg.config import build_waveform
-from instro.unstable.awg.types import (
+from instro.awg import AWGConfig, InstroAWG
+from instro.awg.config import build_waveform
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     ModulationType,
@@ -41,7 +41,7 @@ def valid_config() -> dict:
 
 
 def _patch_driver():
-    return patch("instro.unstable.awg.drivers.rigol_dg1022z.RigolDG1022Z")
+    return patch("instro.awg.drivers.rigol_dg1022z.RigolDG1022Z")
 
 
 def test_init_with_config_dict(valid_config):
@@ -202,7 +202,7 @@ def test_init_with_autostart_open_failure_closes_config_publishers(valid_config)
         "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "test_awg"}],
     }
     with (
-        patch("instro.unstable.awg.drivers.rigol_dg1022z.RigolDG1022Z") as mock_cls,
+        patch("instro.awg.drivers.rigol_dg1022z.RigolDG1022Z") as mock_cls,
         patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
     ):
         mock_cls.return_value.open.side_effect = OSError("unreachable")
@@ -252,8 +252,8 @@ def test_init_with_config_dict_unknown_publisher_type(valid_config):
 def test_vendor_registry_complete():
     import importlib
 
-    from instro.unstable.awg import AWGDriverBase
-    from instro.unstable.awg.config import AWG_VENDOR_REGISTRY
+    from instro.awg import AWGDriverBase
+    from instro.awg.config import AWG_VENDOR_REGISTRY
 
     for key, path in AWG_VENDOR_REGISTRY.items():
         mod_path, cls_name = path.rsplit(".", 1)
@@ -262,8 +262,8 @@ def test_vendor_registry_complete():
 
 
 def test_vendor_registry_matches_drivers_package():
-    from instro.unstable.awg import AWGDriverBase, drivers
-    from instro.unstable.awg.config import AWG_VENDOR_REGISTRY
+    from instro.awg import AWGDriverBase, drivers
+    from instro.awg.config import AWG_VENDOR_REGISTRY
 
     exported_drivers = {
         name
@@ -271,8 +271,7 @@ def test_vendor_registry_matches_drivers_package():
         if getattr(drivers, name) is not AWGDriverBase and issubclass(getattr(drivers, name), AWGDriverBase)
     }
     assert set(AWG_VENDOR_REGISTRY) == exported_drivers, (
-        "AWG_VENDOR_REGISTRY and instro.unstable.awg.drivers.__all__ have drifted apart; "
-        "a new driver must be added to both."
+        "AWG_VENDOR_REGISTRY and instro.awg.drivers.__all__ have drifted apart; a new driver must be added to both."
     )
 
 

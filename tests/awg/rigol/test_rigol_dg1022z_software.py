@@ -5,9 +5,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from instro.lib.transports import VisaConfig
-from instro.unstable.awg.drivers import RigolDG1022Z
-from instro.unstable.awg.types import (
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -24,6 +23,7 @@ from instro.unstable.awg.types import (
     Triangle,
     Waveform,
 )
+from instro.lib.transports import VisaConfig
 
 _ARB_SAMPLES = (0.0, 0.5, 1.0, -1.0, 0.25, -0.25, 0.75, -0.75, 0.125)
 _OVERSIZED_ARB_SAMPLES = (-0.12345678901234568,) * 1600
@@ -42,7 +42,7 @@ _NO_ERROR = '0,"No error"'
 
 @pytest.fixture
 def rigol_visa_cls() -> Iterator[MagicMock]:
-    with patch("instro.unstable.awg.drivers.rigol_dg1022z.VisaDriver", autospec=True) as cls:
+    with patch("instro.awg.drivers.rigol_dg1022z.VisaDriver", autospec=True) as cls:
         yield cls
 
 
