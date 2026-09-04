@@ -14,6 +14,7 @@ from instro.unstable.awg.config import build_waveform
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
@@ -691,3 +692,210 @@ def test_arbitrary_samples_relative_path_resolves_against_cwd(valid_config, tmp_
         channel=1, waveform=Arbitrary(samples=(-1.0, 0.0, 1.0, 0.0), sample_rate_sas=50.0)
     )
     assert awg._config.model_dump(mode="json")["channels"]["1"]["waveform"]["samples"] == "samples.csv"
+
+
+def test_open_applies_modulation(valid_config):
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "modulation": {
+                    "type": {"name": "AM", "magnitude": 50.0},
+                    "baseband_shape": {
+                        "shape": "square",
+                        "frequency_hz": 100.0,
+                        "duty_cycle_pct": 50.0,
+                        "phase_deg": 0.0,
+                    },
+                    "enable": True,
+                },
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.set_modulation.assert_called_once_with(
+        channel=1,
+        mod_type=ModulationType.AM,
+        shape=Square(frequency_hz=100.0, duty_cycle_pct=50.0, phase_deg=0.0),
+        magnitude=50.0,
+    )
+    mock_driver.modulation_enable.assert_called_once_with(channel=1, enable=True)
+
+
+def test_open_applies_burst_partial_fields_skip_none_setters(valid_config):
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "burst": {"type": "NCYCLE", "enable": True, "ncycles": 5},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.set_burst.assert_called_once()
+    mock_driver.set_burst_ncycles.assert_called_once_with(1, 5)
+    mock_driver.burst_enable.assert_called_once_with(1, True)
+    mock_driver.set_burst_trigger.assert_not_called()
+    mock_driver.set_burst_delay.assert_not_called()
+    mock_driver.set_burst_gate_polarity.assert_not_called()
+    mock_driver.set_burst_period.assert_not_called()
+
+
+def test_open_applies_sweep_partial_fields_skip_none_setters(valid_config):
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "sweep": {"type": "LINEAR", "enable": True, "start_frequency": 100.0, "end_frequency": 200.0},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.set_sweep.assert_called_once()
+    mock_driver.set_sweep_start_freq.assert_called_once_with(1, 100.0)
+    mock_driver.set_sweep_end_freq.assert_called_once_with(1, 200.0)
+    mock_driver.sweep_enable.assert_called_once_with(1, True)
+    mock_driver.set_sweep_trigger.assert_not_called()
+    mock_driver.set_sweep_time.assert_not_called()
+    mock_driver.set_sweep_start_hold_time.assert_not_called()
+    mock_driver.set_sweep_stop_hold_time.assert_not_called()
+    mock_driver.set_sweep_return_time.assert_not_called()
+
+
+def test_explicit_null_modulation_burst_and_sweep_are_accepted(valid_config):
+    """The INSTRO-598 example spells the unused blocks as explicit nulls."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "modulation": None,
+                "burst": None,
+                "sweep": None,
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.set_modulation.assert_not_called()
+    mock_driver.set_burst.assert_not_called()
+    mock_driver.set_sweep.assert_not_called()
+
+
+def test_malformed_modulation_baseband_rejected_at_validation(valid_config):
+    """The baseband waveform carries the same types.py bounds as a carrier waveform."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "modulation": {
+                    "type": {"name": "AM", "magnitude": 50.0},
+                    "baseband_shape": {
+                        "shape": "square",
+                        "frequency_hz": 100.0,
+                        "duty_cycle_pct": 500.0,
+                        "phase_deg": 0.0,
+                    },
+                    "enable": True,
+                },
+            }
+        },
+    }
+    with pytest.raises(Exception, match="duty_cycle_pct must be between 0 and 100"):
+        InstroAWG(config=config)
+
+
+_MODULATION_BLOCK = {
+    "type": {"name": "AM", "magnitude": 50.0},
+    "baseband_shape": {"shape": "sine", "frequency_hz": 100.0, "phase_deg": 0.0},
+    "enable": True,
+}
+_BURST_BLOCK = {"type": "NCYCLE", "enable": True}
+_SWEEP_BLOCK = {"type": "LINEAR", "enable": True}
+
+
+@pytest.mark.parametrize(
+    ("blocks", "expected"),
+    [
+        ({"modulation": _MODULATION_BLOCK, "burst": _BURST_BLOCK}, "modulation and burst"),
+        ({"modulation": _MODULATION_BLOCK, "sweep": _SWEEP_BLOCK}, "modulation and sweep"),
+        ({"burst": _BURST_BLOCK, "sweep": _SWEEP_BLOCK}, "burst and sweep"),
+        (
+            {"modulation": _MODULATION_BLOCK, "burst": _BURST_BLOCK, "sweep": _SWEEP_BLOCK},
+            "modulation and burst and sweep",
+        ),
+    ],
+)
+def test_multiple_enabled_modes_rejected_at_validation(valid_config, blocks, expected):
+    """open() applies modulation, burst, then sweep, so enabling more than one silently drops all but the last."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {"waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0}, **blocks},
+        },
+    }
+    with pytest.raises(
+        Exception, match=f"only one of modulation, burst, or sweep can be enabled per channel, got {expected}"
+    ):
+        InstroAWG(config=config)
+
+
+def test_one_enabled_mode_alongside_disabled_modes_is_accepted(valid_config):
+    """Only `enable` counts: a configured-but-disabled block still gets its setters applied."""
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {
+                "waveform": {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0},
+                "modulation": {**_MODULATION_BLOCK, "enable": False},
+                "burst": {**_BURST_BLOCK, "enable": True},
+                "sweep": {**_SWEEP_BLOCK, "enable": False},
+            }
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.modulation_enable.assert_called_once_with(channel=1, enable=False)
+    mock_driver.burst_enable.assert_called_once_with(1, True)
+    mock_driver.sweep_enable.assert_called_once_with(1, False)
+
+
+def test_modes_are_validated_per_channel_not_across_channels(valid_config):
+    """One enabled mode on each of two channels is fine; the limit is per channel."""
+    waveform = {"shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0}
+    config = {
+        **valid_config,
+        "channels": {
+            "1": {"waveform": waveform, "burst": _BURST_BLOCK},
+            "2": {"waveform": waveform, "sweep": _SWEEP_BLOCK},
+        },
+    }
+    with _patch_driver() as mock_cls:
+        awg = InstroAWG(config=config)
+        awg.open()
+
+    mock_driver = mock_cls.return_value
+    mock_driver.burst_enable.assert_called_once_with(1, True)
+    mock_driver.sweep_enable.assert_called_once_with(2, True)

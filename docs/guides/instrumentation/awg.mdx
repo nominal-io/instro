@@ -135,7 +135,7 @@ awg = InstroAWG(config="bench_awg.json")
 
 `channels` is a required dictionary and must be non-empty. It is keyed by channel numbers represented as strings. Each channel can be represented once in `channels`. Duplicate channels will raise an error.
 
-Each entry is applied on `open()`, through `set_waveform`, `set_amplitude`, and `set_offset`. It is applied once per session: repeated `open()` calls do not reapply it. A `close()` followed by another `open()` does reapply it, overwriting any channel state you set manually in between, but note that `close()` also closes the instance's publishers — so reuse after `close()` is only safe with no publishers attached. Construct a new `InstroAWG` to reconnect. Building an `InstroAWG` does not `open()` or `start()` the instrument unless you pass `autostart=True`.
+Each entry is applied on `open()`, through `set_waveform`, `set_amplitude`, `set_offset`, `set_modulation`/`modulation_enable`, `set_burst*`/`burst_enable`, and `set_sweep*`/`sweep_enable`. It is applied once per session: repeated `open()` calls do not reapply it. A `close()` followed by another `open()` does reapply it, overwriting any channel state you set manually in between, but note that `close()` also closes the instance's publishers — so reuse after `close()` is only safe with no publishers attached. Construct a new `InstroAWG` to reconnect. Building an `InstroAWG` does not `open()` or `start()` the instrument unless you pass `autostart=True`.
 
 Inside each `ChannelConfig` object, the following fields are filled:
 - **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts either an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file containing them; `sample_rate_sas` is the sample rate in samples per second.
@@ -144,10 +144,15 @@ Inside each `ChannelConfig` object, the following fields are filled:
 
 - **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
 - **`offset`** (optional): DC offset in volts.
+- **`modulation`** (optional): `{"type": {"name": <ModulationType>, "magnitude": <float>}, "baseband_shape": <waveform>, "enable": <bool>}`. `magnitude` means whatever the modulation type says it means — depth for AM, frequency deviation for FM, and so on. See `set_modulation`. `baseband_shape` takes any of the waveform shapes listed above.
+- **`burst`** (optional): `{"type": <BurstType>, "enable": <bool>, "trigger_source": ..., "delay": ..., "gate_polarity": ..., "ncycles": ..., "period": ...}`. Only `type` and `enable` are required. The rest are mode-specific and are skipped when omitted, so `gate_polarity` only applies to a `GATED` burst.
+- **`sweep`** (optional): `{"type": <SweepType>, "enable": <bool>, "trigger_source": ..., "start_frequency": ..., "end_frequency": ..., "sweep_time": ..., "start_hold_time": ..., "stop_hold_time": ..., "return_time": ...}`. Only `type` and `enable` are required. The rest are skipped when omitted.
 
-Shape parameters carry the same bounds the Python `Waveform` definitions enforce (positive `frequency_hz`, `duty_cycle_pct` within 0–100, a pulse whose `width_s + delay_s` fits inside the period, and so on). These are checked when the config is parsed.
+Shape parameters carry the same bounds the Python `Waveform` definitions enforce (positive `frequency_hz`, `duty_cycle_pct` within 0–100, a pulse whose `width_s + delay_s` fits inside the period, and so on). A modulation `baseband_shape` carries the same bounds as a carrier waveform. These are checked when the config is parsed.
 
-`output_enable` cannot be set from the configuration file. You must explicitly call `output_enable(channel, True)` to enable output.
+A channel may enable at most one of `modulation`, `burst`, or `sweep`. All three blocks can be present together, but only one may carry `"enable": true` — more than one is rejected when the config is parsed. A block with `"enable": false` still has its other settings applied.
+
+`output_enable` cannot be set from the configuration file. You must explicitly call `output_enable(channel, True)` to enable output. Enabling `modulation`, `burst`, or `sweep` from the config does not turn the output on.
 
 An optional top-level `timing` section (`{"poll_interval": 1.0}`) sets the background daemon's polling interval. Pass `autostart=True` to start the connection, apply the `channels` config, and start polling immediately:
 

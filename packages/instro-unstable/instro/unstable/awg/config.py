@@ -19,11 +19,17 @@ from instro.lib.types import DeviceInfo
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
+    BurstTriggerSource,
+    BurstType,
+    GatePolarity,
+    ModulationType,
     Pulse,
     Sawtooth,
     Sine,
     Square,
     StaticValue,
+    SweepTriggerSource,
+    SweepType,
     Triangle,
     Waveform,
 )
@@ -36,15 +42,19 @@ __all__ = [
     "AWGConfig",
     "AmplitudeConfig",
     "ArbitraryConfig",
+    "BurstConfig",
     "ChannelConfig",
     "DeviceInfo",
     "FilePublisherConfig",
+    "ModulationConfig",
+    "ModulationTypeConfig",
     "NominalCorePublisherConfig",
     "PulseConfig",
     "SawtoothConfig",
     "SineConfig",
     "SquareConfig",
     "StaticValueConfig",
+    "SweepConfig",
     "TimingConfig",
     "TriangleConfig",
     "VisaDriverConfig",
@@ -190,6 +200,64 @@ class AmplitudeConfig(BaseModel):
     unit: AmplitudeMeasurementUnit = AmplitudeMeasurementUnit.VPP
 
 
+class ModulationTypeConfig(BaseModel):
+    """Modulation type and its magnitude; magnitude's meaning varies by ``name`` (see ``InstroAWG.set_modulation``)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    name: ModulationType
+    magnitude: float
+
+
+class ModulationConfig(BaseModel):
+    """Carrier modulation config; maps to ``InstroAWG.set_modulation``/``modulation_enable``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: ModulationTypeConfig
+    baseband_shape: WaveformConfigType
+    enable: bool
+
+    @model_validator(mode="after")
+    def _check_baseband_is_buildable(self) -> ModulationConfig:
+        """Build and discard the baseband waveform so its shape-parameter bounds reject a bad config here, not mid-``open()``."""
+        build_waveform(self.baseband_shape)
+        return self
+
+
+class BurstConfig(BaseModel):
+    """Burst config; maps to InstroAWG's ``set_burst*``/``burst_enable`` setters.
+
+    ``trigger_source``/``delay``/``gate_polarity``/``ncycles``/``period`` are mode-specific
+    (e.g. ``gate_polarity`` only applies to GATED bursts) and are skipped when omitted.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: BurstType
+    enable: bool
+    trigger_source: BurstTriggerSource | None = None
+    delay: float | None = None
+    gate_polarity: GatePolarity | None = None
+    ncycles: int | None = None
+    period: float | None = None
+
+
+class SweepConfig(BaseModel):
+    """Sweep config; maps to InstroAWG's ``set_sweep*``/``sweep_enable`` setters.
+
+    All fields besides ``type``/``enable`` are optional and skipped when omitted.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: SweepType
+    enable: bool
+    trigger_source: SweepTriggerSource | None = None
+    start_frequency: float | None = None
+    end_frequency: float | None = None
+    sweep_time: float | None = None
+    start_hold_time: float | None = None
+    stop_hold_time: float | None = None
+    return_time: float | None = None
+
+
 class ChannelConfig(BaseModel):
     """Initial per-channel state applied on ``open()``; the channel stays silent until its output is explicitly enabled."""
 
@@ -197,11 +265,25 @@ class ChannelConfig(BaseModel):
     waveform: WaveformConfigType
     amplitude: AmplitudeConfig | None = None
     offset: float | None = None
+    modulation: ModulationConfig | None = None
+    burst: BurstConfig | None = None
+    sweep: SweepConfig | None = None
 
     @model_validator(mode="after")
     def _check_waveform_is_buildable(self) -> ChannelConfig:
         """Build and discard the waveform so ``types.py``'s shape-parameter bounds reject a bad config here, not mid-``open()``."""
         build_waveform(self.waveform)
+        return self
+
+    @model_validator(mode="after")
+    def _check_at_most_one_mode_enabled(self) -> ChannelConfig:
+        """Reject more than one enabled mode, since ``open()`` applies them in order and only the last one survives."""
+        modes = {"modulation": self.modulation, "burst": self.burst, "sweep": self.sweep}
+        enabled = [name for name, mode in modes.items() if mode is not None and mode.enable]
+        if len(enabled) > 1:
+            raise ValueError(
+                f"only one of modulation, burst, or sweep can be enabled per channel, got {' and '.join(enabled)}"
+            )
         return self
 
 
