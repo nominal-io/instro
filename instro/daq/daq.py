@@ -3,6 +3,7 @@
 import abc
 import logging
 import math
+import threading
 import time
 from enum import Enum
 from types import MappingProxyType
@@ -30,6 +31,7 @@ from instro.daq.types import (
 from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.lib.publishers.channel_buffer import ChannelValueTimeoutError
 from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
@@ -437,6 +439,12 @@ class InstroDAQ(Instrument):
         self._is_open = False
         self._is_sw_timing_configured = False
         self._running = False
+
+        # The daemon's latest analog acquisition. Readers wait on the count, so a reader always
+        # holds one whole acquisition, never a mix of two.
+        self._acquisition_ready = threading.Condition()
+        self._acquisition: list[Measurement] = []
+        self._acquisition_count = 0
 
     @property
     def driver(self) -> DAQDriverBase:
@@ -993,6 +1001,9 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        # super().stop() joined the daemon, so wake readers parked for an acquisition that won't come.
+        with self._acquisition_ready:
+            self._acquisition_ready.notify_all()
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
@@ -1022,13 +1033,14 @@ class InstroDAQ(Instrument):
             # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-        if self.is_hw_timing_configured:
-            measurements = self._fetch_analog_hw_timed(**kwargs)
-
-        else:
-            measurements = self._software_timed_read(**kwargs)
-
+        measurements = self._acquire_analog(**kwargs)
         return measurements[0] if len(measurements) == 1 else measurements
+
+    def _acquire_analog(self, **kwargs) -> list[Measurement]:
+        """Run the fetch matching the configured timing mode; one Measurement per timebase cluster."""
+        if self.is_hw_timing_configured:
+            return self._fetch_analog_hw_timed(**kwargs)
+        return self._software_timed_read(**kwargs)
 
     @publish_measurement
     def _software_timed_read(self, **kwargs) -> list[Measurement]:
@@ -1105,30 +1117,17 @@ class InstroDAQ(Instrument):
 
         # Analog pass
         analog: dict[str, Measurement] = {}
-        if analog_aliases and not daemon_running:
-            batch = self.read_analog(**kwargs)
-            by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
+        if analog_aliases:
+            batch = self._wait_for_acquisition() if daemon_running else self._acquire_analog(**kwargs)
+            by_key = {key: m for m in batch for key in m.channel_data}
             for alias in analog_aliases:
                 key = f"{self.name}.{alias}"
                 source = by_key.get(key)
                 if source is None:
                     raise KeyError(
-                        f"read_analog() returned no data for analog channel '{alias}' (key '{key}'). "
-                        f"Channels returned: {sorted(by_key)}."
+                        f"No analog data for channel '{alias}' (key '{key}'). Channels returned: {sorted(by_key)}."
                     )
                 analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
-        elif analog_aliases:
-            # Size get_channel params to wait for one full batch of samples based on timing config
-            hw_timing = self.ai_hw_timing_config
-            length = hw_timing.samples_per_channel if hw_timing else 1
-            batch_duration_s = length / hw_timing.sample_rate if hw_timing else self.background_interval
-            timeout = max(10.0, 2 * batch_duration_s)
-
-            # Block once for a fresh batch, then get data for all other channels from that batch
-            analog = {
-                alias: self.get_channel(alias, length, wait_for_new_samples=(i == 0), timeout=timeout)
-                for i, alias in enumerate(analog_aliases)
-            }
 
         # Digital pass
         # NOTE: Planning on ripping out port support
@@ -1467,11 +1466,37 @@ class InstroDAQ(Instrument):
         return self._package_command(f"{relay_channel.alias}.cmd", "OPEN", timestamp, **kwargs)
 
     def _define_background_daemon(self):
-        """Register the fetch matching the configured timing mode when AI channels exist."""
-        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
-        already_registered = any(method == fetch for method, _, _ in self._background_methods)
+        """Register the AI fetch when AI channels exist."""
+        already_registered = any(method == self._daemon_analog_fetch for method, _, _ in self._background_methods)
         if self.ai_channels and not already_registered:
-            self.add_background_daemon_function(fetch)
+            self.add_background_daemon_function(self._daemon_analog_fetch)
+
+    def _daemon_analog_fetch(self):
+        """Run the configured fetch, then hand the whole acquisition to waiting readers."""
+        measurements = self._acquire_analog()
+        with self._acquisition_ready:
+            self._acquisition = measurements
+            self._acquisition_count += 1
+            self._acquisition_ready.notify_all()
+
+    def _wait_for_acquisition(self) -> list[Measurement]:
+        """Block for the daemon's next complete acquisition, timed out at two acquisition durations."""
+        hw = self.ai_hw_timing_config
+        one_acquisition_s = hw.samples_per_channel / hw.sample_rate if hw else self.background_interval
+        timeout = max(10.0, 2 * one_acquisition_s)
+        daemon = self._background_thread
+
+        with self._acquisition_ready:
+            seen = self._acquisition_count
+            self._acquisition_ready.wait_for(
+                lambda: self._acquisition_count > seen or not (daemon and daemon.is_alive()), timeout
+            )
+            if self._acquisition_count == seen:
+                raise ChannelValueTimeoutError(
+                    f"InstroDAQ '{self.name}' published no new analog acquisition; the daemon stopped "
+                    f"or did not complete one within {timeout} seconds."
+                )
+            return self._acquisition
 
     def get_actual_sample_rate(self) -> float | None:
         """Hardware's actual sample rate after ``start()``; ``None`` if unsupported or not started."""
