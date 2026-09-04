@@ -38,7 +38,16 @@
       "release-type": "python",
       "component": "instro",
       "exclude-paths": [
-        "crates"
+        ".agents",
+        ".claude",
+        ".codex",
+        ".github",
+        "crates",
+        "docs",
+        "examples",
+        "packages",
+        "res",
+        "tests"
       ]
     },
     "packages/instro-daq-labjack": {
