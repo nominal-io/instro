@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.1](https://github.com/nominal-io/instro/compare/instro-v1.18.0...instro-v1.18.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **read_batch:** read measurements from background daemon fetch ([#465](https://github.com/nominal-io/instro/issues/465)) ([98a7832](https://github.com/nominal-io/instro/commit/98a7832a18f4e77c0010ef6e717356a9962453e3))
+
 ## [1.18.0](https://github.com/nominal-io/instro/compare/instro-v1.17.0...instro-v1.18.0) (2026-09-04)
 
 
