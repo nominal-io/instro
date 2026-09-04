@@ -96,6 +96,29 @@ def test_scan_recognized_scope(idn: str, driver_class: str) -> None:
     assert info.driver_class_name == driver_class
 
 
+@pytest.mark.parametrize(
+    "idn,driver_class,num_channels",
+    [
+        ("Rigol Technologies,DG1022Z,DG1ZA000000000,03.01.12", "RigolDG1022Z", 2),
+        ("Rigol Technologies,DG1062Z,DG1ZA000000000,03.01.12", "RigolDG1022Z", 2),
+        ("Agilent Technologies,33521B,MY52702203,3.03-1.19-2.00-52-00", "Keysight33521B", 1),
+        ("Keysight Technologies,33521B,MY52702203,3.03-1.19-2.00-52-00", "Keysight33521B", 1),
+    ],
+)
+def test_scan_recognized_awg(idn: str, driver_class: str, num_channels: int) -> None:
+    mock_rm = _rm_mock(("USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = idn
+            result = scan_visa_resources()
+
+    assert len(result.instruments) == 1
+    info = result.instruments[0]
+    assert info.category == "awg"
+    assert info.driver_class_name == driver_class
+    assert info.num_channels == num_channels
+
+
 def test_scan_unrecognized() -> None:
     mock_rm = _rm_mock(("USB0::0xABCD::0x1234::INSTR",))
     with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.10.0...instro-unstable-v1.11.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453))
+
+### Features
+
+* **awg:** expand config to extra features ([#450](https://github.com/nominal-io/instro/issues/450)) ([dfdc79b](https://github.com/nominal-io/instro/commit/dfdc79b9830dcbce11dce755f36f6732ef67e8ee))
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453)) ([ed9adfd](https://github.com/nominal-io/instro/commit/ed9adfd9f4aba9d5ea796769981e09736be06d1a))
+
+
+### Documentation
+
+* **unstable:** add package README ([#479](https://github.com/nominal-io/instro/issues/479)) ([ee687b0](https://github.com/nominal-io/instro/commit/ee687b02b92940d9401e12258b00c43ee7d8a3f4)), closes [#476](https://github.com/nominal-io/instro/issues/476)
+
 ## [1.10.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.9.0...instro-unstable-v1.10.0) (2026-09-03)
 
 

@@ -5,12 +5,6 @@ description: Using InstroAWG for SCPI-based arbitrary waveform generators
 
 # InstroAWG
 
-<Warning>
-**Unstable API**
-
-`InstroAWG` ships in the `instro-unstable` package. Its API is not settled and may change without notice between releases. Install it with `pip install "instro[unstable]"`. See [Unstable modules](/instrumentation/installation#unstable-modules) for details.
-</Warning>
-
 `InstroAWG` is a hardware abstraction layer (HAL) that provides a unified interface for arbitrary waveform generators. The category class defines the vendor-independent API (`set_waveform`, `set_amplitude`, `set_offset`, `set_modulation`, `set_sweep`, …). A vendor-specific driver owns its connection details and translates those calls into vendor commands.
 
 ## Supported Vendors
@@ -46,7 +40,7 @@ The typical InstroAWG workflow:
 
 ### Waveform Definitions
 
-InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.unstable.awg`. 
+InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.awg`. 
 
 `Arbitrary` requires a sample rate field (`sample_rate_sas`, in samples per second) to specify the number of samples that the internal DAC outputs per second. 
 
@@ -61,8 +55,8 @@ Certain features are only available on particular waveforms. Driver's own their 
 ## Creating an InstroAWG Instance
 
 ```python
-from instro.unstable.awg.drivers import RigolDG1022Z
-from instro.unstable.awg import InstroAWG
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg import InstroAWG
 
 awg = InstroAWG(
     name="myAWG",
@@ -124,7 +118,7 @@ Write a config file:
 In your test file, initialize an InstroAWG using the `config`:
 
 ```python
-from instro.unstable.awg import InstroAWG
+from instro.awg import InstroAWG
 
 awg = InstroAWG(config="bench_awg.json")
 ```
@@ -214,9 +208,9 @@ finally:
 ### Basic Usage
 
 ```python
-from instro.unstable.awg.drivers import RigolDG1022Z
-from instro.unstable.awg import InstroAWG
-from instro.unstable.awg.types import AmplitudeMeasurementUnit, Sine
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg import InstroAWG
+from instro.awg.types import AmplitudeMeasurementUnit, Sine
 from instro.lib.publishers import NominalCorePublisher
 
 VISA_RESOURCE = "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
@@ -491,8 +485,8 @@ For non-VISA instruments, follow the same shape with the protocol client your dr
 Here's an abridged shape of the Rigol DG1022Z driver:
 
 ```python
-from instro.unstable.awg.awg import AWGDriverBase
-from instro.unstable.awg.types import AmplitudeMeasurementUnit, Sine, Waveform
+from instro.awg.awg import AWGDriverBase
+from instro.awg.types import AmplitudeMeasurementUnit, Sine, Waveform
 from instro.lib.transports import VisaConfig, VisaDriver
 
 
@@ -541,9 +535,9 @@ class RigolDG1022Z(AWGDriverBase):
 For drivers that aren't shipped in the library, construct `InstroAWG` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
 
 ```python
-from instro.unstable.awg import InstroAWG
-from instro.unstable.awg.awg import AWGDriverBase
-from instro.unstable.awg.types import AmplitudeMeasurementUnit, Waveform, Sine
+from instro.awg import InstroAWG
+from instro.awg.awg import AWGDriverBase
+from instro.awg.types import AmplitudeMeasurementUnit, Waveform, Sine
 from instro.lib.transports import VisaDriver
 
 

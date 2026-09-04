@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.18.1](https://github.com/nominal-io/instro/compare/instro-v1.18.0...instro-v1.18.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **read_batch:** read measurements from background daemon fetch ([#465](https://github.com/nominal-io/instro/issues/465)) ([98a7832](https://github.com/nominal-io/instro/commit/98a7832a18f4e77c0010ef6e717356a9962453e3))
+
+## [1.18.0](https://github.com/nominal-io/instro/compare/instro-v1.17.0...instro-v1.18.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453))
+
+### Features
+
+* **awg:** add awg to idn map ([#475](https://github.com/nominal-io/instro/issues/475)) ([1b8e3c5](https://github.com/nominal-io/instro/commit/1b8e3c5778df2a19f58e44dc4e448138e6135f6f))
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453)) ([ed9adfd](https://github.com/nominal-io/instro/commit/ed9adfd9f4aba9d5ea796769981e09736be06d1a))
+
+
+### Bug Fixes
+
+* **ci:** mint a GitHub App token for release-please instead of the shared PAT ([#469](https://github.com/nominal-io/instro/issues/469)) ([3b8cab8](https://github.com/nominal-io/instro/commit/3b8cab8d8fec31c90fcb6f50bd15af3dc4eead38))
+
+
+### Documentation
+
+* **agents:** document Release-As scoping for release-please overrides ([#478](https://github.com/nominal-io/instro/issues/478)) ([3bbf55a](https://github.com/nominal-io/instro/commit/3bbf55a6d501244eac13aa6b6ed704cd6909b2d7)), closes [#476](https://github.com/nominal-io/instro/issues/476)
+
 ## [1.17.0](https://github.com/nominal-io/instro/compare/instro-v1.16.0...instro-v1.17.0) (2026-09-03)
 
 
