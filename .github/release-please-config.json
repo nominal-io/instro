@@ -33,7 +33,6 @@
       "hidden": true
     }
   ],
-  "separate-pull-requests": true,
   "packages": {
     ".": {
       "release-type": "python",

@@ -8,11 +8,14 @@ import threading
 import time
 from dataclasses import fields
 from enum import Enum
+from pathlib import Path
 from typing import Callable
 
+from instro.lib.config import load_config
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.lib.types import Command, Measurement
+from instro.unstable.awg.config import AWGConfig, build_waveform, resolve_awg_from_config
 from instro.unstable.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
@@ -276,22 +279,63 @@ class InstroAWG(Instrument):
 
     def __init__(
         self,
-        name: str,
-        driver: AWGDriverBase,
-        num_channels: int,
+        name: str | None = None,
+        driver: AWGDriverBase | None = None,
+        num_channels: int | None = None,
         publishers: list[Publisher] | None = None,
+        config: AWGConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
-        """Initialize an InstroAWG."""
+        """Initialize an InstroAWG. Provide either ``config`` or ``driver``/``num_channels`` together, not both."""
+        poll_interval: float | None = None
+        resolved_config: AWGConfig | None = None
+        config_publishers: list[Publisher] = []
+        if config is not None:
+            if driver is not None or num_channels is not None:
+                raise ValueError(
+                    "InstroAWG(config=...) cannot be combined with driver/num_channels; "
+                    "use one construction style or the other."
+                )
+            resolved_config = load_config(config, AWGConfig)
+            resolved_name, driver, num_channels, config_publishers, poll_interval = resolve_awg_from_config(
+                resolved_config
+            )
+            publishers = [*(publishers or []), *config_publishers] or None
+            if name is None:
+                name = resolved_name
+        elif name is None or driver is None or num_channels is None:
+            raise ValueError("InstroAWG requires either config=..., or name, driver, and num_channels together.")
+
+        if autostart and resolved_config is None:
+            raise ValueError(
+                "autostart=True requires config=...; background polling cannot start without a configured channel."
+            )
+
         if num_channels < 1:
             raise ValueError(f"num_channels must be at least 1, got {num_channels}")
         super().__init__(name, publishers=publishers, **kwargs)
         self._driver = driver
         self._num_channels = num_channels
+        self._config = resolved_config
+        self._channel_config_applied = False
         self._resource_lock = threading.Lock()
         self._channel_waveforms: dict[int, Waveform] = {}
 
         self._define_background_daemon()
+
+        if poll_interval is not None:
+            self.background_interval = poll_interval
+
+        if autostart:
+            try:
+                self.open()
+                self.start()
+            except Exception:
+                self._driver.close()
+                for publisher in config_publishers:
+                    publisher.close()
+                raise
 
     def _define_background_daemon(self) -> None:
         """Define the background daemon to read output state for each channel and publish it."""
@@ -346,16 +390,82 @@ class InstroAWG(Instrument):
         super().start()
 
     def open(self) -> None:
-        """Open the underlying driver."""
+        """Open the underlying driver and apply any configured channel state."""
         logger.info("Opening AWG '%s'", self.name)
         self._driver.open()
+        try:
+            self._apply_channel_config()
+        except Exception:
+            with self._resource_lock:
+                self._channel_waveforms.clear()
+            self._driver.close()
+            raise
         logger.info("Opened AWG '%s'", self.name)
+
+    def _apply_channel_config(self) -> None:
+        """Apply the config's ``channels`` block through the public setters, once per open."""
+        if self._config is None or self._channel_config_applied:
+            return
+        for channel_key, channel_config in self._config.channels.items():
+            channel = int(channel_key)
+            self.set_waveform(channel, build_waveform(channel_config.waveform))
+            if channel_config.amplitude is not None:
+                self.set_amplitude(channel, channel_config.amplitude.value, channel_config.amplitude.unit)
+            if channel_config.offset is not None:
+                self.set_offset(channel, channel_config.offset)
+            if channel_config.modulation is not None:
+                modulation = channel_config.modulation
+                self.set_modulation(
+                    channel,
+                    modulation.type.name,
+                    build_waveform(modulation.baseband_shape),
+                    modulation.type.magnitude,
+                )
+                self.modulation_enable(channel, modulation.enable)
+            if channel_config.burst is not None:
+                burst = channel_config.burst
+                self.set_burst(channel, burst.type)
+                if burst.trigger_source is not None:
+                    self.set_burst_trigger(channel, burst.trigger_source)
+                if burst.delay is not None:
+                    self.set_burst_delay(channel, burst.delay)
+                if burst.gate_polarity is not None:
+                    self.set_burst_gate_polarity(channel, burst.gate_polarity)
+                if burst.ncycles is not None:
+                    self.set_burst_ncycles(channel, burst.ncycles)
+                if burst.period is not None:
+                    self.set_burst_period(channel, burst.period)
+                self.burst_enable(channel, burst.enable)
+            if channel_config.sweep is not None:
+                sweep = channel_config.sweep
+                self.set_sweep(channel, sweep.type)
+                if sweep.trigger_source is not None:
+                    self.set_sweep_trigger(channel, sweep.trigger_source)
+                if sweep.start_frequency is not None:
+                    self.set_sweep_start_freq(channel, sweep.start_frequency)
+                if sweep.end_frequency is not None:
+                    self.set_sweep_end_freq(channel, sweep.end_frequency)
+                if sweep.sweep_time is not None:
+                    self.set_sweep_time(channel, sweep.sweep_time)
+                if sweep.start_hold_time is not None:
+                    self.set_sweep_start_hold_time(channel, sweep.start_hold_time)
+                if sweep.stop_hold_time is not None:
+                    self.set_sweep_stop_hold_time(channel, sweep.stop_hold_time)
+                if sweep.return_time is not None:
+                    self.set_sweep_return_time(channel, sweep.return_time)
+                self.sweep_enable(channel, sweep.enable)
+        self._channel_config_applied = True
 
     def close(self) -> None:
         """Close the underlying driver."""
         logger.info("Closing AWG '%s'", self.name)
-        super().close()
-        self._driver.close()
+        self._channel_config_applied = False
+        with self._resource_lock:
+            self._channel_waveforms.clear()
+        try:
+            super().close()
+        finally:
+            self._driver.close()
         logger.info("Closed AWG '%s'", self.name)
 
     @publish_command

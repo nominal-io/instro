@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.0](https://github.com/nominal-io/instro/compare/instro-v1.16.0...instro-v1.17.0) (2026-09-03)
+
+
+### Features
+
+* **unstable:** add motor-controller HAL and VESC 6 CAN driver ([#386](https://github.com/nominal-io/instro/issues/386)) ([e7f9627](https://github.com/nominal-io/instro/commit/e7f9627cefb8c48e7e2f50c45b488ec6a0e02f68))
+
+
+### Bug Fixes
+
+* **daq:** wait for a full fresh batch in read_batch() ([#457](https://github.com/nominal-io/instro/issues/457)) ([9245b70](https://github.com/nominal-io/instro/commit/9245b70aca84658f856900818be002050ca2dee7))
+
 ## [1.16.0](https://github.com/nominal-io/instro/compare/instro-v1.15.0...instro-v1.16.0) (2026-09-02)
 
 
