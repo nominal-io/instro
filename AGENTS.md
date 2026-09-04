@@ -92,6 +92,8 @@ release-please opens one `chore(main): release` PR for all packages; each packag
 
 release-please authenticates with a short-lived GitHub App installation token minted inside the `release-please` job (`NOMBOT_APP_ID` / `NOMBOT_PRIVATE_KEY`), falling back to `NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN` only if those secrets are absent. The app installation has its own API rate limit; the classic PAT shares nominal-bot's 5,000 requests/hour with Renovate and every other repo, which is how releases got rate-limited (#468). Mint the token in the job that uses it: GitHub scrubs app tokens at job boundaries, so one passed via `needs.*.outputs` or a reusable-workflow input arrives empty.
 
+To override the version release-please computes (e.g. a `!` commit that should not ship as a major), land a commit with a `Release-As: X.Y.Z` footer. Scope it by touching a file inside the component's path: a commit that touches no files is applied to every component, and the root `instro` component sees every commit in the repo regardless of path. When several components need overrides, land one commit per component and merge the root override last, since the newest `Release-As` wins. Squash merges build the commit body from the branch's commit messages, so put the footer in the squash message itself (`gh pr merge --squash --body "Release-As: X.Y.Z"`); a bulleted `* Release-As:` line is body text and is ignored. #476 is the worked example.
+
 ## Rust crate releases
 
 Pure-Rust crates under `crates/` that are published to crates.io are independent release-please components with `release-type: rust`. Do not add them to the legacy top-level `groups` block; that block is unsupported release-please config and should not be extended.
