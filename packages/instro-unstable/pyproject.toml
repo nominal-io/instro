@@ -2,6 +2,7 @@
 name = "instro-unstable"
 version = "1.10.0"
 description = "Unstable modules for instro (in-development features)"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.15"
