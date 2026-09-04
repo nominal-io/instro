@@ -1,6 +1,8 @@
 """Unit tests for DAQ driver functionality."""
 
+import itertools
 import logging
+import time
 from dataclasses import FrozenInstanceError
 from unittest.mock import Mock
 
@@ -1192,6 +1194,55 @@ def test_read_batch_unconfigured_channel_raises_before_reading_anything():
     with pytest.raises(KeyError, match=r"Input channel\(s\) \['nope'\] not configured"):
         daq.read_batch(["v0", "nope"])
     mock_driver.read_analog.assert_not_called()
+
+
+class _YieldingPublisher:
+    """Stands in for a real publisher: every publish stalls, so the daemon yields between channels."""
+
+    def publish(self, data, **kwargs):
+        time.sleep(0.01)
+
+    def close(self):
+        pass
+
+
+def test_buffered_read_batch_serves_every_alias_from_one_fresh_acquisition():
+    """A daemon that publishes one channel at a time must still hand read_batch() a single whole acquisition."""
+    # Acquisition n publishes v0 then v1, each carrying n in its value and its timestamp.
+    counter = itertools.count()
+
+    def acquisition(**kwargs):
+        n = next(counter)
+        return [
+            Measurement(channel_data={"ut.v0": [n + 0.1]}, timestamps=[n * 1000]),
+            Measurement(channel_data={"ut.v1": [n + 0.2]}, timestamps=[n * 1000 + 1]),
+        ]
+
+    mock_driver = _make_mock_driver()
+    mock_driver._read_to_measurements.side_effect = acquisition
+    daq = InstroDAQ(name="ut", driver=mock_driver, publishers=[_YieldingPublisher()])
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="v0")
+    daq.configure_voltage_input(physical_channel="ai1", alias="v1")
+    daq.configure_ai_sw_sample_rate(sample_rate=20)
+
+    daq.start()
+    try:
+        # Note the acquisition already in the buffer, then let the daemon finish the iteration that carried it.
+        buffered = int(daq.get_channel("v1", timeout=5).latest)
+        daq.get_channel("loop_time", wait_for_new_samples=True, timeout=5)
+
+        result = daq.read_batch(["v0", "v1"])
+    finally:
+        daq.stop()
+
+    # The read waited for an acquisition newer than the buffered one, and both aliases came from it.
+    fresh = int(result["v0"].latest)
+    assert fresh > buffered
+    assert result["v0"].channel_data == {"ut.v0": [fresh + 0.1]}
+    assert result["v0"].timestamps == [fresh * 1000]
+    assert result["v1"].channel_data == {"ut.v1": [fresh + 0.2]}
+    assert result["v1"].timestamps == [fresh * 1000 + 1]
 
 
 def test_write_routes_each_index_to_its_channel():
