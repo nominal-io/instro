@@ -1109,7 +1109,7 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OpcUaValue {
-    #[serde(alias = "boolean")]
+    #[serde(alias = "boolean", alias = "bool")]
     Boolean(bool),
     #[serde(alias = "int8")]
     Int8(i8),
@@ -1332,6 +1332,7 @@ mod tests {
     use open62541::ua::NodeId;
     use open62541_sys::UA_UserTokenPolicy;
     use open62541_sys::UA_UserTokenType;
+    use serde_json::from_str;
 
     use super::*;
 
@@ -1703,6 +1704,29 @@ mod tests {
         };
 
         assert_serde_json_roundtrip_eq(&info);
+    }
+
+    #[test]
+    fn opcua_value_roundtrips_lowercase() {
+        const CASES: &[&str] = &[
+            "{ \"bool\": true }",
+            "{ \"boolean\": true }",
+            "{ \"float\": 1.1 }",
+            "{ \"double\": 2.2 }",
+            "{ \"int8\": -1 }",
+            "{ \"int16\": -2 }",
+            "{ \"int32\": -3 }",
+            "{ \"int64\": -4 }",
+            "{ \"uint8\": 1 }",
+            "{ \"uint16\": 2 }",
+            "{ \"uint32\": 3 }",
+            "{ \"uint64\": 4 }",
+            "{ \"string\": \"test\" }",
+        ];
+
+        for case in CASES {
+            _ = from_str::<OpcUaValue>(case).unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+        }
     }
 
     #[test]
