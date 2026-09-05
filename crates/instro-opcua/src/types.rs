@@ -1109,18 +1109,31 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OpcUaValue {
+    #[serde(alias = "boolean")]
     Boolean(bool),
+    #[serde(alias = "int8")]
     Int8(i8),
+    #[serde(alias = "uint8")]
     UInt8(u8),
+    #[serde(alias = "int16")]
     Int16(i16),
+    #[serde(alias = "uint16")]
     UInt16(u16),
+    #[serde(alias = "int32")]
     Int32(i32),
+    #[serde(alias = "uint32")]
     UInt32(u32),
+    #[serde(alias = "int64")]
     Int64(i64),
+    #[serde(alias = "uint64")]
     UInt64(u64),
+    #[serde(alias = "float")]
     Float(f32),
+    #[serde(alias = "double")]
     Double(f64),
+    #[serde(alias = "string")]
     String(Cow<'static, str>),
+    #[serde(alias = "datetime")]
     DateTime(UtcDateTime),
 }
 
