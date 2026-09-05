@@ -1708,24 +1708,25 @@ mod tests {
 
     #[test]
     fn opcua_value_roundtrips_lowercase() {
-        const CASES: &[&str] = &[
-            "{ \"bool\": true }",
-            "{ \"boolean\": true }",
-            "{ \"float\": 1.1 }",
-            "{ \"double\": 2.2 }",
-            "{ \"int8\": -1 }",
-            "{ \"int16\": -2 }",
-            "{ \"int32\": -3 }",
-            "{ \"int64\": -4 }",
-            "{ \"uint8\": 1 }",
-            "{ \"uint16\": 2 }",
-            "{ \"uint32\": 3 }",
-            "{ \"uint64\": 4 }",
-            "{ \"string\": \"test\" }",
+        const CASES: &[(&str, OpcUaValue)] = &[
+            ("{ \"bool\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"boolean\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"float\": 1.1 }", OpcUaValue::Float(1.1)),
+            ("{ \"double\": 2.2 }", OpcUaValue::Double(2.2)),
+            ("{ \"int8\": -1 }", OpcUaValue::Int8(-1)),
+            ("{ \"int16\": -2 }", OpcUaValue::Int16(-2)),
+            ("{ \"int32\": -3 }", OpcUaValue::Int32(-3)),
+            ("{ \"int64\": -4 }", OpcUaValue::Int64(-4)),
+            ("{ \"uint8\": 1 }", OpcUaValue::UInt8(1)),
+            ("{ \"uint16\": 2 }", OpcUaValue::UInt16(2)),
+            ("{ \"uint32\": 3 }", OpcUaValue::UInt32(3)),
+            ("{ \"uint64\": 4 }", OpcUaValue::UInt64(4)),
+            ("{ \"string\": \"test\" }", OpcUaValue::String(Cow::Borrowed("test"))),
         ];
 
-        for case in CASES {
-            _ = from_str::<OpcUaValue>(case).unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+        for (case, expected) in CASES {
+            let parsed = from_str::<OpcUaValue>(case).unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+            assert_eq!(&parsed, expected);
         }
     }
 
