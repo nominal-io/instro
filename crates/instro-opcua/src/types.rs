@@ -1721,11 +1721,15 @@ mod tests {
             ("{ \"uint16\": 2 }", OpcUaValue::UInt16(2)),
             ("{ \"uint32\": 3 }", OpcUaValue::UInt32(3)),
             ("{ \"uint64\": 4 }", OpcUaValue::UInt64(4)),
-            ("{ \"string\": \"test\" }", OpcUaValue::String(Cow::Borrowed("test"))),
+            (
+                "{ \"string\": \"test\" }",
+                OpcUaValue::String(Cow::Borrowed("test")),
+            ),
         ];
 
         for (case, expected) in CASES {
-            let parsed = from_str::<OpcUaValue>(case).unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+            let parsed = from_str::<OpcUaValue>(case)
+                .unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
             assert_eq!(&parsed, expected);
         }
     }
