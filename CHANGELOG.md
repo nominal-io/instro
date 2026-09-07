@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.0](https://github.com/nominal-io/instro/compare/instro-v1.18.1...instro-v1.19.0) (2026-09-07)
+
+
+### Features
+
+* **psu,eload:** add support for EA PSB 10000 series ([#379](https://github.com/nominal-io/instro/issues/379)) ([b155819](https://github.com/nominal-io/instro/commit/b155819621296a63778405a77232c95fd71e8222))
+
+
+### Bug Fixes
+
+* **eload:** cache mode only after the driver confirms set_mode ([#485](https://github.com/nominal-io/instro/issues/485)) ([9ccbf0a](https://github.com/nominal-io/instro/commit/9ccbf0ab4c84fc229a305a21e30f3bd1c1db56eb))
+
 ## [1.18.1](https://github.com/nominal-io/instro/compare/instro-v1.18.0...instro-v1.18.1) (2026-09-04)
 
 
