@@ -56,13 +56,13 @@ To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/u
 ```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
-uv sync --extra all
+uv sync
 ```
 
-This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. 
+This creates a virtual environment with the core library and the default development/test dependencies, including the EtherNet/IP, contrib, and unstable workspace packages. Add vendor extras as needed, for example `uv sync --extra nidaq`; `uv sync --extra all` selects all defined extras but does not install proprietary system SDKs.
 Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
-For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies their Rust recipes require), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
+The default development environment builds the local EtherNet/IP extension and needs Rust and a C/C++ compiler/linker. Full workspace checks also need CMake, LLVM/libclang, and a separate nightly rustfmt installation. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide before syncing a fresh checkout.
 
 ## Optional Extras
 
