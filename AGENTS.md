@@ -5,22 +5,23 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ## Quick reference
 
 ```bash
-uv sync --extra all              # install everything
+uv sync                          # default dev/test environment, including native EtherNet/IP
+uv sync --extra all              # additionally select all extras defined in pyproject.toml
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
 just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
 just test                        # all tests: python + Rust; no hardware required
-just check-python / check-rust   # single-language lints (check-rust includes lockfile + standalone-crate checks)
+just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
 just test-python / test-rust     # single-language tests
-uv build --package <name>        # build a wheel for a workspace package
+uv build --wheel --package <name> # build a wheel for a workspace package
 ```
 
-If `just check` and `just test` both pass, CI will pass. (A separate scheduled workflow, `.github/workflows/latest-deps-test.yml`, additionally re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests to catch upstream breaking releases; it is not part of PR CI.)
+`just check` and `just test` cover local linting and tests. [Build/test CI](./.github/workflows/build-check-test.yml) also checks `uv lock --check` and runs across supported OS/Python combinations. Separate workflows check [generated example/navigation drift](./.github/workflows/docs-check.yml) and [PR titles](./.github/workflows/lint-pr-title.yml). For docs drift, run `just gen-examples` and inspect `git diff -- docs/guides/instrumentation/examples docs/guides/docs.json`. A local pass does not guarantee a full CI pass. The [scheduled latest-dependencies workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies and runs Python tests; it is not part of PR CI.
 
-`just check-python` needs only `just` + `uv`. `just check` and `just test` additionally need a full native toolchain (Rust, CMake, a C compiler, and LLVM/libclang) because they run clippy/`cargo test` across the Rust workspace — including the `instro-opcua` crate's C build of `open62541-sys` — and `just test` builds the EtherNet/IP maturin wheel. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in CONTRIBUTING.md for per-OS install commands.
+The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` package, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
 
 ## Codebase layout
 
-The `instro` repository is a shared `uv`/`cargo` workspace. The top-level python package is `instro`, with pure-Python & mixed-Rust/Python workspace members live under `packages/`. All Rust workspace members live in `crates/`. Mixed Rust/Python crates should live in `packages/`.
+The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python package is `instro`, with additional pure-Python and mixed Rust/Python workspace members under `packages/`. [Cargo.toml](./Cargo.toml) includes pure-Rust crates under `crates/` and the mixed Rust/Python packages `packages/instro-ethernetip` and `packages/instro-opcua`.
 
 | Workspace | Path | What it is |
 |---|---|---|
@@ -60,7 +61,7 @@ Use `instro/psu/drivers/bk_9115.py` as the reference. The shape is:
 3. Implement `open`, `close`, and the category-required methods.
 4. Add per-driver `_write_checked` / `_check_errors` helpers if the device supports `SYST:ERR?`. Do **not** extract these to a shared mixin (see Patterns below).
 5. Register in `instro/<category>/drivers/__init__.py` (both the import and `__all__`).
-6. Add targeted tests in `tests/<category>/test_<category>_drivers.py`. The canonical pattern is in `tests/psu/test_psu_drivers.py`: patch the driver's `VisaDriver` reference with `autospec=True`, assert wire-level commands, and avoid redundant matrices, coverage-count padding, or shared helpers that obscure the behavior under test.
+6. Add targeted tests following the category's existing layout. The mocked-transport reference is [tests/psu/bk/test_bk_9115_software.py](./tests/psu/bk/test_bk_9115_software.py): patch the driver's `VisaDriver` reference with `autospec=True` and assert wire-level commands. PSU driver tests live under `tests/psu/<vendor>/`; `tests/psu/test_psu_drivers.py` covers the base contract and HAL composition. Avoid redundant matrices, coverage-count padding, or shared helpers that obscure the behavior under test.
 
 ## How to add a community driver
 
@@ -148,7 +149,7 @@ See `instro/daq/drivers/keysight_34980a.py` for the reference shape. Tests for `
 | Driver shape | `instro/psu/drivers/bk_9115.py` |
 | Category HAL | `instro/psu/psu.py` |
 | Transport driver | `instro/lib/transports/visa.py` |
-| Test pattern (mocked transport) | `tests/psu/test_psu_drivers.py` |
+| Test pattern (mocked transport) | `tests/psu/bk/test_bk_9115_software.py` |
 | Public API usage | `examples/<category>/`: runnable scripts showing what a user's code looks like |
 | Workspace vendor package | `packages/instro-daq-ni/` |
 | Community-driver layout | `packages/instro-contrib/instro/contrib/` |

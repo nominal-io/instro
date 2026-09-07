@@ -8,35 +8,45 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-What you need depends on which command you run. **`just check-python` is lightweight** (just + uv). **`just check` and `just test` need a full native toolchain**: they run `cargo clippy`/`cargo test` across the whole Rust workspace (and `just test` additionally builds a maturin/PyO3 wheel), which includes the `instro-opcua` crate. That crate compiles `open62541-sys` (with `mbedtls`) from C source, so a C compiler, CMake, and LLVM/libclang are required.
+The default development environment needs **Rust and a C/C++ toolchain**, even for `just check-python` and `just test-python`. The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local `instro-ethernetip` package, whose [build backend](./packages/instro-ethernetip/pyproject.toml) is maturin. Both `uv sync` and the recipes' `uv run` commands can build this native extension on a fresh checkout.
 
-| Layer | `just check-python` | `just check` / `just test` |
+**`just check` and `just test` also need CMake and LLVM/libclang**: their [Rust recipes](./justfile) cover the whole [Cargo workspace](./Cargo.toml), including OPC UA and its C dependencies (`open62541-sys` and `mbedtls`). Python-only recipes skip those workspace-wide Rust checks, but still use the default development environment.
+
+| Layer | `just check-python` / `just test-python` | `just check` / `just test` |
 |---|:---:|:---:|
 | [`just`](https://github.com/casey/just) (task runner) | ✅ | ✅ |
 | [`uv`](https://docs.astral.sh/uv/) (Python/env manager — also fetches Python), `>=0.12` | ✅ | ✅ |
 | Synced Python deps (`uv sync`) | ✅ | ✅ |
 | Git Bash (Windows only — for the `#!/usr/bin/env bash` recipes) | — | ✅ |
-| Rust toolchain (auto-pinned by `rust-toolchain.toml`) | — | ✅ |
-| C compiler + CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
+| Rust toolchain (pinned by `rust-toolchain.toml`) + C/C++ compiler/linker | ✅ | ✅ |
+| CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
+| Separate nightly toolchain with `rustfmt` | — | `just check` only |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. You also don't need to pick a Rust version: `rust-toolchain.toml` pins it, and `rustup` auto-installs that toolchain (with `clippy` + `rustfmt`) on first `cargo` invocation. The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. [rust-toolchain.toml](./rust-toolchain.toml) pins the Rust build toolchain, which `rustup` installs on first use. Formatting uses a separate `cargo +nightly fmt` invocation in `just check-rust` and `just fix-rust`; after installing rustup, install nightly rustfmt as [CI does](./.github/workflows/build-check-test.yml):
+
+```bash
+rustup toolchain install nightly --profile minimal --component rustfmt
+```
+
+The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
 
 <details>
 <summary><strong>Windows</strong></summary>
 
 ```powershell
-# Core (covers `just check-python`)
+# Default development environment (including Python checks)
 winget install --id Casey.Just -e            # just
 winget install --id astral-sh.uv -e          # uv
 winget install --id Git.Git -e               # Git + Git Bash (the bash recipes need it)
 
-# Additional for `just check` and `just test`
 winget install --id Rustlang.Rustup -e       # rustup -> installs the pinned toolchain on first use
-winget install --id Kitware.CMake -e         # cmake (open62541-sys build)
-winget install --id LLVM.LLVM -e             # libclang for bindgen
 # C/C++ build tools (MSVC) — required to compile and link the native crates:
 winget install --id Microsoft.VisualStudio.2022.BuildTools -e `
   --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+# Additional for `just check` and `just test`
+winget install --id Kitware.CMake -e         # cmake (open62541-sys build)
+winget install --id LLVM.LLVM -e             # libclang for bindgen
 ```
 
 After installing LLVM, set `LIBCLANG_PATH` so `bindgen` can find `libclang.dll`, then open a fresh shell:
@@ -51,13 +61,14 @@ setx LIBCLANG_PATH "C:\Program Files\LLVM\bin"
 <summary><strong>macOS</strong></summary>
 
 ```bash
-# Core (covers `just check-python`)
+# Default development environment (including Python checks)
 brew install just uv
 # git + the C compiler come from the Command Line Tools:
 xcode-select --install
 
-# Additional for `just check` and `just test`
 brew install rustup-init && rustup-init -y   # or: brew install rustup; rustup default stable
+
+# Additional for `just check` and `just test`
 brew install cmake llvm                       # cmake + libclang (bindgen)
 ```
 
@@ -73,13 +84,15 @@ export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
 <summary><strong>Linux (Debian/Ubuntu)</strong></summary>
 
 ```bash
-# Core (covers `just check-python`)
+# Default development environment (including Python checks)
 curl -LsSf https://astral.sh/uv/install.sh | sh                  # uv
 sudo apt-get install -y just git                                 # or: cargo install just
 
-# Additional for `just check` and `just test`
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # rustup
-sudo apt-get install -y build-essential cmake clang libclang-dev pkg-config
+sudo apt-get install -y build-essential
+
+# Additional for `just check` and `just test`
+sudo apt-get install -y cmake clang libclang-dev pkg-config
 ```
 
 `build-essential` (gcc + make + linker), `cmake`, and `clang`/`libclang-dev` cover the `open62541-sys` + `mbedtls` C build and the `bindgen` step. On Fedora/RHEL the equivalents are `gcc gcc-c++ make cmake clang clang-devel pkgconf-pkg-config`.
@@ -93,7 +106,7 @@ Clone the repo and install dependencies with [uv](https://docs.astral.sh/uv/):
 ```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
-uv sync --extra all
+uv sync
 ```
 
 Common dev tasks (via [just](https://github.com/casey/just)):
@@ -101,16 +114,17 @@ Common dev tasks (via [just](https://github.com/casey/just)):
 ```bash
 just check           # all static analysis: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy)
 just test            # all tests: python + Rust workspace + EtherNet/IP wheel checks (no hardware required)
-just check-python    # python static analysis only (no Rust toolchain needed)
+just check-python    # python static analysis in the default development environment
 just test-python     # python unit tests only
-just check-rust      # Rust rustfmt + clippy only
+just check-rust      # nightly rustfmt + clippy with the committed Cargo.lock
 just test-rust       # Rust library/integration/doc tests only
 ```
 
 Notes:
 
 - The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
-- `uv run` auto-syncs the environment, so `just test` works even without a prior `just install`/`uv sync`, but running `uv sync --extra all` first makes the dependency step explicit.
+- `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
+- Add vendor extras only when needed, for example `uv sync --extra nidaq`. `uv sync --extra all` selects the extras listed in [pyproject.toml](./pyproject.toml); it does not install proprietary system SDKs or every workspace member.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
 ### Rust Cargo.lock
@@ -200,7 +214,15 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 ### Tests and checks
 
-Every PR must pass `just check` and `just test`. CI will run these automatically against the committed `uv.lock`. A separate scheduled workflow (`.github/workflows/latest-deps-test.yml`) re-resolves all dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests, so a breaking release in an upstream dependency surfaces within a day instead of when an end user hits it; if that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile. If you've added a new driver, ship a unit test against a mocked transport (see existing tests under `tests/psu/`, `tests/dmm/`, etc. for the pattern: patch `VisaDriver` (or whatever transport your driver composes) with `autospec=True` and assert the wire-level commands).
+Every PR must pass `just check` and `just test`. [Build/test CI](./.github/workflows/build-check-test.yml) runs the checks across Windows, macOS, Linux, and the supported Python versions, and separately checks `uv lock --check`. Passing locally covers your current environment; it does not guarantee that the full CI matrix passes. [Docs CI](./.github/workflows/docs-check.yml) checks generated example pages and navigation for drift, and [PR title CI](./.github/workflows/lint-pr-title.yml) checks Conventional Commits formatting. To reproduce the docs regeneration locally, run `just gen-examples`, inspect `git diff -- docs/guides/instrumentation/examples docs/guides/docs.json`, and commit any required generated changes.
+
+A separate [scheduled workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests. If that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile.
+
+For a new driver, ship a unit test against a mocked transport. [The BK9115 software tests](./tests/psu/bk/test_bk_9115_software.py) patch the driver's `VisaDriver` reference with `autospec=True` and assert wire-level commands. Follow the existing layout for the category; PSU driver tests live under `tests/psu/<vendor>/`, while [test_psu_drivers.py](./tests/psu/test_psu_drivers.py) covers the base contract and HAL composition. For a focused local run:
+
+```bash
+uv run pytest tests/psu/bk/test_bk_9115_software.py
+```
 
 GitHub Actions in `.github/workflows/` are pinned to full commit SHAs with the release version as a trailing comment (`uses: actions/checkout@11d5960a... # v4.4.0`), so a repointed upstream tag can't silently change what runs in CI. Dependabot (`.github/dependabot.yml`) opens a weekly grouped PR bumping the pins. When adding an action, pin it the same way, resolving the SHA from the upstream repo's release — never from an unverified suggestion.
 
@@ -304,7 +326,7 @@ When the maintainers acquire the device and can verify the driver directly:
 2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
 3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
 4. Open a follow-up issue to delete the stub in the next release.
-5. Note the graduation in `CHANGELOG.md`.
+5. Describe the import-path change in the PR and affected user documentation, and use a breaking-change Conventional Commit title so release-please generates the changelog entry. Do not hand-edit `CHANGELOG.md`.
 
 The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`. The stub is not a compatibility shim. Old code stays broken; the error just points to the new import path for one release.
 
