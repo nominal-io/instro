@@ -221,10 +221,12 @@ class InstroELoad(Instrument):
     @publish_command
     def set_mode(self, mode: LoadMode, channel: int = 1, **kwargs) -> Command:
         """Set the channel's operation mode: CC, CR, CP, or CV. Not all models support every mode."""
-        self._mode = mode
         logger.debug("Sending E-Load set_mode command to '%s' on channel %s", self.name, channel)
         with self._resource_lock:
             self._driver.set_mode(mode=mode, channel=channel)
+            # Cache only once the driver confirms, so a failed set_mode can't leave set_level/set_range
+            # running against a mode the instrument was never put into.
+            self._mode = mode
             timestamp = time.time_ns()
 
         descriptor = f"ch{channel}_mode.cmd" if self.legacy_naming else f"ch{channel}.mode.cmd"
