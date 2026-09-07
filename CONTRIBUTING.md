@@ -199,6 +199,8 @@ Rules:
 - Keep the title under 72 characters and don't end with a period.
 - Add `!` after the type for breaking changes: `feat!: redesign auth flow`.
 
+Moving a driver from `instro-contrib` or `instro-unstable` into core or another workspace package is not considered a breaking change for either package, even when the import path changes. For the migration itself, use a normal Conventional Commit title (for example, `feat(psu): graduate ExamplePSU to core`) without `!` or a `BREAKING CHANGE` footer. Document the new import path in the PR and affected user documentation; no major-version release or release override is required solely for the migration.
+
 Examples:
 
 ```
@@ -326,13 +328,15 @@ When the maintainers acquire the device and can verify the driver directly:
 2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
 3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
 4. Open a follow-up issue to delete the stub in the next release.
-5. Describe the import-path change in the PR and affected user documentation, and use a breaking-change Conventional Commit title so release-please generates the changelog entry. Do not hand-edit `CHANGELOG.md`.
+5. Describe the import-path change in the PR and affected user documentation, and use a normal Conventional Commit title so release-please generates the changelog entry. Graduation is not considered a breaking change for either package; follow the [migration policy](#pull-request-titles). Do not hand-edit `CHANGELOG.md`.
 
 The old import path is a hard cutover: consumers pinning `instro-contrib` for that driver should switch to `instro` and update the import to drop `.contrib`. The stub is not a compatibility shim. Old code stays broken; the error just points to the new import path for one release.
 
 ### `instro-unstable`: in-development categories and abstractions
 
 The `instro-unstable` package (`packages/instro-unstable/`) holds in-development features whose shape isn't yet settled: typically a whole new instrument category, a new protocol handler, or a new abstraction. Code lives here while the API is still moving, then graduates to core (or its own workspace package) once it stabilizes.
+
+Driver migrations out of `instro-unstable` follow the same [migration policy](#pull-request-titles): document the new import path, but do not mark the migration as a breaking change.
 
 For *drivers* in existing categories (PSU, DMM, etc.), use `instro-contrib` instead. That's the right home regardless of who's contributing.
 

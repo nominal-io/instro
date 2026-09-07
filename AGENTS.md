@@ -38,6 +38,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 
 - **Every change has a tracking issue/ticket.** Branch off `main` and name the branch after the GitHub issue or ticket ID (e.g. `issue-142-siglent-spd-driver`, `instro-248-docstring-cleanup`). No untracked work. Open an issue first if one doesn't exist.
 - **Conventional Commits** for PR titles and commits: `<type>(<scope>): <imperative description>`. Types: `feat`, `fix`, `chore`, `docs`, `refactor`. Append `!` for breaking changes. Title under 72 chars, no trailing period.
+- **Driver migrations from `instro-contrib` or `instro-unstable` are not breaking changes**, including moves to core or another workspace package that change imports. Use a normal Conventional Commit title without `!` or a `BREAKING CHANGE` footer for the migration itself; no major-version release or release override is required solely for the move. Document the new import path in the PR and affected user docs. See [migration policy](./CONTRIBUTING.md#pull-request-titles).
 - **No multi-paragraph docstrings.** One short line max. Don't reintroduce verbose docstrings: the repo went through a deliberate cleanup pass (INSTRO-248).
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
