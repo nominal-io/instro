@@ -854,7 +854,63 @@ pub struct OpcUaNode {
     /// The namespace-qualified browse path to this node.
     #[serde(default)]
     pub browse_path: BrowsePath,
+    /// The `DataType` attribute of a `Variable` node; `None` for other node classes or when unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_type: Option<OpcUaNodeId>,
     pub children: Vec<OpcUaNode>,
+}
+
+impl OpcUaNode {
+    /// Human-readable name of the node's data type: the builtin OPC-UA type name for
+    /// namespace-0 builtin types, otherwise the canonical node id string.
+    pub fn data_type_name(&self) -> Option<Cow<'static, str>> {
+        let data_type = self.data_type.as_ref()?;
+        Some(match builtin_data_type_name(data_type) {
+            Some(name) => Cow::Borrowed(name),
+            None => Cow::Owned(data_type.to_string()),
+        })
+    }
+}
+
+fn builtin_data_type_name(data_type: &OpcUaNodeId) -> Option<&'static str> {
+    if data_type.namespace() != 0 {
+        return None;
+    }
+    let NodeIdKind::Numeric(id) = data_type.kind() else {
+        return None;
+    };
+    Some(match *id {
+        1 => "Boolean",
+        2 => "SByte",
+        3 => "Byte",
+        4 => "Int16",
+        5 => "UInt16",
+        6 => "Int32",
+        7 => "UInt32",
+        8 => "Int64",
+        9 => "UInt64",
+        10 => "Float",
+        11 => "Double",
+        12 => "String",
+        13 => "DateTime",
+        14 => "Guid",
+        15 => "ByteString",
+        16 => "XmlElement",
+        17 => "NodeId",
+        18 => "ExpandedNodeId",
+        19 => "StatusCode",
+        20 => "QualifiedName",
+        21 => "LocalizedText",
+        22 => "Structure",
+        23 => "DataValue",
+        24 => "BaseDataType",
+        25 => "DiagnosticInfo",
+        26 => "Number",
+        27 => "Integer",
+        28 => "UInteger",
+        29 => "Enumeration",
+        _ => return None,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1882,6 +1938,7 @@ mod tests {
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
             browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
+            data_type: None,
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
@@ -1891,11 +1948,32 @@ mod tests {
                     2,
                     "Temperature".into(),
                 )),
+                data_type: Some(OpcUaNodeId::numeric(0, 11)),
                 children: vec![],
             }],
         };
 
         assert_serde_json_roundtrip_eq(&browse);
+    }
+
+    #[test]
+    fn data_type_name_maps_builtin_and_falls_back_to_node_id() {
+        let mut node = OpcUaNode {
+            node_id: OpcUaNodeId::string(2, "Temp".into()),
+            browse_name: "Temp".into(),
+            display_name: "Temp".into(),
+            node_class: OpcUaNodeClass::Variable,
+            browse_path: BrowsePath::default(),
+            data_type: None,
+            children: vec![],
+        };
+        assert_eq!(node.data_type_name(), None);
+
+        node.data_type = Some(OpcUaNodeId::numeric(0, 11));
+        assert_eq!(node.data_type_name().as_deref(), Some("Double"));
+
+        node.data_type = Some(OpcUaNodeId::numeric(3, 1001));
+        assert_eq!(node.data_type_name().as_deref(), Some("ns=3;i=1001"));
     }
 
     #[test]

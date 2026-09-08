@@ -22,6 +22,8 @@ use std::pin::Pin;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::bail;
+use open62541::ScalarValue;
+use open62541::VariantValue;
 use open62541::ua;
 
 use super::client::OpcUaClient;
@@ -113,7 +115,7 @@ impl Browse for OpcUaClient {
             }
         }
 
-        let nodes = all_refs
+        let mut nodes: Vec<OpcUaNode> = all_refs
             .into_iter()
             .filter_map(|reference| {
                 let id = reference.node_id().node_id();
@@ -140,12 +142,57 @@ impl Browse for OpcUaClient {
                     display_name: reference.display_name().text().to_string(),
                     node_class,
                     browse_path: BrowsePath::from_segment(qualified_browse_name),
+                    data_type: None,
                     children: Vec::new(),
                 })
             })
             .collect();
 
+        self.fill_variable_data_types(&mut nodes).await;
+
         Ok(nodes)
+    }
+}
+
+impl OpcUaClient {
+    /// Reads the `DataType` attribute for every `Variable` node in `nodes` in a single
+    /// batched request. Failures are logged and leave `data_type` as `None`.
+    async fn fill_variable_data_types(&self, nodes: &mut [OpcUaNode]) {
+        let variables = nodes
+            .iter_mut()
+            .filter(|node| matches!(node.node_class, OpcUaNodeClass::Variable))
+            .collect::<Vec<_>>();
+
+        if variables.is_empty() {
+            return;
+        }
+
+        let pairs = variables
+            .iter()
+            .map(|node| (node.node_id.clone().into(), ua::AttributeId::DATATYPE))
+            .collect::<Vec<_>>();
+
+        let values = match self.read_many_attributes(&pairs).await {
+            Ok(values) => values,
+            Err(error) => {
+                tracing::warn!(
+                    target: "opcua::browse",
+                    error = ?error,
+                    "failed to read data types for browsed variable nodes"
+                );
+                return;
+            }
+        };
+
+        for (node, value) in variables.into_iter().zip(values) {
+            node.data_type = value
+                .value()
+                .and_then(|variant| match variant.to_value() {
+                    VariantValue::Scalar(ScalarValue::NodeId(id)) => Some(id),
+                    _ => None,
+                })
+                .and_then(|id| OpcUaNodeId::try_from(&id).ok());
+        }
     }
 }
 
@@ -260,6 +307,7 @@ mod tests {
             display_name: format!("Object {id}"),
             node_class: OpcUaNodeClass::Object,
             browse_path: browse_path(0, browse_name),
+            data_type: None,
             children: Vec::new(),
         }
     }
@@ -272,6 +320,7 @@ mod tests {
             display_name: format!("Variable {id}"),
             node_class: OpcUaNodeClass::Variable,
             browse_path: browse_path(0, browse_name),
+            data_type: None,
             children: Vec::new(),
         }
     }
@@ -284,6 +333,7 @@ mod tests {
             display_name: format!("Method {id}"),
             node_class: OpcUaNodeClass::Method,
             browse_path: browse_path(0, browse_name),
+            data_type: None,
             children: Vec::new(),
         }
     }
@@ -296,6 +346,7 @@ mod tests {
             display_name: format!("View {id}"),
             node_class: OpcUaNodeClass::View,
             browse_path: browse_path(0, browse_name),
+            data_type: None,
             children: Vec::new(),
         }
     }

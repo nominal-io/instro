@@ -66,6 +66,7 @@ fn opcua_node(
         display_name: browse_name.to_owned(),
         node_class,
         browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
+        data_type: None,
         children: Vec::new(),
     })
 }

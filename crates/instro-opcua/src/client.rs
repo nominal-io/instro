@@ -1150,6 +1150,7 @@ mod subscription_loop_tests {
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,
             browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),
+            data_type: None,
             children: Vec::new(),
         }
     }
