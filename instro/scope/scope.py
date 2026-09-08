@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import logging
 import math
 import threading
@@ -14,7 +15,7 @@ from instro.lib import Command, Instrument, Measurement
 from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
-from instro.scope.config import ScopeConfig, resolve_scope_from_config
+from instro.scope.config import ChannelConfig, ScopeConfig, resolve_scope_from_config
 from instro.scope.types import (
     AcquisitionMode,
     AcquisitionState,
@@ -39,6 +40,9 @@ _AUTOSTART_REQUIRES_MEASUREMENTS = (
     "autostart=True requires a config with at least one channels.<n>.measurements entry; "
     "background polling has nothing to do otherwise."
 )
+
+# Channel fields the snap check compares: everything ChannelConfig requests that ChannelState reads back.
+_CHANNEL_SNAP_FIELDS = tuple(f.name for f in dataclasses.fields(ChannelState) if f.name in ChannelConfig.model_fields)
 
 
 class ScopeDriverBase(abc.ABC):
@@ -468,7 +472,7 @@ class InstroScope(Instrument):
         assert self._config is not None
         for channel, requested in sorted(self._config.channels.items()):
             actual = self._state.channels[channel]
-            for attr in ("vertical_scale", "vertical_offset", "coupling", "probe_attenuation"):
+            for attr in _CHANNEL_SNAP_FIELDS:
                 _warn_if_snapped(f"ch{channel}.{attr}", getattr(requested, attr), getattr(actual, attr))
         acquisition = self._config.acquisition
         if acquisition is not None:
