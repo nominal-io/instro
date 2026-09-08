@@ -5,6 +5,7 @@ import logging
 import math
 import threading
 import time
+import warnings
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping, TypeVar, cast
@@ -176,19 +177,18 @@ class DAQDriverBase(abc.ABC):
         """Close every task/handle owned by the driver. Idempotent."""
         ...
 
-    @abc.abstractmethod
     def configure_ai_channel(
         self,
         channel: AnalogChannel,
     ):
-        """Register an AI channel with the underlying driver (range, terminal mode, scaler — vendor-specific)."""
-        ...
+        """Deprecated: implement ``configure_ai_voltage_channel`` instead."""
+        raise NotImplementedError("Untyped analog input has not been configured for this driver")
 
     def configure_ao_channel(
         self,
         channel: AnalogChannel,
     ):
-        """Register an AO channel. Override if the driver supports analog output."""
+        """Deprecated: implement ``configure_ao_voltage_channel`` instead."""
         raise NotImplementedError("Analog Output has not been configured for this driver")
 
     @abc.abstractmethod
@@ -219,7 +219,7 @@ class DAQDriverBase(abc.ABC):
     ):
         """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
 
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
+        Called before ``start()`` whenever ``InstroDAQ.configure_ai_hw_sample_rate()``
         is invoked. The driver should program the sample clock and any
         ``samples_per_channel`` buffer sizing the underlying SDK requires.
         """
@@ -837,6 +837,12 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
+        warnings.warn(
+            "InstroDAQ.configure_analog_channel() is deprecated and will be removed in a future release; "
+            "use configure_voltage_input() or configure_voltage_output() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._require_open()
         channel = AnalogChannel(
             physical_channel=physical_channel,
@@ -872,6 +878,12 @@ class InstroDAQ(Instrument):
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
+        warnings.warn(
+            "InstroDAQ.configure_ai_sample_rate() is deprecated and will be removed in a future release; "
+            "use configure_ai_hw_sample_rate() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ai_hw_sample_rate(
             sample_rate=sample_rate,
             samples_per_channel=samples_per_channel,
@@ -1235,7 +1247,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Analog output channel '{channel}' is not configured. "
                 f"Configured analog output channels: {list(self.ao_channels.keys())}. "
-                f"Call configure_analog_channel(Direction.OUTPUT, ...) first."
+                "Call configure_voltage_output() first."
             )
         logger.debug("Sending DAQ write_analog_value command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_analog_value(analog_channel, value)
@@ -1260,6 +1272,12 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
+        warnings.warn(
+            "InstroDAQ.configure_digital_line() is deprecated and will be removed in a future release; "
+            "use configure_digital_input() or configure_digital_output() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._require_open()
         match direction:
             case Direction.INPUT:
@@ -1275,6 +1293,11 @@ class InstroDAQ(Instrument):
                     logic=logic,
                     logic_level=logic_level,
                     alias=alias,
+                )
+            case _:
+                raise ValueError(
+                    f"Unsupported digital line channel direction: {direction}. "
+                    "Expected Direction.INPUT or Direction.OUTPUT."
                 )
         logger.info("Configured digital line channel on DAQ '%s'", self.name)
 
@@ -1315,6 +1338,11 @@ class InstroDAQ(Instrument):
                     logic_level=logic_level,
                     alias=alias,
                 )
+            case _:
+                raise ValueError(
+                    f"Unsupported digital port channel direction: {direction}. "
+                    "Expected Direction.INPUT or Direction.OUTPUT."
+                )
         logger.info("Configured digital port channel on DAQ '%s'", self.name)
 
     @publish_command
@@ -1325,7 +1353,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_line(Direction.OUTPUT, ...) first."
+                "Call configure_digital_output() first."
             )
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_digital_line(digital_channel, data)
@@ -1354,7 +1382,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_line(Direction.INPUT, ...) first."
+                "Call configure_digital_input() first."
             )
         response = self._driver.read_digital_line(digital_channel)
         timestamp = time.time_ns()

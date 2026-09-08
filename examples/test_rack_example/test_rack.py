@@ -8,7 +8,6 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers import Keysight34980A
-from instro.daq.types import Direction
 from instro.eload import InstroELoad
 from instro.eload.drivers import BK85XXB
 from instro.eload.types import LoadMode
@@ -52,8 +51,8 @@ def main():
     with daq, psu, eload:
         try:
             # Configure DAQ
-            daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="1010", alias="psu_v")
-            daq.configure_ai_sample_rate(sample_rate=1000)
+            daq.configure_voltage_input(physical_channel="1010", alias="psu_v")
+            daq.configure_ai_hw_sample_rate(sample_rate=1000)
 
             # Start the DAQ to monitor the power supply/eload prior to using it
             daq.start()

@@ -1,5 +1,6 @@
 import logging
 import time
+import warnings
 from ctypes import addressof, memmove, sizeof
 from dataclasses import dataclass
 from typing import Mapping
@@ -161,6 +162,12 @@ class MCCDriver(DAQDriverBase):
 
     def configure_ai_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ai_voltage_channel``. Configure an analog input channel on the MCC DAQ device."""
+        warnings.warn(
+            "MCCDriver.configure_ai_channel() is deprecated and will be removed in a future release; "
+            "use configure_ai_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ai_voltage_channel(channel)
 
     def configure_ai_voltage_channel(self, channel: AnalogChannel | AnalogVoltageChannel):
@@ -315,6 +322,12 @@ class MCCDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configure an analog output channel on the MCC DAQ device."""
+        warnings.warn(
+            "MCCDriver.configure_ao_channel() is deprecated and will be removed in a future release; "
+            "use configure_ao_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ao_voltage_channel(channel)
 
     def configure_ao_voltage_channel(self, channel: AnalogChannel | AnalogVoltageChannel):

@@ -1,7 +1,7 @@
 """Example: DAQ write analog SW timed."""
 
 from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor, Direction
+from instro.daq.types import DAQVendor
 from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
@@ -40,11 +40,7 @@ daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
-    daq.configure_analog_channel(
-        direction=Direction.OUTPUT, physical_channel=CHANNEL_0, alias="ao_0", range_min=0, range_max=5
-    )
-    daq.configure_analog_channel(
-        direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias="ao_1", range_min=0, range_max=5
-    )
+    daq.configure_voltage_output(physical_channel=CHANNEL_0, alias="ao_0", range_min=0, range_max=5)
+    daq.configure_voltage_output(physical_channel=CHANNEL_1, alias="ao_1", range_min=0, range_max=5)
 
     daq.write_batch(["ao_0", "ao_1"], [2.2, 3.4])

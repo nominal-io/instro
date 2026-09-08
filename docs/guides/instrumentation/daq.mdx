@@ -920,8 +920,6 @@ All drivers must implement the `DAQDriverBase` abstract base class. Key methods:
 
 Each of the methods below must (a) program the device and (b) record the resulting channel on the driver's own private dict (`self._ai_channels`, `self._di_channels`, etc.) so later calls (`read_analog`, `start`, etc.) can find it. See [Driver-owned state](#driver-owned-state) for the full rationale.
 
-- **`configure_ai_channel(channel)`**: Configure an analog input channel on the hardware; record on `self._ai_channels[channel.alias]`.
-- **`configure_ao_channel(channel)`**: Configure an analog output channel; record on `self._ao_channels[channel.alias]`. Default raises `NotImplementedError` for drivers that don't support AO.
 - **`configure_di_line_channel(physical_channel, logic, ...)`**: Parse, program, and register a digital input line. Record on `self._di_channels[channel.alias]`.
 - **`configure_do_line_channel(physical_channel, logic, ...)`**: Parse, program, and register a digital output line. Record on `self._do_channels[channel.alias]`.
 - **`configure_di_port_channel(physical_channel, logic, port_width, ...)`**: Parse, program, and register a digital input port. Record on `self._di_channels[channel.alias]`. Default raises `NotImplementedError` for line-only devices.
@@ -994,8 +992,8 @@ To keep every driver consistent, `DAQDriverBase.__init__` initializes the privat
 
 | Private attribute | Read-only accessor | Type | Populated in | Read by (typical) |
 |---|---|---|---|---|
-| `_ai_channels` | `ai_channels` | `dict[str, AnalogChannel]` | `configure_ai_channel` | `read_analog`, `fetch_analog`, `start`, … |
-| `_ao_channels` | `ao_channels` | `dict[str, AnalogChannel]` | `configure_ao_channel` | `write_analog_value` |
+| `_ai_channels` | `ai_channels` | `dict[str, AnalogChannel]` | `configure_ai_voltage_channel` / `configure_ai_current_channel` / `configure_ai_thermocouple_channel` | `read_analog`, `fetch_analog`, `start`, … |
+| `_ao_channels` | `ao_channels` | `dict[str, AnalogChannel]` | `configure_ao_voltage_channel` / `configure_ao_current_channel` | `write_analog_value` |
 | `_di_channels` | `di_channels` | `dict[str, DigitalChannel]` | `configure_di_line_channel` / `configure_di_port_channel` | digital-input read paths |
 | `_do_channels` | `do_channels` | `dict[str, DigitalChannel]` | `configure_do_line_channel` / `configure_do_port_channel` | digital-output write paths |
 | `_relay_channels` | `relay_channels` | `dict[str, RelayChannel]` | `define_relay_channel` (base default already records; overrides must too) | `open_relay` / `close_relay` |
@@ -1015,7 +1013,7 @@ class MyDriver(DAQDriverBase):
                             # and points_in_buffer.
         self._transport = SomeTransport(resource)  # vendor-specific state
 
-    def configure_ai_channel(self, channel: AnalogChannel) -> None:
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel) -> None:
         ...  # program the device
         self._ai_channels[channel.alias] = channel
 
@@ -1029,7 +1027,7 @@ class MyDriver(DAQDriverBase):
             ...
 ```
 
-The same `self._<dict>[channel.alias] = channel` pattern applies to `configure_ao_channel` and the four digital configure methods (`configure_di_line_channel`, `configure_do_line_channel`, `configure_di_port_channel`, `configure_do_port_channel`). `DAQDriverBase.define_relay_channel`'s default builds a `RelayChannel` and records it on `self._relay_channels` already — only override if your hardware needs different parsing, and ensure your override records too.
+The same `self._<dict>[channel.alias] = channel` pattern applies to the other typed analog methods and the four digital configure methods (`configure_di_line_channel`, `configure_do_line_channel`, `configure_di_port_channel`, `configure_do_port_channel`). `DAQDriverBase.define_relay_channel`'s default builds a `RelayChannel` and records it on `self._relay_channels` already — only override if your hardware needs different parsing, and ensure your override records too.
 
 #### How InstroDAQ exposes this
 

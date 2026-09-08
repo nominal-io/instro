@@ -3,6 +3,7 @@ import logging
 import math
 import threading
 import time
+import warnings
 import weakref
 from dataclasses import dataclass
 from queue import Empty, Queue
@@ -162,6 +163,12 @@ class LabJackTSeriesDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures an ai channel on the LabJack device."""
+        warnings.warn(
+            "LabJackTSeriesDriver.configure_ai_channel() is deprecated and will be removed in a future release; "
+            "use configure_ai_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ai_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
@@ -176,6 +183,12 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the LabJack device."""
+        warnings.warn(
+            "LabJackTSeriesDriver.configure_ao_channel() is deprecated and will be removed in a future release; "
+            "use configure_ao_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ao_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,

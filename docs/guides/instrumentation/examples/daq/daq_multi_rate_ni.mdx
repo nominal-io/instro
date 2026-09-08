@@ -19,7 +19,6 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
-from instro.daq.types import Direction
 
 # NI device name, as defined in NI MAX. Both instances share the device
 # with non-overlapping channels.
@@ -40,15 +39,13 @@ with daq_fast, daq_slow:
     # A physical channel belongs to exactly one instance; allocate without overlap.
     # Each instance streams CHANNELS_PER_TASK channels from its own module.
     for i in range(CHANNELS_PER_TASK):
-        daq_fast.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq_fast.configure_voltage_input(
             physical_channel=f"{FAST_MODULE}/ai{i}",
             alias=f"fast_channel{i}",
             range_min=-5,
             range_max=5,
         )
-        daq_slow.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq_slow.configure_voltage_input(
             physical_channel=f"{SLOW_MODULE}/ai{i}",
             alias=f"slow_channel{i}",
             range_min=0,
@@ -56,8 +53,8 @@ with daq_fast, daq_slow:
         )
 
     # Each instance gets its own hardware sample rate.
-    daq_fast.configure_ai_sample_rate(sample_rate=FAST_SAMPLE_RATE)
-    daq_slow.configure_ai_sample_rate(sample_rate=SLOW_SAMPLE_RATE)
+    daq_fast.configure_ai_hw_sample_rate(sample_rate=FAST_SAMPLE_RATE)
+    daq_slow.configure_ai_hw_sample_rate(sample_rate=SLOW_SAMPLE_RATE)
 
     # Each start() launches that instance's own background daemon.
     daq_fast.start()

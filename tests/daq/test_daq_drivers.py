@@ -65,12 +65,6 @@ class _RecordingDriver(DAQDriverBase):
         for name in self._ACTION_METHODS:
             setattr(self, name, Mock(name=name))
 
-    def configure_ai_channel(self, channel):
-        self._ai_channels[channel.alias] = channel
-
-    def configure_ao_channel(self, channel):
-        self._ao_channels[channel.alias] = channel
-
     def configure_ai_voltage_channel(self, channel):
         self._ai_channels[channel.alias] = channel
 
@@ -147,9 +141,7 @@ def test_write_digital_line_configured_channel():
     )
 
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH, alias="test_channel"
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", logic=Logic.HIGH, alias="test_channel")
 
     daq.write_digital_line("test_channel", 1)
 
@@ -185,9 +177,7 @@ def test_read_digital_line_configured_channel():
     )
 
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.INPUT, physical_channel="port0/line0", alias="test_channel", logic=Logic.HIGH
-    )
+    daq.configure_digital_input(physical_channel="port0/line0", alias="test_channel", logic=Logic.HIGH)
 
     daq.read_digital_line("test_channel")
 
@@ -489,16 +479,16 @@ _GUARDED_METHODS = [
     ("close_relay", lambda daq: daq.close_relay("ch")),
     ("open_relay", lambda daq: daq.open_relay("ch")),
     ("get_points_in_buffer", lambda daq: daq.get_points_in_buffer()),
+    ("configure_voltage_input", lambda daq: daq.configure_voltage_input(physical_channel="ai0")),
+    ("configure_voltage_output", lambda daq: daq.configure_voltage_output(physical_channel="ao0")),
+    ("configure_ai_hw_sample_rate", lambda daq: daq.configure_ai_hw_sample_rate(sample_rate=100)),
     (
-        "configure_analog_channel",
-        lambda daq: daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0"),
+        "configure_digital_input",
+        lambda daq: daq.configure_digital_input(physical_channel="port0/line0", logic=Logic.HIGH),
     ),
-    ("configure_ai_sample_rate", lambda daq: daq.configure_ai_sample_rate(sample_rate=100)),
     (
-        "configure_digital_line",
-        lambda daq: daq.configure_digital_line(
-            direction=Direction.OUTPUT, physical_channel="port0/line0", logic=Logic.HIGH
-        ),
+        "configure_digital_output",
+        lambda daq: daq.configure_digital_output(physical_channel="port0/line0", logic=Logic.HIGH),
     ),
     (
         "configure_digital_port",
@@ -809,7 +799,8 @@ def _legacy_daq_with_digital_channel(direction: Direction):
 
     daq = InstroDAQ(name="ut", driver=mock_driver, legacy_naming=True)
     daq.open()
-    daq.configure_digital_line(direction=direction, physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    configure = daq.configure_digital_input if direction is Direction.INPUT else daq.configure_digital_output
+    configure(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
     return daq
 
 
@@ -836,9 +827,7 @@ def test_default_naming_write_digital_line_publishes_with_prefix_and_cmd():
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
     command = daq.write_digital_line("do0", 1)
     assert "ut.do0.cmd" in command.channel_data
 
@@ -849,9 +838,7 @@ def test_default_naming_write_digital_line_preserves_int_value_type():
 
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
     command = daq.write_digital_line("do0", 1)
     value = command.channel_data["ut.do0.cmd"]
     assert value == 1
@@ -881,9 +868,7 @@ def test_channel_mapping_is_read_only():
     """The channel-dict properties return read-only mappings; mutating them raises."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
     with pytest.raises(TypeError):
         daq.do_channels["do0"] = "x"  # type: ignore[index]
@@ -895,9 +880,7 @@ def test_channel_objects_are_frozen():
     """Channels handed back through a snapshot are frozen; attribute writes raise."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
     channel = daq.do_channels["do0"]
     with pytest.raises(FrozenInstanceError):
@@ -908,10 +891,10 @@ def test_channel_snapshot_is_not_a_live_view():
     """A captured snapshot does not reflect channels configured afterwards."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="a", logic=Logic.HIGH)
+    daq.configure_digital_output(physical_channel="port0/line0", alias="a", logic=Logic.HIGH)
 
     snapshot = daq.do_channels
-    daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line1", alias="b", logic=Logic.HIGH)
+    daq.configure_digital_output(physical_channel="port0/line1", alias="b", logic=Logic.HIGH)
 
     assert "b" not in snapshot
     assert set(snapshot) == {"a"}
@@ -922,9 +905,7 @@ def test_channels_property_returns_immutable_tuple():
     """The aggregate ``channels`` property returns a tuple snapshot."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do0", logic=Logic.HIGH
-    )
+    daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
     assert isinstance(daq.channels, tuple)
     assert {ch.alias for ch in daq.channels} == {"do0"}
@@ -941,12 +922,12 @@ def test_stop_with_channel_type_forwards_kwarg_once():
     mock_driver.stop.assert_called_once_with(channel_type="analog_input")
 
 
-def test_configure_ai_sample_rate_below_10hz_floors_samples_per_channel():
+def test_configure_ai_hw_sample_rate_below_10hz_floors_samples_per_channel():
     """The samples_per_channel default must never be 0; sub-10 Hz rates floor at 1."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
 
-    daq.configure_ai_sample_rate(sample_rate=1.0)
+    daq.configure_ai_hw_sample_rate(sample_rate=1.0)
 
     assert daq.ai_hw_timing_config is not None
     assert daq.ai_hw_timing_config.samples_per_channel == 1
@@ -961,7 +942,7 @@ def _hw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     mock_driver._read_to_measurements.return_value = []
     daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_voltage_input(physical_channel="ai0", alias="ai0")
     daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
     return daq, mock_driver
 
@@ -972,7 +953,7 @@ def _sw_timed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     mock_driver._read_to_measurements.return_value = []
     daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_voltage_input(physical_channel="ai0", alias="ai0")
     daq.configure_ai_sw_sample_rate(sample_rate=100)
     return daq, mock_driver
 
@@ -983,7 +964,7 @@ def _untimed_daq(name: str = "ut") -> tuple[InstroDAQ, _RecordingDriver]:
     mock_driver._read_to_measurements.return_value = []
     daq = InstroDAQ(name=name, driver=mock_driver)
     daq.open()
-    daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+    daq.configure_voltage_input(physical_channel="ai0", alias="ai0")
     return daq, mock_driver
 
 
@@ -1079,7 +1060,7 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
         mock_driver = _make_mock_driver()
         daq = InstroDAQ(name="ut", driver=mock_driver)
         daq.open()
-        daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ai0")
+        daq.configure_voltage_input(physical_channel="ai0", alias="ai0")
         internal_read = daq._software_timed_read
 
     measurements = [

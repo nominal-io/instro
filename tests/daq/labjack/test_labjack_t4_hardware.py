@@ -211,8 +211,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
         """Configure the standard AIN0 input channel (RSE)."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=AI_CHANNEL,
             alias=AI_ALIAS,
             range_min=range_min,
@@ -221,8 +220,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
     def _configure_ao(self, daq: InstroDAQ):
         """Configure the standard DAC0 output channel (0-5 V)."""
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=AO_CHANNEL,
             alias=AO_ALIAS,
             range_min=0,
@@ -231,14 +229,12 @@ class TestLabJackT4Hardware(unittest.TestCase):
 
     def _configure_digital_lines(self, daq: InstroDAQ):
         """Configure FIO4 as output and FIO5 as input (single lines)."""
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT,
+        daq.configure_digital_output(
             physical_channel=DO_LINE,
             logic=Logic.HIGH,
             alias=DO_ALIAS,
         )
-        daq.configure_digital_line(
-            direction=Direction.INPUT,
+        daq.configure_digital_input(
             physical_channel=DI_LINE,
             logic=Logic.HIGH,
             alias=DI_ALIAS,
@@ -747,9 +743,7 @@ class TestLabJackT4Hardware(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_ao(daq)
-                daq.configure_analog_channel(
-                    direction=Direction.OUTPUT, physical_channel="DAC1", alias="dac1", range_min=0, range_max=5
-                )
+                daq.configure_voltage_output(physical_channel="DAC1", alias="dac1", range_min=0, range_max=5)
                 self._configure_digital_lines(daq)
                 # Drive the DO low first: an unwritten FIO line tri-states and its pull-up reads back as 1.
                 daq.write(DO_ALIAS, 0)

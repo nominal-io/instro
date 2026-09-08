@@ -1,4 +1,5 @@
 import time
+import warnings
 from dataclasses import dataclass
 from itertools import count
 from typing import Mapping
@@ -150,6 +151,12 @@ class NIDAQDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures a channel on the NI device."""
+        warnings.warn(
+            "NIDAQDriver.configure_ai_channel() is deprecated and will be removed in a future release; "
+            "use configure_ai_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ai_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
@@ -164,6 +171,12 @@ class NIDAQDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the NI device."""
+        warnings.warn(
+            "NIDAQDriver.configure_ao_channel() is deprecated and will be removed in a future release; "
+            "use configure_ao_voltage_channel() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ao_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,

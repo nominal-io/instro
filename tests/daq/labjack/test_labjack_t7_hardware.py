@@ -243,8 +243,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
         """Configure the AIN0 and AIN1 input channels (RSE)."""
         for channel, alias in ((AI0_CHANNEL, AI0_ALIAS), (AI1_CHANNEL, AI1_ALIAS)):
-            daq.configure_analog_channel(
-                direction=Direction.INPUT,
+            daq.configure_voltage_input(
                 physical_channel=channel,
                 alias=alias,
                 range_min=range_min,
@@ -254,8 +253,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
     def _configure_ao(self, daq: InstroDAQ):
         """Configure the DAC0 and DAC1 output channels (0-5 V)."""
         for channel, alias in ((AO0_CHANNEL, AO0_ALIAS), (AO1_CHANNEL, AO1_ALIAS)):
-            daq.configure_analog_channel(
-                direction=Direction.OUTPUT,
+            daq.configure_voltage_output(
                 physical_channel=channel,
                 alias=alias,
                 range_min=0,
@@ -264,14 +262,12 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
     def _configure_digital_lines(self, daq: InstroDAQ):
         """Configure FIO0 as output and FIO1 as input (single lines)."""
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT,
+        daq.configure_digital_output(
             physical_channel=DO_LINE,
             logic=Logic.HIGH,
             alias=DO_ALIAS,
         )
-        daq.configure_digital_line(
-            direction=Direction.INPUT,
+        daq.configure_digital_input(
             physical_channel=DI_LINE,
             logic=Logic.HIGH,
             alias=DI_ALIAS,
@@ -405,8 +401,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 print(f"         single-ended: AIN0={ain0:.4f} V, AIN1={ain1:.4f} V, diff={single_ended_diff:+.4f} V")
 
                 # Reconfigure AIN0 as the positive leg of a differential pair (AIN1 = negative).
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
+                daq.configure_voltage_input(
                     physical_channel=AI0_CHANNEL,
                     alias=AI0_ALIAS,
                     terminal_config=TerminalConfig.DIFF,
@@ -913,8 +908,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
             # Construct but deliberately do NOT open the DAQ.
             daq = InstroDAQ(name=NAME, driver=LabJackTSeriesDriver(device_id=DEVICE_ID))
             with self.assertRaises(InstrumentNotOpenError):
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
+                daq.configure_voltage_input(
                     physical_channel=AI0_CHANNEL,
                     alias=AI0_ALIAS,
                 )
@@ -924,7 +918,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
         self._run_step(
             "Lifecycle guard (not open)",
-            "Verify configure_analog_channel() and read() raise InstrumentNotOpenError when called "
+            "Verify configure_voltage_input() and read() raise InstrumentNotOpenError when called "
             "before open(), confirming the _require_open() gate.",
             step,
         )
