@@ -860,6 +860,17 @@ pub struct OpcUaNode {
     pub children: Vec<OpcUaNode>,
 }
 
+/// Node metadata read from the server's address space via a single batched
+/// attribute read (`BrowseName`, `DisplayName`, `NodeClass`, `DataType`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaNodeMetadata {
+    pub browse_name: QualifiedBrowseName,
+    pub display_name: String,
+    pub node_class: OpcUaNodeClass,
+    /// `DataType` attribute; `None` for non-`Variable` nodes or when the server doesn't report one.
+    pub data_type: Option<OpcUaNodeId>,
+}
+
 impl OpcUaNode {
     /// Human-readable name of the node's data type: the builtin OPC-UA type name for
     /// namespace-0 builtin types, otherwise the canonical node id string.

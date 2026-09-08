@@ -68,6 +68,7 @@ use super::types::OpcUaDataPoint;
 use super::types::OpcUaMonitoredItemConfig;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
+use super::types::OpcUaNodeMetadata;
 use super::types::OpcUaPki;
 use super::types::OpcUaSample;
 use super::types::OpcUaSecurityMode;
@@ -142,8 +143,20 @@ impl<'nodes> OpcUaNodeReadBatch<'nodes> {
     }
 }
 
+/// Decodes a `DataType` attribute read result into an [`OpcUaNodeId`].
+/// Returns `None` when the value is unset, has a bad status, or is not a scalar `NodeId`.
+pub(crate) fn data_type_from_value(value: &DataValue<ua::Variant>) -> Option<OpcUaNodeId> {
+    value
+        .value()
+        .and_then(|variant| match variant.to_value() {
+            VariantValue::Scalar(ScalarValue::NodeId(id)) => Some(id),
+            _ => None,
+        })
+        .and_then(|id| OpcUaNodeId::try_from(&id).ok())
+}
+
 fn decode_node_class_variant(
-    value: &DataValue<ua::NodeClass>,
+    value: &DataValue<ua::Variant>,
     node_id: &OpcUaNodeId,
 ) -> Result<OpcUaNodeClass> {
     let Some(variant) = value.value() else {
@@ -300,56 +313,75 @@ impl OpcUaClient {
             .collect_vec())
     }
 
-    /// Reads the browse name, display name, and node class for a node.
-    pub async fn read_node_metadata(
-        &self,
-        node_id: &OpcUaNodeId,
-    ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
+    /// Reads the browse name, display name, node class, and data type for a node
+    /// in a single batched `Read` request.
+    ///
+    /// `DataType` is reported only by `Variable` nodes; for other node classes (or
+    /// when the server doesn't report it) [`OpcUaNodeMetadata::data_type`] is `None`.
+    pub async fn read_node_metadata(&self, node_id: &OpcUaNodeId) -> Result<OpcUaNodeMetadata> {
         let ua_node_id = ua::NodeId::from(node_id.clone());
+        let attributes = [
+            (ua_node_id.clone(), ua::AttributeId::BROWSENAME),
+            (ua_node_id.clone(), ua::AttributeId::DISPLAYNAME),
+            (ua_node_id.clone(), ua::AttributeId::NODECLASS),
+            (ua_node_id, ua::AttributeId::DATATYPE),
+        ];
 
-        let browse_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::BROWSENAME_T)
+        let values = self
+            .read_many_attributes(&attributes)
             .await
-            .with_context(|| format!("reading browse name for node {node_id}"))?;
-        let browse_name = browse_name_value.scalar_value().with_context(|| {
-            format!(
-                "browse name attribute for node {node_id} was not readable: {:?}",
-                browse_name_value.status()
-            )
-        })?;
+            .with_context(|| format!("reading metadata for node {node_id}"))?;
 
-        let display_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::DISPLAYNAME_T)
-            .await
-            .with_context(|| format!("reading display name for node {node_id}"))?;
+        let values_len = values.len();
+        let Ok(
+            [
+                browse_name_value,
+                display_name_value,
+                node_class_value,
+                data_type_value,
+            ],
+        ) = <[DataValue<ua::Variant>; 4]>::try_from(values)
+        else {
+            bail!("read result length does not match attribute list length: {values_len} != 4");
+        };
 
-        let display_name = display_name_value.scalar_value().with_context(|| {
-            format!(
-                "display name attribute for node {node_id} was not readable: {:?}",
-                display_name_value.status()
-            )
-        })?;
+        let browse_name = browse_name_value
+            .value()
+            .and_then(|variant| variant.as_scalar::<ua::QualifiedName>())
+            .with_context(|| {
+                format!(
+                    "browse name attribute for node {node_id} was not readable: {:?}",
+                    browse_name_value.status()
+                )
+            })?;
 
-        let node_class_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::NODECLASS_T)
-            .await
-            .with_context(|| format!("reading node class for node {node_id}"))?;
+        let display_name = display_name_value
+            .value()
+            .and_then(|variant| variant.as_scalar::<ua::LocalizedText>())
+            .with_context(|| {
+                format!(
+                    "display name attribute for node {node_id} was not readable: {:?}",
+                    display_name_value.status()
+                )
+            })?;
 
-        let node_class = node_class_value
-            .scalar_value()
-            .with_context(|| format!("node class attribute for node {node_id} was not readable"));
+        let node_class = match node_class_value
+            .value()
+            .and_then(|variant| variant.as_scalar::<ua::NodeClass>())
+        {
+            Some(node_class) => OpcUaNodeClass::from(node_class),
+            None => decode_node_class_variant(&node_class_value, node_id)?,
+        };
 
-        Ok((
-            QualifiedBrowseName {
+        Ok(OpcUaNodeMetadata {
+            browse_name: QualifiedBrowseName {
                 namespace_index: browse_name.namespace_index(),
                 name: browse_name.name().to_string(),
             },
-            display_name.text().to_string(),
-            match node_class {
-                Ok(node_class) => OpcUaNodeClass::from(node_class),
-                Err(_) => decode_node_class_variant(&node_class_value, node_id)?,
-            },
-        ))
+            display_name: display_name.text().to_string(),
+            node_class,
+            data_type: data_type_from_value(&data_type_value),
+        })
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking

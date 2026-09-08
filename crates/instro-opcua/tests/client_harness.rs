@@ -428,10 +428,19 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
-    assert_eq!(metadata_name.name, "Sensors");
-    assert_eq!(display_name, "Sensors");
-    assert_eq!(node_class, OpcUaNodeClass::Object);
+    let metadata = client.read_node_metadata(&sensors_id).await?;
+    assert_eq!(metadata.browse_name.name, "Sensors");
+    assert_eq!(metadata.display_name, "Sensors");
+    assert_eq!(metadata.node_class, OpcUaNodeClass::Object);
+    assert_eq!(metadata.data_type, None);
+
+    let temperature_metadata = client.read_node_metadata(&temperature.node_id).await?;
+    assert_eq!(temperature_metadata.node_class, OpcUaNodeClass::Variable);
+    assert_eq!(
+        temperature_metadata.data_type,
+        Some(OpcUaNodeId::numeric(0, 11)),
+        "read_node_metadata should report the DataType attribute of a Variable node"
+    );
 
     client.disconnect().await?;
     Ok(())

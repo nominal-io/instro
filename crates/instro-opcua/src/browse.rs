@@ -22,11 +22,10 @@ use std::pin::Pin;
 use anyhow::Context as _;
 use anyhow::Result;
 use anyhow::bail;
-use open62541::ScalarValue;
-use open62541::VariantValue;
 use open62541::ua;
 
 use super::client::OpcUaClient;
+use super::client::data_type_from_value;
 use super::types::BrowsePath;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
@@ -35,10 +34,21 @@ use super::types::QualifiedBrowseName;
 
 const DEFAULT_MAX_BROWSE_NODES: usize = 1_000_000;
 
+const DATA_TYPE_READ_BATCH_SIZE: usize = 1_000;
+
 /// A trait for browsing a single node and returning its children.
 pub trait Browse {
     /// Browse a single node and return its children.
     fn browse_node(&self, node_id: OpcUaNodeId) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
+
+    /// Populates `data_type` for every `Variable` node in `nodes` (recursively,
+    /// including children). The default does nothing; `browse_node` never populates
+    /// `data_type`, `browse_all*` calls this once per tree.
+    fn fill_data_types(&self, nodes: &mut [OpcUaNode]) -> impl Future<Output = ()> {
+        async {
+            let _ = nodes;
+        }
+    }
 }
 
 /// A trait for browsing all nodes in a subtree and returning a list of all nodes.
@@ -83,7 +93,7 @@ impl<T: Browse> BrowseAll for T {
         let mut ancestors = HashSet::new();
         ancestors.insert(node_id.clone());
         let mut visited = 0;
-        browse_recursive(
+        let mut nodes = browse_recursive(
             self,
             node_id,
             0,
@@ -93,7 +103,11 @@ impl<T: Browse> BrowseAll for T {
             &mut visited,
             DEFAULT_MAX_BROWSE_NODES,
         )
-        .await
+        .await?;
+
+        self.fill_data_types(&mut nodes).await;
+
+        Ok(nodes)
     }
 }
 
@@ -115,7 +129,7 @@ impl Browse for OpcUaClient {
             }
         }
 
-        let mut nodes: Vec<OpcUaNode> = all_refs
+        let nodes: Vec<OpcUaNode> = all_refs
             .into_iter()
             .filter_map(|reference| {
                 let id = reference.node_id().node_id();
@@ -148,60 +162,58 @@ impl Browse for OpcUaClient {
             })
             .collect();
 
-        self.fill_variable_data_types(&mut nodes).await;
-
         Ok(nodes)
     }
-}
 
-impl OpcUaClient {
-    /// Reads the `DataType` attribute for every `Variable` node in `nodes` in a single
-    /// batched request. Failures are logged and leave `data_type` as `None`.
-    async fn fill_variable_data_types(&self, nodes: &mut [OpcUaNode]) {
-        let variables = nodes
-            .iter_mut()
-            .filter(|node| matches!(node.node_class, OpcUaNodeClass::Variable))
-            .collect::<Vec<_>>();
-
-        if variables.is_empty() {
-            return;
+    async fn fill_data_types(&self, nodes: &mut [OpcUaNode]) {
+        // Collect (`node_id`, `data_type` slot) pairs for every `Variable` node in the
+        // tree. Node and slot borrows are disjoint fields, so both can be held.
+        fn collect_variables<'a>(
+            nodes: &'a mut [OpcUaNode],
+            out: &mut Vec<(&'a OpcUaNodeId, &'a mut Option<OpcUaNodeId>)>,
+        ) {
+            for node in nodes.iter_mut() {
+                if matches!(node.node_class, OpcUaNodeClass::Variable) {
+                    out.push((&node.node_id, &mut node.data_type));
+                }
+                collect_variables(&mut node.children, out);
+            }
         }
 
-        let pairs = variables
-            .iter()
-            .map(|node| (node.node_id.clone().into(), ua::AttributeId::DATATYPE))
-            .collect::<Vec<_>>();
+        let mut variables = Vec::new();
+        collect_variables(nodes, &mut variables);
 
-        let values = match self.read_many_attributes(&pairs).await {
-            Ok(values) => values,
-            Err(error) => {
+        for chunk in variables.chunks_mut(DATA_TYPE_READ_BATCH_SIZE) {
+            let pairs = chunk
+                .iter()
+                .map(|(node_id, _)| ((*node_id).clone().into(), ua::AttributeId::DATATYPE))
+                .collect::<Vec<_>>();
+
+            let values = match self.read_many_attributes(&pairs).await {
+                Ok(values) => values,
+                Err(error) => {
+                    tracing::warn!(
+                        target: "opcua::browse",
+                        error = ?error,
+                        "failed to read data types for browsed variable nodes"
+                    );
+                    continue;
+                }
+            };
+
+            if values.len() != chunk.len() {
                 tracing::warn!(
                     target: "opcua::browse",
-                    error = ?error,
-                    "failed to read data types for browsed variable nodes"
+                    expected = chunk.len(),
+                    actual = values.len(),
+                    "data type read returned unexpected number of results; leaving data types unset"
                 );
-                return;
+                continue;
             }
-        };
 
-        if values.len() != variables.len() {
-            tracing::warn!(
-                target: "opcua::browse",
-                expected = variables.len(),
-                actual = values.len(),
-                "data type read returned unexpected number of results; leaving data types unset"
-            );
-            return;
-        }
-
-        for (node, value) in variables.into_iter().zip(values) {
-            node.data_type = value
-                .value()
-                .and_then(|variant| match variant.to_value() {
-                    VariantValue::Scalar(ScalarValue::NodeId(id)) => Some(id),
-                    _ => None,
-                })
-                .and_then(|id| OpcUaNodeId::try_from(&id).ok());
+            for ((_, data_type), value) in chunk.iter_mut().zip(values) {
+                **data_type = data_type_from_value(&value);
+            }
         }
     }
 }
@@ -1015,5 +1027,67 @@ mod tests {
         let cycle_len = 500;
         let (browser, root) = long_cycle(cycle_len);
         assert!(browser.browse(root, None).is_err());
+    }
+
+    /// `browse_all` invokes `fill_data_types` exactly once, over the whole
+    /// (recursively flattened) tree of browsed nodes.
+    #[test]
+    fn browse_all_fills_data_types_once_for_all_variables() {
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::atomic::Ordering;
+
+        struct CountingBrowser {
+            inner: MockBrowser,
+            calls: AtomicUsize,
+            variables_seen: AtomicUsize,
+        }
+
+        impl CountingBrowser {
+            fn count_variables(nodes: &[OpcUaNode]) -> usize {
+                nodes
+                    .iter()
+                    .map(|node| {
+                        usize::from(matches!(node.node_class, OpcUaNodeClass::Variable))
+                            .saturating_add(Self::count_variables(&node.children))
+                    })
+                    .sum()
+            }
+        }
+
+        impl Browse for CountingBrowser {
+            async fn browse_node(&self, node_id: OpcUaNodeId) -> Result<Vec<OpcUaNode>> {
+                self.inner.browse_node(node_id).await
+            }
+
+            async fn fill_data_types(&self, nodes: &mut [OpcUaNode]) {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                self.variables_seen
+                    .fetch_add(Self::count_variables(nodes), Ordering::SeqCst);
+            }
+        }
+
+        // 1 -> [var(2), obj(3)], 3 -> [var(4), var(5)]: variables at both levels,
+        // one of them nested under an Object child.
+        let mut inner = MockBrowser::new();
+        inner.add_children(nid(1), vec![var(2), obj(3)]);
+        inner.add_children(nid(3), vec![var(4), var(5)]);
+        let browser = CountingBrowser {
+            inner,
+            calls: AtomicUsize::new(0),
+            variables_seen: AtomicUsize::new(0),
+        };
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .max_blocking_threads(1)
+            .build()
+            .expect("failed to build tokio runtime");
+        let nodes = runtime
+            .block_on(browser.browse_all(nid(1), None))
+            .expect("browse_all should succeed");
+
+        assert_eq!(browser.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(browser.variables_seen.load(Ordering::SeqCst), 3);
+        assert_eq!(count_nodes(&nodes), 4);
     }
 }
