@@ -1,7 +1,6 @@
 """Keysight 34980A Multifunction Switch/Measure Unit DAQ driver."""
 
 import time
-import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import islice
@@ -136,12 +135,6 @@ class Keysight34980A(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``."""
-        warnings.warn(
-            "Keysight34980A.configure_ai_channel() is deprecated and will be removed in a future release; "
-            "use configure_ai_voltage_channel() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         self.configure_ai_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
@@ -206,7 +199,7 @@ class Keysight34980A(DAQDriverBase):
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
         if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
+            raise RuntimeError("configure_ai_hw_sample_rate() must be called before fetching analog data.")
         num_channels = len(self._ai_channels)
         min_points_per_fetch = self._ai_hw_timing_config.samples_per_channel * num_channels
 

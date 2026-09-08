@@ -3,7 +3,6 @@ import logging
 import math
 import threading
 import time
-import warnings
 import weakref
 from dataclasses import dataclass
 from queue import Empty, Queue
@@ -163,12 +162,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
         channel: AnalogChannel,
     ):
         """Deprecated: use ``configure_ai_voltage_channel``. Configures an ai channel on the LabJack device."""
-        warnings.warn(
-            "LabJackTSeriesDriver.configure_ai_channel() is deprecated and will be removed in a future release; "
-            "use configure_ai_voltage_channel() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         self.configure_ai_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
@@ -183,12 +176,6 @@ class LabJackTSeriesDriver(DAQDriverBase):
 
     def configure_ao_channel(self, channel: AnalogChannel):
         """Deprecated: use ``configure_ao_voltage_channel``. Configures an AO channel on the LabJack device."""
-        warnings.warn(
-            "LabJackTSeriesDriver.configure_ao_channel() is deprecated and will be removed in a future release; "
-            "use configure_ao_voltage_channel() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         self.configure_ao_voltage_channel(
             AnalogVoltageChannel(
                 physical_channel=channel.physical_channel,
@@ -434,7 +421,7 @@ class LabJackTSeriesDriver(DAQDriverBase):
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
         if self._global_scans_per_read is None or self._actual_sample_period is None:
             raise RuntimeError(
-                "Hardware timing was never configured; call configure_ai_sample_rate() before fetch_analog()."
+                "Hardware timing was never configured; call configure_ai_hw_sample_rate() before fetch_analog()."
             )
         # fetch time deadline, floored at 5s and dynamic to support low-rate, high-res reads
         deadline = max(5.0, 2 * self._global_scans_per_read * self._actual_sample_period * 1e-9)

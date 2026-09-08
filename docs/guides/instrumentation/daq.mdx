@@ -124,10 +124,7 @@ daq = InstroDAQ(
 Configure analog input channels with measurement range and logical names:
 
 ```python
-from instro.daq.types import Direction
-
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",  # Vendor-specific channel name
     alias="temperature_sensor",  # Your logical name (used for publishing)
     range_min=0.0,  # Minimum voltage (V)
@@ -153,11 +150,9 @@ It's common for the data being read by an analog input channel to need scaling t
 
 Example of a 0-5V pressure sensor that measures 0-3000 psia.
 ```python
-from instro.daq.types import Direction
 from instro.daq.scaling import LinearScaler
 
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",  # Vendor-specific channel name
     alias="pressure_sensor",  # Your logical name (used for publishing)
     range_min=0,  # Minimum voltage (V)
@@ -199,10 +194,8 @@ class TheAnswer(Scaler):
 Configure analog output channels:
 
 ```python
-from instro.daq.types import Direction
-
-daq.configure_analog_channel(
-        direction=Direction.OUTPUT, physical_channel="DAC0", alias=f"ao_0", range_min=0, range_max=5
+daq.configure_voltage_output(
+        physical_channel="DAC0", alias=f"ao_0", range_min=0, range_max=5
     )
 ```
 
@@ -220,9 +213,9 @@ Refer to your device's documentation for channel naming.
 
 Before configuring a digital channel, you need to specify the following parameters to match your application and DAQ hardware:
 
-`InstroDAQ` exposes two methods: `configure_digital_line` and `configure_digital_port`.
+`InstroDAQ` exposes `configure_digital_input` and `configure_digital_output` for a single line, and `configure_digital_port` for a whole port.
 
-- **direction**: Use `Direction.INPUT` for digital input or `Direction.OUTPUT` for output.
+- **direction** *(port only)*: Use `Direction.INPUT` for digital input or `Direction.OUTPUT` for output. The line methods carry the direction in the method name, so they take no `direction` argument.
 - **physical_channel**: The physical line or port on your DAQ device (e.g., `"5101"`, `"5101/2"` for Keysight, or `"FIRSTPORTA"`, `"FIRSTPORTA/0"` for MCC). This name is vendor-specific. Refer to your device documentation.
 - **logic**: Sets whether the channel treats a HIGH or LOW physical level as "True". This is required for correct logic interpretation.
 - **logic_level** *(optional)*: Specifies the voltage threshold (in volts) used to distinguish HIGH from LOW, if your device supports changing this.
@@ -231,10 +224,9 @@ Before configuring a digital channel, you need to specify the following paramete
 
 For example, to configure a digital input line with a custom logic threshold:
 ```python
-from instro.daq.types import Direction, Logic
+from instro.daq.types import Logic
 
-daq.configure_digital_line(
-    direction=Direction.INPUT,
+daq.configure_digital_input(
     physical_channel="5101/2",
     alias="limit_switch",
     logic=Logic.HIGH,
@@ -256,7 +248,7 @@ Refer to your DAQ device's documentation for available physical channel names an
 
 ### Typed Channel Configuration
 
-Alongside the generic `configure_analog_channel` / `configure_digital_line`, `InstroDAQ` exposes measurement-specific configuration methods. Each builds a typed channel (`AnalogVoltageChannel`, `AnalogCurrentChannel`, `AnalogThermocoupleChannel`, or a `DigitalLineChannel`) and delegates to a dedicated driver method:
+`InstroDAQ` exposes a measurement-specific configuration method per channel kind. Each builds a typed channel (`AnalogVoltageChannel`, `AnalogCurrentChannel`, `AnalogThermocoupleChannel`, or a `DigitalLineChannel`) and delegates to a dedicated driver method:
 
 | Method | Channel type | Driver method |
 |--------|--------------|---------------|
@@ -406,14 +398,12 @@ The device never starts a buffered acquisition in this mode: each daemon iterati
 For manual, on-demand sampling:
 
 ```python
-from instro.daq.types import Direction
 import time
 
 daq.open()
 
 # Configure channels
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",
     alias="sensor_1",
     range_min=0,
@@ -440,12 +430,9 @@ The `read_analog()` method returns a `Measurement` object (or list of `Measureme
 For continuous software-timed acquisition, configure a polling rate and `start()` the background daemon. The daemon calls `read_analog()` once per period and publishes the results.
 
 ```python
-from instro.daq.types import Direction
-
 daq.open()
 
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",
     alias="sensor_1",
     range_min=0,
@@ -476,7 +463,6 @@ For continuous high-speed acquisition.
 import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
@@ -491,8 +477,7 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 daq.open()
 
 # Configure analog input channels
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",
     alias="sensor_1",
     range_min=0,
@@ -547,7 +532,7 @@ For hardware-timed acquisition where you control when to fetch buffered data, st
 daq.open()
 
 # Configure channels and timing (same as above)
-daq.configure_analog_channel(...)
+daq.configure_voltage_input(...)
 daq.configure_ai_hw_sample_rate(sample_rate=100, samples_per_channel=10)
 
 # Start hardware acquisition (fills buffer) without spinning the background daemon
@@ -573,12 +558,9 @@ With `start(background=False)`, calling `read_analog()` during hardware-timed ac
 For manual, on demand updates of set points:
 
 ```python
-from instro.daq.types import Direction
-
 daq.open()
 
-daq.configure_analog_channel(
-    direction=Direction.OUTPUT,
+daq.configure_voltage_output(
     physical_channel=CHANNEL_0,
     alias=f"ao_0",
     range_min=0,
@@ -593,10 +575,9 @@ daq.close()
 ### Reading Digital Lines
 
 ```python
-from instro.daq.types import Direction, Logic
+from instro.daq.types import Logic
 
-daq.configure_digital_line(
-    direction=Direction.INPUT,
+daq.configure_digital_input(
     physical_channel="DIO0",
     alias="limit_switch",
     logic=Logic.HIGH
@@ -613,11 +594,11 @@ For manual, on-demand setting of analog output channels:
 ```python
 daq.open()
 
-daq.configure_analog_channel(
-    direction=Direction.OUTPUT, physical_channel=CHANNEL_0, alias=f"ao_0", range_min=0, range_max=5
+daq.configure_voltage_output(
+    physical_channel=CHANNEL_0, alias=f"ao_0", range_min=0, range_max=5
 )
-daq.configure_analog_channel(
-    direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias=f"ao_1", range_min=0, range_max=5
+daq.configure_voltage_output(
+    physical_channel=CHANNEL_1, alias=f"ao_1", range_min=0, range_max=5
 )
 
 daq.write_analog_value("ao_0", 2.2)
@@ -629,10 +610,9 @@ daq.close()
 ### Writing Digital Lines
 
 ```python
-from instro.daq.types import Direction, Logic
+from instro.daq.types import Logic
 
-daq.configure_digital_line(
-    direction=Direction.OUTPUT,
+daq.configure_digital_output(
     physical_channel="DIO1",
     alias="enable_signal",
     logic=Logic.HIGH
@@ -732,7 +712,6 @@ Values may be `float`, `int`, or `bool`, and every channel and value is validate
 import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
@@ -748,8 +727,7 @@ daq.open()
 try:
     # Configure multiple channels
     for i, channel in enumerate(["AIN0", "AIN1"]):
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=channel,
             alias=f"ch_{i}",
             range_min=0,
@@ -774,7 +752,6 @@ finally:
 import time
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.<your-dataset-rid>"
@@ -788,8 +765,7 @@ daq = InstroDAQ(
 daq.open()
 
 # Configure channel
-daq.configure_analog_channel(
-    direction=Direction.INPUT,
+daq.configure_voltage_input(
     physical_channel="AIN0",
     alias="ch_1",
     range_min=0,
@@ -842,7 +818,6 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `InstroDAQ(name, driver, publishers=None, legacy_naming=False, **kwargs)` | Construct an InstroDAQ instance around a vendor driver |
 | `open()` | Establish connection to the DAQ device |
 | `close()` | Disconnect from device and close publishers |
-| `configure_analog_channel(direction, physical_channel, alias, range_min, range_max)` | Configure an analog I/O channel |
 | `configure_voltage_input(physical_channel, ...)` | Configure a typed analog voltage input channel |
 | `configure_voltage_output(physical_channel, ...)` | Configure a typed analog voltage output channel |
 | `configure_current_input(physical_channel, ...)` | Configure a typed analog current input channel |
@@ -850,9 +825,8 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `configure_thermocouple_input(physical_channel, tc_type, ...)` | Configure a thermocouple input channel |
 | `configure_digital_input(physical_channel, ...)` | Configure a typed digital input line |
 | `configure_digital_output(physical_channel, ...)` | Configure a typed digital output line |
-| `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` | Configure a single digital I/O line |
 | `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` | Configure a digital I/O port (multi-line) |
-| `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input (`configure_ai_sample_rate` is an alias) |
+| `configure_ai_hw_sample_rate(sample_rate, samples_per_channel=None)` | Set hardware timing for analog input |
 | `configure_ai_sw_sample_rate(sample_rate)` | Set the software-timed polling rate for analog input |
 | `start()` | Begin acquisition (device task, background daemon, or both) |
 | `stop()` | End acquisition and stop the background daemon |
@@ -867,6 +841,20 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer |
 | `add_publisher(publisher)` | Attach a publisher for data routing |
 | `get_points_in_buffer()` | Get number of samples in hardware buffer |
+
+### Deprecated methods
+
+These `InstroDAQ` methods still work, and each emits a `DeprecationWarning` naming its replacement. They are scheduled for removal in a future release.
+
+| Deprecated | Replacement |
+|--------|---------|
+| `configure_analog_channel(direction=Direction.INPUT, ...)` | `configure_voltage_input(...)` |
+| `configure_analog_channel(direction=Direction.OUTPUT, ...)` | `configure_voltage_output(...)` |
+| `configure_digital_line(direction=Direction.INPUT, ...)` | `configure_digital_input(...)` |
+| `configure_digital_line(direction=Direction.OUTPUT, ...)` | `configure_digital_output(...)` |
+| `configure_ai_sample_rate(...)` | `configure_ai_hw_sample_rate(...)` |
+
+Custom driver authors: `configure_ai_channel` and `configure_ao_channel` are deprecated on `DAQDriverBase` for the same reason. Implement `configure_ai_voltage_channel` and `configure_ao_voltage_channel` instead.
 
 ## Vendor Independence
 
@@ -930,6 +918,7 @@ The analog methods below back `InstroDAQ`'s [typed channel configuration](#typed
 - **`configure_ai_voltage_channel(channel)` / `configure_ao_voltage_channel(channel)`**: Configure a typed voltage input/output channel from an `AnalogVoltageChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_current_channel(channel)` / `configure_ao_current_channel(channel)`**: Configure a typed current input/output channel from an `AnalogCurrentChannel`; record on `self._ai_channels` / `self._ao_channels`.
 - **`configure_ai_thermocouple_channel(channel)`**: Configure a thermocouple input channel from an `AnalogThermocoupleChannel` (thermocouple type plus cold-junction config); record on `self._ai_channels`.
+- **`configure_ai_channel(channel)` / `configure_ao_channel(channel)`**: Deprecated. Implement `configure_ai_voltage_channel` / `configure_ao_voltage_channel` instead. Both default to `NotImplementedError`, so a new driver leaves them alone.
 
 ### Timing Configuration
 
