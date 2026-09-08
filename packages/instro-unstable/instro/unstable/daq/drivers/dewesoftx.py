@@ -3,7 +3,7 @@
 import logging
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -50,9 +50,16 @@ class DewesoftXData:
 class DewesoftXDriver(DAQDriverBase):
     """Streams live sync and async channels from a running DewesoftX instance over DCOM."""
 
-    def __init__(self) -> None:
+    def __init__(self, timer_interval_ms: int | None = None) -> None:
         super().__init__()
+        if timer_interval_ms is not None and timer_interval_ms < 1:
+            raise ValueError(f"timer_interval_ms must be at least 1 ms, got {timer_interval_ms}.")
+        # DewesoftX's acquisition loop period; the ring gains samples once per loop, so it caps any poll rate
+        self._timer_interval_ms = timer_interval_ms
         self._app: Any = None
+        # Cache DCOM properties
+        self._data: Any = None
+        self._store: Any = None
         self._t0_ns = 0
         self._cursors: dict[str, _SyncChannelCursor | _AsyncChannelCursor] = {}
         # Thread that owns the COM proxies; COM refuses cross-thread calls (see _attach_current_thread)
@@ -70,11 +77,32 @@ class DewesoftXDriver(DAQDriverBase):
         app = win32com.client.Dispatch(_PROG_ID)
         app.Init()
         self._app = app
+        self._data = app.Data
+        self._store = app.StoreEngine
+
+        # Global DewesoftX setting: storing, math and the display share this loop
+        if self._timer_interval_ms is not None and app.TimerInterval != self._timer_interval_ms:
+            # The running loop keeps its old period until acquisition re-arms, and Stop() would end a live session
+            if self._store.Storing:
+                logger.warning(
+                    "DewesoftX is storing; leaving its acquisition loop at %d ms instead of the requested %d ms. "
+                    "Construct the driver before the store session starts to apply it.",
+                    app.TimerInterval,
+                    self._timer_interval_ms,
+                )
+            else:
+                rearm = app.Acquiring
+                if rearm:
+                    app.Stop()
+                app.TimerInterval = self._timer_interval_ms
+                if rearm:
+                    app.Start()
+                logger.info("Set DewesoftX acquisition loop period to %d ms", self._timer_interval_ms)
 
         # Anchor absolute time axis if a storing session is running
         # Dewesoft only gives us the session start time in absolute time. Rest is relative
-        if app.StoreEngine.Storing:
-            self._t0_ns = int(app.Data.StartStoreTimeUTC.replace(tzinfo=timezone.utc).timestamp() * 1e9)
+        if self._store.Storing:
+            self._t0_ns = int(self._data.StartStoreTimeUTC.replace(tzinfo=timezone.utc).timestamp() * 1e9)
         else:
             self._t0_ns = 0
 
@@ -84,18 +112,20 @@ class DewesoftXDriver(DAQDriverBase):
         """Drop the COM references; channels must be reconfigured after a reopen."""
         self._cursors.clear()
         self._app = None
+        self._data = None
+        self._store = None
 
     def start(self, **kwargs):
         """Start a stored session named run_<date>_<time>, or attach to one already running."""
         self._attach_current_thread()
         # Attach to exsiting storing session
-        if self._app.StoreEngine.Storing:
+        if self._store.Storing:
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
         else:
             # Start a storing session
             name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
             self._app.StartStoring(name)
-            if not self._app.StoreEngine.Storing:
+            if not self._store.Storing:
                 raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
             logger.info("Started DewesoftX stored session '%s'", name)
 
@@ -106,7 +136,7 @@ class DewesoftXDriver(DAQDriverBase):
         if self._app is None:
             return
         self._attach_current_thread()
-        if not self._app.StoreEngine.Storing:
+        if not self._store.Storing:
             return
         self._app.StopStoring()
         logger.info("Stopped DewesoftX stored session")
@@ -130,19 +160,14 @@ class DewesoftXDriver(DAQDriverBase):
         raise NotImplementedError("configure_analog_channel is deprecated; use configure_voltage_input instead")
 
     def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
-        """Discard the requested config and rebuild it from the device's actual sample rate."""
-        rate = self._app.Data.SampleRate
+        """Keep the requested config, but take the sample rate from DewesoftX, which owns the sample clock."""
+        rate = self._data.SampleRate
         logger.info(
-            "Discarding requested AI sample rate %s Hz; using DewesoftX sample rate %s Hz",
+            "Replacing requested AI sample rate %s Hz with DewesoftX sample rate %s Hz",
             hw_timing_config.sample_rate,
             rate,
         )
-        # Mirror the InstroDAQ samples_per_channel default
-        self._ai_hw_timing_config = HWTimingConfig(
-            sample_rate=rate,
-            sample_period=round(1e9 / rate),
-            samples_per_channel=max(1, int(rate // 10)),
-        )
+        self._ai_hw_timing_config = replace(hw_timing_config, sample_rate=rate, sample_period=round(1e9 / rate))
 
     def get_actual_sample_rate(self) -> float | None:
         """The device's rate captured at configure time; None before configure_ai_sample_rate()."""
@@ -278,18 +303,18 @@ class DewesoftXDriver(DAQDriverBase):
             buf_size=com_channel.DBBufSize,
             sr_div=com_channel.SRDiv,
             total=total,
-            dt_ns=1e9 * com_channel.SRDiv / self._app.Data.SampleRate,
+            dt_ns=1e9 * com_channel.SRDiv / self._data.SampleRate,
         )
 
     def _samples_acquired(self) -> int:
         """Master-rate sample count acquired since store start."""
-        blocks, partial = self._app.Data.GetSamplesAcquired()
-        return blocks * self._app.Data.Samples + partial
+        blocks, partial = self._data.GetSamplesAcquired()
+        return blocks * self._data.Samples + partial
 
     def _resync_session(self) -> bool:
         """Return True while the store session is unchanged; False (skip the batch) when storing is off or restarted."""
         # StartStoreTimeUTC keeps its stale value after a stop; Storing is the reliable signal
-        if not self._app.StoreEngine.Storing:
+        if not self._store.Storing:
             # Warn once; reads return empty batches until storing resumes and the anchor change below re-anchors
             if not self._storing_paused:
                 logger.warning("DewesoftX stopped storing; discarding samples until storing resumes")
@@ -297,7 +322,7 @@ class DewesoftXDriver(DAQDriverBase):
             return False
         self._storing_paused = False
         # A changed store-start anchor means the session restarted
-        anchor = self._app.Data.StartStoreTimeUTC
+        anchor = self._data.StartStoreTimeUTC
         t0_ns = int(anchor.replace(tzinfo=timezone.utc).timestamp() * 1e9)
         if t0_ns == self._t0_ns:
             return True
@@ -318,13 +343,15 @@ class DewesoftXDriver(DAQDriverBase):
         # Quirk: COM proxies refuse cross-thread calls, and the InstroDAQ daemon reads from its own thread
         pythoncom.CoInitialize()
         self._app = win32com.client.Dispatch(_PROG_ID)
+        self._data = self._app.Data
+        self._store = self._app.StoreEngine
         for alias in self._cursors:
             self._cursors[alias] = self._seed_cursor(self._find_used_channel(self._ai_channels[alias].physical_channel))
         self._thread_id = threading.get_ident()
 
     def _find_used_channel(self, name: str) -> Any:
         """Find a channel by Name or LongName among the ones set to "Used" in DewesoftX."""
-        channels = self._app.Data.UsedChannels
+        channels = self._data.UsedChannels
         for i in range(channels.Count):
             com_channel = channels.Item(i)
             # CAN channels share a generic Name ('Message', 'Channel'); LongName carries the full path
