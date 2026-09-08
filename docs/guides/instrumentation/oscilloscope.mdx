@@ -162,6 +162,8 @@ The three optional initial-state blocks are applied through the public setters w
 
 Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
 
+Some instruments defer settings based on their run state. The Siglent SDS1000X-E only applies acquisition-mode changes while acquiring, so an `acquisition.mode` applied to a stopped Siglent without `start_acquisition_on_open` does not take effect; the read-back after `open()` reports the unchanged mode and the snap warning surfaces it. This matches the runtime `set_acquisition_mode()` behavior on that instrument.
+
 After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config, for example `config requested ch1.vertical_scale=0.3 but instrument reports 0.2`. Floats compare within 1% (`instro.scope.scope.SNAP_REL_TOL`, with `SNAP_ABS_TOL` as the floor near zero), so a read-back rounded to three significant figures stays quiet while any real 1-2-5 step snap still warns. Trigger fields are not checked, since `sync_configuration()` does not read them back.
 
 Config never starts acquisition by default. Set `acquisition.start_acquisition_on_open: true` to call `run()` during `open()`, after the channel and trigger blocks are in place and before the acquisition block applies. Without it, background-polled `measure()` calls return `NaN` until you call `scope.run()` or the operator starts the scope from the front panel, which keeps passive monitoring of an operator-driven scope a first-class workflow. One-shot arming (`single()`) and waveform, screenshot, and settings-file operations stay runtime-only.
