@@ -184,6 +184,16 @@ impl OpcUaClient {
             }
         };
 
+        if values.len() != variables.len() {
+            tracing::warn!(
+                target: "opcua::browse",
+                expected = variables.len(),
+                actual = values.len(),
+                "data type read returned unexpected number of results; leaving data types unset"
+            );
+            return;
+        }
+
         for (node, value) in variables.into_iter().zip(values) {
             node.data_type = value
                 .value()

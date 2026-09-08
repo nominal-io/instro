@@ -374,6 +374,11 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         "Temperature has no children in this test server",
     );
     assert_eq!(temperature.browse_path.to_string(), "/2:Temperature");
+    assert_eq!(
+        temperature.data_type_name().as_deref(),
+        Some("Double"),
+        "DataType attribute of Temperature should be read during browse"
+    );
 
     let flow = tree
         .iter()
@@ -399,6 +404,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .context("browse_all omitted Inner folder")?;
     assert_eq!(inner.node_class, OpcUaNodeClass::Object);
     assert_eq!(inner.browse_path.to_string(), "/2:Inner");
+    assert_eq!(inner.data_type, None);
 
     let pressure = inner
         .children
@@ -407,6 +413,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .context("browse_all omitted nested Pressure node")?;
     assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
     assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
+    assert_eq!(pressure.data_type_name().as_deref(), Some("UInt32"));
 
     let status = inner
         .children
