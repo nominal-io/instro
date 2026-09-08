@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 SNAP_REL_TOL = 1e-2
 SNAP_ABS_TOL = 1e-9
 
+_AUTOSTART_REQUIRES_MEASUREMENTS = (
+    "autostart=True requires a config with at least one channels.<n>.measurements entry; "
+    "background polling has nothing to do otherwise."
+)
+
 
 class ScopeDriverBase(abc.ABC):
     """Vendor scope driver contract. Concrete drivers compose a transport (typically ``VisaDriver``).
@@ -333,6 +338,10 @@ class InstroScope(Instrument):
                     "use one construction style or the other."
                 )
             resolved_config = load_config(config, ScopeConfig)
+            # Validate before resolve_scope_from_config builds the driver and publishers, so a
+            # rejected autostart never leaves an opened publisher stream behind.
+            if autostart and not any(ch.measurements for ch in resolved_config.channels.values()):
+                raise ValueError(_AUTOSTART_REQUIRES_MEASUREMENTS)
             resolved_name, driver, num_channels, config_publishers, poll_interval = resolve_scope_from_config(
                 resolved_config
             )
@@ -341,6 +350,8 @@ class InstroScope(Instrument):
                 name = resolved_name
         elif name is None or driver is None or num_channels is None:
             raise ValueError("InstroScope requires either config=..., or name, driver, and num_channels together.")
+        elif autostart:
+            raise ValueError(_AUTOSTART_REQUIRES_MEASUREMENTS)
 
         super().__init__(name, publishers=publishers, **kwargs)
 
@@ -364,11 +375,6 @@ class InstroScope(Instrument):
             self.background_interval = poll_interval
 
         if autostart:
-            if not self._background_methods:
-                raise ValueError(
-                    "autostart=True requires a config with at least one channels.<n>.measurements entry; "
-                    "background polling has nothing to do otherwise."
-                )
             try:
                 self.open()
                 self.start()

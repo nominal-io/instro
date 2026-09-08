@@ -267,12 +267,27 @@ def test_reopen_without_close_does_not_reapply_config(full_config):
     assert mock_driver.set_vertical_scale.call_count == 2
 
 
-def test_init_with_autostart_without_measurements_raises_before_opening(valid_config):
-    with patch(VISA_PATCH) as mock_visa_cls:
+def test_init_with_autostart_without_measurements_raises_before_building_anything(valid_config):
+    config = {**valid_config, "publishers": [{"type": "NominalCorePublisher", "dataset_rid": "test_scope"}]}
+    with (
+        patch(VISA_PATCH) as mock_visa_cls,
+        patch("instro.lib.publishers.NominalCorePublisher") as mock_ncp,
+    ):
         with pytest.raises(ValueError, match="measurements entry"):
-            InstroScope(config=valid_config, autostart=True)
+            InstroScope(config=config, autostart=True)
 
-    mock_visa_cls.return_value.open.assert_not_called()
+    # The check runs before resolve_scope_from_config, so there is nothing to clean up.
+    mock_visa_cls.assert_not_called()
+    mock_ncp.assert_not_called()
+
+
+def test_init_with_autostart_and_direct_driver_raises():
+    driver = MagicMock(spec=ScopeDriverBase)
+
+    with pytest.raises(ValueError, match="measurements entry"):
+        InstroScope(name="ut", driver=driver, num_channels=2, autostart=True)
+
+    driver.open.assert_not_called()
 
 
 def test_init_with_autostart_opens_and_starts(full_config):
