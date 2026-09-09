@@ -189,7 +189,7 @@ class DAQDriverBase(abc.ABC):
         channel: AnalogChannel,
     ):
         """Deprecated: implement ``configure_ao_voltage_channel`` instead."""
-        raise NotImplementedError("Analog Output has not been configured for this driver")
+        raise NotImplementedError(""configure_ao_channel is deprecated and not implemented by this driver; use InstroDAQ.configure_ao_voltage_channel() instead".")
 
     @abc.abstractmethod
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
