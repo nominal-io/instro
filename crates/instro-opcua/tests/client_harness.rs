@@ -66,6 +66,7 @@ fn opcua_node(
         display_name: browse_name.to_owned(),
         node_class,
         browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
+        data_type: None,
         children: Vec::new(),
     })
 }
@@ -373,6 +374,11 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         "Temperature has no children in this test server",
     );
     assert_eq!(temperature.browse_path.to_string(), "/2:Temperature");
+    assert_eq!(
+        temperature.data_type_name().as_deref(),
+        Some("Double"),
+        "DataType attribute of Temperature should be read during browse"
+    );
 
     let flow = tree
         .iter()
@@ -398,6 +404,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .context("browse_all omitted Inner folder")?;
     assert_eq!(inner.node_class, OpcUaNodeClass::Object);
     assert_eq!(inner.browse_path.to_string(), "/2:Inner");
+    assert_eq!(inner.data_type, None);
 
     let pressure = inner
         .children
@@ -406,6 +413,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .context("browse_all omitted nested Pressure node")?;
     assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
     assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
+    assert_eq!(pressure.data_type_name().as_deref(), Some("UInt32"));
 
     let status = inner
         .children
@@ -420,10 +428,19 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
-    assert_eq!(metadata_name.name, "Sensors");
-    assert_eq!(display_name, "Sensors");
-    assert_eq!(node_class, OpcUaNodeClass::Object);
+    let metadata = client.read_node_metadata(&sensors_id).await?;
+    assert_eq!(metadata.browse_name.name, "Sensors");
+    assert_eq!(metadata.display_name, "Sensors");
+    assert_eq!(metadata.node_class, OpcUaNodeClass::Object);
+    assert_eq!(metadata.data_type, None);
+
+    let temperature_metadata = client.read_node_metadata(&temperature.node_id).await?;
+    assert_eq!(temperature_metadata.node_class, OpcUaNodeClass::Variable);
+    assert_eq!(
+        temperature_metadata.data_type,
+        Some(OpcUaNodeId::numeric(0, 11)),
+        "read_node_metadata should report the DataType attribute of a Variable node"
+    );
 
     client.disconnect().await?;
     Ok(())
