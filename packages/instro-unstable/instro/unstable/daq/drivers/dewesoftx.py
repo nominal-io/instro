@@ -25,8 +25,7 @@ class _SyncChannelCursor:
     # Cursors are per-channel in DCOM (IChannel.CreateConnection); each tracks its channel's own unread position
     connection: Any
     buf_size: int
-    sr_div: int
-    # Absolute samples consumed since store start; the ring read offset is total % buf_size
+    # Samples consumed since store start; times each batch as anchor + total * dt_ns
     total: int
     dt_ns: float
 
@@ -80,6 +79,26 @@ class DewesoftXDriver(DAQDriverBase):
         self._data = app.Data
         self._store = app.StoreEngine
 
+        # Debug full channel inventory
+        if logger.isEnabledFor(logging.DEBUG):
+            channels = self._data.AllChannels
+            logger.debug("DewesoftX AllChannels (%d):", channels.Count)
+            for i in range(channels.Count):
+                ch = channels.Item(i)
+                logger.debug(
+                    "  [%3d] name=%r long=%r used=%s async=%s buf_size=%d sr_div=%d unit=%r type=%s/%s",
+                    i,
+                    ch.Name,
+                    ch.LongName,
+                    bool(ch.Used),
+                    bool(ch.Async),
+                    ch.DBBufSize,
+                    ch.SRDiv,
+                    ch.Unit_,
+                    ch.ChannelType,
+                    ch.DataType,
+                )
+
         # Global DewesoftX setting: storing, math and the display share this loop
         if self._timer_interval_ms is not None and app.TimerInterval != self._timer_interval_ms:
             # The running loop keeps its old period until acquisition re-arms, and Stop() would end a live session
@@ -129,7 +148,7 @@ class DewesoftXDriver(DAQDriverBase):
                 raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
             logger.info("Started DewesoftX stored session '%s'", name)
 
-        self._resync_session()
+        self._check_session()
 
     def stop(self, **kwargs):
         """Stop the stored session; a no-op when not storing so InstroDAQ teardown stays safe."""
@@ -179,24 +198,21 @@ class DewesoftXDriver(DAQDriverBase):
         """Drain every new sample from each bound channel."""
         self._attach_current_thread()
         # Re-anchor (and skip this batch) when the store session changed under us
-        if not self._resync_session():
+        if not self._check_session():
             return DewesoftXData(channels={})
         drained: dict[str, tuple[list[float], list[int]]] = {}
 
-        master = self._samples_acquired()
         for alias, cursor in self._cursors.items():
-            # Async channels: the server-side cursor tracks the unread count; no ring math needed
+            # The server-side cursor tracks the exact unread count for sync and async channels alike
+            pending = cursor.connection.NumValues
+            if pending <= 0:
+                continue
+            # A full ring means the oldest unread samples were (or are about to be) overwritten
+            if pending >= cursor.buf_size:
+                logger.warning("DewesoftX channel '%s' overran its buffer; dropping %d pending samples", alias, pending)
+                self._cursors[alias] = self._seed_cursor(cursor.com_channel)
+                continue
             if isinstance(cursor, _AsyncChannelCursor):
-                pending = cursor.connection.NumValues
-                if pending <= 0:
-                    continue
-                # More pending than the ring holds means the oldest were overwritten
-                if pending > cursor.buf_size:
-                    logger.warning(
-                        "DewesoftX channel '%s' overran its buffer; dropping %d pending samples", alias, pending
-                    )
-                    self._cursors[alias] = self._seed_cursor(cursor.com_channel)
-                    continue
                 # GetTSValues peeks the oldest samples; GetDataValues consumes them, so timestamps read first
                 rel_ts = cursor.connection.GetTSValues(pending)
                 data = cursor.connection.GetDataValues(pending)
@@ -204,30 +220,17 @@ class DewesoftXDriver(DAQDriverBase):
                     continue
                 # Async timestamps are seconds since store start, the same epoch as the anchor
                 drained[alias] = (list(data), [self._t0_ns + round(t * 1e9) for t in rel_ts])
-                continue
-            # Sync channels: the ring offset aliases whole wraps to zero; snap it onto the device's absolute counter
-            delta = (cursor.com_channel.DBPos - cursor.total) % cursor.buf_size
-            expected = master / cursor.sr_div - cursor.total
-            new = delta + round((expected - delta) / cursor.buf_size) * cursor.buf_size
-            if new <= 0:
-                continue
-            # Check if the buffer was overrun
-            # NOTE: At high sample rates is this a problem?
-            if new > cursor.buf_size:
-                logger.warning("DewesoftX channel '%s' overran its buffer; dropping %d pending samples", alias, new)
-                self._cursors[alias] = self._seed_cursor(cursor.com_channel)
-                continue
-            # Get new values from cursor
-            data = cursor.connection.GetDataValues(new)
-            if data is None:
-                continue
-            values = list(data)
-            # Sync channels stream with buffer ring index, so we need to convert index -> relative -> absolute time
-            timestamps = [self._t0_ns + round((cursor.total + k) * cursor.dt_ns) for k in range(len(values))]
-            drained[alias] = (values, timestamps)
-            cursor.total += len(values)
-        # Discard a batch that straddles a store restart
-        if not self._resync_session():
+            else:
+                data = cursor.connection.GetDataValues(pending)
+                if data is None:
+                    continue
+                values = list(data)
+                # Sync channels store no timestamps; time is implicit from the consumed-sample index and the rate
+                timestamps = [self._t0_ns + round((cursor.total + k) * cursor.dt_ns) for k in range(len(values))]
+                drained[alias] = (values, timestamps)
+                cursor.total += len(values)
+        # Discard a batch that straddles a store restart: a cursor from before the restart returns garbage
+        if not self._check_session():
             return DewesoftXData(channels={})
         return DewesoftXData(channels=drained)
 
@@ -242,26 +245,20 @@ class DewesoftXDriver(DAQDriverBase):
         target = self._ai_hw_timing_config.samples_per_channel
         rate = self._ai_hw_timing_config.sample_rate
         sync_cursors = [c for c in self._cursors.values() if isinstance(c, _SyncChannelCursor)]
-        last_resync = time.monotonic() - 0.5
         while True:
-            # Gate on session health first so a stopped session cannot spin the drain path below
-            if time.monotonic() - last_resync >= 0.5:
-                last_resync = time.monotonic()
-                if not self._resync_session():
-                    # Pace the empty return so the daemon regains control (and its stop event) without spinning
-                    time.sleep(0.5)
-                    return DewesoftXData(channels={})
+            if not self._check_session():
+                # Pace the empty return so the daemon regains control (and its stop event) without spinning
+                time.sleep(0.5)
+                return DewesoftXData(channels={})
             # With only async channels bound, drain once per batch period instead
             if not sync_cursors:
                 time.sleep(min(0.5, target / rate))
                 return self.read_analog()
-            # Raw ring offset (a whole-buffer wrap aliases to 0; read_analog resolves that with the sample counter)
-            available = [(c.com_channel.DBPos - c.total) % c.buf_size for c in sync_cursors]
+            available = [c.connection.NumValues for c in sync_cursors]
             self.points_in_buffer = max(available)
-            # Drain buffers through read_analog
             if min(available) >= target:
                 return self.read_analog()
-            # Sleep about half the expected fill time; cap it so restart detection stays responsive
+            # Sleep about half the remaining fill time; the floor bounds the poll cost, the cap keeps stops responsive
             time.sleep(min(0.5, max(0.001, (target - min(available)) / rate / 2)))
 
     def _read_to_measurements(
@@ -301,7 +298,6 @@ class DewesoftXDriver(DAQDriverBase):
             com_channel=com_channel,
             connection=connection,
             buf_size=com_channel.DBBufSize,
-            sr_div=com_channel.SRDiv,
             total=total,
             dt_ns=1e9 * com_channel.SRDiv / self._data.SampleRate,
         )
@@ -311,7 +307,7 @@ class DewesoftXDriver(DAQDriverBase):
         blocks, partial = self._data.GetSamplesAcquired()
         return blocks * self._data.Samples + partial
 
-    def _resync_session(self) -> bool:
+    def _check_session(self) -> bool:
         """Return True while the store session is unchanged; False (skip the batch) when storing is off or restarted."""
         # StartStoreTimeUTC keeps its stale value after a stop; Storing is the reliable signal
         if not self._store.Storing:
