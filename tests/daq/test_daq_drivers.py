@@ -4,6 +4,7 @@ import itertools
 import logging
 import time
 from dataclasses import FrozenInstanceError
+from importlib.metadata import version
 from unittest.mock import Mock
 
 import pytest
@@ -1449,3 +1450,21 @@ def test_hw_and_sw_timed_daqs_run_in_parallel():
 
     hw_driver.stop.assert_called_once()
     sw_driver.stop.assert_not_called()
+
+
+# Deprecated methods to delete in instro 2.0.0 (INSTRO-509).
+DEPRECATED_METHODS = [
+    (InstroDAQ, "configure_analog_channel"),
+    (InstroDAQ, "configure_ai_sample_rate"),
+    (InstroDAQ, "configure_digital_line"),
+    (DAQDriverBase, "configure_ai_channel"),
+    (DAQDriverBase, "configure_ao_channel"),
+]
+
+
+def test_deprecated_methods_are_deleted_in_v2():
+    """Fail the 2.0.0 release until every method above is gone, and keep the list accurate until then."""
+    if int(version("instro").split(".")[0]) >= 2:
+        pytest.fail(f"Delete: {[f'{cls.__name__}.{name}' for cls, name in DEPRECATED_METHODS]}")
+    for cls, name in DEPRECATED_METHODS:
+        assert hasattr(cls, name), f"{cls.__name__}.{name} is gone; remove it from DEPRECATED_METHODS"
