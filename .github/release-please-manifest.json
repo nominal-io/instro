@@ -1,5 +1,5 @@
 {
-  ".": "1.19.0",
+  ".": "1.20.0",
   "packages/instro-daq-labjack": "1.1.0",
   "packages/instro-daq-mcc": "1.1.0",
   "packages/instro-daq-ni": "1.1.0",

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0](https://github.com/nominal-io/instro/compare/instro-v1.19.0...instro-v1.20.0) (2026-09-09)
+
+
+### Features
+
+* **scope:** json config-driven instrument creation ([#460](https://github.com/nominal-io/instro/issues/460)) ([1d1c4f8](https://github.com/nominal-io/instro/commit/1d1c4f8c4196a2d4aa3223ac4bf0ef1eccb038c7))
+
 ## [1.19.0](https://github.com/nominal-io/instro/compare/instro-v1.18.1...instro-v1.19.0) (2026-09-07)
 
 
