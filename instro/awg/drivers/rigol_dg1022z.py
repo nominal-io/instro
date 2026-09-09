@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.unstable.awg.awg import AWGDriverBase
-from instro.unstable.awg.types import (
+from instro.awg.awg import AWGDriverBase
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -21,6 +20,7 @@ from instro.unstable.awg.types import (
     Triangle,
     Waveform,
 )
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 _HIGH_Z_SENTINEL = 9.9e37
 

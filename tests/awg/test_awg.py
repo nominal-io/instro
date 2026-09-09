@@ -12,9 +12,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from instro.lib.types import Measurement
-from instro.unstable.awg.awg import AWGDriverBase, InstroAWG
-from instro.unstable.awg.types import (
+from instro.awg.awg import AWGDriverBase, InstroAWG
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     BurstTriggerSource,
     BurstType,
@@ -25,6 +24,7 @@ from instro.unstable.awg.types import (
     SweepType,
     Waveform,
 )
+from instro.lib.types import Measurement
 
 # ---------------------------------------------------------------------------
 # Minimal concrete driver — implements every abstract method with no-ops

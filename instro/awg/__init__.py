@@ -1,10 +1,11 @@
 """Arbitrary Waveform Generator (AWG) instrument interface package."""
 
-from instro.unstable.awg.awg import (
+from instro.awg.awg import (
     AWGDriverBase,
     InstroAWG,
 )
-from instro.unstable.awg.types import (
+from instro.awg.config import AWGConfig
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -25,6 +26,7 @@ from instro.unstable.awg.types import (
 
 __all__ = [
     "InstroAWG",
+    "AWGConfig",
     "AWGDriverBase",
     "Waveform",
     "Sine",

@@ -28,10 +28,13 @@ jobs:
     # is the load-bearing isolation control: PRs from outside contributors (including
     # anyone opening a flood of hostile PRs) live on fork head repos and never trigger
     # this job -> no API spend and no secret exposure to untrusted code.
+    # Also skip release-please PRs: they are generated changelog/version bumps opened by
+    # the nombotv2 app, which the action rejects as a non-human actor (#471).
     if: |
       (github.event_name == 'pull_request' &&
         github.event.pull_request.draft == false &&
-        github.event.pull_request.head.repo.full_name == github.repository) ||
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        !startsWith(github.event.pull_request.head.ref, 'release-please--')) ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != null &&
         startsWith(github.event.comment.body, '@claude review') &&

@@ -25,7 +25,7 @@ over shared mixins/factories.
    from model knowledge.
 2. **Vendor and model** (e.g. "Siglent SPD3303"). Confirm the exact model family
    the driver should cover; SCPI surfaces and APIs are often shared across a series.
-3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`.
+3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `awg`, `ethernetip`.
    Infer from the instrument type; confirm with the user if ambiguous.
 4. **Tracking issue + branch.** Per `AGENTS.md`, no untracked work. Confirm an
    issue exists (or create one) and branch off `main` named after it

@@ -20,11 +20,8 @@ from typing import cast
 
 import pytest
 
-from instro.lib.transports import VisaConfig
-from instro.scope import Coupling, InstroScope, ScopeMeasurementType, TriggerMode, TriggerSlope, TriggerType
-from instro.scope.drivers import Tektronix2SeriesMSO
-from instro.unstable.awg.drivers import RigolDG1022Z
-from instro.unstable.awg.types import (
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     ModulationType,
@@ -36,6 +33,9 @@ from instro.unstable.awg.types import (
     Triangle,
     Waveform,
 )
+from instro.lib.transports import VisaConfig
+from instro.scope import Coupling, InstroScope, ScopeMeasurementType, TriggerMode, TriggerSlope, TriggerType
+from instro.scope.drivers import Tektronix2SeriesMSO
 
 pytestmark = pytest.mark.hardware
 

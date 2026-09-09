@@ -12,9 +12,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from instro.lib.transports import VisaConfig
-from instro.unstable.awg.drivers import RigolDG1022Z
-from instro.unstable.awg.types import (
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg.types import (
     AmplitudeMeasurementUnit,
     Arbitrary,
     BurstTriggerSource,
@@ -30,6 +29,7 @@ from instro.unstable.awg.types import (
     Triangle,
     Waveform,
 )
+from instro.lib.transports import VisaConfig
 
 pytestmark = pytest.mark.hardware
 
