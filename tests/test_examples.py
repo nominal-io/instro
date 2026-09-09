@@ -15,6 +15,7 @@ from instro.eload.config import ELoadConfig
 from instro.ethernetip import EtherNetIPConfig
 from instro.modbus import ModbusConfig
 from instro.psu.config import PSUConfig
+from instro.scope.config import ScopeConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -37,6 +38,7 @@ INSTRUMENT_LOADERS = {
     "InstroPSU": PSUConfig,
     "InstroDMM": DMMConfig,
     "InstroELoad": ELoadConfig,
+    "InstroScope": ScopeConfig,
 }
 
 

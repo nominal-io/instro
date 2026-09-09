@@ -208,7 +208,8 @@
             "group": "Scope",
             "pages": [
               "instrumentation/examples/scope/scope_background",
-              "instrumentation/examples/scope/scope_basic"
+              "instrumentation/examples/scope/scope_basic",
+              "instrumentation/examples/scope/scope_config"
             ]
           },
           {
