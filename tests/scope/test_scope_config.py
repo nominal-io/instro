@@ -392,6 +392,15 @@ def test_init_with_config_dict_with_publishers(valid_config):
     assert scope.publishers == [mock_ncp.return_value, mock_fp.return_value]
 
 
+def test_channel_snap_fields_track_channel_config():
+    from instro.scope.config import ChannelConfig
+    from instro.scope.scope import _CHANNEL_SNAP_FIELDS
+
+    assert set(_CHANNEL_SNAP_FIELDS) == set(ChannelConfig.model_fields) - {"measurements"}, (
+        "A ChannelConfig field is missing from the snap check; ChannelState must carry the same name."
+    )
+
+
 def test_vendor_registry_complete():
     import importlib
 
