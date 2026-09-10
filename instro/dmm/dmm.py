@@ -389,6 +389,16 @@ class InstroDMM(Instrument):
         channel_suffix = self._measurement_config.function.value.lower()
         return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
 
+    @publish_measurement
+    def measure_ac_voltage(self, **kwargs) -> Measurement:
+        """Measure AC voltage directly without setting the measurement function first."""
+        with self._resource_lock:
+            response = self._driver.measure_ac_voltage()
+            timestamp = time.time_ns()
+
+        channel_suffix = MeasurementFunction.AC_VOLTAGE.value.lower()
+        return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
+
     def _get_driver_read_method(self, function: MeasurementFunction) -> Callable:
         return {
             MeasurementFunction.DC_VOLTAGE: self._driver.measure_dc_voltage,

@@ -19,29 +19,30 @@ Python library for talking to test instrumentation (power supplies, multimeters,
 
 ## Quickstart
 
-Talk to a simulated PSU. No hardware required.
-
-```bash
-# Terminal 1: start the in-process SCPI sim server:
-python -m instro.psu.scpi_sim_server
-```
-
+Talk to a simulated DMM. No hardware required.
+ 
 ```python
-# Terminal 2: run this:
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro.dmm.drivers import SimpleSimulatedDMM
+from instro.dmm import InstroDMM  
+from instro.lib.publishers import FilePublisher
 
-with InstroPSU(
-    name="my-psu",
-    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-) as psu:
-    psu.set_voltage(3.3, channel=1)
-    psu.output_enable(True, channel=1)
-    print(psu.get_voltage(channel=1))
+pub = FilePublisher(format='jsonl', directory='/tmp/instro/')
+dmm = InstroDMM(
+    name="myDMM",
+    driver=SimpleSimulatedDMM(),
+    publishers = [pub]
+)
+dmm.open()               # opens  connection to instrument 
+dmm.measure_ac_voltage() # returns a Measurment 
+dmm.close()
+
+# all measurements automatically written to `publishers` 
+print(pub.file_path.read_text()) 
+
+>>> {"channel_data": {"myDMM.ac_voltage": [11.928570115069373]}, "timestamps": [1789047146358647840], "tags": {"instro": "1.13.0"}}
 ```
 
-That's the flow. Construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
+That's the flow. Construct, `open()`, configure, measure, `close()`. All `Commands` and `Measurements` are written to attached  `Publisher`s which can stream it to a file, a custom destination, or [Nominal](https://nominal.io). See the [official documentation](https://instro.nominal.io).
 
 ## Installation
 

@@ -1,4 +1,6 @@
-"""Simulated DMM driver."""
+"""Simulated DMM drivers."""
+
+import random
 
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
@@ -11,6 +13,40 @@ _FUNCTION_NAMES = {
     MeasurementFunction.AC_CURRENT: "CURR:AC",
     MeasurementFunction.TWO_WIRE_RESISTANCE: "RES",
 }
+
+
+class SimpleSimulatedDMM(DMMDriverBase):
+    """Minimal in-memory DMM simulation without any transport layer."""
+
+    def __init__(self) -> None:
+        self._measurement_function: MeasurementFunction | None = None
+
+    def open(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def set_measurement_function(self, function: MeasurementFunction) -> None:
+        self._measurement_function = function
+
+    def measure_dc_voltage(self) -> float:
+        return self._random_measurement(0.0, 10.0)
+
+    def measure_ac_voltage(self) -> float:
+        return self._random_measurement(0.0, 120.0)
+
+    def measure_dc_current(self) -> float:
+        return self._random_measurement(-1.0, 1.0)
+
+    def measure_ac_current(self) -> float:
+        return self._random_measurement(0.0, 5.0)
+
+    def measure_resistance(self) -> float:
+        return self._random_measurement(1.0, 100000.0)
+
+    def _random_measurement(self, low: float, high: float) -> float:
+        return random.uniform(low, high)
 
 
 class SimulatedDMM(DMMDriverBase):
@@ -61,3 +97,5 @@ class SimulatedDMM(DMMDriverBase):
         err = self._visa.query("SYST:ERR?")
         if err.split(",", 1)[0].strip().lstrip("+") != "0":
             raise RuntimeError(f"Simulated DMM reported error: {err}")
+
+
