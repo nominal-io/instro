@@ -847,14 +847,62 @@ const fn is_browse_path_reserved(ch: char) -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpcUaNode {
-    pub node_id: OpcUaNodeId,
-    pub browse_name: String,
-    pub display_name: String,
-    pub node_class: OpcUaNodeClass,
+    node_id: OpcUaNodeId,
+    browse_name: String,
+    display_name: String,
+    node_class: OpcUaNodeClass,
     /// The namespace-qualified browse path to this node.
     #[serde(default)]
-    pub browse_path: BrowsePath,
-    pub children: Vec<OpcUaNode>,
+    browse_path: BrowsePath,
+    children: Vec<OpcUaNode>,
+}
+
+impl OpcUaNode {
+    pub const fn new(
+        node_id: OpcUaNodeId,
+        browse_name: String,
+        display_name: String,
+        node_class: OpcUaNodeClass,
+        browse_path: BrowsePath,
+        children: Vec<OpcUaNode>,
+    ) -> Self {
+        Self {
+            node_id,
+            browse_name,
+            display_name,
+            node_class,
+            browse_path,
+            children,
+        }
+    }
+
+    pub const fn node_id(&self) -> &OpcUaNodeId {
+        &self.node_id
+    }
+
+    pub const fn browse_name(&self) -> &String {
+        &self.browse_name
+    }
+
+    pub const fn display_name(&self) -> &String {
+        &self.display_name
+    }
+
+    pub const fn node_class(&self) -> &OpcUaNodeClass {
+        &self.node_class
+    }
+
+    pub const fn browse_path(&self) -> &BrowsePath {
+        &self.browse_path
+    }
+
+    pub const fn children(&self) -> &[OpcUaNode] {
+        self.children.as_slice()
+    }
+
+    pub(crate) fn push_child(&mut self, child: OpcUaNode) {
+        self.children.push(child);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

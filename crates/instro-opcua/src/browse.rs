@@ -134,14 +134,14 @@ impl Browse for OpcUaClient {
                     name: reference.browse_name().name().to_string(),
                 };
 
-                Some(OpcUaNode {
+                Some(OpcUaNode::new(
                     node_id,
-                    browse_name: qualified_browse_name.name.clone(),
-                    display_name: reference.display_name().text().to_string(),
+                    qualified_browse_name.name.clone(),
+                    reference.display_name().text().to_string(),
                     node_class,
-                    browse_path: BrowsePath::from_segment(qualified_browse_name),
-                    children: Vec::new(),
-                })
+                    BrowsePath::from_segment(qualified_browse_name),
+                    Vec::new(),
+                ))
             })
             .collect();
 
@@ -174,10 +174,10 @@ fn browse_recursive<'a, B: Browse>(
         let mut nodes = Vec::with_capacity(raw.len());
 
         for mut node in raw {
-            if ancestors.contains(&node.node_id) {
+            if ancestors.contains(node.node_id()) {
                 bail!(
                     "cycle detected while browsing node {} at path {}",
-                    node.node_id,
+                    node.node_id().to_string(),
                     parent_path
                 );
             }
@@ -188,15 +188,16 @@ fn browse_recursive<'a, B: Browse>(
             *visited = visited.saturating_add(1);
 
             let segment = node
-                .browse_path
+                .browse_path()
                 .segments()
                 .last()
                 .cloned()
                 .with_context(|| {
                     format!("browse result for node {} had no browse path", node.node_id)
                 })?;
+
             let node_path = parent_path.child(segment);
-            node.browse_path = node_path.clone();
+            node.browse_path().push_child(node_path.clone());
 
             if matches!(
                 node.node_class,
