@@ -142,7 +142,10 @@ class DewesoftXDriver(DAQDriverBase):
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
         else:
             # Start a storing session
-            name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+            # TODO: Expose this
+            name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.dxd"
+            # TODO: expose as a knob as well so start doesn't actually start session
+            # Rather just a listener
             self._app.StartStoring(name)
             if not self._store.Storing:
                 raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
