@@ -56,14 +56,11 @@ class NominalCorePublisher:
 
         # We need to open the stream manually here because we are using the "rust_experimental" data format
         assert isinstance(self._write_stream, NominalDatasetStream)
-        # `NominalDatasetStream.open()` installs a process-wide SIGINT handler
-        # that calls `self._impl.cancel()` (see nominal_streaming/nominal_dataset_stream.py).
-        # If Ctrl-C fires while another thread is calling `enqueue_batch()`, that async
-        # `cancel()` can race the in-flight call and trigger Rust's "Already mutably borrowed" error.
-        #
-        # We prevent this by opening the underlying stream without installing Nominal's
-        # SIGINT handler. This requires us to call the _impl.open() method directly.
-        # This is a bit of a hack, but it's the only way to prevent the race condition.
+        # `NominalDatasetStream.open()` replaces the process-wide SIGINT handler with its own
+        # (restored only on `close()`). A publisher is a library component and must not take over
+        # the caller's signal handling, so open the underlying Rust stream directly. The borrow race
+        # this bypass originally dodged (`cancel()` vs. an in-flight `enqueue_batch()`) was fixed
+        # in nominal-streaming 0.9.x; the bypass stays for the signal-handler reason alone.
         self._write_stream._impl.open()
 
     def publish(self, data: Measurement | Command, **kwargs):
