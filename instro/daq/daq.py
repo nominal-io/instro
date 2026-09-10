@@ -184,7 +184,7 @@ class DAQDriverBase(abc.ABC):
         """Deprecated: implement ``configure_ai_voltage_channel`` instead."""
         raise NotImplementedError(
             "configure_ai_channel is deprecated and not implemented by this driver; "
-            "use InstroDAQ.configure_ai_voltage_channel() instead"
+            "use InstroDAQ.configure_voltage_input() instead"
         )
 
     def configure_ao_channel(
@@ -194,7 +194,7 @@ class DAQDriverBase(abc.ABC):
         """Deprecated: implement ``configure_ao_voltage_channel`` instead."""
         raise NotImplementedError(
             "configure_ao_channel is deprecated and not implemented by this driver; "
-            "use InstroDAQ.configure_ao_voltage_channel() instead"
+            "use InstroDAQ.configure_voltage_output() instead"
         )
 
     @abc.abstractmethod
