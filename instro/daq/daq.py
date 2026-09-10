@@ -849,27 +849,29 @@ class InstroDAQ(Instrument):
             DeprecationWarning,
             stacklevel=2,
         )
-        self._require_open()
-        channel = AnalogChannel(
-            physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
-            direction=direction,
-            range_min=range_min,
-            range_max=range_max,
-            scaler=scaler,
-            terminal_config=terminal_config,
-        )
-
         match direction:
             case Direction.INPUT:
-                self._driver.configure_ai_channel(channel)
+                self.configure_voltage_input(
+                    physical_channel,
+                    alias=alias,
+                    range_min=range_min,
+                    range_max=range_max,
+                    scaler=scaler,
+                    terminal_config=terminal_config,
+                )
             case Direction.OUTPUT:
-                self._driver.configure_ao_channel(channel)
+                # Outputs have no terminal wiring, so `terminal_config` has no supported equivalent here.
+                self.configure_voltage_output(
+                    physical_channel,
+                    alias=alias,
+                    range_min=range_min,
+                    range_max=range_max,
+                    scaler=scaler,
+                )
             case _:
                 raise ValueError(
                     f"Unsupported analog channel direction: {direction}. Expected Direction.INPUT or Direction.OUTPUT."
                 )
-        logger.info("Configured analog channel on DAQ '%s'", self.name)
 
     def configure_ai_sample_rate(
         self,
@@ -1284,18 +1286,17 @@ class InstroDAQ(Instrument):
             DeprecationWarning,
             stacklevel=2,
         )
-        self._require_open()
         match direction:
             case Direction.INPUT:
-                self._driver.configure_di_line_channel(
-                    physical_channel=physical_channel,
+                self.configure_digital_input(
+                    physical_channel,
                     logic=logic,
                     logic_level=logic_level,
                     alias=alias,
                 )
             case Direction.OUTPUT:
-                self._driver.configure_do_line_channel(
-                    physical_channel=physical_channel,
+                self.configure_digital_output(
+                    physical_channel,
                     logic=logic,
                     logic_level=logic_level,
                     alias=alias,
@@ -1305,7 +1306,6 @@ class InstroDAQ(Instrument):
                     f"Unsupported digital line channel direction: {direction}. "
                     "Expected Direction.INPUT or Direction.OUTPUT."
                 )
-        logger.info("Configured digital line channel on DAQ '%s'", self.name)
 
     def configure_digital_port(
         self,

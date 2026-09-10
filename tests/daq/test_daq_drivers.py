@@ -1457,25 +1457,24 @@ def test_hw_and_sw_timed_daqs_run_in_parallel():
 @pytest.mark.parametrize(
     ("direction", "routed"),
     [
-        (Direction.INPUT, "configure_ai_channel"),
-        (Direction.OUTPUT, "configure_ao_channel"),
+        (Direction.INPUT, "configure_voltage_input"),
+        (Direction.OUTPUT, "configure_voltage_output"),
     ],
 )
 def test_configure_analog_channel_warns_and_routes_by_direction(direction: Direction, routed: str):
-    """The deprecated wrapper warns, then calls the driver hook for the requested direction."""
-    mock_driver = _make_mock_driver()
-    setattr(mock_driver, routed, Mock(name=routed))
-    daq = InstroDAQ(name="ut", driver=mock_driver)
+    """The deprecated wrapper warns, then calls the supported method for the requested direction."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
+    setattr(daq, routed, Mock(name=routed))
 
     with pytest.deprecated_call(match=r"use configure_voltage_input\(\) or configure_voltage_output\(\)"):
         daq.configure_analog_channel(direction=direction, physical_channel="ai0", alias="v0")
 
-    getattr(mock_driver, routed).assert_called_once()
+    getattr(daq, routed).assert_called_once()
 
 
 def test_configure_ai_sample_rate_warns_and_routes_to_hw_sample_rate():
-    """The deprecated wrapper warns, then forwards both arguments verbatim to the hardware-timing method."""
+    """The deprecated wrapper warns, then forwards both arguments verbatim to the supported method."""
     daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
     daq.configure_ai_hw_sample_rate = Mock(name="configure_ai_hw_sample_rate")  # type: ignore[method-assign]
@@ -1489,16 +1488,15 @@ def test_configure_ai_sample_rate_warns_and_routes_to_hw_sample_rate():
 @pytest.mark.parametrize(
     ("direction", "routed"),
     [
-        (Direction.INPUT, "configure_di_line_channel"),
-        (Direction.OUTPUT, "configure_do_line_channel"),
+        (Direction.INPUT, "configure_digital_input"),
+        (Direction.OUTPUT, "configure_digital_output"),
     ],
 )
 def test_configure_digital_line_warns_and_routes_by_direction(direction: Direction, routed: str):
-    """The deprecated wrapper warns, then calls the driver hook for the requested direction."""
-    mock_driver = _make_mock_driver()
-    setattr(mock_driver, routed, Mock(name=routed))
-    daq = InstroDAQ(name="ut", driver=mock_driver)
+    """The deprecated wrapper warns, then forwards its arguments to the supported method for that direction."""
+    daq = InstroDAQ(name="ut", driver=_make_mock_driver())
     daq.open()
+    setattr(daq, routed, Mock(name=routed))
 
     with pytest.deprecated_call(match=r"use configure_digital_input\(\) or configure_digital_output\(\)"):
         daq.configure_digital_line(
@@ -1508,6 +1506,4 @@ def test_configure_digital_line_warns_and_routes_by_direction(direction: Directi
             alias="di0",
         )
 
-    getattr(mock_driver, routed).assert_called_once_with(
-        physical_channel="port0/line0", logic=Logic.HIGH, logic_level=None, alias="di0"
-    )
+    getattr(daq, routed).assert_called_once_with("port0/line0", logic=Logic.HIGH, logic_level=None, alias="di0")
