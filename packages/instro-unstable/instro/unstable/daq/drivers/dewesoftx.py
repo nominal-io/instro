@@ -203,6 +203,7 @@ class DewesoftXDriver(DAQDriverBase):
         drained: dict[str, tuple[list[float], list[int]]] = {}
 
         for alias, cursor in self._cursors.items():
+            read_start = time.perf_counter()
             # The server-side cursor tracks the exact unread count for sync and async channels alike
             pending = cursor.connection.NumValues
             if pending <= 0:
@@ -229,6 +230,7 @@ class DewesoftXDriver(DAQDriverBase):
                 timestamps = [self._t0_ns + round((cursor.total + k) * cursor.dt_ns) for k in range(len(values))]
                 drained[alias] = (values, timestamps)
                 cursor.total += len(values)
+            logger.debug("channel %s read took %.6fs", alias, time.perf_counter() - read_start)
         # Discard a batch that straddles a store restart: a cursor from before the restart returns garbage
         if not self._check_session():
             return DewesoftXData(channels={})
@@ -245,6 +247,8 @@ class DewesoftXDriver(DAQDriverBase):
         target = self._ai_hw_timing_config.samples_per_channel
         rate = self._ai_hw_timing_config.sample_rate
         sync_cursors = [c for c in self._cursors.values() if isinstance(c, _SyncChannelCursor)]
+        wait_start = time.perf_counter()
+        polls = 0
         while True:
             if not self._check_session():
                 # Pace the empty return so the daemon regains control (and its stop event) without spinning
@@ -255,10 +259,20 @@ class DewesoftXDriver(DAQDriverBase):
                 time.sleep(min(0.5, target / rate))
                 return self.read_analog()
             available = [c.connection.NumValues for c in sync_cursors]
+            polls += 1
             self.points_in_buffer = max(available)
             if min(available) >= target:
+                # logger.debug(
+                #     "fetch wait took %.6fs over %d poll(s) of %d channel(s); pending min %d max %d, target %d",
+                #     time.perf_counter() - wait_start,
+                #     polls,
+                #     len(sync_cursors),
+                #     min(available),
+                #     max(available),
+                #     target,
+                # )
                 return self.read_analog()
-            # Sleep about half the remaining fill time; the floor bounds the poll cost, the cap keeps stops responsive
+            # Sleep at most 0.5s to fetch pace loop
             time.sleep(min(0.5, max(0.001, (target - min(available)) / rate / 2)))
 
     def _read_to_measurements(

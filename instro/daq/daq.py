@@ -582,7 +582,7 @@ class InstroDAQ(Instrument):
             terminal_config=terminal_config,
         )
         self._driver.configure_ai_voltage_channel(channel)
-        logger.info("Configured voltage input channel on DAQ '%s'", self.name)
+        logger.info("Configured voltage input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
 
     def configure_voltage_output(
         self,
@@ -616,7 +616,7 @@ class InstroDAQ(Instrument):
             scaler=scaler,
         )
         self._driver.configure_ao_voltage_channel(channel)
-        logger.info("Configured voltage output channel on DAQ '%s'", self.name)
+        logger.info("Configured voltage output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
 
     # ========  Current Channels  ===========
 
@@ -652,7 +652,7 @@ class InstroDAQ(Instrument):
             scaler=scaler,
         )
         self._driver.configure_ai_current_channel(channel)
-        logger.info("Configured current input channel on DAQ '%s'", self.name)
+        logger.info("Configured current input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
 
     def configure_current_output(
         self,
@@ -686,7 +686,7 @@ class InstroDAQ(Instrument):
             scaler=scaler,
         )
         self._driver.configure_ao_current_channel(channel)
-        logger.info("Configured current output channel on DAQ '%s'", self.name)
+        logger.info("Configured current output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
 
     # ========  Thermocouple Channels  ===========
 
@@ -743,7 +743,7 @@ class InstroDAQ(Instrument):
             tc_input_scaler=tc_input_scaler,
         )
         self._driver.configure_ai_thermocouple_channel(channel)
-        logger.info("Configured thermocouple input channel on DAQ '%s'", self.name)
+        logger.info("Configured thermocouple input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
 
     # ========  Digital Channels  ===========
 
