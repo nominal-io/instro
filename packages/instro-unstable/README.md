@@ -28,4 +28,4 @@ API stability is not guaranteed release-to-release; pin to a specific version if
 
 ## License
 
-[Apache License 2.0](./LICENSE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/packages/instro-unstable/LICENSE).

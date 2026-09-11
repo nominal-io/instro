@@ -2,10 +2,39 @@
 name = "instro-ethernetip"
 version = "1.0.1"
 description = "EtherNet/IP device support for instro: config-driven Allen-Bradley PLC tag access with a native PyO3 session backend"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+keywords = ["instro", "ethernet-ip", "ethernetip", "cip", "allen-bradley", "compactlogix", "controllogix", "plc", "pyo3"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 requires-python = ">=3.10,<3.15"
 dependencies = ["instro"]
+
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Documentation = "https://instro.nominal.io"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
+Changelog = "https://github.com/nominal-io/instro/blob/main/packages/instro-ethernetip/CHANGELOG.md"
 
 [build-system]
 requires = ["maturin>=1.9.4,<2.0"]

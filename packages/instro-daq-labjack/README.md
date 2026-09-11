@@ -27,4 +27,4 @@ See the [DAQ guides](https://instro.nominal.io) for channel configuration, hardw
 
 ## License
 
-[Apache License 2.0](./LICENSE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/packages/instro-daq-labjack/LICENSE).

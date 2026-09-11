@@ -72,7 +72,7 @@ When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
 
 ## Build, CI, and packaging
 
-This package's `Cargo.lock` lives beside [`Cargo.toml`](Cargo.toml) in this directory (not the root workspace lock). See [CONTRIBUTING.md — Rust Cargo.lock (dual-lock policy)](../../CONTRIBUTING.md#rust-cargolock-dual-lock-policy) for how to maintain it and add future standalone wrappers.
+This package's `Cargo.lock` lives beside [`Cargo.toml`](https://github.com/nominal-io/instro/blob/main/packages/instro-ethernetip/Cargo.toml) in this directory (not the root workspace lock). See [CONTRIBUTING.md — Rust Cargo.lock (dual-lock policy)](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md#rust-cargolock-dual-lock-policy) for how to maintain it and add future standalone wrappers.
 
 `instro-ethernetip` is a PyO3 extension crate packaged by `maturin`.
 
