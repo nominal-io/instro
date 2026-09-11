@@ -49,12 +49,10 @@ class DewesoftXData:
 class DewesoftXDriver(DAQDriverBase):
     """Streams live sync and async channels from a running DewesoftX instance over DCOM."""
 
-    def __init__(self, timer_interval_ms: int | None = None) -> None:
+    def __init__(self, datafile_name: str | None = None) -> None:
         super().__init__()
-        if timer_interval_ms is not None and timer_interval_ms < 1:
-            raise ValueError(f"timer_interval_ms must be at least 1 ms, got {timer_interval_ms}.")
-        # DewesoftX's acquisition loop period; the ring gains samples once per loop, so it caps any poll rate
-        self._timer_interval_ms = timer_interval_ms
+        # The .dxd file start() stores to, passed to DewesoftX verbatim; None names it after the run time
+        self._datafile_name = datafile_name
         self._app: Any = None
         # Cache DCOM properties
         self._data: Any = None
@@ -63,7 +61,7 @@ class DewesoftXDriver(DAQDriverBase):
         self._cursors: dict[str, _SyncChannelCursor | _AsyncChannelCursor] = {}
         # Thread that owns the COM proxies; COM refuses cross-thread calls (see _attach_current_thread)
         self._thread_id = 0
-        # True after warning that storing stopped; keeps the warning to one line per outage
+        # True once we have reported that storing is off; keeps that report to one line per outage
         self._storing_paused = False
 
     # ====== Lifecycle ======
@@ -99,25 +97,6 @@ class DewesoftXDriver(DAQDriverBase):
                     ch.DataType,
                 )
 
-        # Global DewesoftX setting: storing, math and the display share this loop
-        if self._timer_interval_ms is not None and app.TimerInterval != self._timer_interval_ms:
-            # The running loop keeps its old period until acquisition re-arms, and Stop() would end a live session
-            if self._store.Storing:
-                logger.warning(
-                    "DewesoftX is storing; leaving its acquisition loop at %d ms instead of the requested %d ms. "
-                    "Construct the driver before the store session starts to apply it.",
-                    app.TimerInterval,
-                    self._timer_interval_ms,
-                )
-            else:
-                rearm = app.Acquiring
-                if rearm:
-                    app.Stop()
-                app.TimerInterval = self._timer_interval_ms
-                if rearm:
-                    app.Start()
-                logger.info("Set DewesoftX acquisition loop period to %d ms", self._timer_interval_ms)
-
         # Anchor absolute time axis if a storing session is running
         # Dewesoft only gives us the session start time in absolute time. Rest is relative
         if self._store.Storing:
@@ -135,27 +114,29 @@ class DewesoftXDriver(DAQDriverBase):
         self._store = None
 
     def start(self, **kwargs):
-        """Start a stored session named run_<date>_<time>, or attach to one already running."""
+        """Listen for a session an operator starts, or with ``start_storing_session=True`` start one here."""
         self._attach_current_thread()
         # Attach to exsiting storing session
         if self._store.Storing:
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
-        else:
-            # Start a storing session
-            # TODO: Expose this
-            name = f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.dxd"
-            # TODO: expose as a knob as well so start doesn't actually start session
-            # Rather just a listener
+        elif kwargs.get("start_storing_session", False):
+            # Start a storing session, falling back to a run-time name when the caller gave none
+            name = self._datafile_name or f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.dxd"
             self._app.StartStoring(name)
             if not self._store.Storing:
                 raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
             logger.info("Started DewesoftX stored session '%s'", name)
+        else:
+            # Reads stay empty until an operator starts storing; _check_session attaches and logs then
+            logger.info("DewesoftX storing session not started; listening for a storing session to start")
+            # This line already reported that storing is off, so keep _check_session from warning about it too
+            self._storing_paused = True
 
         self._check_session()
 
     def stop(self, **kwargs):
-        """Stop the stored session; a no-op when not storing so InstroDAQ teardown stays safe."""
-        if self._app is None:
+        """Leave the running session alone, or with ``stop_storing_session=True`` stop it."""
+        if self._app is None or not kwargs.get("stop_storing_session", False):
             return
         self._attach_current_thread()
         if not self._store.Storing:
@@ -340,7 +321,9 @@ class DewesoftXDriver(DAQDriverBase):
         if t0_ns == self._t0_ns:
             return True
         # Reseed every cursor on the new anchor
-        logger.info("DewesoftX store session restarted at %s; re-anchoring %d channel(s)", anchor, len(self._cursors))
+        logger.info(
+            "Attached to DewesoftX store session started at %s; anchoring %d channel(s)", anchor, len(self._cursors)
+        )
         self._t0_ns = t0_ns
         for alias, cursor in self._cursors.items():
             self._cursors[alias] = self._seed_cursor(cursor.com_channel)

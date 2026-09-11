@@ -942,7 +942,8 @@ class InstroDAQ(Instrument):
                 fetch the buffer yourself by calling ``read_analog()``. Software-timed
                 acquisition requires True — the daemon is what does the timing — so False
                 logs an error and starts nothing.
-            **kwargs: ``channel_type`` (NI only) selects which DAQmx task to start.
+            **kwargs: passed to the driver's ``start()``. ``channel_type`` (NI only) selects
+                which DAQmx task to start; drivers ignore keys they don't use.
         """
         self._require_open()
         if not self.is_hw_timing_configured and not self.is_sw_timing_configured:
@@ -973,7 +974,7 @@ class InstroDAQ(Instrument):
             return
 
         # DAQmx allows starting different channel_types independently.
-        channel_type = kwargs.get("channel_type", None)
+        channel_type = kwargs.pop("channel_type", None)
 
         # TODO
         # Need to evaluate spinning up a different daemon per channel type, but this
@@ -982,7 +983,7 @@ class InstroDAQ(Instrument):
         # Baselining ai sample rate as the rate right now, which will break as soon as
         # we add other channel type capabilities that are hardware timed.
 
-        self._driver.start(channel_type=channel_type)
+        self._driver.start(channel_type=channel_type, **kwargs)
         self._running = True
 
         if background:
