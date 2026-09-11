@@ -49,10 +49,10 @@ class DewesoftXData:
 class DewesoftXDriver(DAQDriverBase):
     """Streams live sync and async channels from a running DewesoftX instance over DCOM."""
 
-    def __init__(self, datafile_name: str | None = None) -> None:
+    def __init__(self, dxd_name: str | None = None) -> None:
         super().__init__()
-        # The .dxd file start() stores to, passed to DewesoftX verbatim; None names it after the run time
-        self._datafile_name = datafile_name
+        # The .dxd file start() stores to; None names it after the run time
+        self._dxd_name = dxd_name
         self._app: Any = None
         # Cache DCOM properties
         self._data: Any = None
@@ -121,7 +121,10 @@ class DewesoftXDriver(DAQDriverBase):
             logger.info("DewesoftX already storing to '%s'; attaching to that session", self._app.UsedDatafile)
         elif kwargs.get("start_storing_session", False):
             # Start a storing session, falling back to a run-time name when the caller gave none
-            name = self._datafile_name or f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.dxd"
+            name = self._dxd_name or f"run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.dxd"
+            # DewesoftX takes the name verbatim, so a caller's name without the extension needs one
+            if not name.lower().endswith(".dxd"):
+                name += ".dxd"
             self._app.StartStoring(name)
             if not self._store.Storing:
                 raise RuntimeError(f"DewesoftX failed to start storing session '{name}'; check the DewesoftX setup.")
