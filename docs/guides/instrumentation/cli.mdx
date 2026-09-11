@@ -3,7 +3,7 @@ title: CLI
 description: Command-line tools for working with instro
 ---
 
-`instro` ships a command-line interface for inspecting and discovering instruments on your bench.
+`instro` ships a command-line interface for discovering instruments on your bench and watching what running scripts publish.
 
 ## Running the CLI
 
@@ -101,3 +101,23 @@ for error in result.errors:
 ```
 
 `scan_visa_resources` accepts the same `backend` the CLI's `--backend` flag does, plus an optional `timeout` (seconds per instrument query, default `2`) that the CLI doesn't currently expose. It returns a `VisaScanResult` with `instruments` (`VisaInstrumentInfo`), `unrecognized` (`VisaUnrecognizedInstrument`), and `errors` (`VisaScanError`) — the same data the CLI renders into the tables above.
+
+## instro monitor
+
+Opens a live terminal view of every channel that running scripts publish through a [`MonitorPublisher`](/instrumentation/publishers#monitorpublisher). The monitor is its own process: start it once, then run scripts that attach the publisher. Scripts can start before or after the monitor and can come and go while it runs.
+
+```bash
+uv run instro monitor
+```
+
+Each row is one channel, grouped by the instrument name prefix. Columns show whether the last value was a measurement (`M`) or a command (`C`), the latest value, how long ago it arrived, the sample rate over the last five seconds, the total sample count, and the script connection it came from. Rows from a script that has disconnected are dimmed and marked `(gone)` so the last known value stays visible.
+
+Press `c` to clear the table and `q` to quit.
+
+The monitor listens on `127.0.0.1:47251` by default. Change either with `--host` and `--port`, and pass the same values to `MonitorPublisher` in the script:
+
+```bash
+uv run instro monitor --port 5000
+```
+
+The monitor never contacts instruments. It only receives what scripts send, so it cannot slow down or interfere with a running test.

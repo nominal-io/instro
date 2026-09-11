@@ -1,6 +1,7 @@
-"""Publishers that deliver Measurement/Command data to destinations (Nominal Core/Connect, files, buffers)."""
+"""Publishers that deliver Measurement/Command data to destinations (Nominal Core/Connect, files, buffers, the live monitor)."""
 
 from instro.lib.publishers.files import FilePublisher
+from instro.lib.publishers.monitor import MonitorPublisher
 from instro.lib.publishers.nominal_connect import NominalConnectPublisher
 from instro.lib.publishers.nominal_core import NominalCorePublisher
 from instro.lib.publishers.publisher import (
@@ -13,6 +14,7 @@ from instro.lib.publishers.publisher import (
 
 __all__ = [
     "FilePublisher",
+    "MonitorPublisher",
     "NominalConnectPublisher",
     "NominalCorePublisher",
     "Publisher",

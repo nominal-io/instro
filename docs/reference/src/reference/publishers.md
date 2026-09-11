@@ -16,6 +16,10 @@
 
 ::: instro.lib.publishers.nominal_connect
 
+## Monitor Publisher
+
+::: instro.lib.publishers.monitor
+
 ## Channel Buffers
 
 ::: instro.lib.publishers.channel_buffer

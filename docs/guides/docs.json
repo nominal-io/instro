@@ -171,7 +171,8 @@
               "instrumentation/examples/publishers/publish_file",
               "instrumentation/examples/publishers/publish_jsonl",
               "instrumentation/examples/publishers/publish_queued",
-              "instrumentation/examples/publishers/publish_shared"
+              "instrumentation/examples/publishers/publish_shared",
+              "instrumentation/examples/publishers/publish_monitor"
             ]
           },
           {

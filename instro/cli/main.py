@@ -4,6 +4,8 @@ from typing import Annotated
 import typer
 
 from instro.cli.discover import discover
+from instro.cli.monitor import monitor
+from instro.lib.consumers.monitor.protocol import DEFAULT_HOST, DEFAULT_PORT
 
 _WORKSPACE_PACKAGES = (
     ("instro-contrib", "contrib"),
@@ -51,6 +53,15 @@ def discover_cmd(
 ) -> None:
     """Scan VISA resources and serial ports for instruments and print a summary table."""
     discover(backend=backend)
+
+
+@app.command("monitor")
+def monitor_cmd(
+    host: Annotated[str, typer.Option(help="Loopback address to listen on")] = DEFAULT_HOST,
+    port: Annotated[int, typer.Option(help="TCP port MonitorPublisher instances connect to")] = DEFAULT_PORT,
+) -> None:
+    """Show live channel values from every script publishing with a MonitorPublisher."""
+    monitor(host=host, port=port)
 
 
 if __name__ == "__main__":

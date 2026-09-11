@@ -23,6 +23,7 @@ nav:
       - Types: reference/types.md
       - Exceptions: reference/exceptions.md
       - Publishers: reference/publishers.md
+      - Consumers: reference/consumers.md
       - Discover: reference/discover.md
       - Transports: reference/transports.md
 

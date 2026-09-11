@@ -218,6 +218,56 @@ If you only need a local file as a fallback for when network connectivity to Nom
 </Note>
 
 
+### MonitorPublisher
+
+Streams measurements and commands to a live terminal monitor running in a separate process. Start the monitor with `instro monitor` and attach a `MonitorPublisher` to any instrument; every channel that instrument publishes appears in the monitor's table with its latest value, age, and sample rate. Instruments constructed later in the run, or in other scripts, show up as soon as they publish.
+
+**When to use:**
+- You want to watch what a running script is publishing without writing files or streaming to Nominal
+- You are bringing up a new driver or bench and want a live view of every channel
+- You have several scripts running and want one view across all of them
+
+**Constructor Parameters:**
+
+```python
+MonitorPublisher(
+    host: str = "127.0.0.1",          # Address the monitor listens on
+    port: int = 47251,                # Port the monitor listens on
+    max_queue_size: int = 1000,       # Frames buffered before the oldest are dropped
+    reconnect_interval: float = 1.0,  # Seconds between connection attempts
+)
+```
+
+The publisher never blocks or raises into the instrument. A background thread sends frames as newline-delimited JSON over loopback TCP. If no monitor is listening it logs one warning, drops frames, and keeps retrying, so a script runs the same way whether or not the monitor is open. Under load the oldest frames are dropped first; the monitor shows latest values, so dropped history is not missed.
+
+**Example:**
+
+```python
+from instro.lib.publishers import MonitorPublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import BK9115
+
+psu = InstroPSU(
+    name="main",
+    driver=BK9115("USB0::0x2EC7::0x9115::123456::INSTR"),
+    num_channels=1,
+    publishers=[MonitorPublisher()],
+)
+```
+
+Then, in another shell:
+
+```bash
+instro monitor
+```
+
+Like every publisher, a `MonitorPublisher` belongs to one instrument. To feed several instruments through one connection, wrap it in [`SharedPublisher`](#sharedpublisher); otherwise give each instrument its own, and the monitor merges them. See [instro monitor](/instrumentation/cli#instro-monitor) for the monitor's controls.
+
+<Note>
+The monitor is a local debugging aid, not a data path. Data is held in memory in the monitor process and discarded when it exits. Use `NominalCorePublisher`, `NominalConnectPublisher`, or `FilePublisher` to record a run.
+</Note>
+
+
 ## Attaching Publishers
 
 Publisher attachment transfers ownership to the instrument. Use each publisher instance with one instrument unless the instance is a `SharedPublisher` handle.

@@ -28,6 +28,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 | Python/`uv` | `instro/<category>/` | Category code: HAL class (`InstroPSU`, `InstroDMM`, …), `types.py`, the base driver class (`PSUDriverBase`, etc.). Categories: `psu`, `dmm`, `eload`, `scope`, `awg`, `daq`, `i2c`, `modbus`. |
 | Python/`uv` | `instro/<category>/drivers/` | Concrete vendor drivers, one file per vendor/model family. Registered in `drivers/__init__.py`. |
 | Python/`uv` | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
+| Python/`uv` | `instro/lib/publishers/`, `instro/lib/consumers/` | Publishers send Measurement/Command data out of the process (Nominal, files, the monitor). Consumers receive it: `consumers/monitor/` is the `instro monitor` TUI and its loopback protocol. The `MonitorPublisher` lives with the publishers; the wire format lives with the consumer. |
 | Python/`uv` | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
 | Python/`uv` | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
 | Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. |
