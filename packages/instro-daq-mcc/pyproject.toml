@@ -5,13 +5,36 @@ description = "Measurement Computing (MCC) DAQ drivers for instro"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+keywords = ["instro", "daq", "data-acquisition", "measurement-computing", "mcc", "mcculw", "universal-library"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 requires-python = ">=3.10,<3.15"
 dependencies = ["instro", "mcculw>=1.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/nominal-io/instro"
+Documentation = "https://instro.nominal.io"
 Repository = "https://github.com/nominal-io/instro"
 Issues = "https://github.com/nominal-io/instro/issues"
+Changelog = "https://github.com/nominal-io/instro/blob/main/packages/instro-daq-mcc/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
