@@ -64,6 +64,10 @@ class NominalCorePublisher:
         # We prevent this by opening the underlying stream without installing Nominal's
         # SIGINT handler. This requires us to call the _impl.open() method directly.
         # This is a bit of a hack, but it's the only way to prevent the race condition.
+        #
+        # TODO: nominal-streaming 0.9.x replaced that `cancel()` with `stop_accepting_writes()`,
+        # so the race is gone and this hack now suppresses the graceful Ctrl-C drain. Switch to
+        # the public `open()` once the behavior change has been validated on real hardware.
         self._write_stream._impl.open()
 
     def publish(self, data: Measurement | Command, **kwargs):
