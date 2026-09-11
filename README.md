@@ -1,8 +1,8 @@
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./res/logo/instro-logo-ascii-white.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./res/logo/instro-logo-ascii-black.svg">
-  <img width="512" alt="Nominal Instro SDK Logo" src="./res/logo/instro-logo-ascii-black.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
+  <img width="512" alt="Nominal Instro SDK Logo" src="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
 </picture>
 </div>
 
@@ -62,7 +62,7 @@ uv sync
 This creates a virtual environment with the core library and the default development/test dependencies, including the EtherNet/IP, contrib, and unstable workspace packages. Add vendor extras as needed, for example `uv sync --extra nidaq`; `uv sync --extra all` selects all defined extras but does not install proprietary system SDKs.
 Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
-The default development environment builds the local EtherNet/IP extension and needs Rust and a C/C++ compiler/linker. Full workspace checks also need CMake, LLVM/libclang, and a separate nightly rustfmt installation. See [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide before syncing a fresh checkout.
+The default development environment builds the local EtherNet/IP extension and needs Rust and a C/C++ compiler/linker. Full workspace checks also need CMake, LLVM/libclang, and a separate nightly rustfmt installation. See [Prerequisites](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md#prerequisites) in the contributing guide before syncing a fresh checkout.
 
 ## Optional Extras
 
@@ -104,14 +104,14 @@ pip install "instro[nidaq,contrib]"
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 <!-- --8<-- [end:supported-devices] -->
 
-Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
-Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
+Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib).
+Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing
 
-- **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](./AGENTS.md#repo-skills-and-subagents).
+- **Humans**: see [`CONTRIBUTING.md`](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
+- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](https://github.com/nominal-io/instro/blob/main/AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](https://github.com/nominal-io/instro/blob/main/AGENTS.md#repo-skills-and-subagents).
 
 ## License
 
-[Apache License 2.0](./LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](./NOTICE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](https://github.com/nominal-io/instro/blob/main/NOTICE).

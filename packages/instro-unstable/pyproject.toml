@@ -5,6 +5,26 @@ description = "Unstable modules for instro (in-development features)"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+keywords = ["instro", "test-and-measurement", "instrument-control", "motor-controller", "flow-controller", "vesc", "alicat", "can-bus"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+]
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "instro>=1.10.0",
@@ -14,6 +34,13 @@ dependencies = [
     "libusb-package>=1.0.26",
     "pyserial>=3.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nominal-io/instro"
+Documentation = "https://instro.nominal.io"
+Repository = "https://github.com/nominal-io/instro"
+Issues = "https://github.com/nominal-io/instro/issues"
+Changelog = "https://github.com/nominal-io/instro/blob/main/packages/instro-unstable/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
