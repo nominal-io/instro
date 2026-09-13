@@ -39,7 +39,7 @@ jobs:
         github.event.issue.pull_request != null &&
         startsWith(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
