@@ -13,8 +13,8 @@ description: "Move your codebase from nominal-instro (<=0.6.x) to instro (>=0.7)
   [NI physical channel naming](#ni-physical-channel-naming) (NI DAQmx channels
   must now be fully qualified, with no compatibility flag), and the
   [DAQ digital channel configuration](#daq-digital-channel-configuration) split
-  (`configure_digital_channel` becomes `configure_digital_line` /
-  `configure_digital_port`).
+  (`configure_digital_channel` becomes `configure_digital_input` /
+  `configure_digital_output` / `configure_digital_port`).
 </Info>
 
 ## What changed
@@ -317,13 +317,13 @@ The NI DAQmx driver (`NIDAQDriver`) no longer prepends its `device_id` construct
 ```python
 # Before: device-relative channel, device_id prepended for you
 daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
-daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="ai0", alias="ch_0", range_min=0, range_max=5)
-daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="port0/line0", alias="do_0", logic=Logic.HIGH)
+daq.configure_voltage_input("ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_output("port0/line0", alias="do_0", logic=Logic.HIGH)
 
 # After: fully qualified channel
 daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
-daq.configure_analog_channel(direction=Direction.INPUT, physical_channel="Dev1/ai0", alias="ch_0", range_min=0, range_max=5)
-daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="Dev1/port0/line0", alias="do_0", logic=Logic.HIGH)
+daq.configure_voltage_input("Dev1/ai0", alias="ch_0", range_min=0, range_max=5)
+daq.configure_digital_output("Dev1/port0/line0", alias="do_0", logic=Logic.HIGH)
 ```
 
 The `device_id` argument stays on the constructor: the driver still uses it to verify the device is present and to name its DAQmx tasks. Channel aliases and published names are unchanged, so dashboards and datasets keyed off aliases need no update. Only the NI driver is affected. LabJack, MCC, and Keysight already passed `physical_channel` through verbatim.
@@ -334,9 +334,9 @@ There is no reliable regex for these string literals, the same as DAQ digital al
 
 ## DAQ digital channel configuration
 
-`InstroDAQ.configure_digital_channel(...)` is gone. It used an optional `port_width` argument to decide at call time whether you were configuring a single line or a whole port. That one entry point is now two, split by shape:
+`InstroDAQ.configure_digital_channel(...)` is gone. It used an optional `port_width` argument to decide at call time whether you were configuring a single line or a whole port. That one entry point is now split by shape, and lines carry their direction in the method name:
 
-- `configure_digital_line(direction, physical_channel, logic, logic_level=None, alias=None)` — a single digital line.
+- `configure_digital_input(physical_channel, *, logic, logic_level=None, alias=None)` / `configure_digital_output(physical_channel, *, logic, logic_level=None, alias=None)` — a single digital line.
 - `configure_digital_port(direction, physical_channel, logic, port_width, logic_level=None, alias=None)` — a whole port. `port_width` is now a required positional argument, not an optional discriminator.
 
 ```python
@@ -345,7 +345,7 @@ daq.configure_digital_channel(direction=Direction.OUTPUT, physical_channel="Dev1
 daq.configure_digital_channel(direction=Direction.INPUT, physical_channel="Dev1/port0", logic=Logic.HIGH, port_width=DigitalPortWidth.WIDTH_8, alias="di_port")
 
 # After: line and port are separate methods
-daq.configure_digital_line(direction=Direction.OUTPUT, physical_channel="Dev1/port0/line0", logic=Logic.HIGH, alias="do_0")
+daq.configure_digital_output("Dev1/port0/line0", logic=Logic.HIGH, alias="do_0")
 daq.configure_digital_port(direction=Direction.INPUT, physical_channel="Dev1/port0", logic=Logic.HIGH, port_width=DigitalPortWidth.WIDTH_8, alias="di_port")
 ```
 

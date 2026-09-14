@@ -182,20 +182,14 @@ class DAQDriverBase(abc.ABC):
         channel: AnalogChannel,
     ):
         """Deprecated: implement ``configure_ai_voltage_channel`` instead."""
-        raise NotImplementedError(
-            "configure_ai_channel is deprecated and not implemented by this driver; "
-            "use InstroDAQ.configure_voltage_input() instead"
-        )
+        raise NotImplementedError("configure_ai_channel is deprecated and not implemented by this driver.")
 
     def configure_ao_channel(
         self,
         channel: AnalogChannel,
     ):
         """Deprecated: implement ``configure_ao_voltage_channel`` instead."""
-        raise NotImplementedError(
-            "configure_ao_channel is deprecated and not implemented by this driver; "
-            "use InstroDAQ.configure_voltage_output() instead"
-        )
+        raise NotImplementedError("configure_ao_channel is deprecated and not implemented by this driver.")
 
     @abc.abstractmethod
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
@@ -832,7 +826,7 @@ class InstroDAQ(Instrument):
         scaler: Scaler | None = None,
         terminal_config: TerminalConfig | None = None,
     ):
-        """Configure an analog channel.
+        """Deprecated: use ``configure_voltage_input()`` or ``configure_voltage_output()`` instead.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
@@ -879,7 +873,7 @@ class InstroDAQ(Instrument):
         samples_per_channel: int | None = None,
         **kwargs,
     ):
-        """Configure the hardware sample clock for AI channels.
+        """Deprecated: use ``configure_ai_hw_sample_rate()`` instead.
 
         Args:
             sample_rate: Sample rate (Hz). Applies to all AI channels.
@@ -1271,7 +1265,7 @@ class InstroDAQ(Instrument):
         logic_level: float | None = None,
         alias: str | None = None,
     ):
-        """Configure a digital line channel.
+        """Deprecated: use ``configure_digital_input()`` or ``configure_digital_output()`` instead.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
