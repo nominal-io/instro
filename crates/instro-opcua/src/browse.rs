@@ -690,16 +690,15 @@ mod tests {
     fn null_type_definition_is_handled() {
         let (mut browser, root) = deep_chain(10);
 
-        browser.graph
+        browser
+            .graph
             .get_mut(&root)
             .expect("root should exist")
             .first_mut()
             .expect("root should have a child")
             .type_definition = OpcUaNodeId::nulled();
 
-        let result = browser
-            .browse(root, None)
-            .expect("browse should succeed");
+        let result = browser.browse(root, None).expect("browse should succeed");
 
         assert!(!result.is_empty());
         assert_eq!(count_nodes(&result), 9);
