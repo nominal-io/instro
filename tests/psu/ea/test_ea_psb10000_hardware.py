@@ -31,8 +31,6 @@ NOMINAL_VOLTAGE = 80.0  # PSB 10080-60 rating, used as a sanity bound on reading
 OVP_LEVEL = 40.0
 OCP_LEVEL = 30.0
 SINK_CURRENT = 1.0
-SINK_POWER = 50.0
-SINK_RESISTANCE = 10.0  # within the unit's 0.04-80 ohm sink-resistance band (SYST:NOM:RES:MIN?/MAX?)
 VOLTAGE_READBACK_TOLERANCE = 0.25
 # ~0.25% of the unit's 60 A rating. An unloaded PSB reads a small bias current (0.09 A observed on
 # the bench unit), so a tighter bound here fails on the instrument's own measurement floor.
@@ -252,55 +250,17 @@ def test_unsupported_source_optionals(
 # --- sink quadrant --------------------------------------------------------
 
 
-@pytest.mark.parametrize("mode", [LoadMode.CC, LoadMode.CP])
-def test_set_mode_selects_the_uip_set(device: EAPSB10000Visa, sink: ELoadDriverBase, mode: LoadMode) -> None:
-    sink.set_mode(mode, channel=CHANNEL)
+def test_set_mode_cv_touches_nothing_on_the_wire(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
+    sink.set_mode(LoadMode.CV, channel=CHANNEL)
 
     device._check_errors()
 
 
-def test_set_mode_cr_selects_the_uir_set(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
-    """CR is the only mode that needs a device reconfiguration, since it unlocks SINK:RESistance."""
-    sink.set_mode(LoadMode.CR, channel=CHANNEL)
-
-    device._check_errors()
-
-
-@pytest.mark.parametrize(
-    ("mode", "level"),
-    [
-        (LoadMode.CC, SINK_CURRENT),
-        (LoadMode.CP, SINK_POWER),
-        (LoadMode.CR, SINK_RESISTANCE),
-    ],
-)
-def test_set_level_accepts_each_supported_mode(
-    device: EAPSB10000Visa, sink: ELoadDriverBase, mode: LoadMode, level: float
-) -> None:
-    sink.set_mode(mode, channel=CHANNEL)
-
-    sink.set_level(mode, level, channel=CHANNEL, curr_limit=None)
-
-    device._check_errors()
-
-
-def test_set_level_raises_after_instrument_error(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
-    _queue_instrument_error(device)
-
-    with pytest.raises(RuntimeError, match=ERROR_MATCH):
-        sink.set_level(LoadMode.CC, SINK_CURRENT, channel=CHANNEL, curr_limit=None)
-
-
-def test_cv_is_unsupported_and_never_writes_the_shared_voltage_set_value(
+def test_set_level_writes_the_shared_voltage_set_value(
     device: EAPSB10000Visa, sink: ELoadDriverBase, source: PSUDriverBase
 ) -> None:
-    """The PSB has no sink voltage set value, so CV must not reach through to the source's setpoint."""
-    source.set_voltage(PROGRAMMED_VOLTAGE, channel=CHANNEL)
-
-    with pytest.raises(FeatureNotSupportedError, match="CV is not supported"):
-        sink.set_mode(LoadMode.CV, channel=CHANNEL)
-    with pytest.raises(FeatureNotSupportedError, match="CV is not supported"):
-        sink.set_level(LoadMode.CV, 1.0, channel=CHANNEL, curr_limit=PROGRAMMED_CURRENT_LIMIT)
+    sink.set_mode(LoadMode.CV, channel=CHANNEL)
+    sink.set_level(LoadMode.CV, PROGRAMMED_VOLTAGE, channel=CHANNEL, curr_limit=PROGRAMMED_CURRENT_LIMIT)
 
     source.output_enable(True, channel=CHANNEL)
     try:
@@ -311,6 +271,23 @@ def test_cv_is_unsupported_and_never_writes_the_shared_voltage_set_value(
         )
     finally:
         source.output_enable(False, channel=CHANNEL)
+    device._check_errors()
+
+
+def test_set_level_raises_after_instrument_error(device: EAPSB10000Visa, sink: ELoadDriverBase) -> None:
+    _queue_instrument_error(device)
+
+    with pytest.raises(RuntimeError, match=ERROR_MATCH):
+        sink.set_level(LoadMode.CV, PROGRAMMED_VOLTAGE, channel=CHANNEL, curr_limit=None)
+
+
+@pytest.mark.parametrize("mode", [LoadMode.CC, LoadMode.CP, LoadMode.CR])
+def test_cc_cp_cr_are_unsupported(device: EAPSB10000Visa, sink: ELoadDriverBase, mode: LoadMode) -> None:
+    with pytest.raises(FeatureNotSupportedError, match="is not supported"):
+        sink.set_mode(mode, channel=CHANNEL)
+    with pytest.raises(FeatureNotSupportedError, match="is not supported"):
+        sink.set_level(mode, SINK_CURRENT, channel=CHANNEL, curr_limit=None)
+
     device._check_errors()
 
 
