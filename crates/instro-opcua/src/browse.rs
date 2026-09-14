@@ -1,4 +1,4 @@
-//! Recursive browsing of an OPC-UA server's address space.
+//! Recursive browsing of an OPC UA server's address space.
 //!
 //! The [`Browse`] trait defines a single-level browse that returns the immediate
 //! children of a given node. [`BrowseAll`] extends any `Browse` implementor
@@ -129,16 +129,25 @@ impl Browse for OpcUaClient {
                 };
 
                 let node_class = OpcUaNodeClass::from(reference.node_class());
+
                 let qualified_browse_name = QualifiedBrowseName {
                     namespace_index: reference.browse_name().namespace_index(),
                     name: reference.browse_name().name().to_string(),
                 };
+
+                let type_definition = reference
+                    .type_definition()
+                    .try_into()
+                    // this is kind of a hack
+                    // TODO(carter): revisit this during the browse refactor
+                    .unwrap_or(OpcUaNodeId::nulled());
 
                 Some(OpcUaNode {
                     node_id,
                     browse_name: qualified_browse_name.name.clone(),
                     display_name: reference.display_name().text().to_string(),
                     node_class,
+                    type_definition,
                     browse_path: BrowsePath::from_segment(qualified_browse_name),
                     children: Vec::new(),
                 })
@@ -195,6 +204,7 @@ fn browse_recursive<'a, B: Browse>(
                 .with_context(|| {
                     format!("browse result for node {} had no browse path", node.node_id)
                 })?;
+
             let node_path = parent_path.child(segment);
             node.browse_path = node_path.clone();
 
@@ -259,6 +269,7 @@ mod tests {
             browse_name: browse_name.clone(),
             display_name: format!("Object {id}"),
             node_class: OpcUaNodeClass::Object,
+            type_definition: nid(86),
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
@@ -271,6 +282,7 @@ mod tests {
             browse_name: browse_name.clone(),
             display_name: format!("Variable {id}"),
             node_class: OpcUaNodeClass::Variable,
+            type_definition: nid(86),
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
@@ -283,6 +295,7 @@ mod tests {
             browse_name: browse_name.clone(),
             display_name: format!("Method {id}"),
             node_class: OpcUaNodeClass::Method,
+            type_definition: nid(87),
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
@@ -295,6 +308,7 @@ mod tests {
             browse_name: browse_name.clone(),
             display_name: format!("View {id}"),
             node_class: OpcUaNodeClass::View,
+            type_definition: nid(87),
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
@@ -670,6 +684,25 @@ mod tests {
             .browse(nid(999), None)
             .expect("browse should succeed");
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn null_type_definition_is_handled() {
+        let (mut browser, root) = deep_chain(10);
+
+        browser.graph
+            .get_mut(&root)
+            .expect("root should exist")
+            .first_mut()
+            .expect("root should have a child")
+            .type_definition = OpcUaNodeId::nulled();
+
+        let result = browser
+            .browse(root, None)
+            .expect("browse should succeed");
+
+        assert!(!result.is_empty());
+        assert_eq!(count_nodes(&result), 9);
     }
 
     #[test]

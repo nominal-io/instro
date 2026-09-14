@@ -1147,6 +1147,7 @@ mod subscription_loop_tests {
         OpcUaNode {
             node_id: OpcUaNodeId::numeric(1, id),
             browse_name: name.to_owned(),
+            type_definition: OpcUaNodeId::numeric(0, 86),
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,
             browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),

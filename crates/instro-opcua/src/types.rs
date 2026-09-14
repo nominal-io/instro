@@ -50,6 +50,7 @@ use open62541::ua::Byte;
 use open62541::ua::DateTime;
 use open62541::ua::Double;
 use open62541::ua::EndpointDescription;
+use open62541::ua::ExpandedNodeId;
 use open62541::ua::Float;
 use open62541::ua::Guid;
 use open62541::ua::Int16;
@@ -452,12 +453,12 @@ impl OpcUaEndpointInfo {
     }
 }
 
-/// OPC-UA NodeId.
+/// OPC UA NodeId.
 ///
 /// A [`NodeId`] is used to identify nodes in an OPC-UA address space. Nodes may hold a list of child nodes,
 /// which are identified by their own [`NodeId`]s.
 ///
-/// Serialized in canonical OPC-UA string form, so it can be used as a JSON map key.
+/// Serialized in canonical OPC UA string form, so it can be used as a JSON map key.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(into = "String", try_from = "String")]
 pub struct OpcUaNodeId {
@@ -466,39 +467,52 @@ pub struct OpcUaNodeId {
 }
 
 impl OpcUaNodeId {
-    /// Creates a node id of the provided kind.
+    /// Creates a node ID of the provided kind.
     pub const fn new(namespace: u16, kind: NodeIdKind) -> Self {
         Self { namespace, kind }
     }
 
-    /// Creates a numeric node id.
+    /// Creates a numeric node ID.
     pub const fn numeric(namespace: u16, value: u32) -> Self {
         Self::new(namespace, NodeIdKind::Numeric(value))
     }
 
-    /// Creates a string node id.
+    /// Creates a string node ID.
     pub const fn string(namespace: u16, value: String) -> Self {
         Self::new(namespace, NodeIdKind::String(value))
     }
 
-    /// Creates a byte-string node id.
+    /// Creates a byte-string node ID.
     pub const fn byte_string(namespace: u16, value: Vec<u8>) -> Self {
         Self::new(namespace, NodeIdKind::ByteString(value))
     }
 
-    /// Creates a GUID node id.
+    /// Creates a GUID node ID.
     pub const fn guid(namespace: u16, value: Uuid) -> Self {
         Self::new(namespace, NodeIdKind::Guid(value))
     }
 
-    /// The namespace index of the node.
+    /// The namespace index of the node ID.
     pub const fn namespace(&self) -> u16 {
         self.namespace
     }
 
-    /// The node id variant.
+    /// The node ID variant.
     pub const fn kind(&self) -> &NodeIdKind {
         &self.kind
+    }
+
+    /// Determines if the node id represents a null value as defined by the OPC-UA specification.
+    pub const fn is_null(&self) -> bool {
+        match self.kind {
+            NodeIdKind::Numeric(n) => n == 0,
+            _ => false,
+        }
+    }
+
+    /// Creates the null node ID,
+    pub const fn nulled() -> Self {
+        Self::new(0, NodeIdKind::Numeric(0))
     }
 }
 
@@ -623,6 +637,14 @@ pub enum NodeIdKind {
     String(String),
     ByteString(Vec<u8>),
     Guid(Uuid),
+}
+
+impl TryFrom<&ExpandedNodeId> for OpcUaNodeId {
+    type Error = Error;
+
+    fn try_from(id: &ExpandedNodeId) -> Result<Self> {
+        Self::try_from(id.node_id())
+    }
 }
 
 /// A browse-path segment preserving the OPC UA namespace that qualifies its name.
@@ -849,9 +871,9 @@ const fn is_browse_path_reserved(ch: char) -> bool {
 pub struct OpcUaNode {
     pub node_id: OpcUaNodeId,
     pub browse_name: String,
+    pub type_definition: OpcUaNodeId,
     pub display_name: String,
     pub node_class: OpcUaNodeClass,
-    /// The namespace-qualified browse path to this node.
     #[serde(default)]
     pub browse_path: BrowsePath,
     pub children: Vec<OpcUaNode>,
@@ -1879,12 +1901,14 @@ mod tests {
         let browse = OpcUaNode {
             node_id: OpcUaNodeId::numeric(0, 85),
             browse_name: "Objects".into(),
+            type_definition: OpcUaNodeId::numeric(0, 85),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
             browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
+                type_definition: OpcUaNodeId::numeric(0, 86),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
                 browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
@@ -1904,6 +1928,7 @@ mod tests {
             "node_id": "ns=0;i=85",
             "browse_name": "Objects",
             "display_name": "Objects",
+            "type_definition": "ns=0;i=86",
             "node_class": "Object",
             "children": [],
         }))

@@ -63,6 +63,7 @@ fn opcua_node(
     Ok(OpcUaNode {
         node_id: opcua_node_id(server, browse_name)?,
         browse_name: browse_name.to_owned(),
+        type_definition: OpcUaNodeId::numeric(0, 86),
         display_name: browse_name.to_owned(),
         node_class,
         browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
