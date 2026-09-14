@@ -897,12 +897,12 @@ mod tests {
     }
 
     #[test]
-    fn method_nodes_not_recursed() {
+    fn all_node_types_are_recursed() {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![method(2), obj(3), view(6)]);
-        browser.add_children(nid(2), vec![obj(4)]); // should never be reached
+        browser.add_children(nid(2), vec![obj(4)]);
         browser.add_children(nid(3), vec![var(5)]);
-        browser.add_children(nid(6), vec![obj(7)]); // should never be reached
+        browser.add_children(nid(6), vec![obj(7)]);
 
         let result = browser.browse(nid(1), None).expect("browse should succeed");
 
@@ -912,23 +912,27 @@ mod tests {
             .iter()
             .find(|n| n.node_id == nid(2))
             .expect("method node");
+
         assert!(
-            method_node.children.is_empty(),
-            "method nodes should not be recursed"
+            !method_node.children.is_empty(),
+            "method nodes should be recursed"
         );
+
         let view_node = result
             .iter()
             .find(|n| n.node_id == nid(6))
             .expect("view node");
+
         assert!(
-            view_node.children.is_empty(),
-            "view nodes should not be recursed"
+            !view_node.children.is_empty(),
+            "view nodes should be recursed"
         );
 
         let obj_node = result
             .iter()
             .find(|n| n.node_id == nid(3))
             .expect("object node");
+
         assert_eq!(
             obj_node.children.len(),
             1,
