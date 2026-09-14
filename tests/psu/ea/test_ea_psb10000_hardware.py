@@ -256,11 +256,13 @@ def test_set_mode_cv_touches_nothing_on_the_wire(device: EAPSB10000Visa, sink: E
     device._check_errors()
 
 
-def test_set_level_writes_the_shared_voltage_set_value(
+def test_set_level_writes_the_shared_voltage_set_value_and_curr_limit_ceiling(
     device: EAPSB10000Visa, sink: ELoadDriverBase, source: PSUDriverBase
 ) -> None:
     sink.set_mode(LoadMode.CV, channel=CHANNEL)
     sink.set_level(LoadMode.CV, PROGRAMMED_VOLTAGE, channel=CHANNEL, curr_limit=PROGRAMMED_CURRENT_LIMIT)
+
+    assert float(device._query_checked("SINK:CURR?").rstrip("A")) == pytest.approx(PROGRAMMED_CURRENT_LIMIT)
 
     source.output_enable(True, channel=CHANNEL)
     try:

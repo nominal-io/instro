@@ -176,10 +176,10 @@ def test_both_quadrants_drive_one_instrument_pair(dev: EAPSB10000Visa, resource)
     psu.set_current_limit(20, channel=1)
     psu.output_enable(True, channel=1)
     eload.set_mode(LoadMode.CV)
-    eload.set_level(30)
+    eload.set_level(30, curr_limit=8)
 
     writes = _writes(inst)
-    for expected in ("VOLT 48.000", "CURR 20.000", "OUTP ON", "VOLT 30.000"):
+    for expected in ("VOLT 48.000", "CURR 20.000", "OUTP ON", "VOLT 30.000", "SINK:CURR 8.000"):
         assert expected in writes
 
     psu.close()
@@ -323,9 +323,11 @@ def test_sink_set_level_writes_the_shared_voltage_set_value(sink: EAPSB10000Visa
     visa.write.assert_called_once_with("VOLT 24.000")
 
 
-def test_sink_set_level_ignores_curr_limit(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:
+def test_sink_set_level_writes_curr_limit_as_the_sink_current_ceiling(
+    sink: EAPSB10000VisaSink, visa: MagicMock
+) -> None:
     sink.set_level(LoadMode.CV, 24.0, channel=1, curr_limit=15.0)
-    assert _writes(visa) == ["VOLT 24.000"]
+    assert _writes(visa) == ["VOLT 24.000", "SINK:CURR 15.000"]
 
 
 def test_sink_output_enable_writes_on_off_words(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:

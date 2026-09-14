@@ -232,10 +232,12 @@ class EAPSB10000VisaSink(ELoadDriverBase):
         _check_mode(mode)
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        """Overwrites the source quadrant's voltage set value; ``curr_limit`` has no PSB counterpart and is ignored."""
+        """Overwrites the source quadrant's voltage set value; ``curr_limit``, if given, becomes the SINK:CURR ceiling."""
         _check_channel(channel)
         _check_mode(mode)
         self._device._set_voltage(value)
+        if curr_limit is not None:
+            self._device._write_checked(f"SINK:CURR {curr_limit:.3f}")
 
     def output_enable(self, enable: bool, channel: int) -> None:
         """Drives the shared DC terminal, the same one the source quadrant controls."""
