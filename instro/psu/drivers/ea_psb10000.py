@@ -93,6 +93,10 @@ class EAPSB10000Visa:
         """Enable or disable the DC terminal. One terminal, so both quadrants drive this."""
         self._write_checked("OUTP ON" if enable else "OUTP OFF")
 
+    def _set_voltage(self, value: float) -> None:
+        """Terminal voltage set value. One shared register, so both quadrants drive it; last write wins."""
+        self._write_checked(f"VOLT {value:.3f}")
+
     def _get_voltage(self) -> float:
         """Measured terminal voltage. One meter, and voltage has no per-quadrant sign."""
         return _strip_unit(self._query_checked("MEAS:VOLT?"))
@@ -135,7 +139,7 @@ class EAPSB10000VisaSource(PSUDriverBase):
 
     def set_voltage(self, voltage: float, channel: int) -> None:
         _check_channel(channel)
-        self._device._write_checked(f"VOLT {voltage:.3f}")
+        self._device._set_voltage(voltage)
 
     def get_voltage(self, channel: int) -> float:
         _check_channel(channel)
@@ -228,10 +232,10 @@ class EAPSB10000VisaSink(ELoadDriverBase):
         _check_mode(mode)
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        """``curr_limit`` has no PSB counterpart and is ignored."""
+        """Overwrites the source quadrant's voltage set value; ``curr_limit`` has no PSB counterpart and is ignored."""
         _check_channel(channel)
         _check_mode(mode)
-        self._device._write_checked(f"VOLT {value:.3f}")
+        self._device._set_voltage(value)
 
     def output_enable(self, enable: bool, channel: int) -> None:
         """Drives the shared DC terminal, the same one the source quadrant controls."""
