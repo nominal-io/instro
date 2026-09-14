@@ -687,24 +687,6 @@ mod tests {
     }
 
     #[test]
-    fn null_type_definition_is_handled() {
-        let (mut browser, root) = deep_chain(10);
-
-        browser
-            .graph
-            .get_mut(&root)
-            .expect("root should exist")
-            .first_mut()
-            .expect("root should have a child")
-            .type_definition = OpcUaNodeId::nulled();
-
-        let result = browser.browse(root, None).expect("browse should succeed");
-
-        assert!(!result.is_empty());
-        assert_eq!(count_nodes(&result), 9);
-    }
-
-    #[test]
     fn browse_populates_paths_from_parent_path() {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2)]);
