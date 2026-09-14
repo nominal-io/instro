@@ -885,6 +885,10 @@ pub enum OpcUaNodeClass {
     Variable,
     Method,
     View,
+    DataType,
+    ObjectType,
+    VariableType,
+    ReferenceType,
     Other(u32),
 }
 
@@ -895,6 +899,10 @@ impl From<OpcUaNodeClass> for ua::NodeClass {
             OpcUaNodeClass::Variable => ua::NodeClass::VARIABLE,
             OpcUaNodeClass::Method => ua::NodeClass::METHOD,
             OpcUaNodeClass::View => ua::NodeClass::VIEW,
+            OpcUaNodeClass::DataType => ua::NodeClass::DATATYPE,
+            OpcUaNodeClass::ObjectType => ua::NodeClass::OBJECTTYPE,
+            OpcUaNodeClass::VariableType => ua::NodeClass::VARIABLETYPE,
+            OpcUaNodeClass::ReferenceType => ua::NodeClass::REFERENCETYPE,
             OpcUaNodeClass::Other(other) => {
                 let inner;
                 #[cfg(target_os = "windows")]
@@ -938,6 +946,10 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
                 ua::NodeClass::VARIABLE_U32 => Self::Variable,
                 ua::NodeClass::METHOD_U32 => Self::Method,
                 ua::NodeClass::VIEW_U32 => Self::View,
+                ua::NodeClass::DATATYPE_U32 => Self::DataType,
+                ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
+                ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
+                ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
                 other => Self::Other(other),
             }
         })

@@ -208,26 +208,22 @@ fn browse_recursive<'a, B: Browse>(
             let node_path = parent_path.child(segment);
             node.browse_path = node_path.clone();
 
-            if matches!(
-                node.node_class,
-                OpcUaNodeClass::Object | OpcUaNodeClass::Variable
-            ) {
-                ancestors.insert(node.node_id.clone());
-                node.children.extend(
-                    browse_recursive(
-                        browser,
-                        node.node_id.clone(),
-                        depth.saturating_add(1),
-                        max_depth,
-                        node_path,
-                        ancestors,
-                        visited,
-                        max_nodes,
-                    )
-                    .await?,
-                );
-                ancestors.remove(&node.node_id);
-            }
+            ancestors.insert(node.node_id.clone());
+            node.children.extend(
+                browse_recursive(
+                    browser,
+                    node.node_id.clone(),
+                    depth.saturating_add(1),
+                    max_depth,
+                    node_path,
+                    ancestors,
+                    visited,
+                    max_nodes,
+                )
+                .await?,
+            );
+
+            ancestors.remove(&node.node_id);
 
             nodes.push(node);
         }
