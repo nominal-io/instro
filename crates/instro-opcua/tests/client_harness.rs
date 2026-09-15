@@ -623,8 +623,14 @@ async fn browse_operation_returns_node_with_null_type_definition() -> Result<()>
 
     let result = collect_nodes(&result);
 
-    assert!(result.len() > 0, "browse on empty server should return at least one node");
-    assert!(result.iter().any(|node| node.type_definition.is_null()), "browse on empty server should return at least one node with a null type definition");
+    assert!(
+        !result.is_empty(),
+        "browse on empty server should return at least one node"
+    );
+    assert!(
+        result.iter().any(|node| node.type_definition.is_null()),
+        "browse on empty server should return at least one node with a null type definition"
+    );
 
     Ok(())
 }

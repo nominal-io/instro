@@ -509,10 +509,7 @@ impl OpcUaNodeId {
 
     /// Determines if the node id represents a null value as defined by the OPC-UA specification.
     pub const fn is_null(&self) -> bool {
-        match self.kind {
-            NodeIdKind::Numeric(0) => true,
-            _ => false,
-        }
+        matches!(self.kind, NodeIdKind::Numeric(0))
     }
 
     /// `true` if the node ID has a namespace index of 0 (i.e. the standardized UA namespace).
