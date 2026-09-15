@@ -56,7 +56,7 @@ myst_heading_anchors = 6
 # -- autodoc -------------------------------------------------------------------
 autodoc_default_options = {
     "members": True,
-    "undoc-members": True,  # show_if_no_docstring
+    "undoc-members": False,  # show_if_no_docstring
     # stop at these bases so pydantic/enum/exception/builtin internals stay out
     "inherited-members": "BaseModel,object,BaseException,Enum,str,int,float",
     "member-order": "bysource",
