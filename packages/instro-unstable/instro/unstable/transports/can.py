@@ -24,6 +24,15 @@ def _prime_gs_usb_backend() -> None:
     usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
 
 
+def _release_gs_usb_device(bus: can.BusABC) -> None:
+    """Free the libusb handle python-can's gs_usb shutdown leaks; without this a reopen in the same process fails with EACCES."""
+    import usb.util
+
+    device = getattr(getattr(bus, "gs_usb", None), "gs_usb", None)
+    if device is not None:
+        usb.util.dispose_resources(device)
+
+
 @dataclasses.dataclass
 class CanConfig:
     """Connection parameters for a python-can bus.
@@ -42,7 +51,7 @@ class CanConfig:
 class CanSubscription:
     """A subscriber's view of the shared bus: drained frames matching its filter, oldest dropped when full."""
 
-    def __init__(self, transport: CanDriver, frame_filter: Callable[[can.Message], bool], depth: int) -> None:
+    def __init__(self, transport: CanTransport, frame_filter: Callable[[can.Message], bool], depth: int) -> None:
         self._transport = transport
         self._filter = frame_filter
         self._frames: collections.deque[can.Message] = collections.deque(maxlen=depth)
@@ -52,7 +61,7 @@ class CanSubscription:
         return self._transport._drain_for(self)
 
 
-class CanDriver(TransportBase):
+class CanTransport(TransportBase):
     """Transport for CAN-bus instruments. Composed by concrete drivers, not extended.
 
     CAN is a broadcast bus, so this differs from request/response transports in two ways.
@@ -100,6 +109,8 @@ class CanDriver(TransportBase):
             return
         try:
             self._bus.shutdown()
+            if self._config.interface == "gs_usb":
+                _release_gs_usb_device(self._bus)
         finally:
             self._bus = None
             for subscription in self._subscriptions:
@@ -142,5 +153,5 @@ class CanDriver(TransportBase):
 
     def _require_open_locked(self) -> can.BusABC:
         if self._bus is None:
-            raise RuntimeError(f"CanDriver is not open. Call open() first. Channel: {self._config.channel}")
+            raise RuntimeError(f"CanTransport is not open. Call open() first. Channel: {self._config.channel}")
         return self._bus

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-daq-ni-v1.0.1...instro-daq-ni-v1.1.0) (2026-08-31)
+
+
+### Features
+
+* **daq:** ni typed channel support ([#382](https://github.com/nominal-io/instro/issues/382)) ([8675855](https://github.com/nominal-io/instro/commit/867585557101deca2efc03c9b9d82ea038a95217))
+
 ## [1.0.1](https://github.com/nominal-io/instro/compare/instro-daq-ni-v1.0.0...instro-daq-ni-v1.0.1) (2026-07-27)
 
 

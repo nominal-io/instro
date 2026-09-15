@@ -3,10 +3,12 @@
 import abc
 import logging
 import math
+import threading
 import time
+import warnings
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, ClassVar, Mapping, TypeVar
+from typing import Any, ClassVar, Mapping, TypeVar, cast
 
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
@@ -30,6 +32,7 @@ from instro.daq.types import (
 from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
+from instro.lib.publishers.channel_buffer import ChannelValueTimeoutError
 from instro.lib.types import Command
 
 logger = logging.getLogger(__name__)
@@ -174,24 +177,24 @@ class DAQDriverBase(abc.ABC):
         """Close every task/handle owned by the driver. Idempotent."""
         ...
 
-    @abc.abstractmethod
     def configure_ai_channel(
         self,
         channel: AnalogChannel,
     ):
-        """Register an AI channel with the underlying driver (range, terminal mode, scaler — vendor-specific)."""
-        ...
+        """Deprecated: implement ``configure_ai_voltage_channel`` instead."""
+        raise NotImplementedError("configure_ai_channel is deprecated and not implemented by this driver.")
 
     def configure_ao_channel(
         self,
         channel: AnalogChannel,
     ):
-        """Register an AO channel. Override if the driver supports analog output."""
-        raise NotImplementedError("Analog Output has not been configured for this driver")
+        """Deprecated: implement ``configure_ao_voltage_channel`` instead."""
+        raise NotImplementedError("configure_ao_channel is deprecated and not implemented by this driver.")
 
+    @abc.abstractmethod
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
-        """Register an AI voltage channel. Override if the driver supports analog voltage input."""
-        raise NotImplementedError("Analog voltage input has not been configured for this driver")
+        """Register an AI voltage channel with the underlying driver."""
+        ...
 
     def configure_ao_voltage_channel(self, channel: AnalogVoltageChannel):
         """Register an AO voltage channel. Override if the driver supports analog voltage output."""
@@ -216,7 +219,7 @@ class DAQDriverBase(abc.ABC):
     ):
         """Configure hardware-timed AI sampling at ``hw_timing_config.sample_rate``.
 
-        Called before ``start()`` whenever ``InstroDAQ.configure_ai_sample_rate()``
+        Called before ``start()`` whenever ``InstroDAQ.configure_ai_hw_sample_rate()``
         is invoked. The driver should program the sample clock and any
         ``samples_per_channel`` buffer sizing the underlying SDK requires.
         """
@@ -436,6 +439,12 @@ class InstroDAQ(Instrument):
         self._is_open = False
         self._is_sw_timing_configured = False
         self._running = False
+
+        # The daemon's latest analog acquisition. Readers wait on the count, so a reader always
+        # holds one whole acquisition, never a mix of two.
+        self._acquisition_ready = threading.Condition()
+        self._acquisition: list[Measurement] = []
+        self._acquisition_count = 0
 
     @property
     def driver(self) -> DAQDriverBase:
@@ -817,7 +826,7 @@ class InstroDAQ(Instrument):
         scaler: Scaler | None = None,
         terminal_config: TerminalConfig | None = None,
     ):
-        """Configure an analog channel.
+        """Deprecated: use ``configure_voltage_input()`` or ``configure_voltage_output()`` instead.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
@@ -828,27 +837,35 @@ class InstroDAQ(Instrument):
             scaler: Optional ``Scaler`` applied to AI samples after read.
             terminal_config: Terminal wiring (RSE / NRSE / DIFF) for the channel.
         """
-        self._require_open()
-        channel = AnalogChannel(
-            physical_channel=physical_channel,
-            alias=alias if alias else physical_channel,
-            direction=direction,
-            range_min=range_min,
-            range_max=range_max,
-            scaler=scaler,
-            terminal_config=terminal_config,
+        warnings.warn(
+            "InstroDAQ.configure_analog_channel() is deprecated and will be removed in a future release; "
+            "use configure_voltage_input() or configure_voltage_output() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-
         match direction:
             case Direction.INPUT:
-                self._driver.configure_ai_channel(channel)
+                self.configure_voltage_input(
+                    physical_channel,
+                    alias=alias,
+                    range_min=range_min,
+                    range_max=range_max,
+                    scaler=scaler,
+                    terminal_config=terminal_config,
+                )
             case Direction.OUTPUT:
-                self._driver.configure_ao_channel(channel)
+                # Outputs have no terminal wiring, so `terminal_config` has no supported equivalent here.
+                self.configure_voltage_output(
+                    physical_channel,
+                    alias=alias,
+                    range_min=range_min,
+                    range_max=range_max,
+                    scaler=scaler,
+                )
             case _:
                 raise ValueError(
                     f"Unsupported analog channel direction: {direction}. Expected Direction.INPUT or Direction.OUTPUT."
                 )
-        logger.info("Configured analog channel on DAQ '%s'", self.name)
 
     def configure_ai_sample_rate(
         self,
@@ -856,13 +873,19 @@ class InstroDAQ(Instrument):
         samples_per_channel: int | None = None,
         **kwargs,
     ):
-        """Configure the hardware sample clock for AI channels.
+        """Deprecated: use ``configure_ai_hw_sample_rate()`` instead.
 
         Args:
             sample_rate: Sample rate (Hz). Applies to all AI channels.
             samples_per_channel: Samples per channel per ``read_analog()`` call;
                 defaults to 10 % of ``sample_rate`` (e.g. 100 at 1 kHz).
         """
+        warnings.warn(
+            "InstroDAQ.configure_ai_sample_rate() is deprecated and will be removed in a future release; "
+            "use configure_ai_hw_sample_rate() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.configure_ai_hw_sample_rate(
             sample_rate=sample_rate,
             samples_per_channel=samples_per_channel,
@@ -993,6 +1016,9 @@ class InstroDAQ(Instrument):
     def stop(self, **kwargs):
         """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
         super().stop()
+        # super().stop() joined the daemon, so wake readers parked for an acquisition that won't come.
+        with self._acquisition_ready:
+            self._acquisition_ready.notify_all()
         # Skip the device stop when not open: some drivers' stop() issues a transport
         # command (e.g. Keysight's ABORt) that raises if the session isn't open. close()
         # routes through here, so this gate keeps close-before-open from raising.
@@ -1022,13 +1048,14 @@ class InstroDAQ(Instrument):
             # TODO revisit with INSTRO-149 issue ticket.
             raise RuntimeError("Cannot read analog data while background acquisition daemon is running")
 
-        if self.is_hw_timing_configured:
-            measurements = self._fetch_analog_hw_timed(**kwargs)
-
-        else:
-            measurements = self._software_timed_read(**kwargs)
-
+        measurements = self._acquire_analog(**kwargs)
         return measurements[0] if len(measurements) == 1 else measurements
+
+    def _acquire_analog(self, **kwargs) -> list[Measurement]:
+        """Run the fetch matching the configured timing mode; one Measurement per timebase cluster."""
+        if self.is_hw_timing_configured:
+            return self._fetch_analog_hw_timed(**kwargs)
+        return self._software_timed_read(**kwargs)
 
     @publish_measurement
     def _software_timed_read(self, **kwargs) -> list[Measurement]:
@@ -1072,11 +1099,9 @@ class InstroDAQ(Instrument):
         for measurement in measurements:
             for ch_name, ch_config in self.ai_channels.items():
                 if ch_config.scaler:
-                    ch_meas = measurement._get_channel(f"{self.name}.{ch_name}")
-                    scaled_values = [
-                        ch_config.scaler.scale(val) for val in ch_meas.channel_data[f"{self.name}.{ch_name}"]
-                    ]
-                    measurement.channel_data[f"{self.name}.{ch_name}"] = scaled_values
+                    key = f"{self.name}.{ch_name}"
+                    raw_values = cast(list[float], measurement.channel_data[key])
+                    measurement.channel_data[key] = [ch_config.scaler.scale(val) for val in raw_values]
         return measurements
 
     def read(self, channel: str, **kwargs) -> Measurement:
@@ -1107,21 +1132,17 @@ class InstroDAQ(Instrument):
 
         # Analog pass
         analog: dict[str, Measurement] = {}
-        if analog_aliases and not daemon_running:
-            batch = self.read_analog(**kwargs)
-            by_key = {key: m for m in (batch if isinstance(batch, list) else [batch]) for key in m.channel_data}
+        if analog_aliases:
+            batch = self._wait_for_acquisition() if daemon_running else self._acquire_analog(**kwargs)
+            by_key = {key: m for m in batch for key in m.channel_data}
             for alias in analog_aliases:
                 key = f"{self.name}.{alias}"
                 source = by_key.get(key)
                 if source is None:
                     raise KeyError(
-                        f"read_analog() returned no data for analog channel '{alias}' (key '{key}'). "
-                        f"Channels returned: {sorted(by_key)}."
+                        f"No analog data for channel '{alias}' (key '{key}'). Channels returned: {sorted(by_key)}."
                     )
                 analog[alias] = Measurement({key: source.channel_data[key]}, source.timestamps, source.tags)
-        elif analog_aliases:
-            # Just use the get_channel defaults here. Directly call get_channel for more customization
-            analog = {alias: self.get_channel(alias) for alias in analog_aliases}
 
         # Digital pass
         # NOTE: Planning on ripping out port support
@@ -1229,7 +1250,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Analog output channel '{channel}' is not configured. "
                 f"Configured analog output channels: {list(self.ao_channels.keys())}. "
-                f"Call configure_analog_channel(Direction.OUTPUT, ...) first."
+                "Call configure_voltage_output() first."
             )
         logger.debug("Sending DAQ write_analog_value command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_analog_value(analog_channel, value)
@@ -1245,7 +1266,7 @@ class InstroDAQ(Instrument):
         logic_level: float | None = None,
         alias: str | None = None,
     ):
-        """Configure a digital line channel.
+        """Deprecated: use ``configure_digital_input()`` or ``configure_digital_output()`` instead.
 
         Args:
             direction: ``INPUT`` or ``OUTPUT``.
@@ -1254,23 +1275,32 @@ class InstroDAQ(Instrument):
             logic_level: Voltage threshold (volts); the driver default is used when ``None``.
             alias: Friendly name; defaults to ``physical_channel``.
         """
-        self._require_open()
+        warnings.warn(
+            "InstroDAQ.configure_digital_line() is deprecated and will be removed in a future release; "
+            "use configure_digital_input() or configure_digital_output() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         match direction:
             case Direction.INPUT:
-                self._driver.configure_di_line_channel(
-                    physical_channel=physical_channel,
+                self.configure_digital_input(
+                    physical_channel,
                     logic=logic,
                     logic_level=logic_level,
                     alias=alias,
                 )
             case Direction.OUTPUT:
-                self._driver.configure_do_line_channel(
-                    physical_channel=physical_channel,
+                self.configure_digital_output(
+                    physical_channel,
                     logic=logic,
                     logic_level=logic_level,
                     alias=alias,
                 )
-        logger.info("Configured digital line channel on DAQ '%s'", self.name)
+            case _:
+                raise ValueError(
+                    f"Unsupported digital line channel direction: {direction}. "
+                    "Expected Direction.INPUT or Direction.OUTPUT."
+                )
 
     def configure_digital_port(
         self,
@@ -1309,6 +1339,11 @@ class InstroDAQ(Instrument):
                     logic_level=logic_level,
                     alias=alias,
                 )
+            case _:
+                raise ValueError(
+                    f"Unsupported digital port channel direction: {direction}. "
+                    "Expected Direction.INPUT or Direction.OUTPUT."
+                )
         logger.info("Configured digital port channel on DAQ '%s'", self.name)
 
     @publish_command
@@ -1319,7 +1354,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital output channel '{channel}' is not configured. "
                 f"Configured digital output channels: {list(self.do_channels.keys())}. "
-                f"Call configure_digital_line(Direction.OUTPUT, ...) first."
+                "Call configure_digital_output() first."
             )
         logger.debug("Sending DAQ write_digital_line command to '%s' for channel '%s'", self.name, channel)
         self._driver.write_digital_line(digital_channel, data)
@@ -1348,7 +1383,7 @@ class InstroDAQ(Instrument):
             raise KeyError(
                 f"Digital input channel '{channel}' is not configured. "
                 f"Configured digital input channels: {list(self.di_channels.keys())}. "
-                f"Call configure_digital_line(Direction.INPUT, ...) first."
+                "Call configure_digital_input() first."
             )
         response = self._driver.read_digital_line(digital_channel)
         timestamp = time.time_ns()
@@ -1460,11 +1495,37 @@ class InstroDAQ(Instrument):
         return self._package_command(f"{relay_channel.alias}.cmd", "OPEN", timestamp, **kwargs)
 
     def _define_background_daemon(self):
-        """Register the fetch matching the configured timing mode when AI channels exist."""
-        fetch = self._software_timed_read if self.is_sw_timing_configured else self._fetch_analog_hw_timed
-        already_registered = any(method == fetch for method, _, _ in self._background_methods)
+        """Register the AI fetch when AI channels exist."""
+        already_registered = any(method == self._daemon_analog_fetch for method, _, _ in self._background_methods)
         if self.ai_channels and not already_registered:
-            self.add_background_daemon_function(fetch)
+            self.add_background_daemon_function(self._daemon_analog_fetch)
+
+    def _daemon_analog_fetch(self):
+        """Run the configured fetch, then hand the whole acquisition to waiting readers."""
+        measurements = self._acquire_analog()
+        with self._acquisition_ready:
+            self._acquisition = measurements
+            self._acquisition_count += 1
+            self._acquisition_ready.notify_all()
+
+    def _wait_for_acquisition(self) -> list[Measurement]:
+        """Block for the daemon's next complete acquisition, timed out at two acquisition durations."""
+        hw = self.ai_hw_timing_config
+        one_acquisition_s = hw.samples_per_channel / hw.sample_rate if hw else self.background_interval
+        timeout = max(10.0, 2 * one_acquisition_s)
+        daemon = self._background_thread
+
+        with self._acquisition_ready:
+            seen = self._acquisition_count
+            self._acquisition_ready.wait_for(
+                lambda: self._acquisition_count > seen or not (daemon and daemon.is_alive()), timeout
+            )
+            if self._acquisition_count == seen:
+                raise ChannelValueTimeoutError(
+                    f"InstroDAQ '{self.name}' published no new analog acquisition; the daemon stopped "
+                    f"or did not complete one within {timeout} seconds."
+                )
+            return self._acquisition
 
     def get_actual_sample_rate(self) -> float | None:
         """Hardware's actual sample rate after ``start()``; ``None`` if unsupported or not started."""

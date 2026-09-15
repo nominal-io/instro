@@ -219,8 +219,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         return daq
 
     def _configure_ai(self, daq, physical, alias, range_min=-11.0, range_max=11.0):
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=physical,
             alias=alias,
             range_min=range_min,
@@ -228,8 +227,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     def _configure_ao(self, daq, physical, alias):
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=physical,
             alias=alias,
             range_min=0,
@@ -237,12 +235,8 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     def _configure_digital_lines(self, daq):
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
-        )
-        daq.configure_digital_line(
-            direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
-        )
+        daq.configure_digital_output(physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS)
+        daq.configure_digital_input(physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS)
 
     def _assert_t8(self, daq):
         device_type, conn_type, serial, _ip, _port, _ = daq.driver.get_info()
@@ -546,7 +540,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         """write() on an unconfigured alias must raise KeyError.
 
         InstroDAQ guards every write with a channel lookup. If the alias
-        has not been registered via configure_analog_channel(OUTPUT), a
+        has not been registered via configure_voltage_output(), a
         KeyError should be raised immediately rather than a cryptic LJM
         error or a silent no-op. This confirms the guard rail works.
         """

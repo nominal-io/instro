@@ -295,6 +295,8 @@ class PrintChannelPublisher:
 
 Keep custom publisher ownership simple. The instrument that receives the publisher is responsible for closing it. Put teardown logic in `close()`, and do not reuse a custom publisher instance after its owning instrument has closed.
 
+`data.channel_data`'s values may be `list[str]` as well as `list[float]` — a categorical read (a mode name or state reported back from the instrument) publishes as a string-valued `Measurement`. `PrintChannelPublisher` above handles this for free since it only prints `data.latest`; a custom publisher that does arithmetic on a channel's values needs to check the value's type first, the same way it would check a channel's presence.
+
 ### Publisher execution model
 
 Custom publishers face the classic buffered versus unbuffered I/O tradeoff. By default, publishing is unbuffered: `publish` runs synchronously, on the same thread as the instrument method that produced the data. That is deliberate. The in-memory channel buffer behind `get_channel` is itself a publisher, and `get_channel`'s blocking semantics rely on samples being in the buffer by the time each background-daemon iteration completes. If publishing were deferred to a background thread by default, a `get_channel` call could miss a sample the daemon just collected.

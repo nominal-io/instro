@@ -9,6 +9,7 @@ from typing import Mapping, cast
 from instro.daq import DAQDriverBase
 from instro.daq.types import (
     AnalogChannel,
+    AnalogVoltageChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
@@ -133,7 +134,21 @@ class Keysight34980A(DAQDriverBase):
         self,
         channel: AnalogChannel,
     ):
-        """Configure an AI channel: ``CONF:VOLT:DC`` at computed range, then add to ``ROUT:SCAN`` and enable timestamps."""
+        """Deprecated: use ``configure_ai_voltage_channel``."""
+        self.configure_ai_voltage_channel(
+            AnalogVoltageChannel(
+                physical_channel=channel.physical_channel,
+                alias=channel.alias,
+                direction=channel.direction,
+                range_max=channel.range_max,
+                range_min=channel.range_min,
+                scaler=channel.scaler,
+                terminal_config=channel.terminal_config,
+            )
+        )
+
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+        """Configure an AI voltage channel: ``CONF:VOLT:DC`` at computed range, then add to ``ROUT:SCAN`` and enable timestamps."""
         range = self._compute_ai_range(channel)
 
         with self._visa.lock():
@@ -184,7 +199,7 @@ class Keysight34980A(DAQDriverBase):
     ) -> KeysightData:
         """Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk."""
         if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
+            raise RuntimeError("configure_ai_hw_sample_rate() must be called before fetching analog data.")
         num_channels = len(self._ai_channels)
         min_points_per_fetch = self._ai_hw_timing_config.samples_per_channel * num_channels
 
@@ -407,7 +422,7 @@ class Keysight34980A(DAQDriverBase):
             self._visa.write(f"SYST:TIME {now.hour},{now.minute},{now.second + now.microsecond * 1e-6:.3f}")
             self._check_errors()
 
-    def _compute_ai_range(self, channel: AnalogChannel) -> float:
+    def _compute_ai_range(self, channel: AnalogChannel | AnalogVoltageChannel) -> float:
         ranges = [0.1, 1.0, 10.0, 100.0, 300.0]
         highest_abs = max(abs(channel.range_min), abs(channel.range_max))
 
@@ -431,7 +446,7 @@ class Keysight34980A(DAQDriverBase):
 
         measurements: list[Measurement] = []
         for i, ch in enumerate(scan_list):
-            channel_data = {}
+            channel_data: dict[str, list[float] | list[str]] = {}
             channel_data[f"{daq_name}.{ch.alias}"] = readings[i::num_channels]
             measurement = Measurement(
                 channel_data=channel_data,

@@ -1,0 +1,31 @@
+---
+title: "build an InstroScope from a JSON config file"
+---
+
+```python scope_config.py
+"""Example: build an InstroScope from a JSON config file.
+
+Run:
+    uv run python examples/scope/scope_config.py
+"""
+
+from pathlib import Path
+
+from instro.scope import InstroScope, ScopeMeasurementType
+
+# Edit visa_resource in the JSON to match the connected scope.
+CONFIG_PATH = Path(__file__).parent / "scope_config_keysight_1200x.json"
+
+
+def main() -> None:
+    # open() applies the channels/acquisition/trigger blocks, then starts continuous
+    # acquisition because the config sets start_acquisition_on_open.
+    with InstroScope(config=CONFIG_PATH) as scope:
+        vrms = scope.measure(ScopeMeasurementType.VRMS, channel=1)
+        frequency = scope.measure(ScopeMeasurementType.FREQUENCY, channel=1)
+        print(f"{scope.name}: ch1 {vrms.latest:.3f} Vrms @ {frequency.latest:.1f} Hz")
+
+
+if __name__ == "__main__":
+    main()
+```

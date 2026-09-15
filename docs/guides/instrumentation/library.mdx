@@ -34,7 +34,7 @@ A `Measurement` object should be created when reading data from an instrument.
 class Measurement:
     """Data structure to hold measurement data. All channels have a common timebase."""
 
-    channel_data: dict[str, list[float]]
+    channel_data: dict[str, list[float] | list[str]]
     timestamps: list[int]
     tags: dict[str, str] | None = None
 ```
@@ -52,12 +52,12 @@ class Command:
     tags: dict[str, str] | None = None
 ```
 
-Unlike `Measurement`, a `Command` carries a single datapoint per channel (`float | str`, not `list[float]`) and a single `timestamp`. The `str` option covers categorical commands whose value is not numeric: mode names and relay states such as `OPEN` / `CLOSED`.
+Unlike `Measurement`, a `Command` carries a single datapoint per channel (`float | str`, not `list[float]`) and a single `timestamp`. The `str` option covers categorical commands whose value is not numeric: mode names and relay states such as `OPEN` / `CLOSED`. A categorical *read* (a mode name or state reported back from the instrument) is a string-valued `Measurement`, not a `Command`: writes are always `Command` and always publish to a `.cmd` channel; reads are always `Measurement`, whatever the value's type, and never publish to a `.cmd` channel.
 
 ### Parameters
 
-- **`channel_data: dict[str, list[float]]`**
-  This dictionary maps <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> names (or numbers, as strings) to lists of numeric measurements. For example, if your instrument has channels `"my_thermocouple1"` and `"my_thermocouple2"`, and you collected 10 samples from each, `channel_data` might look like:
+- **`channel_data: dict[str, list[float] | list[str]]`**
+  This dictionary maps <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> names (or numbers, as strings) to lists of numeric or categorical measurements. A given channel's list is always one type or the other, never mixed. For example, if your instrument has channels `"my_thermocouple1"` and `"my_thermocouple2"`, and you collected 10 samples from each, `channel_data` might look like:
   ```python
   {
       "my_thermocouple1": [0.123, 0.124, ...],

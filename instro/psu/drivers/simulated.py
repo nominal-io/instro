@@ -2,7 +2,7 @@
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.psu import PSUDriverBase
+from instro.psu import OperatingMode, PSUDriverBase
 
 
 class SimulatedPSU(PSUDriverBase):
@@ -43,6 +43,12 @@ class SimulatedPSU(PSUDriverBase):
 
     def get_current_setpoint(self, channel: int) -> float:
         return self._query_checked_float(f":SOUR{channel}:CURR?")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        with self._visa.lock():
+            resp = self._visa.query(f":OUTP{channel}:MODE?")
+            self._check_errors()
+        return OperatingMode(resp.strip())
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         self._write_checked(f":SOUR{channel}:VOLT:PROT {voltage:.3f}")

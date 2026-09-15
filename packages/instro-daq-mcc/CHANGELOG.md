@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v1.0.0...instro-daq-mcc-v1.1.0) (2026-08-31)
+
+
+### Features
+
+* **mcc:** typed channel support for mcc daqs ([#403](https://github.com/nominal-io/instro/issues/403)) ([df59d2f](https://github.com/nominal-io/instro/commit/df59d2f4173ff145dac003dc7f1544e669f201c4))
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v0.6.0...instro-daq-mcc-v1.0.0) (2026-07-02)
 
 

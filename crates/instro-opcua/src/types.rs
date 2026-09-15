@@ -1109,18 +1109,31 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OpcUaValue {
+    #[serde(alias = "boolean", alias = "bool")]
     Boolean(bool),
+    #[serde(alias = "int8")]
     Int8(i8),
+    #[serde(alias = "uint8")]
     UInt8(u8),
+    #[serde(alias = "int16")]
     Int16(i16),
+    #[serde(alias = "uint16")]
     UInt16(u16),
+    #[serde(alias = "int32")]
     Int32(i32),
+    #[serde(alias = "uint32")]
     UInt32(u32),
+    #[serde(alias = "int64")]
     Int64(i64),
+    #[serde(alias = "uint64")]
     UInt64(u64),
+    #[serde(alias = "float")]
     Float(f32),
+    #[serde(alias = "double")]
     Double(f64),
+    #[serde(alias = "string")]
     String(Cow<'static, str>),
+    #[serde(alias = "datetime")]
     DateTime(UtcDateTime),
 }
 
@@ -1319,6 +1332,7 @@ mod tests {
     use open62541::ua::NodeId;
     use open62541_sys::UA_UserTokenPolicy;
     use open62541_sys::UA_UserTokenType;
+    use serde_json::from_str;
 
     use super::*;
 
@@ -1690,6 +1704,34 @@ mod tests {
         };
 
         assert_serde_json_roundtrip_eq(&info);
+    }
+
+    #[test]
+    fn opcua_value_roundtrips_lowercase() {
+        const CASES: &[(&str, OpcUaValue)] = &[
+            ("{ \"bool\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"boolean\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"float\": 1.1 }", OpcUaValue::Float(1.1)),
+            ("{ \"double\": 2.2 }", OpcUaValue::Double(2.2)),
+            ("{ \"int8\": -1 }", OpcUaValue::Int8(-1)),
+            ("{ \"int16\": -2 }", OpcUaValue::Int16(-2)),
+            ("{ \"int32\": -3 }", OpcUaValue::Int32(-3)),
+            ("{ \"int64\": -4 }", OpcUaValue::Int64(-4)),
+            ("{ \"uint8\": 1 }", OpcUaValue::UInt8(1)),
+            ("{ \"uint16\": 2 }", OpcUaValue::UInt16(2)),
+            ("{ \"uint32\": 3 }", OpcUaValue::UInt32(3)),
+            ("{ \"uint64\": 4 }", OpcUaValue::UInt64(4)),
+            (
+                "{ \"string\": \"test\" }",
+                OpcUaValue::String(Cow::Borrowed("test")),
+            ),
+        ];
+
+        for (case, expected) in CASES {
+            let parsed = from_str::<OpcUaValue>(case)
+                .unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+            assert_eq!(&parsed, expected);
+        }
     }
 
     #[test]

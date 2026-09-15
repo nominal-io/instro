@@ -1,0 +1,31 @@
+"""Example: sweep a NanoVNA, read networks, and save a touchstone file.
+
+Run:
+    uv run python examples/vna/vna.py
+"""
+
+from instro.unstable.vna.drivers import NanoVNAv2Clone
+from instro.unstable.vna.storage import DiskStorage
+from instro.unstable.vna.vna import InstroVNA
+
+SERIAL_PORT = "/dev/ttyACM0"  # Replace with your NanoVNA's serial port.
+
+vna = InstroVNA(
+    name="myVNA",
+    driver=NanoVNAv2Clone(port=SERIAL_PORT),
+    storage=DiskStorage(),  # Defaults to a fresh temp dir; pass path=... to choose a location.
+)
+
+# Numeric getters are wrapped as Measurements (published when publishers are configured).
+start = vna.get_freq_start()
+print(f"sweep start: {start.latest:.0f} Hz")
+
+# Full S-parameter data comes back as skrf.Network objects.
+network = vna.get_network()
+print(network)
+
+# Save a touchstone file and get its path back.
+path = vna.save_network("example_sweep")
+print(f"saved: {path}")
+
+vna.close()

@@ -21,7 +21,6 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
-from instro.daq.types import Direction
 
 # NI device name, as defined in NI MAX. Both instances share the device
 # with non-overlapping channels.
@@ -41,15 +40,13 @@ daq_sw = InstroDAQ(name="daqSw", driver=NIDAQDriver(device_id=DEVICE))
 with daq_hw, daq_sw:
     # A physical channel belongs to exactly one instance; allocate without overlap.
     for i in range(CHANNELS_PER_TASK):
-        daq_hw.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq_hw.configure_voltage_input(
             physical_channel=f"{HW_MODULE}/ai{i}",
             alias=f"hw_channel{i}",
             range_min=0,
             range_max=5,
         )
-        daq_sw.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq_sw.configure_voltage_input(
             physical_channel=f"{SW_MODULE}/ai{i}",
             alias=f"sw_channel{i}",
             range_min=0,

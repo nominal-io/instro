@@ -1,8 +1,8 @@
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./res/logo/instro-logo-ascii-white.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./res/logo/instro-logo-ascii-black.svg">
-  <img width="512" alt="Nominal Instro SDK Logo" src="./res/logo/instro-logo-ascii-black.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
+  <img width="512" alt="Nominal Instro SDK Logo" src="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
 </picture>
 </div>
 
@@ -15,6 +15,7 @@ Python library for talking to test instrumentation (power supplies, multimeters,
 [![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
 [![SDK](https://img.shields.io/badge/sdk-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
 [![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
+[![Discord](https://img.shields.io/badge/discord-join-419B55?logo=discord&logoColor=white)](https://discord.gg/nN4RzhQkr)
 
 ## Quickstart
 
@@ -55,13 +56,13 @@ To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/u
 ```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
-uv sync --extra all
+uv sync
 ```
 
-This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. 
+This creates a virtual environment with the core library and the default development/test dependencies, including the EtherNet/IP, contrib, and unstable workspace packages. Add vendor extras as needed, for example `uv sync --extra nidaq`; `uv sync --extra all` selects all defined extras but does not install proprietary system SDKs.
 Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
 
-For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies their Rust recipes require), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
+The default development environment builds the local EtherNet/IP extension and needs Rust and a C/C++ compiler/linker. Full workspace checks also need CMake, LLVM/libclang, and a separate nightly rustfmt installation. See [Prerequisites](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md#prerequisites) in the contributing guide before syncing a fresh checkout.
 
 ## Optional Extras
 
@@ -90,26 +91,27 @@ pip install "instro[nidaq,contrib]"
 <!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
 |---|---|---|
-| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), EA Elektro-Automatik (PSB 10000-series), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
 | Multimeter | `InstroDMM` | Agilent 34401A, Keysight 34461A, Keithley 2400, Keithley 2750 (unstable), simulated |
-| Arbitrary Waveform Generator | `InstroAWG` | Keysight (33521B, unstable), Rigol (DG1022Z, unstable) |
-| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
+| Arbitrary Waveform Generator | `InstroAWG` | Keysight (33521B), Rigol (DG1022Z) |
+| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series), EA Elektro-Automatik (PSB 10000-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | Flow Controller | `InstroFlowController` | Alicat MC-series |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
+| Motor Controller | `InstroMotorController` | VESC 6 over CAN via python-can (unstable) |
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 <!-- --8<-- [end:supported-devices] -->
 
-Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
-Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
+Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib).
+Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for the verification expectations.
 
 ## Contributing
 
-- **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](./AGENTS.md#repo-skills-and-subagents).
+- **Humans**: see [`CONTRIBUTING.md`](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
+- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](https://github.com/nominal-io/instro/blob/main/AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](https://github.com/nominal-io/instro/blob/main/AGENTS.md#repo-skills-and-subagents).
 
 ## License
 
-[Apache License 2.0](./LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](./NOTICE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](https://github.com/nominal-io/instro/blob/main/NOTICE).

@@ -192,6 +192,18 @@ def test_nominal_eload_set_mode_delegates() -> None:
     driver.set_mode.assert_called_once_with(mode=LoadMode.CC, channel=2)
 
 
+def test_nominal_eload_set_mode_leaves_mode_unset_when_driver_raises() -> None:
+    driver = _stub_driver()
+    driver.set_mode.side_effect = NotImplementedError("CP not supported")
+    eload = InstroELoad(name="ut", driver=driver)
+
+    with pytest.raises(NotImplementedError):
+        eload.set_mode(LoadMode.CP)
+
+    with pytest.raises(ValueError, match="Mode must be set"):
+        eload.set_level(value=1.0)
+
+
 def test_nominal_eload_set_level_requires_mode() -> None:
     driver = _stub_driver()
     eload = InstroELoad(name="ut", driver=driver)
