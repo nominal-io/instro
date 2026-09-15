@@ -2,7 +2,7 @@
 
 import time
 
-from instro.lib import Command, Measurement
+from instro.lib import Data, DataType
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 
@@ -13,12 +13,11 @@ class PrintChannelDelegate:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        """Handle the data - return True on success, False on failure."""
+    def publish(self, data: Data, **kwargs):
+        """Print the latest value of one channel, skipping commands."""
         try:
-            if isinstance(data, Measurement):
-                if data.channel_data.get(self.channel_name, None):
-                    print(f"{self.channel_name}: {data.latest}")
+            if data.type is DataType.MEASUREMENT and data.channel_data.get(self.channel_name):
+                print(f"{self.channel_name}: {data.latest}")
         except Exception as e:
             print(f"Error publishing data: {e}")
 

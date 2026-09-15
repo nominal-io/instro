@@ -15,27 +15,28 @@ from instro.lib.publishers.channel_buffer import (
 from instro.lib.types import BackgroundDaemonConfig, Command, Data, Measurement
 
 
-def _publish_as(kind: type[Data]) -> Callable[[Callable], Callable]:
+def _publish_as(kind: type[Data], *, single: bool = False) -> Callable[[Callable], Callable]:
     """Build a decorator that publishes the ``kind`` (or list of them) returned by an instrument method.
 
-    Lists are published item by item. ``None`` passes through unpublished. Channel
-    naming is the call site's responsibility; the wrong return type raises.
+    Lists are published item by item and ``None`` passes through unpublished, unless
+    ``single`` requires exactly one ``kind``. Channel naming is the call site's
+    responsibility; the wrong return type raises.
     """
+    expected = kind.__name__ if single else f"{kind.__name__} or list[{kind.__name__}]"
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(self: "Instrument", *args, **kwargs):
             result = func(self, *args, **kwargs)
-            if result is None:
+            if result is None and not single:
                 return None
-            items = result if isinstance(result, list) else [result]
+            items = result if isinstance(result, list) and not single else [result]
             # Validate every item before publishing any of them: a later item failing a check must
             # not leave an earlier item already sent to every publisher with no way to undo it.
             for item in items:
                 if not isinstance(item, kind):
                     raise TypeError(
-                        f"@publish on {func.__qualname__} must return {kind.__name__} or list[{kind.__name__}], "
-                        f"got {type(item).__name__}"
+                        f"@publish on {func.__qualname__} must return {expected}, got {type(item).__name__}"
                     )
                 for channel, values in item.channel_data.items():
                     if not values:
@@ -57,7 +58,7 @@ def _publish_as(kind: type[Data]) -> Callable[[Callable], Callable]:
 
 publish = _publish_as(Data)
 publish_measurement = _publish_as(Measurement)
-publish_command = _publish_as(Command)
+publish_command = _publish_as(Command, single=True)
 
 logger = logging.getLogger(__name__)
 

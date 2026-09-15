@@ -53,12 +53,12 @@ class Data:
 
     @property
     def values(self) -> list[float] | list[str]:
-        """Values for the only channel; raises ``ValueError`` if the Measurement holds multiple channels."""
+        """Values for the only channel; raises ``ValueError`` if the Data holds multiple channels."""
         return self._get_values()
 
     @property
     def latest(self) -> float | str:
-        """Most recent value of the only channel; raises ``ValueError`` if the Measurement holds multiple."""
+        """Most recent value of the only channel; raises ``ValueError`` if the Data holds multiple."""
         return self._get_values()[-1]
 
     def _get_channel(self, channel: str) -> Data:
@@ -101,6 +101,8 @@ class Command(Data):
         if timestamps is None:
             raise TypeError("Command requires 'timestamps' or 'timestamp'")
         channels = {name: value if isinstance(value, list) else [value] for name, value in channel_data.items()}
+        if len(timestamps) != 1 or any(len(values) != 1 for values in channels.values()):
+            raise ValueError("Command holds exactly one point per channel")
         Data.__init__(
             self, cast("dict[str, list[float] | list[str]]", channels), timestamps, tags, type=DataType.COMMAND
         )

@@ -347,6 +347,20 @@ def test_publish_command_rejects_method_returning_measurement() -> None:
         inst.bad()
 
 
+def test_publish_command_rejects_none() -> None:
+    """@publish_command requires exactly one Command; None is not passed through."""
+    from instro.lib.instrument import publish_command
+
+    class _Bad(InstroPSU):
+        @publish_command
+        def bad(self) -> None:  # type: ignore[override]
+            return None
+
+    inst = _Bad(name="ut", driver=_stub_driver(), num_channels=1)
+    with pytest.raises(TypeError, match="must return Command"):
+        inst.bad()
+
+
 def test_publish_measurement_rejects_method_returning_command() -> None:
     """@publish_measurement raises TypeError when the wrapped method returns a Command."""
     from instro.lib import Command

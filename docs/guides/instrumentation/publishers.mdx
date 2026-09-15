@@ -273,10 +273,10 @@ To create a custom publisher, create a class that implements the publisher proto
 ```python
 from typing import Protocol
 
-from instro.lib.types import Measurement, Command
+from instro.lib.types import Data, DataType
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs) -> None: ...
+    def publish(self, data: Data, **kwargs) -> None: ...
 
     def close(self) -> None: ...
 
@@ -285,11 +285,10 @@ class PrintChannelPublisher:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs) -> None:
+    def publish(self, data: Data, **kwargs) -> None:
         try:
-            if isinstance(data, Measurement):
-                if data.channel_data.get(self.channel_name, None):
-                    print(f"{self.channel_name}: {data.latest}")
+            if data.type is DataType.MEASUREMENT and data.channel_data.get(self.channel_name):
+                print(f"{self.channel_name}: {data.latest}")
         except Exception as e:
             print(f"Error publishing data: {e}")
 
@@ -372,17 +371,16 @@ import time
 from instro.psu.drivers import SimulatedPSU
 from instro.psu import InstroPSU
 from instro.lib.publishers import BasicBufferedPublisher
-from instro.lib.types import Measurement, Command
+from instro.lib.types import Data, DataType
 
 # Custom publisher that prints to console
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        if isinstance(data, Measurement):
-            if data.channel_data.get(self.channel_name, None):
-                print(f"{self.channel_name}: {data.latest}")
+    def publish(self, data: Data, **kwargs):
+        if data.type is DataType.MEASUREMENT and data.channel_data.get(self.channel_name):
+            print(f"{self.channel_name}: {data.latest}")
 
     def close(self):
         print("Publisher closed")
