@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from instro.lib.types import Data, Measurement
+from instro.lib.types import Data, DataType, Measurement
 
 
 class ChannelNotFoundError(TimeoutError):
@@ -55,7 +55,9 @@ class ChannelBufferPublisher(ABC):
         """Get the current number of points in the buffer for a given channel. Must be implemented by subclasses."""
 
     def publish(self, data: Data, **kwargs):
-        """Append ``data`` to the per-channel buffers with thread synchronization."""
+        """Append measurements to the per-channel buffers with thread synchronization; commands are ignored."""
+        if data.type is not DataType.MEASUREMENT:
+            return
         with self._condition:
             for channel_name, values in data.channel_data.items():
                 self._ensure_channel(channel_name, values)

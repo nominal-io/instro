@@ -29,10 +29,12 @@ def test_command_rejects_more_than_one_point_per_channel() -> None:
         Command(channel_data={"x.cmd": [1.0, 2.0]}, timestamps=[1, 2])
 
 
-def test_channel_buffer_receives_commands() -> None:
+def test_channel_buffer_ignores_commands() -> None:
     publisher = DequeInMemoryPublisher(maxlen=4)
     publisher.publish(Command(channel_data={"x.cmd": 2.0}, timestamp=7))
-    assert publisher.get("x.cmd").latest == 2.0
+    publisher.publish(Measurement(channel_data={"x": [1.0]}, timestamps=[7]))
+    assert publisher.get("x").latest == 1.0
+    assert "x.cmd" not in publisher._total_added_count
 
 
 def test_jsonl_writer_keeps_type_off_the_wire(tmp_path) -> None:

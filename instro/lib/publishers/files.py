@@ -10,11 +10,14 @@ from typing import Any, Literal, Protocol
 
 import fastavro
 
-from instro.lib.types import Data
+from instro.lib.types import Data, DataType
 
 
 def _record(data: Data) -> dict[str, Any]:
-    # ``type`` is in-process metadata for publishers and never written to the wire.
+    # ``type`` is in-process metadata and never written; command records keep their pre-Data scalar shape.
+    if data.type is DataType.COMMAND:
+        channel_data = {channel: values[0] for channel, values in data.channel_data.items()}
+        return {"channel_data": channel_data, "timestamp": data.timestamps[0], "tags": data.tags}
     return {"channel_data": data.channel_data, "timestamps": data.timestamps, "tags": data.tags}
 
 

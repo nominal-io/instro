@@ -57,6 +57,7 @@ def _publish_as(kind: type[Data], *, single: bool = False) -> Callable[[Callable
 
 
 publish = _publish_as(Data)
+# The per-kind decorators keep their pre-Data return guards until every HAL has moved to ``@publish``.
 publish_measurement = _publish_as(Measurement)
 publish_command = _publish_as(Command, single=True)
 

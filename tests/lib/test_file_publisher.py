@@ -35,7 +35,7 @@ def test_jsonl_writes_one_json_object_per_line(tmp_path):
         "timestamps": [100, 200],
         "tags": {"unit": "volts"},
     }
-    assert json.loads(lines[1]) == {"channel_data": {"channel_b": [5.0]}, "timestamps": [300], "tags": None}
+    assert json.loads(lines[1]) == {"channel_data": {"channel_b": 5.0}, "timestamp": 300, "tags": None}
 
 
 def test_jsonl_record_shape_matches_json_writer(tmp_path):
