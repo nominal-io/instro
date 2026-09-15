@@ -10,13 +10,21 @@ from typing import Any, Literal, Protocol
 
 import fastavro
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Data, DataType
+
+
+def _record(data: Data) -> dict[str, Any]:
+    # ``type`` is in-process metadata and never written; command records keep their pre-Data scalar shape.
+    if data.type is DataType.COMMAND:
+        channel_data = {channel: values[0] for channel, values in data.channel_data.items()}
+        return {"channel_data": channel_data, "timestamp": data.timestamps[0], "tags": data.tags}
+    return {"channel_data": data.channel_data, "timestamps": data.timestamps, "tags": data.tags}
 
 
 class FileWriter(Protocol):
     file_path: Path
 
-    def write(self, data: Measurement | Command): ...
+    def write(self, data: Data): ...
 
     def open(self): ...
 
@@ -30,7 +38,7 @@ class FilePublisher:
         format: Literal["json", "jsonl", "csv", "avro"] = "avro",
         custom_file_name: str | None = None,
     ):
-        """Write Measurement/Command data to a file.
+        """Write Data to a file.
 
         Args:
             directory: Output directory.
@@ -74,7 +82,7 @@ class FilePublisher:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Data, **kwargs):
         """Publish data to file using the appropriate writer."""
         SHARED_PUBLISHER_WARNING = (
             "If you're attempting to publish from multiple instruments, consider using SharedPublisher. "
@@ -117,7 +125,7 @@ class JsonFileWriter:
             with open(self.file_path, "w") as f:
                 f.write("[]")  # Start with empty JSON array
 
-    def write(self, data: Measurement | Command):
+    def write(self, data: Data):
         """Append data to JSON file."""
         # Read existing content
         try:
@@ -132,9 +140,9 @@ class JsonFileWriter:
 
         # Append new data
         if isinstance(existing_data, list):
-            existing_data.append(data.__dict__)
+            existing_data.append(_record(data))
         else:
-            existing_data = [existing_data, data.__dict__]
+            existing_data = [existing_data, _record(data)]
 
         # Write back to file
         with open(self.file_path, "w") as f:
@@ -171,9 +179,9 @@ class JsonlFileWriter:
         """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, data: Measurement | Command):
+    def write(self, data: Data):
         """Append data as one JSON line, mapping non-finite floats to null."""
-        self._file.write(json.dumps(_json_safe(data.__dict__), allow_nan=False) + "\n")
+        self._file.write(json.dumps(_json_safe(_record(data)), allow_nan=False) + "\n")
         self._file.flush()
 
     def open(self):
@@ -200,31 +208,16 @@ class CsvFileWriter:
         """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, data: Measurement | Command):
-        """Append data to CSV file."""
-        if isinstance(data, Measurement):
-            self._write_measurement(data)
-        elif isinstance(data, Command):
-            self._write_command(data)
-        self._file.flush()
-
-    def _write_measurement(self, data: Measurement):
-        """Write Measurement data as individual rows."""
-        # Write each channel's data as separate rows
+    def write(self, data: Data):
+        """Append data to CSV file, one row per channel value."""
+        tags = json.dumps(data.tags) if data.tags else ""
         for channel_name, values in data.channel_data.items():
             for i, value in enumerate(values):
                 # Each channel should have the same number of values as timestamps
                 # but handle edge case where they don't match
                 timestamp = data.timestamps[i] if i < len(data.timestamps) else data.timestamps[-1]
-                tags = json.dumps(data.tags) if data.tags else ""
                 self._writer.writerow({"timestamp": timestamp, "channel": channel_name, "value": value, "tags": tags})
-
-    def _write_command(self, data: Command):
-        """Write Command data as individual rows."""
-        # Write each channel's data as separate rows
-        for channel_name, value in data.channel_data.items():
-            tags = json.dumps(data.tags) if data.tags else ""
-            self._writer.writerow({"timestamp": data.timestamp, "channel": channel_name, "value": value, "tags": tags})
+        self._file.flush()
 
     def open(self):
         pass
@@ -264,16 +257,8 @@ class AvroFileWriter:
         """Create directory if it doesn't exist."""
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, data: Measurement | Command):
-        """Append data to Avro file."""
-        if isinstance(data, Measurement):
-            self._write_measurement(data)
-        elif isinstance(data, Command):
-            self._write_command(data)
-        self._writer.flush()
-
-    def _write_measurement(self, data: Measurement):
-        """Write Measurement data as batches."""
+    def write(self, data: Data):
+        """Append data to Avro file, one record per channel."""
         for channel_name, values in data.channel_data.items():
             self._writer.write(
                 {
@@ -283,18 +268,7 @@ class AvroFileWriter:
                     "tags": data.tags or {},
                 }
             )
-
-    def _write_command(self, data: Command):
-        """Write Command data as a batch."""
-        for channel_name, value in data.channel_data.items():
-            self._writer.write(
-                {
-                    "channel": channel_name,
-                    "timestamps": [data.timestamp],
-                    "values": [value],
-                    "tags": data.tags or {},
-                }
-            )
+        self._writer.flush()
 
     def open(self):
         # Stubbing out open method for when we opt to refactor this to use a file handle

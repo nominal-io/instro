@@ -115,7 +115,7 @@ def test_set_setpoint_returns_command() -> None:
     fc = InstroFlowController(name="ut", driver=driver)
     cmd = fc.set_setpoint(50.0)
     assert "ut.setpoint.cmd" in cmd.channel_data
-    assert cmd.channel_data["ut.setpoint.cmd"] == 50.0
+    assert cmd.channel_data["ut.setpoint.cmd"] == [50.0]
 
 
 def test_select_working_fluid_delegates() -> None:
@@ -217,4 +217,4 @@ def test_tare_flow_publishes_actual_flow_value() -> None:
     assert cmd is not None
     assert "ut.tare.cmd" in cmd.channel_data
     # Should be the volumetric_flow value (0.001), not True
-    assert cmd.channel_data["ut.tare.cmd"] == 0.001
+    assert cmd.channel_data["ut.tare.cmd"] == [0.001]

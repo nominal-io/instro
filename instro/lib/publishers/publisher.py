@@ -6,24 +6,24 @@ import queue
 import threading
 from typing import Protocol
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Data
 
 logger = logging.getLogger(__name__)
 
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs) -> None: ...
+    def publish(self, data: Data, **kwargs) -> None: ...
     def close(self) -> None: ...
 
 
 class BufferedPublisher(abc.ABC):
     def __init__(self, publisher: Publisher, buffer_size: int = 1000):
         self.publisher = publisher
-        self.buffer: list[Measurement | Command] = []
+        self.buffer: list[Data] = []
         self.buffer_size = buffer_size
         self._closed = False
 
-    def publish(self, data: Measurement | Command, **kwargs) -> None:
+    def publish(self, data: Data, **kwargs) -> None:
         if self._closed:
             logger.warning(
                 "Dropping publish request because BufferedPublisher is closed (publisher=%s)",
@@ -61,13 +61,13 @@ class BasicBufferedPublisher(BufferedPublisher):
 class QueuedPublisher(Publisher):
     def __init__(self, publisher: Publisher, max_queue_size: int = 1000, wait_for_queue: bool = False):
         self.publisher = publisher
-        self._queue: queue.Queue[tuple[Measurement | Command, dict]] = queue.Queue(maxsize=max_queue_size)
+        self._queue: queue.Queue[tuple[Data, dict]] = queue.Queue(maxsize=max_queue_size)
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._wait_for_queue = wait_for_queue
         self._thread.start()
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Data, **kwargs):
         if self._stop_event.is_set():
             logger.warning(
                 "Dropping publish request because QueuedPublisher is closing (publisher=%s)",
@@ -130,7 +130,7 @@ class SharedPublisher(Publisher):
                 if self._count == 0:
                     self._close()
 
-        def publish(self, data: Measurement | Command, **kwargs) -> None:
+        def publish(self, data: Data, **kwargs) -> None:
             with self._lock:
                 self._publisher.publish(data, **kwargs)
 
@@ -160,7 +160,7 @@ class SharedPublisher(Publisher):
                 raise RuntimeError("attempted to clone a shared publisher handle that was already closed")
             return SharedPublisher.__from_state(state.increment())
 
-    def publish(self, data: Measurement | Command, **kwargs) -> None:
+    def publish(self, data: Data, **kwargs) -> None:
         """Publish data to the underlying publisher being shared."""
         with self._state_lock:
             if (state := self._state) is None:

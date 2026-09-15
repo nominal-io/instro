@@ -11,10 +11,12 @@ from instro.lib.exceptions import FeatureNotSupportedError, InstroError, Instrum
 from instro.lib.instrument import Instrument
 from instro.lib.nominal import install_nominal_core_log_handler
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.lib.types import Command, DeviceInfo, LinearScale, Measurement, ScaleType
+from instro.lib.types import Command, Data, DataType, DeviceInfo, LinearScale, Measurement, ScaleType
 
 __all__ = [
     "Command",
+    "Data",
+    "DataType",
     "DeviceInfo",
     "FeatureNotSupportedError",
     "InstroError",

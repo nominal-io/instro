@@ -58,10 +58,10 @@ All publishers implement a simple protocol with two required methods:
 
 ```python
 from typing import Protocol
-from instro.lib.types import Measurement, Command
+from instro.lib.types import Data
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs) -> None:
+    def publish(self, data: Data, **kwargs) -> None:
         """Called each time the instrument generates data"""
         ...
 
@@ -74,8 +74,12 @@ The owning instrument calls `close()` during teardown. Implement `close()` to re
 
 ### Data Types
 
-- [**`Measurement`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement): Contains data read from the instrument (e.g., analog input readings, voltage measurements). Includes channel data, timestamps, and optional tags.
-- [**`Command`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command): Represents a command sent to the instrument (e.g., setting voltage, enabling output). Includes channel data, a single timestamp, and optional tags.
+Every publisher receives a [**`Data`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Data): channel data, timestamps, optional tags, and a `type` field. Instruments emit one of two subclasses:
+
+- [**`Measurement`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement): Data read from the instrument (e.g., analog input readings, voltage measurements). `type` is `DataType.MEASUREMENT`.
+- [**`Command`**](https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command): A command sent to the instrument (e.g., setting voltage, enabling output). `type` is `DataType.COMMAND` and every channel holds one value.
+
+A publisher that treats reads and writes differently checks `data.type`. The built-in publishers handle both the same way and never write `type` to the wire.
 
 ## Built-in Publishers
 
@@ -269,10 +273,10 @@ To create a custom publisher, create a class that implements the publisher proto
 ```python
 from typing import Protocol
 
-from instro.lib.types import Measurement, Command
+from instro.lib.types import Data, DataType
 
 class Publisher(Protocol):
-    def publish(self, data: Measurement | Command, **kwargs) -> None: ...
+    def publish(self, data: Data, **kwargs) -> None: ...
 
     def close(self) -> None: ...
 
@@ -281,11 +285,10 @@ class PrintChannelPublisher:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs) -> None:
+    def publish(self, data: Data, **kwargs) -> None:
         try:
-            if isinstance(data, Measurement):
-                if data.channel_data.get(self.channel_name, None):
-                    print(f"{self.channel_name}: {data.latest}")
+            if data.type is DataType.MEASUREMENT and data.channel_data.get(self.channel_name):
+                print(f"{self.channel_name}: {data.latest}")
         except Exception as e:
             print(f"Error publishing data: {e}")
 
@@ -368,17 +371,16 @@ import time
 from instro.psu.drivers import SimulatedPSU
 from instro.psu import InstroPSU
 from instro.lib.publishers import BasicBufferedPublisher
-from instro.lib.types import Measurement, Command
+from instro.lib.types import Data, DataType
 
 # Custom publisher that prints to console
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
         self.channel_name = channel_name
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        if isinstance(data, Measurement):
-            if data.channel_data.get(self.channel_name, None):
-                print(f"{self.channel_name}: {data.latest}")
+    def publish(self, data: Data, **kwargs):
+        if data.type is DataType.MEASUREMENT and data.channel_data.get(self.channel_name):
+            print(f"{self.channel_name}: {data.latest}")
 
     def close(self):
         print("Publisher closed")

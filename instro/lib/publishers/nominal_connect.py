@@ -1,4 +1,4 @@
-"""Publisher that streams Measurement/Command data to Nominal Connect."""
+"""Publisher that streams Data to Nominal Connect."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ import typing as _typing
 if _typing.TYPE_CHECKING:
     from connect_python.client import Client  # type: ignore
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Data
 
 logger = logging.getLogger(__name__)
 
 
 class NominalConnectPublisher:
-    """Publish Measurement/Command data to a Nominal Connect stream.
+    """Publish Data to a Nominal Connect stream.
 
     String values are silently dropped — Connect does not accept strings.
     """
@@ -42,14 +42,8 @@ class NominalConnectPublisher:
             f"Connect client does not expose _set_source(); stream source could not be set to '{self._source}'."
         )
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Data, **kwargs):
         """Publish ``data`` to Nominal Connect, one stream_batch per channel. Strings are skipped."""
-        if isinstance(data, Measurement):
-            self.__publish_measurement(data)
-        elif isinstance(data, Command):
-            self.__publish_command(data)
-
-    def __publish_measurement(self, data):
         for channel, values in data.channel_data.items():
             if not values or isinstance(values[0], str):
                 # Connect doesn't support strings; nothing to publish for an empty channel either
@@ -58,18 +52,6 @@ class NominalConnectPublisher:
                 stream_id=self._stream_id,
                 timestamps=data.timestamps,
                 values=values,
-                name=channel,
-            )
-
-    def __publish_command(self, data):
-        for channel, value in data.channel_data.items():
-            if isinstance(value, str):
-                # Connect doesn't support strings
-                continue
-            self._client.stream_batch(
-                stream_id=self._stream_id,
-                timestamps=[data.timestamp],
-                values=[value],
                 name=channel,
             )
 
