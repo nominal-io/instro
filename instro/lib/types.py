@@ -19,7 +19,21 @@ class BackgroundDaemonConfig:
 
 @dataclass
 class Measurement:
-    """Data structure to hold measurement data. All channels have a common timebase."""
+    """Data structure to hold measurement data. All channels have a common timebase.
+
+    Attributes:
+        channel_data: Maps channel names (or numbers, as strings) to that channel's
+            samples. Every value in a channel's list is the same type, either ``float``
+            or ``str``, never mixed; a categorical read such as a mode name or state is
+            a string-valued list.
+        timestamps: Timestamps in integer nanoseconds since the Unix epoch, one per
+            sample and aligned with the values in ``channel_data``. Its length matches
+            the length of every list in ``channel_data``.
+        tags: Optional metadata for the acquisition, such as a test ID, operator name,
+            or environmental qualifier. Used for search, provenance, and analysis.
+
+    See [`Command`][instro.lib.types.Command] for the write counterpart, which carries one datapoint per channel.
+    """
 
     channel_data: dict[str, list[float] | list[str]]
     timestamps: list[int]
