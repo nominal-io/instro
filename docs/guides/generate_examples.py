@@ -37,6 +37,7 @@ CATEGORY_TITLES: "OrderedDict[str, str]" = OrderedDict(
         ("publishers", "Publishers"),
         ("modbus", "Modbus"),
         ("ethernetip", "EtherNet/IP"),
+        ("sdr", "SDR"),
         ("test_rack_example", "Test Rack"),
     ]
 )
@@ -149,7 +150,7 @@ def build_groups(
             }
         )
     for folder, pages in unstable_categories.items():
-        group_title = f"{folder.replace('_', ' ').title()} (Unstable)"
+        group_title = f"{CATEGORY_TITLES.get(folder, folder.replace('_', ' ').title())} (Unstable)"
         groups.append({"group": group_title, "pages": reorder_by_existing(pages, prior_pages.get(group_title, []))})
     return groups
 

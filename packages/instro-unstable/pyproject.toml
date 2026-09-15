@@ -32,6 +32,7 @@ dependencies = [
     "python-can>=4.3",
     "gs-usb>=0.3",
     "libusb-package>=1.0.26",
+    "pyrtlsdr[lib]>=0.5.0",
     "pyserial>=3.5",
 ]
 

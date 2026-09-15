@@ -1,0 +1,54 @@
+---
+title: "InstroSDR w/ RTL-SDR"
+---
+
+<Warning>
+  This example uses `instro-unstable`. This code is new and may change without notice.
+</Warning>
+
+```python sdr_basic.py
+"""Example: InstroSDR w/ RTL-SDR.
+
+Tunes a dongle to an FM broadcast station and streams continuously in the background,
+publishing raw IQ and a spectrum summary from each block to a dataset (Nominal Core
+publisher). Runs until interrupted with Ctrl-C.
+"""
+
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.sdr import InstroSDR
+from instro.unstable.sdr.drivers import RTLSDR
+
+NOMINAL_DATASET_RID = ""  # REPLACE WITH YOUR OWN
+CENTER_FREQ_HZ = 89.7e6
+SAMPLE_RATE_HZ = 3e5
+GAIN_DB = 30.0
+N_SAMPLES = 262144  # must be a multiple of RTLSDR.READ_GRANULARITY (256)
+
+sdr = InstroSDR(
+    name="rtl",
+    driver=RTLSDR(device_index=0),
+    publishers=[NominalCorePublisher(NOMINAL_DATASET_RID)],
+)
+
+sdr.open()
+try:
+    sdr.set_center_freq(CENTER_FREQ_HZ)
+    sdr.set_sample_rate(SAMPLE_RATE_HZ)
+    sdr.set_gain(GAIN_DB)
+
+    print(f"tuned to {float(sdr.get_center_freq().latest) / 1e6:.4f} MHz")
+    print(f"sampling at {float(sdr.get_sample_rate().latest):,.0f} Sa/s")
+
+    sdr.start(background=True, n_samples=N_SAMPLES, publish_spectrum=True)
+    print("streaming, Ctrl-C to stop")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+finally:
+    sdr.close()
+```

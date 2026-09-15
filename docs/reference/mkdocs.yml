@@ -36,6 +36,7 @@ nav:
       - Flow Controller: instruments/flowcontroller.md
       - I2C: instruments/i2c.md
       - AWG: instruments/awg.md
+      - SDR: instruments/sdr.md
   - Protocols:
       - protocols/index.md
       - Modbus: protocols/modbus.md

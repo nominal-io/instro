@@ -66,7 +66,8 @@
               "instrumentation/daq",
               "instrumentation/oscilloscope",
               "instrumentation/awg",
-              "instrumentation/flowcontroller"
+              "instrumentation/flowcontroller",
+              "instrumentation/sdr"
             ]
           },
           {
@@ -231,6 +232,13 @@
               "instrumentation/examples/unstable/motorcontroller/vesc_6",
               "instrumentation/examples/unstable/motorcontroller/vesc_6_single_motor",
               "instrumentation/examples/unstable/motorcontroller/vesc_6_eaxle_load_sweep"
+            ]
+          },
+          {
+            "group": "SDR (Unstable)",
+            "pages": [
+              "instrumentation/examples/unstable/sdr/sdr_band_scan",
+              "instrumentation/examples/unstable/sdr/sdr_basic"
             ]
           }
         ]
