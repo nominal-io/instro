@@ -472,6 +472,11 @@ impl OpcUaNodeId {
         Self { namespace, kind }
     }
 
+    /// Creates the null node ID (`ns=0;i=0`).
+    pub const fn nulled() -> Self {
+        Self::numeric(0, 0)
+    }
+
     /// Creates a numeric node ID.
     pub const fn numeric(namespace: u16, value: u32) -> Self {
         Self::new(namespace, NodeIdKind::Numeric(value))
@@ -510,9 +515,49 @@ impl OpcUaNodeId {
         }
     }
 
-    /// Creates the null node ID,
-    pub const fn nulled() -> Self {
-        Self::new(0, NodeIdKind::Numeric(0))
+    /// `true` if the node ID has a namespace index of 0 (i.e. the standardized UA namespace).
+    pub const fn is_ns0(&self) -> bool {
+        self.namespace == 0
+    }
+
+    /// Extracts the value of a numeric node ID, if it is one.
+    /// Returns `None` if the node ID is not a numeric node ID.
+    pub const fn as_numeric(&self) -> Option<(u16, u32)> {
+        if let NodeIdKind::Numeric(n) = self.kind {
+            Some((self.namespace, n))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a string node ID, if it is one.
+    /// Returns `None` if the node ID is not a string node ID.
+    pub const fn as_string(&self) -> Option<(u16, &str)> {
+        if let NodeIdKind::String(ref s) = self.kind {
+            Some((self.namespace, s.as_str()))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of an opaque node ID, if it is one.
+    /// Returns `None` if the node ID is not a byte-string node ID.
+    pub const fn as_byte_string(&self) -> Option<(u16, &[u8])> {
+        if let NodeIdKind::ByteString(ref b) = self.kind {
+            Some((self.namespace, b.as_slice()))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a GUID node ID, if it is one.
+    /// Returns `None` if the node ID is not a GUID node ID.
+    pub const fn as_guid(&self) -> Option<(u16, Uuid)> {
+        if let NodeIdKind::Guid(g) = self.kind {
+            Some((self.namespace, g))
+        } else {
+            None
+        }
     }
 }
 
