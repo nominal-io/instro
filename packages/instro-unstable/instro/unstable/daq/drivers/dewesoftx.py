@@ -8,7 +8,17 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from instro.daq import DAQDriverBase
-from instro.daq.types import AnalogChannel, AnalogVoltageChannel, DAQChannel, DigitalChannel, HWTimingConfig, Logic
+from instro.daq.types import (
+    AnalogChannel,
+    AnalogChannelUnion,
+    AnalogCurrentChannel,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
+    DAQChannel,
+    DigitalChannel,
+    HWTimingConfig,
+    Logic,
+)
 from instro.lib.types import Measurement
 
 logger = logging.getLogger(__name__)
@@ -151,16 +161,15 @@ class DewesoftXDriver(DAQDriverBase):
 
     def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
         """Bind an existing DewesoftX channel by name; DewesoftX owns all channel setup."""
-        # range_min/range_max are ignored: DewesoftX owns scaling (a user scaler still applies HAL-side)
-        com_channel = self._find_used_channel(channel.physical_channel)
-        # A zero-size direct buffer means the channel is not acquiring
-        if com_channel.DBBufSize == 0:
-            raise ValueError(
-                f"DewesoftX channel '{channel.physical_channel}' has no live buffer; check that DewesoftX is acquiring."
-            )
-        # Seed the read cursor so that we record timestamps from the right index
-        self._cursors[channel.alias] = self._seed_cursor(com_channel)
-        self._ai_channels[channel.alias] = channel
+        self._bind_channel(channel)
+
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+        """Same binding as voltage: DewesoftX channels carry their own units, so the HAL type only labels the alias."""
+        self._bind_channel(channel)
+
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+        """Same binding as voltage; tc_type and CJC settings are ignored because DewesoftX owns sensor setup."""
+        self._bind_channel(channel)
 
     def configure_ai_channel(self, channel: AnalogChannel):
         raise NotImplementedError("configure_analog_channel is deprecated; use configure_voltage_input instead")
@@ -347,6 +356,18 @@ class DewesoftXDriver(DAQDriverBase):
         for alias in self._cursors:
             self._cursors[alias] = self._seed_cursor(self._find_used_channel(self._ai_channels[alias].physical_channel))
         self._thread_id = threading.get_ident()
+
+    def _bind_channel(self, channel: AnalogChannelUnion):
+        # range_min/range_max are ignored: DewesoftX owns scaling (a user scaler still applies HAL-side)
+        com_channel = self._find_used_channel(channel.physical_channel)
+        # A zero-size direct buffer means the channel is not acquiring
+        if com_channel.DBBufSize == 0:
+            raise ValueError(
+                f"DewesoftX channel '{channel.physical_channel}' has no live buffer; check that DewesoftX is acquiring."
+            )
+        # Seed the read cursor so that we record timestamps from the right index
+        self._cursors[channel.alias] = self._seed_cursor(com_channel)
+        self._ai_channels[channel.alias] = channel
 
     def _find_used_channel(self, name: str) -> Any:
         """Find a channel by Name or LongName among the ones set to "Used" in DewesoftX."""
