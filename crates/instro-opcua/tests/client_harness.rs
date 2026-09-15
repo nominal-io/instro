@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,6 +32,7 @@ use instro_opcua_test::TestServer;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
 use instro_opcua_test::ua;
+use open62541_sys::UA_NS0ID_ROOTFOLDER;
 use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {
@@ -63,6 +65,7 @@ fn opcua_node(
     Ok(OpcUaNode {
         node_id: opcua_node_id(server, browse_name)?,
         browse_name: browse_name.to_owned(),
+        type_definition: OpcUaNodeId::numeric(0, 86),
         display_name: browse_name.to_owned(),
         node_class,
         browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
@@ -185,6 +188,18 @@ async fn count_samples_for(
     }
 
     count
+}
+
+fn collect_nodes(tree: &[OpcUaNode]) -> Vec<&OpcUaNode> {
+    let mut nodes = VecDeque::from_iter(tree.iter());
+    let mut result = Vec::new();
+
+    while let Some(node) = nodes.pop_front() {
+        result.push(node);
+        nodes.extend(node.children.iter());
+    }
+
+    result.into_iter().collect()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -587,5 +602,35 @@ async fn disconnect_reports_outstanding_references_before_graceful_disconnect() 
     }
 
     extra_ref.disconnect().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn browse_operation_returns_node_with_null_type_definition() -> Result<()> {
+    let server = TestServer::builder()
+        .variable(
+            TestNodeId::Numeric(6000),
+            "Pressure",
+            ua::Variant::scalar(ua::UInt32::new(101_325)),
+        )
+        .start()?;
+
+    let client = connect_client(&server).expect("client should connect");
+    let result = client
+        .browse_all(OpcUaNodeId::numeric(0, UA_NS0ID_ROOTFOLDER), None)
+        .await
+        .expect("browse on empty server should succeed");
+
+    let result = collect_nodes(&result);
+
+    assert!(
+        !result.is_empty(),
+        "browse on empty server should return at least one node"
+    );
+    assert!(
+        result.iter().any(|node| node.type_definition.is_null()),
+        "browse on empty server should return at least one node with a null type definition"
+    );
+
     Ok(())
 }
