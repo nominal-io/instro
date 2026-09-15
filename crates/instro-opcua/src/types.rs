@@ -510,7 +510,7 @@ impl OpcUaNodeId {
     /// Determines if the node id represents a null value as defined by the OPC-UA specification.
     pub const fn is_null(&self) -> bool {
         match self.kind {
-            NodeIdKind::Numeric(n) => n == 0,
+            NodeIdKind::Numeric(0) => true,
             _ => false,
         }
     }
@@ -2139,5 +2139,67 @@ mod tests {
 
         assert_eq!(data_point.source_timestamp, None);
         assert_eq!(data_point.server_timestamp, Some(100));
+    }
+
+    #[test]
+    fn null_node_id_has_expected_identity() {
+        let null_id = OpcUaNodeId::nulled();
+
+        assert!(null_id.is_null());
+        assert!(null_id.is_ns0());
+        assert_eq!(null_id.as_numeric(), Some((0, 0)));
+        assert_eq!(null_id.as_string(), None);
+        assert_eq!(null_id.as_byte_string(), None);
+        assert_eq!(null_id.as_guid(), None);
+    }
+
+    #[test]
+    fn numeric_node_id_is_extractable() {
+        let id = OpcUaNodeId::numeric(1, 2);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), Some((1, 2)));
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn string_node_id_is_extractable() {
+        let id = OpcUaNodeId::string(1, "test".into());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), Some((1, "test")));
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn bytestring_node_id_is_extractable() {
+        let bytes = vec![1u8, 2, 3];
+        let id = OpcUaNodeId::byte_string(1, bytes.clone());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), Some((1, bytes.as_slice())));
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn guid_node_id_is_extractable() {
+        let guid = Uuid::from_u128(12345678901234567890);
+        let id = OpcUaNodeId::guid(1, guid);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), Some((1, guid)));
     }
 }
