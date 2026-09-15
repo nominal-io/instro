@@ -1,4 +1,4 @@
-"""Publisher that streams Measurement/Command data to Nominal Core datasets."""
+"""Publisher that streams Data to Nominal Core datasets."""
 
 import inspect
 import pathlib
@@ -7,7 +7,7 @@ from typing import Literal
 
 from nominal_streaming import NominalDatasetStream
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Data
 
 from ..nominal import _resolve_nominal_client_and_dataset
 
@@ -22,7 +22,7 @@ class NominalCorePublisher:
         profile: str | None = None,
         api_key: str | None = None,
     ):
-        """Stream Measurement/Command data to a Nominal Core dataset.
+        """Stream Data to a Nominal Core dataset.
 
         Omitted optional args fall through to the Nominal Core Python API defaults.
 
@@ -70,27 +70,12 @@ class NominalCorePublisher:
         # the public `open()` once the behavior change has been validated on real hardware.
         self._write_stream._impl.open()
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        if isinstance(data, Measurement):
-            self.__publish_measurement(data)
-        elif isinstance(data, Command):
-            self.__publish_command(data)
-
-    def __publish_measurement(self, data: Measurement):
+    def publish(self, data: Data, **kwargs):
         for ch_name in data.channel_data:
             self._write_stream.enqueue_batch(
                 channel_name=ch_name,
                 timestamps=data.timestamps,
                 values=data.channel_data[ch_name],
-                tags=data.tags,
-            )
-
-    def __publish_command(self, data: Command):
-        for ch_name in data.channel_data:
-            self._write_stream.enqueue_batch(
-                channel_name=ch_name,
-                timestamps=[data.timestamp],
-                values=[data.channel_data[ch_name]],
                 tags=data.tags,
             )
 

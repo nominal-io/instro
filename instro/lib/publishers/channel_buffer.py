@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from instro.lib.types import Command, Measurement
+from instro.lib.types import Data, Measurement
 
 
 class ChannelNotFoundError(TimeoutError):
@@ -54,17 +54,16 @@ class ChannelBufferPublisher(ABC):
     def _points_in_buffer(self, channel_name: str) -> int:
         """Get the current number of points in the buffer for a given channel. Must be implemented by subclasses."""
 
-    def publish(self, data: Measurement | Command, **kwargs):
-        """Publish measurement data to the buffers with thread synchronization."""
-        if isinstance(data, Measurement):
-            with self._condition:
-                for channel_name, values in data.channel_data.items():
-                    self._ensure_channel(channel_name, values)
-                    n_new = len(values)
-                    self._extend_values(channel_name, values)
-                    self._extend_timestamps(channel_name, data.timestamps)
-                    self._total_added_count[channel_name] += n_new
-                self._condition.notify_all()
+    def publish(self, data: Data, **kwargs):
+        """Append ``data`` to the per-channel buffers with thread synchronization."""
+        with self._condition:
+            for channel_name, values in data.channel_data.items():
+                self._ensure_channel(channel_name, values)
+                n_new = len(values)
+                self._extend_values(channel_name, values)
+                self._extend_timestamps(channel_name, data.timestamps)
+                self._total_added_count[channel_name] += n_new
+            self._condition.notify_all()
 
     def get(
         self, channel_name: str, length: int = 1, wait_for_new_samples: bool = False, timeout: float = 10.0

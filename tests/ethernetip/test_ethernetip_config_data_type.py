@@ -69,7 +69,7 @@ def test_read_tag_and_write_tag_use_configured_aliases(monkeypatch: pytest.Monke
     assert native.reads == ["Speed"]
     assert native.writes == [("Speed", FakePlcValue(FakePlcKind.DINT, 42))]
     assert measurement.channel_data["test_plc.speed"] == [123]
-    assert command.channel_data == {"test_plc.speed.cmd": 42}
+    assert command.channel_data == {"test_plc.speed.cmd": [42]}
 
 
 def test_bool_read_publishes_numeric_sample(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,7 +114,7 @@ def test_typed_write_builds_native_value_without_reading(monkeypatch: pytest.Mon
 
     assert native.reads == []
     assert native.writes == [("Speed", FakePlcValue(FakePlcKind.DINT, 42))]
-    assert command.channel_data == {"test_plc.speed.cmd": 42}
+    assert command.channel_data == {"test_plc.speed.cmd": [42]}
 
 
 def test_provided_data_type_validates_returned_kind(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -196,7 +196,7 @@ def test_write_min_max_are_optional_and_only_apply_to_writes(monkeypatch: pytest
     command = instrument.write_tag("speed", 10)
 
     assert native.writes == [("Speed", FakePlcValue(FakePlcKind.DINT, 10))]
-    assert command.channel_data == {"test_plc.speed.cmd": 10}
+    assert command.channel_data == {"test_plc.speed.cmd": [10]}
 
 
 def test_write_min_max_must_fit_integer_data_type_range() -> None:

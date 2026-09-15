@@ -12,64 +12,52 @@ from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
-from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
+from instro.lib.types import BackgroundDaemonConfig, Command, Data, Measurement
 
 
-def publish_command(func: Callable) -> Callable:
-    """Decorator that publishes the `Command` returned by an instrument method.
+def _publish_as(kind: type[Data]) -> Callable[[Callable], Callable]:
+    """Build a decorator that publishes the ``kind`` (or list of them) returned by an instrument method.
 
-    Channel naming is the call site's responsibility; the wrong return type raises
-    rather than silently publishing as the wrong kind.
+    Lists are published item by item. ``None`` passes through unpublished. Channel
+    naming is the call site's responsibility; the wrong return type raises.
     """
 
-    @functools.wraps(func)
-    def wrapper(self: "Instrument", *args, **kwargs):
-        result = func(self, *args, **kwargs)
-        if not isinstance(result, Command):
-            raise TypeError(f"@publish_command on {func.__qualname__} must return Command, got {type(result).__name__}")
-        self.publish(result)
-        return result
-
-    return wrapper
-
-
-def publish_measurement(func: Callable) -> Callable:
-    """Decorator that publishes the `Measurement` (or list) returned by an instrument method.
-
-    Lists are published item by item. ``None`` passes through unpublished (e.g.
-    a measurement that could not be obtained). Channel naming is the call site's
-    responsibility.
-    """
-
-    @functools.wraps(func)
-    def wrapper(self: "Instrument", *args, **kwargs):
-        result = func(self, *args, **kwargs)
-        if result is None:
-            return None
-        items = result if isinstance(result, list) else [result]
-        # Validate every item before publishing any of them: a later item failing a check must
-        # not leave an earlier item already sent to every publisher with no way to undo it.
-        for item in items:
-            if not isinstance(item, Measurement):
-                raise TypeError(
-                    f"@publish_measurement on {func.__qualname__} must return Measurement or list[Measurement], "
-                    f"got {type(item).__name__}"
-                )
-            for channel, values in item.channel_data.items():
-                if not values:
-                    continue
-                # Keeps things performant by only checking the first value, but raises if the first value is not a valid type.
-                if not isinstance(values[0], (int, float, str)):
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(self: "Instrument", *args, **kwargs):
+            result = func(self, *args, **kwargs)
+            if result is None:
+                return None
+            items = result if isinstance(result, list) else [result]
+            # Validate every item before publishing any of them: a later item failing a check must
+            # not leave an earlier item already sent to every publisher with no way to undo it.
+            for item in items:
+                if not isinstance(item, kind):
                     raise TypeError(
-                        f"@publish_measurement on {func.__qualname__} got a non-int/float/str value "
-                        f"{values[0]!r} ({type(values[0]).__name__}) on channel '{channel}'"
+                        f"@publish on {func.__qualname__} must return {kind.__name__} or list[{kind.__name__}], "
+                        f"got {type(item).__name__}"
                     )
-        for item in items:
-            self.publish(item)
-        return result
+                for channel, values in item.channel_data.items():
+                    if not values:
+                        continue
+                    # Keeps things performant by only checking the first value, but raises if the first value is not a valid type.
+                    if not isinstance(values[0], (int, float, str)):
+                        raise TypeError(
+                            f"@publish on {func.__qualname__} got a non-int/float/str value "
+                            f"{values[0]!r} ({type(values[0]).__name__}) on channel '{channel}'"
+                        )
+            for item in items:
+                self.publish(item)
+            return result
 
-    return wrapper
+        return wrapper
 
+    return decorator
+
+
+publish = _publish_as(Data)
+publish_measurement = _publish_as(Measurement)
+publish_command = _publish_as(Command)
 
 logger = logging.getLogger(__name__)
 
@@ -89,13 +77,13 @@ class Instrument:
 
         Args:
             name: Channel-name prefix for published data.
-            publishers: Publishers that receive emitted Measurement/Command data.
+            publishers: Publishers that receive emitted Data.
             background_config: Background-daemon settings; default if omitted.
             legacy_naming: When True, publish channels under pre-v1.0 names (e.g.
                 ``main.ch1_v`` instead of ``main.ch1.voltage`` for PSU). Categories
                 with no v1.0 rename (DMM, Modbus) ignore the flag. Scheduled for
                 removal in v2.0.
-            **kwargs: Default tags applied to every emitted Measurement/Command.
+            **kwargs: Default tags applied to every emitted Data.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """
@@ -153,7 +141,7 @@ class Instrument:
             pass
 
     def add_publisher(self, publisher: Publisher):
-        """Register a publisher to receive this instrument's Measurement/Command data."""
+        """Register a publisher to receive this instrument's Data."""
         self.publishers.append(publisher)
         logger.info(
             "Added publisher '%s' to instrument '%s' (n_publishers=%d)",
@@ -167,7 +155,7 @@ class Instrument:
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
         self.add_publisher(NominalCorePublisher(rid))
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Data, **kwargs):
         """Fan ``data`` out to every configured publisher; ``kwargs`` pass through."""
         for publisher in self.publishers:
             publisher.publish(data, **kwargs)
@@ -179,11 +167,14 @@ class Instrument:
         full descriptor including any ``.cmd`` suffix, so the literal published name
         appears at the call site (e.g. ``f"ch{channel}.voltage.cmd"``).
         """
-        if not isinstance(data, (float, str)):
-            data = float(data)
+        values: list[float] | list[str]
+        if isinstance(data, str):
+            values = [data]
+        else:
+            values = [float(data)]
         return Command(
-            channel_data={f"{self.name}.{channel}": data},
-            timestamp=timestamp,
+            channel_data={f"{self.name}.{channel}": values},
+            timestamps=[timestamp],
             tags={**self.default_tags, **kwargs},
         )
 

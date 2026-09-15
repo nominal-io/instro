@@ -231,7 +231,7 @@ class TestWriteHoldingRegisters:
     def test_write_preserves_integer_value_type(self, device):
         """Modbus integer writes publish the int value untouched (not coerced to float)."""
         cmd = device.write("holding_uint16", 1234)
-        value = cmd.channel_data["test_rw_device.holding_uint16.cmd"]
+        value = cmd.channel_data["test_rw_device.holding_uint16.cmd"][0]
         assert value == 1234
         assert isinstance(value, int)
         assert not isinstance(value, bool)
@@ -239,7 +239,7 @@ class TestWriteHoldingRegisters:
     def test_write_preserves_bool_value_type_for_coil(self, device):
         """Modbus coil writes publish True/False as bool, not coerced to 1.0/0.0."""
         cmd = device.write("coil_1", True)
-        value = cmd.channel_data["test_rw_device.coil_1.cmd"]
+        value = cmd.channel_data["test_rw_device.coil_1.cmd"][0]
         assert value is True
 
     def test_write_scaled_integer_rounding(self, device):

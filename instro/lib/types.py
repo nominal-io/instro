@@ -1,9 +1,11 @@
-"""Shared types: runtime dataclasses (Measurement/Command) and cross-protocol Pydantic configs."""
+"""Shared types: runtime dataclasses (Data/Measurement/Command) and cross-protocol Pydantic configs."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
+from enum import Enum
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,13 +19,19 @@ class BackgroundDaemonConfig:
     interval: float = 1.0
 
 
-@dataclass
-class Measurement:
-    """Data structure to hold measurement data. All channels have a common timebase."""
+class DataType(str, Enum):
+    MEASUREMENT = "measurement"
+    COMMAND = "command"
+
+
+@dataclass(frozen=True)
+class Data:
+    """Channel data on a common timebase; ``type`` tells publishers what produced it."""
 
     channel_data: dict[str, list[float] | list[str]]
     timestamps: list[int]
     tags: dict[str, str] | None = None
+    type: DataType = field(kw_only=True)
 
     @staticmethod
     def create_timestamps_from_dt(t0: int, dt: int, length: int, backstamp: bool) -> list[int]:
@@ -53,28 +61,53 @@ class Measurement:
         """Most recent value of the only channel; raises ``ValueError`` if the Measurement holds multiple."""
         return self._get_values()[-1]
 
-    def _get_channel(self, channel: str) -> "Measurement":
-        """Return a new Measurement holding only ``channel`` (with the original timestamps and tags)."""
+    def _get_channel(self, channel: str) -> Data:
+        """Return a copy holding only ``channel`` (with the original timestamps and tags)."""
         if channel not in self.channel_data:
             raise KeyError(f"Channel '{channel}' not found in channel_data.")
 
-        # Make a new Measurement with just this channel's data, same timestamps and tags
-        return Measurement(
+        return replace(
+            self,
             channel_data={channel: self.channel_data[channel]},
             timestamps=self.timestamps.copy(),
             tags=self.tags.copy() if self.tags is not None else None,
         )
 
 
-@dataclass
-class Command:
-    """Data structure to hold command data."""
+@dataclass(frozen=True)
+class Measurement(Data):
+    """Data read from an instrument."""
 
-    # Same as Measurement, but with a single datapoint per channel
+    type: DataType = field(default=DataType.MEASUREMENT, init=False)
 
-    channel_data: dict[str, float | str]
-    timestamp: int
-    tags: dict[str, str] | None = None
+
+@dataclass(frozen=True)
+class Command(Data):
+    """Data written to an instrument: one point per channel."""
+
+    type: DataType = field(default=DataType.COMMAND, init=False)
+
+    def __init__(
+        self,
+        channel_data: Mapping[str, list[float] | list[str] | float | str],
+        timestamps: list[int] | None = None,
+        tags: dict[str, str] | None = None,
+        *,
+        timestamp: int | None = None,
+    ):
+        # Pre-Data callers pass a scalar per channel and ``timestamp=``; normalize to the Data shape.
+        if timestamp is not None:
+            timestamps = [timestamp]
+        if timestamps is None:
+            raise TypeError("Command requires 'timestamps' or 'timestamp'")
+        channels = {name: value if isinstance(value, list) else [value] for name, value in channel_data.items()}
+        Data.__init__(
+            self, cast("dict[str, list[float] | list[str]]", channels), timestamps, tags, type=DataType.COMMAND
+        )
+
+    @property
+    def timestamp(self) -> int:
+        return self.timestamps[0]
 
 
 # ============================================================================

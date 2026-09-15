@@ -89,7 +89,7 @@ def test_commands_delegate_and_publish(
     assert driver.calls[-1] == driver_call
     command = _published(publisher)[-1]
     assert isinstance(command, Command)
-    assert command.channel_data == {channel: value}
+    assert command.channel_data == {channel: [value]}
 
 
 def test_unsupported_command_raises_and_publishes_nothing(motor: InstroMotorController, publisher: MagicMock) -> None:

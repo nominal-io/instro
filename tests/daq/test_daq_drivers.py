@@ -840,7 +840,7 @@ def test_default_naming_write_digital_line_preserves_int_value_type():
     daq.open()
     daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
     command = daq.write_digital_line("do0", 1)
-    value = command.channel_data["ut.do0.cmd"]
+    value = command.channel_data["ut.do0.cmd"][0]
     assert value == 1
     assert isinstance(value, int)
     assert not isinstance(value, bool)
@@ -856,7 +856,7 @@ def test_default_naming_write_digital_port_preserves_int_value_type():
         direction=Direction.OUTPUT, physical_channel="port0", alias="port0", logic=Logic.HIGH, port_width=8
     )
     command = daq.write_digital_port("port0", 0xAA)
-    value = command.channel_data["ut.port0.cmd"]
+    value = command.channel_data["ut.port0.cmd"][0]
     assert value == 0xAA
     assert isinstance(value, int)
 
@@ -1235,8 +1235,8 @@ def test_write_routes_each_index_to_its_channel():
 
     analog_cmd, digital_cmd = daq.write_batch(["ao0", "do0"], [2.5, 1])
 
-    assert analog_cmd.channel_data == {"ut.ao0.cmd": 2.5}
-    assert digital_cmd.channel_data == {"ut.do0.cmd": 1}
+    assert analog_cmd.channel_data == {"ut.ao0.cmd": [2.5]}
+    assert digital_cmd.channel_data == {"ut.do0.cmd": [1]}
 
 
 def test_write_scalar_single_channel_returns_one_command():
@@ -1248,7 +1248,7 @@ def test_write_scalar_single_channel_returns_one_command():
     result = daq.write("ao0", 2.5)
 
     assert isinstance(result, Command)
-    assert result.channel_data == {"ut.ao0.cmd": 2.5}
+    assert result.channel_data == {"ut.ao0.cmd": [2.5]}
 
 
 def test_write_none_channel_raises():
@@ -1277,7 +1277,7 @@ def test_write_coerces_value_to_int_for_digital():
     daq.open()
     daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
-    value = daq.write("do0", 1.0).channel_data["ut.do0.cmd"]
+    value = daq.write("do0", 1.0).channel_data["ut.do0.cmd"][0]
 
     assert value == 1 and isinstance(value, int)
 
@@ -1323,7 +1323,7 @@ def test_write_digital_line_accepts_bool():
     daq.open()
     daq.configure_digital_output(physical_channel="port0/line0", alias="do0", logic=Logic.HIGH)
 
-    assert daq.write("do0", True).channel_data["ut.do0.cmd"] == 1
+    assert daq.write("do0", True).channel_data["ut.do0.cmd"] == [1]
 
 
 def test_write_digital_line_rejects_non_binary():
@@ -1351,7 +1351,7 @@ def test_write_digital_port_requires_int():
         alias="do_port",
     )
 
-    assert daq.write("do_port", 0x0F).channel_data["ut.do_port.cmd"] == 0x0F
+    assert daq.write("do_port", 0x0F).channel_data["ut.do_port.cmd"] == [0x0F]
     for bad in (True, 15.0):
         with pytest.raises(ValueError, match="requires an integer"):
             daq.write("do_port", bad)
