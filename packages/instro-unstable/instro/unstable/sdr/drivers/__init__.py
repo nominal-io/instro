@@ -1,3 +1,7 @@
 """Concrete SDR drivers."""
 
-__all__: list[str] = []
+from instro.unstable.sdr.drivers.hackrf_one import HackRFOne
+
+__all__ = [
+    "HackRFOne",
+]

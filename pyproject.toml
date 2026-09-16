@@ -56,6 +56,8 @@ aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
+# Needs a system libhackrf and pkg-config, so it is not part of `all`.
+hackrf = ["instro-unstable[hackrf]"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
