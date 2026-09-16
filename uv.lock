@@ -634,6 +634,9 @@ daq = [
 ethernetip = [
     { name = "instro-ethernetip" },
 ]
+hackrf = [
+    { name = "instro-unstable", extra = ["hackrf"] },
+]
 i2c = [
     { name = "instro-i2c-aardvark" },
 ]
@@ -691,6 +694,7 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
+    { name = "instro-unstable", extras = ["hackrf"], marker = "extra == 'hackrf'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.166.0,<2.0.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pymodbus", specifier = ">=3.10,<3.13" },
@@ -701,7 +705,7 @@ requires-dist = [
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "unstable", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "unstable", "hackrf", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -830,6 +834,11 @@ dependencies = [
     { name = "scikit-rf" },
 ]
 
+[package.optional-dependencies]
+hackrf = [
+    { name = "python-hackrf" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "gs-usb", specifier = ">=0.3" },
@@ -838,8 +847,10 @@ requires-dist = [
     { name = "pyrtlsdr", extras = ["lib"], specifier = ">=0.5.0" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "python-can", specifier = ">=4.3" },
+    { name = "python-hackrf", marker = "extra == 'hackrf'", specifier = ">=1.5.0" },
     { name = "scikit-rf", specifier = ">=2.1.0" },
 ]
+provides-extras = ["hackrf"]
 
 [[package]]
 name = "jinja2"
@@ -1930,6 +1941,16 @@ wheels = [
 ]
 
 [[package]]
+name = "python-hackrf"
+version = "1.5.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/4b/d58fcffe466f2d161c7d8389d330a8a872999bf2e3115ce5cf7c140af79a/python_hackrf-1.5.0.1.tar.gz", hash = "sha256:a17d9e326b883970c0042140569f3be33f4131abc8d669aa3c375ded5d7fa9c2", size = 37987, upload-time = "2025-11-21T20:35:55.425Z" }
+
+[[package]]
 name = "pytz"
 version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2290,7 +2311,8 @@ name = "scipy"
 version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13'",
+    "python_full_version >= '3.14'",
+    "python_full_version == '3.13.*'",
     "python_full_version == '3.12.*'",
 ]
 dependencies = [

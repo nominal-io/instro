@@ -19,3 +19,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ::: instro.unstable.sdr.drivers.rtl_sdr
     options:
       heading_level: 4
+
+### HackRF
+
+::: instro.unstable.sdr.drivers.hackrf_one
+    options:
+      heading_level: 4

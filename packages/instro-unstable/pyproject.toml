@@ -5,7 +5,7 @@ description = "Unstable modules for instro (in-development features)"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["instro", "test-and-measurement", "instrument-control", "motor-controller", "flow-controller", "vesc", "alicat", "can-bus"]
+keywords = ["instro", "test-and-measurement", "instrument-control", "motor-controller", "flow-controller", "vesc", "alicat", "can-bus", "sdr", "hackrf"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -35,6 +35,10 @@ dependencies = [
     "pyrtlsdr[lib]>=0.5.0",
     "pyserial>=3.5",
 ]
+
+[project.optional-dependencies]
+# Built from source against a system libhackrf, so it stays opt-in rather than a hard dep.
+hackrf = ["python-hackrf>=1.5.0"]
 
 [project.urls]
 Homepage = "https://github.com/nominal-io/instro"
