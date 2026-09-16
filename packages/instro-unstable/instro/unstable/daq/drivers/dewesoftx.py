@@ -90,7 +90,7 @@ class DewesoftXDriver(DAQDriverBase):
         # Debug full channel inventory
         if logger.isEnabledFor(logging.DEBUG):
             channels = self._data.AllChannels
-            logger.debug("DewesoftX AllChannels (%d):", channels.Count)
+            logger.debug("All (%d) channels exposed by DewesoftX", channels.Count)
             for i in range(channels.Count):
                 ch = channels.Item(i)
                 logger.debug(
@@ -243,8 +243,6 @@ class DewesoftXDriver(DAQDriverBase):
         target = self._ai_hw_timing_config.samples_per_channel
         rate = self._ai_hw_timing_config.sample_rate
         sync_cursors = [c for c in self._cursors.values() if isinstance(c, _SyncChannelCursor)]
-        wait_start = time.perf_counter()
-        polls = 0
         while True:
             if not self._check_session():
                 # Pace the empty return so the daemon regains control (and its stop event) without spinning
@@ -255,18 +253,8 @@ class DewesoftXDriver(DAQDriverBase):
                 time.sleep(min(0.5, target / rate))
                 return self.read_analog()
             available = [c.connection.NumValues for c in sync_cursors]
-            polls += 1
             self.points_in_buffer = max(available)
             if min(available) >= target:
-                # logger.debug(
-                #     "fetch wait took %.6fs over %d poll(s) of %d channel(s); pending min %d max %d, target %d",
-                #     time.perf_counter() - wait_start,
-                #     polls,
-                #     len(sync_cursors),
-                #     min(available),
-                #     max(available),
-                #     target,
-                # )
                 return self.read_analog()
             # Sleep at most 0.5s to fetch pace loop
             time.sleep(min(0.5, max(0.001, (target - min(available)) / rate / 2)))

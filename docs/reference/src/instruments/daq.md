@@ -51,3 +51,9 @@ Errors raised by these methods are documented in [Exceptions](../reference/excep
 ::: instro.daq.drivers.mcc.mccdaq
     options:
       heading_level: 4
+
+### DewesoftX (unstable)
+
+::: instro.unstable.daq.drivers.dewesoftx
+    options:
+      heading_level: 4

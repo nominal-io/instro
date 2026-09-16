@@ -22,7 +22,7 @@ from instro.unstable.vna.drivers import NanoVNAv2Clone
 vna = InstroVNA(name="bench", driver=NanoVNAv2Clone(port="COM3"))
 ```
 
-Currently shipping: `InstroVNA`, `InstroMotorController`, `InstroFlowController`, the `EspecGL` environmental chamber, a Keithley 2750 `InstroDMM` driver, and the `CanTransport` transport.
+Currently shipping: `InstroVNA`, `InstroMotorController`, `InstroFlowController`, the `EspecGL` environmental chamber, a Keithley 2750 `InstroDMM` driver, a DewesoftX `InstroDAQ` driver, and the `CanTransport` transport.
 
 API stability is not guaranteed release-to-release; pin to a specific version if you need reproducibility.
 

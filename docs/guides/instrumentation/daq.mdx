@@ -13,6 +13,7 @@ InstroDAQ is a hardware abstraction layer (HAL) that provides a unified interfac
 - **LabJack T-Series** - T4, T7, T8 models using LJM driver
 - **Measurement Computing (MCC)** - USB and Ethernet DAQ devices using the MCC Universal Library (`mcculw`)
 - **Keysight 34980A** - Multifunction switch/measure unit via SCPI/VISA
+- **DewesoftX** - Live channels from a running DewesoftX instance over DCOM (Windows only, `instro-unstable`)
 
 ## Key Concepts
 
@@ -115,6 +116,11 @@ daq = InstroDAQ(
     name="keysightDAQ",
     driver=Keysight34980A("TCPIP0::<IP_ADDRESS>::INSTR"),
 )
+
+# DewesoftX (unstable: attaches to the DewesoftX instance running on this Windows PC)
+from instro.unstable.daq.drivers import DewesoftXDriver
+
+daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftXDriver())
 ```
 
 ## Configuring Channels
@@ -138,6 +144,7 @@ The `physical_channel` naming convention depends on your DAQ vendor:
 - **LabJack**: "AIN0", "AIN1", etc.
 - **MCC**: Integer channel index as a string, for example `"0"`, `"1"`.
 - **Keysight**: Depends on module slot and channel configuration
+- **DewesoftX**: The channel `Name` shown in the DewesoftX channel setup tab, for example `"AI 1"`
 
 Refer to your device's documentation for channel naming.
 </Note>
@@ -268,6 +275,7 @@ Analog driver support:
 | LabJack T-Series | ✅ | ✅ | ❌ | ❌ | ✅ |
 | MCC | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Keysight 34980A | ✅ | ❌ | ❌ | ❌ | ❌ |
+| DewesoftX (unstable) | ✅ | ❌ | ✅ | ❌ | ✅ |
 
 Digital driver support:
 
@@ -277,6 +285,7 @@ Digital driver support:
 | LabJack T-Series | ✅ | ✅ | ❌ | ❌ |
 | MCC | ✅ | ✅ | ✅ | ✅ |
 | Keysight 34980A | ✅ | ✅ | ✅ | ✅ |
+| DewesoftX (unstable) | ❌ | ❌ | ❌ | ❌ |
 
 #### LabJack thermocouple channels
 
@@ -348,6 +357,19 @@ daq.configure_voltage_input("0", alias="ch0", terminal_config=TerminalConfig.RSE
 daq.configure_voltage_input("1", alias="ch1", terminal_config=TerminalConfig.DIFF)
 # On a board-wide device the whole board is differential now, channel 0 included.
 ```
+
+#### DewesoftX channels
+
+<Warning>This driver is currently available only in the Unstable package.</Warning>
+
+`DewesoftXDriver` streams live channels from a DewesoftX instance running on the same Windows PC. DewesoftX owns the channel setup, the scaling, and the sample clock, so the driver binds existing channels instead of configuring hardware:
+
+- `configure_voltage_input`, `configure_current_input`, and `configure_thermocouple_input` all bind the DewesoftX channel named by `physical_channel`. The channel must be set to **Used** in DewesoftX. Range, terminal, and thermocouple settings are ignored. A `scaler` still applies.
+- `configure_ai_hw_sample_rate` keeps `samples_per_channel` but replaces `sample_rate` with the DewesoftX sample rate. `get_actual_sample_rate()` returns that rate.
+- Synchronous channels are timestamped from the DewesoftX store start time and the sample count. Asynchronous channels (for example CAN signals) keep their own per-sample timestamps.
+- Samples can only be read when a DewesoftX storing session is in progress. `start()` attaches to the running storing session. `start(start_storing_session=True)` starts one, and `stop(stop_storing_session=True)` ends it. Pass `dxd_name` to the driver to name the data file DewesoftX stored to during the storing session.
+
+Analog outputs and digital channels are not supported.
 
 ### Hardware-Timed Sample Rate
 
