@@ -7,44 +7,37 @@ description: Command-line tools for working with instro
 
 ## Running the CLI
 
-The CLI comes with the `instro` package — see [Installation](/instrumentation/installation) for adding it to your project. In a project that has `instro` installed, run commands with `uv run`:
+The CLI comes with the `instro` package (see [Installation](/instrumentation/installation)).
+In a project that has `instro` installed, run:
 
 ```bash
 uv run instro discover
 ```
 
-To try a command once without installing anything, `uvx` runs it in a throwaway environment:
-
-```bash
-uvx instro discover
-```
-
-`uvx` can be slow when it triggers a fresh install of `instro`'s full dependency tree. For regular use, put `instro` on your PATH instead so you can call it from anywhere:
+For regular use, put `instro` on your PATH instead so you can call it from anywhere:
 
 ```bash
 uv tool install instro
 instro discover
 ```
+## Usage
+### instro --version
 
-## instro --version
-
-Prints the installed version of the core `instro` package followed by every optional workspace package (`instro-contrib`, `instro-unstable`, `instro-ethernetip`, `instro-daq-ni`, `instro-daq-labjack`, `instro-daq-mcc`, `instro-i2c-aardvark`). Packages that are not installed are marked `not installed` with the `pip install "instro[<extra>]"` command that provides them — see [Additional Packages](/instrumentation/installation#additional-packages) for what each extra covers.
+Prints version information.
 
 ```bash
-instro --version
+instro --version # prints version information
 ```
 
-The full roster is printed on purpose: attach the output to bug reports as an environment summary.
-
-## instro discover
+### instro discover
 
 Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
 
 To force a specific VISA backend, pass `--backend`:
 
 ```bash
-uv run instro discover --backend=@py
-uv run instro discover --backend "@ivi"
+instro discover --backend=@py
+instro discover --backend "@ivi"
 ```
 
 <Note>

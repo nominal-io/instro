@@ -11,19 +11,17 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Docs",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Overview",
             "icon": "rocket",
-            "root": "getting-started",
+            "root": "overview",
             "expanded": true,
             "pages": [
               "instrumentation/quickstart",
-              "instrumentation/overview",
-              "instrumentation/scope",
               "instrumentation/installation",
-              "instrumentation/driver-dependencies",
+              "instrumentation/using-instro",
               "instrumentation/cli"
             ]
           },
@@ -33,8 +31,10 @@
             "root": "instrumentation/concepts",
             "expanded": true,
             "pages": [
-              "instrumentation/publishers",
               "instrumentation/library",
+              "instrumentation/publishers",
+              "instrumentation/protocols/overview",
+              "instrumentation/transports/overview",
               "instrumentation/exceptions",
               "instrumentation/custom-instruments",
               "instrumentation/contrib"
@@ -43,65 +43,16 @@
           {
             "group": "Instruments",
             "icon": "microchip",
-            "root": "instrumentation/instruments",
+            "root": "instrumentation/supported-instruments",
             "expanded": true,
             "pages": [
-              {
-                "group": "Power Supply (PSU)",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/psu",
-                  "instrumentation/psu-simulator"
-                ]
-              },
-              "instrumentation/eload",
-              {
-                "group": "Multimeter (DMM)",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/dmm",
-                  "instrumentation/dmm-simulator"
-                ]
-              },
-              "instrumentation/daq",
               "instrumentation/oscilloscope",
+              "instrumentation/psu",
+              "instrumentation/eload",
+              "instrumentation/dmm",
+              "instrumentation/daq",
               "instrumentation/awg",
               "instrumentation/flowcontroller"
-            ]
-          },
-          {
-            "group": "Protocols",
-            "icon": "network-wired",
-            "root": "instrumentation/protocols/overview",
-            "expanded": true,
-            "pages": [
-              {
-                "group": "I2C",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/protocols/i2c/overview",
-                  "instrumentation/protocols/i2c/system-definition"
-                ]
-              },
-              "instrumentation/protocols/modbus",
-              "instrumentation/protocols/ethernetip"
-            ]
-          },
-          {
-            "group": "Transports",
-            "icon": "plug",
-            "root": "instrumentation/transports/overview",
-            "expanded": true,
-            "pages": [
-              "instrumentation/transports/visa",
-              "instrumentation/transports/modbus"
-            ]
-          },
-          {
-            "group": "Migration",
-            "icon": "arrow-right-arrow-left",
-            "pages": [
-              "migration/v1"
             ]
           }
         ]
@@ -234,26 +185,22 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "SDK",
+        "href": "https://nominal-io.github.io/instro/"
+      },
+      {
+        "tab": "Changelog",
+        "href": "https://nominal-io.github.io/instro/changelog/"
+      },
+      {
+        "tab": "GitHub",
+        "href": "https://github.com/nominal-io/instro"
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "SDK Reference",
-          "href": "https://nominal-io.github.io/instro/",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/nominal-io/instro",
-          "icon": "github"
-        },
-        {
-          "anchor": "Changelog",
-          "href": "https://nominal-io.github.io/instro/changelog/",
-          "icon": "book"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {
@@ -263,7 +210,7 @@
   "navbar": {
     "links": [
       {
-        "label": "Community",
+        "label": "Forum",
         "href": "https://community.instro.nominal.io"
       },
       {

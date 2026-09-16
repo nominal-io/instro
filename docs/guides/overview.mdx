@@ -1,0 +1,47 @@
+---
+title: "instro"
+description: "An open-source, vendor-agnostic Python library for interfacing with test equipment."
+---
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+# from instro.daq.drivers.ni import NIDAQDriver
+from instro.daq import InstroDAQ
+from instro.daq.types import Direction
+
+daq = InstroDAQ(
+  name    = "myDAQ",
+  driver  = LabJackTSeriesDriver(device_id="1234")
+  #driver = NIDAQDriver(device_id="Dev1") # swap drivers, same code
+  )
+daq.open()
+daq.configure_analog_channel(
+    direction=Direction.INPUT, physical_channel="AIN0", alias="ch_0", range_min=0, range_max=5
+)
+measurement = daq.read_analog()
+```
+
+### Purpose
+
+The python ecosystem for test and measurement is fragmented and redundant. `instro` is an [open-source](https://github.com/nominal-io/instro) Python library for interacting with test equipment from one unified, typed API. It provides virtual instruments that are **vendor-agnostic**. Instro instruments use `Publishers` to automatically stream data to a file, [Nominal](https://nominal.io), or a destination of your own.
+
+<div style={{ display: 'flex', justifyContent: 'center', margin: '1.5rem 0' }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/l8sUYvgwfbc"
+    title="instro overview video"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  />
+</div>
+
+## Let's go
+
+<Columns cols={2}>
+  <Card title="Supported Instruments" icon="microchip" href="/instrumentation/supported-instruments"> </Card>
+  <Card title="Quickstart" icon="rocket" href="/instrumentation/quickstart"></Card>
+  <Card title="Installation" icon="download" href="/instrumentation/installation"> </Card>
+  <Card title="Examples" icon="code" href="/instrumentation/examples"> </Card>
+</Columns>
