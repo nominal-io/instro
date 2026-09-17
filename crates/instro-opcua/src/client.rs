@@ -48,12 +48,9 @@ use open62541::AsyncMonitoredItem;
 use open62541::Certificate;
 use open62541::ClientBuilder;
 use open62541::DataType;
-use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
 use open62541::PrivateKey;
-use open62541::ScalarValue;
 use open62541::SubscriptionBuilder;
-use open62541::VariantValue;
 use open62541::ua;
 use tokio::runtime;
 use tokio::sync::oneshot;
@@ -67,14 +64,12 @@ use super::metrics::NodeReadCounts;
 use super::metrics::PollLoopMetricsLogger;
 use super::types::OpcUaDataPoint;
 use super::types::OpcUaMonitoredItemConfig;
-use super::types::OpcUaNodeClass;
 use super::types::OpcUaPki;
 use super::types::OpcUaSample;
 use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
-use super::types::QualifiedBrowseName;
 use crate::types::OpcUaAttributeId;
 use crate::types::OpcUaNodeId;
 
@@ -204,69 +199,6 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
 
     const fn pairs(&self) -> &[(ua::NodeId, ua::AttributeId)] {
         self.node_attr_pairs.as_slice()
-    }
-}
-
-fn decode_node_class_variant(
-    value: &DataValue<ua::NodeClass>,
-    node_id: &OpcUaNodeId,
-) -> Result<OpcUaNodeClass> {
-    let Some(variant) = value.value() else {
-        bail!(
-            "node class attribute for node {node_id} was not readable: {:?}",
-            value.status()
-        );
-    };
-
-    let raw = match variant.to_value() {
-        VariantValue::Scalar(ScalarValue::Enumeration(value)) => value.as_u32(),
-        VariantValue::Scalar(ScalarValue::UInt32(value)) => value.value(),
-        VariantValue::Scalar(ScalarValue::Int32(value)) => u32::try_from(value.value())
-            .with_context(|| format!("node class attribute for node {node_id} was negative"))?,
-        other => bail!("node class attribute for node {node_id} had unexpected value {other:?}"),
-    };
-
-    Ok(OpcUaNodeClass::from_raw(raw))
-}
-
-#[cfg(test)]
-mod decode_node_class_variant_tests {
-    use open62541::ua;
-
-    use super::decode_node_class_variant;
-    use crate::types::OpcUaNodeClass;
-    use crate::types::OpcUaNodeId;
-
-    fn uint32_node_class(raw: u32) -> open62541::DataValue<ua::NodeClass> {
-        ua::DataValue::new(ua::Variant::scalar(ua::UInt32::new(raw))).cast()
-    }
-
-    #[test]
-    fn decode_node_class_variant_maps_named_classes() {
-        let node_id = OpcUaNodeId::numeric(0, 1);
-        let cases = [
-            (ua::NodeClass::OBJECT_U32, OpcUaNodeClass::Object),
-            (ua::NodeClass::VARIABLE_U32, OpcUaNodeClass::Variable),
-            (ua::NodeClass::METHOD_U32, OpcUaNodeClass::Method),
-            (ua::NodeClass::VIEW_U32, OpcUaNodeClass::View),
-            (ua::NodeClass::DATATYPE_U32, OpcUaNodeClass::DataType),
-            (ua::NodeClass::OBJECTTYPE_U32, OpcUaNodeClass::ObjectType),
-            (
-                ua::NodeClass::VARIABLETYPE_U32,
-                OpcUaNodeClass::VariableType,
-            ),
-            (
-                ua::NodeClass::REFERENCETYPE_U32,
-                OpcUaNodeClass::ReferenceType,
-            ),
-            (99, OpcUaNodeClass::Other(99)),
-        ];
-
-        for (raw, expected) in cases {
-            let decoded = decode_node_class_variant(&uint32_node_class(raw), &node_id)
-                .expect("node class variant should decode");
-            assert_eq!(decoded, expected);
-        }
     }
 }
 
@@ -404,58 +336,6 @@ impl OpcUaClient {
                 Ok(value) => Some(OpcUaSample::new(node.clone(), value)),
             })
             .collect_vec())
-    }
-
-    /// Reads the browse name, display name, and node class for a node.
-    pub async fn read_node_metadata(
-        &self,
-        node_id: &OpcUaNodeId,
-    ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
-        let ua_node_id = ua::NodeId::from(node_id.clone());
-
-        let browse_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::BROWSENAME_T)
-            .await
-            .with_context(|| format!("reading browse name for node {node_id}"))?;
-        let browse_name = browse_name_value.scalar_value().with_context(|| {
-            format!(
-                "browse name attribute for node {node_id} was not readable: {:?}",
-                browse_name_value.status()
-            )
-        })?;
-
-        let display_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::DISPLAYNAME_T)
-            .await
-            .with_context(|| format!("reading display name for node {node_id}"))?;
-
-        let display_name = display_name_value.scalar_value().with_context(|| {
-            format!(
-                "display name attribute for node {node_id} was not readable: {:?}",
-                display_name_value.status()
-            )
-        })?;
-
-        let node_class_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::NODECLASS_T)
-            .await
-            .with_context(|| format!("reading node class for node {node_id}"))?;
-
-        let node_class = node_class_value
-            .scalar_value()
-            .with_context(|| format!("node class attribute for node {node_id} was not readable"));
-
-        Ok((
-            QualifiedBrowseName {
-                namespace_index: browse_name.namespace_index(),
-                name: browse_name.name().to_string(),
-            },
-            display_name.text().to_string(),
-            match node_class {
-                Ok(node_class) => OpcUaNodeClass::from(node_class),
-                Err(_) => decode_node_class_variant(&node_class_value, node_id)?,
-            },
-        ))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
