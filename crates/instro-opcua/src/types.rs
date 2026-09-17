@@ -722,6 +722,12 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
 
 impl From<OpcUaNodeId> for NodeId {
     fn from(other: OpcUaNodeId) -> Self {
+        Self::from(&other)
+    }
+}
+
+impl From<&OpcUaNodeId> for NodeId {
+    fn from(other: &OpcUaNodeId) -> Self {
         match other.kind {
             NodeIdKind::Numeric(n) => NodeId::numeric(other.namespace, n),
             NodeIdKind::String(ref s) => NodeId::string(other.namespace, s),
@@ -1578,6 +1584,17 @@ mod tests {
         let ns0 = OpcUaNodeId::numeric(0, 85);
 
         assert_roundtrip(&back, ns0);
+    }
+
+    #[test]
+    fn node_id_converts_from_reference() {
+        let id = OpcUaNodeId::string(3, "MyNode".into());
+        let converted = NodeId::from(&id);
+
+        assert_eq!(
+            OpcUaNodeId::try_from(&converted).expect("node ID should convert back"),
+            id
+        );
     }
 
     #[test]
