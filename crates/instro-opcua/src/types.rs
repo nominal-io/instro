@@ -870,6 +870,22 @@ pub enum OpcUaNodeClass {
     Other(u32),
 }
 
+impl OpcUaNodeClass {
+    pub(crate) fn from_raw(raw: u32) -> Self {
+        match raw {
+            ua::NodeClass::OBJECT_U32 => Self::Object,
+            ua::NodeClass::VARIABLE_U32 => Self::Variable,
+            ua::NodeClass::METHOD_U32 => Self::Method,
+            ua::NodeClass::VIEW_U32 => Self::View,
+            ua::NodeClass::DATATYPE_U32 => Self::DataType,
+            ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
+            ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
+            ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
+            other => Self::Other(other),
+        }
+    }
+}
+
 impl From<OpcUaNodeClass> for ua::NodeClass {
     fn from(node_class: OpcUaNodeClass) -> Self {
         match node_class {
@@ -919,17 +935,7 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
                 }
             };
 
-            match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => Self::Object,
-                ua::NodeClass::VARIABLE_U32 => Self::Variable,
-                ua::NodeClass::METHOD_U32 => Self::Method,
-                ua::NodeClass::VIEW_U32 => Self::View,
-                ua::NodeClass::DATATYPE_U32 => Self::DataType,
-                ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
-                ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
-                ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
-                other => Self::Other(other),
-            }
+            Self::from_raw(node_class_discriminant)
         })
     }
 }
