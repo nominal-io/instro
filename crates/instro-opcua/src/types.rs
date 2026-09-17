@@ -811,6 +811,7 @@ impl From<&OpcUaNodeId> for NodeId {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeIdKind {
     Numeric(u32),
+    #[serde(borrow)]
     String(Cow<'static, str>),
     ByteString(Vec<u8>),
     Guid(Uuid),
