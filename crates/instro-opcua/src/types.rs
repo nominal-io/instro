@@ -1466,6 +1466,10 @@ mod tests {
         assert_roundtrip(&ua::NodeClass::VARIABLE, OpcUaNodeClass::Variable);
         assert_roundtrip(&ua::NodeClass::METHOD, OpcUaNodeClass::Method);
         assert_roundtrip(&ua::NodeClass::VIEW, OpcUaNodeClass::View);
+        assert_roundtrip(&ua::NodeClass::DATATYPE, OpcUaNodeClass::DataType);
+        assert_roundtrip(&ua::NodeClass::OBJECTTYPE, OpcUaNodeClass::ObjectType);
+        assert_roundtrip(&ua::NodeClass::VARIABLETYPE, OpcUaNodeClass::VariableType);
+        assert_roundtrip(&ua::NodeClass::REFERENCETYPE, OpcUaNodeClass::ReferenceType);
 
         // SAFETY: populating raw fields for test; node class lives on stack for duration of test
         assert_roundtrip(
