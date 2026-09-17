@@ -161,13 +161,48 @@ fn decode_node_class_variant(
         other => bail!("node class attribute for node {node_id} had unexpected value {other:?}"),
     };
 
-    Ok(match raw {
-        ua::NodeClass::OBJECT_U32 => OpcUaNodeClass::Object,
-        ua::NodeClass::VARIABLE_U32 => OpcUaNodeClass::Variable,
-        ua::NodeClass::METHOD_U32 => OpcUaNodeClass::Method,
-        ua::NodeClass::VIEW_U32 => OpcUaNodeClass::View,
-        other => OpcUaNodeClass::Other(other),
-    })
+    Ok(OpcUaNodeClass::from_raw(raw))
+}
+
+#[cfg(test)]
+mod decode_node_class_variant_tests {
+    use open62541::ua;
+
+    use super::decode_node_class_variant;
+    use crate::types::OpcUaNodeClass;
+    use crate::types::OpcUaNodeId;
+
+    fn uint32_node_class(raw: u32) -> open62541::DataValue<ua::NodeClass> {
+        ua::DataValue::new(ua::Variant::scalar(ua::UInt32::new(raw))).cast()
+    }
+
+    #[test]
+    fn decode_node_class_variant_maps_named_classes() {
+        let node_id = OpcUaNodeId::numeric(0, 1);
+        let cases = [
+            (ua::NodeClass::OBJECT_U32, OpcUaNodeClass::Object),
+            (ua::NodeClass::VARIABLE_U32, OpcUaNodeClass::Variable),
+            (ua::NodeClass::METHOD_U32, OpcUaNodeClass::Method),
+            (ua::NodeClass::VIEW_U32, OpcUaNodeClass::View),
+            (ua::NodeClass::DATATYPE_U32, OpcUaNodeClass::DataType),
+            (ua::NodeClass::OBJECTTYPE_U32, OpcUaNodeClass::ObjectType),
+            (
+                ua::NodeClass::VARIABLETYPE_U32,
+                OpcUaNodeClass::VariableType,
+            ),
+            (
+                ua::NodeClass::REFERENCETYPE_U32,
+                OpcUaNodeClass::ReferenceType,
+            ),
+            (99, OpcUaNodeClass::Other(99)),
+        ];
+
+        for (raw, expected) in cases {
+            let decoded = decode_node_class_variant(&uint32_node_class(raw), &node_id)
+                .expect("node class variant should decode");
+            assert_eq!(decoded, expected);
+        }
+    }
 }
 
 // `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
