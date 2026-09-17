@@ -10,7 +10,6 @@ This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with in
 [dependencies]
 anyhow = "1"
 instro-opcua = "0.1"
-open62541 = { version = "0.10", features = ["mbedtls", "x509"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -22,9 +21,9 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 use instro_opcua::browse::BrowseAll as _;
 use instro_opcua::client::{OpcUaClientBuilder, OpcUaNodeReadBatch};
 use instro_opcua::types::{
-    OpcUaNodeId, OpcUaPki, OpcUaSecurityMode, OpcUaSecurityPolicy, OpcUaUserToken,
+    OpcUaAttributeId, OpcUaNodeId, OpcUaPki, OpcUaSecurityMode, OpcUaSecurityPolicy,
+    OpcUaUserToken,
 };
-use open62541::ua;
 
 fn main() -> anyhow::Result<()> {
     let client = OpcUaClientBuilder::new()
@@ -39,7 +38,7 @@ fn main() -> anyhow::Result<()> {
 
     let runtime = tokio::runtime::Runtime::new()?;
     let nodes = runtime.block_on(nodes)?;
-    let batch = OpcUaNodeReadBatch::new(nodes, ua::AttributeId::VALUE);
+    let batch = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
     let samples = runtime.block_on(client.read_nodes(&batch))?;
 
     println!("read {} samples", samples.len());
