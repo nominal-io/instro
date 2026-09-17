@@ -190,21 +190,20 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
         }
     }
 
-    /// Returns the list of node attribute pairs, used in read requests.
-    pub const fn pairs(&self) -> &[(ua::NodeId, ua::AttributeId)] {
-        self.node_attr_pairs.as_slice()
-    }
-
     /// Returns the number of nodes in the batch.
     pub fn len(&self) -> usize {
         // there's a practical limit to the number of nodes and attributes that can be read.
         // It's safe to assume that this will never exceed usize::MAX.
-        self.nodes.len() * self.attrs.len()
+        self.node_attr_pairs.len()
     }
 
     /// Returns whether the batch is empty.
     pub fn is_empty(&self) -> bool {
-        self.nodes.is_empty() || self.attrs.is_empty()
+        self.node_attr_pairs.is_empty()
+    }
+
+    const fn pairs(&self) -> &[(ua::NodeId, ua::AttributeId)] {
+        self.node_attr_pairs.as_slice()
     }
 }
 
@@ -342,7 +341,7 @@ impl OpcUaClient {
             .await
             .context("reading node attributes")?;
 
-        if read_result.len() != node_list.nodes().len() {
+        if read_result.len() != node_list.len() {
             bail!(
                 "read result length does not match node list length: {} != {}",
                 read_result.len(),
