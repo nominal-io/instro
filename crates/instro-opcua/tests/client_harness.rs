@@ -410,11 +410,6 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
-    assert_eq!(metadata_name.name, "Sensors");
-    assert_eq!(display_name, "Sensors");
-    assert_eq!(node_class, OpcUaNodeClass::Object);
-
     client.disconnect().await?;
     Ok(())
 }

@@ -64,14 +64,12 @@ use super::metrics::NodeReadCounts;
 use super::metrics::PollLoopMetricsLogger;
 use super::types::OpcUaDataPoint;
 use super::types::OpcUaMonitoredItemConfig;
-use super::types::OpcUaNodeClass;
 use super::types::OpcUaPki;
 use super::types::OpcUaSample;
 use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
-use super::types::QualifiedBrowseName;
 use crate::types::OpcUaAttributeId;
 use crate::types::OpcUaNodeId;
 
@@ -338,78 +336,6 @@ impl OpcUaClient {
                 Ok(value) => Some(OpcUaSample::new(node.clone(), value)),
             })
             .collect_vec())
-    }
-
-    /// Reads the browse name, display name, and node class for a node.
-    pub async fn read_node_metadata(
-        &self,
-        node_id: &OpcUaNodeId,
-    ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
-        let ua_nid = ua::NodeId::from(node_id.clone());
-
-        let read_pairs = std::iter::repeat(ua_nid)
-            .zip([
-                ua::AttributeId::BROWSENAME,
-                ua::AttributeId::DISPLAYNAME,
-                ua::AttributeId::NODECLASS,
-            ])
-            .collect_vec();
-
-        let metadata = self
-            .read_many_attributes(&read_pairs)
-            .await
-            .context("reading node metadata")?;
-
-        if metadata.len() != 3 {
-            bail!(
-                "unexpected number of results for node metadata: expected 3 results, got {}",
-                metadata.len()
-            );
-        }
-
-        let mut values = metadata.into_iter();
-
-        #[expect(
-            clippy::unwrap_used,
-            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
-        )]
-        let browse_name = values
-            .next()
-            .unwrap()
-            .into_scalar_value()
-            .and_then(ua::Variant::into_scalar::<ua::QualifiedName>)
-            .context("extracting browse name from node metadata")?;
-
-        #[expect(
-            clippy::unwrap_used,
-            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
-        )]
-        let display_name = values
-            .next()
-            .unwrap()
-            .into_scalar_value()
-            .and_then(ua::Variant::into_scalar::<ua::LocalizedText>)
-            .context("extracting display name from node metadata")?;
-
-        #[expect(
-            clippy::unwrap_used,
-            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
-        )]
-        let node_class_value = values
-            .next()
-            .unwrap()
-            .into_scalar_value()
-            .and_then(ua::Variant::into_scalar::<ua::Int32>) // this is whack
-            .context("extracting node class from node metadata")?;
-
-        Ok((
-            QualifiedBrowseName {
-                namespace_index: browse_name.namespace_index(),
-                name: browse_name.name().to_string(),
-            },
-            display_name.text().to_string(),
-            OpcUaNodeClass::try_from_raw(node_class_value.value() as u32)?,
-        ))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
