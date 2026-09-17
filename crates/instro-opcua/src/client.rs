@@ -75,6 +75,7 @@ use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
 use super::types::QualifiedBrowseName;
+use crate::types::OpcUaAttributeId;
 use crate::types::OpcUaNodeId;
 
 /// Enables either borrow or move of the nodes via the default implementations, avoiding clones out-of-the-box.
@@ -107,11 +108,12 @@ pub struct OpcUaNodeReadBatch<'nodes> {
 
 impl<'nodes> OpcUaNodeReadBatch<'nodes> {
     /// Creates a new batch of nodes and attribute pairs.
-    pub fn new<Src>(nodes: Src, attr: ua::AttributeId) -> Self
+    pub fn new<Src>(nodes: Src, attr: OpcUaAttributeId) -> Self
     where
         Src: OpcUaNodeListSource<'nodes>,
     {
         let nodes = nodes.into_node_list();
+        let attr = ua::AttributeId::from(attr);
         Self {
             node_attr_pairs: nodes
                 .iter()
@@ -475,7 +477,7 @@ impl OpcUaClient {
         polling_interval: Duration,
         mut on_data: impl FnMut(Box<dyn Iterator<Item = OpcUaSample>>),
     ) {
-        let node_list = OpcUaNodeReadBatch::new(&nodes, ua::AttributeId::VALUE);
+        let node_list = OpcUaNodeReadBatch::new(&nodes, OpcUaAttributeId::Value);
         let total_nodes = node_list.nodes().len() as u64;
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
@@ -604,7 +606,7 @@ impl OpcUaClient {
 
                     if !quiet_nodes.is_empty() {
                         let nodes = quiet_nodes.values().cloned().collect_vec();
-                        let batch = OpcUaNodeReadBatch::new(&nodes, ua::AttributeId::VALUE);
+                        let batch = OpcUaNodeReadBatch::new(&nodes, OpcUaAttributeId::Value);
 
                         let reads = match reader.read_nodes(&batch).await {
                             Ok(reads) => reads,
