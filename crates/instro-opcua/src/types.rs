@@ -531,7 +531,7 @@ impl From<&UA_AttributeId> for OpcUaAttributeId {
 impl From<OpcUaAttributeId> for ua::AttributeId {
     fn from(id: OpcUaAttributeId) -> Self {
         match id {
-            // SAFETY: this well-known enum value owns no resources.
+            // SAFETY: enum variant is well-known and all data is stack-bound, so no resources need to be released
             OpcUaAttributeId::Invalid => unsafe {
                 Self::from_raw(UA_AttributeId::UA_ATTRIBUTEID_INVALID)
             },
@@ -585,14 +585,24 @@ impl OpcUaNodeId {
         Self { namespace, kind }
     }
 
+    /// Creates the null node ID (`ns=0;i=0`).
+    pub const fn nulled() -> Self {
+        Self::numeric(0, 0)
+    }
+
     /// Creates a numeric node id.
     pub const fn numeric(namespace: u16, value: u32) -> Self {
         Self::new(namespace, NodeIdKind::Numeric(value))
     }
 
-    /// Creates a string node id.
+    /// Creates a string node ID from an owned [`String`].
     pub const fn string(namespace: u16, value: String) -> Self {
-        Self::new(namespace, NodeIdKind::String(value))
+        Self::new(namespace, NodeIdKind::String(Cow::Owned(value)))
+    }
+
+    /// Creates a string node ID from a borrowed string literal.
+    pub const fn str(namespace: u16, value: &'static str) -> Self {
+        Self::new(namespace, NodeIdKind::String(Cow::Borrowed(value)))
     }
 
     /// Creates a byte-string node id.
@@ -613,6 +623,62 @@ impl OpcUaNodeId {
     /// The node id variant.
     pub const fn kind(&self) -> &NodeIdKind {
         &self.kind
+    }
+
+    /// Determines if the node id represents a null value as defined by the OPC-UA specification.
+    pub const fn is_null(&self) -> bool {
+        self.namespace == 0 && matches!(self.kind, NodeIdKind::Numeric(0))
+    }
+
+    /// `true` if the node ID has a namespace index of 0 (i.e. the standardized UA namespace).
+    pub const fn is_ns0(&self) -> bool {
+        self.namespace == 0
+    }
+
+    /// Extracts the value of a numeric node ID, if it is one.
+    /// Returns `None` if the node ID is not a numeric node ID.
+    pub const fn as_numeric(&self) -> Option<(u16, u32)> {
+        if let NodeIdKind::Numeric(n) = self.kind {
+            Some((self.namespace, n))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a string node ID, if it is one.
+    /// Returns `None` if the node ID is not a string node ID.
+    pub const fn as_string(&self) -> Option<(u16, &str)> {
+        if let NodeIdKind::String(ref s) = self.kind {
+            Some((
+                self.namespace,
+                match s {
+                    Cow::Borrowed(s) => *s,
+                    Cow::Owned(s) => s.as_str(),
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of an opaque node ID, if it is one.
+    /// Returns `None` if the node ID is not a byte-string node ID.
+    pub const fn as_byte_string(&self) -> Option<(u16, &[u8])> {
+        if let NodeIdKind::ByteString(ref b) = self.kind {
+            Some((self.namespace, b.as_slice()))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a GUID node ID, if it is one.
+    /// Returns `None` if the node ID is not a GUID node ID.
+    pub const fn as_guid(&self) -> Option<(u16, Uuid)> {
+        if let NodeIdKind::Guid(g) = self.kind {
+            Some((self.namespace, g))
+        } else {
+            None
+        }
     }
 }
 
@@ -651,7 +717,7 @@ impl FromStr for OpcUaNodeId {
                     .with_context(|| format!("OpcUaNodeId '{s}': invalid numeric id '{num}'"))?,
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
-            NodeIdKind::String(string.to_owned())
+            NodeIdKind::String(Cow::Owned(string.to_string()))
         } else if let Some(guid) = rest.strip_prefix("g=") {
             let uuid = Uuid::from_str(guid)
                 .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
@@ -695,7 +761,7 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
         let (namespace, kind) = if let Some((ns, numeric)) = node_id.as_numeric() {
             (ns, NodeIdKind::Numeric(numeric))
         } else if let Some((ns, string)) = node_id.as_string() {
-            (ns, NodeIdKind::String(string.to_string()))
+            (ns, NodeIdKind::String(Cow::Owned(string.to_string())))
         } else if let Some((ns, binary)) = node_id.as_byte_string() {
             let bytes = binary
                 .as_bytes()
@@ -722,7 +788,7 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
 
 impl From<OpcUaNodeId> for NodeId {
     fn from(other: OpcUaNodeId) -> Self {
-        Self::from(&other)
+        ua::NodeId::from(&other)
     }
 }
 
@@ -740,7 +806,7 @@ impl From<&OpcUaNodeId> for NodeId {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeIdKind {
     Numeric(u32),
-    String(String),
+    String(Cow<'static, str>),
     ByteString(Vec<u8>),
     Guid(Uuid),
 }
@@ -761,6 +827,18 @@ impl QualifiedBrowseName {
             namespace_index,
             name,
         }
+    }
+}
+
+impl From<ua::QualifiedName> for QualifiedBrowseName {
+    fn from(q_name: ua::QualifiedName) -> Self {
+        Self::from(&q_name)
+    }
+}
+
+impl From<&ua::QualifiedName> for QualifiedBrowseName {
+    fn from(q_name: &ua::QualifiedName) -> Self {
+        Self::new(q_name.namespace_index(), q_name.name().to_string())
     }
 }
 
@@ -2133,6 +2211,7 @@ mod tests {
             "node_id": "ns=0;i=85",
             "browse_name": "Objects",
             "display_name": "Objects",
+            "type_definition": "ns=0;i=86",
             "node_class": "Object",
             "children": [],
         }))
@@ -2286,5 +2365,67 @@ mod tests {
 
         assert_eq!(data_point.source_timestamp, None);
         assert_eq!(data_point.server_timestamp, Some(100));
+    }
+
+    #[test]
+    fn null_node_id_has_expected_identity() {
+        let null_id = OpcUaNodeId::nulled();
+
+        assert!(null_id.is_null());
+        assert!(null_id.is_ns0());
+        assert_eq!(null_id.as_numeric(), Some((0, 0)));
+        assert_eq!(null_id.as_string(), None);
+        assert_eq!(null_id.as_byte_string(), None);
+        assert_eq!(null_id.as_guid(), None);
+    }
+
+    #[test]
+    fn numeric_node_id_is_extractable() {
+        let id = OpcUaNodeId::numeric(1, 2);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), Some((1, 2)));
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn string_node_id_is_extractable() {
+        let id = OpcUaNodeId::string(1, "test".into());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), Some((1, "test")));
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn bytestring_node_id_is_extractable() {
+        let bytes = vec![1u8, 2, 3];
+        let id = OpcUaNodeId::byte_string(1, bytes.clone());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), Some((1, bytes.as_slice())));
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn guid_node_id_is_extractable() {
+        let guid = Uuid::from_u128(12345678901234567890);
+        let id = OpcUaNodeId::guid(1, guid);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), Some((1, guid)));
     }
 }
