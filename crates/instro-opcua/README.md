@@ -38,10 +38,11 @@ fn main() -> anyhow::Result<()> {
 
     let runtime = tokio::runtime::Runtime::new()?;
     let nodes = runtime.block_on(nodes)?;
-    let batch = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
+    let node_ids: Vec<_> = nodes.into_iter().map(|node| node.node_id).collect();
+    let batch = OpcUaNodeReadBatch::new(node_ids, OpcUaAttributeId::Value);
     let samples = runtime.block_on(client.read_nodes(&batch))?;
 
-    println!("read {} samples", samples.len());
+    println!("read {} samples", samples.count());
     runtime.block_on(client.disconnect())
 }
 ```
