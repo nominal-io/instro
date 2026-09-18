@@ -148,7 +148,7 @@ impl Browse for OpcUaClient {
 
                 Some(OpcUaNode {
                     node_id,
-                    browse_name: reference.browse_name().to_string(),
+                    browse_name: reference.browse_name().name().to_string(),
                     node_class,
                     children: Vec::new(),
                     browse_path: BrowsePath::from_segment(reference.browse_name().into()),
