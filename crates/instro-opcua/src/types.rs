@@ -1258,19 +1258,6 @@ impl OpcUaMonitoredItemConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct OpcUaSample {
-    pub node_id: OpcUaNodeId,
-    #[serde(flatten)]
-    pub data: OpcUaDataPoint,
-}
-
-impl OpcUaSample {
-    pub fn new(node_id: OpcUaNodeId, data: OpcUaDataPoint) -> Self {
-        Self { node_id, data }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpcUaDataPoint {
     pub server_timestamp: Option<u64>,
     pub source_timestamp: Option<u64>,
