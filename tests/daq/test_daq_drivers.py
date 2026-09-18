@@ -10,6 +10,7 @@ import pytest
 
 from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
+from instro.daq.scaling import LinearScaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     DigitalLineChannel,
@@ -1073,6 +1074,24 @@ def test_read_analog_preserves_public_return_shape(timing: str, measurement_coun
 
     assert internal_result == measurements
     assert public_result == (measurements[0] if measurement_count == 1 else measurements)
+
+
+def test_read_analog_scales_per_channel_measurements():
+    """One Measurement per channel: scale the keys each one carries, not every configured channel."""
+    mock_driver = _make_mock_driver()
+    daq = InstroDAQ(name="ut", driver=mock_driver)
+    daq.open()
+    daq.configure_voltage_input(physical_channel="ai0", alias="scaled", scaler=LinearScaler(2.0, 0.0, "V"))
+    daq.configure_voltage_input(physical_channel="ai1", alias="plain")
+    mock_driver._read_to_measurements.return_value = [
+        Measurement(channel_data={"ut.scaled": [1.0, 2.0]}, timestamps=[1, 2]),
+        Measurement(channel_data={"ut.plain": [3.0]}, timestamps=[3]),
+    ]
+
+    scaled, plain = daq.read_analog()
+
+    assert scaled.channel_data == {"ut.scaled": [2.0, 4.0]}
+    assert plain.channel_data == {"ut.plain": [3.0]}
 
 
 def test_restart_registers_background_fetch_exactly_once():

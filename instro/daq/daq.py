@@ -1095,12 +1095,14 @@ class InstroDAQ(Instrument):
         return measurements
 
     def _scale_analog_measurement(self, measurements: list[Measurement]) -> list[Measurement]:
+        # Scale only the keys each Measurement carries: a driver may return one Measurement per channel.
+        ai_channels = self.ai_channels
         for measurement in measurements:
-            for ch_name, ch_config in self.ai_channels.items():
-                if ch_config.scaler:
-                    key = f"{self.name}.{ch_name}"
-                    raw_values = cast(list[float], measurement.channel_data[key])
-                    measurement.channel_data[key] = [ch_config.scaler.scale(val) for val in raw_values]
+            for key, raw_values in measurement.channel_data.items():
+                channel = ai_channels.get(key.removeprefix(f"{self.name}."))
+                scaler = channel.scaler if channel else None
+                if scaler:
+                    measurement.channel_data[key] = [scaler.scale(val) for val in cast(list[float], raw_values)]
         return measurements
 
     def read(self, channel: str, **kwargs) -> Measurement:
