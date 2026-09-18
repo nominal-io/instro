@@ -20,12 +20,10 @@ from instro.psu.drivers.ea_psb10000 import EAPSB10000Visa, EAPSB10000VisaSink, E
 
 RESOURCE = "TCPIP0::192.168.0.2::5025::SOCKET"
 
-# Canned replies keyed by the exact SCPI query. Measurements carry a unit suffix, OUTP? answers
-# ON/OFF, and the box sits in U/I/R so selecting a CC sink has to ask for the U/I/P set.
+# Canned replies keyed by the exact SCPI query. Measurements carry a unit suffix and OUTP? answers ON/OFF.
 _QUERY_RESPONSES = {
     "SYST:ERR?": '0,"No error"',
     "SYST:LOCK:OWN?": "REMOTE",
-    "SYST:CONF:MODE?": "UIR",
     "MEAS:VOLT?": "48.00V",
     "MEAS:CURR?": "-20.00A",
     "OUTP?": "ON",
@@ -177,11 +175,11 @@ def test_both_quadrants_drive_one_instrument_pair(dev: EAPSB10000Visa, resource)
     psu.set_voltage(48, channel=1)
     psu.set_current_limit(20, channel=1)
     psu.output_enable(True, channel=1)
-    eload.set_mode(LoadMode.CC)
-    eload.set_level(10)
+    eload.set_mode(LoadMode.CV)
+    eload.set_level(30, curr_limit=8)
 
     writes = _writes(inst)
-    for expected in ("VOLT 48.000", "CURR 20.000", "OUTP ON", "SYST:CONF:MODE UIP", "SINK:CURR 10.000"):
+    for expected in ("VOLT 48.000", "CURR 20.000", "OUTP ON", "VOLT 30.000", "SINK:CURR 8.000"):
         assert expected in writes
 
     psu.close()
@@ -290,75 +288,46 @@ def test_source_invalid_channel_raises_without_touching_the_wire(
 # --- sink quadrant: command mapping ---------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("mode", "current", "expected"),
-    [
-        (LoadMode.CC, "UIR", "SYST:CONF:MODE UIP"),
-        (LoadMode.CP, "UIR", "SYST:CONF:MODE UIP"),
-        (LoadMode.CR, "UIP", "SYST:CONF:MODE UIR"),
-    ],
-)
-def test_sink_set_mode_switches_the_operation_mode_when_the_set_value_needs_unlocking(
-    sink: EAPSB10000VisaSink, visa: MagicMock, mode: LoadMode, current: str, expected: str
-) -> None:
-    visa.query.side_effect = _replies(**{"SYST:CONF:MODE?": current})
-    sink.set_mode(mode, channel=1)
-    visa.write.assert_called_once_with(expected)
-
-
-@pytest.mark.parametrize(
-    ("mode", "current"),
-    [(LoadMode.CC, "UIP"), (LoadMode.CP, "U/I/P"), (LoadMode.CR, "UIR")],
-)
-def test_sink_set_mode_leaves_a_matching_operation_mode_alone(
-    sink: EAPSB10000VisaSink, visa: MagicMock, mode: LoadMode, current: str
-) -> None:
-    """This configuration is device-global, so the driver must not rewrite it when it already matches."""
-    visa.query.side_effect = _replies(**{"SYST:CONF:MODE?": current})
-    sink.set_mode(mode, channel=1)
+def test_sink_set_mode_cv_touches_nothing_on_the_wire(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:
+    sink.set_mode(LoadMode.CV, channel=1)
     visa.write.assert_not_called()
+    visa.query.assert_not_called()
 
 
 @pytest.mark.parametrize(
     ("method_name", "args", "kwargs"),
     [
-        ("set_mode", (LoadMode.CV,), {}),
-        ("set_level", (LoadMode.CV, 24.0), {"curr_limit": 15.0}),
+        ("set_mode", (LoadMode.CC,), {}),
+        ("set_mode", (LoadMode.CP,), {}),
+        ("set_mode", (LoadMode.CR,), {}),
+        ("set_level", (LoadMode.CC, 10.0), {"curr_limit": None}),
+        ("set_level", (LoadMode.CP, 500.0), {"curr_limit": None}),
+        ("set_level", (LoadMode.CR, 5.0), {"curr_limit": None}),
     ],
 )
-def test_sink_cv_is_unsupported_and_never_writes_the_shared_voltage_set_value(
+def test_sink_cc_cp_cr_are_unsupported_and_never_touch_the_wire(
     sink: EAPSB10000VisaSink,
     visa: MagicMock,
     method_name: str,
     args: tuple[object, ...],
     kwargs: dict[str, object],
 ) -> None:
-    """The PSB's sink quadrant has set values for current, power, and resistance only; VOLT belongs to the source."""
-    with pytest.raises(FeatureNotSupportedError, match="CV is not supported"):
+    with pytest.raises(FeatureNotSupportedError, match="is not supported"):
         getattr(sink, method_name)(*args, channel=1, **kwargs)
     visa.write.assert_not_called()
     visa.query.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    ("mode", "value", "expected"),
-    [
-        (LoadMode.CC, 10.0, "SINK:CURR 10.000"),
-        (LoadMode.CP, 500.0, "SINK:POW 500.000"),
-        (LoadMode.CR, 5.0, "SINK:RES 5.000"),
-    ],
-)
-def test_sink_set_level_writes_the_sink_setpoint(
-    sink: EAPSB10000VisaSink, visa: MagicMock, mode: LoadMode, value: float, expected: str
+def test_sink_set_level_writes_the_shared_voltage_set_value(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:
+    sink.set_level(LoadMode.CV, 24.0, channel=1, curr_limit=None)
+    visa.write.assert_called_once_with("VOLT 24.000")
+
+
+def test_sink_set_level_writes_curr_limit_as_the_sink_current_ceiling(
+    sink: EAPSB10000VisaSink, visa: MagicMock
 ) -> None:
-    sink.set_level(mode, value, channel=1, curr_limit=None)
-    visa.write.assert_called_once_with(expected)
-
-
-def test_sink_set_level_ignores_curr_limit_outside_cv(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:
-    """``curr_limit`` is CV-only per the contract, and CV is unsupported, so it never reaches the wire."""
-    sink.set_level(LoadMode.CC, 10.0, channel=1, curr_limit=15.0)
-    assert _writes(visa) == ["SINK:CURR 10.000"]
+    sink.set_level(LoadMode.CV, 24.0, channel=1, curr_limit=15.0)
+    assert _writes(visa) == ["VOLT 24.000", "SINK:CURR 15.000"]
 
 
 def test_sink_output_enable_writes_on_off_words(sink: EAPSB10000VisaSink, visa: MagicMock) -> None:
@@ -402,8 +371,8 @@ def test_sink_unsupported_methods_raise_without_touching_the_wire(
 @pytest.mark.parametrize(
     ("method_name", "args", "kwargs"),
     [
-        ("set_mode", (LoadMode.CC,), {}),
-        ("set_level", (LoadMode.CC, 10.0), {"curr_limit": None}),
+        ("set_mode", (LoadMode.CV,), {}),
+        ("set_level", (LoadMode.CV, 10.0), {"curr_limit": None}),
         ("output_enable", (True,), {}),
         ("get_voltage", (), {}),
         ("get_current", (), {}),

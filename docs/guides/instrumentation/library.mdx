@@ -3,56 +3,63 @@ title: Library
 description: The `Instrument`, `Measurement`, and `Command` building blocks
 ---
 
-<Tip>
-**Building a brand-new instrument type?** See [Custom Instruments](/instrumentation/custom-instruments) for the walkthrough.
-</Tip>
+[instrument-link]: https://nominal-io.github.io/instro/reference/instrument/#instro.lib.instrument.Instrument
+[measurement-link]: https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement
+[command-link]: https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command
+[publisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.publisher.Publisher
+[filepublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.files.FilePublisher
+[nominalcorepublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.nominal_core.NominalCorePublisher
+[nominalconnectpublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.nominal_connect.NominalConnectPublisher
 
-# Library
+This page gives a conceptual overview of how `instro`  is structured.
+
 
 ## Instrument
-`Instrument` is the base class for all instrument types. Its responsibilities include:
-* Handling background daemons for synchronous instrument communication.
-* Holds the `publisher`s an instrument will use.
+[`Instrument`][instrument-link] is the base class for [all instrument types](/instrumentation/supported-instruments). Its responsibilities include:
 * Creates and holds the communication interface for the instrument.
+* Publishing `Measurements and Commands` to any attached `Publishers`.
+* Handling background daemons for synchronous instrument communication.
 
-When creating a custom instrument type, you must subclass `Instrument`.
+```py
+from instro.lib import Instrument
+Instrument(
+    name: str,
+    publishers: list[Publisher] | None = None,
+    background_config: BackgroundDaemonConfig | None = None,
+    legacy_naming: bool = False,
+    **kwargs,
+)
+```
+User defined [custom instruments](/instrumentation/custom-instruments) should subclass [`Instrument`][instrument-link]
+
 
 ## Measurements and Commands
-Within an `Instrument`, data is packaged into `Measurement` and `Command` objects when data is read from or sent to an instrument, respectively.
+When controlling an [`Instrument`][instrument-link] gets and sets  return   [`Measurement`][measurement-link] and [`Command`][command-link] objects.
 
-The rationale for this is:
-1. Consistency regardless of instrument type or vendor.
-2. Interoperability of publishers across instrument types.
-3. Better integration with the Nominal ecosystem by enforcing that certain data, like timestamps, is always present.
 
-`Measurement` and `Command` are defined in `instro.lib.types` and re-exported from `instro.lib`, so either import path works: `from instro.lib import Measurement, Command` or `from instro.lib.types import Measurement, Command`.
+* A [`Measurement`][measurement-link] is created when **reading data** from an instrument.
 
-### Measurement
-A `Measurement` object should be created when reading data from an instrument.
 ```py
-@dataclass
-class Measurement:
-    """Data structure to hold measurement data. All channels have a common timebase."""
+from instro.lib import Measurement
+Measurement(
+    channel_data: dict[str, list[float] | list[str]],
+    timestamps: list[int],
+    tags: dict[str, str] | None = None,
+)
+```
+* A [`Command`][command-link] is created when **writing commands** to an instrument.
 
-    channel_data: dict[str, list[float] | list[str]]
-    timestamps: list[int]
-    tags: dict[str, str] | None = None
+
+```py
+from instro.lib import Command
+Command(
+    channel_data: dict[str, float | str],
+    timestamp: int,
+    tags: dict[str, str] | None = None,
+)
 ```
 
-### Command
-A `Command` object should be created when telling an instrument to do something.
-```py
-@dataclass
-class Command:
-    """Data structure to hold command data."""
-
-    # Same as Measurement, but with a single datapoint per channel
-    channel_data: dict[str, float | str]
-    timestamp: int
-    tags: dict[str, str] | None = None
-```
-
-Unlike `Measurement`, a `Command` carries a single datapoint per channel (`float | str`, not `list[float]`) and a single `timestamp`. The `str` option covers categorical commands whose value is not numeric: mode names and relay states such as `OPEN` / `CLOSED`. A categorical *read* (a mode name or state reported back from the instrument) is a string-valued `Measurement`, not a `Command`: writes are always `Command` and always publish to a `.cmd` channel; reads are always `Measurement`, whatever the value's type, and never publish to a `.cmd` channel.
+Unlike [`Measurement`][measurement-link], a [`Command`][command-link] carries a single datapoint per channel (`float | str`, not `list[float]`) and a single `timestamp`. The `str` option covers categorical commands whose value is not numeric: mode names and relay states such as `OPEN` / `CLOSED`. A categorical *read* (a mode name or state reported back from the instrument) is a string-valued [`Measurement`][measurement-link], not a [`Command`][command-link]: writes are always [`Command`][command-link] and always publish to a `.cmd` channel; reads are always [`Measurement`][measurement-link], whatever the value's type, and never publish to a `.cmd` channel.
 
 ### Parameters
 
@@ -70,7 +77,15 @@ Unlike `Measurement`, a `Command` carries a single datapoint per channel (`float
 - **`tags: dict[str, str] | None`**
   Optional metadata associated with this measurement acquisition. Common tags include test IDs, operator name, or environmental qualifiers. Useful for search, provenance, and analysis.
 
-# Backwards-compatible channel naming (`legacy_naming`)
+## High Level Architecture
+
+1. **Instrument Types / HALs**: Distinct classes for each type of instrument (e.g., DAQ, PSU, ELoad, I2C), each providing an opinionated and unified usage model. This design exposes a tailored interface that reflects typical usage patterns, making common workflows consistent across different vendors and models.
+2. **Drivers**: Vendor- or model-specific drivers that handle low-level communication intricacies. HALs rely on these drivers to implement vendor- or model-specific details within the context of their higher level usage model.
+3. **Publishers**: Components responsible for recording or transmitting instrument data and commands. For example, streaming measurement data to a dataset. Instruments own attached publishers and close them during teardown.
+
+<img src="/images/diagram_architecture.png" />
+
+## Backwards-compatible channel naming (`legacy_naming`)
 
 Every category instrument accepts a `legacy_naming: bool = False` keyword at construction. When set to `True`, the instrument publishes channels under their pre-v1.0 names.
 

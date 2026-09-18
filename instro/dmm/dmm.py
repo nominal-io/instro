@@ -285,9 +285,13 @@ class InstroDMM(Instrument):
     def close(self) -> None:
         """Close the underlying driver and stop the daemon."""
         logger.info("Closing DMM '%s'", self.name)
-        super().close()
-        self._driver.close()
+        # Reset before teardown: a failing publisher close must not strand the flag,
+        # or a later reopen would silently skip re-applying the configured measurement state.
         self._measurement_config_applied = False
+        try:
+            super().close()
+        finally:
+            self._driver.close()
         logger.info("Closed DMM '%s'", self.name)
 
     @publish_command

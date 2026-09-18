@@ -91,11 +91,16 @@ class Instrument:
             name: Channel-name prefix for published data.
             publishers: Publishers that receive emitted Measurement/Command data.
             background_config: Background-daemon settings; default if omitted.
-            legacy_naming: When True, publish channels under pre-v1.0 names (e.g.
-                ``main.ch1_v`` instead of ``main.ch1.voltage`` for PSU). Categories
-                with no v1.0 rename (DMM, Modbus) ignore the flag. Scheduled for
+            legacy_naming: When True, publish channels under their pre-v1.0 names
+                (e.g. ``main.ch1_v`` instead of ``main.ch1.voltage`` for PSU) for
+                dashboards or recorded datasets keyed on those names. The setting is
+                all-or-nothing per instrument. PSU, ELoad, I2C, InstroScope, and DAQ
+                digital channels honor the flag; the categories with no v1.0 rename
+                (DMM, Modbus, DAQ analog and relay channels) ignore it. Scheduled for
                 removal in v2.0.
-            **kwargs: Default tags applied to every emitted Measurement/Command.
+            **kwargs: Default tags applied to every emitted
+                [`Measurement`][instro.lib.types.Measurement] or
+                [`Command`][instro.lib.types.Command].
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """

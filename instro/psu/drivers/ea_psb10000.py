@@ -21,12 +21,6 @@ logger = logging.getLogger(__name__)
 
 FRIENDLY_NAME = "EA PSB 10000-series"
 
-_SINK_CMD: dict[LoadMode, str] = {
-    LoadMode.CC: "SINK:CURR",
-    LoadMode.CP: "SINK:POW",
-    LoadMode.CR: "SINK:RES",
-}
-
 
 class EAPSB10000Visa:
     """One PSB 10000: owns the VISA session, the remote lock, the error queue, and the operation mode.
@@ -99,6 +93,10 @@ class EAPSB10000Visa:
         """Enable or disable the DC terminal. One terminal, so both quadrants drive this."""
         self._write_checked("OUTP ON" if enable else "OUTP OFF")
 
+    def _set_voltage(self, value: float) -> None:
+        """Terminal voltage set value. One shared register, so both quadrants drive it; last write wins."""
+        self._write_checked(f"VOLT {value:.3f}")
+
     def _get_voltage(self) -> float:
         """Measured terminal voltage. One meter, and voltage has no per-quadrant sign."""
         return _strip_unit(self._query_checked("MEAS:VOLT?"))
@@ -106,15 +104,6 @@ class EAPSB10000Visa:
     def _get_current_raw(self) -> float:
         """Measured current as the device reports it: positive sourcing, negative sinking (REV 24 §5.4.4.2)."""
         return _strip_unit(self._query_checked("MEAS:CURR?"))
-
-    def _use_resistance_set(self, enabled: bool) -> None:
-        """Choose resistance or power as the third regulated quantity. Device-global, so write it only on a change."""
-        wanted = "UIR" if enabled else "UIP"
-        with self._visa.lock():
-            current = self._query_checked("SYST:CONF:MODE?").strip().upper().replace("/", "")
-            if current == wanted:
-                return
-            self._write_checked(f"SYST:CONF:MODE {wanted}")
 
     # --- I/O ---
 
@@ -150,7 +139,7 @@ class EAPSB10000VisaSource(PSUDriverBase):
 
     def set_voltage(self, voltage: float, channel: int) -> None:
         _check_channel(channel)
-        self._device._write_checked(f"VOLT {voltage:.3f}")
+        self._device._set_voltage(voltage)
 
     def get_voltage(self, channel: int) -> float:
         _check_channel(channel)
@@ -227,7 +216,7 @@ class EAPSB10000VisaSource(PSUDriverBase):
 
 
 class EAPSB10000VisaSink(ELoadDriverBase):
-    """Sink quadrant of a ``EAPSB10000Visa``. Supports CC, CP, and CR; the PSB has no sink voltage set value."""
+    """Sink quadrant of a ``EAPSB10000Visa``. Only CV is supported."""
 
     def __init__(self, device: EAPSB10000Visa) -> None:
         self._device = device
@@ -239,16 +228,16 @@ class EAPSB10000VisaSink(ELoadDriverBase):
         self._device._release(self)
 
     def set_mode(self, mode: LoadMode, channel: int) -> None:
-        """CR is the only mode needing a device change: it swaps resistance in for power as the third set value."""
         _check_channel(channel)
         _check_mode(mode)
-        self._device._use_resistance_set(mode is LoadMode.CR)
 
     def set_level(self, mode: LoadMode, value: float, channel: int, curr_limit: float | None) -> None:
-        """Write the sink set value for ``mode`` (CC: A, CP: W, CR: Ω). ``curr_limit`` is unused: CV is unsupported."""
+        """Overwrites the source quadrant's voltage set value; ``curr_limit``, if given, becomes the SINK:CURR ceiling."""
         _check_channel(channel)
         _check_mode(mode)
-        self._device._write_checked(f"{_SINK_CMD[mode]} {value:.3f}")
+        self._device._set_voltage(value)
+        if curr_limit is not None:
+            self._device._write_checked(f"SINK:CURR {curr_limit:.3f}")
 
     def output_enable(self, enable: bool, channel: int) -> None:
         """Drives the shared DC terminal, the same one the source quadrant controls."""
@@ -265,9 +254,7 @@ class EAPSB10000VisaSink(ELoadDriverBase):
         return -self._device._get_current_raw()
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
-        raise FeatureNotSupportedError(
-            f"set_range is not supported by the {FRIENDLY_NAME}: ranges follow the set value automatically"
-        )
+        raise FeatureNotSupportedError(f"set_range is not supported by the {FRIENDLY_NAME}")
 
     def set_slewrate(self, direction: SlewRateDirection, rate: float, channel: int) -> None:
         raise FeatureNotSupportedError(f"set_slewrate is not supported by the {FRIENDLY_NAME}")
@@ -282,11 +269,11 @@ def _strip_unit(value: str) -> float:
 
 
 def _check_mode(mode: LoadMode) -> None:
-    """Reject CV: the PSB's sink quadrant has set values for current, power, and resistance only."""
-    if mode is LoadMode.CV:
+    """Only CV reflects real hardware behavior: the box has one CV loop, not independent CC/CP/CR modes."""
+    if mode is not LoadMode.CV:
         raise FeatureNotSupportedError(
-            f"CV is not supported by the {FRIENDLY_NAME}: the sink quadrant has no voltage set value. "
-            "Hold the terminals at a voltage through the PSU interface instead."
+            f"{mode.value} is not supported by the {FRIENDLY_NAME} sink quadrant: there is no selectable "
+            "CC/CP/CR mode, only CV through the shared voltage regulation loop."
         )
 
 
