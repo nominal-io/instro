@@ -346,17 +346,17 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         immediate_names,
         vec![
             (
-                "2:Flow".to_owned(),
+                "Flow".to_owned(),
                 OpcUaNodeClass::Variable,
                 "/2:Flow".to_owned()
             ),
             (
-                "2:Inner".to_owned(),
+                "Inner".to_owned(),
                 OpcUaNodeClass::Object,
                 "/2:Inner".to_owned()
             ),
             (
-                "2:Temperature".to_owned(),
+                "Temperature".to_owned(),
                 OpcUaNodeClass::Variable,
                 "/2:Temperature".to_owned()
             ),
@@ -366,7 +366,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let tree = client.as_ref().browse_all(sensors_id.clone(), None).await?;
     let temperature = tree
         .iter()
-        .find(|node| node.browse_name == "2:Temperature")
+        .find(|node| node.browse_name == "Temperature")
         .context("browse_all omitted Temperature")?;
 
     assert_eq!(temperature.node_class, OpcUaNodeClass::Variable);
@@ -378,7 +378,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
 
     let flow = tree
         .iter()
-        .find(|node| node.browse_name == "2:Flow")
+        .find(|node| node.browse_name == "Flow")
         .context("browse_all omitted Flow")?;
 
     assert_eq!(flow.node_class, OpcUaNodeClass::Variable);
@@ -397,7 +397,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
 
     let inner = tree
         .iter()
-        .find(|node| node.browse_name == "2:Inner")
+        .find(|node| node.browse_name == "Inner")
         .context("browse_all omitted Inner folder")?;
     assert_eq!(inner.node_class, OpcUaNodeClass::Object);
     assert_eq!(inner.browse_path.to_string(), "/2:Inner");
@@ -405,7 +405,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let pressure = inner
         .children
         .iter()
-        .find(|node| node.browse_name == "2:Pressure")
+        .find(|node| node.browse_name == "Pressure")
         .context("browse_all omitted nested Pressure node")?;
     assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
     assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
@@ -413,7 +413,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let status = inner
         .children
         .iter()
-        .find(|node| node.browse_name == "2:Status")
+        .find(|node| node.browse_name == "Status")
         .context("browse_all omitted nested Status node")?;
     assert_eq!(status.node_class, OpcUaNodeClass::Variable);
     assert_eq!(status.browse_path.to_string(), "/2:Inner/2:Status");
