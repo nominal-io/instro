@@ -86,8 +86,7 @@ fn monitored_item_config() -> OpcUaMonitoredItemConfig {
 
 fn assert_timestamps_present(samples: &[(OpcUaNodeId, OpcUaDataPoint)]) {
     for (_, sample) in samples {
-        let timestamp = sample.server_timestamp
-            .or(sample.source_timestamp);
+        let timestamp = sample.server_timestamp.or(sample.source_timestamp);
 
         assert!(
             matches!(timestamp, Some(timestamp) if timestamp > 0),
@@ -96,7 +95,10 @@ fn assert_timestamps_present(samples: &[(OpcUaNodeId, OpcUaDataPoint)]) {
     }
 }
 
-fn sample_value<'a>(samples: &'a [(OpcUaNodeId, OpcUaDataPoint)], node_id: &OpcUaNodeId) -> Option<&'a OpcUaValue> {
+fn sample_value<'a>(
+    samples: &'a [(OpcUaNodeId, OpcUaDataPoint)],
+    node_id: &OpcUaNodeId,
+) -> Option<&'a OpcUaValue> {
     samples
         .iter()
         .rev()
@@ -104,7 +106,11 @@ fn sample_value<'a>(samples: &'a [(OpcUaNodeId, OpcUaDataPoint)], node_id: &OpcU
         .map(|(_, sample)| &sample.value)
 }
 
-fn has_value(samples: &[(OpcUaNodeId, OpcUaDataPoint)], node_id: &OpcUaNodeId, expected: &OpcUaValue) -> bool {
+fn has_value(
+    samples: &[(OpcUaNodeId, OpcUaDataPoint)],
+    node_id: &OpcUaNodeId,
+    expected: &OpcUaValue,
+) -> bool {
     sample_value(samples, node_id).is_some_and(|actual| actual == expected)
 }
 
@@ -155,10 +161,7 @@ async fn count_samples_for(
         let remaining = deadline.saturating_duration_since(now);
         match tokio::time::timeout(remaining, rx.recv()).await {
             Ok(Some(samples)) => {
-                count += samples
-                    .iter()
-                    .filter(|(nid, _)| nid == node_id)
-                    .count();
+                count += samples.iter().filter(|(nid, _)| nid == node_id).count();
             }
 
             // Channel closed or the window elapsed: stop counting.
@@ -239,22 +242,38 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
 
     let client = connect_client(&server)?;
 
-    let samples = client.read_nodes(&batch).await?.map(|((nid, _), sample)| (nid.clone(), sample)).collect_vec();
+    let samples = client
+        .read_nodes(&batch)
+        .await?
+        .map(|((nid, _), sample)| (nid.clone(), sample))
+        .collect_vec();
     assert_eq!(samples.len(), 5);
     assert_timestamps_present(&samples);
 
     let mut samples = samples.into_iter();
 
-    fn assert_next((nid, sample): (OpcUaNodeId, OpcUaDataPoint), expect_id: OpcUaNodeId, expect_value: OpcUaValue) {
+    fn assert_next(
+        (nid, sample): (OpcUaNodeId, OpcUaDataPoint),
+        expect_id: OpcUaNodeId,
+        expect_value: OpcUaValue,
+    ) {
         assert_eq!(nid, expect_id);
         assert_eq!(sample.value, expect_value);
     }
 
-    assert_next(samples.next().unwrap(), pressure, OpcUaValue::UInt32(101_325));
+    assert_next(
+        samples.next().unwrap(),
+        pressure,
+        OpcUaValue::UInt32(101_325),
+    );
     assert_next(samples.next().unwrap(), flow, OpcUaValue::Float(12.5));
     assert_next(samples.next().unwrap(), status, OpcUaValue::Int16(-7));
     assert_next(samples.next().unwrap(), healthy, OpcUaValue::Boolean(true));
-    assert_next(samples.next().unwrap(), temperature, OpcUaValue::Double(72.5));
+    assert_next(
+        samples.next().unwrap(),
+        temperature,
+        OpcUaValue::Double(72.5),
+    );
 
     assert!(samples.next().is_none(), "read returned too many samples");
 

@@ -301,7 +301,10 @@ impl OpcUaClient {
     pub async fn read_nodes<'nodes, 'attrs, 'batch>(
         &self,
         node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)> + use<'nodes, 'attrs, 'batch>> {
+    ) -> Result<
+        impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>
+        + use<'nodes, 'attrs, 'batch>,
+    > {
         let read_result = self
             .read_many_attributes(node_list.pairs())
             .await
@@ -323,21 +326,22 @@ impl OpcUaClient {
         Ok(keys
             .zip(read_result)
             .enumerate()
-            .filter_map(|(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
-                Err(e) => {
-                    tracing::warn!(
-                        target: "opcua::client",
-                        error = ?e,
-                        node_index = i,
-                        "discarding data due to error decoding value for node"
-                    );
+            .filter_map(
+                |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "opcua::client",
+                            error = ?e,
+                            node_index = i,
+                            "discarding data due to error decoding value for node"
+                        );
 
-                    None
-                }
+                        None
+                    }
 
-                Ok(value) => Some(((node, attr), value)),
-            })
-        )
+                    Ok(value) => Some(((node, attr), value)),
+                },
+            ))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
@@ -504,7 +508,9 @@ impl OpcUaClient {
 
             let (outcome, samples) = match read_result {
                 Ok(values) => {
-                    let values = values.map(|((id, _), value)| (id.clone(), value)).collect_vec();
+                    let values = values
+                        .map(|((id, _), value)| (id.clone(), value))
+                        .collect_vec();
                     let successful_reads = values.len() as u64;
                     let failed_reads = total_nodes.saturating_sub(successful_reads);
 
@@ -659,7 +665,10 @@ impl OpcUaClient {
 
 /// Takes removed polled sample and returns it if the subscription data is newer.
 /// Otherwise, the polled sample is forgotten and this function returns `None`.
-fn polled_sample_filter(polled: OpcUaDataPoint, sub_data: &OpcUaDataPoint) -> Option<OpcUaDataPoint> {
+fn polled_sample_filter(
+    polled: OpcUaDataPoint,
+    sub_data: &OpcUaDataPoint,
+) -> Option<OpcUaDataPoint> {
     if let Some(poll_src_ts) = polled.source_timestamp
         && let Some(sub_src_ts) = sub_data.source_timestamp
         && poll_src_ts < sub_src_ts
@@ -708,7 +717,8 @@ impl NodeReader for ClientNodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>> {
+    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>>
+    {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
@@ -1089,7 +1099,8 @@ mod subscription_loop_tests {
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>> {
+        ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>>
+        {
             let samples = {
                 let mut state = self
                     .state
@@ -1199,7 +1210,9 @@ mod subscription_loop_tests {
     }
 
     /// Synchronously drains whatever batches remain after the loop has terminated.
-    fn drain_batches(rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>) -> Vec<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
+    fn drain_batches(
+        rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
+    ) -> Vec<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
         let mut batches = Vec::new();
 
         while let Ok(batch) = rx.try_recv() {
@@ -1258,7 +1271,8 @@ mod subscription_loop_tests {
         let timestamps = samples
             .iter()
             .map(|(_, sample)| {
-                sample.server_timestamp
+                sample
+                    .server_timestamp
                     .expect("server timestamp should be present")
             })
             .collect::<Vec<_>>();
@@ -1573,13 +1587,18 @@ mod subscription_loop_tests {
 
         let samples = batches.into_iter().flatten().collect::<Vec<_>>();
 
-        let static_count = samples.iter().filter(|(node_id, _)| node_id == &x.node_id).count();
+        let static_count = samples
+            .iter()
+            .filter(|(node_id, _)| node_id == &x.node_id)
+            .count();
         let active_timestamps = samples
             .iter()
-            .filter_map(|(node_id, sample)| if node_id == &y.node_id {
-                Some(sample.server_timestamp)
-            } else {
-                None
+            .filter_map(|(node_id, sample)| {
+                if node_id == &y.node_id {
+                    Some(sample.server_timestamp)
+                } else {
+                    None
+                }
             })
             .collect::<HashSet<_>>();
 
