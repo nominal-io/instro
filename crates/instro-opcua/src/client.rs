@@ -693,7 +693,7 @@ fn polled_sample_filter(
 // The returned future is intentionally not `Send`-bound: the subscription loop runs on a
 // single-threaded session runtime, so no work crosses threads after the timer/read seams.
 #[allow(async_fn_in_trait)]
-pub(crate) trait NodeReader: 'static {
+pub(crate) trait NodeReader {
     /// Returns `false` once the backing client has been dropped, signalling the loop to stop.
     fn is_alive(&self) -> bool;
 
