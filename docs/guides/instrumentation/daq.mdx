@@ -118,9 +118,9 @@ daq = InstroDAQ(
 )
 
 # DewesoftX (unstable: attaches to the DewesoftX instance running on this Windows PC)
-from instro.unstable.daq.drivers import DewesoftXDriver
+from instro.unstable.daq.drivers import DewesoftX
 
-daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftXDriver())
+daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftX())
 ```
 
 ## Configuring Channels
@@ -362,14 +362,24 @@ daq.configure_voltage_input("1", alias="ch1", terminal_config=TerminalConfig.DIF
 
 <Warning>This driver is currently available only in the Unstable package.</Warning>
 
-`DewesoftXDriver` streams live channels from a DewesoftX instance running on the same Windows PC. DewesoftX owns the channel setup, the scaling, and the sample clock, so the driver binds existing channels instead of configuring hardware:
+The `DewesoftX` driver streams live channels from a DewesoftX instance running on the same Windows PC. DewesoftX owns the channel setup, the scaling, and the sample clock, so the driver binds existing channels instead of configuring hardware:
 
-- `configure_voltage_input`, `configure_current_input`, and `configure_thermocouple_input` all bind the DewesoftX channel named by `physical_channel`. The channel must be set to **Used** in DewesoftX. Range, terminal, and thermocouple settings are ignored. A `scaler` still applies.
-- `configure_ai_hw_sample_rate` keeps `samples_per_channel` but replaces `sample_rate` with the DewesoftX sample rate. `get_actual_sample_rate()` returns that rate.
+- `configure_voltage_input`, `configure_current_input`, and `configure_thermocouple_input` all bind the DewesoftX channel named by `physical_channel`. The channel must be set to **Used** in DewesoftX. Range, terminal, and thermocouple settings are ignored.
+- Scalers are not supported for configured channels for `DewesoftX` backed `InstroDAQ`s.
+- `configure_ai_hw_sample_rate` requires `sample_rate` to be the rate the DewesoftX setup already runs at, and raises `HWTimingException` for any other value, naming the rate to pass. `get_actual_sample_rate()` returns the rate once timing is configured.
+- Change the rate in the DewesoftX setup, not through `instro`.
 - Synchronous channels are timestamped from the DewesoftX store start time and the sample count. Asynchronous channels (for example CAN signals) keep their own per-sample timestamps.
 - Samples can only be read when a DewesoftX storing session is in progress. `start()` attaches to the running storing session. `start(start_storing_session=True)` starts one, and `stop(stop_storing_session=True)` ends it. Pass `dxd_name` to the driver to name the data file DewesoftX stored to during the storing session.
 
 Analog outputs and digital channels are not supported.
+
+<Note>
+**Configure hardware timing, not software timing**
+
+`configure_ai_sw_sample_rate()` is not supported by this driver. Call `configure_ai_hw_sample_rate()` instead.
+
+Hardware timing here means DewesoftX owns the sample clock, not that `instro` reads the acquisition hardware. Every sample still arrives from the running DewesoftX software.
+</Note>
 
 ### Hardware-Timed Sample Rate
 

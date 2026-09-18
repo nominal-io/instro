@@ -6,8 +6,9 @@ own storing session through the driver and stops it at the end: samples only flo
 while DewesoftX is storing. The tests exercise the functionality the
 DewesoftX driver exposes: attaching over DCOM, binding used channels as voltage,
 current, and thermocouple inputs, hardware-timed reads (background and
-non-background), software-timed reads, DewesoftX-owned sample-rate reporting,
-and buffer-depth telemetry. All DewesoftX access goes through the driver;
+non-background), DewesoftX-owned sample-rate reporting, buffer-depth
+telemetry, and reading again after a close and reopen. The driver does not support software timing, so nothing here calls
+configure_ai_sw_sample_rate(). All DewesoftX access goes through the driver;
 nothing in this file talks DCOM directly.
 
 DewesoftX owns all channel setup, scaling, and the sample clock, so there is no
@@ -21,15 +22,15 @@ DEWESOFTX SETUP
 
   No hardware needed. In DewesoftX:
     1. Settings > Hardware setup > Devices: set the device to Offline.
-    2. Ch. setup > Analog in: add two simulated channels, set both to Used.
-    3. For the async test: Ch. setup > Math > Add math > Latch value math -> Select AI 1 as the Criteria Channel.
+    2. Ch. setup > Analog in: add two simulated channels, set both to Used (named AI 1 and AI 2 by default).
+    3. Set Dynamic acquisition rate to 5000
+    4. For the async test: Ch. setup > Math > Add math > Latch value math -> Select AI 1 as the Criteria Channel.
     A latch emits only on trigger events, so its output is an asynchronous channel.
-    4. Switch to Measure mode. Each test starts and stops its own storing session.
 
   Then set SYNC_CHANNEL / SYNC_CHANNEL_2 below to those two channel names
   (the defaults match DewesoftX's "AI 1" and "AI 2"), and ASYNC_CHANNEL to the
-  latch channel's name. ASYNC_CHANNEL and EXPECTED_SAMPLE_RATE_HZ are optional;
-  None skips their checks.
+  latch channel's name, and SAMPLE_RATE_HZ to the rate the setup runs at.
+  ASYNC_CHANNEL is optional; None skips the async test.
 
 ============================================================================
 RUNNING
@@ -47,11 +48,11 @@ import pytest
 
 pytest.importorskip("win32com")
 
-from instro.daq import InstroDAQ  # noqa: E402
+from instro.daq import HWTimingException, InstroDAQ  # noqa: E402
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT  # noqa: E402
 from instro.daq.types import Logic  # noqa: E402
 from instro.lib.types import Measurement  # noqa: E402
-from instro.unstable.daq.drivers import DewesoftXDriver  # noqa: E402
+from instro.unstable.daq.drivers import DewesoftX  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
@@ -66,13 +67,9 @@ SYNC_CHANNEL_2, SYNC_ALIAS_2 = "AI 2", "sync_2"
 ASYNC_CHANNEL: str | None = "AI 1/Latch"
 ASYNC_ALIAS = "async_1"
 
-# The sample rate shown in the DewesoftX setup; None skips the exact check in test_06.
-EXPECTED_SAMPLE_RATE_HZ: float | None = None
-
-# Deliberately not a DewesoftX rate: the driver must replace it with the DewesoftX sample rate.
-REQUESTED_SAMPLE_RATE_HZ = 12345.0
+# Must equal the sample rate shown in the DewesoftX setup; the driver rejects any other value.
+SAMPLE_RATE_HZ = 5000.0
 SAMPLES_PER_CHANNEL = 100
-SW_SAMPLE_RATE_HZ = 2.0
 
 # How long to wait for samples to arrive.
 DATA_TIMEOUT_S = 10.0
@@ -104,9 +101,10 @@ class TestDewesoftXHardware(unittest.TestCase):
         """Create and open a DAQ, then start its own storing session; reads stay empty until DewesoftX stores."""
         # Timestamped: DewesoftX opens a modal overwrite prompt when the data file exists, which blocks every DCOM call.
         dxd_name = f"instro_{self._testMethodName}_{time.strftime('%Y%m%d_%H%M%S')}.dxd"
-        daq = InstroDAQ(name=NAME, driver=DewesoftXDriver(dxd_name=dxd_name))
+        daq = InstroDAQ(name=NAME, driver=DewesoftX(dxd_name=dxd_name))
         daq.open()
-        # Call the driver, not the HAL: InstroDAQ.start() skips driver.start() when software timing is configured.
+        # Start the session through the driver, before any channel binds: cursors seed on the live session's
+        # anchor, and the tests that never call the HAL's start() still need samples flowing.
         daq.driver.start(start_storing_session=True)
         return daq
 
@@ -139,7 +137,7 @@ class TestDewesoftXHardware(unittest.TestCase):
             for physical, alias in channels.items():
                 daq.configure_voltage_input(physical, alias=alias)
             self.assertEqual(set(daq.ai_channels), set(channels.values()))
-            daq.configure_ai_hw_sample_rate(REQUESTED_SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
             print(
                 f"         DewesoftX sample rate = {daq.get_actual_sample_rate()} Hz, bound {len(channels)} channel(s)"
             )
@@ -176,7 +174,7 @@ class TestDewesoftXHardware(unittest.TestCase):
             # Binding seeds the read cursor at "now": every sample fetched below dates from after this point.
             daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
             bound_ns = time.time_ns()
-            daq.configure_ai_hw_sample_rate(REQUESTED_SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
             daq.start(background=False)
             try:
                 rate = daq.get_actual_sample_rate()
@@ -216,7 +214,7 @@ class TestDewesoftXHardware(unittest.TestCase):
         try:
             daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
             daq.configure_voltage_input(SYNC_CHANNEL_2, alias=SYNC_ALIAS_2)
-            daq.configure_ai_hw_sample_rate(REQUESTED_SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
             daq.start()
             try:
                 for alias in (SYNC_ALIAS, SYNC_ALIAS_2):
@@ -234,52 +232,35 @@ class TestDewesoftXHardware(unittest.TestCase):
             self._release_daq(daq)
 
     # =====================================================================
-    # 5. SW-timed analog read with background daemon
+    # 5. The requested sample rate has to be DewesoftX's own
     # =====================================================================
-    def test_05_sw_timed_read_background(self):
-        """Poll the driver at a software rate; each poll drains whatever the session produced since the last."""
-        daq = self._create_daq()
-        try:
-            daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
-            daq.configure_ai_sw_sample_rate(SW_SAMPLE_RATE_HZ)
-            daq.start()
-            try:
-                ch = daq.get_channel(SYNC_ALIAS, 1, wait_for_new_samples=True, timeout=DATA_TIMEOUT_S)
-                self.assertTrue(ch.values and math.isfinite(ch.latest), f"non-finite SW-timed read: {ch.values}")
-                print(f"         {SYNC_ALIAS} (sw-timed) latest = {ch.latest}")
-            finally:
-                daq.stop()
-        finally:
-            self._release_daq(daq)
-
-    # =====================================================================
-    # 6. Actual sample rate comes from DewesoftX
-    # =====================================================================
-    def test_06_actual_sample_rate(self):
-        """The driver reports the DewesoftX sample rate, not the requested one, as soon as timing is configured."""
+    def test_05_sample_rate_must_match_dewesoftx(self):
+        """A rate DewesoftX is not running is rejected; the matching rate is accepted and reported back."""
         daq = self._create_daq()
         try:
             daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
             self.assertIsNone(daq.get_actual_sample_rate())
-            daq.configure_ai_hw_sample_rate(REQUESTED_SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
-            actual = daq.get_actual_sample_rate()
-            print(f"         actual sample rate = {actual} Hz (requested {REQUESTED_SAMPLE_RATE_HZ} Hz)")
-            self.assertIsNotNone(actual)
-            self.assertGreater(actual, 0)
-            self.assertNotEqual(actual, REQUESTED_SAMPLE_RATE_HZ)
-            if EXPECTED_SAMPLE_RATE_HZ is not None:
-                self.assertEqual(actual, EXPECTED_SAMPLE_RATE_HZ)
+
+            # InstroDAQ derives the batch size and the channel buffer from the requested rate, so a
+            # mismatch has to raise rather than be silently corrected.
+            with self.assertRaises(HWTimingException) as caught:
+                daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ + 1, samples_per_channel=SAMPLES_PER_CHANNEL)
+            print(f"         rejected mismatch: {caught.exception}")
+            self.assertIsNone(daq.get_actual_sample_rate())
+
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
             timing = daq.ai_hw_timing_config
-            self.assertEqual(timing.sample_rate, actual)
-            self.assertEqual(timing.sample_period, round(1e9 / actual))
+            self.assertEqual(daq.get_actual_sample_rate(), SAMPLE_RATE_HZ)
+            self.assertEqual(timing.sample_rate, SAMPLE_RATE_HZ)
+            self.assertEqual(timing.sample_period, round(1e9 / SAMPLE_RATE_HZ))
             self.assertEqual(timing.samples_per_channel, SAMPLES_PER_CHANNEL)
         finally:
             self._release_daq(daq)
 
     # =====================================================================
-    # 7. Asynchronous channel (optional)
+    # 6. Asynchronous channel (optional)
     # =====================================================================
-    def test_07_async_channel(self):
+    def test_06_async_channel(self):
         """Drain an asynchronous channel: per-sample timestamps arrive ordered and on wall-clock time."""
         if not ASYNC_CHANNEL:
             self.skipTest("ASYNC_CHANNEL is None; set it to a used asynchronous DewesoftX channel")
@@ -287,7 +268,7 @@ class TestDewesoftXHardware(unittest.TestCase):
         try:
             daq.configure_voltage_input(ASYNC_CHANNEL, alias=ASYNC_ALIAS)
             bound_ns = time.time_ns()
-            daq.configure_ai_hw_sample_rate(REQUESTED_SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
             daq.start(background=False)
             try:
                 batch = self._wait_for_batch(daq, ASYNC_ALIAS)
@@ -303,9 +284,9 @@ class TestDewesoftXHardware(unittest.TestCase):
             self._release_daq(daq)
 
     # =====================================================================
-    # 8. Digital I/O unsupported
+    # 7. Digital I/O unsupported
     # =====================================================================
-    def test_08_digital_unsupported(self):
+    def test_07_digital_unsupported(self):
         """DewesoftX owns channel setup, so digital line configuration raises NotImplementedError."""
         daq = self._create_daq()
         try:
@@ -313,5 +294,39 @@ class TestDewesoftXHardware(unittest.TestCase):
                 daq.configure_digital_input(SYNC_CHANNEL, logic=Logic.HIGH, alias="di")
             with self.assertRaises(NotImplementedError):
                 daq.configure_digital_output(SYNC_CHANNEL, logic=Logic.HIGH, alias="do")
+        finally:
+            self._release_daq(daq)
+
+    # =====================================================================
+    # 8. Close and reopen
+    # =====================================================================
+    def test_08_close_and_reopen(self):
+        """A reopened driver reads without reconfiguring, and a surviving alias is still rejected as a duplicate."""
+        daq = self._create_daq()
+        try:
+            daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
+            daq.configure_ai_hw_sample_rate(SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+            daq.start(background=False)
+            before = daq.read(SYNC_ALIAS)
+            daq.stop()
+
+            # close() drops the COM references and the read cursors, but keeps the channels and the timing config
+            daq.close()
+            daq.open()
+            self.assertEqual(set(daq.ai_channels), {SYNC_ALIAS})
+            self.assertTrue(daq.is_hw_timing_configured)
+
+            # Rebinding a surviving alias stays a duplicate, the same as on every other driver
+            with self.assertRaises(ValueError):
+                daq.configure_voltage_input(SYNC_CHANNEL, alias=SYNC_ALIAS)
+
+            # open() reseeded the cursor, so the channel reads again with no reconfiguration
+            daq.start(background=False)
+            after = daq.read(SYNC_ALIAS)
+            daq.stop()
+            print(f"         read {len(after.values)} samples after reopen, with no reconfiguration")
+            self.assertGreaterEqual(len(after.values), SAMPLES_PER_CHANNEL)
+            self.assertTrue(all(math.isfinite(v) for v in after.values), "non-finite samples after reopen")
+            self.assertGreater(after.timestamps[0], before.timestamps[-1])
         finally:
             self._release_daq(daq)

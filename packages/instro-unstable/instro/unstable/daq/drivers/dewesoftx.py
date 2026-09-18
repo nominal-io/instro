@@ -3,11 +3,11 @@
 import logging
 import threading
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from instro.daq import DAQDriverBase
+from instro.daq import DAQDriverBase, HWTimingException
 from instro.daq.types import (
     AnalogChannel,
     AnalogChannelUnion,
@@ -56,7 +56,7 @@ class DewesoftXData:
     channels: dict[str, tuple[list[float], list[int]]]
 
 
-class DewesoftXDriver(DAQDriverBase):
+class DewesoftX(DAQDriverBase):
     """Streams live sync and async channels from a running DewesoftX instance over DCOM."""
 
     def __init__(self, dxd_name: str | None = None) -> None:
@@ -76,7 +76,7 @@ class DewesoftXDriver(DAQDriverBase):
 
     # ====== Lifecycle ======
 
-    def open(self):
+    def open(self) -> None:
         """Attach to the running DewesoftX instance."""
         import win32com.client  # type: ignore[import-untyped, import-not-found]
 
@@ -86,6 +86,7 @@ class DewesoftXDriver(DAQDriverBase):
         self._app = app
         self._data = app.Data
         self._store = app.StoreEngine
+        self._validate_data()
 
         # Debug full channel inventory
         if logger.isEnabledFor(logging.DEBUG):
@@ -116,14 +117,18 @@ class DewesoftXDriver(DAQDriverBase):
 
         self._thread_id = threading.get_ident()
 
-    def close(self):
-        """Drop the COM references; channels must be reconfigured after a reopen."""
+        # Rebind to already configured channels when opening
+        for channel in self._ai_channels.values():
+            self._bind_channel(channel)
+
+    def close(self) -> None:
+        """Drop the COM references; the configured channels survive, and the next open() rebinds them."""
         self._cursors.clear()
         self._app = None
         self._data = None
         self._store = None
 
-    def start(self, **kwargs):
+    def start(self, **kwargs) -> None:
         """Listen for a session an operator starts, or with ``start_storing_session=True`` start one here."""
         self._attach_current_thread()
         # Attach to exsiting storing session
@@ -147,7 +152,7 @@ class DewesoftXDriver(DAQDriverBase):
 
         self._check_session()
 
-    def stop(self, **kwargs):
+    def stop(self, **kwargs) -> None:
         """Leave the running session alone, or with ``stop_storing_session=True`` stop it."""
         if self._app is None or not kwargs.get("stop_storing_session", False):
             return
@@ -159,30 +164,32 @@ class DewesoftXDriver(DAQDriverBase):
 
     # ====== Configuration ======
 
-    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel):
+    def configure_ai_voltage_channel(self, channel: AnalogVoltageChannel) -> None:
         """Bind an existing DewesoftX channel by name; DewesoftX owns all channel setup."""
         self._bind_channel(channel)
 
-    def configure_ai_current_channel(self, channel: AnalogCurrentChannel):
+    def configure_ai_current_channel(self, channel: AnalogCurrentChannel) -> None:
         """Same binding as voltage: DewesoftX channels carry their own units, so the HAL type only labels the alias."""
         self._bind_channel(channel)
 
-    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel):
+    def configure_ai_thermocouple_channel(self, channel: AnalogThermocoupleChannel) -> None:
         """Same binding as voltage; tc_type and CJC settings are ignored because DewesoftX owns sensor setup."""
         self._bind_channel(channel)
 
-    def configure_ai_channel(self, channel: AnalogChannel):
+    def configure_ai_channel(self, channel: AnalogChannel) -> None:
         raise NotImplementedError("configure_analog_channel is deprecated; use configure_voltage_input instead")
 
-    def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig):
-        """Keep the requested config, but take the sample rate from DewesoftX, which owns the sample clock."""
+    def configure_ai_hw_timing(self, hw_timing_config: HWTimingConfig) -> None:
+        """Require the requested rate to be DewesoftX's own: InstroDAQ derives the batch size and buffer from it."""
+        # A background run leaves the COM proxies on the daemon thread, so reclaim them before reading the rate
+        self._attach_current_thread()
         rate = self._data.SampleRate
-        logger.info(
-            "Replacing requested AI sample rate %s Hz with DewesoftX sample rate %s Hz",
-            hw_timing_config.sample_rate,
-            rate,
-        )
-        self._ai_hw_timing_config = replace(hw_timing_config, sample_rate=rate, sample_period=round(1e9 / rate))
+        if hw_timing_config.sample_rate != rate:
+            raise HWTimingException(
+                f"DewesoftX owns the sample clock and is running at {rate} Hz, but {hw_timing_config.sample_rate} Hz "
+                f"was requested. Call configure_ai_hw_sample_rate(sample_rate={rate}) instead."
+            )
+        self._ai_hw_timing_config = hw_timing_config
 
     def get_actual_sample_rate(self) -> float | None:
         """The device's rate captured at configure time; None before configure_ai_sample_rate()."""
@@ -211,9 +218,10 @@ class DewesoftXDriver(DAQDriverBase):
                 continue
             if isinstance(cursor, _AsyncChannelCursor):
                 # GetTSValues peeks the oldest samples; GetDataValues consumes them, so timestamps read first
+                # Both calls are all-or-None on a count they can't satisfy, so their lengths can't diverge
                 rel_ts = cursor.connection.GetTSValues(pending)
                 data = cursor.connection.GetDataValues(pending)
-                if data is None:
+                if rel_ts is None or data is None:
                     continue
                 # Async timestamps are seconds since store start, the same epoch as the anchor
                 drained[alias] = (list(data), [self._t0_ns + round(t * 1e9) for t in rel_ts])
@@ -300,6 +308,11 @@ class DewesoftXDriver(DAQDriverBase):
             dt_ns=1e9 * com_channel.SRDiv / self._data.SampleRate,
         )
 
+    def _validate_data(self) -> None:
+        """Reject a DewesoftX data object with no sample clock; every sync timestamp divides by its rate."""
+        if self._data.SampleRate == 0:
+            raise RuntimeError("DewesoftX reports a sample rate of 0, which isn't valid.")
+
     def _samples_acquired(self) -> int:
         """Master-rate sample count acquired since store start."""
         blocks, partial = self._data.GetSamplesAcquired()
@@ -329,7 +342,7 @@ class DewesoftXDriver(DAQDriverBase):
             self._cursors[alias] = self._seed_cursor(cursor.com_channel)
         return False
 
-    def _attach_current_thread(self):
+    def _attach_current_thread(self) -> None:
         """Rebuild every COM reference on the calling thread; no-op when already attached."""
         if threading.get_ident() == self._thread_id:
             return
@@ -341,12 +354,15 @@ class DewesoftXDriver(DAQDriverBase):
         self._app = win32com.client.Dispatch(_PROG_ID)
         self._data = self._app.Data
         self._store = self._app.StoreEngine
+        self._thread_id = threading.get_ident()
+        self._validate_data()
         for alias in self._cursors:
             self._cursors[alias] = self._seed_cursor(self._find_used_channel(self._ai_channels[alias].physical_channel))
-        self._thread_id = threading.get_ident()
 
-    def _bind_channel(self, channel: AnalogChannelUnion):
-        # range_min/range_max are ignored: DewesoftX owns scaling (a user scaler still applies HAL-side)
+    def _bind_channel(self, channel: AnalogChannelUnion) -> None:
+        # A background run leaves the COM proxies on the daemon thread, so reclaim them before the lookup below
+        self._attach_current_thread()
+        # range_min/range_max are ignored, and a scaler is unsupported: DewesoftX owns the scaling
         com_channel = self._find_used_channel(channel.physical_channel)
         # A zero-size direct buffer means the channel is not acquiring
         if com_channel.DBBufSize == 0:
@@ -375,7 +391,7 @@ class DewesoftXDriver(DAQDriverBase):
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-    ):
+    ) -> None:
         raise NotImplementedError("Digital input has not been configured for this driver")
 
     def configure_do_line_channel(
@@ -384,16 +400,16 @@ class DewesoftXDriver(DAQDriverBase):
         logic: Logic,
         logic_level: float | None = None,
         alias: str | None = None,
-    ):
+    ) -> None:
         raise NotImplementedError("Digital output has not been configured for this driver")
 
-    def write_digital_line(self, channel: DigitalChannel, data: int):
+    def write_digital_line(self, channel: DigitalChannel, data: int) -> None:
         raise NotImplementedError("Digital output has not been configured for this driver")
 
     def read_digital_line(self, channel: DigitalChannel) -> int:
         raise NotImplementedError("Digital input has not been configured for this driver")
 
-    def write_digital_port(self, channel: DigitalChannel, data: int):
+    def write_digital_port(self, channel: DigitalChannel, data: int) -> None:
         raise NotImplementedError("Digital output has not been configured for this driver")
 
     def read_digital_port(self, channel: DigitalChannel) -> int:
