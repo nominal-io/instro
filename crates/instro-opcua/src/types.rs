@@ -64,6 +64,7 @@ use open62541::ua::UInt64;
 use open62541::ua::UserIdentityToken;
 use open62541::ua::UserNameIdentityToken;
 use open62541::ua::X509IdentityToken;
+use open62541_sys::UA_AttributeId;
 use open62541_sys::UA_NodeClass;
 use open62541_sys::UA_UserTokenPolicy;
 use open62541_sys::UA_UserTokenType;
@@ -449,6 +450,119 @@ impl OpcUaEndpointInfo {
 
             Ok(policies)
         })
+    }
+}
+
+/// OPC UA attribute identifier.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum OpcUaAttributeId {
+    #[default]
+    Invalid,
+    NodeId,
+    NodeClass,
+    BrowseName,
+    DisplayName,
+    Description,
+    WriteMask,
+    UserWriteMask,
+    IsAbstract,
+    Symmetric,
+    InverseName,
+    ContainsNoLoops,
+    EventNotifier,
+    Value,
+    DataType,
+    ValueRank,
+    ArrayDimensions,
+    AccessLevel,
+    UserAccessLevel,
+    MinimumSamplingInterval,
+    Historizing,
+    Executable,
+    UserExecutable,
+    DataTypeDefinition,
+    RolePermissions,
+    UserRolePermissions,
+    AccessRestrictions,
+    AccessLevelEx,
+}
+
+impl From<ua::AttributeId> for OpcUaAttributeId {
+    fn from(id: ua::AttributeId) -> Self {
+        read_inner(&id, |id| id.into())
+    }
+}
+
+impl From<&UA_AttributeId> for OpcUaAttributeId {
+    fn from(id: &UA_AttributeId) -> Self {
+        match *id {
+            UA_AttributeId::UA_ATTRIBUTEID_NODEID => Self::NodeId,
+            UA_AttributeId::UA_ATTRIBUTEID_NODECLASS => Self::NodeClass,
+            UA_AttributeId::UA_ATTRIBUTEID_BROWSENAME => Self::BrowseName,
+            UA_AttributeId::UA_ATTRIBUTEID_DISPLAYNAME => Self::DisplayName,
+            UA_AttributeId::UA_ATTRIBUTEID_DESCRIPTION => Self::Description,
+            UA_AttributeId::UA_ATTRIBUTEID_WRITEMASK => Self::WriteMask,
+            UA_AttributeId::UA_ATTRIBUTEID_USERWRITEMASK => Self::UserWriteMask,
+            UA_AttributeId::UA_ATTRIBUTEID_ISABSTRACT => Self::IsAbstract,
+            UA_AttributeId::UA_ATTRIBUTEID_SYMMETRIC => Self::Symmetric,
+            UA_AttributeId::UA_ATTRIBUTEID_INVERSENAME => Self::InverseName,
+            UA_AttributeId::UA_ATTRIBUTEID_CONTAINSNOLOOPS => Self::ContainsNoLoops,
+            UA_AttributeId::UA_ATTRIBUTEID_EVENTNOTIFIER => Self::EventNotifier,
+            UA_AttributeId::UA_ATTRIBUTEID_VALUE => Self::Value,
+            UA_AttributeId::UA_ATTRIBUTEID_DATATYPE => Self::DataType,
+            UA_AttributeId::UA_ATTRIBUTEID_VALUERANK => Self::ValueRank,
+            UA_AttributeId::UA_ATTRIBUTEID_ARRAYDIMENSIONS => Self::ArrayDimensions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVEL => Self::AccessLevel,
+            UA_AttributeId::UA_ATTRIBUTEID_USERACCESSLEVEL => Self::UserAccessLevel,
+            UA_AttributeId::UA_ATTRIBUTEID_MINIMUMSAMPLINGINTERVAL => Self::MinimumSamplingInterval,
+            UA_AttributeId::UA_ATTRIBUTEID_HISTORIZING => Self::Historizing,
+            UA_AttributeId::UA_ATTRIBUTEID_EXECUTABLE => Self::Executable,
+            UA_AttributeId::UA_ATTRIBUTEID_USEREXECUTABLE => Self::UserExecutable,
+            UA_AttributeId::UA_ATTRIBUTEID_DATATYPEDEFINITION => Self::DataTypeDefinition,
+            UA_AttributeId::UA_ATTRIBUTEID_ROLEPERMISSIONS => Self::RolePermissions,
+            UA_AttributeId::UA_ATTRIBUTEID_USERROLEPERMISSIONS => Self::UserRolePermissions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSRESTRICTIONS => Self::AccessRestrictions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVELEX => Self::AccessLevelEx,
+            _ => Self::Invalid,
+        }
+    }
+}
+
+impl From<OpcUaAttributeId> for ua::AttributeId {
+    fn from(id: OpcUaAttributeId) -> Self {
+        match id {
+            // SAFETY: this well-known enum value owns no resources.
+            OpcUaAttributeId::Invalid => unsafe {
+                Self::from_raw(UA_AttributeId::UA_ATTRIBUTEID_INVALID)
+            },
+            OpcUaAttributeId::NodeId => Self::NODEID,
+            OpcUaAttributeId::NodeClass => Self::NODECLASS,
+            OpcUaAttributeId::BrowseName => Self::BROWSENAME,
+            OpcUaAttributeId::DisplayName => Self::DISPLAYNAME,
+            OpcUaAttributeId::Description => Self::DESCRIPTION,
+            OpcUaAttributeId::WriteMask => Self::WRITEMASK,
+            OpcUaAttributeId::UserWriteMask => Self::USERWRITEMASK,
+            OpcUaAttributeId::IsAbstract => Self::ISABSTRACT,
+            OpcUaAttributeId::Symmetric => Self::SYMMETRIC,
+            OpcUaAttributeId::InverseName => Self::INVERSENAME,
+            OpcUaAttributeId::ContainsNoLoops => Self::CONTAINSNOLOOPS,
+            OpcUaAttributeId::EventNotifier => Self::EVENTNOTIFIER,
+            OpcUaAttributeId::Value => Self::VALUE,
+            OpcUaAttributeId::DataType => Self::DATATYPE,
+            OpcUaAttributeId::ValueRank => Self::VALUERANK,
+            OpcUaAttributeId::ArrayDimensions => Self::ARRAYDIMENSIONS,
+            OpcUaAttributeId::AccessLevel => Self::ACCESSLEVEL,
+            OpcUaAttributeId::UserAccessLevel => Self::USERACCESSLEVEL,
+            OpcUaAttributeId::MinimumSamplingInterval => Self::MINIMUMSAMPLINGINTERVAL,
+            OpcUaAttributeId::Historizing => Self::HISTORIZING,
+            OpcUaAttributeId::Executable => Self::EXECUTABLE,
+            OpcUaAttributeId::UserExecutable => Self::USEREXECUTABLE,
+            OpcUaAttributeId::DataTypeDefinition => Self::DATATYPEDEFINITION,
+            OpcUaAttributeId::RolePermissions => Self::ROLEPERMISSIONS,
+            OpcUaAttributeId::UserRolePermissions => Self::USERROLEPERMISSIONS,
+            OpcUaAttributeId::AccessRestrictions => Self::ACCESSRESTRICTIONS,
+            OpcUaAttributeId::AccessLevelEx => Self::ACCESSLEVELEX,
+        }
     }
 }
 
@@ -1481,6 +1595,88 @@ mod tests {
         assert_roundtrip(
             &unsafe { ua::NodeClass::from_raw(UA_NodeClass(99)) },
             OpcUaNodeClass::Other(99),
+        );
+    }
+
+    #[test]
+    fn attribute_id_conversions() {
+        let ids = [
+            (ua::AttributeId::NODEID, OpcUaAttributeId::NodeId),
+            (ua::AttributeId::NODECLASS, OpcUaAttributeId::NodeClass),
+            (ua::AttributeId::BROWSENAME, OpcUaAttributeId::BrowseName),
+            (ua::AttributeId::DISPLAYNAME, OpcUaAttributeId::DisplayName),
+            (ua::AttributeId::DESCRIPTION, OpcUaAttributeId::Description),
+            (ua::AttributeId::WRITEMASK, OpcUaAttributeId::WriteMask),
+            (
+                ua::AttributeId::USERWRITEMASK,
+                OpcUaAttributeId::UserWriteMask,
+            ),
+            (ua::AttributeId::ISABSTRACT, OpcUaAttributeId::IsAbstract),
+            (ua::AttributeId::SYMMETRIC, OpcUaAttributeId::Symmetric),
+            (ua::AttributeId::INVERSENAME, OpcUaAttributeId::InverseName),
+            (
+                ua::AttributeId::CONTAINSNOLOOPS,
+                OpcUaAttributeId::ContainsNoLoops,
+            ),
+            (
+                ua::AttributeId::EVENTNOTIFIER,
+                OpcUaAttributeId::EventNotifier,
+            ),
+            (ua::AttributeId::VALUE, OpcUaAttributeId::Value),
+            (ua::AttributeId::DATATYPE, OpcUaAttributeId::DataType),
+            (ua::AttributeId::VALUERANK, OpcUaAttributeId::ValueRank),
+            (
+                ua::AttributeId::ARRAYDIMENSIONS,
+                OpcUaAttributeId::ArrayDimensions,
+            ),
+            (ua::AttributeId::ACCESSLEVEL, OpcUaAttributeId::AccessLevel),
+            (
+                ua::AttributeId::USERACCESSLEVEL,
+                OpcUaAttributeId::UserAccessLevel,
+            ),
+            (
+                ua::AttributeId::MINIMUMSAMPLINGINTERVAL,
+                OpcUaAttributeId::MinimumSamplingInterval,
+            ),
+            (ua::AttributeId::HISTORIZING, OpcUaAttributeId::Historizing),
+            (ua::AttributeId::EXECUTABLE, OpcUaAttributeId::Executable),
+            (
+                ua::AttributeId::USEREXECUTABLE,
+                OpcUaAttributeId::UserExecutable,
+            ),
+            (
+                ua::AttributeId::DATATYPEDEFINITION,
+                OpcUaAttributeId::DataTypeDefinition,
+            ),
+            (
+                ua::AttributeId::ROLEPERMISSIONS,
+                OpcUaAttributeId::RolePermissions,
+            ),
+            (
+                ua::AttributeId::USERROLEPERMISSIONS,
+                OpcUaAttributeId::UserRolePermissions,
+            ),
+            (
+                ua::AttributeId::ACCESSRESTRICTIONS,
+                OpcUaAttributeId::AccessRestrictions,
+            ),
+            (
+                ua::AttributeId::ACCESSLEVELEX,
+                OpcUaAttributeId::AccessLevelEx,
+            ),
+        ];
+
+        for (upstream, expected) in ids {
+            assert_eq!(OpcUaAttributeId::from(upstream), expected);
+            assert_eq!(
+                OpcUaAttributeId::from(ua::AttributeId::from(expected)),
+                expected
+            );
+        }
+
+        assert_eq!(
+            OpcUaAttributeId::from(ua::AttributeId::from(OpcUaAttributeId::Invalid)),
+            OpcUaAttributeId::Invalid
         );
     }
 
