@@ -120,7 +120,6 @@ Here's the same workflow using `instro`'s `InstroDAQ`. The acquisition code is i
 ```python
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import NominalCorePublisher
 
 DATASET_RID = "<your dataset rid>"
@@ -134,13 +133,9 @@ daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 daq.open()
 
-daq.configure_analog_channel(
-    direction=Direction.INPUT, physical_channel="AIN0", alias="ch_0", range_min=-10, range_max=10
-)
-daq.configure_analog_channel(
-    direction=Direction.INPUT, physical_channel="AIN1", alias="ch_1", range_min=-10, range_max=10
-)
-daq.configure_ai_sample_rate(sample_rate=5000, samples_per_channel=500)
+daq.configure_voltage_input(physical_channel="AIN0", alias="ch_0", range_min=-10, range_max=10)
+daq.configure_voltage_input(physical_channel="AIN1", alias="ch_1", range_min=-10, range_max=10)
+daq.configure_ai_hw_sample_rate(sample_rate=5000, samples_per_channel=500)
 
 # Start the acquisition and launch a background daemon that fetches from the DAQ buffer
 daq.start()
@@ -213,49 +208,3 @@ These are the instrument types available out of the box. The [SDK reference](htt
 - `InstroAWG`: arbitrary waveform generators
 - `ModbusDevice`: Modbus register/coil devices (TCP or RTU)
 - `EtherNetIPDevice`: EtherNet/IP and CIP devices, via `instro.ethernetip` (install with `instro[ethernetip]`)
-
-### Drivers
-
-These are the vendor/model-specific drivers available out of the box.
-
-- `InstroPSU`
-  - B&K Precision
-  - Keysight
-  - Siglent
-  - Rigol
-  - TDK Lambda
-  - Simulated (no hardware required)
-- `InstroDAQ`
-  - National Instruments (NI)
-  - LabJack T-Series
-  - Measurement Computing (MCC)
-  - Keysight 34980
-- `InstroELoad`
-  - B&K Precision 85xx Series
-- `InstroFlowController`
-  - Alicat MC-series
-- `I2CInterface`
-  - Total Phase Aardvark
-- `InstroDMM`
-  - Keithley 2400
-  - Keithley 2750 (unstable)
-  - Agilent/HP/Keysight 34401A
-  - Keysight 34461A
-  - Simulated (no hardware required)
-- `InstroAWG`
-  - Rigol DG1022Z
-  - Keysight 33521B
-- `InstroScope`
-  - Keysight 1200X
-  - Tektronix 2-Series
-  - Siglent SDS1000X-E
-
-### Publishers
-
-These are the publishers available out of the box.
-
-- `NominalCorePublisher`: sends data to a Nominal Core dataset
-- `NominalConnectPublisher`: sends data to a Nominal Connect client
-- `FilePublisher`: writes data to a local file in Avro, CSV, or JSON Lines
-
-`BasicBufferedPublisher`, `QueuedPublisher`, and `SharedPublisher` wrap another publisher to add batching, background delivery, or explicit shared ownership. See [Publishers](/instrumentation/publishers) for configuration and examples.

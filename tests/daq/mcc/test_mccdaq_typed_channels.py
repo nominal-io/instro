@@ -7,7 +7,7 @@ rather than the generic analog path covered by ``test_mccdaq_hardware.py``.
 The Universal Library applies cold-junction compensation internally and
 returns temperature directly. Each typed channel is exercised both
 software-timed (``read_analog`` with no ``start()``) and hardware-timed
-(``configure_ai_sample_rate`` + ``start`` + buffered fetch). Each test step
+(``configure_ai_hw_sample_rate`` + ``start`` + buffered fetch). Each test step
 is recorded as an event on a Nominal Core asset.
 
 Analog input only: the USB-2404-UI has no digital I/O and no analog output
@@ -375,7 +375,9 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_thermocouple(daq)
-                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(
+                    sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL
+                )
                 daq.start(background=False)
                 try:
                     measured = daq.read_analog().channel_data[f"{NAME}.{TC_ALIAS}"]
@@ -396,7 +398,7 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
                     daq.stop()
 
                 # Sub-1-Hz section: the same acquisition at 0.5 Hz exercises the driver's HIGHRESRATE path.
-                daq.configure_ai_sample_rate(
+                daq.configure_ai_hw_sample_rate(
                     sample_rate=SUBHZ_SAMPLE_RATE_HZ, samples_per_channel=SUBHZ_SAMPLES_PER_CHANNEL
                 )
                 daq.start(background=False)
@@ -445,7 +447,9 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_voltage_input(daq)
-                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(
+                    sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL
+                )
                 daq.start(background=False)
                 try:
                     measured = daq.read_analog().channel_data[f"{NAME}.{VOLTAGE_ALIAS}"]
@@ -530,7 +534,9 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
             daq = self._create_daq()
             try:
                 self._configure_current_input(daq)
-                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(
+                    sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL
+                )
                 daq.start(background=False)
                 try:
                     measured = daq.read_analog().channel_data[f"{NAME}.{CURRENT_ALIAS}"]
@@ -576,7 +582,9 @@ class TestMCCDAQTypedChannels(unittest.TestCase):
                 self._configure_voltage_input(daq)
                 self._configure_current_input(daq)
                 self._configure_thermocouple(daq)
-                daq.configure_ai_sample_rate(sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL)
+                daq.configure_ai_hw_sample_rate(
+                    sample_rate=HW_SAMPLE_RATE_HZ, samples_per_channel=HW_SAMPLES_PER_CHANNEL
+                )
                 daq.start(background=False)
                 try:
                     channel_data = daq.read_analog().channel_data

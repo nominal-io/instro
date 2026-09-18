@@ -420,7 +420,7 @@ class MCCDriver(DAQDriverBase):
         self._timestamper = None
 
         if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
+            raise RuntimeError("configure_ai_hw_sample_rate() must be called before starting the DAQ.")
         hw_timing_config = self._ai_hw_timing_config
         if not self._ai_channels:
             raise ValueError("No analog input channels configured")
