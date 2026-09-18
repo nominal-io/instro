@@ -547,7 +547,7 @@ impl OpcUaClient {
     /// Notifications are emitted as they arrive and mark their node active for the current
     /// interval. On a poll tick, nodes that did not notify are read directly and buffered for one
     /// tick, giving late notifications a chance to win deduplication by timestamp.
-    async fn subscription_loop<'nodes, R, N, S, F, T>(
+    async fn subscription_loop<R, N, S, F, T>(
         reader: R,
         nodes: N,
         stream: S,
@@ -555,7 +555,7 @@ impl OpcUaClient {
         mut timer: Option<T>,
     ) where
         R: NodeReader,
-        N: IntoList<'nodes, OpcUaNodeId>,
+        N: IntoList<'static, OpcUaNodeId>,
         S: Stream<Item = (OpcUaNodeId, OpcUaDataPoint)> + Send + Unpin + 'static,
         F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>),
         T: PollTimer,
