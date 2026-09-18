@@ -8,8 +8,10 @@
 //!   but a node ID already present in its own ancestry is reported as an error.
 //! - **Limits depth** with an optional `max_depth` parameter.
 //! - **Limits total browsed nodes** with a high defensive ceiling.
-//! - **Recurses into `Object` and `Variable` nodes** — `Method`, `View`, and
-//!   type nodes are kept as leaves.
+//! - **Recurses into every returned node class**, including `Method`, `View`,
+//!   and type nodes. `browse_all` can therefore issue extra browse requests,
+//!   return more descendants, and consume more of the depth and node-count
+//!   limits.
 //!
 //! The [`OpcUaClient`](super::client::OpcUaClient) implementation of `Browse`
 //! handles continuation points transparently, issuing `browse_next` calls until
@@ -46,6 +48,8 @@ pub trait BrowseAll: Browse {
     /// The result is a nested tree of [`OpcUaNode`]. A repeated [`OpcUaNodeId`] is
     /// allowed when reached through a different parent path, but a node ID that
     /// repeats in the current ancestry is treated as a cycle and returns an error.
+    /// Every returned node class is recursed into, so this can issue extra browse
+    /// requests and consume more of the depth and node-count limits.
     fn browse_all(
         &self,
         node_id: OpcUaNodeId,
@@ -198,26 +202,22 @@ fn browse_recursive<'a, B: Browse>(
             let node_path = parent_path.child(segment);
             node.browse_path = node_path.clone();
 
-            if matches!(
-                node.node_class,
-                OpcUaNodeClass::Object | OpcUaNodeClass::Variable
-            ) {
-                ancestors.insert(node.node_id.clone());
-                node.children.extend(
-                    browse_recursive(
-                        browser,
-                        node.node_id.clone(),
-                        depth.saturating_add(1),
-                        max_depth,
-                        node_path,
-                        ancestors,
-                        visited,
-                        max_nodes,
-                    )
-                    .await?,
-                );
-                ancestors.remove(&node.node_id);
-            }
+            ancestors.insert(node.node_id.clone());
+            node.children.extend(
+                browse_recursive(
+                    browser,
+                    node.node_id.clone(),
+                    depth.saturating_add(1),
+                    max_depth,
+                    node_path,
+                    ancestors,
+                    visited,
+                    max_nodes,
+                )
+                .await?,
+            );
+
+            ancestors.remove(&node.node_id);
 
             nodes.push(node);
         }
@@ -887,12 +887,12 @@ mod tests {
     }
 
     #[test]
-    fn method_nodes_not_recursed() {
+    fn all_node_types_are_recursed() {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![method(2), obj(3), view(6)]);
-        browser.add_children(nid(2), vec![obj(4)]); // should never be reached
+        browser.add_children(nid(2), vec![obj(4)]);
         browser.add_children(nid(3), vec![var(5)]);
-        browser.add_children(nid(6), vec![obj(7)]); // should never be reached
+        browser.add_children(nid(6), vec![obj(7)]);
 
         let result = browser.browse(nid(1), None).expect("browse should succeed");
 
@@ -903,16 +903,16 @@ mod tests {
             .find(|n| n.node_id == nid(2))
             .expect("method node");
         assert!(
-            method_node.children.is_empty(),
-            "method nodes should not be recursed"
+            !method_node.children.is_empty(),
+            "method nodes should be recursed"
         );
         let view_node = result
             .iter()
             .find(|n| n.node_id == nid(6))
             .expect("view node");
         assert!(
-            view_node.children.is_empty(),
-            "view nodes should not be recursed"
+            !view_node.children.is_empty(),
+            "view nodes should be recursed"
         );
 
         let obj_node = result

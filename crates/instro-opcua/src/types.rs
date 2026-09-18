@@ -863,7 +863,27 @@ pub enum OpcUaNodeClass {
     Variable,
     Method,
     View,
+    DataType,
+    ObjectType,
+    VariableType,
+    ReferenceType,
     Other(u32),
+}
+
+impl OpcUaNodeClass {
+    pub(crate) fn from_raw(raw: u32) -> Self {
+        match raw {
+            ua::NodeClass::OBJECT_U32 => Self::Object,
+            ua::NodeClass::VARIABLE_U32 => Self::Variable,
+            ua::NodeClass::METHOD_U32 => Self::Method,
+            ua::NodeClass::VIEW_U32 => Self::View,
+            ua::NodeClass::DATATYPE_U32 => Self::DataType,
+            ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
+            ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
+            ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
+            other => Self::Other(other),
+        }
+    }
 }
 
 impl From<OpcUaNodeClass> for ua::NodeClass {
@@ -873,6 +893,10 @@ impl From<OpcUaNodeClass> for ua::NodeClass {
             OpcUaNodeClass::Variable => ua::NodeClass::VARIABLE,
             OpcUaNodeClass::Method => ua::NodeClass::METHOD,
             OpcUaNodeClass::View => ua::NodeClass::VIEW,
+            OpcUaNodeClass::DataType => ua::NodeClass::DATATYPE,
+            OpcUaNodeClass::ObjectType => ua::NodeClass::OBJECTTYPE,
+            OpcUaNodeClass::VariableType => ua::NodeClass::VARIABLETYPE,
+            OpcUaNodeClass::ReferenceType => ua::NodeClass::REFERENCETYPE,
             OpcUaNodeClass::Other(other) => {
                 let inner;
                 #[cfg(target_os = "windows")]
@@ -911,13 +935,7 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
                 }
             };
 
-            match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => Self::Object,
-                ua::NodeClass::VARIABLE_U32 => Self::Variable,
-                ua::NodeClass::METHOD_U32 => Self::Method,
-                ua::NodeClass::VIEW_U32 => Self::View,
-                other => Self::Other(other),
-            }
+            Self::from_raw(node_class_discriminant)
         })
     }
 }
@@ -1454,6 +1472,10 @@ mod tests {
         assert_roundtrip(&ua::NodeClass::VARIABLE, OpcUaNodeClass::Variable);
         assert_roundtrip(&ua::NodeClass::METHOD, OpcUaNodeClass::Method);
         assert_roundtrip(&ua::NodeClass::VIEW, OpcUaNodeClass::View);
+        assert_roundtrip(&ua::NodeClass::DATATYPE, OpcUaNodeClass::DataType);
+        assert_roundtrip(&ua::NodeClass::OBJECTTYPE, OpcUaNodeClass::ObjectType);
+        assert_roundtrip(&ua::NodeClass::VARIABLETYPE, OpcUaNodeClass::VariableType);
+        assert_roundtrip(&ua::NodeClass::REFERENCETYPE, OpcUaNodeClass::ReferenceType);
 
         // SAFETY: populating raw fields for test; node class lives on stack for duration of test
         assert_roundtrip(
