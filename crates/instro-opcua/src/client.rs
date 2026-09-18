@@ -13,7 +13,7 @@
 //!
 //! [`OpcUaStreamSession`] manages background OPC-UA streaming. In polling mode it
 //! periodically reads node attribute values via [`OpcUaClient::read_nodes`] and
-//! delivers each batch of decoded [`OpcUaSample`](super::types::OpcUaSample)s
+//! delivers each batch of decoded ([`OpcUaNodeId`], [`OpcUaDataPoint`]) pairs
 //! through a caller-supplied callback. In subscription mode it forwards
 //! monitored-item notifications via a merged [`Stream`](futures_util::stream::Stream)
 //! of all monitored items, delivering each sample through the same `on_data` callback.
@@ -268,7 +268,7 @@ impl OpcUaClient {
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
-    /// invoking `on_data` with each batch of decoded [`OpcUaSample`]s.
+    /// invoking `on_data` with each batch of decoded ([`OpcUaNodeId`], [`OpcUaDataPoint`]) pairs.
     ///
     /// The polling loop runs on a dedicated single-threaded runtime started by the returned
     /// [`OpcUaStreamSession`].
