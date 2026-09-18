@@ -8,7 +8,7 @@
 //!    [`OpcUaUserTokenType`], [`OpcUaUserTokenPolicy`]), node identity
 //!    ([`OpcUaNodeId`] (with its [`NodeIdKind`] variants), [`OpcUaNode`],
 //!    [`OpcUaNodeClass`]), scalar values ([`OpcUaValue`]), timestamped sample
-//!    data ([`OpcUaDataPoint`], [`OpcUaSample`]), and server/endpoint metadata
+//!    data ([`OpcUaDataPoint`]), and server/endpoint metadata
 //!    ([`OpcUaServerDescription`], [`OpcUaEndpointInfo`]).
 //!
 //!    Scalar value types correspond to the IEC 61131-3 types used across PLC
