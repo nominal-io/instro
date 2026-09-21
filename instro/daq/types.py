@@ -131,6 +131,74 @@ class DigitalLineChannel(DigitalChannel):
     bit_position: int | None = None
 
 
+# ========  Counter Output Channel Types  ===========
+
+
+class COUNTER_OUT_MODE(Enum):
+    CONTINUOUS = "CONTINUOUS"
+    FINITE = "FINITE"
+
+
+@dataclass(frozen=True)
+class PulseConfig:
+    """Base for pulse-train shape."""
+
+
+@dataclass(frozen=True)
+class FrequencyPulseConfig(PulseConfig):
+    """Define a pulse with frequency and duty cycle."""
+
+    frequency: float
+    duty_cycle: float
+
+
+@dataclass(frozen=True)
+class TimingPulseConfig(PulseConfig):
+    """Define a pulse with high and low time (in milliseconds)."""
+
+    high_time_ms: float
+    low_time_ms: float
+
+
+@dataclass(frozen=True)
+class CounterOutputChannel(DAQChannel):
+    mode: COUNTER_OUT_MODE
+    pulse_config: PulseConfig
+    idle_state: Logic = Logic.LOW
+    counter_source: str | None = None
+    # FINITE only.
+    n_pulses: int | None = None
+
+
+# ========  Counter Input Channel Types  ===========
+
+
+class CounterMeasurement(Enum):
+    PULSE_COUNT = "PULSE_COUNT"  # counts
+    FREQUENCY = "FREQUENCY"  # Hz
+    PERIOD = "PERIOD"  # seconds
+    PULSE_WIDTH = "PULSE_WIDTH"  # seconds
+
+
+class EDGE_TYPE(Enum):
+    RISING = "RISING"
+    FALLING = "FALLING"
+
+
+@dataclass(frozen=True)
+class CounterInputChannel(DAQChannel):
+    edge_type: EDGE_TYPE
+    # Unit of the value read back: counts, Hz, or seconds.
+    measurement: CounterMeasurement
+    # Required on NI, where a chassis counter routes to a PFI terminal; coupled to the terminal on MCC/LabJack.
+    counter_source: str | None = None
+    # PULSE_COUNT only.
+    count_up: bool = True
+
+
+# ========  Relay Channel Types  ===========
+
+
 @dataclass(frozen=True)
 class RelayChannel(DAQChannel):
     """A relay channel routed via open/close. ``direction`` is always ``OUTPUT`` (relay control is a command)."""
