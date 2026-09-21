@@ -36,7 +36,7 @@ The typical InstroDMM workflow:
 1. **Construct**: instantiate the vendor driver and pass it to `InstroDMM`.
 2. **`open()`**: establishes the VISA connection.
 3. **Configure measurement**: set the measurement function (e.g. DC voltage), and optionally resolution, aperture, and range.
-4. **`read()`**: trigger a measurement and get the value.
+4. **`read()`**: trigger a measurement and get the value. The `read_<function>()` shorthands (e.g. `read_dc_voltage()`) fold steps 3 and 4 into one call.
 5. **`close()`**: disconnect from hardware.
 
 Optionally, you can use background fetching via `start()` / `stop()`, but it is an atypical use case for a DMM. See [Two ways to get data](/instrumentation/overview#two-ways-to-get-data) for more.
@@ -53,6 +53,18 @@ Optionally, you can use background fetching via `start()` / `stop()`, but it is 
 - **4-Wire Resistance**
 
 You must call `set_measurement_function()` before configuring resolution, aperture, range, or calling `read()`.
+
+### Single-call reads
+
+When you only need a value and don't need to tune resolution, aperture, or range, use the per-function shorthand instead of the two-step sequence:
+
+```python
+voltage = dmm.read_dc_voltage()  # selects DC voltage if needed, then reads
+```
+
+One exists per measurement function: `read_dc_voltage()`, `read_ac_voltage()`, `read_dc_current()`, `read_ac_current()`, `read_resistance()` (2-wire), and `read_four_wire_resistance()`.
+
+Each selects the function only when it isn't already active, so repeated calls in the same function cost a single measurement and publish `set_measurement_function.cmd` once. They are thin wrappers over `set_measurement_function()` + `read()` and publish exactly the same channels.
 
 ## Creating an InstroDMM Instance
 
@@ -186,16 +198,16 @@ dmm.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 dmm.open()
 
-# Configure for DC voltage measurement
-dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
-# Optional: set resolution, aperture, or range
+# Trigger a DC voltage measurement
+measurement = dmm.read_dc_voltage()
+print(f"DC Voltage: {measurement.latest}")
+
+# Or select the function explicitly, to tune resolution, aperture, or range first
+# dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
 # dmm.set_digits(6)
 # dmm.set_aperture_nplc(nplc=1.0)
 # dmm.set_range(None)  # auto range
-
-# Trigger a measurement
-measurement = dmm.read()
-print(f"DC Voltage: {measurement.latest}")
+# measurement = dmm.read()
 
 dmm.close()
 ```
@@ -220,6 +232,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_aperture_nplc(...)` | `aperture_nplc.cmd` | command |
 | `set_range(value)` | `range_mode.cmd`, and `range.cmd` when `value is not None` | command (multi-key) |
 | `read()` | `{function}` (e.g. `dc_voltage`, `ac_current`) | telemetry |
+| `read_dc_voltage()` and siblings | `set_measurement_function.cmd` when the function changes, then `{function}` | command + telemetry |
 
 ## Method Reference
 
@@ -235,6 +248,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `set_aperture_nplc(nplc)` | Set integration time in power-line cycles |
 | `set_range(value)` | Set manual range in current function's units; `None` = auto range |
 | `read()` | Trigger a measurement and return a Measurement |
+| `read_dc_voltage()`, `read_ac_voltage()`, `read_dc_current()`, `read_ac_current()`, `read_resistance()`, `read_four_wire_resistance()` | Select the function if it isn't already active, then read |
 
 <Note>
 `set_aperture_seconds` is part of the DMM contract but is not implemented by the bundled drivers (Agilent 34401A, Keysight 34461A, Keithley 2400). Calling it on those drivers raises `NotImplementedError`. Use `set_aperture_nplc` to set integration time on the shipped drivers. See [Exceptions](/instrumentation/exceptions) for the distinction between `NotImplementedError` and `FeatureNotSupportedError`.

@@ -161,7 +161,7 @@ class DMMDriverBase(abc.ABC):
 
 
 class InstroDMM(Instrument):
-    """Digital multimeter instrument. Call ``set_measurement_function`` then ``read``."""
+    """Digital multimeter instrument. Call ``set_measurement_function`` then ``read``, or a single ``read_<function>``."""
 
     def __init__(
         self,
@@ -392,6 +392,36 @@ class InstroDMM(Instrument):
 
         channel_suffix = self._measurement_config.function.value.lower()
         return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
+
+    def _read_function(self, function: MeasurementFunction, **kwargs) -> Measurement:
+        """Select ``function`` when it isn't already active, then read."""
+        if self._measurement_config is None or self._measurement_config.function is not function:
+            self.set_measurement_function(function, **kwargs)
+        return self.read(**kwargs)
+
+    def read_dc_voltage(self, **kwargs) -> Measurement:
+        """Read DC voltage (volts), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.DC_VOLTAGE, **kwargs)
+
+    def read_ac_voltage(self, **kwargs) -> Measurement:
+        """Read AC voltage (volts), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.AC_VOLTAGE, **kwargs)
+
+    def read_dc_current(self, **kwargs) -> Measurement:
+        """Read DC current (amperes), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.DC_CURRENT, **kwargs)
+
+    def read_ac_current(self, **kwargs) -> Measurement:
+        """Read AC current (amperes), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.AC_CURRENT, **kwargs)
+
+    def read_resistance(self, **kwargs) -> Measurement:
+        """Read 2-wire resistance (ohms), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.TWO_WIRE_RESISTANCE, **kwargs)
+
+    def read_four_wire_resistance(self, **kwargs) -> Measurement:
+        """Read 4-wire resistance (ohms), selecting the function first if needed."""
+        return self._read_function(MeasurementFunction.FOUR_WIRE_RESISTANCE, **kwargs)
 
     def _get_driver_read_method(self, function: MeasurementFunction) -> Callable:
         return {

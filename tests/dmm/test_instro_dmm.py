@@ -181,3 +181,26 @@ def test_nominal_dmm_read_returns_measurement(stub_driver: _StubDMMDriver) -> No
     measurement = dmm.read()
     assert "ut.dc_voltage" in measurement.channel_data
     assert measurement.channel_data["ut.dc_voltage"] == [3.3]
+
+
+def test_read_helper_selects_function_then_reads(stub_driver: _StubDMMDriver) -> None:
+    stub_driver.measured = 1.5
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    measurement = dmm.read_dc_voltage()
+    assert stub_driver.last_function is MeasurementFunction.DC_VOLTAGE
+    assert measurement.channel_data["ut.dc_voltage"] == [1.5]
+
+
+def test_read_helper_skips_redundant_function_change(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        wraps=stub_driver.set_measurement_function
+    )
+
+    dmm.read_dc_voltage()
+    dmm.read_dc_voltage()
+    assert stub_driver.set_measurement_function.call_count == 1
+
+    dmm.read_resistance()
+    assert stub_driver.set_measurement_function.call_count == 2
+    assert stub_driver.set_measurement_function.call_args.args == (MeasurementFunction.TWO_WIRE_RESISTANCE,)

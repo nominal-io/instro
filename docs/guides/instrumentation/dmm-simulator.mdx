@@ -26,7 +26,7 @@ uv run python -m instro.dmm.scpi_sim_server
 Connect from another terminal or script with the `SimulatedDMM` driver. This small Python client opens an `InstroDMM`, switches functions, and reads measurements:
 
 ```python
-from instro.dmm import InstroDMM, MeasurementFunction
+from instro.dmm import InstroDMM
 from instro.dmm.drivers import SimulatedDMM
 
 
@@ -34,13 +34,8 @@ with InstroDMM(
     name="bench_dmm",
     driver=SimulatedDMM("TCPIP0::127.0.0.1::5026::SOCKET"),
 ) as dmm:
-    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
-    voltage = dmm.read()
-    print(f"V: {voltage.latest:.4f} V")
-
-    dmm.set_measurement_function(MeasurementFunction.TWO_WIRE_RESISTANCE)
-    resistance = dmm.read()
-    print(f"R: {resistance.latest:.1f} ohm")
+    print(f"V: {dmm.read_dc_voltage().latest:.4f} V")
+    print(f"R: {dmm.read_resistance().latest:.1f} ohm")
 ```
 
 Use CLI flags to change the bind address, port, or the stimulus each function measures:
