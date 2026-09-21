@@ -287,6 +287,18 @@ Digital driver support:
 | Keysight 34980A | ✅ | ✅ | ✅ | ✅ |
 | DewesoftX (unstable) | ❌ | ❌ | ❌ | ❌ |
 
+Counter driver support:
+
+| Driver | Finite pulse train | Continuous pulse train | Edge counting | Frequency | Period | Pulse width |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|
+| NI-DAQmx | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| LabJack T-Series | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| MCC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Keysight 34980A | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| DewesoftX (unstable) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+No driver implements counters yet. `InstroDAQ` defines the interface, and every `DAQDriverBase` counter method raises `NotImplementedError` until a vendor driver overrides it.
+
 #### LabJack thermocouple channels
 
 The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. More info about using thermocouples with a LabJack device can be found [here](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
@@ -693,6 +705,70 @@ print(f"Port value: {int(measurement.latest)}")
 Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** devices. On **LabJack**, `write_digital_port()` and `read_digital_port()` raise `NotImplementedError`; use `write_digital_line()` / `read_digital_line()` to address individual lines instead. Keysight groups a single port into one channel of at most 32 bits, so `DigitalPortWidth.WIDTH_64` is rejected — configure a 64-bit span as two channels. On **NI DAQmx**, `port_width` is checked against the port's physical line count and a mismatch raises `ValueError` — pass the `DigitalPortWidth` that matches the hardware port.
 </Note>
 
+<Note>
+`instro` reads digital channels software timed only, one poll per call, timestamped with the host clock.
+</Note>
+
+## Counters
+
+Counter channels measure edges on an input, or generate a pulse train on an output. Support is per vendor: a driver that does not implement counters raises `NotImplementedError`.
+
+### Counter Input
+
+Pick the method that matches the measurement. Each returns its value in the unit named below.
+
+```python
+from instro.daq.types import EDGE_TYPE
+
+# Count edges (counts)
+daq.configure_pulse_count_counter_input(
+    physical_channel="Dev1/ctr0",
+    alias="revolutions",
+    edge_type=EDGE_TYPE.RISING,
+    count_up=True,
+    counter_source="/Dev1/PFI8",
+)
+
+measurement = daq.read_counter(channel="revolutions")
+print(f"Edge count: {measurement.latest}")
+```
+
+`configure_frequency_counter_input()` reports Hz, `configure_period_counter_input()` and `configure_pulse_width_counter_input()` report seconds. `count_up` applies to edge counting only.
+
+Counter inputs are ordinary input channels, so `read()` and `read_batch()` serve them alongside analog and digital aliases.
+
+### Counter Output
+
+Configure the pulse shape, then start the train. A finite train stops itself after `n_pulses`; a continuous one runs until `stop_counter_output()`.
+
+```python
+from instro.daq.types import FrequencyPulseConfig
+
+daq.configure_finite_counter_output(
+    physical_channel="Dev1/ctr1",
+    pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
+    n_pulses=500,
+    alias="burst",
+    counter_source="/Dev1/PFI12",
+)
+
+daq.start_counter_output(channel="burst")
+daq.wait_for_counter_output(channel="burst")   # blocks for 500 / 1 kHz, plus a second of slack
+daq.stop_counter_output(channel="burst")
+```
+
+Use `TimingPulseConfig(high_time_ms=..., low_time_ms=...)` instead when the spec gives pulse width rather than frequency.
+
+`counter_source` names the terminal the signal arrives on or leaves by. NI requires it, because a counter routes to a PFI terminal.
+
+<Note>
+`wait_for_counter_output()` applies to finite trains only. A continuous train never completes, so waiting on one raises `ValueError`. Call `stop_counter_output()` to end it. Without an explicit `timeout`, the wait defaults to the train's own duration plus one second.
+</Note>
+
+<Note>
+`instro` reads counter channels software timed only, one poll per call, timestamped with the host clock.
+</Note>
+
 ## Unified Read and Write
 
 ### Reading by Alias
@@ -871,6 +947,16 @@ The base `Instrument` background daemon additionally publishes per-iteration dia
 | `write_digital_line(channel, data)` | Write to digital output line |
 | `read_digital_port(channel)` | Read all lines on a digital input port as a single integer |
 | `write_digital_port(channel, data)` | Write all lines on a digital output port as a single integer |
+| `configure_pulse_count_counter_input(physical_channel, ...)` | Configure a counter input that counts edges |
+| `configure_frequency_counter_input(physical_channel, ...)` | Configure a counter input that measures frequency (Hz) |
+| `configure_period_counter_input(physical_channel, ...)` | Configure a counter input that measures period (seconds) |
+| `configure_pulse_width_counter_input(physical_channel, ...)` | Configure a counter input that measures pulse width (seconds) |
+| `configure_finite_counter_output(physical_channel, pulse_config, n_pulses, ...)` | Configure a counter output that emits `n_pulses` and stops |
+| `configure_continuous_counter_output(physical_channel, pulse_config, ...)` | Configure a counter output that pulses until stopped |
+| `read_counter(channel)` | Read a counter input's configured measurement |
+| `start_counter_output(channel)` | Start the pulse train on a counter output |
+| `stop_counter_output(channel)` | Stop the pulse train and release the counter |
+| `wait_for_counter_output(channel, timeout=None)` | Block until a finite pulse train completes |
 | `add_publisher(publisher)` | Attach a publisher for data routing |
 | `get_points_in_buffer()` | Get number of samples in hardware buffer |
 

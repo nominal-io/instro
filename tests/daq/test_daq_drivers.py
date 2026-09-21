@@ -12,10 +12,14 @@ from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
+    COUNTER_OUT_MODE,
+    EDGE_TYPE,
+    CounterMeasurement,
     DigitalLineChannel,
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
+    FrequencyPulseConfig,
     Logic,
 )
 from instro.lib import InstrumentNotOpenError, Measurement
@@ -57,6 +61,10 @@ class _RecordingDriver(DAQDriverBase):
         "read_digital_port",
         "close_relay",
         "open_relay",
+        "read_counter",
+        "start_counter_output",
+        "stop_counter_output",
+        "wait_for_counter_output",
         "_read_to_measurements",
     )
 
@@ -79,6 +87,12 @@ class _RecordingDriver(DAQDriverBase):
 
     def configure_ai_thermocouple_channel(self, channel):
         self._ai_channels[channel.alias] = channel
+
+    def configure_ci_channel(self, channel):
+        self._ci_channels[channel.alias] = channel
+
+    def configure_co_pulse_channel(self, channel):
+        self._co_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config):
         self._ai_hw_timing_config = hw_timing_config
@@ -1144,18 +1158,20 @@ def test_read_none_channel_raises():
 
 
 def test_read_batch_none_reads_every_configured_input():
-    """read_batch() returns {alias: Measurement} for one of each analog type plus every DI channel."""
+    """read_batch() returns {alias: Measurement} for one of each analog type, every DI channel, and a counter."""
     mock_driver = _make_mock_driver()
     mock_driver._read_to_measurements.return_value = [
         Measurement(channel_data={"ut.v0": [1.0], "ut.c0": [0.01], "ut.tc0": [25.0]}, timestamps=[111])
     ]
     mock_driver.read_digital_line.return_value = 1
+    mock_driver.read_counter.return_value = 250.0
     daq = InstroDAQ(name="ut", driver=mock_driver)
     daq.open()
     daq.configure_voltage_input(physical_channel="ai0", alias="v0")
     daq.configure_current_input(physical_channel="ai1", alias="c0")
     daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
     daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
+    daq.configure_frequency_counter_input(physical_channel="Dev1/ctr0", alias="ctr0")
 
     result = daq.read_batch()
 
@@ -1163,6 +1179,7 @@ def test_read_batch_none_reads_every_configured_input():
     assert result["c0"].channel_data == {"ut.c0": [0.01]}
     assert result["tc0"].channel_data == {"ut.tc0": [25.0]}
     assert result["di0"].channel_data == {"ut.di0": [1.0]}
+    assert result["ctr0"].channel_data == {"ut.ctr0": [250.0]}
 
 
 def test_read_batch_unconfigured_channel_raises_before_reading_anything():
@@ -1507,3 +1524,76 @@ def test_configure_digital_line_warns_and_routes_by_direction(direction: Directi
         )
 
     getattr(daq, routed).assert_called_once_with("port0/line0", logic=Logic.HIGH, logic_level=None, alias="di0")
+
+
+def _counter_daq() -> tuple[InstroDAQ, _RecordingDriver]:
+    """An open InstroDAQ with one counter input and one finite counter output configured."""
+    driver = _make_mock_driver()
+    daq = InstroDAQ(name="Test DAQ", driver=driver)
+    daq.open()
+    daq.configure_frequency_counter_input(physical_channel="Dev1/ctr0", alias="rpm")
+    daq.configure_finite_counter_output(
+        physical_channel="Dev1/ctr1",
+        pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
+        n_pulses=500,
+        alias="burst",
+    )
+    return daq, driver
+
+
+def test_configure_counter_channels_record_on_driver_state():
+    """Counter channels land on the driver's private dicts and surface in the read-only snapshots."""
+    daq, _ = _counter_daq()
+
+    assert daq.ci_channels["rpm"].measurement is CounterMeasurement.FREQUENCY
+    assert daq.ci_channels["rpm"].edge_type is EDGE_TYPE.RISING
+    assert daq.co_channels["burst"].mode is COUNTER_OUT_MODE.FINITE
+    assert daq.co_channels["burst"].n_pulses == 500
+    # Counter channels join the aggregate, which is what duplicate rejection scans.
+    assert {ch.alias for ch in daq.channels} == {"rpm", "burst"}
+
+
+def test_configure_counter_input_rejects_duplicate_alias():
+    """A second channel reusing a counter alias raises rather than silently reconfiguring."""
+    daq, _ = _counter_daq()
+
+    with pytest.raises(ValueError, match=r"already configured \(counter_input on Dev1/ctr0\)"):
+        daq.configure_period_counter_input(physical_channel="Dev1/ctr2", alias="rpm")
+
+
+def test_read_batch_routes_counter_aliases_to_read_counter():
+    """read_batch() serves counter aliases through read_counter(), in the order requested."""
+    daq, driver = _counter_daq()
+    driver.read_counter.return_value = 42.0
+    daq.configure_digital_input(physical_channel="port0/line0", alias="limit", logic=Logic.HIGH)
+    driver.read_digital_line.return_value = 1
+
+    batch = daq.read_batch(["rpm", "limit"])
+
+    assert list(batch) == ["rpm", "limit"]
+    assert batch["rpm"].channel_data == {"Test DAQ.rpm": [42.0]}
+    driver.read_counter.assert_called_once_with(daq.ci_channels["rpm"])
+
+
+def test_wait_for_counter_output_defaults_timeout_to_train_duration():
+    """With no timeout given, the wait is the train's own duration (500 / 1 kHz) plus a second of slack."""
+    daq, driver = _counter_daq()
+
+    daq.wait_for_counter_output("burst")
+
+    driver.wait_for_counter_output.assert_called_once_with(daq.co_channels["burst"], 1.5)
+
+
+def test_wait_for_counter_output_rejects_continuous_channel():
+    """A continuous train never completes, so waiting on one raises instead of blocking."""
+    daq, driver = _counter_daq()
+    daq.configure_continuous_counter_output(
+        physical_channel="Dev1/ctr3",
+        pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
+        alias="clock",
+    )
+
+    with pytest.raises(ValueError, match="is configured CONTINUOUS"):
+        daq.wait_for_counter_output("clock")
+
+    driver.wait_for_counter_output.assert_not_called()
