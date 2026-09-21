@@ -29,11 +29,13 @@ from instro.daq.types import (
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
+    FrequencyPulseConfig,
     HWTimingConfig,
     Logic,
     PulseConfig,
     RelayChannel,
     TerminalConfig,
+    TimingPulseConfig,
 )
 from instro.lib import InstroError, Instrument, InstrumentNotOpenError, Measurement
 from instro.lib.instrument import publish_command, publish_measurement
@@ -397,6 +399,10 @@ class DAQDriverBase(abc.ABC):
         """Sample a multi-line DI port. Returns an N-bit integer; bit ``i`` reflects line ``i``."""
         ...
 
+    def read_counter(self, channel: CounterInputChannel) -> float:
+        """Read the counter's configured measurement (counts, Hz, or seconds)."""
+        raise NotImplementedError("Counter input has not been configured for this driver")
+
     @abc.abstractmethod
     def _read_to_measurements(
         self,
@@ -430,6 +436,18 @@ class DAQDriverBase(abc.ABC):
     def write_digital_port(self, channel: DigitalChannel, data: int):
         """Drive a multi-line DO port. ``data`` is an N-bit integer; bit ``i`` controls line ``i``."""
         ...
+
+    def start_counter_output(self, channel: CounterOutputChannel):
+        """Start the pulse train on ``channel``. Override if the driver supports counter output."""
+        raise NotImplementedError("Counter pulse output has not been configured for this driver")
+
+    def stop_counter_output(self, channel: CounterOutputChannel):
+        """Stop the pulse train on ``channel`` and release the counter. Override if the driver supports it."""
+        raise NotImplementedError("Counter pulse output has not been configured for this driver")
+
+    def wait_for_counter_output(self, channel: CounterOutputChannel, timeout: float):
+        """Block up to ``timeout`` seconds until the finite train on ``channel`` completes. Override if supported."""
+        raise NotImplementedError("Counter pulse output has not been configured for this driver")
 
     def close_relay(self, channel: RelayChannel):
         """Close the relay (connect the circuit). Override if the driver supports relays."""
@@ -1440,7 +1458,7 @@ class InstroDAQ(Instrument):
     # ========  DAQ Reads  ===========
 
     def read(self, channel: str, **kwargs) -> Measurement:
-        """Read one AI/DI channel by alias; returns its Measurement."""
+        """Read one AI/DI/CI channel by alias; returns its Measurement."""
         if channel is None:
             raise ValueError("read() requires a channel alias; use read_batch() to read all configured inputs.")
         return self.read_batch([channel], **kwargs)[channel]
@@ -1450,20 +1468,21 @@ class InstroDAQ(Instrument):
         channels: list[str] | None = None,
         **kwargs,
     ) -> dict[str, Measurement]:
-        """Read AI/DI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` (or the daemon buffer while it runs), digital per line/port."""
+        """Read AI/DI/CI channels by alias (``None`` = all inputs); returns ``{alias: Measurement}``, analog via ``read_analog`` (or the daemon buffer while it runs), digital per line/port, counters per channel."""
         self._require_open()
-        ai, di = self.ai_channels, self.di_channels
+        ai, di, ci = self.ai_channels, self.di_channels, self.ci_channels
         daemon_running = bool(self._background_thread and self._background_thread.is_alive())
 
         if channels is None:
-            aliases = [*ai, *di]
-        elif unknown := [a for a in channels if a not in ai and a not in di]:
-            raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di]}.")
+            aliases = [*ai, *di, *ci]
+        elif unknown := [a for a in channels if a not in ai and a not in di and a not in ci]:
+            raise KeyError(f"Input channel(s) {unknown} not configured. Configured input channels: {[*ai, *di, *ci]}.")
         else:
             aliases = list(channels)
 
         analog_aliases = [alias for alias in aliases if alias in ai]
         digital_aliases = [alias for alias in aliases if alias in di]
+        counter_aliases = [alias for alias in aliases if alias in ci]
 
         # Analog pass
         analog: dict[str, Measurement] = {}
@@ -1489,7 +1508,10 @@ class InstroDAQ(Instrument):
             for alias in digital_aliases
         }
 
-        measurements = analog | digital
+        # Counter pass
+        counter = {alias: self.read_counter(alias, **kwargs) for alias in counter_aliases}
+
+        measurements = analog | digital | counter
         return {alias: measurements[alias] for alias in aliases}
 
     def read_analog(
@@ -1553,6 +1575,19 @@ class InstroDAQ(Instrument):
                 tags={**self.default_tags, **kwargs},
             )
         return self._package_measurement(digital_channel.alias, response, timestamp, **kwargs)
+
+    @publish_measurement
+    def read_counter(self, channel: str, **kwargs) -> Measurement:
+        """Read counter input ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        self._require_open()
+        if (counter_channel := self.ci_channels.get(channel, None)) is None:
+            raise KeyError(
+                f"Counter input channel '{channel}' is not configured. "
+                f"Configured counter input channels: {list(self.ci_channels.keys())}. "
+                "Call one of the configure_*_counter_input() methods first."
+            )
+        response = self._driver.read_counter(counter_channel)
+        return self._package_measurement(counter_channel.alias, response, time.time_ns(), **kwargs)
 
     @publish_measurement
     def get_points_in_buffer(self, **kwargs) -> Measurement:
@@ -1775,6 +1810,74 @@ class InstroDAQ(Instrument):
             timestamp=timestamp,
             tags={**self.default_tags, **kwargs},
         )
+
+    @publish_command
+    def start_counter_output(self, channel: str, **kwargs) -> Command:
+        """Start the pulse train on counter output ``channel`` (alias)."""
+        self._require_open()
+        if (counter_channel := self.co_channels.get(channel, None)) is None:
+            raise KeyError(
+                f"Counter output channel '{channel}' is not configured. "
+                f"Configured counter output channels: {list(self.co_channels.keys())}. "
+                "Call configure_finite_counter_output() or configure_continuous_counter_output() first."
+            )
+        logger.debug("Sending DAQ start_counter_output command to '%s' for channel '%s'", self.name, channel)
+        self._driver.start_counter_output(counter_channel)
+        timestamp = time.time_ns()
+
+        return self._package_command(f"{counter_channel.alias}.cmd", "STARTED", timestamp, **kwargs)
+
+    @publish_command
+    def stop_counter_output(self, channel: str, **kwargs) -> Command:
+        """Stop the pulse train on counter output ``channel`` (alias)."""
+        self._require_open()
+        if (counter_channel := self.co_channels.get(channel, None)) is None:
+            raise KeyError(
+                f"Counter output channel '{channel}' is not configured. "
+                f"Configured counter output channels: {list(self.co_channels.keys())}. "
+                "Call configure_finite_counter_output() or configure_continuous_counter_output() first."
+            )
+        logger.debug("Sending DAQ stop_counter_output command to '%s' for channel '%s'", self.name, channel)
+        self._driver.stop_counter_output(counter_channel)
+        timestamp = time.time_ns()
+
+        return self._package_command(f"{counter_channel.alias}.cmd", "STOPPED", timestamp, **kwargs)
+
+    def wait_for_counter_output(self, channel: str, timeout: float | None = None) -> None:
+        """Block until the finite pulse train on counter output ``channel`` (alias) completes.
+
+        Args:
+            channel: Alias of a channel configured with ``configure_finite_counter_output()``.
+            timeout: Seconds to wait; defaults to the train's own duration plus one second.
+        """
+        self._require_open()
+        # Resolve the alias against the configured counter outputs.
+        if (counter_channel := self.co_channels.get(channel, None)) is None:
+            raise KeyError(
+                f"Counter output channel '{channel}' is not configured. "
+                f"Configured counter output channels: {list(self.co_channels.keys())}. "
+                "Call configure_finite_counter_output() first."
+            )
+        # A continuous train never completes, so waiting on one would hang until the timeout.
+        if counter_channel.mode is not COUNTER_OUT_MODE.FINITE:
+            raise ValueError(
+                f"Counter output channel '{channel}' is configured {counter_channel.mode.value}. "
+                "Waiting on a counter channel that isn't finite isn't valid."
+            )
+        # Default the timeout to how long the train itself runs, plus a second of slack.
+        if timeout is None:
+            n_pulses = counter_channel.n_pulses or 0
+            match counter_channel.pulse_config:
+                case FrequencyPulseConfig(frequency=frequency):
+                    timeout = n_pulses / frequency + 1.0
+                case TimingPulseConfig(high_time_ms=high_time_ms, low_time_ms=low_time_ms):
+                    timeout = n_pulses * (high_time_ms + low_time_ms) / 1000.0 + 1.0
+                case _:
+                    raise ValueError(
+                        f"Cannot compute a default timeout for '{channel}' from "
+                        f"{type(counter_channel.pulse_config).__name__}; pass timeout explicitly."
+                    )
+        self._driver.wait_for_counter_output(counter_channel, timeout)
 
     @publish_command
     def close_relay(self, channel: str, **kwargs) -> Command:
