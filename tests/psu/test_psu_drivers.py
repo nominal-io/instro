@@ -1,6 +1,6 @@
 """Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -170,6 +170,32 @@ def test_nominal_psu_set_voltage_delegates() -> None:
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
     psu.set_voltage(5.0, channel=2)
     driver.set_voltage.assert_called_once_with(5.0, channel=2)
+
+
+def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2)
+    psu.apply(voltage=5.0, current_limit=1.0, channel=2)
+    # Current limit must land before the voltage it guards.
+    assert driver.method_calls == [
+        call.set_current_limit(1.0, channel=2),
+        call.set_voltage(5.0, channel=2),
+        call.output_enable(True, channel=2),
+    ]
+
+
+def test_nominal_psu_channel_defaults_to_one() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.apply(voltage=3.3, current_limit=0.5, enable=False)
+    assert driver.method_calls == [
+        call.set_current_limit(0.5, channel=1),
+        call.set_voltage(3.3, channel=1),
+        call.output_enable(False, channel=1),
+    ]
+
+    psu.get_voltage()
+    driver.get_voltage.assert_called_once_with(channel=1)
 
 
 def test_nominal_psu_get_voltage_returns_measurement() -> None:

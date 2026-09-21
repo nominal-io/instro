@@ -257,7 +257,13 @@ class InstroPSU(Instrument):
         self._driver.close()
         logger.info("Closed PSU '%s'", self.name)
 
-    def set_voltage(self, voltage: float, channel: int, **kwargs) -> Command:
+    def apply(self, voltage: float, current_limit: float, channel: int = 1, enable: bool = True, **kwargs) -> None:
+        """Set the current limit, then the voltage, then set the output state on ``channel``."""
+        self.set_current_limit(current_limit, channel=channel, **kwargs)
+        self.set_voltage(voltage, channel=channel, **kwargs)
+        self.output_enable(enable, channel=channel, **kwargs)
+
+    def set_voltage(self, voltage: float, channel: int = 1, **kwargs) -> Command:
         """Set the output voltage (volts) on ``channel``."""
         return self._execute_command(
             driver_method=self._driver.set_voltage,
@@ -268,13 +274,13 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_voltage(self, channel: int, **kwargs) -> Measurement | None:
+    def get_voltage(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Measure the voltage (volts) sensed at ``channel`` terminals. Output may vary from voltage setpoint outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage, channel=channel, channel_suffix="voltage", legacy_suffix="v", **kwargs
         )
 
-    def set_current_limit(self, current_limit: float, channel: int, **kwargs) -> Command:
+    def set_current_limit(self, current_limit: float, channel: int = 1, **kwargs) -> Command:
         """Set the current limit (amperes) on ``channel``."""
         return self._execute_command(
             self._driver.set_current_limit,
@@ -285,13 +291,13 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_current(self, channel: int, **kwargs) -> Measurement | None:
+    def get_current(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Measure the current (amperes) flowing through ``channel``. Output may vary from current-limit setpoint outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current, channel=channel, channel_suffix="current", legacy_suffix="i", **kwargs
         )
 
-    def output_enable(self, enable: bool, channel: int, **kwargs) -> Command:
+    def output_enable(self, enable: bool, channel: int = 1, **kwargs) -> Command:
         """Enable or disable the output on ``channel``."""
         return self._execute_command(
             self._driver.output_enable,
@@ -302,7 +308,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_output_status(self, channel: int, **kwargs) -> Measurement | None:
+    def get_output_status(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether the output on ``channel`` is enabled. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_output_status,
@@ -312,7 +318,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_voltage_setpoint(self, channel: int, **kwargs) -> Measurement | None:
+    def get_voltage_setpoint(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the configured voltage setpoint (volts) on ``channel``. Output may vary from actual measured voltage outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage_setpoint,
@@ -322,7 +328,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_operating_mode(self, channel: int, **kwargs) -> Measurement | None:
+    def get_operating_mode(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
         return self._execute_measurement(
             self._driver.get_operating_mode,
@@ -332,7 +338,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
+    def get_current_setpoint(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current_setpoint,
@@ -342,7 +348,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_level(self, voltage: float, channel: int, **kwargs) -> Command:
+    def set_overvoltage_protection_level(self, voltage: float, channel: int = 1, **kwargs) -> Command:
         """Set the overvoltage protection threshold (volts) on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_level,
@@ -353,7 +359,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_level(self, channel: int, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_level(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the overvoltage protection threshold (volts) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_level,
@@ -363,7 +369,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
+    def set_overvoltage_protection_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
         """Enable or disable overvoltage protection on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_enabled,
@@ -374,7 +380,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_enabled(self, channel: int, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether overvoltage protection is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_enabled,
@@ -384,7 +390,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overvoltage_protection_delay(self, delay: float, channel: int, **kwargs) -> Command:
+    def set_overvoltage_protection_delay(self, delay: float, channel: int = 1, **kwargs) -> Command:
         """Set the overvoltage protection trip delay (seconds) on ``channel``."""
         return self._execute_command(
             self._driver.set_overvoltage_protection_delay,
@@ -395,7 +401,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overvoltage_protection_delay(self, channel: int, **kwargs) -> Measurement | None:
+    def get_overvoltage_protection_delay(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the overvoltage protection trip delay (seconds) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_delay,
@@ -405,7 +411,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overcurrent_protection_level(self, current: float, channel: int, **kwargs) -> Command:
+    def set_overcurrent_protection_level(self, current: float, channel: int = 1, **kwargs) -> Command:
         """Set the overcurrent protection threshold (amperes) on ``channel``."""
         return self._execute_command(
             self._driver.set_overcurrent_protection_level,
@@ -416,7 +422,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overcurrent_protection_level(self, channel: int, **kwargs) -> Measurement | None:
+    def get_overcurrent_protection_level(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query the overcurrent protection threshold (amperes) on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overcurrent_protection_level,
@@ -426,7 +432,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
+    def set_overcurrent_protection_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
         """Enable or disable overcurrent protection on ``channel``."""
         return self._execute_command(
             self._driver.set_overcurrent_protection_enabled,
@@ -437,7 +443,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_overcurrent_protection_enabled(self, channel: int, **kwargs) -> Measurement | None:
+    def get_overcurrent_protection_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether overcurrent protection is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_overcurrent_protection_enabled,
@@ -447,7 +453,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def set_remote_sense_enabled(self, enabled: bool, channel: int, **kwargs) -> Command:
+    def set_remote_sense_enabled(self, enabled: bool, channel: int = 1, **kwargs) -> Command:
         """Enable or disable remote sense on ``channel``."""
         return self._execute_command(
             self._driver.set_remote_sense_enabled,
@@ -458,7 +464,7 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def get_remote_sense_enabled(self, channel: int, **kwargs) -> Measurement | None:
+    def get_remote_sense_enabled(self, channel: int = 1, **kwargs) -> Measurement | None:
         """Query whether remote sense is enabled on ``channel``. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_remote_sense_enabled,
