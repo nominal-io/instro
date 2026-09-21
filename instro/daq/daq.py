@@ -14,12 +14,15 @@ from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
     COUNTER_OUT_MODE,
+    EDGE_TYPE,
     AnalogChannel,
     AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     CJCSource,
+    CounterInputChannel,
+    CounterMeasurement,
     CounterOutputChannel,
     DAQChannel,
     DigitalChannel,
@@ -98,7 +101,8 @@ class DAQDriverBase(abc.ABC):
     _ao_channels: dict[str, AnalogChannelUnion]
     _di_channels: dict[str, DigitalChannel]
     _do_channels: dict[str, DigitalChannel]
-    _counter_channels: dict[str, CounterOutputChannel]
+    _ci_channels: dict[str, CounterInputChannel]
+    _co_channels: dict[str, CounterOutputChannel]
     _relay_channels: dict[str, RelayChannel]
 
     _ai_hw_timing_config: HWTimingConfig | None
@@ -113,7 +117,8 @@ class DAQDriverBase(abc.ABC):
         self._ao_channels = {}
         self._di_channels = {}
         self._do_channels = {}
-        self._counter_channels = {}
+        self._ci_channels = {}
+        self._co_channels = {}
         self._relay_channels = {}
 
         self._ai_hw_timing_config = None
@@ -123,13 +128,14 @@ class DAQDriverBase(abc.ABC):
 
     @property
     def channels(self) -> tuple[DAQChannel, ...]:
-        """Frozen snapshot of all configured AI/AO/DI/DO/counter channels (excludes relays)."""
+        """Frozen snapshot of all configured AI/AO/DI/DO/CI/CO channels (excludes relays)."""
         return (
             *self._ai_channels.values(),
             *self._ao_channels.values(),
             *self._di_channels.values(),
             *self._do_channels.values(),
-            *self._counter_channels.values(),
+            *self._ci_channels.values(),
+            *self._co_channels.values(),
         )
 
     @property
@@ -153,9 +159,14 @@ class DAQDriverBase(abc.ABC):
         return MappingProxyType(dict(self._do_channels))
 
     @property
-    def counter_channels(self) -> Mapping[str, CounterOutputChannel]:
+    def ci_channels(self) -> Mapping[str, CounterInputChannel]:
+        """Frozen snapshot of configured counter input channels, keyed by alias."""
+        return MappingProxyType(dict(self._ci_channels))
+
+    @property
+    def co_channels(self) -> Mapping[str, CounterOutputChannel]:
         """Frozen snapshot of configured counter output channels, keyed by alias."""
-        return MappingProxyType(dict(self._counter_channels))
+        return MappingProxyType(dict(self._co_channels))
 
     @property
     def relay_channels(self) -> Mapping[str, RelayChannel]:
@@ -279,6 +290,10 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Digital Output port mode has not been configured for this driver")
 
     # ========  Counter Channels  ===========
+
+    def configure_ci_channel(self, channel: CounterInputChannel):
+        """Register a counter input channel. Override if the driver supports counter input."""
+        raise NotImplementedError("Counter input has not been configured for this driver")
 
     def configure_co_pulse_channel(self, channel: CounterOutputChannel):
         """Register a counter pulse-train output channel. Override if the driver supports counter output."""
@@ -437,6 +452,8 @@ def _channel_kind(channel: DAQChannel) -> str:
             return f"current_{direction}"
         case DigitalChannel():
             return f"digital_{direction}"
+        case CounterInputChannel():
+            return "counter_input"
         case CounterOutputChannel():
             return "counter_output"
         case AnalogChannel():
@@ -492,7 +509,7 @@ class InstroDAQ(Instrument):
 
     @property
     def channels(self) -> tuple[DAQChannel, ...]:
-        """Frozen snapshot of all configured AI/AO/DI/DO/counter channels (excludes relays)."""
+        """Frozen snapshot of all configured AI/AO/DI/DO/CI/CO channels (excludes relays)."""
         return self._driver.channels
 
     @property
@@ -516,9 +533,14 @@ class InstroDAQ(Instrument):
         return self._driver.do_channels
 
     @property
-    def counter_channels(self) -> Mapping[str, CounterOutputChannel]:
+    def ci_channels(self) -> Mapping[str, CounterInputChannel]:
+        """Frozen snapshot of configured counter input channels, keyed by alias."""
+        return self._driver.ci_channels
+
+    @property
+    def co_channels(self) -> Mapping[str, CounterOutputChannel]:
         """Frozen snapshot of configured counter output channels, keyed by alias."""
-        return self._driver.counter_channels
+        return self._driver.co_channels
 
     @property
     def relay_channels(self) -> Mapping[str, RelayChannel]:
@@ -1066,6 +1088,147 @@ class InstroDAQ(Instrument):
         self._driver.configure_co_pulse_channel(channel)
         logger.info(
             "Configured continuous counter output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
+        )
+
+    def configure_pulse_count_counter_input(
+        self,
+        physical_channel: str,
+        *,
+        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        count_up: bool = True,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter input channel that counts edges, reported in counts.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            edge_type: Edge the counter responds to.
+            count_up: Count up from zero; count down when ``False``.
+            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterInputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.INPUT,
+            edge_type=edge_type,
+            measurement=CounterMeasurement.PULSE_COUNT,
+            counter_source=counter_source,
+            count_up=count_up,
+        )
+        self._driver.configure_ci_channel(channel)
+        logger.info(
+            "Configured pulse count counter input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
+        )
+
+    def configure_frequency_counter_input(
+        self,
+        physical_channel: str,
+        *,
+        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter input channel that measures frequency, reported in Hz.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            edge_type: Edge the counter responds to.
+            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterInputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.INPUT,
+            edge_type=edge_type,
+            measurement=CounterMeasurement.FREQUENCY,
+            counter_source=counter_source,
+        )
+        self._driver.configure_ci_channel(channel)
+        logger.info(
+            "Configured frequency counter input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
+        )
+
+    def configure_period_counter_input(
+        self,
+        physical_channel: str,
+        *,
+        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter input channel that measures period, reported in seconds.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            edge_type: Edge the counter responds to.
+            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterInputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.INPUT,
+            edge_type=edge_type,
+            measurement=CounterMeasurement.PERIOD,
+            counter_source=counter_source,
+        )
+        self._driver.configure_ci_channel(channel)
+        logger.info("Configured period counter input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
+
+    def configure_pulse_width_counter_input(
+        self,
+        physical_channel: str,
+        *,
+        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter input channel that measures pulse width, reported in seconds.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            edge_type: Edge the counter responds to.
+            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterInputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.INPUT,
+            edge_type=edge_type,
+            measurement=CounterMeasurement.PULSE_WIDTH,
+            counter_source=counter_source,
+        )
+        self._driver.configure_ci_channel(channel)
+        logger.info(
+            "Configured pulse width counter input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
         )
 
     # ========  Relay Channels  ===========
