@@ -13,12 +13,14 @@ from typing import Any, ClassVar, Mapping, TypeVar, cast
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
+    COUNTER_OUT_MODE,
     AnalogChannel,
     AnalogChannelUnion,
     AnalogCurrentChannel,
     AnalogThermocoupleChannel,
     AnalogVoltageChannel,
     CJCSource,
+    CounterOutputChannel,
     DAQChannel,
     DigitalChannel,
     DigitalPortChannel,
@@ -26,6 +28,7 @@ from instro.daq.types import (
     Direction,
     HWTimingConfig,
     Logic,
+    PulseConfig,
     RelayChannel,
     TerminalConfig,
 )
@@ -95,6 +98,7 @@ class DAQDriverBase(abc.ABC):
     _ao_channels: dict[str, AnalogChannelUnion]
     _di_channels: dict[str, DigitalChannel]
     _do_channels: dict[str, DigitalChannel]
+    _counter_channels: dict[str, CounterOutputChannel]
     _relay_channels: dict[str, RelayChannel]
 
     _ai_hw_timing_config: HWTimingConfig | None
@@ -109,6 +113,7 @@ class DAQDriverBase(abc.ABC):
         self._ao_channels = {}
         self._di_channels = {}
         self._do_channels = {}
+        self._counter_channels = {}
         self._relay_channels = {}
 
         self._ai_hw_timing_config = None
@@ -118,12 +123,13 @@ class DAQDriverBase(abc.ABC):
 
     @property
     def channels(self) -> tuple[DAQChannel, ...]:
-        """Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays)."""
+        """Frozen snapshot of all configured AI/AO/DI/DO/counter channels (excludes relays)."""
         return (
             *self._ai_channels.values(),
             *self._ao_channels.values(),
             *self._di_channels.values(),
             *self._do_channels.values(),
+            *self._counter_channels.values(),
         )
 
     @property
@@ -145,6 +151,11 @@ class DAQDriverBase(abc.ABC):
     def do_channels(self) -> Mapping[str, DigitalChannel]:
         """Frozen snapshot of configured DO channels, keyed by alias."""
         return MappingProxyType(dict(self._do_channels))
+
+    @property
+    def counter_channels(self) -> Mapping[str, CounterOutputChannel]:
+        """Frozen snapshot of configured counter output channels, keyed by alias."""
+        return MappingProxyType(dict(self._counter_channels))
 
     @property
     def relay_channels(self) -> Mapping[str, RelayChannel]:
@@ -268,7 +279,10 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Digital Output port mode has not been configured for this driver")
 
     # ========  Counter Channels  ===========
-    # TODO: Add counter support
+
+    def configure_co_pulse_channel(self, channel: CounterOutputChannel):
+        """Register a counter pulse-train output channel. Override if the driver supports counter output."""
+        raise NotImplementedError("Counter pulse output has not been configured for this driver")
 
     # ========  Relay Channels  ===========
 
@@ -423,6 +437,8 @@ def _channel_kind(channel: DAQChannel) -> str:
             return f"current_{direction}"
         case DigitalChannel():
             return f"digital_{direction}"
+        case CounterOutputChannel():
+            return "counter_output"
         case AnalogChannel():
             return f"analog_{direction}"
         case _:
@@ -476,7 +492,7 @@ class InstroDAQ(Instrument):
 
     @property
     def channels(self) -> tuple[DAQChannel, ...]:
-        """Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays)."""
+        """Frozen snapshot of all configured AI/AO/DI/DO/counter channels (excludes relays)."""
         return self._driver.channels
 
     @property
@@ -498,6 +514,11 @@ class InstroDAQ(Instrument):
     def do_channels(self) -> Mapping[str, DigitalChannel]:
         """Frozen snapshot of configured DO channels, keyed by alias."""
         return self._driver.do_channels
+
+    @property
+    def counter_channels(self) -> Mapping[str, CounterOutputChannel]:
+        """Frozen snapshot of configured counter output channels, keyed by alias."""
+        return self._driver.counter_channels
 
     @property
     def relay_channels(self) -> Mapping[str, RelayChannel]:
@@ -967,7 +988,85 @@ class InstroDAQ(Instrument):
         logger.info("Configured digital port channel on DAQ '%s'", self.name)
 
     # ========  Counter Channels  ===========
-    # TODO: Add counter support
+
+    def configure_finite_counter_output(
+        self,
+        physical_channel: str,
+        pulse_config: PulseConfig,
+        n_pulses: int,
+        *,
+        idle_state: str | Logic = Logic.LOW,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter output channel that emits ``n_pulses`` per ``start()`` and then stops.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            pulse_config: Pulse shape; a ``FrequencyPulseConfig`` or a ``TimingPulseConfig``.
+            n_pulses: Number of pulses emitted per ``start()``.
+            idle_state: Line state between pulses.
+            counter_source: Terminal the pulse train is routed out of (e.g. ``"/Dev1/PFI12"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        idle_state = _coerce_enum(idle_state, Logic, "idle_state")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterOutputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.OUTPUT,
+            mode=COUNTER_OUT_MODE.FINITE,
+            pulse_config=pulse_config,
+            idle_state=idle_state,
+            counter_source=counter_source,
+            n_pulses=n_pulses,
+        )
+        self._driver.configure_co_pulse_channel(channel)
+        logger.info(
+            "Configured finite counter output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
+        )
+
+    def configure_continuous_counter_output(
+        self,
+        physical_channel: str,
+        pulse_config: PulseConfig,
+        *,
+        idle_state: str | Logic = Logic.LOW,
+        counter_source: str | None = None,
+        alias: str | None = None,
+    ):
+        """Configure a counter output channel that pulses continuously until ``stop()``.
+
+        Args:
+            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            pulse_config: Pulse shape; a ``FrequencyPulseConfig`` or a ``TimingPulseConfig``.
+            idle_state: Line state between pulses.
+            counter_source: Terminal the pulse train is routed out of (e.g. ``"/Dev1/PFI12"``); required on NI.
+            alias: Friendly name; defaults to ``physical_channel``.
+        """
+        self._require_open()
+        idle_state = _coerce_enum(idle_state, Logic, "idle_state")
+        alias = alias if alias else physical_channel
+        # Channel validation
+        self._reject_duplicate_channel(alias)
+        self._verify_not_running(alias)
+        channel = CounterOutputChannel(
+            physical_channel=physical_channel,
+            alias=alias,
+            direction=Direction.OUTPUT,
+            mode=COUNTER_OUT_MODE.CONTINUOUS,
+            pulse_config=pulse_config,
+            idle_state=idle_state,
+            counter_source=counter_source,
+        )
+        self._driver.configure_co_pulse_channel(channel)
+        logger.info(
+            "Configured continuous counter output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
+        )
 
     # ========  Relay Channels  ===========
 
