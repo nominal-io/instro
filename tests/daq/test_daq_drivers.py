@@ -12,13 +12,13 @@ from instro.daq import DAQDriverBase, InstroDAQ, TimingConfigException
 from instro.daq.drivers import HWTimestamper
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
-    COUNTER_OUT_MODE,
-    EDGE_TYPE,
     CounterMeasurement,
     DigitalLineChannel,
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
+    Edge,
+    FiniteCounterOutputChannel,
     FrequencyPulseConfig,
     Logic,
 )
@@ -1546,8 +1546,8 @@ def test_configure_counter_channels_record_on_driver_state():
     daq, _ = _counter_daq()
 
     assert daq.ci_channels["rpm"].measurement is CounterMeasurement.FREQUENCY
-    assert daq.ci_channels["rpm"].edge_type is EDGE_TYPE.RISING
-    assert daq.co_channels["burst"].mode is COUNTER_OUT_MODE.FINITE
+    assert daq.ci_channels["rpm"].edge_type is Edge.RISING
+    assert isinstance(daq.co_channels["burst"], FiniteCounterOutputChannel)
     assert daq.co_channels["burst"].n_pulses == 500
     # Counter channels join the aggregate, which is what duplicate rejection scans.
     assert {ch.alias for ch in daq.channels} == {"rpm", "burst"}
@@ -1593,7 +1593,7 @@ def test_wait_for_counter_output_rejects_continuous_channel():
         alias="clock",
     )
 
-    with pytest.raises(ValueError, match="is configured CONTINUOUS"):
+    with pytest.raises(ValueError, match="is continuous and never completes"):
         daq.wait_for_counter_output("clock")
 
     driver.wait_for_counter_output.assert_not_called()

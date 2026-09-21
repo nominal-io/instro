@@ -718,13 +718,13 @@ Counter channels measure edges on an input, or generate a pulse train on an outp
 Pick the method that matches the measurement. Each returns its value in the unit named below.
 
 ```python
-from instro.daq.types import EDGE_TYPE
+from instro.daq.types import Edge
 
 # Count edges (counts)
 daq.configure_pulse_count_counter_input(
     physical_channel="Dev1/ctr0",
     alias="revolutions",
-    edge_type=EDGE_TYPE.RISING,
+    edge_type=Edge.RISING,
     count_up=True,
     counter_source="/Dev1/PFI8",
 )
@@ -757,7 +757,7 @@ daq.wait_for_counter_output(channel="burst")   # blocks for 500 / 1 kHz, plus a 
 daq.stop_counter_output(channel="burst")
 ```
 
-Use `TimingPulseConfig(high_time_ms=..., low_time_ms=...)` instead when the spec gives pulse width rather than frequency.
+Use `TimingPulseConfig(high_time_s=..., low_time_s=...)` instead when the spec gives pulse width rather than frequency.
 
 `counter_source` names the terminal the signal arrives on or leaves by. NI requires it, because a counter routes to a PFI terminal.
 

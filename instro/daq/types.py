@@ -134,18 +134,8 @@ class DigitalLineChannel(DigitalChannel):
 # ========  Counter Output Channel Types  ===========
 
 
-class COUNTER_OUT_MODE(Enum):
-    CONTINUOUS = "CONTINUOUS"
-    FINITE = "FINITE"
-
-
 @dataclass(frozen=True)
-class PulseConfig:
-    """Base for pulse-train shape."""
-
-
-@dataclass(frozen=True)
-class FrequencyPulseConfig(PulseConfig):
+class FrequencyPulseConfig:
     """Define a pulse with frequency and duty cycle."""
 
     frequency: float
@@ -153,21 +143,30 @@ class FrequencyPulseConfig(PulseConfig):
 
 
 @dataclass(frozen=True)
-class TimingPulseConfig(PulseConfig):
-    """Define a pulse with high and low time (in milliseconds)."""
+class TimingPulseConfig:
+    """Define a pulse with high and low time (in seconds)."""
 
-    high_time_ms: float
-    low_time_ms: float
+    high_time_s: float
+    low_time_s: float
+
+
+PulseConfig = FrequencyPulseConfig | TimingPulseConfig
 
 
 @dataclass(frozen=True)
 class CounterOutputChannel(DAQChannel):
-    mode: COUNTER_OUT_MODE
+    """A continuous pulse train; runs until stopped."""
+
     pulse_config: PulseConfig
     idle_state: Logic = Logic.LOW
     counter_source: str | None = None
-    # FINITE only.
-    n_pulses: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class FiniteCounterOutputChannel(CounterOutputChannel):
+    """A pulse train that stops itself after ``n_pulses``."""
+
+    n_pulses: int
 
 
 # ========  Counter Input Channel Types  ===========
@@ -180,14 +179,14 @@ class CounterMeasurement(Enum):
     PULSE_WIDTH = "PULSE_WIDTH"  # seconds
 
 
-class EDGE_TYPE(Enum):
+class Edge(Enum):
     RISING = "RISING"
     FALLING = "FALLING"
 
 
 @dataclass(frozen=True)
 class CounterInputChannel(DAQChannel):
-    edge_type: EDGE_TYPE
+    edge_type: Edge
     # Unit of the value read back: counts, Hz, or seconds.
     measurement: CounterMeasurement
     # Required on NI, where a chassis counter routes to a PFI terminal; coupled to the terminal on MCC/LabJack.

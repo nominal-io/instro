@@ -13,8 +13,6 @@ from typing import Any, ClassVar, Mapping, TypeVar, cast
 from instro.daq.scaling.scaling import Scaler
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
 from instro.daq.types import (
-    COUNTER_OUT_MODE,
-    EDGE_TYPE,
     AnalogChannel,
     AnalogChannelUnion,
     AnalogCurrentChannel,
@@ -29,6 +27,8 @@ from instro.daq.types import (
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
+    Edge,
+    FiniteCounterOutputChannel,
     FrequencyPulseConfig,
     HWTimingConfig,
     Logic,
@@ -1055,11 +1055,10 @@ class InstroDAQ(Instrument):
         # Channel validation
         self._reject_duplicate_channel(alias)
         self._verify_not_running(alias)
-        channel = CounterOutputChannel(
+        channel = FiniteCounterOutputChannel(
             physical_channel=physical_channel,
             alias=alias,
             direction=Direction.OUTPUT,
-            mode=COUNTER_OUT_MODE.FINITE,
             pulse_config=pulse_config,
             idle_state=idle_state,
             counter_source=counter_source,
@@ -1098,7 +1097,6 @@ class InstroDAQ(Instrument):
             physical_channel=physical_channel,
             alias=alias,
             direction=Direction.OUTPUT,
-            mode=COUNTER_OUT_MODE.CONTINUOUS,
             pulse_config=pulse_config,
             idle_state=idle_state,
             counter_source=counter_source,
@@ -1112,7 +1110,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        edge_type: str | Edge = Edge.RISING,
         count_up: bool = True,
         counter_source: str | None = None,
         alias: str | None = None,
@@ -1127,7 +1125,7 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
-        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        edge_type = _coerce_enum(edge_type, Edge, "edge_type")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -1150,7 +1148,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
         alias: str | None = None,
     ):
@@ -1163,7 +1161,7 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
-        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        edge_type = _coerce_enum(edge_type, Edge, "edge_type")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -1185,7 +1183,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
         alias: str | None = None,
     ):
@@ -1198,7 +1196,7 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
-        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        edge_type = _coerce_enum(edge_type, Edge, "edge_type")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -1218,7 +1216,7 @@ class InstroDAQ(Instrument):
         self,
         physical_channel: str,
         *,
-        edge_type: str | EDGE_TYPE = EDGE_TYPE.RISING,
+        edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
         alias: str | None = None,
     ):
@@ -1231,7 +1229,7 @@ class InstroDAQ(Instrument):
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
-        edge_type = _coerce_enum(edge_type, EDGE_TYPE, "edge_type")
+        edge_type = _coerce_enum(edge_type, Edge, "edge_type")
         alias = alias if alias else physical_channel
         # Channel validation
         self._reject_duplicate_channel(alias)
@@ -1859,24 +1857,18 @@ class InstroDAQ(Instrument):
                 "Call configure_finite_counter_output() first."
             )
         # A continuous train never completes, so waiting on one would hang until the timeout.
-        if counter_channel.mode is not COUNTER_OUT_MODE.FINITE:
+        if not isinstance(counter_channel, FiniteCounterOutputChannel):
             raise ValueError(
-                f"Counter output channel '{channel}' is configured {counter_channel.mode.value}. "
-                "Waiting on a counter channel that isn't finite isn't valid."
+                f"Counter output channel '{channel}' is continuous and never completes; "
+                "call stop_counter_output() to end it."
             )
         # Default the timeout to how long the train itself runs, plus a second of slack.
         if timeout is None:
-            n_pulses = counter_channel.n_pulses or 0
             match counter_channel.pulse_config:
                 case FrequencyPulseConfig(frequency=frequency):
-                    timeout = n_pulses / frequency + 1.0
-                case TimingPulseConfig(high_time_ms=high_time_ms, low_time_ms=low_time_ms):
-                    timeout = n_pulses * (high_time_ms + low_time_ms) / 1000.0 + 1.0
-                case _:
-                    raise ValueError(
-                        f"Cannot compute a default timeout for '{channel}' from "
-                        f"{type(counter_channel.pulse_config).__name__}; pass timeout explicitly."
-                    )
+                    timeout = counter_channel.n_pulses / frequency + 1.0
+                case TimingPulseConfig(high_time_s=high_time_s, low_time_s=low_time_s):
+                    timeout = counter_channel.n_pulses * (high_time_s + low_time_s) + 1.0
         self._driver.wait_for_counter_output(counter_channel, timeout)
 
     @publish_command
