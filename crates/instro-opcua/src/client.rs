@@ -1043,14 +1043,14 @@ mod subscription_loop_tests {
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
-    use crate::types::BrowsePath;
+    use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
+    use crate::types::OpcUaQualifiedName;
     use crate::types::OpcUaValue;
-    use crate::types::QualifiedBrowseName;
 
     /// Generous deadline; the deterministic loop should make progress near-instantly, so this
     /// only fires if the loop wedges (which is itself a test failure worth surfacing).
@@ -1149,7 +1149,7 @@ mod subscription_loop_tests {
             browse_name: name.to_owned(),
             display_name: name.to_owned(),
             node_class: OpcUaNodeClass::Variable,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(1, name.to_owned())),
             children: Vec::new(),
         }
     }
