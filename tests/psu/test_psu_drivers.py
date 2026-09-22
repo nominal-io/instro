@@ -1,9 +1,12 @@
 """Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
 
+import threading
 from unittest.mock import MagicMock, call
 
 import pytest
 
+from instro.lib import Command, Measurement
+from instro.lib.publishers import Publisher
 from instro.psu import InstroPSU, PSUDriverBase
 from instro.psu.types import OperatingMode
 
@@ -121,6 +124,36 @@ def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
 # --- InstroPSU composition ---
 
 
+class _CountingLock:
+    """Counts how many times the resource lock is taken, to prove a sequence is never split."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.acquisitions = 0
+
+    def __enter__(self) -> "_CountingLock":
+        self._lock.acquire()
+        self.acquisitions += 1
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        self._lock.release()
+        return False
+
+
+class _RecordingPublisher(Publisher):
+    """Captures published data so a test can assert what reached the publishers."""
+
+    def __init__(self) -> None:
+        self.published: list[Measurement | Command] = []
+
+    def publish(self, data: Measurement | Command, **kwargs: object) -> None:
+        self.published.append(data)
+
+    def close(self) -> None:
+        pass
+
+
 def _stub_driver() -> MagicMock:
     driver = MagicMock(spec=PSUDriverBase)
     driver.get_voltage.return_value = 12.0
@@ -175,31 +208,60 @@ def test_nominal_psu_set_voltage_delegates() -> None:
 def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
-    psu.apply(voltage=5.0, current_limit=1.0, channel=2)
+    commands = psu.apply(voltage=5.0, current_limit=1.0, channel=2)
     # Current limit must land before the voltage it guards.
-    driver.assert_has_calls([
-        call.set_current_limit(1.0, channel=2),
-        call.set_voltage(5.0, channel=2),
-        call.output_enable(True, channel=2),
-    ])
-        call.set_current_limit(1.0, channel=2),
-        call.set_voltage(5.0, channel=2),
-        call.output_enable(True, channel=2),
+    driver.assert_has_calls(
+        [
+            call.set_current_limit(1.0, channel=2),
+            call.set_voltage(5.0, channel=2),
+            call.output_enable(True, channel=2),
+        ]
+    )
+    assert [list(command.channel_data) for command in commands] == [
+        ["ut.ch2.current.cmd"],
+        ["ut.ch2.voltage.cmd"],
+        ["ut.ch2.enabled.cmd"],
     ]
 
 
-def test_nominal_psu_channel_defaults_to_one() -> None:
+def test_nominal_psu_apply_disables_output_before_writing_setpoints() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-    psu.apply(voltage=3.3, current_limit=0.5, enable=False)
-    assert driver.method_calls == [
-        call.set_current_limit(0.5, channel=1),
-        call.set_voltage(3.3, channel=1),
-        call.output_enable(False, channel=1),
-    ]
+    psu.apply(voltage=3.3, current_limit=0.5, channel=1, enable=False)
+    # An already-live channel must go dark before it sees the new setpoints.
+    driver.assert_has_calls(
+        [
+            call.output_enable(False, channel=1),
+            call.set_current_limit(0.5, channel=1),
+            call.set_voltage(3.3, channel=1),
+        ]
+    )
 
-    psu.get_voltage()
-    driver.get_voltage.assert_called_once_with(channel=1)
+
+def test_nominal_psu_apply_holds_the_resource_lock_for_the_whole_sequence() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    lock = _CountingLock()
+    psu._resource_lock = lock  # type: ignore[assignment]
+
+    psu.apply(voltage=5.0, current_limit=1.0, channel=1)
+
+    # One acquisition, not one per step: releasing in between would let the
+    # background daemon publish a half-applied channel.
+    assert lock.acquisitions == 1
+
+
+def test_nominal_psu_apply_publishes_steps_that_landed_before_a_failure() -> None:
+    driver = _stub_driver()
+    driver.set_voltage.side_effect = RuntimeError("out of range")
+    publisher = _RecordingPublisher()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1, publishers=[publisher])
+
+    with pytest.raises(RuntimeError, match="out of range"):
+        psu.apply(voltage=99.0, current_limit=0.5, channel=1)
+
+    # The current limit reached the hardware, so it must not be lost from the record.
+    assert [list(command.channel_data) for command in publisher.published] == [["ut.ch1.current.cmd"]]
 
 
 def test_nominal_psu_get_voltage_returns_measurement() -> None:

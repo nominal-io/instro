@@ -48,20 +48,19 @@ The typical InstroPSU workflow:
 
 ### Bringing up a channel
 
-Step 3 is almost always the same three commands, in an order that matters: the current limit has to land before the voltage it guards. `apply()` does all three in that order:
+Step 3 is almost always the same three commands, in an order that matters: the current limit has to land before the voltage it guards. `apply()` does all three in that order and returns the three `Command` objects it published:
 
 ```python
-psu.apply(voltage=12.0, current_limit=0.5, channel=1)
+commands = psu.apply(voltage=12.0, current_limit=0.5, channel=1)
 ```
 
-Pass `enable=False` to configure a channel while leaving its output off. `apply()` is a thin wrapper over `set_current_limit()`, `set_voltage()`, and `output_enable()`, and publishes the same three command channels those calls would.
+Pass `enable=False` to configure a channel while leaving its output off. In that case the output is disabled **first**, so an already-live channel never sees the new setpoints — `apply()` reorders the steps rather than simply passing `enable` through to the end.
 
-`channel` defaults to `1` on every `InstroPSU` method, so single-channel supplies can leave it out entirely:
+The whole sequence runs under a single hold of the instrument lock, so a background daemon can't poll a half-applied channel.
 
-```python
-psu.apply(voltage=3.3, current_limit=0.5)
-print(psu.get_voltage().latest)
-```
+<Warning>
+`apply()` is not atomic on the instrument. If a step fails (value out of range, transport timeout), the earlier steps have already been committed and the channel is left in a state the caller can't infer from the exception. Treat any exception from `apply()` as "channel state unknown" and re-establish it explicitly. The commands for the steps that did land are still published, so the dataset records how far the sequence got.
+</Warning>
 
 ## Creating an InstroPSU Instance
 
@@ -332,7 +331,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Descriptor | Type |
 |--------|------------|------|
-| `apply(...)` | `ch{N}.current.cmd`, `ch{N}.voltage.cmd`, `ch{N}.enabled.cmd` | command (one per step) |
+| `apply(...)` | `ch{N}.current.cmd`, `ch{N}.voltage.cmd`, `ch{N}.enabled.cmd` (`enabled` first when `enable=False`) | command (one per step) |
 | `set_voltage(channel=N)` | `ch{N}.voltage.cmd` | command |
 | `get_voltage(channel=N)` | `ch{N}.voltage` | telemetry |
 | `set_current_limit(channel=N)` | `ch{N}.current.cmd` | command |
@@ -363,7 +362,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `InstroPSU(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
-| `apply(voltage, current_limit, channel=N, enable=True)` | Set the current limit, then the voltage, then the output state |
+| `apply(voltage, current_limit, channel=N, enable=True)` | Set the current limit, then the voltage, then the output state; returns `list[Command]`. Disables the output first when `enable=False` |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
 | `get_voltage(channel=N)` | Read measured output voltage in volts. May vary from the voltage setpoint outside of constant voltage mode |
 | `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |
