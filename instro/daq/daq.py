@@ -1847,6 +1847,10 @@ class InstroDAQ(Instrument):
         Args:
             channel: Alias of a channel configured with ``configure_finite_counter_output()``.
             timeout: Seconds to wait; defaults to the train's own duration plus one second.
+
+        Raises:
+            KeyError: ``channel`` is not a configured counter output.
+            ValueError: ``channel`` is a continuous train, which never completes; stop it instead.
         """
         self._require_open()
         # Resolve the alias against the configured counter outputs.
