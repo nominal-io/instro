@@ -1457,7 +1457,7 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
             OpcUaValue::Unsupported => ScalarValue::Unsupported,
             OpcUaValue::LocalizedText(lt) => {
-                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.text(), lt.locale())?)
+                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.locale(), lt.text())?)
             }
             OpcUaValue::QualifiedName(qn) => {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
