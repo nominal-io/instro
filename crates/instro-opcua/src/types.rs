@@ -1434,12 +1434,9 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             ),
             OpcUaValue::QualifiedName(qn) => {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
-                let qn = match catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name())) {
-                    Ok(qn) => qn,
-                    Err(err) => bail!("failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"),
-                };
-
-                ScalarValue::QualifiedName(qn)
+                catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
+                    .map(ScalarValue::QualifiedName)
+                    .map_err(|err| anyhow!("failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"))?
             }
         })
     }
