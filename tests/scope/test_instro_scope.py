@@ -393,6 +393,22 @@ def test_tektronix_digitize_raises_timeout_and_clears(
     tektronix_visa.clear.assert_called_once()
 
 
+def test_tektronix_fetch_waveform_sets_stop_to_full_record_length_before_querying_nr_pt(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    tektronix_visa.query.side_effect = ["10000", "1", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
+
+    waveform = tektronix.fetch_waveform(channel=1)
+
+    writes = [c.args[0] for c in tektronix_visa.write.call_args_list]
+    assert writes.index("DATa:STARt 1") < writes.index("DATa:STOP 10000") < len(writes)
+    assert len(waveform.times) == 10000
+    tektronix_visa.query_binary_values.assert_called_once_with(
+        "CURVe?", datatype="h", is_big_endian=True, container=list
+    )
+
+
 # --- SiglentSDS1000XE unit tests ---
 
 
