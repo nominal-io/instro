@@ -1,11 +1,12 @@
 import time
+import warnings
 from dataclasses import dataclass
 from itertools import count
 from typing import Mapping
 
 import nidaqmx
-from nidaqmx.constants import AcquisitionType, LineGrouping
-from nidaqmx.system import PhysicalChannel
+from nidaqmx.constants import AcquisitionType, Level, LineGrouping, TaskMode
+from nidaqmx.system import Device, PhysicalChannel
 from nidaqmx.system import System as niSystem
 
 from instro.daq import DAQDriverBase
@@ -19,12 +20,14 @@ from instro.daq.types import (
     AnalogVoltageChannel,
     ChannelType,
     CJCSource,
+    CounterOutputChannel,
     DAQChannel,
     DigitalChannel,
     DigitalLineChannel,
     DigitalPortChannel,
     DigitalPortWidth,
     Direction,
+    FrequencyPulseConfig,
     HWTimingConfig,
     Logic,
     TerminalConfig,
@@ -69,6 +72,10 @@ class NIDAQDriver(DAQDriverBase):
         self._di_port_tasks: dict[str, nidaqmx.Task] = {}
         self._do_port_tasks: dict[str, nidaqmx.Task] = {}
 
+        # A counter output owns a counter for the life of the pulse train, so each one gets
+        # its own task that starts and stops independently. Keyed by channel alias.
+        self._co_tasks: dict[str, nidaqmx.Task] = {}
+
     def open(self):
         """NI-DAQmx has no explicit connect — verifies the device is present in ``niSystem.local()``."""
         # Verify device exists
@@ -93,10 +100,13 @@ class NIDAQDriver(DAQDriverBase):
             self._close_task(task)
         for task in (*self._di_port_tasks.values(), *self._do_port_tasks.values()):
             self._close_task(task)
+        for task in self._co_tasks.values():
+            self._close_task(task)
         self._tasks.clear()
         self._ao_sw_tasks.clear()
         self._di_port_tasks.clear()
         self._do_port_tasks.clear()
+        self._co_tasks.clear()
         self._running_channel_types.clear()
 
     def _close_task(self, task: nidaqmx.Task):
@@ -448,6 +458,83 @@ class NIDAQDriver(DAQDriverBase):
             width=port_width,
         )
 
+    @staticmethod
+    def validate_pfi_string(physical_channel: str) -> str:
+        """Return ``physical_channel`` in the ``/DevN/PFIn`` form DAQmx wants, checked against the device's terminals."""
+        # NOTE: daqmx API doesn't expose a mapping between port/line -> PFI so all we can do is validate that the PFI string is correct
+        # Only a PFI name is accepted: DAQmx gives no mapping from a digital port/line to a terminal.
+        name = physical_channel.lstrip("/")
+        if "PFI" not in name:
+            raise ValueError(
+                f"physical_channel must name a PFI terminal, e.g. '/Dev1/PFI0'. Received {physical_channel}. "
+                "DAQmx does not relate a digital port/line to the terminal that shares its pin."
+            )
+
+        # A terminal name starts with a slash; add the missing one, but say so.
+        if not physical_channel.startswith("/"):
+            warnings.warn(
+                f"PFI terminal names require a leading slash; using '/{name}'.",
+                stacklevel=2,
+            )
+
+        # Check the terminal against the list the device reports.
+        terminal = f"/{name}"
+        device = Device(name.split("/")[0])
+        pfi_terminals = [candidate for candidate in device.terminals if "/PFI" in candidate]
+        if terminal not in pfi_terminals:
+            raise ValueError(f"{terminal} is not a terminal on {device.name}. Available: {pfi_terminals}.")
+        return terminal
+
+    def configure_co_pulse_channel(self, channel: CounterOutputChannel):
+        """Build a dedicated pulse-train task on counter ``counter_source`` and route it out of ``physical_channel``."""
+        # Validate the counter and the terminal the train drives.
+        if not channel.counter_source:
+            raise ValueError(
+                f"counter_source is required for channel '{channel.alias}'. It names the NI counter that "
+                "generates the train, e.g. 'Dev1/ctr0'."
+            )
+        self._reject_channel_range_or_list(channel.counter_source)
+        terminal = self.validate_pfi_string(channel.physical_channel)
+
+        # Add the pulse channel in whichever form the pulse config describes. Anything that raises past
+        # this point has to close the task, which holds a reserved counter until the process exits.
+        task = nidaqmx.Task(f"{self._task_prefix}_co_{channel.alias}")
+        try:
+            idle_state = Level.HIGH if channel.idle_state is Logic.HIGH else Level.LOW
+            pulse_config = channel.pulse_config
+            if isinstance(pulse_config, FrequencyPulseConfig):
+                co_channel = task.co_channels.add_co_pulse_chan_freq(
+                    counter=channel.counter_source,
+                    name_to_assign_to_channel=channel.alias,
+                    idle_state=idle_state,
+                    freq=pulse_config.frequency,
+                    duty_cycle=pulse_config.duty_cycle,
+                )
+            else:
+                co_channel = task.co_channels.add_co_pulse_chan_time(
+                    counter=channel.counter_source,
+                    name_to_assign_to_channel=channel.alias,
+                    idle_state=idle_state,
+                    high_time=pulse_config.high_time_s,
+                    low_time=pulse_config.low_time_s,
+                )
+            co_channel.co_pulse_term = terminal
+
+            # Give the task implicit timing: a continuous train free-runs, a finite one counts out its pulses.
+            if channel.continuous:
+                task.timing.cfg_implicit_timing(sample_mode=AcquisitionType.CONTINUOUS)
+            else:
+                task.timing.cfg_implicit_timing(sample_mode=AcquisitionType.FINITE, samps_per_chan=channel.n_pulses)
+
+            # Reserve nibble now so that start doesn't try to reserve and raise
+            task.control(TaskMode.TASK_RESERVE)
+        except Exception:
+            self._close_task(task)
+            raise
+
+        self._co_tasks[channel.alias] = task
+        self._co_channels[channel.alias] = channel
+
     def start(self, **kwargs):
         """Start the DAQ device for data acquisition."""
         channel_type: ChannelType | None = kwargs.get("channel_type", None)
@@ -602,6 +689,18 @@ class NIDAQDriver(DAQDriverBase):
         if channel.logic is Logic.LOW:
             data ^= (1 << int(channel.width)) - 1
         return data
+
+    def start_counter_output(self, channel: CounterOutputChannel):
+        """Start the pulse train on ``channel``."""
+        self._co_tasks[channel.alias].start()
+
+    def stop_counter_output(self, channel: CounterOutputChannel):
+        """Stop the pulse train on ``channel``; the task keeps its reservation and can be started again."""
+        self._co_tasks[channel.alias].stop()
+
+    def wait_for_counter_output(self, channel: CounterOutputChannel, timeout: float):
+        """Block up to ``timeout`` seconds until the finite train on ``channel`` has emitted every pulse."""
+        self._co_tasks[channel.alias].wait_until_done(timeout)
 
     def _read_to_measurements(
         self,
