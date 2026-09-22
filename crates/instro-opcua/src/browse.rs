@@ -27,7 +27,7 @@ use anyhow::bail;
 use open62541::ua;
 
 use super::client::OpcUaClient;
-use super::types::BrowsePath;
+use super::types::OpcUaBrowsePath;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
@@ -60,7 +60,7 @@ pub trait BrowseAll: Browse {
     fn browse_all_from_path(
         &self,
         node_id: OpcUaNodeId,
-        parent_path: BrowsePath,
+        parent_path: OpcUaBrowsePath,
         max_depth: Option<usize>,
     ) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
 }
@@ -71,14 +71,14 @@ impl<T: Browse> BrowseAll for T {
         node_id: OpcUaNodeId,
         max_depth: Option<usize>,
     ) -> Result<Vec<OpcUaNode>> {
-        self.browse_all_from_path(node_id, BrowsePath::default(), max_depth)
+        self.browse_all_from_path(node_id, OpcUaBrowsePath::default(), max_depth)
             .await
     }
 
     async fn browse_all_from_path(
         &self,
         node_id: OpcUaNodeId,
-        parent_path: BrowsePath,
+        parent_path: OpcUaBrowsePath,
         max_depth: Option<usize>,
     ) -> Result<Vec<OpcUaNode>> {
         let mut ancestors = HashSet::new();
@@ -151,7 +151,7 @@ impl Browse for OpcUaClient {
                     browse_name: reference.browse_name().name().to_string(),
                     node_class,
                     children: Vec::new(),
-                    browse_path: BrowsePath::from_segment(reference.browse_name().into()),
+                    browse_path: OpcUaBrowsePath::from_segment(reference.browse_name().into()),
                     display_name: reference.display_name().text().to_string(),
                 })
             })
@@ -170,7 +170,7 @@ fn browse_recursive<'a, B: Browse>(
     node_id: OpcUaNodeId,
     depth: usize,
     max_depth: Option<usize>,
-    parent_path: BrowsePath,
+    parent_path: OpcUaBrowsePath,
     ancestors: &'a mut HashSet<OpcUaNodeId>,
     visited: &'a mut usize,
     max_nodes: usize,
@@ -247,18 +247,18 @@ mod tests {
     use super::BrowseAll;
     use super::DEFAULT_MAX_BROWSE_NODES;
     use super::browse_recursive;
-    use crate::types::BrowsePath;
+    use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
-    use crate::types::QualifiedBrowseName;
+    use crate::types::OpcUaQualifiedName;
 
     fn nid(n: u32) -> OpcUaNodeId {
         OpcUaNodeId::numeric(0, n)
     }
 
-    fn browse_path(namespace_index: u16, name: String) -> BrowsePath {
-        BrowsePath::from_segment(QualifiedBrowseName::new(namespace_index, name))
+    fn browse_path(namespace_index: u16, name: String) -> OpcUaBrowsePath {
+        OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(namespace_index, name))
     }
 
     fn obj(id: u32) -> OpcUaNode {
@@ -373,13 +373,13 @@ mod tests {
         /// Convenience: run `browse_recursive` from `root` with the given
         /// `max_depth`, returning the result tree.
         fn browse(&self, root: OpcUaNodeId, max_depth: Option<usize>) -> Result<Vec<OpcUaNode>> {
-            self.browse_with_parent(root, BrowsePath::default(), max_depth)
+            self.browse_with_parent(root, OpcUaBrowsePath::default(), max_depth)
         }
 
         fn browse_with_parent(
             &self,
             root: OpcUaNodeId,
-            parent_path: BrowsePath,
+            parent_path: OpcUaBrowsePath,
             max_depth: Option<usize>,
         ) -> Result<Vec<OpcUaNode>> {
             let mut ancestors = HashSet::new();
@@ -418,7 +418,7 @@ mod tests {
                 root,
                 0,
                 None,
-                BrowsePath::default(),
+                OpcUaBrowsePath::default(),
                 &mut ancestors,
                 &mut visited,
                 max_nodes,
@@ -688,7 +688,7 @@ mod tests {
         browser.add_children(nid(2), vec![var(3)]);
         browser.add_children(nid(3), vec![var(4)]);
 
-        let root_path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()));
+        let root_path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()));
         let result = browser
             .browse_with_parent(nid(1), root_path, None)
             .expect("browse should succeed");
