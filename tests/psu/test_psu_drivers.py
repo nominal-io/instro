@@ -177,7 +177,11 @@ def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
     psu.apply(voltage=5.0, current_limit=1.0, channel=2)
     # Current limit must land before the voltage it guards.
-    assert driver.method_calls == [
+    driver.assert_has_calls([
+        call.set_current_limit(1.0, channel=2),
+        call.set_voltage(5.0, channel=2),
+        call.output_enable(True, channel=2),
+    ])
         call.set_current_limit(1.0, channel=2),
         call.set_voltage(5.0, channel=2),
         call.output_enable(True, channel=2),
