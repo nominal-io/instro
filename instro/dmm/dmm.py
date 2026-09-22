@@ -223,7 +223,9 @@ class InstroDMM(Instrument):
 
         self._driver = driver
         self._config = resolved_config
-        self._resource_lock = threading.Lock()
+        # Reentrant: _read_function holds this across set_measurement_function + read,
+        # both of which acquire it themselves.
+        self._resource_lock = threading.RLock()
         self._measurement_config: DMMMeasurementConfig | None = None
         self._measurement_config_applied = False
 
@@ -302,10 +304,10 @@ class InstroDMM(Instrument):
             self._driver.set_measurement_function(function)
             timestamp = time.time_ns()
 
-        if self._measurement_config is None:
-            self._measurement_config = DMMMeasurementConfig(function)
-        else:
-            self._measurement_config = replace(self._measurement_config, function=function)
+            if self._measurement_config is None:
+                self._measurement_config = DMMMeasurementConfig(function)
+            else:
+                self._measurement_config = replace(self._measurement_config, function=function)
 
         return self._package_command("set_measurement_function.cmd", function.value, timestamp, **kwargs)
 
@@ -394,10 +396,15 @@ class InstroDMM(Instrument):
         return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
 
     def _read_function(self, function: MeasurementFunction, **kwargs) -> Measurement:
-        """Select ``function`` when it isn't already active, then read."""
-        if self._measurement_config is None or self._measurement_config.function is not function:
-            self.set_measurement_function(function, **kwargs)
-        return self.read(**kwargs)
+        """Select ``function`` when it isn't already active, then read, as one atomic sequence.
+
+        The lock spans the check as well as both calls: releasing it in between would let
+        another thread switch the function and hand this caller the wrong quantity.
+        """
+        with self._resource_lock:
+            if self._measurement_config is None or self._measurement_config.function is not function:
+                self.set_measurement_function(function, **kwargs)
+            return self.read(**kwargs)
 
     def read_dc_voltage(self, **kwargs) -> Measurement:
         """Read DC voltage (volts), selecting the function first if needed."""

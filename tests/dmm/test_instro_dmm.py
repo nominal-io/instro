@@ -6,6 +6,7 @@ tests/dmm/agilent/test_agilent_34401a_software.py,
 tests/dmm/keithley/test_keithley_2400_software.py).
 """
 
+import threading
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
@@ -13,6 +14,7 @@ import pytest
 
 from instro.dmm import DMMDriverBase, InstroDMM
 from instro.dmm.types import MeasurementFunction
+from instro.lib import Measurement
 
 # --- InstroDMM composition tests ---
 
@@ -204,3 +206,38 @@ def test_read_helper_skips_redundant_function_change(stub_driver: _StubDMMDriver
     dmm.read_resistance()
     assert stub_driver.set_measurement_function.call_count == 2
     assert stub_driver.set_measurement_function.call_args.args == (MeasurementFunction.TWO_WIRE_RESISTANCE,)
+
+
+def test_read_helper_is_atomic_against_concurrent_function_change(stub_driver: _StubDMMDriver) -> None:
+    """A competing set_measurement_function must not switch the function mid-sequence."""
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+    stub_driver.measured = 1.0
+
+    parked = threading.Event()
+    resume = threading.Event()
+    real_read = dmm.read
+
+    def stalled_read(**kwargs):
+        # Park where an unguarded implementation would hold no lock: after the
+        # function check in _read_function, before read() takes the resource lock.
+        parked.set()
+        resume.wait(timeout=5)
+        return real_read(**kwargs)
+
+    dmm.read = stalled_read  # type: ignore[method-assign]
+
+    readings: list[Measurement] = []
+    reader = threading.Thread(target=lambda: readings.append(dmm.read_dc_voltage()))
+    reader.start()
+    assert parked.wait(timeout=5)
+
+    switcher = threading.Thread(target=lambda: dmm.set_measurement_function(MeasurementFunction.TWO_WIRE_RESISTANCE))
+    switcher.start()
+    switcher.join(timeout=0.2)  # blocked on the resource lock; ample time to win the race if it were not
+    resume.set()
+
+    reader.join(timeout=5)
+    switcher.join(timeout=5)
+
+    assert "ut.dc_voltage" in readings[0].channel_data
