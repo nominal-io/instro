@@ -51,10 +51,17 @@ The typical InstroPSU workflow:
 Step 3 is almost always the same three commands, in an order that matters: the current limit has to land before the voltage it guards. `apply()` does all three in that order and returns the three `Command` objects it published:
 
 ```python
-commands = psu.apply(voltage=12.0, current_limit=0.5, channel=1)
+commands = psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
 ```
 
-Pass `enable=False` to configure a channel while leaving its output off. In that case the output is disabled **first**, so an already-live channel never sees the new setpoints — `apply()` reorders the steps rather than simply passing `enable` through to the end.
+The output stays **off** unless you pass `enable=True`. On that default path the output is disabled *before* the new setpoints are written, so an already-live channel never sees them — `apply()` reorders the steps rather than passing `enable` through to a trailing `output_enable`. Energizing a channel is therefore always explicit:
+
+```python
+psu.apply(voltage=12.0, current_limit=0.5, channel=1)               # configured, output off
+psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)  # configured and live
+```
+
+`channel` is keyword-only, so it can't be passed positionally by mistake.
 
 The whole sequence runs under a single hold of the instrument lock, so a background daemon can't poll a half-applied channel.
 
@@ -225,7 +232,7 @@ psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 psu.open()
 
 # Configure channel 1
-psu.apply(voltage=12.0, current_limit=0.5, channel=1)
+psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
 
 time.sleep(0.5)
 
@@ -267,7 +274,7 @@ psu.open()
 psu.start()
 
 # Configure channel 1
-psu.apply(voltage=12.0, current_limit=0.5, channel=1)
+psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
 
 # Data flows automatically to publishers
 while True:
@@ -331,7 +338,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 
 | Method | Descriptor | Type |
 |--------|------------|------|
-| `apply(...)` | `ch{N}.current.cmd`, `ch{N}.voltage.cmd`, `ch{N}.enabled.cmd` (`enabled` first when `enable=False`) | command (one per step) |
+| `apply(...)` | `ch{N}.current.cmd`, `ch{N}.voltage.cmd`, `ch{N}.enabled.cmd` (`enabled` comes first unless `enable=True`) | command (one per step) |
 | `set_voltage(channel=N)` | `ch{N}.voltage.cmd` | command |
 | `get_voltage(channel=N)` | `ch{N}.voltage` | telemetry |
 | `set_current_limit(channel=N)` | `ch{N}.current.cmd` | command |
@@ -362,7 +369,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `InstroPSU(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
-| `apply(voltage, current_limit, channel=N, enable=True)` | Set the current limit, then the voltage, then the output state; returns `list[Command]`. Disables the output first when `enable=False` |
+| `apply(voltage, current_limit, enable=False, *, channel=N)` | Set the current limit, then the voltage, then the output state; returns `list[Command]`. Output stays off unless `enable=True`; on the default path the output is disabled first |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
 | `get_voltage(channel=N)` | Read measured output voltage in volts. May vary from the voltage setpoint outside of constant voltage mode |
 | `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |

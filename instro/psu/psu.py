@@ -261,12 +261,17 @@ class InstroPSU(Instrument):
         self._driver.close()
         logger.info("Closed PSU '%s'", self.name)
 
-    def apply(self, voltage: float, current_limit: float, channel: int, enable: bool = True, **kwargs) -> list[Command]:
+    def apply(
+        self, voltage: float, current_limit: float, enable: bool = False, *, channel: int, **kwargs
+    ) -> list[Command]:
         """Set the current limit, then the voltage, then the output state on ``channel``.
 
-        Holds the resource lock across all three steps so nothing observes a
-        half-applied channel. When ``enable`` is False the output is disabled
-        first, so new setpoints are never written to a live output.
+        The output stays off unless ``enable=True`` is passed, and on the default
+        path it is disabled before the new setpoints are written, so setpoints are
+        never applied to a live output. ``channel`` is keyword-only and required.
+
+        Holds the resource lock across all steps so nothing observes a half-applied
+        channel.
 
         Not atomic on the instrument: if a step raises, earlier steps have already
         been committed and the channel is left in an unknown state. Commands for the

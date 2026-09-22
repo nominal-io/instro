@@ -208,7 +208,7 @@ def test_nominal_psu_set_voltage_delegates() -> None:
 def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
-    commands = psu.apply(voltage=5.0, current_limit=1.0, channel=2)
+    commands = psu.apply(voltage=5.0, current_limit=1.0, channel=2, enable=True)
     # Current limit must land before the voltage it guards.
     driver.assert_has_calls(
         [
@@ -227,7 +227,7 @@ def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
 def test_nominal_psu_apply_disables_output_before_writing_setpoints() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-    psu.apply(voltage=3.3, current_limit=0.5, channel=1, enable=False)
+    psu.apply(voltage=3.3, current_limit=0.5, channel=1)
     # An already-live channel must go dark before it sees the new setpoints.
     driver.assert_has_calls(
         [
@@ -260,8 +260,11 @@ def test_nominal_psu_apply_publishes_steps_that_landed_before_a_failure() -> Non
     with pytest.raises(RuntimeError, match="out of range"):
         psu.apply(voltage=99.0, current_limit=0.5, channel=1)
 
-    # The current limit reached the hardware, so it must not be lost from the record.
-    assert [list(command.channel_data) for command in publisher.published] == [["ut.ch1.current.cmd"]]
+    # The disable and the current limit reached the hardware, so they must not be lost from the record.
+    assert [list(command.channel_data) for command in publisher.published] == [
+        ["ut.ch1.enabled.cmd"],
+        ["ut.ch1.current.cmd"],
+    ]
 
 
 def test_nominal_psu_get_voltage_returns_measurement() -> None:
