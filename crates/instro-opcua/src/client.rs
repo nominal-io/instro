@@ -163,12 +163,21 @@ pub struct BatchIter<'batch> {
 
 impl<'batch> BatchIter<'batch> {
     pub const fn new(nodes: &'batch [OpcUaNodeId], attrs: &'batch [OpcUaAttributeId]) -> Self {
-        Self { nodes, attrs, index: 0 }
+        Self {
+            nodes,
+            attrs,
+            index: 0,
+        }
     }
 
     pub const fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
-        let Some(node_idx) = self.index.checked_div(self.attrs.len()) else { return None; };
-        let Some(attr_idx) = self.index.checked_rem(self.attrs.len()) else { return None; };
+        let Some(node_idx) = self.index.checked_div(self.attrs.len()) else {
+            return None;
+        };
+
+        let Some(attr_idx) = self.index.checked_rem(self.attrs.len()) else {
+            return None;
+        };
 
         if node_idx >= self.nodes.len() {
             return None;
@@ -177,6 +186,7 @@ impl<'batch> BatchIter<'batch> {
         self.index += 1;
 
         // SAFETY: `node_idx` & `attr_idx` are always less than `self.batch.nodes().len()` & `self.batch.attrs().len()` respectively
+        #[expect(clippy::indexing_slicing, reason = "checked indices")]
         Some((&self.nodes[node_idx], &self.attrs[attr_idx]))
     }
 }
@@ -349,7 +359,9 @@ impl OpcUaClient {
     where
         N: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
     {
-        let reader = ClientNodeReader { client: Arc::downgrade(self) };
+        let reader = ClientNodeReader {
+            client: Arc::downgrade(self),
+        };
         OpcUaStreamSession::new("opcua-poll-loop", async move || {
             // Downgrade the client to a weak reference to avoid holding onto the strong reference.
             // Increases the chances of success when using `Arc::into_inner` for shutdown.
@@ -367,8 +379,12 @@ impl OpcUaClient {
         &self,
         node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
     ) -> Result<
-        impl Iterator<Item = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint)>
-        + use<'nodes, 'attrs, 'batch>,
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        > + use<'nodes, 'attrs, 'batch>,
     > {
         let read_result = self
             .read_many_attributes(node_list.pairs())
@@ -383,27 +399,22 @@ impl OpcUaClient {
             );
         }
 
+        Ok(node_list.keys().zip(read_result).enumerate().filter_map(
+            |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
+                Err(e) => {
+                    tracing::warn!(
+                        target: "opcua::client",
+                        error = ?e,
+                        node_index = i,
+                        "discarding data due to error decoding value for node"
+                    );
 
-        Ok(node_list
-            .keys()
-            .zip(read_result)
-            .enumerate()
-            .filter_map(
-                |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
-                    Err(e) => {
-                        tracing::warn!(
-                            target: "opcua::client",
-                            error = ?e,
-                            node_index = i,
-                            "discarding data due to error decoding value for node"
-                        );
+                    None
+                }
 
-                        None
-                    }
-
-                    Ok(value) => Some(((node, attr), value)),
-                },
-            ))
+                Ok(value) => Some(((node, attr), value)),
+            },
+        ))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
@@ -550,7 +561,8 @@ impl OpcUaClient {
             let read_start = metrics.start_read();
 
             let read_result = if reader.is_alive() {
-                reader.read_nodes(&node_list)
+                reader
+                    .read_nodes(&node_list)
                     .await
                     .context("reading nodes from poll loop")
             } else {
@@ -753,7 +765,14 @@ pub(crate) trait NodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint)>>;
+    ) -> Result<
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        >,
+    >;
 }
 
 /// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
@@ -769,8 +788,14 @@ impl NodeReader for ClientNodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint)>>
-    {
+    ) -> Result<
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        >,
+    > {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
@@ -1147,8 +1172,14 @@ mod tests {
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint)>>
-        {
+        ) -> Result<
+            impl Iterator<
+                Item = (
+                    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                    OpcUaDataPoint,
+                ),
+            >,
+        > {
             let samples = {
                 let mut state = self
                     .state
@@ -1629,10 +1660,7 @@ mod tests {
 
         let samples = batches.into_iter().flatten().collect::<Vec<_>>();
 
-        let static_count = samples
-            .iter()
-            .filter(|(node_id, _)| node_id == &x)
-            .count();
+        let static_count = samples.iter().filter(|(node_id, _)| node_id == &x).count();
         let active_timestamps = samples
             .iter()
             .filter_map(|(node_id, sample)| {
@@ -1730,7 +1758,7 @@ mod tests {
     async fn batch_iter_iterates_over_all_node_attribute_pairs_in_order() -> Result<()> {
         let nodes = [test_node(1, "Static"), test_node(2, "Active")];
         let attrs = [OpcUaAttributeId::Value];
-        let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
+        let batch = OpcUaNodeReadBatch::new(&nodes, attrs);
 
         let mut iter = batch.keys();
 
@@ -1747,7 +1775,7 @@ mod tests {
         let attrs = [OpcUaAttributeId::Value, OpcUaAttributeId::Description];
 
         assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).keys().next(), None);
-        assert_eq!(OpcUaNodeReadBatch::new([], &attrs).keys().next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new([], attrs).keys().next(), None);
 
         Ok(())
     }
