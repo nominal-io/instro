@@ -1333,6 +1333,41 @@ impl Display for OpcUaQualifiedName {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpcUaLocalizedText {
+    text: String,
+    locale: String,
+}
+
+impl OpcUaLocalizedText {
+    pub const fn new(text: String, locale: String) -> Self {
+        Self { text, locale }
+    }
+
+    pub const fn text(&self) -> &str {
+        self.text.as_str()
+    }
+
+    pub const fn locale(&self) -> &str {
+        self.locale.as_str()
+    }
+}
+
+impl From<ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: ua::LocalizedText) -> Self {
+        Self::from(&lt)
+    }
+}
+
+impl From<&ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: &ua::LocalizedText) -> Self {
+        Self {
+            text: lt.text().to_string(),
+            locale: lt.locale().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum OpcUaValue {
     #[serde(alias = "boolean", alias = "bool")]
@@ -1365,6 +1400,8 @@ pub enum OpcUaValue {
     NodeId(OpcUaNodeId),
     #[serde(alias = "qualifiedName")]
     QualifiedName(OpcUaQualifiedName),
+    #[serde(alias = "localizedText")]
+    LocalizedText(OpcUaLocalizedText),
     #[serde(alias = "guid")]
     Guid(Uuid),
     #[serde(other)]
@@ -1392,6 +1429,9 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::try_from(nid)?),
             OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
             OpcUaValue::Unsupported => ScalarValue::Unsupported,
+            OpcUaValue::LocalizedText(lt) => ScalarValue::LocalizedText(ua::LocalizedText::new(
+                &lt.text(), &lt.locale())?
+            ),
             OpcUaValue::QualifiedName(qn) => {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
                 let qn = match catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name())) {
