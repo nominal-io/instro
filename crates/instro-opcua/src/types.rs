@@ -1295,16 +1295,6 @@ impl OpcUaQualifiedName {
     }
 }
 
-impl FromStr for OpcUaQualifiedName {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
-        let (ns_index, name) = s
-            .split_once(':')
-            .ok_or_else(|| anyhow!("invalid qualified name: '{s}'"))?;
-        Ok(Self::new(ns_index.parse()?, name.to_string()))
-    }
-}
-
 impl From<ua::QualifiedName> for OpcUaQualifiedName {
     fn from(qn: ua::QualifiedName) -> Self {
         Self::from(&qn)
