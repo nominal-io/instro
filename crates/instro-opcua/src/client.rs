@@ -1043,8 +1043,8 @@ mod subscription_loop_tests {
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
-    use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaAttributeId;
+    use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;

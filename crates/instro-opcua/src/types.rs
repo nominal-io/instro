@@ -942,10 +942,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
         bail!("browse path segment name must not be empty");
     }
 
-    Ok(OpcUaQualifiedName {
-        ns_index,
-        name,
-    })
+    Ok(OpcUaQualifiedName { ns_index, name })
 }
 
 fn namespace_separator(segment: &str) -> Result<Option<usize>> {
@@ -1231,7 +1228,6 @@ impl OpcUaMonitoredItemConfig {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpcUaDataPoint {
     pub server_timestamp: Option<u64>,
@@ -1302,7 +1298,9 @@ impl OpcUaQualifiedName {
 impl FromStr for OpcUaQualifiedName {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        let (ns_index, name) = s.split_once(':').ok_or_else(|| anyhow!("invalid qualified name: '{s}'"))?;
+        let (ns_index, name) = s
+            .split_once(':')
+            .ok_or_else(|| anyhow!("invalid qualified name: '{s}'"))?;
         Ok(Self::new(ns_index.parse()?, name.to_string()))
     }
 }
@@ -1372,21 +1370,55 @@ impl From<&ua::LocalizedText> for OpcUaLocalizedText {
 pub enum OpcUaValue {
     #[serde(alias = "boolean", alias = "bool")]
     Boolean(bool),
-    #[serde(alias = "int8", alias = "SBYTE", alias = "sbyte", alias = "SINT", alias = "sint")]
+    #[serde(
+        alias = "int8",
+        alias = "SBYTE",
+        alias = "sbyte",
+        alias = "SINT",
+        alias = "sint"
+    )]
     Int8(i8),
-    #[serde(alias = "uint8", alias = "BYTE", alias = "byte", alias = "USINT", alias = "usint", alias = "CHAR", alias = "char")]
+    #[serde(
+        alias = "uint8",
+        alias = "BYTE",
+        alias = "byte",
+        alias = "USINT",
+        alias = "usint",
+        alias = "CHAR",
+        alias = "char"
+    )]
     UInt8(u8),
     #[serde(alias = "int16", alias = "INT", alias = "int")]
     Int16(i16),
-    #[serde(alias = "uint16", alias = "UINT", alias = "uint", alias = "WORD", alias = "word", alias = "WCHAR", alias = "wchar")]
+    #[serde(
+        alias = "uint16",
+        alias = "UINT",
+        alias = "uint",
+        alias = "WORD",
+        alias = "word",
+        alias = "WCHAR",
+        alias = "wchar"
+    )]
     UInt16(u16),
     #[serde(alias = "int32", alias = "DINT", alias = "dint")]
     Int32(i32),
-    #[serde(alias = "uint32", alias = "UDINT", alias = "udint", alias = "DWORD", alias = "dword")]
+    #[serde(
+        alias = "uint32",
+        alias = "UDINT",
+        alias = "udint",
+        alias = "DWORD",
+        alias = "dword"
+    )]
     UInt32(u32),
     #[serde(alias = "int64", alias = "LINT", alias = "lint")]
     Int64(i64),
-    #[serde(alias = "uint64", alias = "ULINT", alias = "ulint", alias = "LWORD", alias = "lword")]
+    #[serde(
+        alias = "uint64",
+        alias = "ULINT",
+        alias = "ulint",
+        alias = "LWORD",
+        alias = "lword"
+    )]
     UInt64(u64),
     #[serde(alias = "float", alias = "REAL", alias = "real")]
     Float(f32),
@@ -1394,7 +1426,12 @@ pub enum OpcUaValue {
     Double(f64),
     #[serde(alias = "string", alias = "STRING")]
     String(Cow<'static, str>),
-    #[serde(alias = "datetime", alias = "dateTime", alias = "DATE_AND_TIME", alias = "date_and_time")]
+    #[serde(
+        alias = "datetime",
+        alias = "dateTime",
+        alias = "DATE_AND_TIME",
+        alias = "date_and_time"
+    )]
     DateTime(UtcDateTime),
     #[serde(alias = "nodeid", alias = "nodeId")]
     NodeId(OpcUaNodeId),
@@ -1426,17 +1463,21 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::Double(d) => ScalarValue::Double(Double::new(d)),
             OpcUaValue::String(s) => ScalarValue::String(ua::String::new(s.as_ref())?),
             OpcUaValue::DateTime(dt) => ScalarValue::DateTime(DateTime::try_from(dt)?),
-            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::try_from(nid)?),
+            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid)),
             OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
             OpcUaValue::Unsupported => ScalarValue::Unsupported,
-            OpcUaValue::LocalizedText(lt) => ScalarValue::LocalizedText(ua::LocalizedText::new(
-                &lt.text(), &lt.locale())?
-            ),
+            OpcUaValue::LocalizedText(lt) => {
+                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.text(), lt.locale())?)
+            }
             OpcUaValue::QualifiedName(qn) => {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
                 catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
                     .map(ScalarValue::QualifiedName)
-                    .map_err(|err| anyhow!("failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"))?
+                    .map_err(|err| {
+                        anyhow!(
+                            "failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"
+                        )
+                    })?
             }
         })
     }
@@ -1461,7 +1502,9 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.clone().try_into()?),
             ScalarValue::NodeId(nid) => OpcUaValue::NodeId(OpcUaNodeId::try_from(nid)?),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
-            ScalarValue::QualifiedName(qn) => OpcUaValue::QualifiedName(OpcUaQualifiedName::from(qn)),
+            ScalarValue::QualifiedName(qn) => {
+                OpcUaValue::QualifiedName(OpcUaQualifiedName::from(qn))
+            }
             _ => bail!("Unsupported scalar value: {:?}", value),
         })
     }
@@ -2285,7 +2328,10 @@ mod tests {
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
-            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Objects".into())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
+                0,
+                "Objects".into(),
+            )),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
