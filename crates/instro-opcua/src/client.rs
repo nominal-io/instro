@@ -108,11 +108,11 @@ where
     }
 }
 
-impl<'item, T> IntoList<'item, T> for Cow<'item, [T]>
+impl<'list, T> IntoList<'list, T> for Cow<'list, [T]>
 where
-    [T]: ToOwned + 'item,
+    [T]: ToOwned + 'list,
 {
-    fn into_list(self) -> Cow<'item, [T]> {
+    fn into_list(self) -> Cow<'list, [T]> {
         self
     }
 }
@@ -126,12 +126,21 @@ where
     }
 }
 
+impl<'list, T, const N: usize> IntoList<'list, T> for &'list [T; N]
+where
+    [T]: ToOwned + 'list,
+{
+    fn into_list(self) -> Cow<'list, [T]> {
+        Cow::Borrowed(self)
+    }
+}
+
 impl<T> IntoList<'static, T> for T
 where
     [T]: ToOwned<Owned = Vec<T>> + 'static,
 {
     fn into_list(self) -> Cow<'static, [T]> {
-        vec![self].into_list()
+        [self].into_list()
     }
 }
 
@@ -246,7 +255,7 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     /// # fn example(client: &OpcUaClient) {
     /// let nodes = [OpcUaNodeId::str(1, "GVL.Main.sStatus"), OpcUaNodeId::str(2, "GVL.Main.fSensor")];
     /// let attrs = [OpcUaAttributeId::Value];
-    /// let batch = OpcUaNodeReadBatch::new(nodes.as_slice(), attrs.as_slice());
+    /// let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
     /// let mut iter = batch.keys();
     /// assert_eq!(iter.next().unwrap(), (&nodes[0], &attrs[0])); // ("GVL.Main.sStatus", "Value")
     /// assert_eq!(iter.next().unwrap(), (&nodes[1], &attrs[0])); // ("GVL.Main.fSensor", "Value")
@@ -1721,7 +1730,7 @@ mod tests {
     async fn batch_iter_iterates_over_all_node_attribute_pairs_in_order() -> Result<()> {
         let nodes = [test_node(1, "Static"), test_node(2, "Active")];
         let attrs = [OpcUaAttributeId::Value];
-        let batch = OpcUaNodeReadBatch::new(nodes.as_slice(), attrs.as_slice());
+        let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
 
         let mut iter = batch.keys();
 
@@ -1735,11 +1744,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn batch_iter_doesnt_iterate_with_empty_lists() -> Result<()> {
         let nodes = [test_node(1, "Static"), test_node(2, "Active")];
-        let batch = OpcUaNodeReadBatch::new(nodes.as_slice(), []);
+        let attrs = [OpcUaAttributeId::Value, OpcUaAttributeId::Description];
 
-        let mut iter = batch.keys();
-
-        // assert_eq!(iter.next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).keys().next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new([], &attrs).keys().next(), None);
 
         Ok(())
     }
