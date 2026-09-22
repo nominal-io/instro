@@ -155,18 +155,14 @@ PulseConfig = FrequencyPulseConfig | TimingPulseConfig
 
 @dataclass(frozen=True)
 class CounterOutputChannel(DAQChannel):
-    """A continuous pulse train; runs until stopped."""
+    """A pulse train: continuous until stopped, or finite and self-stopping after ``n_pulses``."""
 
     pulse_config: PulseConfig
     idle_state: Logic = Logic.LOW
     counter_source: str | None = None
-
-
-@dataclass(frozen=True, kw_only=True)
-class FiniteCounterOutputChannel(CounterOutputChannel):
-    """A pulse train that stops itself after ``n_pulses``."""
-
-    n_pulses: int
+    continuous: bool = True
+    # Required when ``continuous`` is False; ignored otherwise.
+    n_pulses: int | None = None
 
 
 # ========  Counter Input Channel Types  ===========

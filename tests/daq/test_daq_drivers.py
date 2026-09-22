@@ -18,7 +18,6 @@ from instro.daq.types import (
     DigitalPortWidth,
     Direction,
     Edge,
-    FiniteCounterOutputChannel,
     FrequencyPulseConfig,
     Logic,
 )
@@ -1547,7 +1546,7 @@ def test_configure_counter_channels_record_on_driver_state():
 
     assert daq.ci_channels["rpm"].measurement is CounterMeasurement.FREQUENCY
     assert daq.ci_channels["rpm"].edge_type is Edge.RISING
-    assert isinstance(daq.co_channels["burst"], FiniteCounterOutputChannel)
+    assert daq.co_channels["burst"].continuous is False
     assert daq.co_channels["burst"].n_pulses == 500
     # Counter channels join the aggregate, which is what duplicate rejection scans.
     assert {ch.alias for ch in daq.channels} == {"rpm", "burst"}

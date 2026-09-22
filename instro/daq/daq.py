@@ -28,7 +28,6 @@ from instro.daq.types import (
     DigitalPortWidth,
     Direction,
     Edge,
-    FiniteCounterOutputChannel,
     FrequencyPulseConfig,
     HWTimingConfig,
     Logic,
@@ -1055,13 +1054,14 @@ class InstroDAQ(Instrument):
         # Channel validation
         self._reject_duplicate_channel(alias)
         self._verify_not_running(alias)
-        channel = FiniteCounterOutputChannel(
+        channel = CounterOutputChannel(
             physical_channel=physical_channel,
             alias=alias,
             direction=Direction.OUTPUT,
             pulse_config=pulse_config,
             idle_state=idle_state,
             counter_source=counter_source,
+            continuous=False,
             n_pulses=n_pulses,
         )
         self._driver.configure_co_pulse_channel(channel)
@@ -1857,7 +1857,7 @@ class InstroDAQ(Instrument):
                 "Call configure_finite_counter_output() first."
             )
         # A continuous train never completes, so waiting on one would hang until the timeout.
-        if not isinstance(counter_channel, FiniteCounterOutputChannel):
+        if counter_channel.continuous or counter_channel.n_pulses is None:
             raise ValueError(
                 f"Counter output channel '{channel}' is continuous and never completes; "
                 "call stop_counter_output() to end it."
