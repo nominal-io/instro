@@ -189,6 +189,10 @@ class CounterInputChannel(DAQChannel):
     counter_source: str | None = None
     # PULSE_COUNT only.
     count_up: bool = True
+    # Expected range of the measured value, in the measurement's own unit. Edge counting has no range,
+    # and None leaves whatever range the vendor defaults to.
+    range_min: float | None = None
+    range_max: float | None = None
 
 
 # ========  Relay Channel Types  ===========

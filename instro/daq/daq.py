@@ -1150,6 +1150,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
+        range_min: float | None = None,
+        range_max: float | None = None,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures frequency, reported in Hz.
@@ -1158,6 +1160,8 @@ class InstroDAQ(Instrument):
             physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            range_min: Smallest value to expect, in Hz; ``None`` keeps the driver's default range.
+            range_max: Largest value to expect, in Hz; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1173,6 +1177,8 @@ class InstroDAQ(Instrument):
             edge_type=edge_type,
             measurement=CounterMeasurement.FREQUENCY,
             counter_source=counter_source,
+            range_min=range_min,
+            range_max=range_max,
         )
         self._driver.configure_ci_channel(channel)
         logger.info(
@@ -1185,6 +1191,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
+        range_min: float | None = None,
+        range_max: float | None = None,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures period, reported in seconds.
@@ -1193,6 +1201,8 @@ class InstroDAQ(Instrument):
             physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
+            range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1208,6 +1218,8 @@ class InstroDAQ(Instrument):
             edge_type=edge_type,
             measurement=CounterMeasurement.PERIOD,
             counter_source=counter_source,
+            range_min=range_min,
+            range_max=range_max,
         )
         self._driver.configure_ci_channel(channel)
         logger.info("Configured period counter input channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name)
@@ -1218,6 +1230,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
+        range_min: float | None = None,
+        range_max: float | None = None,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures pulse width, reported in seconds.
@@ -1226,6 +1240,8 @@ class InstroDAQ(Instrument):
             physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
+            range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1241,6 +1257,8 @@ class InstroDAQ(Instrument):
             edge_type=edge_type,
             measurement=CounterMeasurement.PULSE_WIDTH,
             counter_source=counter_source,
+            range_min=range_min,
+            range_max=range_max,
         )
         self._driver.configure_ci_channel(channel)
         logger.info(
@@ -1910,10 +1928,14 @@ class InstroDAQ(Instrument):
     # ========  Background Daemon Management  ===========
 
     def _define_background_daemon(self):
-        """Register the AI fetch when AI channels exist."""
-        already_registered = any(method == self._daemon_analog_fetch for method, _, _ in self._background_methods)
-        if self.ai_channels and not already_registered:
+        """Register the AI fetch when AI channels exist, plus a read for every counter input."""
+        registered = [(method, args) for method, args, _ in self._background_methods]
+        if self.ai_channels and (self._daemon_analog_fetch, ()) not in registered:
             self.add_background_daemon_function(self._daemon_analog_fetch)
+        # A counter read publishes on its own, so each poll the daemon makes lands in the channel buffer.
+        for alias in self.ci_channels:
+            if (self.read_counter, (alias,)) not in registered:
+                self.add_background_daemon_function(self.read_counter, alias)
 
     def _daemon_analog_fetch(self):
         """Run the configured fetch, then hand the whole acquisition to waiting readers."""
