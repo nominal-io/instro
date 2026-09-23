@@ -1,0 +1,16 @@
+The [`SiglentSPD3303`](https://nominal-io.github.io/instro/instruments/psu/#siglent-spd3303) provides a driver that can be used to instantiate an [InstroPSU](/psu).
+
+## Creating an [`InstroPSU`](/psu) with [`SiglentSPD3303`](https://nominal-io.github.io/instro/instruments/psu/#siglent-spd3303)
+
+```python
+from instro.psu.drivers import SiglentSPD3303
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SiglentSPD3303(visa_resource="USB0::0xF4EC::0x1430::SPD3XJGQ806726::INSTR"),
+    num_channels=2,
+)
+```
+
+Parameters and methods specific to [`SiglentSPD3303`](https://nominal-io.github.io/instro/instruments/psu/#siglent-spd3303) can be found in the [SDK](https://nominal-io.github.io/instro/).

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.11.0...instro-unstable-v1.12.0) (2026-09-18)
+
+
+### Features
+
+* **dewesoftx:** add dewesoftx daq driver ([#443](https://github.com/nominal-io/instro/issues/443)) ([905422d](https://github.com/nominal-io/instro/commit/905422dd0f7c1209008e9a9786557afcba36f88d))
+
 ## [1.11.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.10.0...instro-unstable-v1.11.0) (2026-09-04)
 
 

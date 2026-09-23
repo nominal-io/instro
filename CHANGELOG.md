@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0](https://github.com/nominal-io/instro/compare/instro-v1.20.0...instro-v1.21.0) (2026-09-18)
+
+
+### Features
+
+* **dewesoftx:** add dewesoftx daq driver ([#443](https://github.com/nominal-io/instro/issues/443)) ([905422d](https://github.com/nominal-io/instro/commit/905422dd0f7c1209008e9a9786557afcba36f88d))
+
+
+### Bug Fixes
+
+* correct PSB mode select to reflect CV only ([#525](https://github.com/nominal-io/instro/issues/525)) ([009ab0c](https://github.com/nominal-io/instro/commit/009ab0ca957d645b657b8117aeddf860b46856d5))
+* **dmm:** release the driver and reset apply state when close() fails ([#534](https://github.com/nominal-io/instro/issues/534)) ([a8c0aea](https://github.com/nominal-io/instro/commit/a8c0aeaada9de15c5db0e4bb9070b45dd655c4b3))
+
 ## [1.20.0](https://github.com/nominal-io/instro/compare/instro-v1.19.0...instro-v1.20.0) (2026-09-09)
 
 

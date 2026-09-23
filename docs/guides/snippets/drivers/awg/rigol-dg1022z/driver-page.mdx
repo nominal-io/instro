@@ -1,0 +1,16 @@
+The [`RigolDG1022Z`](https://nominal-io.github.io/instro/instruments/awg/#rigol-dg1022z) provides a driver that can be used to instantiate an [InstroAWG](/awg).
+
+## Creating an [`InstroAWG`](/awg) with [`RigolDG1022Z`](https://nominal-io.github.io/instro/instruments/awg/#rigol-dg1022z)
+
+```python
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg import InstroAWG
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=RigolDG1022Z(visa_resource="USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"),
+    num_channels=2,
+)
+```
+
+Parameters and methods specific to [`RigolDG1022Z`](https://nominal-io.github.io/instro/instruments/awg/#rigol-dg1022z) can be found in the [SDK](https://nominal-io.github.io/instro/).

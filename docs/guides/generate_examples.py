@@ -1,12 +1,21 @@
-"""Generate Mintlify example pages from ../examples/ and refresh docs.json nav.
+"""Generate Mintlify example pages and per-category index pages from ../examples/.
 
 Walks every ``*.py`` under ``examples/`` (relative to the repo root), writes a
-matching ``.mdx`` page under ``docs/guides/instrumentation/examples/``, and
-rewrites the "Examples" tab in ``docs/guides/docs.json``.
+matching ``.mdx`` page under ``docs/guides/examples/``, and writes one
+``index.mdx`` per category folder listing links to that category's pages.
 
-Also walks ``examples/`` directories inside ``packages/instro-unstable/`` and
-emits pages under ``instrumentation/examples/unstable/``, each with a warning
-callout that the API is not stable.
+Also walks ``examples/`` directories inside the ``instro-unstable`` and
+``instro-contrib`` packages and emits pages under ``examples/<package>/<submodule>/``,
+each with a callout describing that package's caveat. Each package's examples
+share a single ``examples/<package>/index.mdx``, with one heading per
+submodule, so a new submodule needs no ``docs.json`` edit.
+
+Unlike earlier versions of this script, it does not touch ``docs.json``.
+``docs.json``'s Examples tab has one static entry per category pointing at
+that category's ``index.mdx``; it doesn't change when individual example
+scripts are added, removed, or renamed, so there's nothing for this script to
+regenerate there. Adding or removing a whole category is the one case that
+still needs a manual ``docs.json`` edit (for categories under ``examples/``).
 
 Run via ``just gen-examples``.
 """
@@ -14,18 +23,14 @@ Run via ``just gen-examples``.
 from __future__ import annotations
 
 import ast
-import json
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 EXAMPLES_SRC = REPO_ROOT / "examples"
-UNSTABLE_SRC = REPO_ROOT / "packages" / "instro-unstable" / "instro" / "unstable"
-EXAMPLES_OUT = SCRIPT_DIR / "instrumentation" / "examples"
-DOCS_JSON = SCRIPT_DIR / "docs.json"
-
-NAV_PREFIX = "instrumentation/examples"
+EXAMPLES_OUT = SCRIPT_DIR / "examples"
 
 CATEGORY_TITLES: "OrderedDict[str, str]" = OrderedDict(
     [
@@ -33,22 +38,54 @@ CATEGORY_TITLES: "OrderedDict[str, str]" = OrderedDict(
         ("dmm", "DMM"),
         ("psu", "PSU"),
         ("eload", "Electronic Load"),
+        ("awg", "AWG"),
         ("i2c", "I2C"),
         ("publishers", "Publishers"),
         ("modbus", "Modbus"),
         ("ethernetip", "EtherNet/IP"),
         ("test_rack_example", "Test Rack"),
+        ("vna", "VNA"),
+        ("flowcontroller", "Flow Controller"),
+        ("motorcontroller", "Motor Controller"),
     ]
 )
 
-ROOT_GROUP_TITLE = "General"
+ROOT_CATEGORY = "general"
+ROOT_CATEGORY_TITLE = "General"
 
-_UNSTABLE_WARNING = """\
-<Warning>
-  This example uses `instro-unstable`. This code is new and may change without notice.
-</Warning>
 
-"""
+@dataclass(frozen=True)
+class ExamplePackage:
+    """A workspace package whose submodules carry their own ``examples/`` directories."""
+
+    slug: str
+    title: str
+    src: Path
+    callout: str
+    """Callout body; ``{subject}`` is filled with "This example uses" or "These examples use"."""
+
+
+EXAMPLE_PACKAGES = (
+    ExamplePackage(
+        slug="unstable",
+        title="Unstable",
+        src=REPO_ROOT / "packages" / "instro-unstable" / "instro" / "unstable",
+        callout="<Warning>\n  {subject} `instro-unstable`. This code is new and may change without notice.\n</Warning>\n\n",
+    ),
+    ExamplePackage(
+        slug="contrib",
+        title="Contrib",
+        src=REPO_ROOT / "packages" / "instro-contrib" / "instro" / "contrib",
+        callout=(
+            "<Note>\n  {subject} `instro-contrib`. Contrib drivers are verified on hardware by their contributor,"
+            " not by Nominal. See [Contrib drivers](/library/contrib).\n</Note>\n\n"
+        ),
+    ),
+)
+
+
+def category_title(folder: str) -> str:
+    return CATEGORY_TITLES.get(folder, folder.replace("_", " ").title())
 
 
 def extract_title(py_path: Path) -> str:
@@ -61,14 +98,36 @@ def extract_title(py_path: Path) -> str:
     return first.rstrip(".") or py_path.stem
 
 
-def write_mdx(py_path: Path, out_path: Path, *, unstable: bool = False) -> None:
+def write_mdx(py_path: Path, out_path: Path, *, callout: str = "") -> None:
     title = extract_title(py_path)
     body = py_path.read_text()
     if not body.endswith("\n"):
         body += "\n"
-    warning = _UNSTABLE_WARNING if unstable else ""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(f'---\ntitle: "{title}"\n---\n\n{warning}```python {py_path.name}\n{body}```\n')
+    out_path.write_text(f'---\ntitle: "{title}"\n---\n\n{callout}```python {py_path.name}\n{body}```\n')
+
+
+def write_index(index_path: Path, title: str, entries: list[tuple[str, str]]) -> None:
+    """entries: (page_title, nav_path) pairs, already in display order."""
+    lines = [f'---\ntitle: "{title}"\n---\n\n']
+    lines += [f"- [{entry_title}](/{nav_path})\n" for entry_title, nav_path in entries]
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text("".join(lines))
+
+
+def write_package_index(
+    index_path: Path, package: ExamplePackage, sections: "OrderedDict[str, list[tuple[str, str]]]"
+) -> None:
+    """sections: submodule folder -> (page_title, nav_path) pairs, already in display order."""
+    lines = [f'---\ntitle: "{package.title}"\n---\n\n', package.callout.format(subject="These examples use")]
+    if not sections:
+        lines.append("No examples yet.\n")
+    for folder, entries in sections.items():
+        lines.append(f"## {category_title(folder)}\n\n")
+        lines += [f"- [{entry_title}](/{nav_path})\n" for entry_title, nav_path in entries]
+        lines.append("\n")
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text("".join(lines).rstrip("\n") + "\n")
 
 
 def clean_output_dir(output_path: Path) -> None:
@@ -84,115 +143,49 @@ def clean_output_dir(output_path: Path) -> None:
             d.rmdir()
 
 
-def discover() -> "tuple[OrderedDict[str, list[str]], list[str]]":
-    categories: "OrderedDict[str, list[str]]" = OrderedDict()
-    root_files: list[str] = []
-    for py_path in sorted(EXAMPLES_SRC.rglob("*.py")):
-        rel = py_path.relative_to(EXAMPLES_SRC)
-        nav_path = f"{NAV_PREFIX}/{rel.with_suffix('').as_posix()}"
-        if len(rel.parts) == 1:
-            root_files.append(nav_path)
-        else:
-            categories.setdefault(rel.parts[0], []).append(nav_path)
-    return categories, root_files
-
-
-def discover_unstable() -> "OrderedDict[str, list[str]]":
-    categories: "OrderedDict[str, list[str]]" = OrderedDict()
-    if not UNSTABLE_SRC.exists():
-        return categories
-    for py_path in sorted(UNSTABLE_SRC.rglob("examples/*.py")):
-        category = py_path.parent.parent.name
-        nav_path = f"{NAV_PREFIX}/unstable/{category}/{py_path.stem}"
-        categories.setdefault(category, []).append(nav_path)
-    return categories
-
-
-def reorder_by_existing(pages: list[str], existing: list[str]) -> list[str]:
-    page_set = set(pages)
-    kept = [p for p in existing if p in page_set]
-    new = sorted(p for p in pages if p not in set(kept))
-    return kept + new
-
-
-def existing_examples_groups(docs: dict) -> list[dict]:
-    for tab in docs["navigation"]["tabs"]:
-        if tab.get("tab") == "Examples":
-            return tab.get("groups", [])
-    return []
-
-
-def build_groups(
-    categories: "OrderedDict[str, list[str]]",
-    root_files: list[str],
-    unstable_categories: "OrderedDict[str, list[str]]",
-    existing_groups: list[dict],
-) -> list[dict]:
-    prior_pages: dict[str, list[str]] = {
-        g.get("group", ""): [p for p in g.get("pages", []) if isinstance(p, str)] for g in existing_groups
-    }
-
-    groups: list[dict] = [{"group": "Overview", "pages": [NAV_PREFIX]}]
-    remaining = dict(categories)
-    for folder, title in CATEGORY_TITLES.items():
-        pages = remaining.pop(folder, None)
-        if pages:
-            groups.append({"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))})
-    for folder, pages in remaining.items():
-        title = folder.replace("_", " ").title()
-        groups.append({"group": title, "pages": reorder_by_existing(pages, prior_pages.get(title, []))})
-    if root_files:
-        groups.append(
-            {
-                "group": ROOT_GROUP_TITLE,
-                "pages": reorder_by_existing(root_files, prior_pages.get(ROOT_GROUP_TITLE, [])),
-            }
-        )
-    for folder, pages in unstable_categories.items():
-        group_title = f"{folder.replace('_', ' ').title()} (Unstable)"
-        groups.append({"group": group_title, "pages": reorder_by_existing(pages, prior_pages.get(group_title, []))})
-    return groups
-
-
-def update_docs_json(
-    categories: "OrderedDict[str, list[str]]",
-    root_files: list[str],
-    unstable_categories: "OrderedDict[str, list[str]]",
-) -> None:
-    docs = json.loads(DOCS_JSON.read_text())
-    groups = build_groups(categories, root_files, unstable_categories, existing_examples_groups(docs))
-    tabs = docs["navigation"]["tabs"]
-    for tab in tabs:
-        if tab.get("tab") == "Examples":
-            tab["groups"] = groups
-            break
-    else:
-        tabs.append({"tab": "Examples", "groups": groups})
-    DOCS_JSON.write_text(json.dumps(docs, indent=2) + "\n")
-
-
 def main(output_path: Path) -> None:
     clean_output_dir(output_path)
+
+    categories: "OrderedDict[str, list[tuple[str, str]]]" = OrderedDict()
+    root_entries: list[tuple[str, str]] = []
+
     for py_path in sorted(EXAMPLES_SRC.rglob("*.py")):
         rel = py_path.relative_to(EXAMPLES_SRC)
+        nav_path = f"examples/{rel.with_suffix('').as_posix()}"
         out_path = (output_path / rel).with_suffix(".mdx")
         write_mdx(py_path, out_path)
-        try:
-            print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
-        except ValueError as e:
-            print(f"wrote {out_path}")
-    for py_path in sorted(UNSTABLE_SRC.rglob("examples/*.py")):
-        category = py_path.parent.parent.name
-        out_path = output_path / "unstable" / category / py_path.with_suffix(".mdx").name
-        write_mdx(py_path, out_path, unstable=True)
-        try:
-            print(f"wrote {out_path.relative_to(SCRIPT_DIR)}")
-        except ValueError as e:
-            print(f"wrote {out_path}")
-    categories, root_files = discover()
-    unstable_categories = discover_unstable()
-    update_docs_json(categories, root_files, unstable_categories)
-    print(f"updated {DOCS_JSON.relative_to(SCRIPT_DIR)}")
+        print(f"wrote {out_path.relative_to(output_path.parent)}")
+
+        title = extract_title(py_path)
+        if len(rel.parts) == 1:
+            root_entries.append((title, nav_path))
+        else:
+            categories.setdefault(rel.parts[0], []).append((title, nav_path))
+
+    for folder, entries in categories.items():
+        index_path = output_path / folder / "index.mdx"
+        write_index(index_path, category_title(folder), entries)
+        print(f"wrote {index_path.relative_to(output_path.parent)}")
+
+    if root_entries:
+        index_path = output_path / ROOT_CATEGORY / "index.mdx"
+        write_index(index_path, ROOT_CATEGORY_TITLE, root_entries)
+        print(f"wrote {index_path.relative_to(output_path.parent)}")
+
+    for package in EXAMPLE_PACKAGES:
+        sections: "OrderedDict[str, list[tuple[str, str]]]" = OrderedDict()
+        for py_path in sorted(package.src.rglob("examples/*.py")):
+            submodule = py_path.parent.parent.name
+            nav_path = f"examples/{package.slug}/{submodule}/{py_path.stem}"
+            out_path = output_path / package.slug / submodule / py_path.with_suffix(".mdx").name
+            write_mdx(py_path, out_path, callout=package.callout.format(subject="This example uses"))
+            print(f"wrote {out_path.relative_to(output_path.parent)}")
+            sections.setdefault(submodule, []).append((extract_title(py_path), nav_path))
+
+        # Always written so the static docs.json entry resolves even before the package has examples.
+        index_path = output_path / package.slug / "index.mdx"
+        write_package_index(index_path, package, OrderedDict(sorted(sections.items())))
+        print(f"wrote {index_path.relative_to(output_path.parent)}")
 
 
 if __name__ == "__main__":
