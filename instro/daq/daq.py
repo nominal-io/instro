@@ -1041,11 +1041,11 @@ class InstroDAQ(Instrument):
         """Configure a counter output channel that emits ``n_pulses`` per ``start()`` and then stops.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the pulse train leaves by (e.g. ``"/Dev1/PFI12"`` on NI).
             pulse_config: Pulse shape; a ``FrequencyPulseConfig`` or a ``TimingPulseConfig``.
             n_pulses: Number of pulses emitted per ``start()``.
             idle_state: Line state between pulses.
-            counter_source: Terminal the pulse train is routed out of (e.g. ``"/Dev1/PFI12"``); required on NI.
+            counter_source: Counter that generates the train (e.g. ``"Dev1/ctr0"``); required on NI.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1081,10 +1081,10 @@ class InstroDAQ(Instrument):
         """Configure a counter output channel that pulses continuously until ``stop()``.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the pulse train leaves by (e.g. ``"/Dev1/PFI12"`` on NI).
             pulse_config: Pulse shape; a ``FrequencyPulseConfig`` or a ``TimingPulseConfig``.
             idle_state: Line state between pulses.
-            counter_source: Terminal the pulse train is routed out of (e.g. ``"/Dev1/PFI12"``); required on NI.
+            counter_source: Counter that generates the train (e.g. ``"Dev1/ctr0"``); required on NI.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1118,10 +1118,10 @@ class InstroDAQ(Instrument):
         """Configure a counter input channel that counts edges, reported in counts.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
             count_up: Count up from zero; count down when ``False``.
-            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1157,9 +1157,9 @@ class InstroDAQ(Instrument):
         """Configure a counter input channel that measures frequency, reported in Hz.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
-            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
             range_min: Smallest value to expect, in Hz; ``None`` keeps the driver's default range.
             range_max: Largest value to expect, in Hz; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
@@ -1198,9 +1198,9 @@ class InstroDAQ(Instrument):
         """Configure a counter input channel that measures period, reported in seconds.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
-            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
             range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
             range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
@@ -1237,9 +1237,9 @@ class InstroDAQ(Instrument):
         """Configure a counter input channel that measures pulse width, reported in seconds.
 
         Args:
-            physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
+            physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
-            counter_source: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"``); required on NI.
+            counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
             range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
             range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
             alias: Friendly name; defaults to ``physical_channel``.
@@ -1928,14 +1928,10 @@ class InstroDAQ(Instrument):
     # ========  Background Daemon Management  ===========
 
     def _define_background_daemon(self):
-        """Register the AI fetch when AI channels exist, plus a read for every counter input."""
-        registered = [(method, args) for method, args, _ in self._background_methods]
-        if self.ai_channels and (self._daemon_analog_fetch, ()) not in registered:
+        """Register the AI fetch when AI channels exist."""
+        already_registered = any(method == self._daemon_analog_fetch for method, _, _ in self._background_methods)
+        if self.ai_channels and not already_registered:
             self.add_background_daemon_function(self._daemon_analog_fetch)
-        # A counter read publishes on its own, so each poll the daemon makes lands in the channel buffer.
-        for alias in self.ci_channels:
-            if (self.read_counter, (alias,)) not in registered:
-                self.add_background_daemon_function(self.read_counter, alias)
 
     def _daemon_analog_fetch(self):
         """Run the configured fetch, then hand the whole acquisition to waiting readers."""

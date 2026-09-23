@@ -1,4 +1,6 @@
-"""Example: Read a counter input on an NI cDAQ, polled by the background daemon."""
+"""Example: Read a counter input from an NI-DAQmx counter."""
+
+import time
 
 from instro.daq import InstroDAQ
 from instro.daq.types import CounterMeasurement, DAQVendor
@@ -9,9 +11,6 @@ VENDOR = DAQVendor.NI
 
 # What the counter measures: PULSE_COUNT (counts), FREQUENCY (Hz), PERIOD or PULSE_WIDTH (seconds).
 MEASUREMENT = CounterMeasurement.FREQUENCY
-
-# Rate the background daemon polls the counter at.
-SAMPLE_RATE = 10
 
 # Vendor-specific configuration. Each vendor driver lives in its own package and
 # owns its transport at construction time.
@@ -65,18 +64,12 @@ with daq:
                 alias="counter",
             )
 
-    # There is no device sample clock here: this rate paces the background daemon.
-    daq.configure_ai_sw_sample_rate(sample_rate=SAMPLE_RATE)
-
-    # Start the acquisition. This launches the daemon that polls the counter every period.
-    daq.start()
-
+    # Each read polls the counter once and publishes the sample.
     while True:
         try:
-            counter = daq.read("counter")  # Polls the counter and publishes the sample
+            time.sleep(0.1)
+            counter = daq.read("counter")
             print(f"{MEASUREMENT.value}: {counter.latest}")
         except KeyboardInterrupt:
             print("Exiting main loop")
             break
-
-    daq.stop()

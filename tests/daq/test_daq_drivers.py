@@ -1170,7 +1170,7 @@ def test_read_batch_none_reads_every_configured_input():
     daq.configure_current_input(physical_channel="ai1", alias="c0")
     daq.configure_thermocouple_input(physical_channel="ai2", tc_type=TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
     daq.configure_digital_input(physical_channel="port0/line0", alias="di0", logic=Logic.HIGH)
-    daq.configure_frequency_counter_input(physical_channel="Dev1/ctr0", alias="ctr0")
+    daq.configure_frequency_counter_input(physical_channel="/Dev1/PFI0", alias="ctr0")
 
     result = daq.read_batch()
 
@@ -1530,11 +1530,12 @@ def _counter_daq() -> tuple[InstroDAQ, _RecordingDriver]:
     driver = _make_mock_driver()
     daq = InstroDAQ(name="Test DAQ", driver=driver)
     daq.open()
-    daq.configure_frequency_counter_input(physical_channel="Dev1/ctr0", alias="rpm")
+    daq.configure_frequency_counter_input(physical_channel="/Dev1/PFI0", counter_source="Dev1/ctr0", alias="rpm")
     daq.configure_finite_counter_output(
-        physical_channel="Dev1/ctr1",
+        physical_channel="/Dev1/PFI1",
         pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
         n_pulses=500,
+        counter_source="Dev1/ctr1",
         alias="burst",
     )
     return daq, driver
@@ -1556,8 +1557,8 @@ def test_configure_counter_input_rejects_duplicate_alias():
     """A second channel reusing a counter alias raises rather than silently reconfiguring."""
     daq, _ = _counter_daq()
 
-    with pytest.raises(ValueError, match=r"already configured \(counter_input on Dev1/ctr0\)"):
-        daq.configure_period_counter_input(physical_channel="Dev1/ctr2", alias="rpm")
+    with pytest.raises(ValueError, match=r"already configured \(counter_input on /Dev1/PFI0\)"):
+        daq.configure_period_counter_input(physical_channel="/Dev1/PFI2", alias="rpm")
 
 
 def test_read_batch_routes_counter_aliases_to_read_counter():
@@ -1587,7 +1588,7 @@ def test_wait_for_counter_output_rejects_continuous_channel():
     """A continuous train never completes, so waiting on one raises instead of blocking."""
     daq, driver = _counter_daq()
     daq.configure_continuous_counter_output(
-        physical_channel="Dev1/ctr3",
+        physical_channel="/Dev1/PFI3",
         pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
         alias="clock",
     )

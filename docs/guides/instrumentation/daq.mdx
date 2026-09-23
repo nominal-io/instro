@@ -722,11 +722,11 @@ from instro.daq.types import Edge
 
 # Count edges (counts)
 daq.configure_pulse_count_counter_input(
-    physical_channel="Dev1/ctr0",
+    physical_channel="/Dev1/PFI8",
     alias="revolutions",
     edge_type=Edge.RISING,
     count_up=True,
-    counter_source="/Dev1/PFI8",
+    counter_source="Dev1/ctr0",
 )
 
 measurement = daq.read_counter(channel="revolutions")
@@ -745,11 +745,11 @@ Configure the pulse shape, then start the train. A finite train stops itself aft
 from instro.daq.types import FrequencyPulseConfig
 
 daq.configure_finite_counter_output(
-    physical_channel="Dev1/ctr1",
+    physical_channel="/Dev1/PFI12",
     pulse_config=FrequencyPulseConfig(frequency=1000.0, duty_cycle=0.5),
     n_pulses=500,
     alias="burst",
-    counter_source="/Dev1/PFI12",
+    counter_source="Dev1/ctr1",
 )
 
 daq.start_counter_output(channel="burst")
@@ -759,7 +759,7 @@ daq.stop_counter_output(channel="burst")
 
 Use `TimingPulseConfig(high_time_s=..., low_time_s=...)` instead when the spec gives pulse width rather than frequency.
 
-`counter_source` names the terminal the signal arrives on or leaves by. NI requires it, because a counter routes to a PFI terminal.
+`physical_channel` names the terminal the signal arrives on or leaves by. `counter_source` names the counter that does the work. NI requires it, because a counter routes to a PFI terminal.
 
 <Note>
 `wait_for_counter_output()` applies to finite trains only. A continuous train never completes, so waiting on one raises `ValueError`. Call `stop_counter_output()` to end it. Without an explicit `timeout`, the wait defaults to the train's own duration plus one second.

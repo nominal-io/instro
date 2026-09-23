@@ -159,6 +159,7 @@ class CounterOutputChannel(DAQChannel):
 
     pulse_config: PulseConfig
     idle_state: Logic = Logic.LOW
+    # Counter that generates the train, e.g. "Dev1/ctr0"; ``physical_channel`` is the terminal it leaves by. Required on NI.
     counter_source: str | None = None
     continuous: bool = True
     # Required when ``continuous`` is False; ignored otherwise.
@@ -185,7 +186,8 @@ class CounterInputChannel(DAQChannel):
     edge_type: Edge
     # Unit of the value read back: counts, Hz, or seconds.
     measurement: CounterMeasurement
-    # Required on NI, where a chassis counter routes to a PFI terminal; coupled to the terminal on MCC/LabJack.
+    # Counter that takes the measurement, e.g. "Dev1/ctr0"; ``physical_channel`` is the terminal the signal arrives on.
+    # Required on NI, where a counter routes to a PFI terminal; coupled to the terminal on MCC/LabJack.
     counter_source: str | None = None
     # PULSE_COUNT only.
     count_up: bool = True
