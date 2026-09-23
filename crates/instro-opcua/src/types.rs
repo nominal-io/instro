@@ -1322,13 +1322,13 @@ impl Display for OpcUaQualifiedName {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpcUaLocalizedText {
-    text: String,
     locale: String,
+    text: String,
 }
 
 impl OpcUaLocalizedText {
-    pub const fn new(text: String, locale: String) -> Self {
-        Self { text, locale }
+    pub const fn new(locale: String, text: String) -> Self {
+        Self { locale, text }
     }
 
     pub const fn text(&self) -> &str {
@@ -1490,12 +1490,12 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::Double(d) => OpcUaValue::Double(d.value()),
             ScalarValue::String(s) => OpcUaValue::String(Cow::Owned(s.to_string())),
             ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.clone().try_into()?),
-            ScalarValue::NodeId(nid) => OpcUaValue::NodeId(OpcUaNodeId::try_from(nid)?),
+            ScalarValue::NodeId(nid) => OpcUaValue::NodeId(nid.try_into()?),
+            ScalarValue::QualifiedName(qn) => OpcUaValue::QualifiedName(qn.into()),
+            ScalarValue::LocalizedText(lt) => OpcUaValue::LocalizedText(lt.into()),
+            ScalarValue::Guid(g) => OpcUaValue::Guid(g.to_uuid()),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
-            ScalarValue::QualifiedName(qn) => {
-                OpcUaValue::QualifiedName(OpcUaQualifiedName::from(qn))
-            }
-            _ => bail!("Unsupported scalar value: {:?}", value),
+            _ => bail!("unsupported OPC-UA scalar value write: '{value:?}'"),
         })
     }
 }
@@ -1895,58 +1895,6 @@ mod tests {
     fn attribute_id_conversions_should_fail_on_invalid_variant() {
         let invalid = unsafe { ua::AttributeId::from_raw(UA_AttributeId(99)) };
         let _ = OpcUaAttributeId::try_from(&invalid).unwrap();
-    }
-
-    #[test]
-    fn opc_value_scalar_roundtrips() {
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
-            OpcUaValue::Boolean(true),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-42))),
-            OpcUaValue::Int8(-42),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Byte(ua::Byte::new(255))),
-            OpcUaValue::UInt8(255),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-1000))),
-            OpcUaValue::Int16(-1000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(50000))),
-            OpcUaValue::UInt16(50000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-100_000))),
-            OpcUaValue::Int32(-100_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(3_000_000))),
-            OpcUaValue::UInt32(3_000_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int64(ua::Int64::new(i64::MIN))),
-            OpcUaValue::Int64(i64::MIN),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(u64::MAX))),
-            OpcUaValue::UInt64(u64::MAX),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Float(ua::Float::new(1.5))),
-            OpcUaValue::Float(1.5),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Double(ua::Double::new(1.234))),
-            OpcUaValue::Double(1.234),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::String(ua::String::new("hello").unwrap())),
-            OpcUaValue::String(Cow::Borrowed("hello")),
-        );
     }
 
     #[test]
@@ -2560,5 +2508,109 @@ mod tests {
         assert_eq!(id.as_string(), None);
         assert_eq!(id.as_byte_string(), None);
         assert_eq!(id.as_guid(), Some((1, guid)));
+    }
+
+    #[test]
+    fn test_scalar_value_roundtrip() {
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
+            OpcUaValue::Boolean(true),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-1))),
+            OpcUaValue::Int8(-1),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Byte(ua::Byte::new(2))),
+            OpcUaValue::UInt8(2),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-3))),
+            OpcUaValue::Int16(-3),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(4))),
+            OpcUaValue::UInt16(4),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-5))),
+            OpcUaValue::Int32(-5),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(6))),
+            OpcUaValue::UInt32(6),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int64(ua::Int64::new(-7))),
+            OpcUaValue::Int64(-7),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(8))),
+            OpcUaValue::UInt64(8),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Float(ua::Float::new(1.0))),
+            OpcUaValue::Float(1.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Double(ua::Double::new(2.0))),
+            OpcUaValue::Double(2.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::String(ua::String::new("test").unwrap())),
+            OpcUaValue::String("test".into()),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::DateTime(
+                ua::DateTime::try_from_unix_timestamp_nanos(
+                    UtcDateTime::UNIX_EPOCH.unix_timestamp_nanos(),
+                )
+                .unwrap(),
+            )),
+            OpcUaValue::DateTime(UtcDateTime::UNIX_EPOCH),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::numeric(1, 2))),
+            OpcUaValue::NodeId(OpcUaNodeId::numeric(1, 2)),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::QualifiedName(ua::QualifiedName::new(
+                1,
+                "test",
+            ))),
+            OpcUaValue::QualifiedName(OpcUaQualifiedName::new(1, "test".into())),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::LocalizedText(
+                ua::LocalizedText::new("en-US", "test").unwrap(),
+            )),
+            OpcUaValue::LocalizedText(OpcUaLocalizedText::new("en-US".into(), "test".into())),
+        );
+
+        const GUID: Uuid = Uuid::from_u128(12345678901234567890);
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Guid(ua::Guid::from_uuid(GUID))),
+            OpcUaValue::Guid(GUID),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::string(2, "abc"))),
+            OpcUaValue::NodeId(OpcUaNodeId::string(2, "abc".into())),
+        );
+
+        let bytes = vec![1u8, 2, 3, 4];
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::byte_string(3, &bytes))),
+            OpcUaValue::NodeId(OpcUaNodeId::byte_string(3, bytes)),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::guid(
+                4,
+                ua::Guid::from_uuid(GUID),
+            ))),
+            OpcUaValue::NodeId(OpcUaNodeId::guid(4, GUID)),
+        );
     }
 }
