@@ -393,7 +393,7 @@ class InstroDMM(Instrument):
         channel_suffix = self._measurement_config.function.value.lower()
         return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
 
-    def _read_function(self, function: MeasurementFunction, **kwargs) -> Measurement:
+    def _set_function_and_read(self, function: MeasurementFunction, **kwargs) -> Measurement:
         """Select ``function`` when it isn't already active, then read, as one atomic sequence.
 
         The lock spans the check as well as both driver calls: releasing it in between would
@@ -424,27 +424,27 @@ class InstroDMM(Instrument):
 
     def read_dc_voltage(self, **kwargs) -> Measurement:
         """Read DC voltage (volts), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.DC_VOLTAGE, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.DC_VOLTAGE, **kwargs)
 
     def read_ac_voltage(self, **kwargs) -> Measurement:
         """Read AC voltage (volts), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.AC_VOLTAGE, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.AC_VOLTAGE, **kwargs)
 
     def read_dc_current(self, **kwargs) -> Measurement:
         """Read DC current (amperes), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.DC_CURRENT, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.DC_CURRENT, **kwargs)
 
     def read_ac_current(self, **kwargs) -> Measurement:
         """Read AC current (amperes), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.AC_CURRENT, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.AC_CURRENT, **kwargs)
 
     def read_resistance(self, **kwargs) -> Measurement:
         """Read 2-wire resistance (ohms), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.TWO_WIRE_RESISTANCE, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.TWO_WIRE_RESISTANCE, **kwargs)
 
     def read_four_wire_resistance(self, **kwargs) -> Measurement:
         """Read 4-wire resistance (ohms), selecting the function first if needed."""
-        return self._read_function(MeasurementFunction.FOUR_WIRE_RESISTANCE, **kwargs)
+        return self._set_function_and_read(MeasurementFunction.FOUR_WIRE_RESISTANCE, **kwargs)
 
     def _get_driver_read_method(self, function: MeasurementFunction) -> Callable:
         return {
