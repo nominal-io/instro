@@ -1,0 +1,13 @@
+The [`MCCDriver`](https://nominal-io.github.io/instro/instruments/daq/#mcc-usb-series) provides a driver that can be used to instantiate an [InstroDAQ](/daq). It covers Measurement Computing USB and Ethernet DAQ devices through the MCC Universal Library (`mcculw`).
+
+## Creating an [`InstroDAQ`](/daq) with [`MCCDriver`](https://nominal-io.github.io/instro/instruments/daq/#mcc-usb-series)
+
+```python
+from instro.daq import InstroDAQ
+from instro.daq.drivers.mcc import MCCDriver
+
+# device unique ID, optionally suffixed with a board number
+daq = InstroDAQ(name="mccDAQ", driver=MCCDriver(device_id="344371:0"))
+```
+
+Parameters and methods specific to [`MCCDriver`](https://nominal-io.github.io/instro/instruments/daq/#mcc-usb-series) can be found in the [SDK](https://nominal-io.github.io/instro/).

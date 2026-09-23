@@ -109,13 +109,13 @@ build:
 
 # build docs
 build-docs:
-    uv run mkdocs build --config-file docs/reference/mkdocs.yml
+    uv run mkdocs build --config-file docs/sdk/mkdocs.yml
 
-# generate Mintlify example pages and refresh docs/guides/docs.json navigation
+# generate Mintlify example pages and per-category index pages from examples/
 gen-examples:
     uv run python docs/guides/generate_examples.py
 
-# performs the gen-examples step in a temp sandbox and reports if any files don't match
+# regenerates examples in a temp sandbox; fails on drift or docs.json Examples tab gaps
 check-examples:
     uv run python docs/guides/check_examples.py
 

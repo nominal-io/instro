@@ -1,0 +1,16 @@
+The [`BK9115`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-9115-single-channel) provides a driver that can be used to instantiate an [InstroPSU](/psu).
+
+## Creating an [`InstroPSU`](/psu) with [`BK9115`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-9115-single-channel)
+
+```python
+from instro.psu.drivers import BK9115
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=BK9115(visa_resource="USB0::..."),
+    num_channels=1,
+)
+```
+
+Parameters and methods specific to [`BK9115`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-9115-single-channel) can be found in the [SDK](https://nominal-io.github.io/instro/).
