@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.0](https://github.com/nominal-io/instro/compare/instro-v1.21.0...instro-v1.22.0) (2026-09-23)
+
+
+### Features
+
+* **dmm:** add per-function read shorthands to InstroDMM ([#559](https://github.com/nominal-io/instro/issues/559)) ([c11e7ae](https://github.com/nominal-io/instro/commit/c11e7aee7dc88ecf064cf6acf2d8f456d4c3f324))
+* **psu:** add InstroPSU.apply for one-call channel bring-up ([#560](https://github.com/nominal-io/instro/issues/560)) ([1509827](https://github.com/nominal-io/instro/commit/1509827d28961fdd13c9d7cdc8ba7d080e7cf018))
+
 ## [1.21.0](https://github.com/nominal-io/instro/compare/instro-v1.20.0...instro-v1.21.0) (2026-09-18)
 
 
