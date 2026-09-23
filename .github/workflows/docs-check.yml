@@ -19,12 +19,5 @@ jobs:
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Install dependencies
         run: just install
-      - name: Regenerate Mintlify examples
-        run: just gen-examples
-      - name: Verify no drift
-        run: |
-          git add -A docs/guides/instrumentation/examples docs/guides/docs.json
-          if ! git diff --cached --exit-code docs/guides/instrumentation/examples docs/guides/docs.json; then
-            echo "::error::\`just gen-examples\` produced changes. Run it locally and commit the result."
-            exit 1
-          fi
+      - name: Check generated examples and Examples tab navigation
+        run: just check-examples

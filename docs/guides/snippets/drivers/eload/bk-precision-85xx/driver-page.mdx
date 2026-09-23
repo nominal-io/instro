@@ -1,0 +1,15 @@
+The [`BK85XXB`](https://nominal-io.github.io/instro/instruments/eload/#bk-85xxb) provides a driver that can be used to instantiate an [InstroELoad](/eload).
+
+## Creating an [`InstroELoad`](/eload) with [`BK85XXB`](https://nominal-io.github.io/instro/instruments/eload/#bk-85xxb)
+
+```python
+from instro.eload.drivers import BK85XXB
+from instro.eload import InstroELoad
+
+eload = InstroELoad(
+    name="myELoad",
+    driver=BK85XXB(visa_resource="USB0::0x0614::0x0960::8514B12345::INSTR"),
+)
+```
+
+Parameters and methods specific to [`BK85XXB`](https://nominal-io.github.io/instro/instruments/eload/#bk-85xxb) can be found in the [SDK](https://nominal-io.github.io/instro/).
