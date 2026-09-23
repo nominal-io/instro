@@ -1,0 +1,401 @@
+---
+title: Publishers
+description: How instro gets data to places
+---
+
+[instrument-link]: https://nominal-io.github.io/instro/reference/instrument/#instro.lib.instrument.Instrument
+[measurement-link]: https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Measurement
+[command-link]: https://nominal-io.github.io/instro/reference/types/#instro.lib.types.Command
+[publisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.publisher.Publisher
+[filepublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.files.FilePublisher
+[nominalcorepublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.nominal_core.NominalCorePublisher
+[nominalconnectpublisher-link]: https://nominal-io.github.io/instro/reference/publishers/#instro.lib.publishers.nominal_connect.NominalConnectPublisher
+
+
+## Overview
+
+Publishers are the mechanism by which `instro` handles data coming from instruments.  In the example, we add two [Publishers][publisher-link] to a `InstroDAQ`.
+
+### Example
+
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.lib.publishers import NominalCorePublisher, FilePublisher
+
+publishers = [
+    NominalCorePublisher(dataset_rid="ri.catalog.main.dataset.abc123"),
+    FilePublisher(directory="/tmp", format="jsonl")
+]
+
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+    publishers=publishers,
+)
+# All data automatically streams to Nominal Core
+```
+
+Every [`Measurement` and `Command`](/library/library#measurements-and-commands) is now recorded by each [`Publisher`][publisher-link] in `publishers`. An `Instrument` will `close()` all publishers when it closes.
+
+
+**Note:** Do not attach the same ordinary [`Publisher`][publisher-link] instance to more than one instrument. Use [`SharedPublisher`](#sharedpublisher) when multiple instruments need to publish to one underlying destination.
+
+
+## Built-in Publishers
+
+`instro` provides the following built-in publishers.
+
+### [FilePublisher][filepublisher-link]
+
+Writes measurements and commands to a local file in Avro, CSV, or JSON Lines format.
+
+**Constructor**
+```py
+FilePublisher(
+    directory: str | Path,                            # Directory where the file will be written
+    format: Literal["json", "jsonl", "csv", "avro"] = "avro",  # Output file format
+    custom_file_name: str | None = None,              # Optional base name (no extension)
+)
+```
+
+
+**Example:**
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.lib.publishers import FilePublisher
+
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+    publishers=[FilePublisher(directory="./captures", format="avro")],
+)
+```
+**Format tradeoffs:**
+- **`avro`** (default): Compact binary format. Uses the same schema as Nominal Core ingest, so captured files can be uploaded after the fact without transformation. Recommended for production captures.
+- **`csv`**: One row per `(timestamp, channel, value, tags)` tuple. Good for quick inspection in spreadsheet tools.
+- **`jsonl`**: Newline-delimited JSON, one record per publish. Recommended when you want human-readable output: each record is appended and flushed in constant time, and every flushed line is a complete record.
+
+
+### [NominalCorePublisher][nominalcorepublisher-link]
+
+Sends measurement and command data to [Nominal Core](https://nominal.io/products/core) datasets.
+
+**Constructor Parameters:**
+
+```python
+NominalCorePublisher(
+    dataset_rid: str,              # Required: RID of your Nominal Core dataset
+    batch_size: int | None = None, # Optional: Batch size before writing
+    max_wait: timedelta | None = None,  # Optional: Max time before flush
+    file_fallback: pathlib.Path | None = None,  # Optional: Path of fallback file (.avro) used if network connectivity is lost.
+    profile: str | None = None,    # Optional: Nominal profile name
+    api_key: str | None = None     # Optional: API key for authentication
+)
+```
+
+
+**Example:**
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.lib.publishers import NominalCorePublisher
+
+DATASET_RID = "ri.catalog.main.dataset.abc123..."
+
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+    publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
+)
+```
+
+<Note>
+
+A shorthand method to add publishing to Nominal Core is to directly pass in a `dataset_rid` kwarg. This requires a default profile to have been configured on the system.
+```py
+daq = InstroDAQ(
+    name="myDAQ",
+    driver=LabJackTSeriesDriver(device_id="440020473"),
+    dataset_rid="ri.catalog...",  # Automatically creates NominalCorePublisher
+)
+```
+</Note>
+
+
+<Note>
+**backup FilePublisher** If you only need a local file as a fallback for when network connectivity to Nominal Core is lost, use the `file_fallback` parameter on `NominalCorePublisher` instead of attaching a separate `FilePublisher`.
+</Note>
+
+
+### NominalConnectPublisher
+
+Streams real-time data to Nominal Connect for live visualization and monitoring during tests that use the Nominal Connect Desktop Application. Nominal Connect apps can also install `instro` for you; see [Using Nominal Connect](/installation#using-nominal-connect).
+
+**Constructor Parameters:**
+
+```python
+from connect_python import Client
+
+NominalConnectPublisher(
+    client: Client,     # Nominal Connect client instance
+    stream_id: str      # Stream identifier for Connect
+)
+```
+
+**Example, from a typical Connect app:**
+
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.daq import InstroDAQ
+from instro.lib.publishers import NominalConnectPublisher
+
+import connect_python
+
+@connect_python.main
+def main(client: connect_python.Client):
+    stream_id = "myDAQ-stream"
+
+    daq = InstroDAQ(
+        name="myDAQ",
+        driver=LabJackTSeriesDriver(device_id="440020473"),
+        publishers=[NominalConnectPublisher(client=client, stream_id=stream_id)],
+    )
+```
+
+
+## Attaching Publishers
+[`Publishers`][publisher-link]   can be attached after Instrument construction also.
+
+```python
+...
+daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
+daq.add_publisher(NominalCorePublisher(dataset_rid="ri.catalog..."))
+```
+
+
+## Custom Publisher
+
+All [Publisher][publisher-link] implementations follow a simple protocol with two required methods `publish` and `close`:
+
+```python
+from typing import Protocol
+
+from instro.lib.types import Measurement, Command
+
+
+class Publisher(Protocol):
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
+        """Called each time the instrument generates data"""
+        ...
+
+    def close(self) -> None:
+        """Called when the owning instrument is closed"""
+        ...
+```
+* `publish`: returns [`Measurements` and `Commands`](/library/library#measurements-and-commands).
+* `close`: release resources owned by the [Publisher][publisher-link]. The parent instrument calls `close()` during teardown.
+
+ **Example**
+ The example below prints to the console every time a `Measurement` is published corresponding to a predefined <Tooltip tip="A named signal for a series of measurements or computed values (example: voltage, pressure, system state).">channel</Tooltip> name.
+
+```python
+from instro.lib.types import Measurement, Command
+
+
+class PrintChannelPublisher:
+    def __init__(self, channel_name: str):
+        self.channel_name = channel_name
+
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
+        try:
+            if isinstance(data, Measurement):
+                if data.channel_data.get(self.channel_name, None):
+                    print(f"{self.channel_name}: {data.latest}")
+        except Exception as e:
+            print(f"Error publishing data: {e}")
+
+    def close(self) -> None:
+        pass
+```
+
+
+## Publisher Wrappers
+
+Publisher wrappers modify the behavior of other publishers by adding buffering, asynchronous processing, or explicit shared ownership. They are composable.
+
+### SharedPublisher
+
+`SharedPublisher` coordinates shared ownership of one underlying publisher across multiple instruments. The default model is still exclusive ownership: one publisher instance belongs to one instrument. Use `SharedPublisher` only when multiple instruments must publish to the same file, stream, client, or other sink.
+
+Each instrument receives its own `SharedPublisher` handle. Closing one instrument closes only that handle. The underlying publisher closes after the last shared handle closes.
+
+**When to use:**
+- Multiple instruments should write to the same local capture file
+- Multiple instruments should publish to the same custom sink
+- The underlying publisher owns a resource that should stay open until all instruments finish
+
+**Parameters:**
+
+```python
+SharedPublisher(
+    publisher: Publisher  # The underlying publisher to share
+)
+```
+
+**Example:**
+
+```python
+from instro.lib.publishers import FilePublisher, SharedPublisher
+
+file_publisher = FilePublisher(directory="./captures", format="avro")
+shared_publisher = SharedPublisher(file_publisher)
+
+primary_psu.add_publisher(shared_publisher)
+secondary_psu.add_publisher(shared_publisher.clone())
+
+primary_psu.close()    # Leaves the underlying FilePublisher open.
+secondary_psu.close()  # Closes the underlying FilePublisher.
+```
+
+See [Publishers: publish shared](/examples/publishers/publish_shared) for a full example.
+
+### BasicBufferedPublisher
+
+`BasicBufferedPublisher` collects data in memory and publishes in batches, reducing the overhead of frequent publish calls. It is the concrete implementation of the abstract `BufferedPublisher` base, so instantiate `BasicBufferedPublisher`.
+
+**When to use:**
+- You're making many small publish calls and want to reduce overhead
+- You want to batch data before sending to a remote service
+- Network or I/O latency is impacting performance
+
+**Parameters:**
+
+```python
+BasicBufferedPublisher(
+    publisher: Publisher,    # The publisher to wrap
+    buffer_size: int = 1000  # Flush when buffer reaches this size
+)
+```
+
+**Example:**
+
+```python
+import time
+from instro.psu.drivers import SimulatedPSU
+from instro.psu import InstroPSU
+from instro.lib.publishers import BasicBufferedPublisher
+from instro.lib.types import Measurement, Command
+
+# Custom publisher that prints to console
+class PrintChannelPublisher:
+    def __init__(self, channel_name: str):
+        self.channel_name = channel_name
+
+    def publish(self, data: Measurement | Command, **kwargs):
+        if isinstance(data, Measurement):
+            if data.channel_data.get(self.channel_name, None):
+                print(f"{self.channel_name}: {data.latest}")
+
+    def close(self):
+        print("Publisher closed")
+
+# Wrap the custom publisher with buffering
+print_publisher = PrintChannelPublisher(channel_name="myPSU.ch1.current")
+buffered_publisher = BasicBufferedPublisher(print_publisher, buffer_size=5)
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+)
+psu.add_publisher(buffered_publisher)
+
+psu.open()
+psu.output_enable(True, channel=1)
+
+# Console output only appears every 5 measurements (when buffer flushes)
+for v in range(12):
+    psu.set_voltage(v * 0.1, channel=1)
+    psu.get_current(channel=1)
+    time.sleep(0.1)
+
+psu.close()  # Remaining buffer is automatically flushed
+```
+
+<Note>
+The buffer is automatically flushed when it reaches capacity or when `close()` is called, ensuring no data is lost.
+</Note>
+
+### QueuedPublisher
+
+Offloads publishing to a background thread, making publish calls non-blocking and preventing slow publishers from impacting instrument operations.
+
+**When to use:**
+- Publishing is slow (network latency, disk I/O) and blocking your test loop
+- You want instrument operations to proceed immediately without waiting for publish
+- You need guaranteed throughput for time-critical measurements
+
+**Parameters:**
+
+```python
+QueuedPublisher(
+    publisher: Publisher,           # The publisher to wrap
+    max_queue_size: int = 1000,     # Maximum queue size
+    wait_for_queue: bool = False    # Wait for queue to empty on close
+)
+```
+
+**Example:**
+
+```python
+import time
+from instro.psu.drivers import SimulatedPSU
+from instro.psu import InstroPSU
+from instro.lib.publishers import QueuedPublisher
+from instro.lib.types import Measurement, Command
+
+# Custom publisher with artificial delay to simulate slow I/O
+class SlowPublisher:
+    def publish(self, data: Measurement | Command, **kwargs):
+        time.sleep(0.1)  # Simulate slow network or disk I/O
+        print(f"Published {len(data.channel_data)} channels")
+
+    def close(self):
+        print("Publisher closed")
+
+# Wrap the slow publisher with queuing
+slow_publisher = SlowPublisher()
+queued_publisher = QueuedPublisher(
+    slow_publisher,
+    max_queue_size=100,
+    wait_for_queue=True  # Ensure all data is sent before closing
+)
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+)
+psu.add_publisher(queued_publisher)
+
+psu.open()
+psu.output_enable(True, channel=1)
+
+# Publishing happens in background - no blocking!
+for v in range(10):
+    start = time.time()
+    psu.set_voltage(v, channel=1)
+    psu.get_current(channel=1)
+    print(f"Loop iteration: {time.time() - start:.4f}s")  # Very fast!
+
+psu.close()  # Waits for queue to empty before closing
+```
+
+<Check>
+Using `QueuedPublisher` can dramatically improve test performance when publishing is a bottleneck. The background thread handles all I/O while your test continues uninterrupted.
+</Check>

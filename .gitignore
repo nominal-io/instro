@@ -26,7 +26,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-docs/reference/site
+docs/sdk/site
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -71,7 +71,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/reference/_build/
+docs/sdk/_build/
 
 # PyBuilder
 .pybuilder/

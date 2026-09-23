@@ -1,0 +1,121 @@
+---
+title: Arbitrary Waveform Generator (AWG)
+description: Using InstroAWG for SCPI-based arbitrary waveform generators
+---
+
+import WaveformGenerators from "/snippets/drivers/awg.mdx";
+
+`InstroAWG` provides a unified interface for arbitrary waveform generators. This class is initialized with a vendor-specific driver (`RigolDG1022Z`, `Keysight33521B`, …), and provides the vendor-agnostic API (`set_waveform`, `set_amplitude`, `set_offset`, `set_modulation`, `set_sweep`, …).
+
+## Creating an InstroAWG
+
+```python
+from instro.awg.drivers import RigolDG1022Z
+from instro.awg import InstroAWG
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=RigolDG1022Z(visa_resource="USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"),
+    num_channels=2,
+)
+```
+
+## Supported Vendors
+
+<WaveformGenerators />
+
+If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments#arbitrary-waveform-generator-awg), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
+
+## Example
+
+More examples found in [Examples](/examples/awg/index)
+
+## Details
+
+The following presents details about the `InstroAWG`. Specific driver details can be found on [their pages](#supported-vendors).
+
+### Driver Composition
+
+An `InstroAWG` is built from a concrete driver:
+
+```python
+InstroAWG("name", driver=RigolDG1022Z(visa_resource="USB0::..."), num_channels=2)
+```
+
+- The **`RigolDG1022Z`** owns the connection setup and vendor-specific command mapping.
+- **`InstroAWG`** owns the category-level workflow: waveform programming, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroAWG workflow:
+
+1. **Construct**: instantiate the vendor driver and pass it to `InstroAWG`, along with the channel count.
+2. **`open()`**: establishes the connection to the instrument.
+3. **Configure and generate**: define a waveform on a channel, set its amplitude and offset, and enable the output, etc.
+4. **`start()`**: begins a periodic background daemon that polls output state. (Optional)
+5. **`stop()`**: ends the background daemon (if started).
+6. **`close()`**: disconnects from hardware.
+
+### Waveform Definitions
+
+InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.awg`.
+
+`Arbitrary` requires a sample rate field (`sample_rate_sas`, in samples per second) to specify the number of samples that the internal DAC outputs per second.
+
+<Note>
+**Driver support varies**
+
+Certain features are only available on particular waveforms. Drivers own their implementation of features in InstroAWG. Consult your specific driver for exact support.
+</Note>
+
+`RigolDG1022Z` uses a bulk transfer for arbitrary waveforms over TCPIP when the complete command is smaller than 32 KiB. USB connections and larger TCPIP payloads use per-point transfers because bulk writes can hang the instrument firmware in those cases.
+
+### Init from a Config File
+
+`InstroAWG` can also be constructed directly from a JSON config file. See below for an example Rigol DG1022Z JSON configuration.
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroAWG",
+  "device": {
+    "name": "bench_awg",
+    "description": "Bench waveform generator",
+    "manufacturer": "Rigol",
+    "model": "DG1022Z"
+  },
+  "driver": {
+    "connection_type": "visa",
+    "name": "RigolDG1022Z",
+    "num_channels": 2,
+    "visa": {
+      "visa_resource": "USB0::0x1AB1::0x0642::DG1ZA000000000::INSTR"
+    }
+  },
+  "channels": {
+    "1": {
+      "waveform": { "shape": "sine", "frequency_hz": 1000.0, "phase_deg": 0.0 },
+      "amplitude": { "value": 2.0, "unit": "VPP" },
+      "offset": 0.0
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "publishers": [
+    { "type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>" }
+  ]
+}
+```
+
+```python
+from instro.awg import InstroAWG
+
+awg = InstroAWG(config="bench_awg.json")
+```
+
+See [Config Files](/library/config-files) for the full field reference.
+
+## Custom Driver Development
+
+For more information on writing a custom driver, see [Custom Driver Development](/library/custom-instruments#arbitrary-waveform-generator-awg).

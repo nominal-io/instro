@@ -1,0 +1,23 @@
+The [`AlicatMC`](https://nominal-io.github.io/instro/instruments/flowcontroller/#alicat-mc-series) provides a driver that can be used to instantiate an [InstroFlowController](/flowcontroller).
+
+## Creating an [`InstroFlowController`](/flowcontroller) with [`AlicatMC`](https://nominal-io.github.io/instro/instruments/flowcontroller/#alicat-mc-series)
+
+```python
+from instro.unstable.flowcontroller.drivers import AlicatMC
+from instro.unstable.flowcontroller import InstroFlowController
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+
+fc = InstroFlowController(
+    name="myFlowController",
+    driver=AlicatMC(
+        VisaConfig(
+            visa_resource="<visa_resource>",
+            serial_config=SerialConfig(baud_rate=19200),
+            terminator=TerminatorConfig(read="\r", write="\r"),
+        ),
+        device_id="M",
+    ),
+)
+```
+
+Parameters and methods specific to [`AlicatMC`](https://nominal-io.github.io/instro/instruments/flowcontroller/#alicat-mc-series) can be found in the [SDK](https://nominal-io.github.io/instro/).

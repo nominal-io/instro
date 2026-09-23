@@ -28,11 +28,11 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Build docs
-        run: uv run mkdocs build --config-file docs/reference/mkdocs.yml
+        run: uv run mkdocs build --config-file docs/sdk/mkdocs.yml
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs/reference/site
+          path: docs/sdk/site
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -42,7 +42,7 @@ measurement = daq.read_analog()  # written to `publishers`
 print(pub.file_path.read_text())
 ```
 
-## [Installation](https://instro.nominal.io/instrumentation/installation)
+## [Installation](https://instro.nominal.io/installation)
 
 ### Basic
 <table>
@@ -99,9 +99,9 @@ Available packages:
 | **Other** | `contrib` | Community-contributed drivers |
 |  | `unstable` | Experimental unstable modules |
 
-See [Installation](https://instro.nominal.io/instrumentation/installation) for more info.
+See [Installation](https://instro.nominal.io/installation) for more info.
 
-## [Supported devices](https://instro.nominal.io/instrumentation/supported-instruments)
+## [Supported devices](https://instro.nominal.io/instruments)
 
 <!-- --8<-- [start:supported-devices] -->
 | Category | Class | Vendors |
@@ -119,7 +119,7 @@ See [Installation](https://instro.nominal.io/instrumentation/installation) for m
 | EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
 <!-- --8<-- [end:supported-devices] -->
 
-See [Supported devices](https://instro.nominal.io/instrumentation/supported-instruments) for more info.
+See [Supported devices](https://instro.nominal.io/instruments) for more info.
 
 ## [Contributing](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md)
 
