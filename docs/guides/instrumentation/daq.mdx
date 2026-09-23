@@ -699,7 +699,7 @@ Port-based I/O is implemented for **MCC**, **NI DAQmx**, and **Keysight** device
 
 ## Counters
 
-Counter channels measure edges on an input, or generate a pulse train on an output. Support is per vendor: a driver that does not implement counters raises `NotImplementedError`.
+Counter channels measure edges on an input, or generate a pulse train on an output. NI-DAQmx implements every counter method below; the other drivers raise `NotImplementedError`.
 
 ### Counter Input
 
