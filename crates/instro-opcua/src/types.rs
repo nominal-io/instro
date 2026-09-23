@@ -1358,7 +1358,7 @@ impl From<&ua::LocalizedText> for OpcUaLocalizedText {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum OpcUaValue {
-    #[serde(alias = "boolean", alias = "bool")]
+    #[serde(alias = "boolean", alias = "bool", alias = "BOOL")]
     Boolean(bool),
     #[serde(
         alias = "int8",
