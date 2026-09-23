@@ -34,3 +34,8 @@ indexing_slicing = "warn"
 panic = "warn"
 todo = "warn"
 result_large_err = "allow"
+
+# open62541-sys builds open62541 + mbedtls through cmake, which mirrors this opt-level;
+# an unoptimized mbedtls makes RSA key generation in tests take tens of seconds on MSVC.
+[profile.dev.package.open62541-sys]
+opt-level = 3
