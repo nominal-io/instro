@@ -537,8 +537,7 @@ class NIDAQDriver(DAQDriverBase):
                     )
                     pulse_width.ci_pulse_width_term = terminal
 
-            # Reserve, do not start. A started task is committed, and a committed task stops every
-            # later counter on the module from taking the lock it needs to program a line (-201133).
+            # Reserve task now so that starting 2 valid tasks on the same module don't raise at start
             task.control(TaskMode.TASK_RESERVE)
         except Exception:
             self._close_task(task)

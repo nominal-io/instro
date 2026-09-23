@@ -215,11 +215,6 @@ class CounterInputChannel(DAQChannel):
     range_min: float | None = None
     range_max: float | None = None
 
-    def __post_init__(self) -> None:
-        """Require a range on every measurement except edge counting."""
-        if self.measurement is not CounterMeasurement.PULSE_COUNT and None in (self.range_min, self.range_max):
-            raise ValueError(f"range_min and range_max are required for {self.measurement.value}")
-
 
 # ========  Relay Channel Types  ===========
 
