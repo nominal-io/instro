@@ -1,5 +1,6 @@
 """DAQ shared types: vendors, channel types, terminal configs, hardware-timing config."""
 
+import math
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 
@@ -141,6 +142,13 @@ class FrequencyPulseConfig:
     frequency: float
     duty_cycle: float
 
+    def __post_init__(self) -> None:
+        """Validate pulse parameters at definition time."""
+        if not math.isfinite(self.frequency) or self.frequency <= 0:
+            raise ValueError(f"frequency must be finite and greater than zero, got {self.frequency}")
+        if not 0 < self.duty_cycle <= 1:
+            raise ValueError(f"duty_cycle must be within (0, 1], got {self.duty_cycle}")
+
 
 @dataclass(frozen=True)
 class TimingPulseConfig:
@@ -148,6 +156,13 @@ class TimingPulseConfig:
 
     high_time_s: float
     low_time_s: float
+
+    def __post_init__(self) -> None:
+        """Validate pulse parameters at definition time."""
+        if not math.isfinite(self.high_time_s) or self.high_time_s <= 0:
+            raise ValueError(f"high_time_s must be finite and greater than zero, got {self.high_time_s}")
+        if not math.isfinite(self.low_time_s) or self.low_time_s <= 0:
+            raise ValueError(f"low_time_s must be finite and greater than zero, got {self.low_time_s}")
 
 
 PulseConfig = FrequencyPulseConfig | TimingPulseConfig
@@ -164,6 +179,11 @@ class CounterOutputChannel(DAQChannel):
     continuous: bool = True
     # Required when ``continuous`` is False; ignored otherwise.
     n_pulses: int | None = None
+
+    def __post_init__(self) -> None:
+        """Require ``n_pulses`` on a finite train."""
+        if not self.continuous and (self.n_pulses is None or self.n_pulses < 1):
+            raise ValueError(f"n_pulses must be set and >= 1 when continuous is False, got {self.n_pulses}")
 
 
 # ========  Counter Input Channel Types  ===========
