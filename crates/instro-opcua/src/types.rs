@@ -1528,8 +1528,9 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
                 OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
             }
 
-            ScalarValue::NodeId(v) => OpcUaValue::NodeId(OpcUaNodeId::try_from(v)?),
-            ScalarValue::QualifiedName(v) => OpcUaValue::QualifiedName(OpcUaQualifiedName::from(v)),
+            ScalarValue::NodeId(v) => OpcUaValue::NodeId(v.try_into()?),
+            ScalarValue::QualifiedName(v) => OpcUaValue::QualifiedName(v.into()),
+            ScalarValue::LocalizedText(v) => OpcUaValue::LocalizedText(v.into()),
             ScalarValue::Guid(v) => OpcUaValue::Guid(v.to_uuid()),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
             _ => bail!("unsupported OPC-UA scalar value read: '{scalar:?}'"),
@@ -2575,8 +2576,7 @@ mod tests {
         );
         assert_roundtrip(
             &ScalarEq(ScalarValue::QualifiedName(ua::QualifiedName::new(
-                1,
-                "test",
+                1, "test",
             ))),
             OpcUaValue::QualifiedName(OpcUaQualifiedName::new(1, "test".into())),
         );
