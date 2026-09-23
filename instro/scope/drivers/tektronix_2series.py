@@ -212,12 +212,12 @@ class Tektronix2SeriesMSO(ScopeDriverBase):
         self._visa.write(f"DATa:SOUrce CH{channel}")
         self._visa.write("DATa:ENCdg RIBinary")
         self._visa.write("WFMOutpre:BYT_Nr 2")  # each point returns a signed 2 byte integer
-        self.check_errors() # Check errors prior to queries ensuring good setup
+        self.check_errors()  # Check errors prior to queries ensuring good setup
 
         self._visa.write("DATa:STARt 1")
         record_length = int(float(self._visa.query("HORizontal:RECOrdlength?")))
         self._visa.write(f"DATa:STOP {record_length}")
-        
+
         nr_pt = int(float(self._visa.query("WFMOutpre:NR_Pt?")))  # points per record
         x_incr = float(self._visa.query("WFMOutpre:XINcr?"))  # period time, seconds, float
         x_zero = float(self._visa.query("WFMOutpre:XZEro?"))  # offset time from trigger to first sample

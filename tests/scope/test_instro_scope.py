@@ -412,8 +412,6 @@ def test_tektronix_fetch_waveform_sets_stop_to_full_record_length_before_queryin
 def test_tektronix_fetch_waveform_drains_errors_before_first_query(
     tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
 ) -> None:
-    """A bad setup write (DATa:SOUrce/ENCdg/BYT_Nr) fails silently; the next query would hang
-    waiting for a reply that never comes. check_errors() must run before any other query."""
     tektronix_visa.query.side_effect = ["1", "10000", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
     tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
 
