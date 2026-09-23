@@ -1,0 +1,37 @@
+Allen-Bradley is the PLC vendor family [`EtherNetIPDevice`](/library/protocols/ethernetip) targets, not a separate driver class: the config's `device.manufacturer` field names it, and the `connection` block points at the PLC. Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol, though current hardware testing covers only the [CompactLogix](/library/protocols/ethernetip/CompactLogix) 5332E 1769-L32E.
+
+## Creating an [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/ethernetip/#ethernetipdevice) for an Allen-Bradley PLC
+
+```json
+{
+  "version": 1,
+  "protocol": "ethernetip",
+  "device": {
+    "name": "line_plc",
+    "description": "Allen-Bradley PLC for line telemetry",
+    "manufacturer": "Allen-Bradley",
+    "model": "CompactLogix 5332E 1769-L32E"
+  },
+  "connection": {
+    "host": "192.168.1.10",
+    "port": 44818,
+    "route_path": {
+      "hops": [
+        {"type": "backplane", "slot": 0}
+      ]
+    }
+  },
+  "timing": {
+    "poll_interval": 1.0
+  }
+}
+```
+
+```python
+from instro.ethernetip import EtherNetIPDevice
+
+with EtherNetIPDevice(config="line_plc.json", autostart=True) as plc:
+    ...
+```
+
+Parameters and methods specific to [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/ethernetip/#ethernetipdevice) can be found in the [SDK](https://nominal-io.github.io/instro/).

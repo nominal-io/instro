@@ -126,7 +126,7 @@ jobs:
               any reintroduced multi-paragraph / verbose docstrings. Public methods need type hints.
             - Comments: only when the *why* is non-obvious; flag comments that restate the code.
             - Docs sync: user-visible changes must update docs in the same PR (README "Supported
-              devices" table for new drivers, `docs/reference/` for public API changes,
+              devices" table for new drivers, `docs/sdk/` for public API changes,
               `docs/guides/` + `docs.json` for new categories). Flag missing doc updates.
             - Tooling: this project uses `uv run` and `just`; flag any bare `python`/`python -m`
               invocation or advice that bypasses the `just` recipes.
