@@ -8,7 +8,7 @@ description: "Move your codebase from nominal-instro (<=0.6.x) to instro (>=0.7)
   the same migration window: the mechanical rename from `nominal-instro` to
   `instro` (automated via the [codemod](#automated-codemod)), the v1.0
   channel-naming standardization (no code change required: set
-  [`legacy_naming=True`](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming)
+  [`legacy_naming=True`](/library/library#backwards-compatible-channel-naming-legacy_naming)
   on each instrument to preserve the pre-v1.0 wire format),
   [NI physical channel naming](#ni-physical-channel-naming) (NI DAQmx channels
   must now be fully qualified, with no compatibility flag), and the
@@ -205,7 +205,7 @@ psu = InstroPSU(name="main", driver=..., num_channels=1, legacy_naming=True)
 # publishes  main.ch1_v, main.ch1_v.cmd, main.ch1_i, ...  (pre-v1.0 names)
 ```
 
-See [Backwards-compatible channel naming](/instrumentation/library#backwards-compatible-channel-naming-legacy_naming) for the full feature. The flag is scheduled for removal in **v2.0**. Use the window to migrate consumers.
+See [Backwards-compatible channel naming](/library/library#backwards-compatible-channel-naming-legacy_naming) for the full feature. The flag is scheduled for removal in **v2.0**. Use the window to migrate consumers.
 
 ### After the migration
 

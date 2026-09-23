@@ -78,7 +78,7 @@ class FilePublisher:
         """Publish data to file using the appropriate writer."""
         SHARED_PUBLISHER_WARNING = (
             "If you're attempting to publish from multiple instruments, consider using SharedPublisher. "
-            "See https://instro.nominal.io/instrumentation/publishers#sharedpublisher for more information."
+            "See https://instro.nominal.io/library/publishers#sharedpublisher for more information."
         )
 
         try:

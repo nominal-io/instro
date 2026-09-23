@@ -1,0 +1,16 @@
+The [`SiglentSDS1000XE`](https://nominal-io.github.io/instro/instruments/scope/#siglent-sds1000x-e) provides a driver that can be used to instantiate an [InstroScope](/scope).
+
+## Creating an [`InstroScope`](/scope) with [`SiglentSDS1000XE`](https://nominal-io.github.io/instro/instruments/scope/#siglent-sds1000x-e)
+
+```python
+from instro.scope.drivers import SiglentSDS1000XE
+from instro.scope import InstroScope
+
+scope = InstroScope(
+    name="myScope",
+    driver=SiglentSDS1000XE("<visa_resource>"),
+    num_channels=4,
+)
+```
+
+Parameters and methods specific to [`SiglentSDS1000XE`](https://nominal-io.github.io/instro/instruments/scope/#siglent-sds1000x-e) can be found in the [SDK](https://nominal-io.github.io/instro/).

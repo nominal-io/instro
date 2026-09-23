@@ -1,0 +1,16 @@
+The [`Keysight33521B`](https://nominal-io.github.io/instro/instruments/awg/#keysight-33521b) provides a driver that can be used to instantiate an [InstroAWG](/awg).
+
+## Creating an [`InstroAWG`](/awg) with [`Keysight33521B`](https://nominal-io.github.io/instro/instruments/awg/#keysight-33521b)
+
+```python
+from instro.awg.drivers import Keysight33521B
+from instro.awg import InstroAWG
+
+awg = InstroAWG(
+    name="myAWG",
+    driver=Keysight33521B(visa_resource="USB0::..."),
+    num_channels=1,
+)
+```
+
+Parameters and methods specific to [`Keysight33521B`](https://nominal-io.github.io/instro/instruments/awg/#keysight-33521b) can be found in the [SDK](https://nominal-io.github.io/instro/).

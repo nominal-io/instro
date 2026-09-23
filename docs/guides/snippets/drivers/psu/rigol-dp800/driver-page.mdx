@@ -1,0 +1,16 @@
+The [`RigolDP800`](https://nominal-io.github.io/instro/instruments/psu/#rigol-dp800) provides a driver that can be used to instantiate an [InstroPSU](/psu).
+
+## Creating an [`InstroPSU`](/psu) with [`RigolDP800`](https://nominal-io.github.io/instro/instruments/psu/#rigol-dp800)
+
+```python
+from instro.psu.drivers import RigolDP800
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=RigolDP800(visa_resource="USB0::..."),
+    num_channels=3,  # DP811 has 1, DP821 has 2, DP831/DP832 have 3
+)
+```
+
+Parameters and methods specific to [`RigolDP800`](https://nominal-io.github.io/instro/instruments/psu/#rigol-dp800) can be found in the [SDK](https://nominal-io.github.io/instro/).

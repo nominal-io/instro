@@ -1,0 +1,16 @@
+The [`BK914X`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-914x-multi-channel) provides a driver that can be used to instantiate an [InstroPSU](/psu).
+
+## Creating an [`InstroPSU`](/psu) with [`BK914X`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-914x-multi-channel)
+
+```python
+from instro.psu.drivers import BK914X
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=BK914X(visa_resource="USB0::..."),
+    num_channels=3,  # 1-3, depending on the exact 914X model
+)
+```
+
+Parameters and methods specific to [`BK914X`](https://nominal-io.github.io/instro/instruments/psu/#bk-precision-914x-multi-channel) can be found in the [SDK](https://nominal-io.github.io/instro/).
