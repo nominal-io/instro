@@ -6,7 +6,7 @@ owning a VisaDriver, and InstroScope delegating to its driver.
 
 import math
 from collections.abc import Iterator
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -396,7 +396,7 @@ def test_tektronix_digitize_raises_timeout_and_clears(
 def test_tektronix_fetch_waveform_sets_stop_to_full_record_length_before_querying_nr_pt(
     tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
 ) -> None:
-    tektronix_visa.query.side_effect = ["10000", "1", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query.side_effect = ["1", "10000", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
     tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
 
     waveform = tektronix.fetch_waveform(channel=1)
@@ -407,6 +407,22 @@ def test_tektronix_fetch_waveform_sets_stop_to_full_record_length_before_queryin
     tektronix_visa.query_binary_values.assert_called_once_with(
         "CURVe?", datatype="h", is_big_endian=True, container=list
     )
+
+
+def test_tektronix_fetch_waveform_drains_errors_before_first_query(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    """A bad setup write (DATa:SOUrce/ENCdg/BYT_Nr) fails silently; the next query would hang
+    waiting for a reply that never comes. check_errors() must run before any other query."""
+    tektronix_visa.query.side_effect = ["1", "10000", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
+
+    tektronix.fetch_waveform(channel=1)
+
+    calls = [c for c in tektronix_visa.mock_calls if c[0] in ("write", "query")]
+    first_query_index = next(i for i, c in enumerate(calls) if c[0] == "query")
+    assert calls[first_query_index] == call.query("ALLEv?")
+    assert all(c[0] == "write" for c in calls[:first_query_index])
 
 
 # --- SiglentSDS1000XE unit tests ---
