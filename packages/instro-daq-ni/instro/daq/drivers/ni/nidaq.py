@@ -492,6 +492,7 @@ class NIDAQDriver(DAQDriverBase):
                 "takes the measurement, e.g. 'Dev1/ctr0'."
             )
         self._reject_channel_range_or_list(channel.counter_source)
+        self._reject_channel_range_or_list(channel.physical_channel)
         terminal = self._validate_pfi_string(channel.physical_channel)
 
         # Add the measurement channel DAQmx names for this measurement, and point it at the terminal.
@@ -554,6 +555,7 @@ class NIDAQDriver(DAQDriverBase):
                 f"counter_source is required for channel '{channel.alias}'. It names the NI counter that "
                 "generates the train, e.g. 'Dev1/ctr0'."
             )
+        self._reject_channel_range_or_list(channel.physical_channel)
         self._reject_channel_range_or_list(channel.counter_source)
         terminal = self._validate_pfi_string(channel.physical_channel)
 

@@ -441,7 +441,7 @@ class DAQDriverBase(abc.ABC):
         raise NotImplementedError("Counter pulse output has not been configured for this driver")
 
     def stop_counter_output(self, channel: CounterOutputChannel):
-        """Stop the pulse train on ``channel`` and release the counter. Override if the driver supports it."""
+        """Stop the pulse train on ``channel``; the counter stays claimed until ``close()``. Override if supported."""
         raise NotImplementedError("Counter pulse output has not been configured for this driver")
 
     def wait_for_counter_output(self, channel: CounterOutputChannel, timeout: float):
@@ -1845,7 +1845,7 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def stop_counter_output(self, channel: str, **kwargs) -> Command:
-        """Stop the pulse train on counter output ``channel`` (alias)."""
+        """Stop the pulse train on counter output ``channel`` (alias); the counter stays claimed until ``close()``."""
         self._require_open()
         if (counter_channel := self.co_channels.get(channel, None)) is None:
             raise KeyError(
