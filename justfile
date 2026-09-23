@@ -85,7 +85,7 @@ fix-python: fix-format fix-imports
 
 # fixes Rust lints and code formatting (note: mutates the code)
 fix-rust:
-    cargo clippy --fix --allow-dirty --all-targets --all-features --workspace
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features --workspace
     cargo +nightly fmt --all
 
 # fix imports and formatting
