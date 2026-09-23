@@ -54,7 +54,7 @@ Step 3 is almost always the same three commands, in an order that matters: the c
 commands = psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
 ```
 
-The output stays **off** unless you pass `enable=True`. On that default path the output is disabled *before* the new setpoints are written, so an already-live channel never sees them — `apply()` reorders the steps rather than passing `enable` through to a trailing `output_enable`. Energizing a channel is therefore always explicit:
+The output stays **off** unless `enable=True` is passed. On that default path the output is disabled *before* the new setpoints are written, so an already-live channel never sees them — `apply()` reorders the steps rather than passing `enable` through to a trailing `output_enable`. Energizing a channel is therefore always explicit:
 
 ```python
 psu.apply(voltage=12.0, current_limit=0.5, channel=1)               # configured, output off
