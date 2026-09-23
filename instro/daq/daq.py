@@ -1038,7 +1038,7 @@ class InstroDAQ(Instrument):
         counter_source: str | None = None,
         alias: str | None = None,
     ):
-        """Configure a counter output channel that emits ``n_pulses`` per ``start()`` and then stops.
+        """Configure a counter output channel that emits ``n_pulses`` per ``start_counter_output()`` and then stops.
 
         Args:
             physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
@@ -1078,7 +1078,7 @@ class InstroDAQ(Instrument):
         counter_source: str | None = None,
         alias: str | None = None,
     ):
-        """Configure a counter output channel that pulses continuously until ``stop()``.
+        """Configure a counter output channel that pulses continuously until ``stop_counter_output()``.
 
         Args:
             physical_channel: Vendor-specific counter id (e.g. ``"Dev1/ctr0"`` on NI).
@@ -1861,18 +1861,21 @@ class InstroDAQ(Instrument):
                 "Call configure_finite_counter_output() first."
             )
         # A continuous train never completes, so waiting on one would hang until the timeout.
-        if counter_channel.continuous or counter_channel.n_pulses is None:
+        if counter_channel.continuous:
             raise ValueError(
                 f"Counter output channel '{channel}' is continuous and never completes; "
                 "call stop_counter_output() to end it."
             )
+
         # Default the timeout to how long the train itself runs, plus a second of slack.
         if timeout is None:
+            # CounterOutputChannel.__post_init__ guarantees n_pulses on a finite train.
+            n_pulses = cast(int, counter_channel.n_pulses)
             match counter_channel.pulse_config:
                 case FrequencyPulseConfig(frequency=frequency):
-                    timeout = counter_channel.n_pulses / frequency + 1.0
+                    timeout = n_pulses / frequency + 1.0
                 case TimingPulseConfig(high_time_s=high_time_s, low_time_s=low_time_s):
-                    timeout = counter_channel.n_pulses * (high_time_s + low_time_s) + 1.0
+                    timeout = n_pulses * (high_time_s + low_time_s) + 1.0
         self._driver.wait_for_counter_output(counter_channel, timeout)
 
     @publish_command

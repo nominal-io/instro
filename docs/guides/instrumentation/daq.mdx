@@ -287,18 +287,6 @@ Digital driver support:
 | Keysight 34980A | ✅ | ✅ | ✅ | ✅ |
 | DewesoftX (unstable) | ❌ | ❌ | ❌ | ❌ |
 
-Counter driver support:
-
-| Driver | Finite pulse train | Continuous pulse train | Edge counting | Frequency | Period | Pulse width |
-|--------|:---:|:---:|:---:|:---:|:---:|:---:|
-| NI-DAQmx | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| LabJack T-Series | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| MCC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Keysight 34980A | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| DewesoftX (unstable) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-
-No driver implements counters yet. `InstroDAQ` defines the interface, and every `DAQDriverBase` counter method raises `NotImplementedError` until a vendor driver overrides it.
-
 #### LabJack thermocouple channels
 
 The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. More info about using thermocouples with a LabJack device can be found [here](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
