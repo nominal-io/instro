@@ -14,13 +14,14 @@ against.
 COUNTER LOOPBACK WIRING
 ============================================================================
 
-  A terminal 0  <--->  B terminal 0
-  A terminal 1  <--->  B terminal 1
+  A PFI terminal 0  <--->  B terminal 0
+  A PFI terminal 4  <--->  B terminal 1
   A ground      <--->  B ground
 
-  On a 9401 each counter has its own CTR OUT pin: ctr0 is PFI3, and ctr1 is
-  PFI7. If a 9401 raises -201133 while it drives, put its terminals on those
-  pins.
+  This loopback setup is flexible, but the setup that was used to test was
+  a cDAQ-9170 chassis with a 9401 card as Device A, and a USB-6421 as Device B.
+  Only one counter can be configured per nibble (sets of 4 channels) on the 9401
+  which is why terminal 0 and 4 are used.
 
 ============================================================================
 RUNNING
@@ -169,8 +170,9 @@ class TestNICounterHardware(unittest.TestCase):
                 time.sleep(SETTLE_S)
 
                 # Each input reads the train on the wire it shares with the driving device.
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.2f} Hz, {reading_1:.2f} Hz")
                 self.assertAlmostEqual(reading_0, EXPECTED_FREQUENCY_HZ, delta=FREQUENCY_TOLERANCE_HZ)
                 self.assertAlmostEqual(reading_1, EXPECTED_FREQUENCY_HZ, delta=FREQUENCY_TOLERANCE_HZ)
@@ -220,8 +222,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.start_counter_output(OUT_1)
                 time.sleep(SETTLE_S)
 
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.2f} Hz, {reading_1:.2f} Hz")
                 self.assertAlmostEqual(reading_0, EXPECTED_FREQUENCY_HZ, delta=FREQUENCY_TOLERANCE_HZ)
                 self.assertAlmostEqual(reading_1, EXPECTED_FREQUENCY_HZ, delta=FREQUENCY_TOLERANCE_HZ)
@@ -273,8 +276,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.start_counter_output(OUT_1)
                 time.sleep(SETTLE_S)
 
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.6f} s, {reading_1:.6f} s")
                 self.assertAlmostEqual(reading_0, EXPECTED_PERIOD_S, delta=PERIOD_TOLERANCE_S)
                 self.assertAlmostEqual(reading_1, EXPECTED_PERIOD_S, delta=PERIOD_TOLERANCE_S)
@@ -322,8 +326,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.start_counter_output(OUT_1)
                 time.sleep(SETTLE_S)
 
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.6f} s, {reading_1:.6f} s")
                 self.assertAlmostEqual(reading_0, EXPECTED_PERIOD_S, delta=PERIOD_TOLERANCE_S)
                 self.assertAlmostEqual(reading_1, EXPECTED_PERIOD_S, delta=PERIOD_TOLERANCE_S)
@@ -374,8 +379,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.start_counter_output(OUT_1)
                 time.sleep(SETTLE_S)
 
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.6f} s, {reading_1:.6f} s")
                 self.assertAlmostEqual(reading_0, EXPECTED_PULSE_WIDTH_S, delta=PULSE_WIDTH_TOLERANCE_S)
                 self.assertAlmostEqual(reading_1, EXPECTED_PULSE_WIDTH_S, delta=PULSE_WIDTH_TOLERANCE_S)
@@ -423,8 +429,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.start_counter_output(OUT_1)
                 time.sleep(SETTLE_S)
 
-                reading_0 = in_daq.read_counter(IN_0).latest
-                reading_1 = in_daq.read_counter(IN_1).latest
+                readings = in_daq.read_batch([IN_0, IN_1])
+                reading_0 = readings[IN_0].latest
+                reading_1 = readings[IN_1].latest
                 print(f"         {driver.name} -> {measurer.name}: {reading_0:.6f} s, {reading_1:.6f} s")
                 self.assertAlmostEqual(reading_0, EXPECTED_PULSE_WIDTH_S, delta=PULSE_WIDTH_TOLERANCE_S)
                 self.assertAlmostEqual(reading_1, EXPECTED_PULSE_WIDTH_S, delta=PULSE_WIDTH_TOLERANCE_S)
@@ -472,8 +479,8 @@ class TestNICounterHardware(unittest.TestCase):
 
                 # Read each counter once before the trains start. The first read starts the
                 # counter task, so this arms both counters and gives the count they start from.
-                start_0 = in_daq.read_counter(IN_0).latest
-                start_1 = in_daq.read_counter(IN_1).latest
+                start_0 = in_daq.read(IN_0).latest
+                start_1 = in_daq.read(IN_1).latest
 
                 # Run both trains to completion, then count what arrived.
                 out_daq.start_counter_output(OUT_0)
@@ -481,8 +488,9 @@ class TestNICounterHardware(unittest.TestCase):
                 out_daq.wait_for_counter_output(OUT_0)
                 out_daq.wait_for_counter_output(OUT_1)
 
-                counted_0 = in_daq.read_counter(IN_0).latest - start_0
-                counted_1 = in_daq.read_counter(IN_1).latest - start_1
+                counts = in_daq.read_batch([IN_0, IN_1])
+                counted_0 = counts[IN_0].latest - start_0
+                counted_1 = counts[IN_1].latest - start_1
                 print(f"         {driver.name} -> {measurer.name}: {counted_0:.0f} edges, {counted_1:.0f} edges")
                 self.assertEqual(counted_0, FINITE_PULSES)
                 self.assertEqual(counted_1, FINITE_PULSES)
