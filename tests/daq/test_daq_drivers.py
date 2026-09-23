@@ -90,7 +90,7 @@ class _RecordingDriver(DAQDriverBase):
     def configure_ci_channel(self, channel):
         self._ci_channels[channel.alias] = channel
 
-    def configure_co_pulse_channel(self, channel):
+    def configure_co_channel(self, channel):
         self._co_channels[channel.alias] = channel
 
     def configure_ai_hw_timing(self, hw_timing_config):
@@ -1597,3 +1597,13 @@ def test_wait_for_counter_output_rejects_continuous_channel():
         daq.wait_for_counter_output("clock")
 
     driver.wait_for_counter_output.assert_not_called()
+
+
+def test_read_counter_unconfigured_alias_raises():
+    """read_counter() raises KeyError for an alias with no counter input behind it, before touching the driver."""
+    daq, driver = _counter_daq()
+
+    with pytest.raises(KeyError, match="Counter input channel 'unconfigured_channel' is not configured"):
+        daq.read_counter("unconfigured_channel")
+
+    driver.read_counter.assert_not_called()

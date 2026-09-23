@@ -296,7 +296,7 @@ class DAQDriverBase(abc.ABC):
         """Register a counter input channel. Override if the driver supports counter input."""
         raise NotImplementedError("Counter input has not been configured for this driver")
 
-    def configure_co_pulse_channel(self, channel: CounterOutputChannel):
+    def configure_co_channel(self, channel: CounterOutputChannel):
         """Register a counter pulse-train output channel. Override if the driver supports counter output."""
         raise NotImplementedError("Counter pulse output has not been configured for this driver")
 
@@ -1064,7 +1064,7 @@ class InstroDAQ(Instrument):
             continuous=False,
             n_pulses=n_pulses,
         )
-        self._driver.configure_co_pulse_channel(channel)
+        self._driver.configure_co_channel(channel)
         logger.info(
             "Configured finite counter output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
         )
@@ -1101,7 +1101,7 @@ class InstroDAQ(Instrument):
             idle_state=idle_state,
             counter_source=counter_source,
         )
-        self._driver.configure_co_pulse_channel(channel)
+        self._driver.configure_co_channel(channel)
         logger.info(
             "Configured continuous counter output channel '%s' (%s) on DAQ '%s'", alias, physical_channel, self.name
         )
@@ -1150,8 +1150,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
-        range_min: float | None = None,
-        range_max: float | None = None,
+        range_min: float = 2.0,
+        range_max: float = 100.0,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures frequency, reported in Hz.
@@ -1160,8 +1160,8 @@ class InstroDAQ(Instrument):
             physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
-            range_min: Smallest value to expect, in Hz; ``None`` keeps the driver's default range.
-            range_max: Largest value to expect, in Hz; ``None`` keeps the driver's default range.
+            range_min: Smallest value to expect, in Hz.
+            range_max: Largest value to expect, in Hz.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1191,8 +1191,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
-        range_min: float | None = None,
-        range_max: float | None = None,
+        range_min: float = 1e-6,
+        range_max: float = 0.1,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures period, reported in seconds.
@@ -1201,8 +1201,8 @@ class InstroDAQ(Instrument):
             physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
-            range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
-            range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
+            range_min: Smallest value to expect, in seconds.
+            range_max: Largest value to expect, in seconds.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()
@@ -1230,8 +1230,8 @@ class InstroDAQ(Instrument):
         *,
         edge_type: str | Edge = Edge.RISING,
         counter_source: str | None = None,
-        range_min: float | None = None,
-        range_max: float | None = None,
+        range_min: float = 1e-6,
+        range_max: float = 0.1,
         alias: str | None = None,
     ):
         """Configure a counter input channel that measures pulse width, reported in seconds.
@@ -1240,8 +1240,8 @@ class InstroDAQ(Instrument):
             physical_channel: Terminal the measured signal arrives on (e.g. ``"/Dev1/PFI8"`` on NI).
             edge_type: Edge the counter responds to.
             counter_source: Counter that takes the measurement (e.g. ``"Dev1/ctr0"``); required on NI.
-            range_min: Smallest value to expect, in seconds; ``None`` keeps the driver's default range.
-            range_max: Largest value to expect, in seconds; ``None`` keeps the driver's default range.
+            range_min: Smallest value to expect, in seconds.
+            range_max: Largest value to expect, in seconds.
             alias: Friendly name; defaults to ``physical_channel``.
         """
         self._require_open()

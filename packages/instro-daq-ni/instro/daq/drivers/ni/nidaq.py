@@ -1,5 +1,4 @@
 import time
-import warnings
 from dataclasses import dataclass
 from itertools import count
 from typing import Mapping
@@ -469,19 +468,11 @@ class NIDAQDriver(DAQDriverBase):
     def _validate_pfi_string(physical_channel: str) -> str:
         """Return ``physical_channel`` in the ``/DevN/PFIn`` form DAQmx wants, checked against the device's terminals."""
         # NOTE: daqmx API doesn't expose a mapping between port/line -> PFI so all we can do is validate that the PFI string is correct
-        # Only a PFI name is accepted: DAQmx gives no mapping from a digital port/line to a terminal.
         name = physical_channel.lstrip("/")
         if "PFI" not in name:
             raise ValueError(
                 f"physical_channel must name a PFI terminal, e.g. '/Dev1/PFI0'. Received {physical_channel}. "
                 "DAQmx does not relate a digital port/line to the terminal that shares its pin."
-            )
-
-        # A terminal name starts with a slash; add the missing one, but say so.
-        if not physical_channel.startswith("/"):
-            warnings.warn(
-                f"PFI terminal names require a leading slash; using '/{name}'.",
-                stacklevel=2,
             )
 
         # Check the terminal against the list the device reports.
@@ -522,10 +513,8 @@ class NIDAQDriver(DAQDriverBase):
                     frequency = task.ci_channels.add_ci_freq_chan(
                         counter=channel.counter_source,
                         name_to_assign_to_channel=channel.alias,
-                        min_val=channel.range_min
-                        if channel.range_min is not None
-                        else 2.0,  # DAQmx default explicitly defined
-                        max_val=channel.range_max if channel.range_max is not None else 100.0,
+                        min_val=channel.range_min,
+                        max_val=channel.range_max,
                         edge=edge,
                     )
                     frequency.ci_freq_term = terminal
@@ -533,8 +522,8 @@ class NIDAQDriver(DAQDriverBase):
                     period = task.ci_channels.add_ci_period_chan(
                         counter=channel.counter_source,
                         name_to_assign_to_channel=channel.alias,
-                        min_val=channel.range_min if channel.range_min is not None else 1e-6,
-                        max_val=channel.range_max if channel.range_max is not None else 0.1,
+                        min_val=channel.range_min,
+                        max_val=channel.range_max,
                         edge=edge,
                     )
                     period.ci_period_term = terminal
@@ -542,8 +531,8 @@ class NIDAQDriver(DAQDriverBase):
                     pulse_width = task.ci_channels.add_ci_pulse_width_chan(
                         counter=channel.counter_source,
                         name_to_assign_to_channel=channel.alias,
-                        min_val=channel.range_min if channel.range_min is not None else 1e-6,
-                        max_val=channel.range_max if channel.range_max is not None else 0.1,
+                        min_val=channel.range_min,
+                        max_val=channel.range_max,
                         starting_edge=edge,
                     )
                     pulse_width.ci_pulse_width_term = terminal
@@ -558,7 +547,7 @@ class NIDAQDriver(DAQDriverBase):
         self._ci_tasks[channel.alias] = task
         self._ci_channels[channel.alias] = channel
 
-    def configure_co_pulse_channel(self, channel: CounterOutputChannel):
+    def configure_co_channel(self, channel: CounterOutputChannel):
         """Build a dedicated pulse-train task on counter ``counter_source`` and route it out of ``physical_channel``."""
         # Validate the counter and the terminal the train drives.
         if not channel.counter_source:
@@ -599,7 +588,7 @@ class NIDAQDriver(DAQDriverBase):
             else:
                 task.timing.cfg_implicit_timing(sample_mode=AcquisitionType.FINITE, samps_per_chan=channel.n_pulses)
 
-            # Reserve nibble now so that start doesn't try to reserve and raise
+            # Reserve task now so that starting 2 valid tasks on the same module don't raise at start
             task.control(TaskMode.TASK_RESERVE)
         except Exception:
             self._close_task(task)
