@@ -217,11 +217,15 @@ class InstroPSU(Instrument):
             driver_method(value, channel=channel)
             timestamp = time.time_ns()
 
+        return self._package_command(
+            self._command_descriptor(channel, channel_suffix, legacy_suffix), value, timestamp, **kwargs
+        )
+
+    def _command_descriptor(self, channel: int, channel_suffix: str, legacy_suffix: str) -> str:
+        """Build the published command descriptor for ``channel``."""
         if self.legacy_naming:
-            descriptor = f"ch{channel}_{legacy_suffix}.cmd"
-        else:
-            descriptor = f"ch{channel}.{channel_suffix}.cmd"
-        return self._package_command(descriptor, value, timestamp, **kwargs)
+            return f"ch{channel}_{legacy_suffix}.cmd"
+        return f"ch{channel}.{channel_suffix}.cmd"
 
     @publish_measurement
     def _execute_measurement(
@@ -256,6 +260,47 @@ class InstroPSU(Instrument):
         super().close()
         self._driver.close()
         logger.info("Closed PSU '%s'", self.name)
+
+    def apply(
+        self, *, current_limit: float, voltage: float, enable: bool = False, channel: int, **kwargs
+    ) -> list[Command]:
+        """Set the current limit, then the voltage, then the output state on ``channel``.
+
+        The output stays off unless ``enable=True`` is passed, and on the default
+        path it is disabled before the new setpoints are written, so setpoints are
+        never applied to a live output. Every argument is keyword-only, so a value
+        can't land on the wrong setpoint and the output can't be energized without
+        ``enable=True`` spelled out at the call site.
+
+        Holds the resource lock across all steps so nothing observes a half-applied
+        channel, and publishes only after releasing it so publisher I/O never blocks
+        the background daemon or other threads waiting on the instrument.
+
+        Not atomic on the instrument: if a step raises, earlier steps have already
+        been committed and the channel is left in an unknown state. Commands for the
+        steps that did land are still published before the exception propagates.
+        """
+        steps: list[tuple[Callable, Any, str, str]] = []
+        if not enable:
+            steps.append((self._driver.output_enable, False, "enabled", "en"))
+        steps.append((self._driver.set_current_limit, current_limit, "current", "i"))
+        steps.append((self._driver.set_voltage, voltage, "voltage", "v"))
+        if enable:
+            steps.append((self._driver.output_enable, True, "enabled", "en"))
+
+        commands: list[Command] = []
+        try:
+            with self._resource_lock:
+                for driver_method, value, channel_suffix, legacy_suffix in steps:
+                    driver_method(value, channel=channel)
+                    timestamp = time.time_ns()
+                    descriptor = self._command_descriptor(channel, channel_suffix, legacy_suffix)
+                    commands.append(self._package_command(descriptor, value, timestamp, **kwargs))
+        finally:
+            # Publish outside the lock, and publish what landed even when a later step raised.
+            for command in commands:
+                self.publish(command)
+        return commands
 
     def set_voltage(self, voltage: float, channel: int, **kwargs) -> Command:
         """Set the output voltage (volts) on ``channel``."""

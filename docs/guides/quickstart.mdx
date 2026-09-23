@@ -42,12 +42,12 @@ description: Drive a simulated power supply end-to-end in about five minutes. No
   </Step>
 
   <Step title="Configure Instrument">
+    `apply()` sets the current limit, then the voltage, then enables the output.
+
     ```python
-    psu.set_voltage(5.0, channel=1)
-    psu.set_current_limit(1.0, channel=1)
     psu.set_overvoltage_protection_level(5.5, channel=1)
     psu.set_overvoltage_protection_enabled(True, channel=1)
-    psu.output_enable(True, channel=1)
+    psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=1)
     ```
   </Step>
 

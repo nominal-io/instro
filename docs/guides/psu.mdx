@@ -55,7 +55,7 @@ The typical InstroPSU workflow:
 
 1. **Construct**: instantiate the vendor driver and pass it to `InstroPSU`.
 2. **`open()`**: establishes the VISA connection.
-3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements.
+3. **Configure and measure**: set voltage/current limits, enable outputs, read measurements. `apply()` sets the current limit, then the voltage, then the output state in one call.
 4. **`start()`**: begins a periodic background daemon. (Optional)
 5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
