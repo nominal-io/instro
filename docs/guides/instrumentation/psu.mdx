@@ -51,14 +51,14 @@ The typical InstroPSU workflow:
 Step 3 is almost always the same three commands, in an order that matters: the current limit has to land before the voltage it guards. `apply()` does all three in that order and returns the three `Command` objects it published:
 
 ```python
-commands = psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
+commands = psu.apply(current_limit=0.5, voltage=12.0, enable=True, channel=1)
 ```
 
 The output stays **off** unless `enable=True` is passed. On that default path the output is disabled *before* the new setpoints are written, so an already-live channel never sees them — `apply()` reorders the steps rather than passing `enable` through to a trailing `output_enable`. Energizing a channel is therefore always explicit:
 
 ```python
-psu.apply(voltage=12.0, current_limit=0.5, channel=1)               # configured, output off
-psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)  # configured and live
+psu.apply(current_limit=0.5, voltage=12.0, channel=1)               # configured, output off
+psu.apply(current_limit=0.5, voltage=12.0, enable=True, channel=1)  # configured and live
 ```
 
 Every argument is keyword-only, so `voltage` and `current_limit` can't be swapped by position and the output can't be energized without `enable=True` spelled out at the call site.
@@ -232,7 +232,7 @@ psu.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 psu.open()
 
 # Configure channel 1
-psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
+psu.apply(current_limit=0.5, voltage=12.0, enable=True, channel=1)
 
 time.sleep(0.5)
 
@@ -274,7 +274,7 @@ psu.open()
 psu.start()
 
 # Configure channel 1
-psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)
+psu.apply(current_limit=0.5, voltage=12.0, enable=True, channel=1)
 
 # Data flows automatically to publishers
 while True:

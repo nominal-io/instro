@@ -47,7 +47,7 @@ description: Drive a simulated power supply end-to-end in about five minutes. No
     ```python
     psu.set_overvoltage_protection_level(5.5, channel=1)
     psu.set_overvoltage_protection_enabled(True, channel=1)
-    psu.apply(voltage=5.0, current_limit=1.0, channel=1, enable=True)
+    psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=1)
     ```
   </Step>
 

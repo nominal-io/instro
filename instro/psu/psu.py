@@ -273,7 +273,8 @@ class InstroPSU(Instrument):
         ``enable=True`` spelled out at the call site.
 
         Holds the resource lock across all steps so nothing observes a half-applied
-        channel.
+        channel, and publishes only after releasing it so publisher I/O never blocks
+        the background daemon or other threads waiting on the instrument.
 
         Not atomic on the instrument: if a step raises, earlier steps have already
         been committed and the channel is left in an unknown state. Commands for the

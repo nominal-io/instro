@@ -207,7 +207,7 @@ def test_nominal_psu_set_voltage_delegates() -> None:
 def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
-    commands = psu.apply(voltage=5.0, current_limit=1.0, channel=2, enable=True)
+    commands = psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=2)
     # Current limit must land before the voltage it guards.
     driver.assert_has_calls(
         [
@@ -236,7 +236,7 @@ def test_nominal_psu_apply_rejects_positional_arguments() -> None:
 def test_nominal_psu_apply_disables_output_before_writing_setpoints() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
-    psu.apply(voltage=3.3, current_limit=0.5, channel=1)
+    psu.apply(current_limit=0.5, voltage=3.3, channel=1)
     # An already-live channel must go dark before it sees the new setpoints.
     driver.assert_has_calls(
         [
@@ -253,7 +253,7 @@ def test_nominal_psu_apply_holds_the_resource_lock_for_the_whole_sequence() -> N
     lock = _CountingLock()
     psu._resource_lock = lock  # type: ignore[assignment]
 
-    psu.apply(voltage=5.0, current_limit=1.0, channel=1)
+    psu.apply(current_limit=1.0, voltage=5.0, channel=1)
 
     # One acquisition, not one per step: releasing in between would let the
     # background daemon publish a half-applied channel.
@@ -267,7 +267,7 @@ def test_nominal_psu_apply_publishes_steps_that_landed_before_a_failure() -> Non
     psu = InstroPSU(name="ut", driver=driver, num_channels=1, publishers=[publisher])
 
     with pytest.raises(RuntimeError, match="out of range"):
-        psu.apply(voltage=99.0, current_limit=0.5, channel=1)
+        psu.apply(current_limit=0.5, voltage=99.0, channel=1)
 
     # The disable and the current limit reached the hardware, so they must not be lost from the record.
     assert [list(command.channel_data) for command in publisher.published] == [
