@@ -136,9 +136,8 @@ class _CountingLock:
         self.acquisitions += 1
         return self
 
-    def __exit__(self, *exc: object) -> bool:
+    def __exit__(self, *exc: object) -> None:
         self._lock.release()
-        return False
 
 
 class _RecordingPublisher(Publisher):
@@ -222,6 +221,16 @@ def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
         ["ut.ch2.voltage.cmd"],
         ["ut.ch2.enabled.cmd"],
     ]
+
+
+def test_nominal_psu_apply_rejects_positional_arguments() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    # Keyword-only guards against swapping the two setpoints and against energizing
+    # the output without `enable=True` spelled out at the call site.
+    with pytest.raises(TypeError, match="positional argument"):
+        psu.apply(0.5, 12.0, True, channel=1)  # type: ignore[misc]
+    assert not driver.method_calls
 
 
 def test_nominal_psu_apply_disables_output_before_writing_setpoints() -> None:

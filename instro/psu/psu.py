@@ -262,13 +262,15 @@ class InstroPSU(Instrument):
         logger.info("Closed PSU '%s'", self.name)
 
     def apply(
-        self, voltage: float, current_limit: float, enable: bool = False, *, channel: int, **kwargs
+        self, *, current_limit: float, voltage: float, enable: bool = False, channel: int, **kwargs
     ) -> list[Command]:
         """Set the current limit, then the voltage, then the output state on ``channel``.
 
         The output stays off unless ``enable=True`` is passed, and on the default
         path it is disabled before the new setpoints are written, so setpoints are
-        never applied to a live output. ``channel`` is keyword-only and required.
+        never applied to a live output. Every argument is keyword-only, so a value
+        can't land on the wrong setpoint and the output can't be energized without
+        ``enable=True`` spelled out at the call site.
 
         Holds the resource lock across all steps so nothing observes a half-applied
         channel.

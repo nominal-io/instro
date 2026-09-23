@@ -61,7 +61,7 @@ psu.apply(voltage=12.0, current_limit=0.5, channel=1)               # configured
 psu.apply(voltage=12.0, current_limit=0.5, channel=1, enable=True)  # configured and live
 ```
 
-`channel` is keyword-only, so it can't be passed positionally by mistake.
+Every argument is keyword-only, so `voltage` and `current_limit` can't be swapped by position and the output can't be energized without `enable=True` spelled out at the call site.
 
 The whole sequence runs under a single hold of the instrument lock, so a background daemon can't poll a half-applied channel.
 
@@ -369,7 +369,7 @@ Every measurement/command call produces a channel keyed under `{name}.{descripto
 | `InstroPSU(config=..., publishers=None, autostart=False, **kwargs)` | Construct from a `PSUConfig`, a dict, or a path to a JSON config file |
 | `open()` | Establish the connection to the PSU |
 | `close()` | Disconnect from PSU and close all publishers |
-| `apply(voltage, current_limit, enable=False, *, channel=N)` | Set the current limit, then the voltage, then the output state; returns `list[Command]`. Output stays off unless `enable=True`; on the default path the output is disabled first |
+| `apply(*, current_limit, voltage, enable=False, channel=N)` | Set the current limit, then the voltage, then the output state; returns `list[Command]`. Output stays off unless `enable=True`; on the default path the output is disabled first |
 | `set_voltage(voltage, channel=N)` | Set voltage setpoint in volts |
 | `get_voltage(channel=N)` | Read measured output voltage in volts. May vary from the voltage setpoint outside of constant voltage mode |
 | `set_current_limit(current_limit, channel=N)` | Set current limit in amperes |
