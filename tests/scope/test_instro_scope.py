@@ -396,14 +396,18 @@ def test_tektronix_digitize_raises_timeout_and_clears(
 def test_tektronix_fetch_waveform_sets_stop_to_full_record_length_before_querying_nr_pt(
     tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
 ) -> None:
-    tektronix_visa.query.side_effect = ["1", "10000", "10000", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
-    tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
+    """record_length (10000) and nr_pt (3) are deliberately different: DATa:STOP must come from
+    record_length, so a regression to the old ``DATa:STOP {nr_pt}`` behavior writes DATa:STOP 3
+    instead and fails the write assertion below."""
+    tektronix_visa.query.side_effect = ["1", "10000", "3", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query_binary_values.return_value = [10, 20, 30]
 
     waveform = tektronix.fetch_waveform(channel=1)
 
     writes = [c.args[0] for c in tektronix_visa.write.call_args_list]
-    assert writes.index("DATa:STARt 1") < writes.index("DATa:STOP 10000") < len(writes)
-    assert len(waveform.times) == 10000
+    assert writes.index("DATa:STARt 1") < writes.index("DATa:STOP 10000")
+    assert len(waveform.times) == 3
+    assert waveform.voltages == pytest.approx([0.01, 0.02, 0.03])
     tektronix_visa.query_binary_values.assert_called_once_with(
         "CURVe?", datatype="h", is_big_endian=True, container=list
     )
