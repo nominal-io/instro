@@ -565,7 +565,7 @@ measurement = daq.read_counter(channel="revolutions")
 print(f"Edge count: {measurement.latest}")
 ```
 
-`configure_frequency_counter_input()` reports Hz, `configure_period_counter_input()` and `configure_pulse_width_counter_input()` report seconds. `count_up` applies to edge counting only.
+`configure_frequency_counter_input()` reports Hz, `configure_period_counter_input()` and `configure_pulse_width_counter_input()` report seconds, and `configure_pulse_count_counter_input()` reports number of pulses.
 
 Counter inputs are ordinary input channels, so `read()` and `read_batch()` serve them alongside analog and digital aliases.
 
@@ -590,12 +590,6 @@ daq.stop_counter_output(channel="burst")
 ```
 
 Use `TimingPulseConfig(high_time_s=..., low_time_s=...)` instead when the spec gives pulse width rather than frequency.
-
-`counter_source` names the terminal the signal arrives on or leaves by. NI requires it, because a counter routes to a PFI terminal.
-
-<Note>
-`wait_for_counter_output()` applies to finite trains only. A continuous train never completes, so waiting on one raises `ValueError`. Call `stop_counter_output()` to end it. Without an explicit `timeout`, the wait defaults to the train's own duration plus one second.
-</Note>
 
 <Note>
 `instro` reads counter channels software timed only, one poll per call, timestamped with the host clock.
