@@ -1,0 +1,17 @@
+<Warning>This driver is Windows only and ships in the `instro-unstable` package, whose API may change without notice.</Warning>
+
+The [`DewesoftX`](https://nominal-io.github.io/instro/instruments/daq/#dewesoftx-unstable) driver provides a driver that can be used to instantiate an [InstroDAQ](/daq). It attaches over DCOM to a DewesoftX instance already running on the same PC and exposes its live channels.
+
+## Creating an [`InstroDAQ`](/daq) with [`DewesoftX`](https://nominal-io.github.io/instro/instruments/daq/#dewesoftx-unstable)
+
+```python
+from instro.daq import InstroDAQ
+from instro.unstable.daq.drivers import DewesoftX
+
+# attaches to the DewesoftX instance running on this Windows PC
+daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftX())
+```
+
+Pass `dxd_name` to control the `.dxd` file `start()` stores to; the default names it after the run time.
+
+Parameters and methods specific to [`DewesoftX`](https://nominal-io.github.io/instro/instruments/daq/#dewesoftx-unstable) can be found in the [SDK](https://nominal-io.github.io/instro/).

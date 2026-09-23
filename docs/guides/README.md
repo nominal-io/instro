@@ -2,7 +2,7 @@
 
 Prose / conceptual documentation for [`instro`](https://instro.nominal.io), a Python library for scripting and automating test equipment.
 
-This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/reference/` (mkdocs), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
+This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/sdk/` (mkdocs), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
 
 ## Local development
 
@@ -34,5 +34,5 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). For questions or feedback about the li
 ## Resources
 
 - [instro SDK reference](https://nominal-io.github.io/instro/)
-- [Runnable examples](https://instro.nominal.io/instrumentation/examples)
+- [Runnable examples](https://instro.nominal.io/examples)
 - [Nominal](https://nominal.io)

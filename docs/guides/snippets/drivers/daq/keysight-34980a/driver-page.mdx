@@ -1,0 +1,15 @@
+The [`Keysight34980A`](https://nominal-io.github.io/instro/instruments/daq/#keysight-34980a) provides a driver that can be used to instantiate an [InstroDAQ](/daq). Unlike the other DAQ drivers, it owns its own `VisaDriver` and connects over SCPI/VISA rather than a vendor SDK.
+
+## Creating an [`InstroDAQ`](/daq) with [`Keysight34980A`](https://nominal-io.github.io/instro/instruments/daq/#keysight-34980a)
+
+```python
+from instro.daq import InstroDAQ
+from instro.daq.drivers import Keysight34980A
+
+daq = InstroDAQ(
+    name="keysightDAQ",
+    driver=Keysight34980A("TCPIP0::<IP_ADDRESS>::INSTR"),
+)
+```
+
+Parameters and methods specific to [`Keysight34980A`](https://nominal-io.github.io/instro/instruments/daq/#keysight-34980a) can be found in the [SDK](https://nominal-io.github.io/instro/).

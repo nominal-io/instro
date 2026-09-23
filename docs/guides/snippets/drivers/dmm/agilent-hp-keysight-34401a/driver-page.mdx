@@ -1,0 +1,15 @@
+The [`Agilent34401A`](https://nominal-io.github.io/instro/instruments/dmm/#agilent-34401a) provides a driver that can be used to instantiate an [InstroDMM](/dmm). It also covers the rebadged HP and Keysight 34401A.
+
+## Creating an [`InstroDMM`](/dmm) with [`Agilent34401A`](https://nominal-io.github.io/instro/instruments/dmm/#agilent-34401a)
+
+```python
+from instro.dmm.drivers import Agilent34401A
+from instro.dmm import InstroDMM
+
+dmm = InstroDMM(
+    name="myDMM",
+    driver=Agilent34401A("ASRL3::INSTR"),
+)
+```
+
+Parameters and methods specific to [`Agilent34401A`](https://nominal-io.github.io/instro/instruments/dmm/#agilent-34401a) can be found in the [SDK](https://nominal-io.github.io/instro/).

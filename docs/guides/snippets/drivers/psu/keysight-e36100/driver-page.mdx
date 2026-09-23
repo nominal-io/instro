@@ -1,0 +1,16 @@
+The [`KeysightE36100`](https://nominal-io.github.io/instro/instruments/psu/#keysight-e36100) provides a driver that can be used to instantiate an [InstroPSU](/psu).
+
+## Creating an [`InstroPSU`](/psu) with [`KeysightE36100`](https://nominal-io.github.io/instro/instruments/psu/#keysight-e36100)
+
+```python
+from instro.psu.drivers import KeysightE36100
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=KeysightE36100(visa_resource="USB0::..."),
+    num_channels=1,
+)
+```
+
+Parameters and methods specific to [`KeysightE36100`](https://nominal-io.github.io/instro/instruments/psu/#keysight-e36100) can be found in the [SDK](https://nominal-io.github.io/instro/).
