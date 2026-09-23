@@ -223,9 +223,7 @@ class InstroDMM(Instrument):
 
         self._driver = driver
         self._config = resolved_config
-        # Reentrant: _read_function holds this across set_measurement_function + read,
-        # both of which acquire it themselves.
-        self._resource_lock = threading.RLock()
+        self._resource_lock = threading.Lock()
         self._measurement_config: DMMMeasurementConfig | None = None
         self._measurement_config_applied = False
 
@@ -398,13 +396,31 @@ class InstroDMM(Instrument):
     def _read_function(self, function: MeasurementFunction, **kwargs) -> Measurement:
         """Select ``function`` when it isn't already active, then read, as one atomic sequence.
 
-        The lock spans the check as well as both calls: releasing it in between would let
-        another thread switch the function and hand this caller the wrong quantity.
+        The lock spans the check as well as both driver calls: releasing it in between would
+        let another thread switch the function and hand this caller the wrong quantity. The
+        driver is called directly rather than through ``set_measurement_function``/``read`` so
+        publishing stays outside the lock, as it is for every other method here.
         """
-        with self._resource_lock:
-            if self._measurement_config is None or self._measurement_config.function is not function:
-                self.set_measurement_function(function, **kwargs)
-            return self.read(**kwargs)
+        command: Command | None = None
+        try:
+            with self._resource_lock:
+                if self._measurement_config is None or self._measurement_config.function is not function:
+                    self._driver.set_measurement_function(function)
+                    timestamp = time.time_ns()
+                    if self._measurement_config is None:
+                        self._measurement_config = DMMMeasurementConfig(function)
+                    else:
+                        self._measurement_config = replace(self._measurement_config, function=function)
+                    command = self._package_command("set_measurement_function.cmd", function.value, timestamp, **kwargs)
+                response = self._get_driver_read_method(function)()
+                timestamp = time.time_ns()
+        finally:
+            # A select that landed is recorded even if the read raised.
+            if command is not None:
+                self.publish(command)
+        measurement = self._package_measurement(function.value.lower(), response, timestamp, **kwargs)
+        self.publish(measurement)
+        return measurement
 
     def read_dc_voltage(self, **kwargs) -> Measurement:
         """Read DC voltage (volts), selecting the function first if needed."""

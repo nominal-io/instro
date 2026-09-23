@@ -208,6 +208,24 @@ def test_read_helper_skips_redundant_function_change(stub_driver: _StubDMMDriver
     assert stub_driver.set_measurement_function.call_args.args == (MeasurementFunction.TWO_WIRE_RESISTANCE,)
 
 
+def test_read_helper_publishes_select_and_read_outside_the_lock(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    published: list[str] = []
+
+    class _LockCheckingPublisher:
+        def publish(self, data: Any, **kwargs: Any) -> None:
+            # Publisher I/O must not extend the hold that keeps the daemon waiting.
+            assert not dmm._resource_lock.locked()
+            published.extend(data.channel_data)
+
+        def close(self) -> None: ...
+
+    dmm.add_publisher(_LockCheckingPublisher())
+    dmm.read_dc_voltage()
+
+    assert published == ["ut.set_measurement_function.cmd", "ut.dc_voltage"]
+
+
 def test_read_helper_is_atomic_against_concurrent_function_change(stub_driver: _StubDMMDriver) -> None:
     """A competing set_measurement_function must not switch the function mid-sequence."""
     dmm = InstroDMM(name="ut", driver=stub_driver)
@@ -216,16 +234,15 @@ def test_read_helper_is_atomic_against_concurrent_function_change(stub_driver: _
 
     parked = threading.Event()
     resume = threading.Event()
-    real_read = dmm.read
 
-    def stalled_read(**kwargs):
-        # Park where an unguarded implementation would hold no lock: after the
-        # function check in _read_function, before read() takes the resource lock.
+    def stalled_measure() -> float:
+        # Park mid-read, after the function check: an implementation that released the
+        # lock between the check and the read would let the switcher in here.
         parked.set()
         resume.wait(timeout=5)
-        return real_read(**kwargs)
+        return stub_driver.measured
 
-    dmm.read = stalled_read  # type: ignore[method-assign]
+    stub_driver.measure_dc_voltage = stalled_measure  # type: ignore[method-assign]
 
     readings: list[Measurement] = []
     reader = threading.Thread(target=lambda: readings.append(dmm.read_dc_voltage()))
