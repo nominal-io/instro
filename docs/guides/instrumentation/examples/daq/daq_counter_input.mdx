@@ -2,7 +2,7 @@
 title: "Read a counter input on an NI cDAQ, polled by the background daemon"
 ---
 
-```python daq_counter_input_ni.py
+```python daq_counter_input.py
 """Example: Read a counter input on an NI cDAQ, polled by the background daemon."""
 
 from instro.daq import InstroDAQ
@@ -24,9 +24,9 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        TERMINAL = "/cDAQ3Mod1/PFI0"
-        COUNTER = "cDAQ3/ctr0"
-        driver = NIDAQDriver(device_id="cDAQ3")
+        TERMINAL = "/Dev1/PFI2"
+        COUNTER = "Dev1/ctr0"
+        driver = NIDAQDriver(device_id="Dev1")
 
 # Nominal Core dataset to send data to as the instrument is operated.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

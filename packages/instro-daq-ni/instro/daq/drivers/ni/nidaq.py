@@ -79,6 +79,7 @@ class NIDAQDriver(DAQDriverBase):
         # its own task that starts and stops independently. Keyed by channel alias.
         self._co_tasks: dict[str, nidaqmx.Task] = {}
         self._ci_tasks: dict[str, nidaqmx.Task] = {}
+        self._running_ci_aliases: set[str] = set()
 
     def open(self):
         """NI-DAQmx has no explicit connect — verifies the device is present in ``niSystem.local()``."""
@@ -112,6 +113,7 @@ class NIDAQDriver(DAQDriverBase):
         self._do_port_tasks.clear()
         self._co_tasks.clear()
         self._ci_tasks.clear()
+        self._running_ci_aliases.clear()
         self._running_channel_types.clear()
 
     def _close_task(self, task: nidaqmx.Task):
@@ -546,8 +548,9 @@ class NIDAQDriver(DAQDriverBase):
                     )
                     pulse_width.ci_pulse_width_term = terminal
 
-            # Start the task here because we don't support hw timing for counters right now (so no start() call)
-            task.start()
+            # Reserve, do not start. A started task is committed, and a committed task stops every
+            # later counter on the module from taking the lock it needs to program a line (-201133).
+            task.control(TaskMode.TASK_RESERVE)
         except Exception:
             self._close_task(task)
             raise
@@ -773,8 +776,15 @@ class NIDAQDriver(DAQDriverBase):
         self._co_tasks[channel.alias].wait_until_done(timeout)
 
     def read_counter(self, channel: CounterInputChannel) -> float:
-        """Read the counter's configured measurement (counts, Hz, or seconds)."""
-        return float(self._ci_tasks[channel.alias].read())
+        """Read the counter's measurement (counts, Hz, or seconds), starting the task on the first read."""
+        # An edge counter only accumulates while its task runs, and a read auto-starts then
+        # auto-stops, which would reset the count. Start once and leave the task running.
+        task = self._ci_tasks[channel.alias]
+        if channel.alias not in self._running_ci_aliases:
+            task.start()
+            self._running_ci_aliases.add(channel.alias)
+
+        return float(task.read())
 
     def _read_to_measurements(
         self,

@@ -19,7 +19,7 @@ match VENDOR:
     case DAQVendor.NI:
         from instro.daq.drivers.ni import NIDAQDriver
 
-        TERMINAL = "/Dev1/PFI2"
+        TERMINAL = "/Dev1/PFI0"
         COUNTER = "Dev1/ctr0"
         driver = NIDAQDriver(device_id="Dev1")
 
@@ -29,7 +29,7 @@ DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
 ### Main code
 
 daq = InstroDAQ(name="myDAQ", driver=driver)
-# daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
     # A 100 Hz square wave, so 200 pulses take two seconds.
