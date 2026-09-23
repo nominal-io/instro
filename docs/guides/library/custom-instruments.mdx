@@ -83,9 +83,9 @@ def save_settings(self, name: str, to_instrument: bool = False) -> bytes: ...
 def load_settings(self, name: str, from_instrument: bool = False) -> None: ...
 ```
 
-`setup_measurement(measurement_type, channel)` is an optional override (default no-op). Implement it for instruments that compute measurements during acquisition (e.g. Tektronix), where the measurement slot must exist at trigger time. Raise `NotImplementedError` for `AcquisitionMode` values the scope does not support (e.g. the Keysight 1200X has no `ENVELOPE` mode). See [Exceptions](/instrumentation/exceptions) for unsupported-feature handling.
+`setup_measurement(measurement_type, channel)` is an optional override (default no-op). Implement it for instruments that compute measurements during acquisition (e.g. Tektronix), where the measurement slot must exist at trigger time. Raise `NotImplementedError` for `AcquisitionMode` values the scope does not support (e.g. the Keysight 1200X has no `ENVELOPE` mode). See [Exceptions](/library/exceptions) for unsupported-feature handling.
 
-For VISA-backed drivers, create a `VisaDriver` internally and use `self._visa.write(command)` and `self._visa.query(command)` for all I/O. `VisaDriver` owns the resource lock and serializes concurrent calls. See the [VisaDriver guide](/instrumentation/transports/visa) for the full transport reference.
+For VISA-backed drivers, create a `VisaDriver` internally and use `self._visa.write(command)` and `self._visa.query(command)` for all I/O. `VisaDriver` owns the resource lock and serializes concurrent calls. See the [VisaDriver guide](/library/transports/visa) for the full transport reference.
 
 ### Implementation Example: Keysight 1200 X-Series Driver
 
