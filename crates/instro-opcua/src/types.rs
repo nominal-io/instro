@@ -453,10 +453,8 @@ impl OpcUaEndpointInfo {
 }
 
 /// OPC UA attribute identifier.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum OpcUaAttributeId {
-    #[default]
-    Invalid,
     NodeId,
     NodeClass,
     BrowseName,
@@ -486,15 +484,27 @@ pub enum OpcUaAttributeId {
     AccessLevelEx,
 }
 
-impl From<ua::AttributeId> for OpcUaAttributeId {
-    fn from(id: ua::AttributeId) -> Self {
-        read_inner(&id, |id| id.into())
+impl TryFrom<ua::AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: ua::AttributeId) -> Result<Self> {
+        Self::try_from(&id)
     }
 }
 
-impl From<&UA_AttributeId> for OpcUaAttributeId {
-    fn from(id: &UA_AttributeId) -> Self {
-        match *id {
+impl TryFrom<&ua::AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: &ua::AttributeId) -> Result<Self> {
+        read_inner(id, |id| id.try_into())
+    }
+}
+
+impl TryFrom<&UA_AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: &UA_AttributeId) -> Result<Self> {
+        Ok(match *id {
             UA_AttributeId::UA_ATTRIBUTEID_NODEID => Self::NodeId,
             UA_AttributeId::UA_ATTRIBUTEID_NODECLASS => Self::NodeClass,
             UA_AttributeId::UA_ATTRIBUTEID_BROWSENAME => Self::BrowseName,
@@ -522,18 +532,14 @@ impl From<&UA_AttributeId> for OpcUaAttributeId {
             UA_AttributeId::UA_ATTRIBUTEID_USERROLEPERMISSIONS => Self::UserRolePermissions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSRESTRICTIONS => Self::AccessRestrictions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVELEX => Self::AccessLevelEx,
-            _ => Self::Invalid,
-        }
+            _ => bail!("invalid attribute id: {:?}", id),
+        })
     }
 }
 
 impl From<OpcUaAttributeId> for ua::AttributeId {
     fn from(id: OpcUaAttributeId) -> Self {
         match id {
-            // SAFETY: this well-known enum value owns no resources.
-            OpcUaAttributeId::Invalid => unsafe {
-                Self::from_raw(UA_AttributeId::UA_ATTRIBUTEID_INVALID)
-            },
             OpcUaAttributeId::NodeId => Self::NODEID,
             OpcUaAttributeId::NodeClass => Self::NODECLASS,
             OpcUaAttributeId::BrowseName => Self::BROWSENAME,
@@ -1658,17 +1664,15 @@ mod tests {
         ];
 
         for (upstream, expected) in ids {
-            assert_eq!(OpcUaAttributeId::from(upstream), expected);
-            assert_eq!(
-                OpcUaAttributeId::from(ua::AttributeId::from(expected)),
-                expected
-            );
+            assert_roundtrip(&upstream, expected);
         }
+    }
 
-        assert_eq!(
-            OpcUaAttributeId::from(ua::AttributeId::from(OpcUaAttributeId::Invalid)),
-            OpcUaAttributeId::Invalid
-        );
+    #[test]
+    #[should_panic]
+    fn attribute_id_conversions_should_fail_on_invalid_variant() {
+        let invalid = unsafe { ua::AttributeId::from_raw(UA_AttributeId(99)) };
+        let _ = OpcUaAttributeId::try_from(&invalid).unwrap();
     }
 
     #[test]
