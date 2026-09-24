@@ -154,7 +154,7 @@ pub struct OpcUaNodeReadBatch<'nodes, 'attrs> {
     node_attr_pairs: Vec<(ua::NodeId, ua::AttributeId)>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BatchIter<'batch> {
     nodes: &'batch [OpcUaNodeId],
     attrs: &'batch [OpcUaAttributeId],
@@ -171,23 +171,16 @@ impl<'batch> BatchIter<'batch> {
     }
 
     pub const fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
-        let Some(node_idx) = self.index.checked_div(self.attrs.len()) else {
-            return None;
-        };
+        let node_idx = self.index.checked_div(self.attrs.len())?;
 
-        let Some(attr_idx) = self.index.checked_rem(self.attrs.len()) else {
-            return None;
-        };
+        let attr_idx = self.index.checked_rem(self.attrs.len())?;
 
-        if node_idx >= self.nodes.len() {
-            return None;
-        }
+        let node = self.nodes.get(node_idx)?;
+        let attr = self.attrs.get(attr_idx)?;
 
         self.index += 1;
 
-        // SAFETY: `node_idx` & `attr_idx` are always less than `self.batch.nodes().len()` & `self.batch.attrs().len()` respectively
-        #[expect(clippy::indexing_slicing, reason = "checked indices")]
-        Some((&self.nodes[node_idx], &self.attrs[attr_idx]))
+        Some((node, attr))
     }
 }
 
