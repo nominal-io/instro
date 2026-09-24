@@ -126,13 +126,27 @@ impl Browse for OpcUaClient {
                     tracing::warn!(
                         target: "opcua::browse",
                         node_id = ?id,
-                        "skipping reference during browse"
+                        "skipping reference during browseL: invalid node id"
                     );
 
                     return None;
                 };
 
-                let node_class = OpcUaNodeClass::from(reference.node_class());
+                let node_class = match OpcUaNodeClass::try_from(reference.node_class()) {
+                    Ok(node_class) => node_class,
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "opcua::browse",
+                            node_id = ?id,
+                            node_class = ?reference.node_class(),
+                            error = ?e,
+                            "skipping reference during browse: invalid node class"
+                        );
+
+                        return None;
+                    }
+                };
+
                 let qualified_browse_name = QualifiedBrowseName {
                     namespace_index: reference.browse_name().namespace_index(),
                     name: reference.browse_name().name().to_string(),
