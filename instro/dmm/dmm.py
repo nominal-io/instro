@@ -312,26 +312,25 @@ class InstroDMM(Instrument):
     @publish_command
     def set_digits(self, n: int, **kwargs) -> Command:
         """Set resolution in digits. Requires set_measurement_function() to have been called."""
-        if self._measurement_config is None:
-            raise ValueError("set_measurement_function must be called before set_digits")
         logger.debug("Sending DMM set_digits command to '%s'", self.name)
         with self._resource_lock:
+            if self._measurement_config is None:
+                raise ValueError("set_measurement_function must be called before set_digits")
             self._driver.set_digits(n)
             timestamp = time.time_ns()
-        self._measurement_config = replace(self._measurement_config, digits=n)
+            self._measurement_config = replace(self._measurement_config, digits=n)
         return self._package_command("digits.cmd", n, timestamp, **kwargs)
 
     @publish_command
     def set_aperture_seconds(self, seconds: float, **kwargs) -> Command:
         """Set integration time (aperture) in seconds. Requires set_measurement_function() first."""
-        if self._measurement_config is None:
-            raise ValueError("set_measurement_function must be called before setting the aperture")
-
         logger.debug("Sending DMM set_aperture_seconds command to '%s'", self.name)
         with self._resource_lock:
+            if self._measurement_config is None:
+                raise ValueError("set_measurement_function must be called before setting the aperture")
             self._driver.set_aperture_seconds(seconds)
             timestamp = time.time_ns()
-        self._measurement_config = replace(self._measurement_config, aperture_seconds=seconds, aperture_nplc=None)
+            self._measurement_config = replace(self._measurement_config, aperture_seconds=seconds, aperture_nplc=None)
         return self._package_command("aperture_seconds.cmd", seconds, timestamp, **kwargs)
 
     @publish_command
@@ -342,14 +341,13 @@ class InstroDMM(Instrument):
         accuracy) at the cost of measurement rate. NPLC=100 is the typical
         highest-accuracy setting. Requires ``set_measurement_function`` first.
         """
-        if self._measurement_config is None:
-            raise ValueError("set_measurement_function must be called before setting the aperture")
-
         logger.debug("Sending DMM set_aperture_nplc command to '%s'", self.name)
         with self._resource_lock:
+            if self._measurement_config is None:
+                raise ValueError("set_measurement_function must be called before setting the aperture")
             self._get_driver_set_nplc_method(self._measurement_config.function)(nplc)
             timestamp = time.time_ns()
-        self._measurement_config = replace(self._measurement_config, aperture_seconds=None, aperture_nplc=nplc)
+            self._measurement_config = replace(self._measurement_config, aperture_seconds=None, aperture_nplc=nplc)
         return self._package_command("aperture_nplc.cmd", nplc, timestamp, **kwargs)
 
     @publish_command
@@ -360,13 +358,13 @@ class InstroDMM(Instrument):
         ``range.cmd`` (float) only when a manual range is supplied — splitting them
         keeps each channel single-typed, which the Nominal streaming backend requires.
         """
-        if self._measurement_config is None:
-            raise ValueError("set_measurement_function must be called before set_range")
         logger.debug("Sending DMM set_range command to '%s'", self.name)
         with self._resource_lock:
+            if self._measurement_config is None:
+                raise ValueError("set_measurement_function must be called before set_range")
             self._get_driver_set_range_method(self._measurement_config.function)(value)
             timestamp = time.time_ns()
-        self._measurement_config = replace(self._measurement_config, range=value)
+            self._measurement_config = replace(self._measurement_config, range=value)
         range_mode = RangeMode.MANUAL if value is not None else RangeMode.AUTO
         channel_data: dict[str, float | str] = {
             f"{self.name}.range_mode.cmd": range_mode.value,
@@ -382,15 +380,15 @@ class InstroDMM(Instrument):
     @publish_measurement
     def read(self, **kwargs) -> Measurement:
         """Trigger a measurement under the configured function and return it. Requires ``set_measurement_function`` first."""
-        if self._measurement_config is None:
-            raise ValueError("set_measurement_function must be called before read")
-
         with self._resource_lock:
-            read_method = self._get_driver_read_method(self._measurement_config.function)
+            if self._measurement_config is None:
+                raise ValueError("set_measurement_function must be called before read")
+            function = self._measurement_config.function
+            read_method = self._get_driver_read_method(function)
             response = read_method()
             timestamp = time.time_ns()
 
-        channel_suffix = self._measurement_config.function.value.lower()
+        channel_suffix = function.value.lower()
         return self._package_measurement(channel_suffix, response, timestamp, **kwargs)
 
     def _set_function_and_read(self, function: MeasurementFunction, **kwargs) -> Measurement:
