@@ -126,7 +126,7 @@ impl Browse for OpcUaClient {
                     tracing::warn!(
                         target: "opcua::browse",
                         node_id = ?id,
-                        "skipping reference during browseL: invalid node id"
+                        "skipping reference during browse: invalid node id"
                     );
 
                     return None;
