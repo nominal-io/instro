@@ -12,6 +12,7 @@ use instro_opcua::client::OpcUaClientBuilder;
 use instro_opcua::client::OpcUaNodeReadBatch;
 use instro_opcua::types::BrowsePath;
 use instro_opcua::types::NodeIdKind;
+use instro_opcua::types::OpcUaAttributeId;
 use instro_opcua::types::OpcUaMonitoredItemConfig;
 use instro_opcua::types::OpcUaNode;
 use instro_opcua::types::OpcUaNodeClass;
@@ -251,7 +252,7 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
         healthy.clone(),
         temperature.clone(),
     ];
-    let batch = OpcUaNodeReadBatch::new(&nodes, ua::AttributeId::VALUE);
+    let batch = OpcUaNodeReadBatch::new(&nodes, OpcUaAttributeId::Value);
     let client = connect_client(&server)?;
 
     let samples = client.read_nodes(&batch).await?;
