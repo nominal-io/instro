@@ -64,7 +64,6 @@ use open62541::ua::UInt64;
 use open62541::ua::UserIdentityToken;
 use open62541::ua::UserNameIdentityToken;
 use open62541::ua::X509IdentityToken;
-use open62541_sys::UA_NodeClass;
 use open62541_sys::UA_UserTokenPolicy;
 use open62541_sys::UA_UserTokenType;
 use serde::Deserialize;
@@ -857,48 +856,61 @@ pub struct OpcUaNode {
     pub children: Vec<OpcUaNode>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+#[repr(u32)]
 pub enum OpcUaNodeClass {
-    Object,
-    Variable,
-    Method,
-    View,
-    Other(u32),
+    #[default]
+    Unspecified = 0x00,
+    Object = 0x01,
+    Variable = 0x02,
+    Method = 0x04,
+    ObjectType = 0x08,
+    VariableType = 0x10,
+    ReferenceType = 0x20,
+    DataType = 0x40,
+    View = 0x80,
+}
+
+impl OpcUaNodeClass {
+    pub(crate) fn try_from_raw(raw: u32) -> Result<Self> {
+        Ok(match raw {
+            ua::NodeClass::UNSPECIFIED_U32 => Self::Unspecified,
+            ua::NodeClass::OBJECT_U32 => Self::Object,
+            ua::NodeClass::VARIABLE_U32 => Self::Variable,
+            ua::NodeClass::METHOD_U32 => Self::Method,
+            ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
+            ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
+            ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
+            ua::NodeClass::DATATYPE_U32 => Self::DataType,
+            ua::NodeClass::VIEW_U32 => Self::View,
+            // anything outside of the spec should bubble up as an error
+            _ => bail!("invalid OPC UA node class: {raw}"),
+        })
+    }
 }
 
 impl From<OpcUaNodeClass> for ua::NodeClass {
     fn from(node_class: OpcUaNodeClass) -> Self {
         match node_class {
+            OpcUaNodeClass::Unspecified => ua::NodeClass::UNSPECIFIED,
             OpcUaNodeClass::Object => ua::NodeClass::OBJECT,
             OpcUaNodeClass::Variable => ua::NodeClass::VARIABLE,
             OpcUaNodeClass::Method => ua::NodeClass::METHOD,
             OpcUaNodeClass::View => ua::NodeClass::VIEW,
-            OpcUaNodeClass::Other(other) => {
-                let inner;
-                #[cfg(target_os = "windows")]
-                {
-                    inner = UA_NodeClass(other as i32);
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    inner = UA_NodeClass(other);
-                }
-
-                const {
-                    if std::mem::size_of::<std::ffi::c_uint>() < 4 {
-                        panic!("OPC-UA crate is not supported on AVR or MSP430 microcontrollers");
-                    }
-                }
-
-                // SAFETY: `inner` is valid for the given `other` value.
-                unsafe { ua::NodeClass::from_raw(inner) }
-            }
+            OpcUaNodeClass::DataType => ua::NodeClass::DATATYPE,
+            OpcUaNodeClass::ObjectType => ua::NodeClass::OBJECTTYPE,
+            OpcUaNodeClass::VariableType => ua::NodeClass::VARIABLETYPE,
+            OpcUaNodeClass::ReferenceType => ua::NodeClass::REFERENCETYPE,
         }
     }
 }
 
-impl From<&ua::NodeClass> for OpcUaNodeClass {
-    fn from(node_class: &ua::NodeClass) -> Self {
+impl TryFrom<&ua::NodeClass> for OpcUaNodeClass {
+    type Error = Error;
+
+    fn try_from(node_class: &ua::NodeClass) -> Result<Self> {
         read_inner(node_class, |node_class| {
             let node_class_discriminant = {
                 #[cfg(target_os = "windows")]
@@ -911,13 +923,7 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
                 }
             };
 
-            match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => Self::Object,
-                ua::NodeClass::VARIABLE_U32 => Self::Variable,
-                ua::NodeClass::METHOD_U32 => Self::Method,
-                ua::NodeClass::VIEW_U32 => Self::View,
-                other => Self::Other(other),
-            }
+            Self::try_from_raw(node_class_discriminant)
         })
     }
 }
@@ -1330,6 +1336,7 @@ mod tests {
     use open62541::ua;
     use open62541::ua::MessageSecurityMode;
     use open62541::ua::NodeId;
+    use open62541_sys::UA_NodeClass;
     use open62541_sys::UA_UserTokenPolicy;
     use open62541_sys::UA_UserTokenType;
     use serde_json::from_str;
@@ -1450,16 +1457,22 @@ mod tests {
 
     #[test]
     fn node_class_conversions() {
+        assert_roundtrip(&ua::NodeClass::UNSPECIFIED, OpcUaNodeClass::Unspecified);
         assert_roundtrip(&ua::NodeClass::OBJECT, OpcUaNodeClass::Object);
         assert_roundtrip(&ua::NodeClass::VARIABLE, OpcUaNodeClass::Variable);
         assert_roundtrip(&ua::NodeClass::METHOD, OpcUaNodeClass::Method);
         assert_roundtrip(&ua::NodeClass::VIEW, OpcUaNodeClass::View);
+        assert_roundtrip(&ua::NodeClass::DATATYPE, OpcUaNodeClass::DataType);
+        assert_roundtrip(&ua::NodeClass::OBJECTTYPE, OpcUaNodeClass::ObjectType);
+        assert_roundtrip(&ua::NodeClass::VARIABLETYPE, OpcUaNodeClass::VariableType);
+        assert_roundtrip(&ua::NodeClass::REFERENCETYPE, OpcUaNodeClass::ReferenceType);
+    }
 
-        // SAFETY: populating raw fields for test; node class lives on stack for duration of test
-        assert_roundtrip(
-            &unsafe { ua::NodeClass::from_raw(UA_NodeClass(99)) },
-            OpcUaNodeClass::Other(99),
-        );
+    #[test]
+    #[should_panic]
+    fn node_class_conversions_should_fail_on_invalid_variant() {
+        let invalid = unsafe { ua::NodeClass::from_raw(UA_NodeClass(99)) };
+        let _ = OpcUaNodeClass::try_from(&invalid).unwrap();
     }
 
     #[test]
