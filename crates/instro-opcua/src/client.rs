@@ -108,11 +108,11 @@ where
     }
 }
 
-impl<'item, T> IntoList<'item, T> for Cow<'item, [T]>
+impl<'list, T> IntoList<'list, T> for Cow<'list, [T]>
 where
-    [T]: ToOwned + 'item,
+    [T]: ToOwned + 'list,
 {
-    fn into_list(self) -> Cow<'item, [T]> {
+    fn into_list(self) -> Cow<'list, [T]> {
         self
     }
 }
@@ -122,7 +122,16 @@ where
     [T]: ToOwned<Owned = Vec<T>> + 'static,
 {
     fn into_list(self) -> Cow<'static, [T]> {
-        Cow::Owned(Vec::from(self))
+        Vec::from(self).into_list()
+    }
+}
+
+impl<'list, T, const N: usize> IntoList<'list, T> for &'list [T; N]
+where
+    [T]: ToOwned + 'list,
+{
+    fn into_list(self) -> Cow<'list, [T]> {
+        Cow::Borrowed(self)
     }
 }
 
@@ -131,7 +140,7 @@ where
     [T]: ToOwned<Owned = Vec<T>> + 'static,
 {
     fn into_list(self) -> Cow<'static, [T]> {
-        Cow::Owned(vec![self])
+        [self].into_list()
     }
 }
 
@@ -143,6 +152,44 @@ pub struct OpcUaNodeReadBatch<'nodes, 'attrs> {
     nodes: Cow<'nodes, [OpcUaNodeId]>,
     attrs: Cow<'attrs, [OpcUaAttributeId]>,
     node_attr_pairs: Vec<(ua::NodeId, ua::AttributeId)>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BatchIter<'batch> {
+    nodes: &'batch [OpcUaNodeId],
+    attrs: &'batch [OpcUaAttributeId],
+    index: usize,
+}
+
+impl<'batch> BatchIter<'batch> {
+    pub const fn new(nodes: &'batch [OpcUaNodeId], attrs: &'batch [OpcUaAttributeId]) -> Self {
+        Self {
+            nodes,
+            attrs,
+            index: 0,
+        }
+    }
+
+    pub const fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
+        let node_idx = self.index.checked_div(self.attrs.len())?;
+
+        let attr_idx = self.index.checked_rem(self.attrs.len())?;
+
+        let node = self.nodes.get(node_idx)?;
+        let attr = self.attrs.get(attr_idx)?;
+
+        self.index += 1;
+
+        Some((node, attr))
+    }
+}
+
+impl<'batch> Iterator for BatchIter<'batch> {
+    type Item = (&'batch OpcUaNodeId, &'batch OpcUaAttributeId);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        BatchIter::next(self)
+    }
 }
 
 impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
@@ -185,19 +232,40 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     }
 
     /// Returns the number of nodes in the batch.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         // there's a practical limit to the number of nodes and attributes that can be read.
         // It's safe to assume that this will never exceed usize::MAX.
         self.node_attr_pairs.len()
     }
 
     /// Returns whether the batch is empty.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.node_attr_pairs.is_empty()
     }
 
     const fn pairs(&self) -> &[(ua::NodeId, ua::AttributeId)] {
         self.node_attr_pairs.as_slice()
+    }
+
+    /// Returns an iterator over the node-attribute pairs in the batch.
+    /// The order of the pairs is guaranteed to be in the same order as the nodes and attributes in the batch.
+    /// (i.e. they index the list of values returned by [`OpcUaClient::read_nodes`])
+    ///
+    /// Example:
+    /// ```
+    /// use instro_opcua::{client::{OpcUaClient, OpcUaNodeReadBatch}, types::{OpcUaNodeId, OpcUaAttributeId}};
+    ///
+    /// # fn example(client: &OpcUaClient) {
+    /// let nodes = [OpcUaNodeId::str(1, "GVL.Main.sStatus"), OpcUaNodeId::str(2, "GVL.Main.fSensor")];
+    /// let attrs = [OpcUaAttributeId::Value];
+    /// let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
+    /// let mut iter = batch.keys();
+    /// assert_eq!(iter.next().unwrap(), (&nodes[0], &attrs[0])); // ("GVL.Main.sStatus", "Value")
+    /// assert_eq!(iter.next().unwrap(), (&nodes[1], &attrs[0])); // ("GVL.Main.fSensor", "Value")
+    /// # }
+    /// ```
+    pub const fn keys(&self) -> BatchIter<'_> {
+        BatchIter::new(self.nodes(), self.attrs())
     }
 }
 
@@ -284,11 +352,13 @@ impl OpcUaClient {
     where
         N: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
     {
-        let this = Arc::downgrade(self);
+        let reader = ClientNodeReader {
+            client: Arc::downgrade(self),
+        };
         OpcUaStreamSession::new("opcua-poll-loop", async move || {
             // Downgrade the client to a weak reference to avoid holding onto the strong reference.
             // Increases the chances of success when using `Arc::into_inner` for shutdown.
-            Self::poll_loop(this, nodes, polling_interval, on_data).await;
+            Self::poll_loop(reader, nodes, polling_interval, on_data).await;
         })
     }
 
@@ -302,8 +372,12 @@ impl OpcUaClient {
         &self,
         node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
     ) -> Result<
-        impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>
-        + use<'nodes, 'attrs, 'batch>,
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        > + use<'nodes, 'attrs, 'batch>,
     > {
         let read_result = self
             .read_many_attributes(node_list.pairs())
@@ -318,30 +392,22 @@ impl OpcUaClient {
             );
         }
 
-        let keys = node_list
-            .nodes()
-            .iter()
-            .flat_map(|node| std::iter::repeat(node).zip(node_list.attrs().iter().copied()));
+        Ok(node_list.keys().zip(read_result).enumerate().filter_map(
+            |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
+                Err(e) => {
+                    tracing::warn!(
+                        target: "opcua::client",
+                        error = ?e,
+                        node_index = i,
+                        "discarding data due to error decoding value for node"
+                    );
 
-        Ok(keys
-            .zip(read_result)
-            .enumerate()
-            .filter_map(
-                |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
-                    Err(e) => {
-                        tracing::warn!(
-                            target: "opcua::client",
-                            error = ?e,
-                            node_index = i,
-                            "discarding data due to error decoding value for node"
-                        );
+                    None
+                }
 
-                        None
-                    }
-
-                    Ok(value) => Some(((node, attr), value)),
-                },
-            ))
+                Ok(value) => Some(((node, attr), value)),
+            },
+        ))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
@@ -461,8 +527,8 @@ impl OpcUaClient {
     const POLL_LOOP_METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 
     /// Polls `nodes` at `polling_interval`, yielding decoded samples through `on_data`.
-    async fn poll_loop<N: IntoList<'static, OpcUaNodeId>>(
-        this: Weak<Self>,
+    async fn poll_loop<R: NodeReader, N: IntoList<'static, OpcUaNodeId>>(
+        reader: R,
         nodes: N,
         polling_interval: Duration,
         mut on_data: impl FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)> + 'static>),
@@ -487,22 +553,13 @@ impl OpcUaClient {
 
             let read_start = metrics.start_read();
 
-            // All of the suspension points exposed by `AsyncClient` are logically cancel-safe,
-            // since the IO operations are driven by their own OS thread spawned by `open62541`.
-            // No comment on resource leakage, that'll have to be profiled.
-            let read_result = if let Some(this) = this.upgrade() {
-                // Holding a strong reference for the duration of read_nodes makes a concurrent
-                // OpcUaClient::disconnect() bail. This is intentional, so the client isn't torn down mid-read.
-                // Disconnect can succeed in the gap between iterations.
-                this.read_nodes(&node_list)
+            let read_result = if reader.is_alive() {
+                reader
+                    .read_nodes(&node_list)
                     .await
                     .context("reading nodes from poll loop")
             } else {
-                tracing::warn!(
-                    target: "opcua::client::poll",
-                    "OPC-UA client has been dropped, stopping poll loop"
-                );
-
+                tracing::warn!(target: "opcua::client::poll", "stopping poll loop");
                 break;
             };
 
@@ -688,7 +745,7 @@ fn polled_sample_filter(
 /// [`OpcUaClient::subscription_loop`].
 ///
 /// Hiding the read behind a trait lets the subscription loop be unit-tested against a
-/// deterministic in-memory reader instead of a live OPC-UA server. The production
+/// deterministic in-memory reader instead of a live OPC UA server. The production
 /// implementation is [`ClientNodeReader`], which forwards to [`OpcUaClient::read_nodes`].
 // The returned future is intentionally not `Send`-bound: the subscription loop runs on a
 // single-threaded session runtime, so no work crosses threads after the timer/read seams.
@@ -701,7 +758,14 @@ pub(crate) trait NodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>>;
+    ) -> Result<
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        >,
+    >;
 }
 
 /// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
@@ -717,8 +781,14 @@ impl NodeReader for ClientNodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>>
-    {
+    ) -> Result<
+        impl Iterator<
+            Item = (
+                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                OpcUaDataPoint,
+            ),
+        >,
+    > {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
@@ -1014,7 +1084,7 @@ impl Drop for OpcUaStreamSession {
 }
 
 #[cfg(test)]
-mod subscription_loop_tests {
+mod tests {
     //! Deterministic unit tests for [`OpcUaClient::subscription_loop`].
     //!
     //! The loop is driven against in-memory [`NodeReader`]/[`PollTimer`] mocks and a
@@ -1043,14 +1113,10 @@ mod subscription_loop_tests {
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
-    use crate::types::BrowsePath;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
-    use crate::types::OpcUaNode;
-    use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
     use crate::types::OpcUaValue;
-    use crate::types::QualifiedBrowseName;
 
     /// Generous deadline; the deterministic loop should make progress near-instantly, so this
     /// only fires if the loop wedges (which is itself a test failure worth surfacing).
@@ -1099,8 +1165,14 @@ mod subscription_loop_tests {
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<impl Iterator<Item = ((&'batch OpcUaNodeId, OpcUaAttributeId), OpcUaDataPoint)>>
-        {
+        ) -> Result<
+            impl Iterator<
+                Item = (
+                    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+                    OpcUaDataPoint,
+                ),
+            >,
+        > {
             let samples = {
                 let mut state = self
                     .state
@@ -1115,9 +1187,7 @@ mod subscription_loop_tests {
                 state.requested.push(requested);
 
                 batch
-                    .nodes()
-                    .iter()
-                    .zip(batch.attrs().iter().copied())
+                    .keys()
                     .map(move |item| (item, datapoint(timestamp, 0.0)))
             };
 
@@ -1143,15 +1213,8 @@ mod subscription_loop_tests {
         }
     }
 
-    fn test_node(id: u32, name: &str) -> OpcUaNode {
-        OpcUaNode {
-            node_id: OpcUaNodeId::numeric(1, id),
-            browse_name: name.to_owned(),
-            display_name: name.to_owned(),
-            node_class: OpcUaNodeClass::Variable,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, name.to_owned())),
-            children: Vec::new(),
-        }
+    const fn test_node(ns: u16, name: &'static str) -> OpcUaNodeId {
+        OpcUaNodeId::str(ns, name)
     }
 
     fn datapoint(ts: u64, value: f64) -> OpcUaDataPoint {
@@ -1242,7 +1305,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1265,7 +1328,7 @@ mod subscription_loop_tests {
         assert_eq!(samples.len(), 3, "expected one polled sample per tick");
 
         for (node_id, _) in &samples {
-            assert_eq!(node_id, &x.node_id);
+            assert_eq!(node_id, &x);
         }
 
         let timestamps = samples
@@ -1307,7 +1370,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1319,8 +1382,9 @@ mod subscription_loop_tests {
 
         // Notification at ts=100 (not newer) -> buffered polled sample dropped, only this emitted.
         note_tx
-            .send((x.node_id.clone(), datapoint(100, 1.0)))
+            .send((x.clone(), datapoint(100, 1.0)))
             .context("sending notification")?;
+
         drop(note_tx);
         await_loop(handle).await?;
 
@@ -1331,7 +1395,7 @@ mod subscription_loop_tests {
 
         assert_eq!(samples.len(), 1, "stale polled sample should be dropped");
         let (node_id, sample) = samples.first().context("missing notification sample")?;
-        assert_eq!(node_id, &x.node_id);
+        assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(100));
         assert_eq!(sample.value, OpcUaValue::Double(1.0));
 
@@ -1351,7 +1415,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1363,8 +1427,9 @@ mod subscription_loop_tests {
 
         // Notification at ts=200 (newer) -> emit polled@100 then notification@200.
         note_tx
-            .send((x.node_id.clone(), datapoint(200, 2.0)))
+            .send((x, datapoint(200, 2.0)))
             .context("sending notification")?;
+
         drop(note_tx);
         await_loop(handle).await?;
 
@@ -1397,7 +1462,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1421,7 +1486,7 @@ mod subscription_loop_tests {
         );
 
         let (node_id, sample) = samples.first().context("missing drained sample")?;
-        assert_eq!(node_id, &x.node_id);
+        assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(7));
 
         Ok(())
@@ -1440,7 +1505,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone(), y.node_id.clone()],
+            vec![x.clone(), y.clone()],
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1452,8 +1517,9 @@ mod subscription_loop_tests {
 
         // Y notifies -> removed from quiet for the current interval.
         note_tx
-            .send((y.node_id.clone(), datapoint(10, 1.0)))
+            .send((y.clone(), datapoint(10, 1.0)))
             .context("sending Y notification")?;
+
         recv_nonempty(&mut out_rx, "Y notification batch").await?;
 
         // Tick 2: Y excluded (it notified), only X polled.
@@ -1475,8 +1541,8 @@ mod subscription_loop_tests {
             .clone();
         assert_eq!(requested.len(), 3, "expected three poll reads");
 
-        let both = HashSet::from([x.node_id.clone(), y.node_id.clone()]);
-        let only_x = HashSet::from([x.node_id.clone()]);
+        let both = HashSet::from([x.clone(), y.clone()]);
+        let only_x = HashSet::from([x.clone()]);
         assert_eq!(requested.first(), Some(&both), "tick 1 polls both nodes");
         assert_eq!(
             requested.get(1),
@@ -1504,7 +1570,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             // No poll timer.
@@ -1512,7 +1578,7 @@ mod subscription_loop_tests {
         ));
 
         note_tx
-            .send((x.node_id.clone(), datapoint(7, 9.5)))
+            .send((x.clone(), datapoint(7, 9.5)))
             .context("sending notification")?;
         drop(note_tx);
         await_loop(handle).await?;
@@ -1524,7 +1590,7 @@ mod subscription_loop_tests {
 
         assert_eq!(samples.len(), 1, "only the notification should be emitted");
         let (node_id, sample) = samples.first().context("missing notification sample")?;
-        assert_eq!(node_id, &x.node_id);
+        assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(7));
 
         let requested = state
@@ -1553,7 +1619,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone(), y.node_id.clone()],
+            [x.clone(), y.clone()],
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1563,7 +1629,7 @@ mod subscription_loop_tests {
 
         // Active node notifies.
         note_tx
-            .send((y.node_id.clone(), datapoint(5, 1.0)))
+            .send((y.clone(), datapoint(5, 1.0)))
             .context("sending Y notification")?;
         batches.push(recv_nonempty(&mut out_rx, "first Y notification").await?);
 
@@ -1573,7 +1639,7 @@ mod subscription_loop_tests {
 
         // Active node notifies again.
         note_tx
-            .send((y.node_id.clone(), datapoint(6, 2.0)))
+            .send((y.clone(), datapoint(6, 2.0)))
             .context("sending second Y notification")?;
         batches.push(recv_nonempty(&mut out_rx, "second Y notification").await?);
 
@@ -1587,14 +1653,11 @@ mod subscription_loop_tests {
 
         let samples = batches.into_iter().flatten().collect::<Vec<_>>();
 
-        let static_count = samples
-            .iter()
-            .filter(|(node_id, _)| node_id == &x.node_id)
-            .count();
+        let static_count = samples.iter().filter(|(node_id, _)| node_id == &x).count();
         let active_timestamps = samples
             .iter()
             .filter_map(|(node_id, sample)| {
-                if node_id == &y.node_id {
+                if node_id == &y {
                     Some(sample.server_timestamp)
                 } else {
                     None
@@ -1629,7 +1692,7 @@ mod subscription_loop_tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.node_id.clone()],
+            x.clone(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1680,6 +1743,32 @@ mod subscription_loop_tests {
             read_done_rx.try_recv().is_err(),
             "tick 2 must not complete a read"
         );
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn batch_iter_iterates_over_all_node_attribute_pairs_in_order() -> Result<()> {
+        let nodes = [test_node(1, "Static"), test_node(2, "Active")];
+        let attrs = [OpcUaAttributeId::Value];
+        let batch = OpcUaNodeReadBatch::new(&nodes, attrs);
+
+        let mut iter = batch.keys();
+
+        assert_eq!(iter.next(), Some((&nodes[0], &attrs[0])));
+        assert_eq!(iter.next(), Some((&nodes[1], &attrs[0])));
+        assert_eq!(iter.next(), None);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn batch_iter_doesnt_iterate_with_empty_lists() -> Result<()> {
+        let nodes = [test_node(1, "Static"), test_node(2, "Active")];
+        let attrs = [OpcUaAttributeId::Value, OpcUaAttributeId::Description];
+
+        assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).keys().next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new([], attrs).keys().next(), None);
 
         Ok(())
     }

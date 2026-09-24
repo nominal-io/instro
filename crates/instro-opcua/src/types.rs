@@ -26,6 +26,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::num::NonZeroU32;
+use std::panic::catch_unwind;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -816,85 +817,56 @@ pub enum NodeIdKind {
     Guid(Uuid),
 }
 
-/// A browse-path segment preserving the OPC UA namespace that qualifies its name.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QualifiedBrowseName {
-    /// The namespace index qualifying the browse name.
-    pub namespace_index: u16,
-    /// The browse name within its namespace.
-    pub name: String,
-}
-
-impl QualifiedBrowseName {
-    /// Creates a namespace-qualified browse name.
-    pub fn new(namespace_index: u16, name: String) -> Self {
-        Self {
-            namespace_index,
-            name,
-        }
-    }
-}
-
-impl From<ua::QualifiedName> for QualifiedBrowseName {
-    fn from(q_name: ua::QualifiedName) -> Self {
-        Self::from(&q_name)
-    }
-}
-
-impl From<&ua::QualifiedName> for QualifiedBrowseName {
-    fn from(q_name: &ua::QualifiedName) -> Self {
-        Self::new(q_name.namespace_index(), q_name.name().to_string())
-    }
-}
-
 /// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "String", into = "String")]
-pub struct BrowsePath {
-    segments: Vec<QualifiedBrowseName>,
+pub struct OpcUaBrowsePath {
+    segments: Vec<OpcUaQualifiedName>,
 }
 
-impl BrowsePath {
+impl OpcUaBrowsePath {
     /// Creates a browse path containing one segment.
-    pub fn from_segment(segment: QualifiedBrowseName) -> Self {
+    pub fn from_segment(segment: OpcUaQualifiedName) -> Self {
         Self {
             segments: vec![segment],
         }
     }
 
     /// Returns a new browse path with `segment` appended.
-    pub fn child(&self, segment: QualifiedBrowseName) -> Self {
+    pub fn child(&self, segment: OpcUaQualifiedName) -> Self {
         let mut segments = self.segments.clone();
         segments.push(segment);
         Self { segments }
     }
 
     /// Returns whether the browse path contains no segments.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.segments.is_empty()
     }
 
     /// Returns the path's namespace-qualified segments.
-    pub fn segments(&self) -> &[QualifiedBrowseName] {
-        &self.segments
+    pub const fn segments(&self) -> &[OpcUaQualifiedName] {
+        self.segments.as_slice()
     }
 }
 
-impl Display for BrowsePath {
+impl Display for OpcUaBrowsePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for segment in &self.segments {
             f.write_str("/")?;
-            if segment.namespace_index != 0 {
-                write!(f, "{}:", segment.namespace_index)?;
+
+            if segment.namespace_index() != 0 {
+                write!(f, "{}:", segment.namespace_index())?;
             }
-            f.write_str(&escape_browse_name(&segment.name))?;
+
+            f.write_str(&escape_browse_name(segment.name()))?;
         }
 
         Ok(())
     }
 }
 
-impl FromStr for BrowsePath {
+impl FromStr for OpcUaBrowsePath {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
@@ -932,7 +904,7 @@ impl FromStr for BrowsePath {
     }
 }
 
-impl TryFrom<String> for BrowsePath {
+impl TryFrom<String> for OpcUaBrowsePath {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
@@ -940,19 +912,20 @@ impl TryFrom<String> for BrowsePath {
     }
 }
 
-impl From<BrowsePath> for String {
-    fn from(value: BrowsePath) -> Self {
+impl From<OpcUaBrowsePath> for String {
+    fn from(value: OpcUaBrowsePath) -> Self {
         value.to_string()
     }
 }
 
-fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
+fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     if segment.is_empty() {
         bail!("browse path contains an empty segment");
     }
 
-    let namespace_separator = namespace_separator(segment)?;
-    let (namespace_index, name) = match namespace_separator {
+    let ns_sep = namespace_separator(segment)?;
+
+    let (ns_index, name) = match ns_sep {
         Some(separator) => {
             let (namespace, rest) = segment.split_at(separator);
             let name = rest
@@ -960,6 +933,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
                 .context("namespace separator should point at ':'")?;
             (namespace.parse::<u16>()?, name)
         }
+
         None => (0, segment),
     };
 
@@ -968,10 +942,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
         bail!("browse path segment name must not be empty");
     }
 
-    Ok(QualifiedBrowseName {
-        namespace_index,
-        name,
-    })
+    Ok(OpcUaQualifiedName { ns_index, name })
 }
 
 fn namespace_separator(segment: &str) -> Result<Option<usize>> {
@@ -1048,7 +1019,7 @@ const fn is_browse_path_reserved(ch: char) -> bool {
     matches!(ch, '/' | '.' | '<' | '>' | ':' | '#' | '!' | '&')
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct OpcUaNode {
     pub node_id: OpcUaNodeId,
     pub browse_name: String,
@@ -1056,7 +1027,7 @@ pub struct OpcUaNode {
     pub node_class: OpcUaNodeClass,
     /// The namespace-qualified browse path to this node.
     #[serde(default)]
-    pub browse_path: BrowsePath,
+    pub browse_path: OpcUaBrowsePath,
     pub children: Vec<OpcUaNode>,
 }
 
@@ -1304,34 +1275,164 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OpcUaQualifiedName {
+    name: String,
+    ns_index: u16,
+}
+
+impl OpcUaQualifiedName {
+    pub const fn new(ns_index: u16, name: String) -> Self {
+        Self { ns_index, name }
+    }
+
+    pub const fn namespace_index(&self) -> u16 {
+        self.ns_index
+    }
+
+    pub const fn name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+impl From<ua::QualifiedName> for OpcUaQualifiedName {
+    fn from(qn: ua::QualifiedName) -> Self {
+        Self::from(&qn)
+    }
+}
+
+impl From<&ua::QualifiedName> for OpcUaQualifiedName {
+    fn from(qn: &ua::QualifiedName) -> Self {
+        Self {
+            ns_index: qn.namespace_index(),
+            name: qn.name().to_string(),
+        }
+    }
+}
+
+impl Display for OpcUaQualifiedName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.ns_index == 0 {
+            return self.name.fmt(f);
+        }
+
+        write!(f, "{}:{}", self.ns_index, self.name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpcUaLocalizedText {
+    locale: String,
+    text: String,
+}
+
+impl OpcUaLocalizedText {
+    pub const fn new(locale: String, text: String) -> Self {
+        Self { locale, text }
+    }
+
+    pub const fn text(&self) -> &str {
+        self.text.as_str()
+    }
+
+    pub const fn locale(&self) -> &str {
+        self.locale.as_str()
+    }
+}
+
+impl From<ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: ua::LocalizedText) -> Self {
+        Self::from(&lt)
+    }
+}
+
+impl From<&ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: &ua::LocalizedText) -> Self {
+        Self {
+            text: lt.text().to_string(),
+            locale: lt.locale().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[non_exhaustive]
 pub enum OpcUaValue {
-    #[serde(alias = "boolean", alias = "bool")]
+    #[serde(alias = "boolean", alias = "bool", alias = "BOOL")]
     Boolean(bool),
-    #[serde(alias = "int8")]
+    #[serde(
+        alias = "int8",
+        alias = "SBYTE",
+        alias = "sbyte",
+        alias = "SINT",
+        alias = "sint"
+    )]
     Int8(i8),
-    #[serde(alias = "uint8")]
+    #[serde(
+        alias = "uint8",
+        alias = "BYTE",
+        alias = "byte",
+        alias = "USINT",
+        alias = "usint",
+        alias = "CHAR",
+        alias = "char"
+    )]
     UInt8(u8),
-    #[serde(alias = "int16")]
+    #[serde(alias = "int16", alias = "INT", alias = "int")]
     Int16(i16),
-    #[serde(alias = "uint16")]
+    #[serde(
+        alias = "uint16",
+        alias = "UINT",
+        alias = "uint",
+        alias = "WORD",
+        alias = "word",
+        alias = "WCHAR",
+        alias = "wchar"
+    )]
     UInt16(u16),
-    #[serde(alias = "int32")]
+    #[serde(alias = "int32", alias = "DINT", alias = "dint")]
     Int32(i32),
-    #[serde(alias = "uint32")]
+    #[serde(
+        alias = "uint32",
+        alias = "UDINT",
+        alias = "udint",
+        alias = "DWORD",
+        alias = "dword"
+    )]
     UInt32(u32),
-    #[serde(alias = "int64")]
+    #[serde(alias = "int64", alias = "LINT", alias = "lint")]
     Int64(i64),
-    #[serde(alias = "uint64")]
+    #[serde(
+        alias = "uint64",
+        alias = "ULINT",
+        alias = "ulint",
+        alias = "LWORD",
+        alias = "lword"
+    )]
     UInt64(u64),
-    #[serde(alias = "float")]
+    #[serde(alias = "float", alias = "REAL", alias = "real")]
     Float(f32),
-    #[serde(alias = "double")]
+    #[serde(alias = "double", alias = "LREAL", alias = "lreal")]
     Double(f64),
-    #[serde(alias = "string")]
+    #[serde(alias = "string", alias = "STRING")]
     String(Cow<'static, str>),
-    #[serde(alias = "datetime")]
+    #[serde(
+        alias = "datetime",
+        alias = "dateTime",
+        alias = "DATE_AND_TIME",
+        alias = "date_and_time"
+    )]
     DateTime(UtcDateTime),
+    #[serde(alias = "nodeid", alias = "nodeId")]
+    NodeId(OpcUaNodeId),
+    #[serde(alias = "qualifiedName")]
+    QualifiedName(OpcUaQualifiedName),
+    #[serde(alias = "localizedText")]
+    LocalizedText(OpcUaLocalizedText),
+    #[serde(alias = "guid")]
+    Guid(Uuid),
+    #[serde(other)]
+    Unsupported,
 }
 
 impl TryFrom<OpcUaValue> for ScalarValue {
@@ -1352,13 +1453,28 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::Double(d) => ScalarValue::Double(Double::new(d)),
             OpcUaValue::String(s) => ScalarValue::String(ua::String::new(s.as_ref())?),
             OpcUaValue::DateTime(dt) => ScalarValue::DateTime(DateTime::try_from(dt)?),
+            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid)),
+            OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
+            OpcUaValue::Unsupported => ScalarValue::Unsupported,
+            OpcUaValue::LocalizedText(lt) => {
+                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.locale(), lt.text())?)
+            }
+            OpcUaValue::QualifiedName(qn) => {
+                // upstream chooses to panic here instead of returning an error, so we have to catch and convert
+                catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
+                    .map(ScalarValue::QualifiedName)
+                    .map_err(|err| {
+                        anyhow!(
+                            "failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"
+                        )
+                    })?
+            }
         })
     }
 }
 
 impl TryFrom<&ScalarValue> for OpcUaValue {
     type Error = Error;
-
     fn try_from(value: &ScalarValue) -> Result<Self> {
         Ok(match value {
             ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
@@ -1374,29 +1490,14 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::Double(d) => OpcUaValue::Double(d.value()),
             ScalarValue::String(s) => OpcUaValue::String(Cow::Owned(s.to_string())),
             ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.clone().try_into()?),
-
-            _ => bail!("Unsupported scalar value: {:?}", value),
+            ScalarValue::NodeId(nid) => OpcUaValue::NodeId(nid.try_into()?),
+            ScalarValue::QualifiedName(qn) => OpcUaValue::QualifiedName(qn.into()),
+            ScalarValue::LocalizedText(lt) => OpcUaValue::LocalizedText(lt.into()),
+            ScalarValue::Guid(g) => OpcUaValue::Guid(g.to_uuid()),
+            ScalarValue::Unsupported => OpcUaValue::Unsupported,
+            _ => bail!("unsupported OPC-UA scalar value write: '{value:?}'"),
         })
     }
-}
-
-pub fn scalar_to_variant(scalar: ScalarValue) -> Result<ua::Variant> {
-    Ok(match scalar {
-        ScalarValue::Boolean(v) => ua::Variant::scalar(v),
-        ScalarValue::SByte(v) => ua::Variant::scalar(v),
-        ScalarValue::Byte(v) => ua::Variant::scalar(v),
-        ScalarValue::Int16(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt16(v) => ua::Variant::scalar(v),
-        ScalarValue::Int32(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt32(v) => ua::Variant::scalar(v),
-        ScalarValue::Int64(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt64(v) => ua::Variant::scalar(v),
-        ScalarValue::Float(v) => ua::Variant::scalar(v),
-        ScalarValue::Double(v) => ua::Variant::scalar(v),
-        ScalarValue::String(v) => ua::Variant::scalar(v),
-        ScalarValue::DateTime(v) => ua::Variant::scalar(v),
-        _ => bail!("unsupported ScalarValue variant for OPC-UA write"),
-    })
 }
 
 impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
@@ -1427,9 +1528,12 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
                 OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
             }
 
-            scalar_variant => {
-                bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
-            }
+            ScalarValue::NodeId(v) => OpcUaValue::NodeId(v.try_into()?),
+            ScalarValue::QualifiedName(v) => OpcUaValue::QualifiedName(v.into()),
+            ScalarValue::LocalizedText(v) => OpcUaValue::LocalizedText(v.into()),
+            ScalarValue::Guid(v) => OpcUaValue::Guid(v.to_uuid()),
+            ScalarValue::Unsupported => OpcUaValue::Unsupported,
+            _ => bail!("unsupported OPC-UA scalar value read: '{scalar:?}'"),
         };
 
         Ok(unwrapped_value)
@@ -1515,6 +1619,7 @@ impl Eq for OpcUaPki {}
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::collections::HashMap;
     use std::fmt::Debug;
 
     use anyhow::Error;
@@ -1542,29 +1647,29 @@ mod tests {
     impl PartialEq for ScalarEq {
         fn eq(&self, other: &Self) -> bool {
             match (&self.0, &other.0) {
-                (ScalarValue::Boolean(a), ScalarValue::Boolean(b)) => a.value() == b.value(),
-                (ScalarValue::SByte(a), ScalarValue::SByte(b)) => a.value() == b.value(),
-                (ScalarValue::Byte(a), ScalarValue::Byte(b)) => a.value() == b.value(),
-                (ScalarValue::Int16(a), ScalarValue::Int16(b)) => a.value() == b.value(),
-                (ScalarValue::UInt16(a), ScalarValue::UInt16(b)) => a.value() == b.value(),
-                (ScalarValue::Int32(a), ScalarValue::Int32(b)) => a.value() == b.value(),
-                (ScalarValue::UInt32(a), ScalarValue::UInt32(b)) => a.value() == b.value(),
-                (ScalarValue::Int64(a), ScalarValue::Int64(b)) => a.value() == b.value(),
-                (ScalarValue::UInt64(a), ScalarValue::UInt64(b)) => a.value() == b.value(),
-                (ScalarValue::Float(a), ScalarValue::Float(b)) => a.value() == b.value(),
-                (ScalarValue::Double(a), ScalarValue::Double(b)) => a.value() == b.value(),
-                (ScalarValue::String(a), ScalarValue::String(b)) => a == b,
-                (ScalarValue::DateTime(a), ScalarValue::DateTime(b)) => a == b,
-                (ScalarValue::Guid(a), ScalarValue::Guid(b)) => a == b,
-                (ScalarValue::ByteString(a), ScalarValue::ByteString(b)) => a == b,
-                (ScalarValue::NodeId(a), ScalarValue::NodeId(b)) => a == b,
-                (ScalarValue::ExpandedNodeId(a), ScalarValue::ExpandedNodeId(b)) => a == b,
-                (ScalarValue::StatusCode(a), ScalarValue::StatusCode(b)) => a == b,
-                (ScalarValue::QualifiedName(a), ScalarValue::QualifiedName(b)) => a == b,
-                (ScalarValue::LocalizedText(a), ScalarValue::LocalizedText(b)) => a == b,
-                (ScalarValue::Structure(a), ScalarValue::Structure(b)) => a == b,
-                (ScalarValue::Enumeration(a), ScalarValue::Enumeration(b)) => a == b,
-                (ScalarValue::Argument(a), ScalarValue::Argument(b)) => a == b,
+                (ScalarValue::Boolean(l), ScalarValue::Boolean(r)) => l == r,
+                (ScalarValue::SByte(l), ScalarValue::SByte(r)) => l == r,
+                (ScalarValue::Byte(l), ScalarValue::Byte(r)) => l == r,
+                (ScalarValue::Int16(l), ScalarValue::Int16(r)) => l == r,
+                (ScalarValue::UInt16(l), ScalarValue::UInt16(r)) => l == r,
+                (ScalarValue::Int32(l), ScalarValue::Int32(r)) => l == r,
+                (ScalarValue::UInt32(l), ScalarValue::UInt32(r)) => l == r,
+                (ScalarValue::Int64(l), ScalarValue::Int64(r)) => l == r,
+                (ScalarValue::UInt64(l), ScalarValue::UInt64(r)) => l == r,
+                (ScalarValue::Float(l), ScalarValue::Float(r)) => l == r,
+                (ScalarValue::Double(l), ScalarValue::Double(r)) => l == r,
+                (ScalarValue::String(l), ScalarValue::String(r)) => l == r,
+                (ScalarValue::DateTime(l), ScalarValue::DateTime(r)) => l == r,
+                (ScalarValue::Guid(l), ScalarValue::Guid(r)) => l == r,
+                (ScalarValue::ByteString(l), ScalarValue::ByteString(r)) => l == r,
+                (ScalarValue::NodeId(l), ScalarValue::NodeId(r)) => l == r,
+                (ScalarValue::ExpandedNodeId(l), ScalarValue::ExpandedNodeId(r)) => l == r,
+                (ScalarValue::StatusCode(l), ScalarValue::StatusCode(r)) => l == r,
+                (ScalarValue::QualifiedName(l), ScalarValue::QualifiedName(r)) => l == r,
+                (ScalarValue::LocalizedText(l), ScalarValue::LocalizedText(r)) => l == r,
+                (ScalarValue::Structure(l), ScalarValue::Structure(r)) => l == r,
+                (ScalarValue::Enumeration(l), ScalarValue::Enumeration(r)) => l == r,
+                (ScalarValue::Argument(l), ScalarValue::Argument(r)) => l == r,
                 _ => false,
             }
         }
@@ -1589,10 +1694,46 @@ mod tests {
     /// Used in unit tests only.
     struct VariantEq(ua::Variant);
 
+    fn scalar_to_variant(s: ScalarEq) -> Result<ua::Variant> {
+        Ok(match s.0 {
+            ScalarValue::Boolean(v) => ua::Variant::scalar(v),
+            ScalarValue::SByte(v) => ua::Variant::scalar(v),
+            ScalarValue::Byte(v) => ua::Variant::scalar(v),
+            ScalarValue::Int16(v) => ua::Variant::scalar(v),
+            ScalarValue::UInt16(v) => ua::Variant::scalar(v),
+            ScalarValue::Int32(v) => ua::Variant::scalar(v),
+            ScalarValue::UInt32(v) => ua::Variant::scalar(v),
+            ScalarValue::Int64(v) => ua::Variant::scalar(v),
+            ScalarValue::UInt64(v) => ua::Variant::scalar(v),
+            ScalarValue::Float(v) => ua::Variant::scalar(v),
+            ScalarValue::Double(v) => ua::Variant::scalar(v),
+            ScalarValue::String(v) => ua::Variant::scalar(v),
+            ScalarValue::DateTime(v) => ua::Variant::scalar(v),
+            ScalarValue::Guid(v) => ua::Variant::scalar(v),
+            ScalarValue::ByteString(v) => ua::Variant::scalar(v),
+            ScalarValue::NodeId(v) => ua::Variant::scalar(v),
+            ScalarValue::ExpandedNodeId(v) => ua::Variant::scalar(v),
+            ScalarValue::StatusCode(v) => ua::Variant::scalar(v),
+            ScalarValue::QualifiedName(v) => ua::Variant::scalar(v),
+            ScalarValue::LocalizedText(v) => ua::Variant::scalar(v),
+            ScalarValue::Structure(v) => ua::Variant::scalar(v),
+            ScalarValue::Enumeration(v) => ua::Variant::scalar(v),
+            ScalarValue::Argument(v) => ua::Variant::scalar(v),
+            _ => bail!("Unsupported scalar value: {:?}", s.0),
+        })
+    }
+
     impl TryFrom<&ScalarEq> for VariantEq {
         type Error = Error;
         fn try_from(s: &ScalarEq) -> Result<Self> {
-            Ok(VariantEq(scalar_to_variant(s.0.clone())?))
+            Self::try_from(s.clone())
+        }
+    }
+
+    impl TryFrom<ScalarEq> for VariantEq {
+        type Error = Error;
+        fn try_from(s: ScalarEq) -> Result<Self> {
+            Ok(Self(scalar_to_variant(s)?))
         }
     }
 
@@ -1755,58 +1896,6 @@ mod tests {
     fn attribute_id_conversions_should_fail_on_invalid_variant() {
         let invalid = unsafe { ua::AttributeId::from_raw(UA_AttributeId(99)) };
         let _ = OpcUaAttributeId::try_from(&invalid).unwrap();
-    }
-
-    #[test]
-    fn opc_value_scalar_roundtrips() {
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
-            OpcUaValue::Boolean(true),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-42))),
-            OpcUaValue::Int8(-42),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Byte(ua::Byte::new(255))),
-            OpcUaValue::UInt8(255),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-1000))),
-            OpcUaValue::Int16(-1000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(50000))),
-            OpcUaValue::UInt16(50000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-100_000))),
-            OpcUaValue::Int32(-100_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(3_000_000))),
-            OpcUaValue::UInt32(3_000_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int64(ua::Int64::new(i64::MIN))),
-            OpcUaValue::Int64(i64::MIN),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(u64::MAX))),
-            OpcUaValue::UInt64(u64::MAX),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Float(ua::Float::new(1.5))),
-            OpcUaValue::Float(1.5),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Double(ua::Double::new(1.234))),
-            OpcUaValue::Double(1.234),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::String(ua::String::new("hello").unwrap())),
-            OpcUaValue::String(Cow::Borrowed("hello")),
-        );
     }
 
     #[test]
@@ -2106,13 +2195,13 @@ mod tests {
     #[test]
     fn browse_path_display_and_parse_roundtrip() {
         let cases = [
-            BrowsePath::default(),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-                .child(QualifiedBrowseName::new(0, "Objects".into()))
-                .child(QualifiedBrowseName::new(0, "Temperature".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(4, "PLC1".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(
+            OpcUaBrowsePath::default(),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+                .child(OpcUaQualifiedName::new(0, "Objects".into()))
+                .child(OpcUaQualifiedName::new(0, "Temperature".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(4, "PLC1".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
                 2,
                 "Name/with:reserved&chars".into(),
             )),
@@ -2120,16 +2209,16 @@ mod tests {
 
         for path in cases {
             let rendered = path.to_string();
-            let parsed: BrowsePath = rendered.parse().expect("browse path should parse");
+            let parsed: OpcUaBrowsePath = rendered.parse().expect("browse path should parse");
             assert_eq!(parsed, path);
         }
     }
 
     #[test]
     fn browse_path_renders_standard_relative_path_text() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()))
-            .child(QualifiedBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
+        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+            .child(OpcUaQualifiedName::new(0, "Objects".into()))
+            .child(OpcUaQualifiedName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
 
         assert_eq!(
             path.to_string(),
@@ -2149,23 +2238,25 @@ mod tests {
             "/Root/Foo&",
             "/Root/Foo.Bar",
         ] {
-            let parsed: Result<BrowsePath> = malformed.parse();
+            let parsed: Result<OpcUaBrowsePath> = malformed.parse();
             assert!(parsed.is_err(), "{malformed} should fail to parse");
         }
     }
 
     #[test]
     fn browse_path_serializes_as_json_object_key() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()));
-        let mut map = std::collections::BTreeMap::new();
+        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+            .child(OpcUaQualifiedName::new(0, "Objects".into()));
+
+        let mut map = HashMap::new();
         map.insert(path.clone(), "selected".to_owned());
 
         let json = serde_json::to_value(&map).expect("serialize browse path map");
         assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
 
-        let back: std::collections::BTreeMap<BrowsePath, String> =
+        let back: HashMap<OpcUaBrowsePath, String> =
             serde_json::from_value(json).expect("deserialize browse path map");
+
         assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
     }
 
@@ -2176,13 +2267,16 @@ mod tests {
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
+                0,
+                "Objects".into(),
+            )),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
-                browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
+                browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
                     2,
                     "Temperature".into(),
                 )),
@@ -2415,5 +2509,108 @@ mod tests {
         assert_eq!(id.as_string(), None);
         assert_eq!(id.as_byte_string(), None);
         assert_eq!(id.as_guid(), Some((1, guid)));
+    }
+
+    #[test]
+    fn test_scalar_value_roundtrip() {
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
+            OpcUaValue::Boolean(true),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-1))),
+            OpcUaValue::Int8(-1),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Byte(ua::Byte::new(2))),
+            OpcUaValue::UInt8(2),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-3))),
+            OpcUaValue::Int16(-3),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(4))),
+            OpcUaValue::UInt16(4),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-5))),
+            OpcUaValue::Int32(-5),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(6))),
+            OpcUaValue::UInt32(6),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int64(ua::Int64::new(-7))),
+            OpcUaValue::Int64(-7),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(8))),
+            OpcUaValue::UInt64(8),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Float(ua::Float::new(1.0))),
+            OpcUaValue::Float(1.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Double(ua::Double::new(2.0))),
+            OpcUaValue::Double(2.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::String(ua::String::new("test").unwrap())),
+            OpcUaValue::String("test".into()),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::DateTime(
+                ua::DateTime::try_from_unix_timestamp_nanos(
+                    UtcDateTime::UNIX_EPOCH.unix_timestamp_nanos(),
+                )
+                .unwrap(),
+            )),
+            OpcUaValue::DateTime(UtcDateTime::UNIX_EPOCH),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::numeric(1, 2))),
+            OpcUaValue::NodeId(OpcUaNodeId::numeric(1, 2)),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::QualifiedName(ua::QualifiedName::new(
+                1, "test",
+            ))),
+            OpcUaValue::QualifiedName(OpcUaQualifiedName::new(1, "test".into())),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::LocalizedText(
+                ua::LocalizedText::new("en-US", "test").unwrap(),
+            )),
+            OpcUaValue::LocalizedText(OpcUaLocalizedText::new("en-US".into(), "test".into())),
+        );
+
+        const GUID: Uuid = Uuid::from_u128(12345678901234567890);
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Guid(ua::Guid::from_uuid(GUID))),
+            OpcUaValue::Guid(GUID),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::string(2, "abc"))),
+            OpcUaValue::NodeId(OpcUaNodeId::string(2, "abc".into())),
+        );
+
+        let bytes = vec![1u8, 2, 3, 4];
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::byte_string(3, &bytes))),
+            OpcUaValue::NodeId(OpcUaNodeId::byte_string(3, bytes)),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::guid(
+                4,
+                ua::Guid::from_uuid(GUID),
+            ))),
+            OpcUaValue::NodeId(OpcUaNodeId::guid(4, GUID)),
+        );
     }
 }
