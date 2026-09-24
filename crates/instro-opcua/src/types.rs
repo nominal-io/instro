@@ -856,7 +856,9 @@ pub struct OpcUaNode {
     pub children: Vec<OpcUaNode>,
 }
 
-#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[repr(u32)]
 pub enum OpcUaNodeClass {
     #[default]

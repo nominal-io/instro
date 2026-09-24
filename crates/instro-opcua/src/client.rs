@@ -277,7 +277,11 @@ impl OpcUaClient {
         let ua_nid = ua::NodeId::from(node_id.clone());
 
         let read_pairs = std::iter::repeat(ua_nid)
-            .zip([ua::AttributeId::BROWSENAME, ua::AttributeId::DISPLAYNAME, ua::AttributeId::NODECLASS])
+            .zip([
+                ua::AttributeId::BROWSENAME,
+                ua::AttributeId::DISPLAYNAME,
+                ua::AttributeId::NODECLASS,
+            ])
             .collect_vec();
 
         let metadata = self
@@ -286,27 +290,42 @@ impl OpcUaClient {
             .context("reading node metadata")?;
 
         if metadata.len() != 3 {
-            bail!("unexpected number of results for node metadata: expected 3 results, got {}", metadata.len());
+            bail!(
+                "unexpected number of results for node metadata: expected 3 results, got {}",
+                metadata.len()
+            );
         }
 
         let mut values = metadata.into_iter();
 
-        #[expect(clippy::unwrap_used, reason = "open62541-guaranteed invariant that the results are in the same order as the pairs")]
-        let browse_name = values.next()
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let browse_name = values
+            .next()
             .unwrap()
             .into_scalar_value()
             .and_then(ua::Variant::into_scalar::<ua::QualifiedName>)
             .context("extracting browse name from node metadata")?;
 
-        #[expect(clippy::unwrap_used, reason = "open62541-guaranteed invariant that the results are in the same order as the pairs")]
-        let display_name = values.next()
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let display_name = values
+            .next()
             .unwrap()
             .into_scalar_value()
             .and_then(ua::Variant::into_scalar::<ua::LocalizedText>)
             .context("extracting display name from node metadata")?;
 
-        #[expect(clippy::unwrap_used, reason = "open62541-guaranteed invariant that the results are in the same order as the pairs")]
-        let node_class_value = values.next()
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let node_class_value = values
+            .next()
             .unwrap()
             .into_scalar_value()
             .and_then(ua::Variant::into_scalar::<ua::Int32>) // this is whack
@@ -318,7 +337,7 @@ impl OpcUaClient {
                 name: browse_name.name().to_string(),
             },
             display_name.text().to_string(),
-            OpcUaNodeClass::try_from_raw(node_class_value.value() as u32)?
+            OpcUaNodeClass::try_from_raw(node_class_value.value() as u32)?,
         ))
     }
 
