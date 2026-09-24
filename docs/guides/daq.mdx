@@ -549,6 +549,8 @@ Counter channels measure edges on an input, or generate a pulse train on an outp
 
 Pick the method that matches the measurement. Each returns its value in the unit named below.
 
+`start()` on `InstroDAQ` starts counter input acquisition, and `stop()` stops it. Call `start()` before you read a counter.
+
 ```python
 from instro.daq.types import Edge
 
@@ -561,8 +563,10 @@ daq.configure_pulse_count_counter_input(
     counter_source="/Dev1/PFI8",
 )
 
+daq.start()
 measurement = daq.read_counter(channel="revolutions")
 print(f"Edge count: {measurement.latest}")
+daq.stop()
 ```
 
 `configure_frequency_counter_input()` reports Hz, `configure_period_counter_input()` and `configure_pulse_width_counter_input()` report seconds, and `configure_pulse_count_counter_input()` reports number of pulses.
@@ -571,7 +575,7 @@ Counter inputs are ordinary input channels, so `read()` and `read_batch()` serve
 
 ### Counter Output
 
-Configure the pulse shape, then start the train. A finite train stops itself after `n_pulses`; a continuous one runs until `stop_counter_output()`.
+Configure the pulse shape, then start the train. `start()` and `stop()` on `InstroDAQ` do not control counter outputs. You must start and stop each output with `start_counter_output()` and `stop_counter_output()`. A finite train stops itself after `n_pulses`; a continuous one runs until `stop_counter_output()`.
 
 ```python
 from instro.daq.types import FrequencyPulseConfig

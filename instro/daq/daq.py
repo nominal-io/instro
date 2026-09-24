@@ -640,10 +640,18 @@ class InstroDAQ(Instrument):
         logger.info("Closed DAQ '%s'", self.name)
 
     def start(self, background: bool = True, **kwargs):
-        """Start acquisition: hardware-timed, or the software-timed daemon when SW timing is configured.
+        """Start analog and counter input acquisition.
 
-        With no AI timing configured, ``background=True`` falls back to software timing at
+        Analog acquisition can be hardware timed (the hardware fills a buffer with samples at a rate
+        that we read with the background daemon) or software timed (we read the current value of analog channels
+        with the background daemon). With no AI timing configured, ``background=True`` falls back to software timing at
         1 Hz.
+
+        Counter acquisition is always hardware timed (the hardware is in charge of acquiring and calculating counter readings)
+        but reading a counter channel only has software timed support right now (the hardware doesn't buffer counter readings,
+        we have to read them via software calls)
+
+        Counter outputs do not start here. Use ``start_counter_output()`` and ``stop_counter_output()``.
 
         Args:
             background: When True (default), spin the daemon thread to continuously
@@ -700,7 +708,10 @@ class InstroDAQ(Instrument):
             super().start()
 
     def stop(self, **kwargs):
-        """Stop hardware acquisition and the background daemon; tolerant teardown when not open."""
+        """Stop analog and counter input acquisition and the background daemon; tolerant teardown when not open.
+
+        Counter outputs do not stop here. Use ``stop_counter_output()``.
+        """
         super().stop()
         # super().stop() joined the daemon, so wake readers parked for an acquisition that won't come.
         with self._acquisition_ready:
@@ -1576,7 +1587,10 @@ class InstroDAQ(Instrument):
 
     @publish_measurement
     def read_counter(self, channel: str, **kwargs) -> Measurement:
-        """Read counter input ``channel`` (alias). Raises ``KeyError`` if ``channel`` isn't configured."""
+        """Read counter input ``channel`` (alias). Call ``start()`` first.
+
+        Raises ``KeyError`` if ``channel`` isn't configured.
+        """
         self._require_open()
         if (counter_channel := self.ci_channels.get(channel, None)) is None:
             raise KeyError(
@@ -1811,7 +1825,7 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def start_counter_output(self, channel: str, **kwargs) -> Command:
-        """Start the pulse train on counter output ``channel`` (alias)."""
+        """Start the pulse train on counter output ``channel`` (alias). ``start()`` does not start counter outputs."""
         self._require_open()
         if (counter_channel := self.co_channels.get(channel, None)) is None:
             raise KeyError(
@@ -1827,7 +1841,7 @@ class InstroDAQ(Instrument):
 
     @publish_command
     def stop_counter_output(self, channel: str, **kwargs) -> Command:
-        """Stop the pulse train on counter output ``channel`` (alias)."""
+        """Stop the pulse train on counter output ``channel`` (alias). ``stop()`` does not stop counter outputs."""
         self._require_open()
         if (counter_channel := self.co_channels.get(channel, None)) is None:
             raise KeyError(
