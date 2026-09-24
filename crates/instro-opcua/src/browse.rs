@@ -31,7 +31,6 @@ use super::types::BrowsePath;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
-use super::types::QualifiedBrowseName;
 
 const DEFAULT_MAX_BROWSE_NODES: usize = 1_000_000;
 
@@ -147,18 +146,13 @@ impl Browse for OpcUaClient {
                     }
                 };
 
-                let qualified_browse_name = QualifiedBrowseName {
-                    namespace_index: reference.browse_name().namespace_index(),
-                    name: reference.browse_name().name().to_string(),
-                };
-
                 Some(OpcUaNode {
                     node_id,
-                    browse_name: qualified_browse_name.name.clone(),
-                    display_name: reference.display_name().text().to_string(),
+                    browse_name: reference.browse_name().name().to_string(),
                     node_class,
-                    browse_path: BrowsePath::from_segment(qualified_browse_name),
                     children: Vec::new(),
+                    browse_path: BrowsePath::from_segment(reference.browse_name().into()),
+                    display_name: reference.display_name().text().to_string(),
                 })
             })
             .collect();
@@ -213,6 +207,7 @@ fn browse_recursive<'a, B: Browse>(
                 .with_context(|| {
                     format!("browse result for node {} had no browse path", node.node_id)
                 })?;
+
             let node_path = parent_path.child(segment);
             node.browse_path = node_path.clone();
 
@@ -916,14 +911,17 @@ mod tests {
             .iter()
             .find(|n| n.node_id == nid(2))
             .expect("method node");
+
         assert!(
             !method_node.children.is_empty(),
             "method nodes should be recursed"
         );
+
         let view_node = result
             .iter()
             .find(|n| n.node_id == nid(6))
             .expect("view node");
+
         assert!(
             !view_node.children.is_empty(),
             "view nodes should be recursed"
@@ -933,6 +931,7 @@ mod tests {
             .iter()
             .find(|n| n.node_id == nid(3))
             .expect("object node");
+
         assert_eq!(
             obj_node.children.len(),
             1,

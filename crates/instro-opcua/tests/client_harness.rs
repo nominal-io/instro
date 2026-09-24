@@ -10,21 +10,18 @@ use instro_opcua::browse::BrowseAll as _;
 use instro_opcua::client::OpcUaClient;
 use instro_opcua::client::OpcUaClientBuilder;
 use instro_opcua::client::OpcUaNodeReadBatch;
-use instro_opcua::types::BrowsePath;
 use instro_opcua::types::NodeIdKind;
 use instro_opcua::types::OpcUaAttributeId;
+use instro_opcua::types::OpcUaDataPoint;
 use instro_opcua::types::OpcUaMonitoredItemConfig;
-use instro_opcua::types::OpcUaNode;
 use instro_opcua::types::OpcUaNodeClass;
 use instro_opcua::types::OpcUaNodeId;
 use instro_opcua::types::OpcUaPki;
-use instro_opcua::types::OpcUaSample;
 use instro_opcua::types::OpcUaSecurityMode;
 use instro_opcua::types::OpcUaSecurityPolicy;
 use instro_opcua::types::OpcUaSubscriptionConfig;
 use instro_opcua::types::OpcUaUserToken;
 use instro_opcua::types::OpcUaValue;
-use instro_opcua::types::QualifiedBrowseName;
 use instro_opcua_test::FolderSpec;
 use instro_opcua_test::ParentRef;
 use instro_opcua_test::TestNodeId;
@@ -32,6 +29,7 @@ use instro_opcua_test::TestServer;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
 use instro_opcua_test::ua;
+use itertools::Itertools as _;
 use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {
@@ -54,21 +52,6 @@ fn ua_node_id(server: &TestServer, browse_name: &str) -> Result<ua::NodeId> {
 fn opcua_node_id(server: &TestServer, browse_name: &str) -> Result<OpcUaNodeId> {
     let node_id = ua_node_id(server, browse_name)?;
     OpcUaNodeId::try_from(&node_id).with_context(|| format!("converting `{browse_name}` NodeId"))
-}
-
-fn opcua_node(
-    server: &TestServer,
-    browse_name: &str,
-    node_class: OpcUaNodeClass,
-) -> Result<OpcUaNode> {
-    Ok(OpcUaNode {
-        node_id: opcua_node_id(server, browse_name)?,
-        browse_name: browse_name.to_owned(),
-        display_name: browse_name.to_owned(),
-        node_class,
-        browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(1, browse_name.to_owned())),
-        children: Vec::new(),
-    })
 }
 
 fn nonzero(value: u32) -> Result<NonZeroU32> {
@@ -101,12 +84,9 @@ fn monitored_item_config() -> OpcUaMonitoredItemConfig {
     }
 }
 
-fn assert_timestamps_present(samples: &[OpcUaSample]) {
-    for sample in samples {
-        let timestamp = sample
-            .data
-            .server_timestamp
-            .or(sample.data.source_timestamp);
+fn assert_timestamps_present(samples: &[(OpcUaNodeId, OpcUaDataPoint)]) {
+    for (_, sample) in samples {
+        let timestamp = sample.server_timestamp.or(sample.source_timestamp);
 
         assert!(
             matches!(timestamp, Some(timestamp) if timestamp > 0),
@@ -115,23 +95,30 @@ fn assert_timestamps_present(samples: &[OpcUaSample]) {
     }
 }
 
-fn sample_value<'a>(samples: &'a [OpcUaSample], node_id: &OpcUaNodeId) -> Option<&'a OpcUaValue> {
+fn sample_value<'a>(
+    samples: &'a [(OpcUaNodeId, OpcUaDataPoint)],
+    node_id: &OpcUaNodeId,
+) -> Option<&'a OpcUaValue> {
     samples
         .iter()
         .rev()
-        .find(|sample| &sample.node_id == node_id)
-        .map(|sample| &sample.data.value)
+        .find(|(nid, _)| nid == node_id)
+        .map(|(_, sample)| &sample.value)
 }
 
-fn has_value(samples: &[OpcUaSample], node_id: &OpcUaNodeId, expected: &OpcUaValue) -> bool {
+fn has_value(
+    samples: &[(OpcUaNodeId, OpcUaDataPoint)],
+    node_id: &OpcUaNodeId,
+    expected: &OpcUaValue,
+) -> bool {
     sample_value(samples, node_id).is_some_and(|actual| actual == expected)
 }
 
 async fn recv_matching_batch(
-    rx: &mut mpsc::UnboundedReceiver<Vec<OpcUaSample>>,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
     description: &str,
-    mut matches: impl FnMut(&[OpcUaSample]) -> bool,
-) -> Result<Vec<OpcUaSample>> {
+    mut matches: impl FnMut(&[(OpcUaNodeId, OpcUaDataPoint)]) -> bool,
+) -> Result<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
     let deadline = tokio::time::Instant::now() + LIFETIME_TIMEOUT;
 
     loop {
@@ -158,7 +145,7 @@ async fn recv_matching_batch(
 /// elapses or the callback channel closes. Used to observe background-poll cadence for a node
 /// that produces no subscription notifications during the window.
 async fn count_samples_for(
-    rx: &mut mpsc::UnboundedReceiver<Vec<OpcUaSample>>,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
     node_id: &OpcUaNodeId,
     window: Duration,
 ) -> usize {
@@ -174,10 +161,7 @@ async fn count_samples_for(
         let remaining = deadline.saturating_duration_since(now);
         match tokio::time::timeout(remaining, rx.recv()).await {
             Ok(Some(samples)) => {
-                count += samples
-                    .iter()
-                    .filter(|sample| &sample.node_id == node_id)
-                    .count();
+                count += samples.iter().filter(|(nid, _)| nid == node_id).count();
             }
 
             // Channel closed or the window elapsed: stop counting.
@@ -223,15 +207,15 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
         )
         .start()?;
 
-    let pressure = opcua_node(&server, "Pressure", OpcUaNodeClass::Variable)?;
-    let flow = opcua_node(&server, "Flow", OpcUaNodeClass::Variable)?;
-    let status = opcua_node(&server, "Status", OpcUaNodeClass::Variable)?;
-    let healthy = opcua_node(&server, "Healthy", OpcUaNodeClass::Variable)?;
-    let temperature = opcua_node(&server, "Temperature", OpcUaNodeClass::Variable)?;
+    let pressure = opcua_node_id(&server, "Pressure")?;
+    let flow = opcua_node_id(&server, "Flow")?;
+    let status = opcua_node_id(&server, "Status")?;
+    let healthy = opcua_node_id(&server, "Healthy")?;
+    let temperature = opcua_node_id(&server, "Temperature")?;
 
-    assert_eq!(flow.node_id.namespace(), server.namespace_index());
+    assert_eq!(flow.namespace(), server.namespace_index());
     assert_eq!(
-        flow.node_id.kind(),
+        flow.kind(),
         &NodeIdKind::Guid(uuid::Uuid::from_fields(
             0x1122_3344,
             0x5566,
@@ -239,44 +223,59 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
             &[0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00],
         ))
     );
-    assert_eq!(status.node_id.namespace(), server.namespace_index());
+    assert_eq!(status.namespace(), server.namespace_index());
     assert_eq!(
-        status.node_id.kind(),
+        status.kind(),
         &NodeIdKind::ByteString(b"status-node-id".to_vec())
     );
 
-    let nodes = vec![
+    let nodes = [
         pressure.clone(),
         flow.clone(),
         status.clone(),
         healthy.clone(),
         temperature.clone(),
     ];
-    let batch = OpcUaNodeReadBatch::new(&nodes, OpcUaAttributeId::Value);
+
+    let batch =
+        OpcUaNodeReadBatch::new(nodes.iter().cloned().collect_vec(), OpcUaAttributeId::Value);
+
     let client = connect_client(&server)?;
 
-    let samples = client.read_nodes(&batch).await?;
+    let samples = client
+        .read_nodes(&batch)
+        .await?
+        .map(|((nid, _), sample)| (nid.clone(), sample))
+        .collect_vec();
     assert_eq!(samples.len(), 5);
     assert_timestamps_present(&samples);
 
-    let mut samples = samples.iter();
-    let pressure_sample = samples.next().context("missing pressure sample")?;
-    let flow_sample = samples.next().context("missing flow sample")?;
-    let status_sample = samples.next().context("missing status sample")?;
-    let healthy_sample = samples.next().context("missing healthy sample")?;
-    let temperature_sample = samples.next().context("missing temperature sample")?;
-    assert!(samples.next().is_none(), "read returned too many samples");
+    let mut samples = samples.into_iter();
 
-    assert_eq!(pressure_sample.node_id, pressure.node_id);
-    assert_eq!(pressure_sample.data.value, OpcUaValue::UInt32(101_325));
-    assert_eq!(flow_sample.node_id, flow.node_id);
-    assert_eq!(flow_sample.data.value, OpcUaValue::Float(12.5));
-    assert_eq!(status_sample.node_id, status.node_id);
-    assert_eq!(status_sample.data.value, OpcUaValue::Int16(-7));
-    assert_eq!(healthy_sample.node_id, healthy.node_id);
-    assert_eq!(healthy_sample.data.value, OpcUaValue::Boolean(true));
-    assert_eq!(temperature_sample.node_id, temperature.node_id);
-    assert_eq!(temperature_sample.data.value, OpcUaValue::Double(72.5));
+    fn assert_next(
+        (nid, sample): (OpcUaNodeId, OpcUaDataPoint),
+        expect_id: OpcUaNodeId,
+        expect_value: OpcUaValue,
+    ) {
+        assert_eq!(nid, expect_id);
+        assert_eq!(sample.value, expect_value);
+    }
+
+    assert_next(
+        samples.next().unwrap(),
+        pressure,
+        OpcUaValue::UInt32(101_325),
+    );
+    assert_next(samples.next().unwrap(), flow, OpcUaValue::Float(12.5));
+    assert_next(samples.next().unwrap(), status, OpcUaValue::Int16(-7));
+    assert_next(samples.next().unwrap(), healthy, OpcUaValue::Boolean(true));
+    assert_next(
+        samples.next().unwrap(),
+        temperature,
+        OpcUaValue::Double(72.5),
+    );
+
+    assert!(samples.next().is_none(), "read returned too many samples");
 
     client.disconnect().await?;
     Ok(())
@@ -340,6 +339,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
             )
         })
         .collect::<Vec<_>>();
+
     immediate_names.sort();
 
     assert_eq!(
@@ -368,6 +368,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .iter()
         .find(|node| node.browse_name == "Temperature")
         .context("browse_all omitted Temperature")?;
+
     assert_eq!(temperature.node_class, OpcUaNodeClass::Variable);
     assert!(
         temperature.children.is_empty(),
@@ -379,6 +380,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         .iter()
         .find(|node| node.browse_name == "Flow")
         .context("browse_all omitted Flow")?;
+
     assert_eq!(flow.node_class, OpcUaNodeClass::Variable);
     assert!(flow.children.is_empty(), "Flow has no children");
     assert_eq!(flow.browse_path.to_string(), "/2:Flow");
@@ -421,11 +423,6 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    let (metadata_name, display_name, node_class) = client.read_node_metadata(&sensors_id).await?;
-    assert_eq!(metadata_name.name, "Sensors");
-    assert_eq!(display_name, "Sensors");
-    assert_eq!(node_class, OpcUaNodeClass::Object);
-
     client.disconnect().await?;
     Ok(())
 }
@@ -440,7 +437,7 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
         )
         .start()?;
 
-    let temperature_node = opcua_node(&server, "Temperature", OpcUaNodeClass::Variable)?;
+    let temperature_node = opcua_node_id(&server, "Temperature")?;
     let temperature_ua_id = ua_node_id(&server, "Temperature")?;
     let (tx, mut rx) = mpsc::unbounded_channel();
     let client = connect_client(&server)?;
@@ -454,7 +451,7 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
     )?;
 
     let initial = recv_matching_batch(&mut rx, "initial polling batch", |samples| {
-        has_value(samples, &temperature_node.node_id, &OpcUaValue::Double(1.0))
+        has_value(samples, &temperature_node, &OpcUaValue::Double(1.0))
     })
     .await?;
     assert_eq!(initial.len(), 1);
@@ -466,7 +463,7 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
     )?;
 
     let changed = recv_matching_batch(&mut rx, "updated polling batch", |samples| {
-        has_value(samples, &temperature_node.node_id, &OpcUaValue::Double(2.5))
+        has_value(samples, &temperature_node, &OpcUaValue::Double(2.5))
     })
     .await?;
     assert_eq!(changed.len(), 1);
@@ -487,14 +484,14 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<()> {
         )
         .start()?;
 
-    let temperature_node = opcua_node(&server, "Temperature", OpcUaNodeClass::Variable)?;
+    let temperature_node = opcua_node_id(&server, "Temperature")?;
     let temperature_ua_id = ua_node_id(&server, "Temperature")?;
     let (tx, mut rx) = mpsc::unbounded_channel();
     let client = connect_client(&server)?;
 
     let session = client
         .start_subscription(
-            vec![temperature_node.clone()],
+            [temperature_node.clone()],
             subscription_config()?,
             monitored_item_config(),
             move |samples| {
@@ -509,11 +506,11 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<()> {
     )?;
 
     let changed = recv_matching_batch(&mut rx, "subscription change", |samples| {
-        has_value(samples, &temperature_node.node_id, &OpcUaValue::Double(9.5))
+        has_value(samples, &temperature_node, &OpcUaValue::Double(9.5))
     })
     .await?;
     assert_eq!(
-        sample_value(&changed, &temperature_node.node_id),
+        sample_value(&changed, &temperature_node),
         Some(&OpcUaValue::Double(9.5)),
     );
     assert_timestamps_present(&changed);
@@ -533,13 +530,13 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
         )
         .start()?;
 
-    let static_node = opcua_node(&server, "Static", OpcUaNodeClass::Variable)?;
+    let static_node = opcua_node_id(&server, "Static")?;
     let (tx, mut rx) = mpsc::unbounded_channel();
     let client = connect_client(&server)?;
 
     let session = client
         .start_subscription(
-            vec![static_node.clone()],
+            static_node.clone(),
             subscription_config_with_poll(Some(Duration::from_millis(50)))?,
             monitored_item_config(),
             move |samples| {
@@ -552,14 +549,14 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
     // subscription notification so that subsequent samples are unambiguously attributable to
     // background polling: the node's value is never changed, so the subscription stays silent.
     recv_matching_batch(&mut rx, "initial subscription value", |samples| {
-        has_value(samples, &static_node.node_id, &OpcUaValue::Double(42.0))
+        has_value(samples, &static_node, &OpcUaValue::Double(42.0))
     })
     .await?;
 
     // Over the window, the never-changing node yields no further notifications, so any samples
     // collected here must be background polls. The window spans many poll intervals; require at
     // least two to confirm polling is periodic rather than a one-off.
-    let polled = count_samples_for(&mut rx, &static_node.node_id, Duration::from_millis(750)).await;
+    let polled = count_samples_for(&mut rx, &static_node, Duration::from_millis(750)).await;
     assert!(
         polled >= 2,
         "expected at least two background-polled samples for the static node, got {polled}",
