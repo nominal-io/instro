@@ -363,7 +363,10 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         ],
     );
 
-    let tree = client.as_ref().browse_all(sensors_id.clone(), None).await?;
+    let tree = client
+        .as_ref()
+        .browse_all(sensors_id.clone(), None, Some(1_000_000))
+        .await?;
     let temperature = tree
         .iter()
         .find(|node| node.browse_name == "Temperature")

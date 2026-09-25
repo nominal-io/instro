@@ -32,8 +32,6 @@ use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
 
-const DEFAULT_MAX_BROWSE_NODES: usize = 1_000_000;
-
 /// A trait for browsing a single node and returning its children.
 pub trait Browse {
     /// Browse a single node and return its children.
@@ -53,6 +51,7 @@ pub trait BrowseAll: Browse {
         &self,
         node_id: OpcUaNodeId,
         max_depth: Option<usize>,
+        node_limit: Option<usize>,
     ) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
 
     /// Browse all nodes below `node_id`, assigning returned children under
@@ -62,6 +61,7 @@ pub trait BrowseAll: Browse {
         node_id: OpcUaNodeId,
         parent_path: OpcUaBrowsePath,
         max_depth: Option<usize>,
+        node_limit: Option<usize>,
     ) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
 }
 
@@ -70,8 +70,9 @@ impl<T: Browse> BrowseAll for T {
         &self,
         node_id: OpcUaNodeId,
         max_depth: Option<usize>,
+        node_limit: Option<usize>,
     ) -> Result<Vec<OpcUaNode>> {
-        self.browse_all_from_path(node_id, OpcUaBrowsePath::default(), max_depth)
+        self.browse_all_from_path(node_id, OpcUaBrowsePath::default(), max_depth, node_limit)
             .await
     }
 
@@ -80,6 +81,7 @@ impl<T: Browse> BrowseAll for T {
         node_id: OpcUaNodeId,
         parent_path: OpcUaBrowsePath,
         max_depth: Option<usize>,
+        node_limit: Option<usize>,
     ) -> Result<Vec<OpcUaNode>> {
         let mut ancestors = HashSet::new();
         ancestors.insert(node_id.clone());
@@ -89,10 +91,10 @@ impl<T: Browse> BrowseAll for T {
             node_id,
             0,
             max_depth,
+            node_limit,
             parent_path,
             &mut ancestors,
             &mut visited,
-            DEFAULT_MAX_BROWSE_NODES,
         )
         .await
     }
@@ -170,10 +172,10 @@ fn browse_recursive<'a, B: Browse>(
     node_id: OpcUaNodeId,
     depth: usize,
     max_depth: Option<usize>,
+    node_limit: Option<usize>,
     parent_path: OpcUaBrowsePath,
     ancestors: &'a mut HashSet<OpcUaNodeId>,
     visited: &'a mut usize,
-    max_nodes: usize,
 ) -> BoxedFuture<'a, Vec<OpcUaNode>> {
     Box::pin(async move {
         if let Some(max_depth) = max_depth
@@ -194,7 +196,9 @@ fn browse_recursive<'a, B: Browse>(
                 );
             }
 
-            if *visited >= max_nodes {
+            if let Some(max_nodes) = node_limit
+                && *visited >= max_nodes
+            {
                 bail!("browse exceeded maximum node count of {max_nodes}");
             }
             *visited = visited.saturating_add(1);
@@ -218,10 +222,10 @@ fn browse_recursive<'a, B: Browse>(
                     node.node_id.clone(),
                     depth.saturating_add(1),
                     max_depth,
+                    node_limit,
                     node_path,
                     ancestors,
                     visited,
-                    max_nodes,
                 )
                 .await?,
             );
@@ -245,7 +249,6 @@ mod tests {
 
     use super::Browse;
     use super::BrowseAll;
-    use super::DEFAULT_MAX_BROWSE_NODES;
     use super::browse_recursive;
     use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaNode;
@@ -396,10 +399,10 @@ mod tests {
                 root,
                 0,
                 max_depth,
+                None,
                 parent_path,
                 &mut ancestors,
                 &mut visited,
-                DEFAULT_MAX_BROWSE_NODES,
             ))
         }
 
@@ -418,10 +421,10 @@ mod tests {
                 root,
                 0,
                 None,
+                Some(max_nodes),
                 OpcUaBrowsePath::default(),
                 &mut ancestors,
                 &mut visited,
-                max_nodes,
             ))
         }
     }
@@ -714,7 +717,7 @@ mod tests {
             .build()
             .expect("failed to build tokio runtime");
         let result = runtime
-            .block_on(browser.browse_all(nid(1), None))
+            .block_on(browser.browse_all(nid(1), None, None))
             .expect("browse should succeed");
 
         assert_eq!(collect_paths(&result), vec!["/Object_2"]);
