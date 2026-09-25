@@ -54,6 +54,28 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.psu.drivers.simulated.SimulatedPSU
 ```
 
+## Types & Configuration
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+   :nosignatures:
+
+   ~instro.psu.types.OperatingMode
+   ~instro.psu.config.PSUConfig
+   ~instro.psu.config.VisaDriverConfig
+   ~instro.psu.config.resolve_psu_from_config
+```
+
+### Shared configuration
+
+| Class | Description |
+|-------|-------------|
+| {py:class}`~instro.lib.types.DeviceInfo` | {pysummary}`instro.lib.types.DeviceInfo` |
+| {py:class}`~instro.lib.config.TimingConfig` | {pysummary}`instro.lib.config.TimingConfig` |
+| {py:class}`~instro.lib.config.NominalCorePublisherConfig` | {pysummary}`instro.lib.config.NominalCorePublisherConfig` |
+| {py:class}`~instro.lib.config.FilePublisherConfig` | {pysummary}`instro.lib.config.FilePublisherConfig` |
+
 ---
 
 Errors raised by these methods are documented in [Exceptions](../library/exceptions.md).

@@ -60,6 +60,41 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.awg.types.convert_amplitude
 ```
 
+### Configuration
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+   :nosignatures:
+
+   ~instro.awg.config.AWGConfig
+   ~instro.awg.config.ChannelConfig
+   ~instro.awg.config.VisaDriverConfig
+   ~instro.awg.config.SineConfig
+   ~instro.awg.config.SquareConfig
+   ~instro.awg.config.SawtoothConfig
+   ~instro.awg.config.TriangleConfig
+   ~instro.awg.config.PulseConfig
+   ~instro.awg.config.ArbitraryConfig
+   ~instro.awg.config.StaticValueConfig
+   ~instro.awg.config.AmplitudeConfig
+   ~instro.awg.config.ModulationConfig
+   ~instro.awg.config.ModulationTypeConfig
+   ~instro.awg.config.BurstConfig
+   ~instro.awg.config.SweepConfig
+   ~instro.awg.config.build_waveform
+   ~instro.awg.config.resolve_awg_from_config
+```
+
+### Shared configuration
+
+| Class | Description |
+|-------|-------------|
+| {py:class}`~instro.lib.types.DeviceInfo` | {pysummary}`instro.lib.types.DeviceInfo` |
+| {py:class}`~instro.lib.config.TimingConfig` | {pysummary}`instro.lib.config.TimingConfig` |
+| {py:class}`~instro.lib.config.NominalCorePublisherConfig` | {pysummary}`instro.lib.config.NominalCorePublisherConfig` |
+| {py:class}`~instro.lib.config.FilePublisherConfig` | {pysummary}`instro.lib.config.FilePublisherConfig` |
+
 ---
 
 Errors raised by these methods are documented in [Exceptions](../library/exceptions.md).

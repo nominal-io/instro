@@ -43,7 +43,7 @@ Importing a page as a component (`import X from "/page.mdx"`) makes its own rout
 1. Under `snippets/drivers/<category>/<driver-class-name>/`, add `image.png`, `card.mdx`, and `driver-page.mdx`. Copy an existing driver's shape.
 2. Add `<category>/<DriverClassName>.mdx`, importing the card and driver page. Copy an existing driver's shape.
 3. Add the card to the grid in `snippets/drivers/<category>.mdx`.
-4. Add the driver to the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](../sdk/AGENTS.md#adding-a-vendor-driver)), link the driver page to its class page, and check with `just build-docs && just check-sdk-links`.
+4. Add the driver to the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](https://github.com/nominal-io/instro/blob/main/docs/sdk/AGENTS.md#adding-a-vendor-driver)), link the driver page to its class page, and check with `just build-docs && just check-sdk-links`.
 5. Run `mint broken-links`.
 
 ### Add a new instrument category
