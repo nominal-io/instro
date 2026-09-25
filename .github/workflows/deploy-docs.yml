@@ -25,14 +25,16 @@ jobs:
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: false
-      - name: Install dependencies
-        run: uv sync
+          # the docs dependency group needs Python >=3.12 (Sphinx 9)
+          python-version: "3.13"
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Build docs
-        run: uv run mkdocs build --config-file docs/sdk/mkdocs.yml
+        run: just build-docs
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs/sdk/site
+          path: docs/sdk/_build/dirhtml
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

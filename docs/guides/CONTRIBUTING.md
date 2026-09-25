@@ -43,7 +43,7 @@ Importing a page as a component (`import X from "/page.mdx"`) makes its own rout
 1. Under `snippets/drivers/<category>/<driver-class-name>/`, add `image.png`, `card.mdx`, and `driver-page.mdx`. Copy an existing driver's shape.
 2. Add `<category>/<DriverClassName>.mdx`, importing the card and driver page. Copy an existing driver's shape.
 3. Add the card to the grid in `snippets/drivers/<category>.mdx`.
-4. Check that the driver's SDK anchor exists in `docs/sdk/src/instruments/<category>.md`.
+4. Add the driver to the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](https://github.com/nominal-io/instro/blob/main/docs/sdk/AGENTS.md#adding-a-vendor-driver)), link the driver page to its class page, and check with `just build-docs && just check-sdk-links`.
 5. Run `mint broken-links`.
 
 ### Add a new instrument category
@@ -52,7 +52,7 @@ Importing a page as a component (`import X from "/page.mdx"`) makes its own rout
 2. Add the category to the Instruments group in `docs.json` and to `instruments.mdx`.
 3. Add a section to `library/custom-instruments.mdx`, and to `library/config-files.mdx` if it accepts `config=`.
 4. Add example scripts under `examples/<category>/`, run `just gen-examples`, and add `examples/<category>/index` to the "Contents" group of `docs.json`'s Examples tab. Also add a display name to `CATEGORY_TITLES` in `generate_examples.py` and a card to `examples.mdx`.
-5. Add the category to the SDK site (`docs/sdk/mkdocs.yml` and `docs/sdk/src/instruments/<category>.md`).
+5. Add the category to the SDK site (`docs/sdk/instruments/<category>.md` and the Instruments toctree in `docs/sdk/index.md`).
 6. Run `mint broken-links`, `mint validate`, and `mint export`.
 
 ### Examples

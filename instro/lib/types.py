@@ -32,7 +32,7 @@ class Measurement:
         tags: Optional metadata for the acquisition, such as a test ID, operator name,
             or environmental qualifier. Used for search, provenance, and analysis.
 
-    See [`Command`][instro.lib.types.Command] for the write counterpart, which carries one datapoint per channel.
+    See :class:`~instro.lib.types.Command` for the write counterpart, which carries one datapoint per channel.
     """
 
     channel_data: dict[str, list[float] | list[str]]

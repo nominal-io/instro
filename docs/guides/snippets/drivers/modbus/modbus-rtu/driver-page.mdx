@@ -1,6 +1,6 @@
 Modbus RTU is a connection type for [`ModbusDevice`](/library/protocols/modbus), not a separate driver class: set `"transport": "rtu"` in the config's connection block, or pass a `ModbusRTUTransport` explicitly. The Python code is identical to Modbus TCP; only the connection block changes.
 
-## Creating a [`ModbusDevice`](https://nominal-io.github.io/instro/protocols/modbus/#modbusdevice) over RTU
+## Creating a [`ModbusDevice`](https://nominal-io.github.io/instro/protocols/generated/instro.modbus.ModbusDevice/) over RTU
 
 ```json
 {
@@ -39,4 +39,4 @@ device = ModbusDevice(config="field_sensor.json")
 device.open()
 ```
 
-Parameters and methods specific to [`ModbusDevice`](https://nominal-io.github.io/instro/protocols/modbus/#modbusdevice) can be found in the [SDK](https://nominal-io.github.io/instro/).
+Parameters and methods specific to [`ModbusDevice`](https://nominal-io.github.io/instro/protocols/generated/instro.modbus.ModbusDevice/) can be found in the [SDK](https://nominal-io.github.io/instro/).

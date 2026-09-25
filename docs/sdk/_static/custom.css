@@ -1,0 +1,94 @@
+/* Pull Shibuya toward the Mintlify guides site (docs/guides/docs.json: theme "mint", primary #0B0B0B). */
+
+:root {
+  --sy-f-text: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sy-f-heading: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --accent-9: #0b0b0b;
+  --accent-10: #262626;
+  --accent-a11: #0b0b0b;
+  --accent-a12: #0b0b0b;
+  --sy-c-link: #0b0b0b;
+  --sy-c-link-hover: #525252;
+}
+
+html.dark {
+  --accent-9: #ffffff;
+  --accent-10: #e5e5e5;
+  --accent-a11: #ffffff;
+  --accent-a12: #ffffff;
+  --sy-c-link: #ffffff;
+  --sy-c-link-hover: #a3a3a3;
+  --sy-c-background: #0b0b0b;
+}
+
+/* Nominal brand has hard edges — no rounded corners anywhere (same rule as docs/guides/custom.css). */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Mintlify-style links: text colour with an underline, not an accent colour. */
+.yue a.reference,
+.yue a.external {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.sy-head-brand img {
+  height: 22px;
+  width: auto;
+}
+
+/* Tighter, Mintlify-like API blocks: indented members with a hairline rail
+   so it's clear which members belong to which class. */
+dl.py > dd {
+  margin-left: 0;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--sy-c-divider);
+}
+
+dl.py.class > dt,
+dl.py.function > dt,
+dl.py.pydantic_model > dt {
+  font-size: 0.95em;
+}
+
+/* Long method names in the on-page TOC wrap instead of clipping. */
+.sy-rside .localtoc a,
+.sy-rside a {
+  overflow-wrap: anywhere;
+}
+
+.sy-lside .globaltoc a {
+  overflow-wrap: anywhere;
+}
+
+/* Left nav: page entries a step smaller than body text and indented under
+   their section captions (Library, Instruments, …), which keep their size. */
+.sy-lside .globaltoc > ul {
+  padding-left: 0.75rem;
+}
+
+.sy-lside .globaltoc > ul a {
+  font-size: 0.8125rem;
+}
+
+/* Right "On this page" entries match the left nav: same size, and API entries
+   (InstroPSU, open(), …) in the text font rather than monospace. */
+.sy-rside .localtoc a {
+  font-size: 0.8125rem;
+}
+
+.sy-rside .localtoc code,
+.sy-rside .localtoc .pre {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Header rows of column-labelled tables a shade darker than the alternating
+   rows (--gray-a2); the translucent step adapts to dark mode. */
+:root {
+  --yue-c-th-background: var(--gray-a4);
+}

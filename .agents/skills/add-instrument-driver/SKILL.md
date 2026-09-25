@@ -181,8 +181,12 @@ Per `AGENTS.md` "Documentation":
   **"Experimental modules"** instead — update that prose, not the table.
 - **`docs/guides/<category>.mdx`** — add a guide entry only if
   the device introduces a new user-facing workflow.
+- **`docs/sdk/instruments/<category>.md`** — add a row to the Vendor Drivers
+  table and the class path to the hidden autosummary list below it (see
+  `docs/sdk/AGENTS.md` "Adding a vendor driver"); guides links to the driver's
+  SDK page break without it. Check with `just build-docs && just check-sdk-links`.
 - If a new public API/category was introduced (rare for a single driver), update
-  `docs/sdk/src/` and `docs/guides/docs.json` navigation too.
+  the `docs/sdk/` pages and toctrees and `docs/guides/docs.json` navigation too.
 - Do **not** hand-edit `CHANGELOG.md` (release-please generates it).
 
 ## Step 8 — Verify

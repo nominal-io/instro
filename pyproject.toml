@@ -88,10 +88,6 @@ dev = [
     "ruff>=0.12.2,<0.13",
     "mypy>=1.15.0,<2",
     "cpppo>=4.0.0",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.7.0",
-    "mkdocstrings>=0.30.1",
-    "mkdocstrings-python>=1.19.0",
     "types-requests>=2.32.4.20250913",
     "types-pyserial>=3.0",
     "instro-ethernetip",
@@ -101,6 +97,18 @@ dev = [
 test = [
     "cpppo>=4.0.0",
     "pytest>=9.0.3,<10",
+]
+# SDK reference site (docs/sdk). Not a default group: `uv sync --group docs`.
+# The toolchain needs Python >=3.12 (Sphinx 9); CI builds the docs on 3.13.
+docs = [
+    "sphinx>=9.1.0; python_version >= '3.12'",
+    "shibuya>=2026.7.12; python_version >= '3.12'",
+    "myst-parser>=5.1.0; python_version >= '3.12'",
+    "sphinx-design>=0.7.0; python_version >= '3.12'",
+    "sphinx-copybutton>=0.5.2; python_version >= '3.12'",
+    "autodoc-pydantic>=2.2.0; python_version >= '3.12'",
+    # pure-Python enums for the MCC driver; its DLL-backed modules are mocked in conf.py
+    "mcculw>=1.0.0; python_version >= '3.12'",
 ]
 
 [tool.uv]

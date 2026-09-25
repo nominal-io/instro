@@ -163,7 +163,7 @@ Subclass `TransportBase`, call `super().__init__()` first, and implement three m
 `super().__init__()` initializes the holder list and the lock. Skipping it leaves both uninitialized.
 
 <Note>
-`_open_session` and `_teardown_session` are stable, supported extension points for `TransportBase` subclass authors. The leading underscore marks them as protected (implement them, do not call them), which is standard Python: callers drive the connection through the public `open()` and `close()`, and the base calls the hooks at the right moment. Both are documented on the [transports reference page](https://nominal-io.github.io/instro/reference/transports/).
+`_open_session` and `_teardown_session` are stable, supported extension points for `TransportBase` subclass authors. The leading underscore marks them as protected (implement them, do not call them), which is standard Python: callers drive the connection through the public `open()` and `close()`, and the base calls the hooks at the right moment. Both are documented on the [transports reference page](https://nominal-io.github.io/instro/library/transports/).
 </Note>
 
 `TransportBase` is an abstract base class, so a missing member fails at construction rather than at the first I/O call:

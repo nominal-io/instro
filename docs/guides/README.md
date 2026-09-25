@@ -2,7 +2,7 @@
 
 Prose / conceptual documentation for [`instro`](https://instro.nominal.io), a Python library for scripting and automating test equipment.
 
-This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/sdk/` (mkdocs), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
+This site is built on [Mintlify](https://mintlify.com). It sits alongside `docs/sdk/` (Sphinx), which auto-generates the API reference from docstrings. This Mintlify site holds the prose, examples, and getting-started content.
 
 ## Local development
 
