@@ -189,15 +189,14 @@ async fn browse_iterative<B: Browse>(
     }
 
     loop {
-        let (current, limit) = stack
-            .last()
-            .copied()
-            .expect("Unreachable: 'stack' is only ever empty in 'else' case below");
+        let Some((current, limit)) = stack.last().copied() else {
+            unreachable!("'stack' is only ever empty in 'else' case below");
+        };
 
         if current < limit {
             let current_node = nodes
                 .get(current)
-                .expect("Values in 'stack' are always valid indices");
+                .context("browse stack referenced an out-of-bounds node index")?;
 
             if let Some(limit) = node_limit
                 && count_visited >= limit
@@ -242,7 +241,7 @@ async fn browse_iterative<B: Browse>(
             let children = nodes.split_off(*prev_limit);
             let prev_node = nodes
                 .get_mut(*prev)
-                .expect("Values in 'stack' are always valid indices");
+                .context("browse stack referenced an out-of-bounds node index")?;
 
             prev_node.children = children;
             ancestors.remove(&prev_node.node_id);
