@@ -11,6 +11,7 @@ callback buffers, and stopping again.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections import deque
@@ -38,6 +39,9 @@ class HackRFOne(SDRDriverBase):
     LNA_GAIN: ClassVar[tuple[int, int]] = (40, 8)
     VGA_GAIN: ClassVar[tuple[int, int]] = (62, 2)
     TXVGA_GAIN: ClassVar[tuple[int, int]] = (47, 1)
+    # Where `set_gain` parks the LNA before it starts raising the VGA. This is the default
+    # the vendor's own tools use, and it leaves the VGA free to do the work of filling the ADC.
+    LNA_PREFERRED_DB: ClassVar[int] = 16
 
     # start_rx leaves freq/rate/gain at whatever the last user left behind, so open()
     # programs a known state rather than inheriting an unknown one.
@@ -179,7 +183,7 @@ class HackRFOne(SDRDriverBase):
     # --- Gain. No single hardware gain figure exists, so rx spreads one over two stages. ---
 
     def set_gain(self, gain_db: float, *, direction: Direction = Direction.RX, channel: str = "0") -> None:
-        """Distribute gain over the LNA (8 dB steps) then the VGA (2 dB steps); tx sets the TX VGA."""
+        """Hold the LNA near its preferred setting and vary the VGA; tx sets the TX VGA."""
         self._require_path(direction, channel)
         if direction is Direction.TX:
             self.set_txvga_gain(gain_db)
@@ -189,9 +193,19 @@ class HackRFOne(SDRDriverBase):
         if not low <= gain_db <= high:
             raise ValueError(f"rx gain {gain_db} dB is outside the HackRF's {low:g}-{high:g} dB range")
         lna_max, lna_step = self.LNA_GAIN
-        lna = min(lna_max, int(gain_db // lna_step) * lna_step)
+        vga_max, vga_step = self.VGA_GAIN
+        # The VGA sits last in the chain, right before the converter, so gain parked in the LNA
+        # does not fill the ADC. Filling the LNA first left the VGA at 0 for every request up to
+        # 40 dB, which on real hardware reaches the ADC as a handful of LSBs.
+        lna = min(self.LNA_PREFERRED_DB, int(gain_db // lna_step) * lna_step)
+        # Whatever will not fit in the VGA has to come from the LNA, rounded up to its coarser
+        # step so the pair can still land on the request exactly.
+        overflow = gain_db - vga_max
+        if overflow > lna:
+            lna = min(lna_max, math.ceil(overflow / lna_step) * lna_step)
+        vga = min(vga_max, int((gain_db - lna) // vga_step) * vga_step)
         self.set_lna_gain(lna)
-        self.set_vga_gain(min(self.VGA_GAIN[0], gain_db - lna))
+        self.set_vga_gain(vga)
 
     def get_gain(self, *, direction: Direction = Direction.RX, channel: str = "0") -> float:
         """Sum of the quantized stage gains, excluding the separate on/off RF amp."""

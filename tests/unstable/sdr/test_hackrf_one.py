@@ -218,16 +218,53 @@ def test_12_bandwidth_snaps_to_a_width_the_filter_actually_has() -> None:
 
 
 def test_13_rx_gain_is_distributed_over_the_lna_and_vga_stages() -> None:
-    """There is no single gain register: 50 dB is the 8 dB-stepped LNA plus the 2 dB-stepped VGA."""
+    """There is no single gain register: 50 dB parks the LNA and puts the balance in the VGA."""
     patcher, _, device = _patch_hackrf()
     try:
         driver = _open_driver()
         driver.set_gain(50)
 
-        device.pyhackrf_set_lna_gain.assert_called_with(40)
-        device.pyhackrf_set_vga_gain.assert_called_with(10)
+        device.pyhackrf_set_lna_gain.assert_called_with(16)
+        device.pyhackrf_set_vga_gain.assert_called_with(34)
         assert driver.get_gain() == 50.0
-        assert (driver.lna_gain_db, driver.vga_gain_db) == (40, 10)
+        assert (driver.lna_gain_db, driver.vga_gain_db) == (16, 34)
+    finally:
+        patcher.stop()
+
+
+@pytest.mark.parametrize("gain_db", [20, 30, 40, 50, 60, 78])
+def test_13b_rx_gain_always_drives_the_vga(gain_db: int) -> None:
+    """Regression: filling the LNA first left the VGA at 0 for every request up to 40 dB.
+
+    The VGA is the last stage before the converter, so a real radio reached the ADC as a
+    handful of LSBs across the whole lower half of the range.
+    """
+    patcher, _, _ = _patch_hackrf()
+    try:
+        driver = _open_driver()
+        driver.set_gain(gain_db)
+
+        assert driver.vga_gain_db > 0
+        assert driver.lna_gain_db <= HackRFOne.LNA_PREFERRED_DB
+        assert driver.get_gain() == float(gain_db)
+    finally:
+        patcher.stop()
+
+
+@pytest.mark.parametrize("gain_db", list(range(0, 103)))
+def test_13c_every_gain_lands_on_a_settable_pair(gain_db: int) -> None:
+    """Each stage must stay on its own step, and the pair must not overshoot the request."""
+    patcher, _, _ = _patch_hackrf()
+    try:
+        driver = _open_driver()
+        driver.set_gain(gain_db)
+
+        lna_max, lna_step = HackRFOne.LNA_GAIN
+        vga_max, vga_step = HackRFOne.VGA_GAIN
+        assert 0 <= driver.lna_gain_db <= lna_max and driver.lna_gain_db % lna_step == 0
+        assert 0 <= driver.vga_gain_db <= vga_max and driver.vga_gain_db % vga_step == 0
+        # Never more than asked for, and never short by more than the finest step.
+        assert 0 <= gain_db - driver.get_gain() < vga_step
     finally:
         patcher.stop()
 

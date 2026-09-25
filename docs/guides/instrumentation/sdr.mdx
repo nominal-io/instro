@@ -257,10 +257,16 @@ HackRF has no single gain register and no automatic gain control, so `set_gain_m
 `NotImplementedError`. Gain is an RX LNA stage (0 to 40 dB in 8 dB steps), an RX VGA stage
 (0 to 62 dB in 2 dB steps), and a separate on/off RF amplifier of roughly 11 dB.
 
-`set_gain()` distributes a single figure across the two RX stages: it fills the LNA first,
-then the VGA, for a 0 to 102 dB range. Because the stages are quantized, `get_gain()` reports
-what the hardware landed on rather than what was requested, and a request of 7 dB becomes
-6 dB. Values outside the range raise `ValueError` instead of being silently clamped.
+`set_gain()` distributes a single figure across the two RX stages, for a 0 to 102 dB range.
+The VGA is the last stage before the converter, so it does the work of filling the ADC: the
+LNA parks at `HackRFOne.LNA_PREFERRED_DB` (16 dB, the default the vendor's own tools use) and
+the balance goes to the VGA. Above 78 dB the VGA saturates, so the LNA rises to cover the
+remainder.
+
+Because the stages are quantized, `get_gain()` reports what the hardware landed on rather than
+what was requested, and a request of 7 dB becomes 6 dB. The split never overshoots the request
+and is never short by more than the VGA's 2 dB step. Values outside the range raise
+`ValueError` instead of being silently clamped.
 
 Set the stages individually when the split matters:
 
