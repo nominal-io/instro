@@ -21,3 +21,28 @@ jobs:
         run: just install
       - name: Check generated examples and Examples tab navigation
         run: just check-examples
+
+  build-sdk-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          # the docs dependency group needs Python >=3.12 (Sphinx 9)
+          python-version: "3.13"
+      - name: Install just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Build SDK reference (warnings fail the build)
+        run: just build-docs
+      - name: Check guides links into the SDK reference
+        run: just check-sdk-links
+      # Download from the run's Artifacts to preview a PR's docs: unzip, then
+      # `python -m http.server -d <dir>` (the folder-style URLs need a server).
+      - name: Upload built site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdk-docs
+          path: docs/sdk/_build/dirhtml
+          retention-days: 7

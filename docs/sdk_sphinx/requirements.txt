@@ -1,7 +1,0 @@
-sphinx
-shibuya
-myst-parser
-sphinx-design
-sphinx-copybutton
-autodoc_pydantic
-mcculw  # pure-Python enums for the MCC driver; its DLL modules are mocked

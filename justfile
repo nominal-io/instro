@@ -107,9 +107,17 @@ clean:
 build:
     uv build --wheel --all-packages
 
-# build docs
+# build the SDK reference (docs/sdk) into docs/sdk/_build/dirhtml; warnings fail the build
 build-docs:
-    uv run mkdocs build --config-file docs/sdk/mkdocs.yml
+    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs/sdk docs/sdk/_build/dirhtml
+
+# fail on guides/README links to SDK pages or anchors missing from the last `just build-docs`
+check-sdk-links:
+    uv run python docs/sdk/check_links.py
+
+# live-preview the SDK reference on http://127.0.0.1:8000, rebuilding on source or docstring changes
+serve-docs:
+    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs/sdk docs/sdk/_build/dirhtml --watch instro --watch packages
 
 # generate Mintlify example pages and per-category index pages from examples/
 gen-examples:

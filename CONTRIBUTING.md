@@ -238,11 +238,11 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 
 | Change type | Files to update |
 |------|------|
-| New vendor driver | `README.md` "Supported devices" table; add a guide page under `docs/guides/` if the device introduces a new user-facing workflow |
+| New vendor driver | `README.md` "Supported devices" table; the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](./docs/sdk/AGENTS.md#adding-a-vendor-driver)); add a guide page under `docs/guides/` if the device introduces a new user-facing workflow |
 | New contrib driver | "Available drivers" section of `docs/guides/library/contrib.mdx` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/src/` and any affected `docs/guides/` examples |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` and any affected `docs/guides/` examples; check with `just build-docs` |
 | New feature, behavior change, or new install extra | `docs/guides/` (the Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
-| New category or top-level module | All of the above plus `docs/guides/docs.json` navigation |
+| New category or top-level module | All of the above plus `docs/guides/docs.json` navigation and the toctrees in `docs/sdk/index.md` |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and [`AGENTS.md`](./AGENTS.md) |
 | New or changed AI skill/subagent | Claude Code (`.claude/skills/`, `.claude/agents/`) and Codex CLI (`.agents/skills/`, `.codex/agents/`) toolchain copies, plus the table in [`AGENTS.md`](./AGENTS.md#repo-skills-and-subagents) |
 

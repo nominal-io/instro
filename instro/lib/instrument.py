@@ -99,8 +99,8 @@ class Instrument:
                 (DMM, Modbus, DAQ analog and relay channels) ignore it. Scheduled for
                 removal in v2.0.
             **kwargs: Default tags applied to every emitted
-                [`Measurement`][instro.lib.types.Measurement] or
-                [`Command`][instro.lib.types.Command].
+                :class:`~instro.lib.types.Measurement` or
+                :class:`~instro.lib.types.Command`.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
         """

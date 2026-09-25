@@ -16,7 +16,7 @@ instruments. Each instrument type defines a standard API that works across multi
 
 Each instrument page includes the interface, configuration types, driver base classes,
 and vendor-specific driver implementations. Errors raised by instrument methods are
-documented in [Exceptions](../reference/exceptions.md).
+documented in [Exceptions](../library/exceptions.md).
 
 ## Supported devices
 

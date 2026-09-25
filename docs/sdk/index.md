@@ -11,7 +11,7 @@ guides, see the [instro documentation](https://instro.nominal.io).
 The SDK is organized into several key components:
 
 - **Library**: Base classes and infrastructure for building instrument integrations,
-  including the [`Instrument`](reference/instrument.md) base class, communication interfaces,
+  including the [`Instrument`](library/instrument.md) base class, communication interfaces,
   and data publishers.
 
 - **Instruments**: High-level, vendor-agnostic interfaces for common instrument types:
@@ -26,15 +26,15 @@ The SDK is organized into several key components:
 - **Drivers**: Vendor-specific implementations that connect instrument interfaces to real hardware.
 
 - **Publishers**: Data publishing backends for exposing measurements to other services.  
-  [Nominal Core](reference/publishers.md#nominal-core-publisher),
-  [Nominal Connect](reference/publishers.md#nominal-connect-publisher),
-  writing to [files](reference/publishers.md#file-publishers), or custom implementations.
+  [Nominal Core](library/publishers.md#nominal-core-publisher),
+  [Nominal Connect](library/publishers.md#nominal-connect-publisher),
+  writing to [files](library/publishers.md#file-publishers), or custom implementations.
 
 ## Quick Links
 
 | Section | Description |
 |---------|-------------|
-| [Library](reference/instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
+| [Library](library/instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
 | [User guides](https://instro.nominal.io) | Installation, quickstarts, and per-instrument guides |
 | [Changelog](changelog.md) | Release history and version changes |
 
@@ -64,13 +64,13 @@ instruments/awg
 :hidden:
 :caption: Library
 
-reference/instrument
-reference/types
-reference/config
-reference/exceptions
-reference/publishers
-reference/discover
-reference/transports
+library/instrument
+library/types
+library/config
+library/exceptions
+library/publishers
+library/discover
+library/transports
 ```
 
 ```{toctree}

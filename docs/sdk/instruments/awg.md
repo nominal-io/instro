@@ -62,4 +62,4 @@ regardless, so the pages still appear in the sidebar. -->
 
 ---
 
-Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+Errors raised by these methods are documented in [Exceptions](../library/exceptions.md).

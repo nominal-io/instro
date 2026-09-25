@@ -1,6 +1,6 @@
 Allen-Bradley is the PLC vendor family [`EtherNetIPDevice`](/library/protocols/ethernetip) targets, not a separate driver class: the config's `device.manufacturer` field names it, and the `connection` block points at the PLC. Other Allen-Bradley Logix-family PLCs may work through the same underlying protocol, though current hardware testing covers only the [CompactLogix](/library/protocols/ethernetip/CompactLogix) 5332E 1769-L32E.
 
-## Creating an [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/ethernetip/#ethernetipdevice) for an Allen-Bradley PLC
+## Creating an [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/generated/instro.ethernetip.EtherNetIPDevice/) for an Allen-Bradley PLC
 
 ```json
 {
@@ -34,4 +34,4 @@ with EtherNetIPDevice(config="line_plc.json", autostart=True) as plc:
     ...
 ```
 
-Parameters and methods specific to [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/ethernetip/#ethernetipdevice) can be found in the [SDK](https://nominal-io.github.io/instro/).
+Parameters and methods specific to [`EtherNetIPDevice`](https://nominal-io.github.io/instro/protocols/generated/instro.ethernetip.EtherNetIPDevice/) can be found in the [SDK](https://nominal-io.github.io/instro/).

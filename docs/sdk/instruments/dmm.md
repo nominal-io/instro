@@ -1,6 +1,6 @@
-# Electronic Load
+# DMM (Digital Multimeter)
 
-Electronic loads.
+Digital multimeters.
 
 ## Instrument and Abstract Driver
 
@@ -9,15 +9,17 @@ Electronic loads.
    :toctree: generated
    :nosignatures:
 
-   ~instro.eload.InstroELoad
-   ~instro.eload.ELoadDriverBase
+   ~instro.dmm.InstroDMM
+   ~instro.dmm.DMMDriverBase
 ```
 
 ## Vendor Drivers
 
 | Vendor | Model | Description |
 |--------|-------|-------------|
-| B&K Precision | {py:class}`85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` | {pysummary}`instro.eload.drivers.bk_85xxb.BK85XXB` |
+| Keithley | {py:class}`2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` | {pysummary}`instro.dmm.drivers.keithley_2400.Keithley2400` |
+| Agilent | {py:class}`34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>` | {pysummary}`instro.dmm.drivers.agilent_a34401a.Agilent34401A` |
+| Keysight | {py:class}`34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>` | {pysummary}`instro.dmm.drivers.keysight_34461a.Keysight34461A` |
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
 descriptions still come from the docstrings via {pysummary}. autosummary needs to
@@ -31,7 +33,19 @@ regardless, so the pages still appear in the sidebar. -->
    .. autosummary::
       :toctree: generated
 
-      instro.eload.drivers.bk_85xxb.BK85XXB
+      instro.dmm.drivers.keithley_2400.Keithley2400
+      instro.dmm.drivers.agilent_a34401a.Agilent34401A
+      instro.dmm.drivers.keysight_34461a.Keysight34461A
+```
+
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+   :nosignatures:
+
+   ~instro.dmm.drivers.simulated.SimulatedDMM
 ```
 
 ## Types & Configuration
@@ -41,12 +55,12 @@ regardless, so the pages still appear in the sidebar. -->
    :toctree: generated
    :nosignatures:
 
-   ~instro.eload.types.LoadMode
-   ~instro.eload.types.SlewRateDirection
-   ~instro.eload.config.ELoadConfig
-   ~instro.eload.config.LoadConfig
-   ~instro.eload.config.SlewRateConfig
-   ~instro.eload.config.VisaDriverConfig
+   ~instro.dmm.types.MeasurementFunction
+   ~instro.dmm.types.RangeMode
+   ~instro.dmm.types.DMMMeasurementConfig
+   ~instro.dmm.config.DMMConfig
+   ~instro.dmm.config.MeasurementConfig
+   ~instro.dmm.config.VisaDriverConfig
 ```
 
 ### Shared configuration
@@ -60,4 +74,4 @@ regardless, so the pages still appear in the sidebar. -->
 
 ---
 
-Errors raised by these methods are documented in [Exceptions](../reference/exceptions.md).
+Errors raised by these methods are documented in [Exceptions](../library/exceptions.md).

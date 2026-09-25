@@ -42,7 +42,7 @@ html.dark {
 }
 
 /* Tighter, Mintlify-like API blocks: indented members with a hairline rail
-   (the same cue docs/sdk/src/css/mkdocstrings.css gives mkdocstrings output). */
+   so it's clear which members belong to which class. */
 dl.py > dd {
   margin-left: 0;
   padding-left: 1.25rem;

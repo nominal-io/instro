@@ -1,4 +1,4 @@
-"""Sphinx config for the instro SDK reference (trial port of docs/sdk, see #578)."""
+"""Sphinx config for the instro SDK reference, published at https://nominal-io.github.io/instro/."""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "_ext"))
 
 # Vendor workspace packages aren't installed in the dev env; put their sources on
-# the path (as mkdocs.yml's mkdocstrings `paths` did). instro's drivers packages
+# the path so autodoc can import them. instro's drivers packages
 # use pkgutil.extend_path, so these merge into instro.daq.drivers / instro.i2c.drivers.
 for pkg in ("instro-daq-ni", "instro-daq-labjack", "instro-daq-mcc", "instro-i2c-aardvark"):
     sys.path.insert(0, str(HERE.parent.parent / "packages" / pkg))
@@ -29,13 +29,17 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "README.md", "requirements.txt"]
+exclude_patterns = ["_build", "AGENTS.md", "CLAUDE.md"]
+
+# Single backticks in docstrings (`Measurement`) link to the named object when it
+# resolves and render as code otherwise.
+default_role = "py:obj"
 
 # -- MyST ---------------------------------------------------------------------
 myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline", "fieldlist"]
 myst_heading_anchors = 4
 
-# -- autodoc: mirrors docs/sdk/mkdocs.yml's mkdocstrings options -------------
+# -- autodoc -------------------------------------------------------------------
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,  # show_if_no_docstring
@@ -69,7 +73,7 @@ autodoc_mock_imports = [
 autosummary_generate = True
 autosummary_generate_overwrite = True
 autosummary_context = {
-    # private methods documented alongside the public ones (mkdocs: filters on instrument.md)
+    # private methods documented alongside the public ones (supported extension points)
     "extra_methods": {
         "instro.lib.instrument.Instrument": ["_package_command", "_package_measurement"],
     },
@@ -93,6 +97,7 @@ intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 # -- HTML: Shibuya, styled toward the Mintlify guides site --------------------
 html_theme = "shibuya"
 html_title = "instro SDK"
+html_baseurl = "https://nominal-io.github.io/instro/"
 html_static_path = ["_static", "../guides/logo"]
 html_css_files = [
     "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
@@ -107,7 +112,7 @@ html_context = {
     "source_user": "nominal-io",
     "source_repo": "instro",
     "source_version": "main",
-    "source_docs_path": "/docs/sdk_sphinx/",
+    "source_docs_path": "/docs/sdk/",
 }
 
 # Right sidebar: on-page contents and edit link, no GitHub repo-stats box.
@@ -133,8 +138,11 @@ add_module_names = False
 
 
 def _drop_basemodel_init_doc(app, what, name, obj, options, lines):
-    """autoclass_content="both" appends __init__'s docstring; for pydantic models
-    that don't define one, that's BaseModel's generic "Create a new model…" text."""
+    """Drop pydantic's generic ``__init__`` docstring from model pages.
+
+    autoclass_content="both" appends __init__'s docstring; for pydantic models
+    that don't define one, that's BaseModel's generic "Create a new model…" text.
+    """
     from pydantic import BaseModel
     from sphinx.util.docstrings import prepare_docstring
 
@@ -145,10 +153,13 @@ def _drop_basemodel_init_doc(app, what, name, obj, options, lines):
 
 
 def _alias_reexports(app, env):
-    """Point re-exported names (instro.dmm.config.TimingConfig) at the documented
-    original (instro.lib.config.TimingConfig). Without this, a type annotation in
-    the re-exporting module falls back to a fuzzy match and can pick an unrelated
-    class of the same name (instro.modbus.types.TimingConfig)."""
+    """Resolve re-exported names to the documented original.
+
+    Points instro.dmm.config.TimingConfig at instro.lib.config.TimingConfig, for
+    example. Without this, a type annotation in the re-exporting module falls back
+    to a fuzzy match and can pick an unrelated class of the same name
+    (instro.modbus.types.TimingConfig).
+    """
     py = env.get_domain("py")
     for modname, mod in list(sys.modules.items()):
         if not modname.startswith("instro") or mod is None:
@@ -163,6 +174,31 @@ def _alias_reexports(app, env):
                 py.objects[alias] = py.objects[target]._replace(aliased=True)
 
 
+# Library pages lived under /reference/ on the old mkdocs site; keep those URLs working.
+LEGACY_REDIRECTS = {
+    f"reference/{page}/": f"library/{page}/"
+    for page in ("instrument", "types", "exceptions", "publishers", "discover", "transports")
+}
+
+
+def _write_legacy_redirects(app, exception):
+    """Write a redirect page at each moved URL (dirhtml builds only, which serve those URLs)."""
+    if exception is not None or app.builder.name != "dirhtml":
+        return
+    for old, new in LEGACY_REDIRECTS.items():
+        target = "../" * old.count("/") + new
+        page = Path(app.outdir) / old / "index.html"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(
+            '<!DOCTYPE html>\n<html><head><meta charset="utf-8"><title>Moved</title>\n'
+            f'<link rel="canonical" href="{html_baseurl}{new}">\n'
+            f'<meta http-equiv="refresh" content="0; url={target}"></head>\n'
+            f'<body><p>This page moved to <a href="{target}">{html_baseurl}{new}</a>.</p></body></html>\n',
+            encoding="utf-8",
+        )
+
+
 def setup(app):
     app.connect("autodoc-process-docstring", _drop_basemodel_init_doc)
     app.connect("env-updated", _alias_reexports)
+    app.connect("build-finished", _write_legacy_redirects)
