@@ -29,7 +29,7 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "AGENTS.md", "CLAUDE.md"]
+exclude_patterns = ["_build", "README.md", "AGENTS.md", "CLAUDE.md"]
 
 # Single backticks in docstrings (`Measurement`) link to the named object when it
 # resolves and render as code otherwise.
