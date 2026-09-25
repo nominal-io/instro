@@ -47,6 +47,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.eload.config.LoadConfig
    ~instro.eload.config.SlewRateConfig
    ~instro.eload.config.VisaDriverConfig
+   ~instro.eload.config.resolve_eload_from_config
 ```
 
 ### Shared configuration

@@ -61,6 +61,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.dmm.config.DMMConfig
    ~instro.dmm.config.MeasurementConfig
    ~instro.dmm.config.VisaDriverConfig
+   ~instro.dmm.config.resolve_dmm_from_config
 ```
 
 ### Shared configuration

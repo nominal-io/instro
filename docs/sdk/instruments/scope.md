@@ -62,6 +62,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.scope.config.ChannelConfig
    ~instro.scope.config.TriggerConfig
    ~instro.scope.config.VisaDriverConfig
+   ~instro.scope.config.resolve_scope_from_config
 ```
 
 ### Shared configuration
