@@ -3,7 +3,6 @@
 import inspect
 import pathlib
 from datetime import timedelta
-from typing import Literal
 
 from nominal_streaming import NominalDatasetStream
 
@@ -38,7 +37,6 @@ class NominalCorePublisher:
         self._rid = dataset_rid
 
         # Enforce valid configuration for file fallback functionality
-        data_format: Literal["rust_experimental"] | None = "rust_experimental"
         if file_fallback is not None:
             if not str(file_fallback).endswith(".avro"):
                 raise ValueError(f"The 'file_fallback' path must end with '.avro'. You provided: '{file_fallback}'.")
@@ -50,11 +48,10 @@ class NominalCorePublisher:
         self._write_stream = self._dataset.get_write_stream(
             batch_size=batch_size or ws_signature.parameters["batch_size"].default,
             max_wait=max_wait or ws_signature.parameters["max_wait"].default,
-            data_format=data_format or ws_signature.parameters["data_format"].default,
             file_fallback=file_fallback or ws_signature.parameters["file_fallback"].default,
         )
 
-        # We need to open the stream manually here because we are using the "rust_experimental" data format
+        # We open the stream manually to avoid Nominal's process-wide SIGINT handler.
         assert isinstance(self._write_stream, NominalDatasetStream)
         # `NominalDatasetStream.open()` installs a process-wide SIGINT handler
         # that calls `self._impl.cancel()` (see nominal_streaming/nominal_dataset_stream.py).
