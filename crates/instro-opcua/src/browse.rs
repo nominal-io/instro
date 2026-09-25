@@ -163,6 +163,111 @@ impl Browse for OpcUaClient {
     }
 }
 
+fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<()> {
+    let segment = child
+        .browse_path
+        .segments()
+        .last()
+        .cloned()
+        .with_context(|| {
+            format!(
+                "browse result for node {} had no browse path",
+                child.node_id
+            )
+        })?;
+
+    child.browse_path = parent_path.child(segment);
+
+    Ok(())
+}
+
+async fn browse_iterative<B: Browse>(
+    browser: &B,
+    node_id: OpcUaNodeId,
+    max_depth: Option<usize>,
+    node_limit: Option<usize>,
+    parent_path: OpcUaBrowsePath,
+) -> Result<Vec<OpcUaNode>> {
+    use std::collections::HashSet;
+
+    if let Some(0) = max_depth {
+        return Ok(Vec::new());
+    }
+
+    let mut count_visited = 0_usize;
+
+    let mut ancestors = HashSet::from([node_id.clone()]);
+    let mut nodes = browser.browse_node(node_id).await?;
+    let mut stack = Vec::from([(0_usize, nodes.len())]);
+
+    for child in &mut nodes {
+        append_path(&parent_path, child)?;
+    }
+
+    loop {
+        let (current, limit) = stack
+            .last()
+            .copied()
+            .expect("Unreachable: 'stack' is only ever empty in 'else' case below");
+
+        if current < limit {
+            let current_node = nodes
+                .get(current)
+                .expect("Values in 'stack' are always valid indices");
+
+            if let Some(limit) = node_limit
+                && count_visited >= limit
+            {
+                bail!("Node limit exceeded. Limit: {limit}");
+            }
+            count_visited = count_visited.saturating_add(1);
+
+            if ancestors.contains(&current_node.node_id) {
+                bail!("Cycle detected at node {current_node:?}");
+            } else {
+                ancestors.insert(current_node.node_id.clone());
+            }
+
+            let mut new_children = if let Some(depth) = max_depth
+                && stack.len() >= depth
+            {
+                tracing::debug!("Depth limit {depth} at node {current_node:?}");
+                Vec::new()
+            } else {
+                browser.browse_node(current_node.node_id.clone()).await?
+            };
+
+            let parent_path = &current_node.browse_path;
+            for child in &mut new_children {
+                append_path(parent_path, child)?;
+            }
+
+            // Unconditional push is required to hit "else" case below, even if
+            // `new_children` is empty. We could save a push/pop here at the
+            // cost of duplicating cleanup logic
+            stack.push((limit, limit.saturating_add(new_children.len())));
+            nodes.extend(new_children);
+        } else {
+            stack.pop();
+
+            // End case occurs when we've exhausted all nodes in the initial list
+            let Some((prev, prev_limit)) = stack.last_mut() else {
+                return Ok(nodes);
+            };
+
+            let children = nodes.split_off(*prev_limit);
+            let prev_node = nodes
+                .get_mut(*prev)
+                .expect("Values in 'stack' are always valid indices");
+
+            prev_node.children = children;
+            ancestors.remove(&prev_node.node_id);
+
+            *prev = prev.saturating_add(1);
+        }
+    }
+}
+
 // not taking a dep on futures just for this type
 type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
 
