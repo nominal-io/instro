@@ -1,14 +1,14 @@
-//! Recursive browsing of an OPC-UA server's address space.
+//! Browsing of an OPC-UA server's address space.
 //!
 //! The [`Browse`] trait defines a single-level browse that returns the immediate
 //! children of a given node. [`BrowseAll`] extends any `Browse` implementor
-//! with a recursive depth-first traversal that:
+//! with an iterative depth-first traversal that:
 //!
 //! - **Detects cycles** via the current ancestor path — diamonds are preserved,
 //!   but a node ID already present in its own ancestry is reported as an error.
 //! - **Limits depth** with an optional `max_depth` parameter.
-//! - **Limits total browsed nodes** with a high defensive ceiling.
-//! - **Recurses into every returned node class**, including `Method`, `View`,
+//! - **Limits total browsed nodes** with an optional `node_limit` parameter.
+//! - **Descends into every returned node class**, including `Method`, `View`,
 //!   and type nodes. `browse_all` can therefore issue extra browse requests,
 //!   return more descendants, and consume more of the depth and node-count
 //!   limits.
@@ -19,7 +19,6 @@
 
 use std::collections::HashSet;
 use std::future::Future;
-use std::pin::Pin;
 
 use anyhow::Context as _;
 use anyhow::Result;
@@ -83,20 +82,7 @@ impl<T: Browse> BrowseAll for T {
         max_depth: Option<usize>,
         node_limit: Option<usize>,
     ) -> Result<Vec<OpcUaNode>> {
-        let mut ancestors = HashSet::new();
-        ancestors.insert(node_id.clone());
-        let mut visited = 0;
-        browse_recursive(
-            self,
-            node_id,
-            0,
-            max_depth,
-            node_limit,
-            parent_path,
-            &mut ancestors,
-            &mut visited,
-        )
-        .await
+        browse_iterative(self, node_id, max_depth, node_limit, parent_path).await
     }
 }
 
@@ -188,8 +174,6 @@ async fn browse_iterative<B: Browse>(
     node_limit: Option<usize>,
     parent_path: OpcUaBrowsePath,
 ) -> Result<Vec<OpcUaNode>> {
-    use std::collections::HashSet;
-
     if let Some(0) = max_depth {
         return Ok(Vec::new());
     }
@@ -231,7 +215,7 @@ async fn browse_iterative<B: Browse>(
             let mut new_children = if let Some(depth) = max_depth
                 && stack.len() >= depth
             {
-                tracing::debug!("Depth limit {depth} at node {current_node:?}");
+                tracing::debug!("Depth limit reached ({depth}) at node {current_node:?}");
                 Vec::new()
             } else {
                 browser.browse_node(current_node.node_id.clone()).await?
@@ -268,93 +252,16 @@ async fn browse_iterative<B: Browse>(
     }
 }
 
-// not taking a dep on futures just for this type
-type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
-
-/// Recursive DFS browse helper. Returns a list of nodes in the subtree rooted at `node_id`.
-fn browse_recursive<'a, B: Browse>(
-    browser: &'a B,
-    node_id: OpcUaNodeId,
-    depth: usize,
-    max_depth: Option<usize>,
-    node_limit: Option<usize>,
-    parent_path: OpcUaBrowsePath,
-    ancestors: &'a mut HashSet<OpcUaNodeId>,
-    visited: &'a mut usize,
-) -> BoxedFuture<'a, Vec<OpcUaNode>> {
-    Box::pin(async move {
-        if let Some(max_depth) = max_depth
-            && depth >= max_depth
-        {
-            return Ok(Vec::new());
-        }
-
-        let raw = browser.browse_node(node_id).await?;
-        let mut nodes = Vec::with_capacity(raw.len());
-
-        for mut node in raw {
-            if ancestors.contains(&node.node_id) {
-                bail!(
-                    "cycle detected while browsing node {} at path {}",
-                    node.node_id,
-                    parent_path
-                );
-            }
-
-            if let Some(max_nodes) = node_limit
-                && *visited >= max_nodes
-            {
-                bail!("browse exceeded maximum node count of {max_nodes}");
-            }
-            *visited = visited.saturating_add(1);
-
-            let segment = node
-                .browse_path
-                .segments()
-                .last()
-                .cloned()
-                .with_context(|| {
-                    format!("browse result for node {} had no browse path", node.node_id)
-                })?;
-
-            let node_path = parent_path.child(segment);
-            node.browse_path = node_path.clone();
-
-            ancestors.insert(node.node_id.clone());
-            node.children.extend(
-                browse_recursive(
-                    browser,
-                    node.node_id.clone(),
-                    depth.saturating_add(1),
-                    max_depth,
-                    node_limit,
-                    node_path,
-                    ancestors,
-                    visited,
-                )
-                .await?,
-            );
-
-            ancestors.remove(&node.node_id);
-
-            nodes.push(node);
-        }
-
-        Ok(nodes)
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::collections::HashSet;
 
     use anyhow::Result;
     use tokio::runtime::Builder;
 
     use super::Browse;
     use super::BrowseAll;
-    use super::browse_recursive;
+    use super::browse_iterative;
     use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
@@ -478,7 +385,7 @@ mod tests {
             self.graph.entry(parent).or_default().extend(children);
         }
 
-        /// Convenience: run `browse_recursive` from `root` with the given
+        /// Convenience: run `browse_iterative` from `root` with the given
         /// `max_depth`, returning the result tree.
         fn browse(&self, root: OpcUaNodeId, max_depth: Option<usize>) -> Result<Vec<OpcUaNode>> {
             self.browse_with_parent(root, OpcUaBrowsePath::default(), max_depth)
@@ -490,46 +397,28 @@ mod tests {
             parent_path: OpcUaBrowsePath,
             max_depth: Option<usize>,
         ) -> Result<Vec<OpcUaNode>> {
-            let mut ancestors = HashSet::new();
-            ancestors.insert(root.clone());
-            let mut visited = 0;
             let runtime = Builder::new_current_thread()
                 .enable_all()
                 .max_blocking_threads(1)
                 .build()
                 .expect("failed to build tokio runtime");
 
-            runtime.block_on(browse_recursive(
-                self,
-                root,
-                0,
-                max_depth,
-                None,
-                parent_path,
-                &mut ancestors,
-                &mut visited,
-            ))
+            runtime.block_on(browse_iterative(self, root, max_depth, None, parent_path))
         }
 
         fn browse_with_limit(&self, root: OpcUaNodeId, max_nodes: usize) -> Result<Vec<OpcUaNode>> {
-            let mut ancestors = HashSet::new();
-            ancestors.insert(root.clone());
-            let mut visited = 0;
             let runtime = Builder::new_current_thread()
                 .enable_all()
                 .max_blocking_threads(1)
                 .build()
                 .expect("failed to build tokio runtime");
 
-            runtime.block_on(browse_recursive(
+            runtime.block_on(browse_iterative(
                 self,
                 root,
-                0,
                 None,
                 Some(max_nodes),
                 OpcUaBrowsePath::default(),
-                &mut ancestors,
-                &mut visited,
             ))
         }
     }
