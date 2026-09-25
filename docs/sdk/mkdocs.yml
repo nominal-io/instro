@@ -124,7 +124,7 @@ plugins:
             filters: ["!^_"]
             heading_level: 3
             inherited_members: true
-            show_if_no_docstring: true
+            show_if_no_docstring: false
             merge_init_into_class: true
             members_order: source
             parameter_headings: true
