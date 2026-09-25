@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
         .connect("opc.tcp://127.0.0.1:4840")?;
 
     let node_id: OpcUaNodeId = "ns=0;i=85".parse()?;
-    let nodes = client.browse_all(node_id, Some(2));
+    let nodes = client.browse_all(node_id, Some(2), None);
 
     let runtime = tokio::runtime::Runtime::new()?;
     let nodes = runtime.block_on(nodes)?;
