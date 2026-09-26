@@ -235,6 +235,8 @@ async fn browse_iterative<B: Browse>(
 
             // End case occurs when we've exhausted all nodes in the initial list
             let Some((prev, prev_limit)) = stack.last_mut() else {
+                // Debloat the vec since we use it for computation in-place
+                nodes.shrink_to_fit();
                 return Ok(nodes);
             };
 
