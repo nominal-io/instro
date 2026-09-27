@@ -3,8 +3,8 @@
 The `instro` SDK provides a unified Python interface for controlling lab instruments,
 collecting measurements, and publishing data to [Nominal](https://nominal.io).
 
-This site is the API reference. For installation, quickstarts, and per-instrument
-guides, see the [instro documentation](https://instro.nominal.io).
+This is the API reference. For installation, quickstarts, and per-instrument
+guides, see the [guides](/index.md).
 
 ## Overview
 
@@ -35,56 +35,5 @@ The SDK is organized into several key components:
 | Section | Description |
 |---------|-------------|
 | [Library](library/instrument.md) | `Instrument`, `Measurement`, `Command`, and base types |
-| [User guides](https://instro.nominal.io) | Installation, quickstarts, and per-instrument guides |
+| [User guides](/index.md) | Installation, quickstarts, and per-instrument guides |
 | [Changelog](changelog.md) | Release history and version changes |
-
-```{toctree}
-:hidden:
-:caption: Overview
-
-Overview <self>
-```
-
-```{toctree}
-:hidden:
-:caption: Instruments
-
-instruments/index
-instruments/daq
-instruments/dmm
-instruments/psu
-instruments/eload
-instruments/scope
-instruments/flowcontroller
-instruments/i2c
-instruments/awg
-```
-
-```{toctree}
-:hidden:
-:caption: Library
-
-library/instrument
-library/types
-library/config
-library/exceptions
-library/publishers
-library/discover
-library/transports
-```
-
-```{toctree}
-:hidden:
-:caption: Protocols
-
-protocols/index
-protocols/modbus
-protocols/ethernetip
-```
-
-```{toctree}
-:hidden:
-:caption: Changelog
-
-changelog
-```

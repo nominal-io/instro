@@ -107,29 +107,17 @@ clean:
 build:
     uv build --wheel --all-packages
 
-# build the SDK reference (docs/sdk) into docs/sdk/_build/dirhtml; warnings fail the build
 # the docs group is empty below Python 3.12, so sphinx-build would fail with an opaque "not found"
 _check-docs-python:
-    uv run python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else f'The SDK docs toolchain needs Python >= 3.12 in the project environment (found {sys.version.split()[0]}). Recreate it with: uv sync --python 3.13 --group docs')"
+    uv run python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else f'The docs toolchain needs Python >= 3.12 in the project environment (found {sys.version.split()[0]}). Recreate it with: uv sync --python 3.13 --group docs')"
 
+# build the docs site (guides + API reference) into docs/_build/dirhtml; warnings fail the build
 build-docs: _check-docs-python
-    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs/sdk docs/sdk/_build/dirhtml
+    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
-# fail on guides/README links to SDK pages or anchors missing from the last `just build-docs`
-check-sdk-links:
-    uv run python docs/sdk/check_links.py
-
-# live-preview the SDK reference on http://127.0.0.1:8000, rebuilding on source or docstring changes
+# live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
 serve-docs: _check-docs-python
-    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs/sdk docs/sdk/_build/dirhtml --watch instro --watch packages
-
-# generate Mintlify example pages and per-category index pages from examples/
-gen-examples:
-    uv run python docs/guides/generate_examples.py
-
-# regenerates examples in a temp sandbox; fails on drift or docs.json Examples tab gaps
-check-examples:
-    uv run python docs/guides/check_examples.py
+    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:

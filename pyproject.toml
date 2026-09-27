@@ -98,7 +98,7 @@ test = [
     "cpppo>=4.0.0",
     "pytest>=9.0.3,<10",
 ]
-# SDK reference site (docs/sdk). Not a default group: `uv sync --group docs`.
+# Docs site (docs/). Not a default group: `uv sync --group docs`.
 # The toolchain needs Python >=3.12 (Sphinx 9); CI builds the docs on 3.13.
 docs = [
     "sphinx>=9.1.0; python_version >= '3.12'",

@@ -216,7 +216,7 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 ### Tests and checks
 
-Every PR must pass `just check` and `just test`. [Build/test CI](./.github/workflows/build-check-test.yml) runs the checks across Windows, macOS, Linux, and the supported Python versions, and separately checks `uv lock --check`. Passing locally covers your current environment; it does not guarantee that the full CI matrix passes. [Docs CI](./.github/workflows/docs-check.yml) runs `just check-examples`, which fails if the generated example pages have drifted or if `docs.json`'s Examples tab is missing a generated index page (or lists one that doesn't exist), and [PR title CI](./.github/workflows/lint-pr-title.yml) checks Conventional Commits formatting. To fix page drift locally, run `just gen-examples` and commit the generated changes. `docs.json`'s Examples tab is hand-maintained (one entry per category, pointing at that category's generated `index.mdx`) and only needs editing when a whole category under `examples/` is added or removed. Examples inside `instro-unstable` and `instro-contrib` submodules are listed on one generated index page per package and never need a `docs.json` edit.
+Every PR must pass `just check` and `just test`. [Build/test CI](./.github/workflows/build-check-test.yml) runs the checks across Windows, macOS, Linux, and the supported Python versions, and separately checks `uv lock --check`. Passing locally covers your current environment; it does not guarantee that the full CI matrix passes. [Docs CI](./.github/workflows/docs-check.yml) runs `just build-docs`, which fails on any docs warning, and [PR title CI](./.github/workflows/lint-pr-title.yml) checks Conventional Commits formatting. Example pages are generated from `examples/` at build time, so there is nothing to regenerate by hand.
 
 A separate [scheduled workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests. If that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile.
 
@@ -238,11 +238,11 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 
 | Change type | Files to update |
 |------|------|
-| New vendor driver | `README.md` "Supported devices" table; the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](./docs/sdk/AGENTS.md#adding-a-vendor-driver)); add a guide page under `docs/guides/` if the device introduces a new user-facing workflow |
-| New contrib driver | "Available drivers" section of `docs/guides/library/contrib.mdx` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` and any affected `docs/guides/` examples; check with `just build-docs` |
-| New feature, behavior change, or new install extra | `docs/guides/` (the Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
-| New category or top-level module | All of the above plus `docs/guides/docs.json` navigation and the toctrees in `docs/sdk/index.md` |
+| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
+| New contrib driver | "Available drivers" section of `docs/library/contrib.md` |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` and any affected guide pages in `docs/`; check with `just build-docs` |
+| New feature, behavior change, or new install extra | Guide pages in `docs/`; also `README.md` if it touches the quickstart, install instructions, or extras table |
+| New category or top-level module | All of the above plus the sidebar toctrees in `docs/index.md` |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and [`AGENTS.md`](./AGENTS.md) |
 | New or changed AI skill/subagent | Claude Code (`.claude/skills/`, `.claude/agents/`) and Codex CLI (`.agents/skills/`, `.codex/agents/`) toolchain copies, plus the table in [`AGENTS.md`](./AGENTS.md#repo-skills-and-subagents) |
 
@@ -277,7 +277,7 @@ A contrib driver must:
 - **Ship a unit test** that exercises the driver against a mocked transport.
 - **Document the model(s) it targets** in a module docstring.
 - **Be verified by the contributor against real hardware**: this is the trust we're extending. Note the model(s) and firmware version(s) you tested against in the PR description.
-- **Add an entry to the "Available drivers" section** of [`docs/guides/library/contrib.mdx`](./docs/guides/library/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release; a merged driver missing from it makes the doc wrong.
+- **Add an entry to the "Available drivers" section** of [`docs/library/contrib.md`](./docs/library/contrib.md) in the same PR. That section is documented as the complete set of contrib drivers for the current release; a merged driver missing from it makes the doc wrong.
 
 It does **not** need:
 

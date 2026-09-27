@@ -29,4 +29,4 @@ The table below is included verbatim from the repository README, so the two can'
 
 The Modbus and EtherNet/IP rows are covered under [Protocols](../protocols/index.md).
 Community-contributed drivers are documented in the
-[instro-contrib guide](https://instro.nominal.io/library/contrib) rather than this reference.
+[instro-contrib guide](/library/contrib.md) rather than this reference.

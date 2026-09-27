@@ -1,0 +1,39 @@
+---
+orphan: true
+card: Alicat MC
+image: AlicatMC.png
+myst:
+  html_meta:
+    description: "A driver for InstroFlowController"
+---
+
+# AlicatMC
+
+{.lead}
+A driver for [`InstroFlowController`](/flowcontroller.md)
+
+![Alicat MC](AlicatMC.png){.driver-image}
+
+The {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` provides a driver that can be used to instantiate an [InstroFlowController](/flowcontroller.md).
+
+## Creating an [`InstroFlowController`](/flowcontroller.md) with {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>`
+
+```python
+from instro.unstable.flowcontroller.drivers import AlicatMC
+from instro.unstable.flowcontroller import InstroFlowController
+from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+
+fc = InstroFlowController(
+    name="myFlowController",
+    driver=AlicatMC(
+        VisaConfig(
+            visa_resource="<visa_resource>",
+            serial_config=SerialConfig(baud_rate=19200),
+            terminator=TerminatorConfig(read="\r", write="\r"),
+        ),
+        device_id="M",
+    ),
+)
+```
+
+Parameters and methods specific to {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` can be found in the [SDK](/sdk/index.md).

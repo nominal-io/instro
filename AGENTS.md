@@ -12,11 +12,11 @@ just check                       # all lints: python (ruff format, mypy, ruff li
 just test                        # all tests: python + Rust; no hardware required
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
 just test-python / test-rust     # single-language tests
-just build-docs                  # SDK reference (docs/sdk, Sphinx); needs the `docs` group, Python >=3.12
+just build-docs / serve-docs     # docs site (docs/, Sphinx): strict build / live preview; needs the `docs` group, Python >=3.12
 uv build --wheel --package <name> # build a wheel for a workspace package
 ```
 
-`just check` and `just test` cover local linting and tests. [Build/test CI](./.github/workflows/build-check-test.yml) also checks `uv lock --check` and runs across supported OS/Python combinations. Separate workflows check [generated example page drift and the SDK reference build](./.github/workflows/docs-check.yml) (`just build-docs`, warnings as errors, then `just check-sdk-links`) and [PR titles](./.github/workflows/lint-pr-title.yml). For docs drift, run `just check-examples` (what CI runs: it fails on generated-page drift and on generated index pages missing from, or dead entries in, `docs.json`'s Examples tab), then `just gen-examples` to fix page drift. `docs.json`'s Examples tab is hand-maintained (one static entry per category pointing at that category's `index.mdx`) and isn't touched by the generator; a new category under `examples/` needs a manual `docs.json` edit (which `just check-examples` enforces), but new/removed/renamed example scripts within an existing category don't. Examples under `packages/instro-{unstable,contrib}/.../<submodule>/examples/` all land on one generated `examples/{unstable,contrib}/index.mdx` per package, one heading per submodule, so they never need a `docs.json` edit. A local pass does not guarantee a full CI pass. The [scheduled latest-dependencies workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies and runs Python tests; it is not part of PR CI.
+`just check` and `just test` cover local linting and tests. [Build/test CI](./.github/workflows/build-check-test.yml) also checks `uv lock --check` and runs across supported OS/Python combinations. Separate workflows check [the docs build](./.github/workflows/docs-check.yml) (`just build-docs`, warnings as errors) and [PR titles](./.github/workflows/lint-pr-title.yml). A local pass does not guarantee a full CI pass. The [scheduled latest-dependencies workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies and runs Python tests; it is not part of PR CI.
 
 The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` package, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
 
@@ -47,7 +47,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.
 - **GitHub Actions are SHA-pinned.** Every `uses:` in `.github/workflows/` pins a full commit SHA with the release as a trailing comment (`@11d5960a... # v4.4.0`). Resolve SHAs from the upstream repo's releases — never trust an unverified suggestion. Dependabot bumps the pins weekly.
 - **README links are absolute.** Every README that ships as a package `readme` (root and `packages/*/`) renders on PyPI, where relative `./` paths are dead. Link to `https://github.com/nominal-io/instro/blob/main/...` and load images from `raw.githubusercontent.com`. Package metadata (`keywords`, `classifiers`, `[project.urls]` with Documentation and Changelog) lives in each `pyproject.toml`; keep the sub-packages' blocks in step with the root when you add one (#514).
-- **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/guides/`, `docs/sdk/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
+- **Docs ship with the code.** This repo contains its own docs (`README.md`, `CONTRIBUTING.md`, `docs/`, and this file). When a change is user-visible or alters conventions, update the relevant docs in the same PR: see [Documentation](#documentation) below.
 
 ### Naming
 
@@ -72,23 +72,15 @@ Same shape as above, but in `packages/instro-contrib/instro/contrib/<category>/d
 
 The contrib bar is in [CONTRIBUTING.md](./CONTRIBUTING.md#instro-contrib--community-contributed-drivers).
 
-Add the driver to the "Available drivers" section of [`docs/guides/library/contrib.mdx`](./docs/guides/library/contrib.mdx) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
+Add the driver to the "Available drivers" section of [`docs/library/contrib.md`](./docs/library/contrib.md) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
 
 ## Documentation
 Docs live in this repo and ship in the same PR as the code change.
 
 ### Overview
 There are several kinds of docs:
-* Docstrings
-  - (in code). Exist in the codebase. Used on-the-fly and to generate content for the SDK docs. details on doc-string style defined in this readme. 
-* SDK
-  - `docs/sdk/`. MyST Markdown pages which structure the SDK, content mostly provided by docstrings. See [`docs/sdk/AGENTS.md`](./docs/sdk/AGENTS.md).
-  - Uses Sphinx (`docs` dependency group, Python >=3.12). Build with `just build-docs` (warnings fail it, as in PR CI), preview with `just serve-docs`, and check guides links into it with `just check-sdk-links`.
-* Guides
-  - `docs/guides`. Narrative style docs which should link to SDK. See [`docs/guides/AGENTS.md`](./docs/guides/AGENTS.md).
-  - Uses mintlify. Install, `npm i -g mint`. Run, `cd docs/guides;mint dev`. Check links, `mint broken-links`.
-* Examples
-  - Source is Python files in `/examples/`. are built with a scripts as described in  [`docs/guides/AGENTS.md`](./docs/guides/AGENTS.md).
+* Docstrings, in the code. They generate the API reference; style below.
+* The docs site, `docs/`: one Sphinx site with the guides (MyST Markdown in `docs/`), the examples (generated from `examples/` at build time), and the API reference (`docs/sdk/`). Build with `just build-docs` (warnings fail it, as in PR CI), preview with `just serve-docs`. Structure, conventions, and tasks: [`docs/AGENTS.md`](./docs/AGENTS.md).
 
 ### Doc-string style
 All new code should have docstrings using Google format. They should have:
@@ -103,15 +95,15 @@ All new code should have docstrings using Google format. They should have:
 
 | Change type | Files to update |
 |---|---|
-| New vendor driver | `README.md` "Supported devices" table; the Vendor Drivers table and hidden autosummary list in `docs/sdk/instruments/<category>.md` (see [`docs/sdk/AGENTS.md`](./docs/sdk/AGENTS.md#adding-a-vendor-driver)); add a card + driver page under `docs/guides/` (see [`docs/guides/AGENTS.md`](./docs/guides/AGENTS.md)) if the device introduces a new user-facing workflow |
-| New contrib driver | "Available drivers" section of `docs/guides/library/contrib.mdx` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` (reference pages) and any affected `docs/guides/` examples |
-| New feature, behavior change, or new install extra | `docs/guides/` (Mintlify site); also `README.md` if it touches the quickstart, install instructions, or extras table |
-| New category or top-level module | All of the above plus `docs/guides/docs.json` navigation and the toctrees in `docs/sdk/index.md` |
+| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
+| New contrib driver | "Available drivers" section of `docs/library/contrib.md` |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` (reference pages) and any affected guide pages in `docs/` |
+| New feature, behavior change, or new install extra | Guide pages in `docs/`; also `README.md` if it touches the quickstart, install instructions, or extras table |
+| New category or top-level module | All of the above plus the sidebar toctrees in `docs/index.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-an-instrument-category)) |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and this file (`AGENTS.md`) |
 | New or changed AI skill/subagent | Both toolchains' copies (Claude `.claude/`, Codex `.agents/` + `.codex/`) and the [Repo skills and subagents](#repo-skills-and-subagents) table |
 
-`CHANGELOG.md` is generated by release-please from Conventional Commits. Don't hand-edit it. Subdirectory `AGENTS.md` files carry their own structure and style rules for the docs they govern — see [`docs/guides/AGENTS.md`](./docs/guides/AGENTS.md) for the Mintlify site's page layout (per-category guides, per-driver pages, the `snippets/drivers/` reusable-content convention, and its hidden-page/snippet-vs-nav gotcha).
+`CHANGELOG.md` is generated by release-please from Conventional Commits. Don't hand-edit it. [`docs/AGENTS.md`](./docs/AGENTS.md) carries the docs site's structure and style rules.
 
 ## Release PRs
 
@@ -206,4 +198,4 @@ When you add or change a skill/subagent, update **both** toolchains' copies and 
 
 ## Per-directory agent docs
 
-Some subdirectories have their own `AGENTS.md` with narrower instructions (e.g. `docs/guides/AGENTS.md` for the Mintlify guides site, `docs/sdk/AGENTS.md` for the Sphinx SDK reference site). When working inside one of those directories, that file's guidance takes precedence over this one.
+Some subdirectories have their own `AGENTS.md` with narrower instructions (e.g. `docs/AGENTS.md` for the docs site). When working inside one of those directories, that file's guidance takes precedence over this one.

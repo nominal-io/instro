@@ -179,14 +179,14 @@ Per `AGENTS.md` "Documentation":
 - **`README.md`** — add the model to the **"Supported devices"** table for core
   categories. Categories in `instro-unstable` (e.g. `scope`) are listed under
   **"Experimental modules"** instead — update that prose, not the table.
-- **`docs/guides/<category>.mdx`** — add a guide entry only if
-  the device introduces a new user-facing workflow.
-- **`docs/sdk/instruments/<category>.md`** — add a row to the Vendor Drivers
-  table and the class path to the hidden autosummary list below it (see
-  `docs/sdk/AGENTS.md` "Adding a vendor driver"); guides links to the driver's
-  SDK page break without it. Check with `just build-docs && just check-sdk-links`.
-- If a new public API/category was introduced (rare for a single driver), update
-  the `docs/sdk/` pages and toctrees and `docs/guides/docs.json` navigation too.
+- **`docs/<category>/<Driver>.md`** plus `<Driver>.png` — the driver's guide
+  page, copied from a sibling; its front-matter card puts it in the category's
+  card grid. Then add a row to the Vendor Drivers table in
+  `docs/sdk/instruments/<category>.md` and the class to the hidden autosummary
+  list beneath it (see `docs/AGENTS.md` "Add a vendor driver"). Check with
+  `just build-docs`.
+- If a new public API/category was introduced (rare for a single driver), also
+  add its pages and the sidebar toctrees in `docs/index.md`.
 - Do **not** hand-edit `CHANGELOG.md` (release-please generates it).
 
 ## Step 8 — Verify
