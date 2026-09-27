@@ -6,6 +6,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 
 - `just build-docs`: clean build into `_build/dirhtml`, warnings are errors. PR CI (`docs-check.yml`) runs it and uploads the site as a `docs-site` artifact; `deploy-docs.yml` publishes on merge.
 - `just serve-docs`: live preview on http://127.0.0.1:8000; rebuilds on page, example, and docstring edits.
+- `just build-site`: the published layout in `_build/site`, the landing page (`_landing/index.html`, plain HTML, not a Sphinx page) at the root and the docs under `/python/`. CI previews and the deploy use it. All links in the build are relative, so the docs work under any prefix.
 - Toolchain: the `docs` dependency group (Python >=3.12).
 - URLs are folder-style (`/psu/`), so a finished build needs a server to browse: `python -m http.server -d docs/_build/dirhtml`.
 - Sidebar changes only reach unchanged pages on a clean build (`-E`, which `build-docs` does).
@@ -15,6 +16,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | Path | Contents |
 |---|---|
 | `conf.py`, `_ext/`, `_templates/`, `_static/` | Shared config, extensions, templates, CSS/JS, logos. |
+| `_landing/index.html` | The site root's landing page (language picker). Uses the docs' logo and favicon via `python/_static/`. |
 | `index.md` | Home page, and every sidebar group: one hidden `toctree` per caption, for all three sections. |
 | `quickstart.md`, `installation.md`, `cli.md`, `using-instro.md`, `instruments.md` | Overview pages. |
 | `<category>.md` | One guide per category (`psu`, `dmm`, `scope`, `daq`, `awg`, `eload`, `flowcontroller`). |

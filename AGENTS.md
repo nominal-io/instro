@@ -13,6 +13,7 @@ just test                        # all tests: python + Rust; no hardware require
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
 just test-python / test-rust     # single-language tests
 just build-docs / serve-docs     # docs site (docs/, Sphinx): strict build / live preview; needs the `docs` group, Python >=3.12
+just build-site                  # published layout: landing page at the root, docs under /python/
 uv build --wheel --package <name> # build a wheel for a workspace package
 ```
 
