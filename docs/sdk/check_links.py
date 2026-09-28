@@ -3,7 +3,7 @@
 The Mintlify guides link to the SDK site by absolute URL, so a renamed class, moved
 page, or dropped heading in docs/sdk would otherwise 404 silently after deploy.
 
-Run after `just build-docs`: `uv run python docs/sdk/check_links.py`.
+Run after `just build-docs`: `uv run python docs/sdk/check_links.py` (from anywhere inside the repo).
 """
 
 import re
@@ -20,21 +20,28 @@ def main() -> int:
     if not (BUILD / "index.html").is_file():
         print(f"no build at {BUILD}; run `just build-docs` first", file=sys.stderr)
         return 2
+    root = Path(
+        subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+    )
     files = subprocess.run(
-        ["git", "ls-files", "docs/guides", "README.md"], capture_output=True, text=True, check=True
+        ["git", "ls-files", "docs/guides", "README.md"], capture_output=True, text=True, check=True, cwd=root
     ).stdout.split()
     errors = []
     checked = 0
     for name in files:
-        path = Path(name)
+        path = root / name
         if path.suffix not in {".md", ".mdx", ".json"}:
             continue
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for match in URL.finditer(line):
                 if line[match.end() : match.end() + 1] == "<":
                     continue  # a documented URL template, e.g. .../generated/<dotted.path>/
-                target, _, anchor = match.group(1).partition("#")
-                page = BUILD / target / "index.html" if not target or target.endswith("/") else BUILD / target
+                target, _, anchor = match.group(1).rstrip(".,;:").partition("#")
+                page = BUILD / target
+                if page.is_dir():  # GitHub Pages serves a folder URL with or without the trailing slash
+                    page = page / "index.html"
                 checked += 1
                 if not page.is_file():
                     errors.append(f"{name}:{lineno}: no page for {match.group(0)}")

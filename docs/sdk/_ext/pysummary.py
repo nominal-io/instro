@@ -5,28 +5,37 @@ descriptions sourced from docstrings.
 """
 
 import inspect
-import re
+from types import SimpleNamespace
 
 from docutils import nodes
+from docutils.parsers.rst import languages as rst_languages
+from docutils.parsers.rst import states
 from sphinx.application import Sphinx
-from sphinx.ext.autosummary import extract_summary, import_by_name
+from sphinx.ext.autosummary import ImportExceptionGroup, extract_summary, import_by_name
 from sphinx.util.docutils import SphinxRole
-
-_LITERAL = re.compile(r"``(.+?)``")
 
 
 class PySummaryRole(SphinxRole):
     def run(self) -> tuple[list[nodes.Node], list[nodes.system_message]]:
         try:
             _, obj, _, _ = import_by_name(self.text)
-        except ImportError:
+        except (ImportError, ImportExceptionGroup):
             msg = self.inliner.reporter.warning(f"pysummary: cannot import {self.text!r}", line=self.lineno)
             return [nodes.problematic(self.rawtext, self.rawtext)], [msg]
+        document = self.inliner.document
         doc = inspect.getdoc(obj) or ""
-        summary = extract_summary(doc.splitlines(), self.inliner.document.settings)
-        # Summaries are reST; render ``code`` spans, leave the rest as text.
-        parts = _LITERAL.split(summary)
-        return [nodes.literal(p, p) if i % 2 else nodes.Text(p) for i, p in enumerate(parts) if p], []
+        summary = extract_summary(doc.splitlines(), document.settings)
+        # Docstrings are reST, but the host page may be MyST, whose inliner parses
+        # Markdown. Render with a reST inliner so ``literals``, default_role names,
+        # and :role:`targets` come out as they do in autosummary's own tables.
+        inliner = states.Inliner()
+        inliner.init_customizations(document.settings)
+        memo = SimpleNamespace(
+            document=document,
+            reporter=document.reporter,
+            language=rst_languages.get_language(document.settings.language_code, document.reporter),
+        )
+        return inliner.parse(summary, self.lineno, memo, self.inliner.parent)
 
 
 def setup(app: Sphinx) -> dict[str, bool]:
