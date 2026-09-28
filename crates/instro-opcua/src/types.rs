@@ -1644,36 +1644,46 @@ mod tests {
     /// Used in unit tests only.
     struct ScalarEq(ScalarValue);
 
-    impl PartialEq for ScalarEq {
-        fn eq(&self, other: &Self) -> bool {
-            match (&self.0, &other.0) {
-                (ScalarValue::Boolean(l), ScalarValue::Boolean(r)) => l == r,
-                (ScalarValue::SByte(l), ScalarValue::SByte(r)) => l == r,
-                (ScalarValue::Byte(l), ScalarValue::Byte(r)) => l == r,
-                (ScalarValue::Int16(l), ScalarValue::Int16(r)) => l == r,
-                (ScalarValue::UInt16(l), ScalarValue::UInt16(r)) => l == r,
-                (ScalarValue::Int32(l), ScalarValue::Int32(r)) => l == r,
-                (ScalarValue::UInt32(l), ScalarValue::UInt32(r)) => l == r,
-                (ScalarValue::Int64(l), ScalarValue::Int64(r)) => l == r,
-                (ScalarValue::UInt64(l), ScalarValue::UInt64(r)) => l == r,
-                (ScalarValue::Float(l), ScalarValue::Float(r)) => l == r,
-                (ScalarValue::Double(l), ScalarValue::Double(r)) => l == r,
-                (ScalarValue::String(l), ScalarValue::String(r)) => l == r,
-                (ScalarValue::DateTime(l), ScalarValue::DateTime(r)) => l == r,
-                (ScalarValue::Guid(l), ScalarValue::Guid(r)) => l == r,
-                (ScalarValue::ByteString(l), ScalarValue::ByteString(r)) => l == r,
-                (ScalarValue::NodeId(l), ScalarValue::NodeId(r)) => l == r,
-                (ScalarValue::ExpandedNodeId(l), ScalarValue::ExpandedNodeId(r)) => l == r,
-                (ScalarValue::StatusCode(l), ScalarValue::StatusCode(r)) => l == r,
-                (ScalarValue::QualifiedName(l), ScalarValue::QualifiedName(r)) => l == r,
-                (ScalarValue::LocalizedText(l), ScalarValue::LocalizedText(r)) => l == r,
-                (ScalarValue::Structure(l), ScalarValue::Structure(r)) => l == r,
-                (ScalarValue::Enumeration(l), ScalarValue::Enumeration(r)) => l == r,
-                (ScalarValue::Argument(l), ScalarValue::Argument(r)) => l == r,
-                _ => false,
+    macro_rules! decl_eq {
+        ($($v:path),+ $(,)?) => {
+            impl PartialEq for ScalarEq {
+                fn eq(&self, other: &Self) -> bool {
+                    match (&self.0, &other.0) {
+                        $(
+                            ($v(l), $v(r)) => l == r,
+                        )+
+                        _ => false,
+                    }
+                }
             }
         }
     }
+
+    decl_eq!(
+        ScalarValue::Boolean,
+        ScalarValue::SByte,
+        ScalarValue::Byte,
+        ScalarValue::Int16,
+        ScalarValue::UInt16,
+        ScalarValue::Int32,
+        ScalarValue::UInt32,
+        ScalarValue::Int64,
+        ScalarValue::UInt64,
+        ScalarValue::Float,
+        ScalarValue::Double,
+        ScalarValue::String,
+        ScalarValue::DateTime,
+        ScalarValue::Guid,
+        ScalarValue::ByteString,
+        ScalarValue::NodeId,
+        ScalarValue::ExpandedNodeId,
+        ScalarValue::StatusCode,
+        ScalarValue::QualifiedName,
+        ScalarValue::LocalizedText,
+        ScalarValue::Structure,
+        ScalarValue::Enumeration,
+        ScalarValue::Argument,
+    );
 
     impl Eq for ScalarEq {}
 
@@ -1694,34 +1704,44 @@ mod tests {
     /// Used in unit tests only.
     struct VariantEq(ua::Variant);
 
-    fn scalar_to_variant(s: ScalarEq) -> Result<ua::Variant> {
-        Ok(match s.0 {
-            ScalarValue::Boolean(v) => ua::Variant::scalar(v),
-            ScalarValue::SByte(v) => ua::Variant::scalar(v),
-            ScalarValue::Byte(v) => ua::Variant::scalar(v),
-            ScalarValue::Int16(v) => ua::Variant::scalar(v),
-            ScalarValue::UInt16(v) => ua::Variant::scalar(v),
-            ScalarValue::Int32(v) => ua::Variant::scalar(v),
-            ScalarValue::UInt32(v) => ua::Variant::scalar(v),
-            ScalarValue::Int64(v) => ua::Variant::scalar(v),
-            ScalarValue::UInt64(v) => ua::Variant::scalar(v),
-            ScalarValue::Float(v) => ua::Variant::scalar(v),
-            ScalarValue::Double(v) => ua::Variant::scalar(v),
-            ScalarValue::String(v) => ua::Variant::scalar(v),
-            ScalarValue::DateTime(v) => ua::Variant::scalar(v),
-            ScalarValue::Guid(v) => ua::Variant::scalar(v),
-            ScalarValue::ByteString(v) => ua::Variant::scalar(v),
-            ScalarValue::NodeId(v) => ua::Variant::scalar(v),
-            ScalarValue::ExpandedNodeId(v) => ua::Variant::scalar(v),
-            ScalarValue::StatusCode(v) => ua::Variant::scalar(v),
-            ScalarValue::QualifiedName(v) => ua::Variant::scalar(v),
-            ScalarValue::LocalizedText(v) => ua::Variant::scalar(v),
-            ScalarValue::Structure(v) => ua::Variant::scalar(v),
-            ScalarValue::Enumeration(v) => ua::Variant::scalar(v),
-            ScalarValue::Argument(v) => ua::Variant::scalar(v),
-            _ => bail!("Unsupported scalar value: {:?}", s.0),
-        })
+    macro_rules! match_variant {
+        ($($v:path),+ $(,)?) => {
+            fn scalar_to_variant(s: ScalarEq) -> Result<ua::Variant> {
+                Ok(match s.0 {
+                    $(
+                        $v(v) => ua::Variant::scalar(v),
+                    )+
+                    _ => bail!("Unsupported scalar value: {:?}", s.0),
+                })
+            }
+        }
     }
+
+    match_variant!(
+        ScalarValue::Boolean,
+        ScalarValue::SByte,
+        ScalarValue::Byte,
+        ScalarValue::Int16,
+        ScalarValue::UInt16,
+        ScalarValue::Int32,
+        ScalarValue::UInt32,
+        ScalarValue::Int64,
+        ScalarValue::UInt64,
+        ScalarValue::Float,
+        ScalarValue::Double,
+        ScalarValue::String,
+        ScalarValue::DateTime,
+        ScalarValue::Guid,
+        ScalarValue::ByteString,
+        ScalarValue::NodeId,
+        ScalarValue::ExpandedNodeId,
+        ScalarValue::StatusCode,
+        ScalarValue::QualifiedName,
+        ScalarValue::LocalizedText,
+        ScalarValue::Structure,
+        ScalarValue::Enumeration,
+        ScalarValue::Argument,
+    );
 
     impl TryFrom<&ScalarEq> for VariantEq {
         type Error = Error;

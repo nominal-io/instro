@@ -169,10 +169,13 @@ impl<'batch> BatchIter<'batch> {
             index: 0,
         }
     }
+}
 
-    pub const fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
+impl<'batch> Iterator for BatchIter<'batch> {
+    type Item = (&'batch OpcUaNodeId, &'batch OpcUaAttributeId);
+
+    fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
         let node_idx = self.index.checked_div(self.attrs.len())?;
-
         let attr_idx = self.index.checked_rem(self.attrs.len())?;
 
         let node = self.nodes.get(node_idx)?;
@@ -181,14 +184,6 @@ impl<'batch> BatchIter<'batch> {
         self.index += 1;
 
         Some((node, attr))
-    }
-}
-
-impl<'batch> Iterator for BatchIter<'batch> {
-    type Item = (&'batch OpcUaNodeId, &'batch OpcUaAttributeId);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        BatchIter::next(self)
     }
 }
 
