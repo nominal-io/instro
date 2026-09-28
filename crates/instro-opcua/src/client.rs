@@ -47,12 +47,9 @@ use open62541::AsyncMonitoredItem;
 use open62541::Certificate;
 use open62541::ClientBuilder;
 use open62541::DataType;
-use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
 use open62541::PrivateKey;
-use open62541::ScalarValue;
 use open62541::SubscriptionBuilder;
-use open62541::VariantValue;
 use open62541::ua;
 use tokio::runtime;
 use tokio::sync::oneshot;
@@ -140,34 +137,6 @@ impl<'nodes> OpcUaNodeReadBatch<'nodes> {
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
-}
-
-fn decode_node_class_variant(
-    value: &DataValue<ua::NodeClass>,
-    node_id: &OpcUaNodeId,
-) -> Result<OpcUaNodeClass> {
-    let Some(variant) = value.value() else {
-        bail!(
-            "node class attribute for node {node_id} was not readable: {:?}",
-            value.status()
-        );
-    };
-
-    let raw = match variant.to_value() {
-        VariantValue::Scalar(ScalarValue::Enumeration(value)) => value.as_u32(),
-        VariantValue::Scalar(ScalarValue::UInt32(value)) => value.value(),
-        VariantValue::Scalar(ScalarValue::Int32(value)) => u32::try_from(value.value())
-            .with_context(|| format!("node class attribute for node {node_id} was negative"))?,
-        other => bail!("node class attribute for node {node_id} had unexpected value {other:?}"),
-    };
-
-    Ok(match raw {
-        ua::NodeClass::OBJECT_U32 => OpcUaNodeClass::Object,
-        ua::NodeClass::VARIABLE_U32 => OpcUaNodeClass::Variable,
-        ua::NodeClass::METHOD_U32 => OpcUaNodeClass::Method,
-        ua::NodeClass::VIEW_U32 => OpcUaNodeClass::View,
-        other => OpcUaNodeClass::Other(other),
-    })
 }
 
 // `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
@@ -305,39 +274,62 @@ impl OpcUaClient {
         &self,
         node_id: &OpcUaNodeId,
     ) -> Result<(QualifiedBrowseName, String, OpcUaNodeClass)> {
-        let ua_node_id = ua::NodeId::from(node_id.clone());
+        let ua_nid = ua::NodeId::from(node_id.clone());
 
-        let browse_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::BROWSENAME_T)
+        let read_pairs = std::iter::repeat(ua_nid)
+            .zip([
+                ua::AttributeId::BROWSENAME,
+                ua::AttributeId::DISPLAYNAME,
+                ua::AttributeId::NODECLASS,
+            ])
+            .collect_vec();
+
+        let metadata = self
+            .read_many_attributes(&read_pairs)
             .await
-            .with_context(|| format!("reading browse name for node {node_id}"))?;
-        let browse_name = browse_name_value.scalar_value().with_context(|| {
-            format!(
-                "browse name attribute for node {node_id} was not readable: {:?}",
-                browse_name_value.status()
-            )
-        })?;
+            .context("reading node metadata")?;
 
-        let display_name_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::DISPLAYNAME_T)
-            .await
-            .with_context(|| format!("reading display name for node {node_id}"))?;
+        if metadata.len() != 3 {
+            bail!(
+                "unexpected number of results for node metadata: expected 3 results, got {}",
+                metadata.len()
+            );
+        }
 
-        let display_name = display_name_value.scalar_value().with_context(|| {
-            format!(
-                "display name attribute for node {node_id} was not readable: {:?}",
-                display_name_value.status()
-            )
-        })?;
+        let mut values = metadata.into_iter();
 
-        let node_class_value = self
-            .read_attribute(&ua_node_id, ua::AttributeId::NODECLASS_T)
-            .await
-            .with_context(|| format!("reading node class for node {node_id}"))?;
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let browse_name = values
+            .next()
+            .unwrap()
+            .into_scalar_value()
+            .and_then(ua::Variant::into_scalar::<ua::QualifiedName>)
+            .context("extracting browse name from node metadata")?;
 
-        let node_class = node_class_value
-            .scalar_value()
-            .with_context(|| format!("node class attribute for node {node_id} was not readable"));
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let display_name = values
+            .next()
+            .unwrap()
+            .into_scalar_value()
+            .and_then(ua::Variant::into_scalar::<ua::LocalizedText>)
+            .context("extracting display name from node metadata")?;
+
+        #[expect(
+            clippy::unwrap_used,
+            reason = "open62541-guaranteed invariant that the results are in the same order as the pairs"
+        )]
+        let node_class_value = values
+            .next()
+            .unwrap()
+            .into_scalar_value()
+            .and_then(ua::Variant::into_scalar::<ua::Int32>) // this is whack
+            .context("extracting node class from node metadata")?;
 
         Ok((
             QualifiedBrowseName {
@@ -345,10 +337,7 @@ impl OpcUaClient {
                 name: browse_name.name().to_string(),
             },
             display_name.text().to_string(),
-            match node_class {
-                Ok(node_class) => OpcUaNodeClass::from(node_class),
-                Err(_) => decode_node_class_variant(&node_class_value, node_id)?,
-            },
+            OpcUaNodeClass::try_from_raw(node_class_value.value() as u32)?,
         ))
     }
 
