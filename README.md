@@ -23,7 +23,6 @@ An open-source, vendor-agnostic Python library for interfacing with test equipme
 from instro.daq.drivers.labjack import LabJackTSeriesDriver
 # from instro.daq.drivers.ni import NIDAQDriver
 from instro.daq import InstroDAQ
-from instro.daq.types import Direction
 from instro.lib.publishers import FilePublisher
 
 pub = FilePublisher(format="jsonl", directory="/tmp/instro/")
@@ -35,8 +34,8 @@ daq = InstroDAQ(
   #driver    = NIDAQDriver(device_id="Dev1") # swap drivers, same code
   )
 daq.open()
-daq.configure_analog_channel(
-    direction=Direction.INPUT, physical_channel="AIN0", alias="ch_0", range_min=0, range_max=5
+daq.configure_voltage_input(
+    physical_channel="AIN0", alias="ch_0", range_min=0, range_max=5
 )
 measurement = daq.read_analog()  # written to `publishers`
 print(pub.file_path.read_text())
