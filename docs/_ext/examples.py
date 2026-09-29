@@ -9,8 +9,12 @@ Files are only rewritten when their content changes, so live preview doesn't loo
 
 import ast
 from pathlib import Path
+from typing import Any
 
 from sphinx.application import Sphinx
+
+# pagename -> repo-relative script path, filled by generate() for the edit link
+_SOURCES: dict[str, str] = {}
 
 # folder -> (title, octicon) for categories under examples/; others are title-cased
 CATEGORIES = {
@@ -83,6 +87,7 @@ def generate(app: Sphinx) -> None:
         rel = py.relative_to(repo / "examples")
         folder = rel.parts[0] if len(rel.parts) > 1 else "general"
         files[out / folder / f"{py.stem}.md"] = _page(py, repo)
+        _SOURCES[f"examples/{folder}/{py.stem}"] = py.relative_to(repo).as_posix()
         categories.setdefault(folder, []).append((_script_title(py), py.stem))
     for folder, entries in categories.items():
         files[out / folder / "index.md"] = _index(_title(folder), entries)
@@ -94,6 +99,7 @@ def generate(app: Sphinx) -> None:
             sub = py.parent.parent.name
             note = f":::{{{kind}}}\n{callout.format(subject='This example uses')}\n:::\n\n"
             files[out / "packages" / slug / sub / f"{py.stem}.md"] = _page(py, repo, note)
+            _SOURCES[f"examples/packages/{slug}/{sub}/{py.stem}"] = py.relative_to(repo).as_posix()
             sections.setdefault(sub, []).append((_script_title(py), f"{sub}/{py.stem}"))
         body = f"# {title}\n\n:::{{{kind}}}\n{callout.format(subject='These examples use')}\n:::\n\n"
         body += (
@@ -131,6 +137,21 @@ def generate(app: Sphinx) -> None:
             stale.unlink()
 
 
+def _edit_link(app: Sphinx, pagename: str, templatename: str, context: dict[str, Any], doctree: Any) -> None:
+    """Point the sidebar's "Edit this page" at the script; the generated .md isn't in the repo."""
+    if not pagename.startswith("examples/"):
+        return
+    script = _SOURCES.get(pagename)
+    if script is None:  # index pages have no single source
+        context["page_source_suffix"] = ""
+        return
+    ctx = app.config.html_context
+    url = f"https://github.com/{ctx['source_user']}/{ctx['source_repo']}/blob/{ctx['source_version']}/{script}"
+    context["edit_source_link"] = lambda filename: url
+
+
 def setup(app: Sphinx) -> dict[str, bool]:
     app.connect("builder-inited", generate)
+    # after the theme's own hook (priority 500), which installs edit_source_link
+    app.connect("html-page-context", _edit_link, priority=600)
     return {"parallel_read_safe": True}

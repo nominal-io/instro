@@ -200,6 +200,13 @@ def _alias_reexports(app, env):
                 py.objects[alias] = py.objects[target]._replace(aliased=True)
 
 
+def _hide_edit_link_on_stubs(app, pagename, templatename, context, doctree):
+    """Autosummary stubs under generated/ are gitignored, so "Edit this page" would 404."""
+    if "/generated/" in pagename:
+        context["page_source_suffix"] = ""
+
+
 def setup(app):
     app.connect("autodoc-process-docstring", _drop_basemodel_init_doc)
     app.connect("env-updated", _alias_reexports)
+    app.connect("html-page-context", _hide_edit_link_on_stubs, priority=600)
