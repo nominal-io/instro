@@ -26,8 +26,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future;
-use std::ops::Deref;
-use std::ops::DerefMut;
 use std::sync::Arc;
 use std::sync::Weak;
 use std::thread;
@@ -52,6 +50,7 @@ use open62541::PrivateKey;
 use open62541::SubscriptionBuilder;
 use open62541::ua;
 use tokio::runtime;
+use tokio::sync::RwLock;
 use tokio::sync::oneshot;
 use tokio::sync::watch;
 use tokio::task::yield_now;
@@ -312,7 +311,7 @@ impl SessionHandle {
 /// The client is created by the [`OpcUaClientBuilder::connect`] method, which returns an [`Arc`] of the client.
 /// Streaming sessions started from this client own their own tokio runtime; see [`OpcUaStreamSession`].
 pub struct OpcUaClient {
-    client: AsyncClient,
+    client: RwLock<Option<AsyncClient>>,
 }
 
 type ReadNodeItem<'batch> = (
@@ -322,17 +321,29 @@ type ReadNodeItem<'batch> = (
 
 impl OpcUaClient {
     /// Attempts to gracefully disconnect from the server, returning an error if the client has outstanding references.
-    pub async fn disconnect(self: Arc<Self>) -> Result<()> {
-        match Arc::into_inner(self) {
-            None => bail!(
-                "OPC UA client has outstanding references; cannot perform graceful disconnect"
-            ),
+    pub async fn disconnect(self: Arc<Self>) {
+        let client = {
+            // tokio's `RwLock` should give us fair write-starvation protection
+            let Some(client) = self.client.write().await.take() else {
+                return;
+            };
 
-            Some(Self { client }) => {
-                client.disconnect().await;
-                Ok(())
-            }
-        }
+            client
+        };
+
+        client.disconnect().await;
+    }
+
+    pub async fn with_client<F, T>(&self, f: F) -> Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a AsyncClient) -> T,
+    {
+        let client_guard = self.client.read().await;
+        let Some(client) = client_guard.as_ref() else {
+            bail!("OPC UA client has been disconnected");
+        };
+
+        Ok(f(client).await)
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
@@ -379,10 +390,17 @@ impl OpcUaClient {
             ),
         > + use<'nodes, 'attrs, 'batch>,
     > {
-        let read_result = self
-            .read_many_attributes(node_list.pairs())
-            .await
-            .context("reading node attributes")?;
+        let read_result = {
+            let client_guard = self.client.read().await;
+            let Some(client) = client_guard.as_ref() else {
+                bail!("OPC UA client has been disconnected");
+            };
+
+            client
+                .read_many_attributes(node_list.pairs())
+                .await
+                .context("reading node attributes")?
+        };
 
         if read_result.len() != node_list.len() {
             bail!(
@@ -431,10 +449,19 @@ impl OpcUaClient {
         F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
-        let (_, subscription) = subscription_builder
-            .create(self)
-            .await
-            .context("creating OPC-UA subscription")?;
+
+        let (_, subscription) = {
+            let client_guard = self.client.read().await;
+            let Some(client) = client_guard.as_ref() else {
+                bail!("OPC UA client has been disconnected");
+            };
+
+            subscription_builder
+                .create(client)
+                .await
+                .context("creating OPC-UA subscription")?
+        };
+
         let this = Arc::downgrade(self);
 
         let nodes = nodes.into_list();
@@ -974,20 +1001,9 @@ impl OpcUaClientBuilder {
 
 impl OpcUaClient {
     fn new(client: AsyncClient) -> Arc<Self> {
-        Arc::new(Self { client })
-    }
-}
-
-impl Deref for OpcUaClient {
-    type Target = AsyncClient;
-    fn deref(&self) -> &Self::Target {
-        &self.client
-    }
-}
-
-impl DerefMut for OpcUaClient {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.client
+        Arc::new(Self {
+            client: RwLock::new(Some(client)),
+        })
     }
 }
 
