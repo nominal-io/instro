@@ -399,17 +399,14 @@ impl OpcUaClient {
             ),
         > + use<'nodes, 'attrs, 'batch>,
     > {
-        let read_result = {
-            let client_guard = self.client.read().await;
-            let Some(client) = client_guard.as_ref() else {
-                bail!("OPC UA client has been disconnected");
-            };
-
-            client
-                .read_many_attributes(node_list.pairs())
-                .await
-                .context("reading node attributes")?
-        };
+        let read_result = self
+            .with_client(async |client| {
+                client
+                    .read_many_attributes(node_list.pairs())
+                    .await
+                    .context("reading node attributes")
+            })
+            .await??;
 
         if read_result.len() != node_list.len() {
             bail!(
@@ -459,17 +456,14 @@ impl OpcUaClient {
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
 
-        let (_, subscription) = {
-            let client_guard = self.client.read().await;
-            let Some(client) = client_guard.as_ref() else {
-                bail!("OPC UA client has been disconnected");
-            };
-
-            subscription_builder
-                .create(client)
-                .await
-                .context("creating OPC-UA subscription")?
-        };
+        let (_, subscription) = self
+            .with_client(async |client| {
+                subscription_builder
+                    .create(client)
+                    .await
+                    .context("creating OPC-UA subscription")
+            })
+            .await??;
 
         let this = Arc::downgrade(self);
 
