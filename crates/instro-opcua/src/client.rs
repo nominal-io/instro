@@ -301,7 +301,16 @@ impl SessionHandle {
 
     /// Checks the status of the session and returns `true` if it has been stopped.
     fn has_stopped(&self) -> bool {
-        *self.term_rx.borrow()
+        if let Err(e) = self.term_rx.has_changed() {
+            tracing::debug!(
+                target: "opcua::client::session_handle",
+                err = ?e, "stream session handle was dropped unexpectedly"
+            );
+
+            true
+        } else {
+            *self.term_rx.borrow()
+        }
     }
 }
 
