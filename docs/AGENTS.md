@@ -22,7 +22,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `<category>.md` | One guide per category (`psu`, `dmm`, `scope`, `daq`, `awg`, `eload`, `flowcontroller`). |
 | `<category>/<Driver>.md` + `<Driver>.png` | One page per vendor driver, with its card in front matter. Protocol drivers live in `library/protocols/<protocol>/`. |
 | `library/` | Concepts and reference: publishers, config files, custom instruments (all "Driver Development" sections), contrib, protocols, transports. |
-| `migration/`, `images/` | Migration guide and its script; shared images. |
+| `images/` | Shared images. |
 | `examples/` | Generated at build time by `_ext/examples.py` (gitignored). Never edit. |
 | `sdk/` | API reference: category pages, library modules, protocols, changelog. |
 
