@@ -1,0 +1,127 @@
+"""Fixtures shared by the NYC test rack hardware suites; see rack_support.py for the wiring."""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+import os
+from collections.abc import Iterator
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from discovery import CATEGORIES, DiscoveredInstrument, DiscoveryReport, discover
+from rack_support import CAPTURE_ROOT, Rack, arm_protection, logger
+
+from instro.dmm import InstroDMM
+from instro.eload import InstroELoad
+from instro.eload.types import LoadMode
+from instro.lib import Instrument
+from instro.lib.publishers import FilePublisher, SharedPublisher
+from instro.psu import InstroPSU
+
+
+@pytest.fixture(scope="session")
+def run_dir() -> Path:
+    run_id = os.environ.get("RACK_RUN_ID") or datetime.now().strftime("%Y%m%d-%H%M%S")
+    path = CAPTURE_ROOT / run_id
+    path.mkdir(parents=True, exist_ok=True)
+    logger.info("Run directory: %s", path)
+    return path
+
+
+@pytest.fixture(scope="session")
+def discovery(run_dir: Path) -> DiscoveryReport:
+    logger.info("=== Instrument discovery ===")
+    report = discover()
+    (run_dir / "discovery.json").write_text(json.dumps(dataclasses.asdict(report), indent=2))
+    return report
+
+
+@pytest.fixture(scope="session")
+def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
+    """Category -> the discovered instrument the rack uses; fails every dependent check if one is missing."""
+    missing = [c for c in CATEGORIES if c not in discovery.selected]
+    if missing:
+        pytest.fail(f"no known {', '.join(missing)} discovered; see discovery.json in the run directory")
+    return discovery.selected
+
+
+@pytest.fixture(scope="module")
+def rack(instruments: dict[str, DiscoveredInstrument], run_dir: Path, request: pytest.FixtureRequest) -> Iterator[Rack]:
+    """All three discovered instruments opened through instro, protection armed, publishing to a per-suite capture."""
+    suite = request.module.__name__.rsplit(".", 1)[-1].removeprefix("test_nyc_rack_")
+    capture = FilePublisher(directory=run_dir, format="jsonl", custom_file_name=suite)
+    shared = SharedPublisher(capture)
+    run_id = run_dir.name
+    psu_info, dmm_info, eload_info = instruments["psu"], instruments["dmm"], instruments["eload"]
+    assert psu_info.num_channels is not None
+
+    logger.info("=== Constructing instro instruments for %s ===", suite)
+    psu = InstroPSU(
+        name="psu",
+        driver=psu_info.make_driver(),
+        num_channels=psu_info.num_channels,
+        publishers=[shared.clone()],
+        rack="nyc",
+        run_id=run_id,
+        suite=suite,
+    )
+    dmm = InstroDMM(
+        name="dmm",
+        driver=dmm_info.make_driver(),
+        publishers=[shared.clone()],
+        rack="nyc",
+        run_id=run_id,
+        suite=suite,
+    )
+    eload = InstroELoad(
+        name="eload",
+        driver=eload_info.make_driver(),
+        publishers=[shared.clone()],
+        rack="nyc",
+        run_id=run_id,
+        suite=suite,
+    )
+    rack = Rack(psu=psu, dmm=dmm, eload=eload, capture_path=capture.file_path)
+
+    opened: list[Instrument] = []
+    try:
+        for instrument, info in zip(rack.instruments, (psu_info, dmm_info, eload_info)):
+            logger.info("Opening %s: %s via %s on %s", instrument.name, info.model, info.driver_name, info.resource)
+            instrument.open()
+            opened.append(instrument)
+        rack.safe_state()
+        arm_protection(psu)
+        eload.set_mode(LoadMode.CC)
+        eload.set_level(0.0)
+        logger.info("Rack ready; publishing to %s", rack.capture_path)
+        yield rack
+    finally:
+        logger.info("=== Rack teardown (%s) ===", suite)
+        rack.safe_state()
+        for instrument in reversed(opened):
+            try:
+                instrument.close()
+            except Exception:
+                logger.exception("failed to close %s", instrument.name)
+        shared.close()
+        logger.info("Capture written to %s", rack.capture_path)
+
+
+@pytest.fixture(autouse=True)
+def _per_check(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Tag published data with the check name and return the rack to a safe state after each check."""
+    logger.info("=== %s ===", request.node.name)
+    if "rack" not in request.fixturenames:
+        yield
+        return
+    rack: Rack = request.getfixturevalue("rack")
+    for instrument in rack.instruments:
+        instrument.default_tags["check"] = request.node.name
+    try:
+        yield
+    finally:
+        rack.safe_state()
+        for instrument in rack.instruments:
+            instrument.default_tags.pop("check", None)
