@@ -30,7 +30,6 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::sync::Weak;
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -54,10 +53,12 @@ use open62541::SubscriptionBuilder;
 use open62541::ua;
 use tokio::runtime;
 use tokio::sync::oneshot;
+use tokio::sync::watch;
 use tokio::task::yield_now;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 use tokio::time::interval;
+use tokio::time::timeout;
 
 use super::generate_self_signed_cert;
 use super::metrics::NodeReadCounts;
@@ -267,7 +268,7 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
 // `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
 // Ideally we'd use `tokio::sync::oneshot::*` types for both ends of the synchronization pipe,
 // but there's too many footguns (i.e., runtime lifetimes, nested `block_on`s, etc.)
-type TerminationReceiver = mpsc::Receiver<()>;
+type TerminationReceiver = watch::Receiver<bool>;
 // `oneshot::Sender` lets us wait in a select! block with the `stop_tx` sender next to whatever session-specific work is running
 type StopSender = oneshot::Sender<()>;
 
@@ -279,30 +280,25 @@ struct SessionHandle {
 
 impl SessionHandle {
     /// Sends a stop signal to the session, waiting until the session has exited
-    fn stop(self) -> Result<()> {
-        if let Err(e) = self.stop_tx.send(()) {
-            tracing::warn!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "stream session likely terminated before stop signal could be sent"
-            );
+    fn stop(self) -> impl Future<Output = Result<()>> {
+        let Self { stop_tx, mut term_rx } = self;
+        if *term_rx.borrow_and_update() {
+            return future::ready(Ok(())).left_future();
         }
 
-        self.term_rx.recv().context("waiting for session to exit")
+        _ = stop_tx.send(());
+
+        return async move {
+            term_rx
+                .changed()
+                .await
+                .context("waiting for remote streaming session to exit")
+        }.right_future();
     }
 
-    fn stop_timeout(self, timeout: Duration) -> Result<()> {
-        if let Err(e) = self.stop_tx.send(()) {
-            tracing::warn!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "stream session likely terminated before stop signal could be sent"
-            );
-        }
-
-        self.term_rx
-            .recv_timeout(timeout)
-            .context("waiting for session to exit")
+    /// Checks the status of the session and returns `true` if it has been stopped.
+    fn has_stopped(&self) -> bool {
+        *self.term_rx.borrow()
     }
 }
 
@@ -315,12 +311,14 @@ pub struct OpcUaClient {
     client: AsyncClient,
 }
 
+type ReadNodeItem<'batch> = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint);
+
 impl OpcUaClient {
     /// Attempts to gracefully disconnect from the server, returning an error if the client has outstanding references.
     pub async fn disconnect(self: Arc<Self>) -> Result<()> {
         match Arc::into_inner(self) {
             None => bail!(
-                "OPC-UA client has outstanding references; cannot perform graceful disconnect"
+                "OPC UA client has outstanding references; cannot perform graceful disconnect"
             ),
 
             Some(Self { client }) => {
@@ -776,14 +774,7 @@ impl NodeReader for ClientNodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        >,
-    > {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
@@ -1013,22 +1004,34 @@ impl OpcUaStreamSession {
             .context("creating tokio runtime for opcua task")?;
 
         let (stop_tx, stop_rx) = oneshot::channel();
-        let (term_tx, term_rx) = mpsc::sync_channel(1);
+        let (term_tx, term_rx) = watch::channel(false);
 
         // don't care about joining the thread, since we're using `SessionHandle` to synchronize session exit
         let _ = thread::Builder::new()
             .name(format!("opcua-worker-thread-{name}"))
             .spawn(move || runtime.block_on(async move {
                 tokio::select! {
-                    _ = stop_rx => {
-                        tracing::info!(target: "opcua::client::spawn_task", "task {name} stopped cooperatively");
+                    stop_result = stop_rx => {
+                        match stop_result {
+                            Ok(_) => tracing::debug!(
+                                target: "opcua::client::spawn_task",
+                                task = name,
+                                "stopped cooperatively",
+                            ),
+                            Err(e) => tracing::debug!(
+                                target: "opcua::client::spawn_task",
+                                task = name,
+                                err = ?e,
+                                "stop signal likely dropped before task completed",
+                            ),
+                        }
                     }
 
                     _ = f() => ()
                 }
 
-                if let Err(e) = term_tx.send(()) {
-                    tracing::error!(
+                if let Err(e) = term_tx.send(true) {
+                    tracing::debug!(
                         target: "opcua::client::spawn_task",
                         err = ?e,
                         task = name,
@@ -1044,21 +1047,28 @@ impl OpcUaStreamSession {
     }
 
     /// Stops the stream session, blocking until the session exits.
-    pub fn stop(mut self) -> Result<()> {
+    pub async fn stop(mut self) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            handle.stop()?;
+            handle.stop().await?;
         }
 
         Ok(())
     }
 
     /// Stops the stream session, returning an error if the session does not exit within the given timeout.
-    pub fn stop_timeout(mut self, timeout: Duration) -> Result<()> {
+    pub async fn stop_timeout(mut self, to: Duration) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            handle.stop_timeout(timeout)?;
+            timeout(to, handle.stop()).await.context("waiting for stream session to exit")??;
         }
 
         Ok(())
+    }
+
+    pub fn has_stopped(&self) -> bool {
+        self.handle
+            .as_ref()
+            .map(SessionHandle::has_stopped)
+            .unwrap_or(true)
     }
 }
 
@@ -1066,14 +1076,9 @@ impl Drop for OpcUaStreamSession {
     fn drop(&mut self) {
         // 2s is generous for a cooperatively-cancellable loop; if the worker is
         // wedged past that, accept the leak rather than block Drop indefinitely.
-        if let Some(sync) = self.handle.take()
-            && let Err(e) = sync.stop_timeout(Duration::from_secs(2))
-        {
-            tracing::error!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "error stopping stream session"
-            );
+        if let Some(handle) = self.handle.take() {
+            // don't need to await the result, the stop signal was sent imperatively
+            let _ = handle.stop();
         }
     }
 }
