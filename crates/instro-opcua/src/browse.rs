@@ -169,12 +169,12 @@ fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<(
 
 /// Iteratively browse paths to all nodes, duplicating nodes where distinct
 /// paths exist and erroring when a cycle is detected.
-/// 
+///
 /// This algorithm works by colocating parents and children in the `nodes`
-/// list, and maintaining a separate stack frame of `(index, limit)` pairs 
+/// list, and maintaining a separate stack frame of `(index, limit)` pairs
 /// which reference the section `nodes[index..limit]`. The `index` variable is
 /// incremented until `limit` is reached, at which point the pair is popped and
-/// all children (modeled as `nodes[limit..]`) of that node are split off and 
+/// all children (modeled as `nodes[limit..]`) of that node are split off and
 /// appended to the parent in a single operation.
 async fn browse_iterative<B: Browse>(
     browser: &B,
