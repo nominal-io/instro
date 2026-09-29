@@ -472,7 +472,7 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
     assert_eq!(changed.len(), 1);
     assert_timestamps_present(&changed);
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
+    session.stop_timeout(LIFETIME_TIMEOUT).await?;
     client.disconnect().await?;
     Ok(())
 }
@@ -518,7 +518,7 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<()> {
     );
     assert_timestamps_present(&changed);
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
+    session.stop_timeout(LIFETIME_TIMEOUT).await?;
     client.disconnect().await?;
     Ok(())
 }
@@ -565,7 +565,7 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
         "expected at least two background-polled samples for the static node, got {polled}",
     );
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
+    session.stop_timeout(LIFETIME_TIMEOUT).await?;
     client.disconnect().await?;
     Ok(())
 }
