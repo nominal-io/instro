@@ -343,6 +343,9 @@ impl OpcUaClient {
         client.disconnect().await;
     }
 
+    /// Attempts to access the underlying [`AsyncClient`] and invoke `f` with it.
+    ///
+    /// Returns [`Err`] if the client has been disconnected before the function could be invoked.
     pub async fn with_client<F, T>(&self, f: F) -> Result<T>
     where
         F: for<'a> AsyncFnOnce(&'a AsyncClient) -> T,
