@@ -28,7 +28,7 @@ These steps need org, repo-admin, DNS, or vendor access, and must happen in this
   - delete `docs/guides/` and its entry in `exclude_patterns` in `docs/conf.py`;
   - set `html_baseurl` in `docs/conf.py` to `https://instro.nominal.io/python/`;
   - point the README's SDK badge at `https://instro.nominal.io/python/sdk/`;
-  - move links to guide pages under `/python/`: `instro.nominal.io/installation` and `/instruments` in `README.md` (two each), and `/library/publishers` in the `instro/lib/publishers/files.py` docstring. These point at live Mintlify pages until the switch, so they wait for it;
+  - move links to guide pages under `/python/`: `instro.nominal.io/installation` and `/instruments` in `README.md` (two each). These point at live Mintlify pages until the switch, so they wait for it;
   - delete this file and `NEW_DOCS_CHANGES.md`.
 - [ ] **Tell users** on Discord and the forum that the docs' AI assistant and MCP server (both Mintlify-hosted) are gone, and update any pinned links.
 - [ ] **Search Console**, if used: verify `instro.nominal.io` and resubmit the sitemap.

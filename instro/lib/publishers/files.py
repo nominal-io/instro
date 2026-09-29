@@ -77,8 +77,7 @@ class FilePublisher:
     def publish(self, data: Measurement | Command, **kwargs):
         """Publish data to file using the appropriate writer."""
         SHARED_PUBLISHER_WARNING = (
-            "If you're attempting to publish from multiple instruments, consider using SharedPublisher. "
-            "See https://instro.nominal.io/library/publishers#sharedpublisher for more information."
+            "If you're attempting to publish from multiple instruments, consider using SharedPublisher."
         )
 
         try:
