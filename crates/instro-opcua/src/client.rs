@@ -281,19 +281,23 @@ struct SessionHandle {
 impl SessionHandle {
     /// Sends a stop signal to the session, waiting until the session has exited
     fn stop(self) -> impl Future<Output = Result<()>> {
-        let Self { stop_tx, mut term_rx } = self;
+        let Self {
+            stop_tx,
+            mut term_rx,
+        } = self;
         if *term_rx.borrow_and_update() {
             return future::ready(Ok(())).left_future();
         }
 
         _ = stop_tx.send(());
 
-        return async move {
+        async move {
             term_rx
                 .changed()
                 .await
                 .context("waiting for remote streaming session to exit")
-        }.right_future();
+        }
+        .right_future()
     }
 
     /// Checks the status of the session and returns `true` if it has been stopped.
@@ -311,7 +315,10 @@ pub struct OpcUaClient {
     client: AsyncClient,
 }
 
-type ReadNodeItem<'batch> = ((&'batch OpcUaNodeId, &'batch OpcUaAttributeId), OpcUaDataPoint);
+type ReadNodeItem<'batch> = (
+    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+    OpcUaDataPoint,
+);
 
 impl OpcUaClient {
     /// Attempts to gracefully disconnect from the server, returning an error if the client has outstanding references.
@@ -1009,36 +1016,38 @@ impl OpcUaStreamSession {
         // don't care about joining the thread, since we're using `SessionHandle` to synchronize session exit
         let _ = thread::Builder::new()
             .name(format!("opcua-worker-thread-{name}"))
-            .spawn(move || runtime.block_on(async move {
-                tokio::select! {
-                    stop_result = stop_rx => {
-                        match stop_result {
-                            Ok(_) => tracing::debug!(
-                                target: "opcua::client::spawn_task",
-                                task = name,
-                                "stopped cooperatively",
-                            ),
-                            Err(e) => tracing::debug!(
-                                target: "opcua::client::spawn_task",
-                                task = name,
-                                err = ?e,
-                                "stop signal likely dropped before task completed",
-                            ),
+            .spawn(move || {
+                runtime.block_on(async move {
+                    tokio::select! {
+                        stop_result = stop_rx => {
+                            match stop_result {
+                                Ok(_) => tracing::debug!(
+                                    target: "opcua::client::spawn_task",
+                                    task = name,
+                                    "stopped cooperatively",
+                                ),
+                                Err(e) => tracing::debug!(
+                                    target: "opcua::client::spawn_task",
+                                    task = name,
+                                    err = ?e,
+                                    "stop signal likely dropped before task completed",
+                                ),
+                            }
                         }
+
+                        _ = f() => ()
                     }
 
-                    _ = f() => ()
-                }
-
-                if let Err(e) = term_tx.send(true) {
-                    tracing::debug!(
-                        target: "opcua::client::spawn_task",
-                        err = ?e,
-                        task = name,
-                        "error sending finished signal to task"
-                    );
-                }
-            }))
+                    if let Err(e) = term_tx.send(true) {
+                        tracing::debug!(
+                            target: "opcua::client::spawn_task",
+                            err = ?e,
+                            task = name,
+                            "error sending finished signal to task"
+                        );
+                    }
+                })
+            })
             .context("spawning thread for opcua task")?;
 
         Ok(Self {
@@ -1058,7 +1067,9 @@ impl OpcUaStreamSession {
     /// Stops the stream session, returning an error if the session does not exit within the given timeout.
     pub async fn stop_timeout(mut self, to: Duration) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            timeout(to, handle.stop()).await.context("waiting for stream session to exit")??;
+            timeout(to, handle.stop())
+                .await
+                .context("waiting for stream session to exit")??;
         }
 
         Ok(())
@@ -1078,7 +1089,7 @@ impl Drop for OpcUaStreamSession {
         // wedged past that, accept the leak rather than block Drop indefinitely.
         if let Some(handle) = self.handle.take() {
             // don't need to await the result, the stop signal was sent imperatively
-            let _ = handle.stop();
+            _ = handle.stop();
         }
     }
 }
