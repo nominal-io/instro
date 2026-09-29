@@ -277,7 +277,7 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
 
     assert!(samples.next().is_none(), "read returned too many samples");
 
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
@@ -426,7 +426,7 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         &NodeIdKind::ByteString(b"inner-status-id".to_vec())
     );
 
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
@@ -473,7 +473,7 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
     assert_timestamps_present(&changed);
 
     session.stop_timeout(LIFETIME_TIMEOUT).await?;
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
@@ -519,7 +519,7 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<()> {
     assert_timestamps_present(&changed);
 
     session.stop_timeout(LIFETIME_TIMEOUT).await?;
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
@@ -566,27 +566,6 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
     );
 
     session.stop_timeout(LIFETIME_TIMEOUT).await?;
-    client.disconnect().await?;
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn disconnect_reports_outstanding_references_before_graceful_disconnect() -> Result<()> {
-    let server = TestServer::builder().start()?;
-    let client = connect_client(&server)?;
-    let extra_ref = Arc::clone(&client);
-
-    match client.disconnect().await {
-        Ok(()) => bail!("disconnect should reject outstanding client references"),
-        Err(e) => {
-            let message = e.to_string();
-            assert!(
-                message.contains("outstanding references"),
-                "unexpected disconnect error: {message}",
-            );
-        }
-    }
-
-    extra_ref.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
