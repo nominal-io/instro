@@ -97,32 +97,10 @@
       color: var(--text-main);
     }
 
-    .brand-logo-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .logo-mark {
-      width: 24px;
-      height: 24px;
-      background: #ffffff;
-      color: #000000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 14px;
-      font-family: var(--font-mono);
-      clip-path: polygon(0% 0%, 100% 0%, 85% 100%, 0% 100%);
-    }
-
-    .brand-title {
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-family: var(--font-mono);
+    .brand-logo {
+      display: block;
+      height: 20px;
+      width: auto;
     }
 
     .brand-divider {
@@ -376,17 +354,24 @@
   <header>
     <div class="header-container">
       <a href="https://nominal.io/" class="brand-group" target="_blank" rel="noopener noreferrer">
-        <div class="brand-logo-wrapper">
-          <div class="logo-mark">N</div>
-          <span class="brand-title">NOMINAL</span>
-        </div>
+        <!-- Nominal logo, from nominal.io -->
+        <svg class="brand-logo" role="img" aria-label="Nominal" viewBox="0 0 167 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M25.5316 0C25.5316 5.78995 30.2268 10.4805 36.012 10.4806V13.5196C30.27 13.5196 25.6036 18.1381 25.5316 23.8656V24H22.4877C22.4876 18.2101 17.7971 13.5196 12.0071 13.5196H0V10.4806H12.0071C17.7923 10.4806 22.4877 5.78517 22.4877 0H25.5316ZM24.0097 6.53382C22.7566 9.38559 21.3883 10.7491 18.5366 12.007C21.3883 13.2648 22.7566 14.6283 24.0097 17.4801C25.2675 14.6283 26.6309 13.2648 29.4827 12.007C26.6309 10.7539 25.2675 9.38556 24.0097 6.53382Z" fill="currentColor"></path>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M71.3057 1.3291C75.3961 1.3291 79.3662 3.94555 79.3662 9.57227V14.4453C79.3662 20.072 75.3961 22.6885 71.3057 22.6885H71.123C67.0327 22.6884 63.0625 20.0719 63.0625 14.4453V9.57227C63.0625 3.94564 67.0327 1.32919 71.123 1.3291H71.3057ZM71.1182 4.48828C68.5018 4.48843 66.3994 6.44216 66.3994 9.57227V14.4453C66.3994 17.5754 68.5018 19.5292 71.1182 19.5293H71.3008C73.9173 19.5293 76.0205 17.5755 76.0205 14.4453V9.57227C76.0205 6.44205 73.9173 4.48828 71.3008 4.48828H71.1182Z" fill="currentColor"></path>
+        <path d="M56.373 17.0322H56.7617V1.75098H59.9209V22.2656H55.2305L48.0723 6.98438H47.6836V22.2656H44.5244V1.75098H49.2148L56.373 17.0322Z" fill="currentColor"></path>
+        <path d="M91.8223 12.0635H92.4219L97.9531 1.75098H101.712V22.2656H98.5527V7.70898H98.1016L92.8682 17.4209H91.332L86.0996 7.70898H85.6475V22.2656H82.4893V1.75098H86.2578L91.8223 12.0635Z" fill="currentColor"></path>
+        <path d="M114.492 4.69922H111.396V19.3174H114.492V22.2656H105.173V19.3174H108.236V4.69922H105.173V1.75098H114.492V4.69922Z" fill="currentColor"></path>
+        <path d="M129.803 17.0322H130.191V1.75098H133.351V22.2656H128.66L121.501 6.98438H121.112V22.2656H117.953V1.75098H122.645L129.803 17.0322Z" fill="currentColor"></path>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M153.015 22.2656H149.55C149.53 22.1863 149.509 22.1079 149.486 22.0303L149.476 21.9971C148.76 19.5989 146.507 18.0239 144.317 18.0283C142.241 18.0372 140.11 19.4694 139.295 21.665L139.121 22.2656H135.573L141.857 1.75098H146.851L153.015 22.2656ZM140.941 15.9873C141.826 15.2876 142.94 14.8882 144.302 14.8809H144.308C145.709 14.8772 146.85 15.2892 147.752 16.0166L144.532 4.84766H144.172L140.941 15.9873Z" fill="currentColor"></path>
+        <path d="M158.569 19.2549H166.784V22.2656H155.233V1.75098H158.569V19.2549Z" fill="currentColor"></path>
+        </svg>
         <span class="brand-divider">/</span>
         <span class="sub-brand">INSTRO</span>
       </a>
 
       <nav class="nav-links">
-        <a href="https://nominal.io/" class="nav-link" target="_blank" rel="noopener noreferrer">Nominal.io ↗</a>
-        <a href="https://github.com/nominal-io/instro" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        <a href="https://docs.nominal.io/home" class="nav-link" target="_blank" rel="noopener noreferrer">Nominal Docs</a>
+        <a href="https://github.com/nominal-io/instro" class="nav-link" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
     </div>
   </header>
@@ -460,12 +445,11 @@
   <footer>
     <div class="footer-container">
       <div class="footer-text">
-        © Nominal Inc. — Open-Source Hardware Infrastructure
+        © Nominal Inc. — Accelerate Test. 
       </div>
       <div class="footer-links">
         <a href="https://nominal.io/" class="footer-link" target="_blank" rel="noopener noreferrer">Nominal Platform</a>
         <a href="https://nominal.io/blog/why-the-instrumentation-library-exists" class="footer-link" target="_blank" rel="noopener noreferrer">Blog Post</a>
-        <a href="https://github.com/nominal-io/instro" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   </footer>
