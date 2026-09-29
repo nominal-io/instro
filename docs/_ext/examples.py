@@ -62,10 +62,10 @@ def _script_title(py: Path) -> str:
     return first.rstrip(".") or py.stem
 
 
-def _page(py: Path, repo: Path, callout: str = "") -> str:
+def _page(py: Path, repo: Path, title: str, callout: str = "") -> str:
     rel = py.relative_to(repo).as_posix()
     return (
-        f"# {_script_title(py)}\n\n{callout}"
+        f"# {title}\n\n{callout}"
         f"```{{literalinclude}} /../{rel}\n:caption: {py.name}\n:language: python\n```\n\n"
         f"Source: [`{rel}`](https://github.com/nominal-io/instro/blob/main/{rel})\n"
     )
@@ -85,10 +85,14 @@ def generate(app: Sphinx) -> None:
     categories: dict[str, list[tuple[str, str]]] = {}
     for py in sorted((repo / "examples").rglob("*.py")):
         rel = py.relative_to(repo / "examples")
-        folder = rel.parts[0] if len(rel.parts) > 1 else "general"
-        files[out / folder / f"{py.stem}.md"] = _page(py, repo)
-        _SOURCES[f"examples/{folder}/{py.stem}"] = py.relative_to(repo).as_posix()
-        categories.setdefault(folder, []).append((_script_title(py), py.stem))
+        # pages keep the script's path under its category, so same-named scripts in
+        # different subfolders don't collide
+        folder, name = (rel.parts[0], Path(*rel.parts[1:])) if len(rel.parts) > 1 else ("general", rel)
+        name = name.with_suffix("").as_posix()
+        title = _script_title(py)
+        files[out / folder / f"{name}.md"] = _page(py, repo, title)
+        _SOURCES[f"examples/{folder}/{name}"] = py.relative_to(repo).as_posix()
+        categories.setdefault(folder, []).append((title, name))
     for folder, entries in categories.items():
         files[out / folder / "index.md"] = _index(_title(folder), entries)
 
@@ -98,9 +102,10 @@ def generate(app: Sphinx) -> None:
         for py in sorted(src.rglob("examples/*.py")):
             sub = py.parent.parent.name
             note = f":::{{{kind}}}\n{callout.format(subject='This example uses')}\n:::\n\n"
-            files[out / "packages" / slug / sub / f"{py.stem}.md"] = _page(py, repo, note)
+            script_title = _script_title(py)
+            files[out / "packages" / slug / sub / f"{py.stem}.md"] = _page(py, repo, script_title, note)
             _SOURCES[f"examples/packages/{slug}/{sub}/{py.stem}"] = py.relative_to(repo).as_posix()
-            sections.setdefault(sub, []).append((_script_title(py), f"{sub}/{py.stem}"))
+            sections.setdefault(sub, []).append((script_title, f"{sub}/{py.stem}"))
         body = f"# {title}\n\n:::{{{kind}}}\n{callout.format(subject='These examples use')}\n:::\n\n"
         body += (
             "".join(
