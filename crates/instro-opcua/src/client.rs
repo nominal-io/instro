@@ -586,21 +586,12 @@ impl OpcUaClient {
 
             let read_start = metrics.start_read();
 
-            let read_result = if reader.is_alive() {
-                reader
-                    .read_nodes(&node_list)
-                    .await
-                    .context("reading nodes from poll loop")
-            } else {
-                tracing::warn!(target: "opcua::client::poll", "stopping poll loop");
-                break;
-            };
-
-            let (outcome, samples) = match read_result {
+            let (outcome, samples) = match reader.read_nodes(&node_list).await {
                 Ok(values) => {
                     let values = values
                         .map(|((id, _), value)| (id.clone(), value))
                         .collect_vec();
+
                     let successful_reads = values.len() as u64;
                     let failed_reads = total_nodes.saturating_sub(successful_reads);
 
@@ -613,14 +604,14 @@ impl OpcUaClient {
                     )
                 }
 
-                Err(e) => {
-                    tracing::error!(
-                        target: "opcua::client::poll",
-                        error = ?e,
-                        "error reading node attributes"
-                    );
-
+                Err(NodeReadError::RuntimeError(e)) => {
+                    tracing::error!(target: "opcua::client::poll", "error reading nodes from poll loop: {e}");
                     (None, None)
+                }
+
+                Err(NodeReadError::ClientDropped) => {
+                    tracing::info!(target: "opcua::client::poll", "stopping poll loop");
+                    break;
                 }
             };
 
@@ -672,11 +663,6 @@ impl OpcUaClient {
             select_biased! {
                 // Ticks are first so ready poll work is not starved by a burst of notifications.
                 _ = maybe_tick.fuse() => {
-                    // If the client is gone, stop before another read; the exit drain still flushes buffered polls.
-                    if !reader.is_alive() {
-                        break;
-                    }
-
                     let polled_samples_to_flush = polled_nodes
                         .drain()
                         .collect_vec();
@@ -689,8 +675,9 @@ impl OpcUaClient {
 
                         let reads = match reader.read_nodes(&batch).await {
                             Ok(reads) => reads,
+                            Err(NodeReadError::ClientDropped) => break,
 
-                            Err(e) => {
+                            Err(NodeReadError::RuntimeError(e)) => {
                                 tracing::error!(
                                     target: "opcua::client::subscribe",
                                     error = ?e,
@@ -784,21 +771,16 @@ fn polled_sample_filter(
 // single-threaded session runtime, so no work crosses threads after the timer/read seams.
 #[allow(async_fn_in_trait)]
 pub(crate) trait NodeReader {
-    /// Returns `false` once the backing client has been dropped, signalling the loop to stop.
-    fn is_alive(&self) -> bool;
-
     /// Reads the configured attribute for every node in `batch`, returning decoded samples.
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        >,
-    >;
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError>;
+}
+
+pub(crate) enum NodeReadError {
+    ClientDropped,
+    RuntimeError(anyhow::Error),
 }
 
 /// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
@@ -807,20 +789,16 @@ pub(crate) struct ClientNodeReader {
 }
 
 impl NodeReader for ClientNodeReader {
-    fn is_alive(&self) -> bool {
-        self.client.strong_count() > 0
-    }
-
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
-            Some(client) => client.read_nodes(batch).await,
-            None => bail!("OPC-UA client dropped before background poll read"),
+            Some(client) => client.read_nodes(batch).await.map_err(NodeReadError::RuntimeError),
+            None => Err(NodeReadError::ClientDropped),
         }
     }
 }
@@ -1107,8 +1085,6 @@ impl OpcUaStreamSession {
 
 impl Drop for OpcUaStreamSession {
     fn drop(&mut self) {
-        // 2s is generous for a cooperatively-cancellable loop; if the worker is
-        // wedged past that, accept the leak rather than block Drop indefinitely.
         if let Some(handle) = self.handle.take() {
             // don't need to await the result, the stop signal was sent imperatively
             _ = handle.stop();
@@ -1142,10 +1118,12 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::time::timeout;
 
+    use super::NodeReadError;
     use super::NodeReader;
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
+    use super::ReadNodeItem;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNodeId;
@@ -1191,26 +1169,20 @@ mod tests {
     }
 
     impl NodeReader for MockNodeReader {
-        fn is_alive(&self) -> bool {
-            self.state.lock().map(|s| s.is_alive).unwrap_or(false)
-        }
-
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<
-            impl Iterator<
-                Item = (
-                    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                    OpcUaDataPoint,
-                ),
-            >,
-        > {
+        ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
+
             let samples = {
                 let mut state = self
                     .state
                     .lock()
-                    .map_err(|_| anyhow!("reader state poisoned"))?;
+                    .map_err(|_| NodeReadError::RuntimeError(anyhow!("reader state poisoned")))?;
+
+                if !state.is_alive {
+                    return Err(NodeReadError::ClientDropped);
+                }
 
                 let timestamp = state.next_timestamp;
                 state.next_timestamp = state.next_timestamp.saturating_add(1);
