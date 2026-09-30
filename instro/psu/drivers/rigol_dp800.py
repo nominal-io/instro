@@ -13,13 +13,6 @@ _CONDITION_MODES = {
     2: OperatingMode.CONSTANT_VOLTAGE,
     3: OperatingMode.UNREGULATED,
 }
-# query_status() predates OperatingMode and keeps its own spellings for callers that read its dict.
-_STATUS_MODE_NAMES = {
-    OperatingMode.OFF: "off",
-    OperatingMode.CONSTANT_CURRENT: "CC",
-    OperatingMode.CONSTANT_VOLTAGE: "CV",
-    OperatingMode.UNREGULATED: "UNREGULATED",
-}
 
 
 @dataclass(frozen=True)
@@ -158,23 +151,6 @@ class RigolDP800(PSUDriverBase):
             case _:
                 raise RuntimeError(f"Unexpected Rigol remote-sense state for channel {channel}: {state}")
 
-    def query_status(self) -> dict:
-        """Query the status of the PSU (output enable, regulation mode, OVP/OCP flags)."""
-        status: dict = {}
-
-        with self._visa.lock():
-            num_channels = self._channel_count()
-
-            for channel in range(1, num_channels + 1):
-                channel_dict: dict = {}
-                channel_dict["enable"] = self.get_output_status(channel)
-
-                channel_dict.update(self._decode_channel_condition(self._query_channel_condition(channel)))
-
-                status[f"ch{channel}"] = channel_dict
-
-        return status
-
     def _query_channel_condition(self, channel: int) -> int:
         """Read ``:STAT:QUES:INST:ISUM<n>:COND?`` for ``channel`` as an integer bit field."""
         reply = self._query_checked(f":STAT:QUES:INST:ISUM{channel}:COND?").strip()
@@ -182,14 +158,6 @@ class RigolDP800(PSUDriverBase):
             return int(reply)
         except ValueError:
             raise RuntimeError(f"Unexpected Rigol condition register for channel {channel}: {reply}") from None
-
-    def _decode_channel_condition(self, cond_code: int) -> dict:
-        """Decode questionable instrument summary condition bits for a given channel."""
-        return {
-            "mode": _STATUS_MODE_NAMES[_CONDITION_MODES[cond_code & 3]],
-            "OVP": bool(cond_code & 4),
-            "OCP": bool(cond_code & 8),
-        }
 
     def _channel_count(self) -> int:
         if not self.idn:

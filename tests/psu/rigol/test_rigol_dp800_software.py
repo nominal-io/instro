@@ -197,33 +197,6 @@ def test_rigol_get_operating_mode_raises_on_non_numeric_reply(rigol: RigolDP800,
         rigol.get_operating_mode(channel=1)
 
 
-def test_rigol_query_status_decodes_condition_register(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol.idn = "RIGOL TECHNOLOGIES,DP832A,DP8A000000000,00.01.19"
-    rigol_visa.query.side_effect = [
-        "ON",
-        _NO_ERROR,
-        "6",
-        _NO_ERROR,
-        "OFF",
-        _NO_ERROR,
-        "8",
-        _NO_ERROR,
-        "OFF",
-        _NO_ERROR,
-        "3",
-        _NO_ERROR,
-    ]
-
-    status = rigol.query_status()
-
-    assert status == {
-        "ch1": {"enable": True, "mode": "CV", "OVP": True, "OCP": False},
-        "ch2": {"enable": False, "mode": "off", "OVP": False, "OCP": True},
-        "ch3": {"enable": False, "mode": "UNREGULATED", "OVP": False, "OCP": False},
-    }
-    assert rigol_visa.query.call_args_list[2] == call(":STAT:QUES:INST:ISUM1:COND?")
-
-
 def test_rigol_set_overvoltage_protection_level_writes_channel_command(
     rigol: RigolDP800,
     rigol_visa: MagicMock,

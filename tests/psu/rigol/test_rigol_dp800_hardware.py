@@ -254,21 +254,6 @@ def record_test_event(request: pytest.FixtureRequest) -> Iterator[None]:
 # ---------------------------------------------------------------------------
 
 
-def test_query_status(driver: RigolDP800) -> None:
-    idn = driver._visa.query("*IDN?")
-    print(f"\nIDN: {idn.strip()}")
-
-    status = driver.query_status()
-
-    assert set(status) == {f"ch{channel_config.channel}" for channel_config in CHANNELS}
-    for channel_config in CHANNELS:
-        channel_status = status[f"ch{channel_config.channel}"]
-        assert channel_status["enable"] is False
-        assert channel_status["mode"] in {"off", "CC", "CV", "UNREGULATED"}
-        assert isinstance(channel_status["OVP"], bool)
-        assert isinstance(channel_status["OCP"], bool)
-
-
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
 def test_set_voltage(driver: RigolDP800, channel_config: ChannelConfig) -> None:
     driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
