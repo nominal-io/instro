@@ -541,7 +541,7 @@ impl OpcUaClient {
         }
 
         if valid_streams.is_empty() {
-            Err(ClientError::MalformedServiceResponse("no valid monitored item streams were created".to_string()))?
+            Err(ClientError::MalformedServiceResponse(format!("no valid monitored item streams were created; all {requested_count} requested node(s) failed")))?
         }
 
         let reader = ClientNodeReader { client: this };
