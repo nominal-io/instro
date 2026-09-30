@@ -166,6 +166,8 @@ def test_bk_single_get_overvoltage_protection_delay_parses_response(
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
+        ("clear_overcurrent_protection", ()),
+        ("get_overcurrent_protection_tripped", ()),
         ("set_remote_sense_enabled", (True,)),
         ("get_remote_sense_enabled", ()),
     ],

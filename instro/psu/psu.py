@@ -520,7 +520,11 @@ class InstroPSU(Instrument):
         )
 
     def get_overvoltage_protection_tripped(self, channel: int, **kwargs) -> Measurement | None:
-        """Query whether overvoltage protection has tripped on ``channel`` and not been cleared. Returns ``None`` if unavailable."""
+        """Query whether overvoltage protection has tripped on ``channel`` and not been cleared.
+
+        Raises ``NotImplementedError`` if the driver does not implement the query, or
+        ``FeatureNotSupportedError`` if the supply has no overvoltage protection.
+        """
         return self._execute_measurement(
             self._driver.get_overvoltage_protection_tripped,
             channel=channel,
@@ -541,7 +545,11 @@ class InstroPSU(Instrument):
         )
 
     def get_overcurrent_protection_tripped(self, channel: int, **kwargs) -> Measurement | None:
-        """Query whether overcurrent protection has tripped on ``channel`` and not been cleared. Returns ``None`` if unavailable."""
+        """Query whether overcurrent protection has tripped on ``channel`` and not been cleared.
+
+        Raises ``NotImplementedError`` if the driver does not implement the query, or
+        ``FeatureNotSupportedError`` if the supply has no overcurrent protection.
+        """
         return self._execute_measurement(
             self._driver.get_overcurrent_protection_tripped,
             channel=channel,
