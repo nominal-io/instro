@@ -20,9 +20,6 @@
 use std::collections::HashSet;
 use std::future::Future;
 
-use anyhow::Context as _;
-use anyhow::Result;
-use anyhow::bail;
 use open62541::ua;
 
 use super::client::OpcUaClient;
@@ -30,6 +27,10 @@ use super::types::OpcUaBrowsePath;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
+
+use crate::OpcUaError;
+use crate::error::ClientError;
+use crate::error::Result;
 
 /// A trait for browsing a single node and returning its children.
 pub trait Browse {
@@ -88,22 +89,30 @@ impl<T: Browse> BrowseAll for T {
 
 impl Browse for OpcUaClient {
     async fn browse_node(&self, node_id: OpcUaNodeId) -> Result<Vec<OpcUaNode>> {
-        let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id.into());
+        let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id.clone().into());
+
         let (mut all_refs, mut cont_pt) = self
-            .with_client(async |client| client.browse(&browse_desc).await)
-            .await??;
+            .with_client(async |client|
+                client
+                    .browse(&browse_desc)
+                    .await
+            )
+            .await?
+            .map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
 
         while let Some(cp) = cont_pt {
             let mut results = self
                 .with_client(async |client| client.browse_next(&[cp]).await)
-                .await??;
+                .await?
+                .map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
 
             match results.pop() {
                 Some(result) => {
-                    let (more_refs, next_cp) = result?;
+                    let (more_refs, next_cp) = result.map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
                     all_refs.extend(more_refs);
                     cont_pt = next_cp;
                 }
+
                 None => break,
             }
         }
@@ -159,12 +168,9 @@ fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<(
         .segments()
         .last()
         .cloned()
-        .with_context(|| {
-            format!(
-                "browse result for node {} had no browse path",
-                child.node_id
-            )
-        })?;
+        .ok_or_else(|| OpcUaError::other(
+            format!("browse result for node {} had no browse path", child.node_id)
+        ))?;
 
     child.browse_path = parent_path.child(segment);
 
@@ -209,17 +215,17 @@ async fn browse_iterative<B: Browse>(
         if current < limit {
             let current_node = nodes
                 .get(current)
-                .context("browse stack referenced an out-of-bounds node index")?;
+                .ok_or_else(|| OpcUaError::other(format!("browse stack referenced an out-of-bounds node index")))?;
 
             if let Some(limit) = node_limit
                 && count_visited >= limit
             {
-                bail!("Node limit exceeded. Limit: {limit}");
+                Err(ClientError::BrowsedNodeLimitExceeded(limit))?;
             }
             count_visited = count_visited.saturating_add(1);
 
             if ancestors.contains(&current_node.node_id) {
-                bail!("Cycle detected at node {current_node:?}");
+                Err(ClientError::BrowseCycleDetected(current_node.node_id.clone()))?;
             } else {
                 ancestors.insert(current_node.node_id.clone());
             }
@@ -256,7 +262,7 @@ async fn browse_iterative<B: Browse>(
             let children = nodes.split_off(*prev_limit);
             let prev_node = nodes
                 .get_mut(*prev)
-                .context("browse stack referenced an out-of-bounds node index")?;
+                .ok_or_else(|| OpcUaError::other(format!("browse stack referenced an out-of-bounds node index")))?;
 
             prev_node.children = children;
             ancestors.remove(&prev_node.node_id);
@@ -270,7 +276,6 @@ async fn browse_iterative<B: Browse>(
 mod tests {
     use std::collections::HashMap;
 
-    use anyhow::Result;
     use tokio::runtime::Builder;
 
     use super::Browse;
@@ -281,6 +286,7 @@ mod tests {
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
     use crate::types::OpcUaQualifiedName;
+    use crate::error::Result;
 
     fn nid(n: u32) -> OpcUaNodeId {
         OpcUaNodeId::numeric(0, n)
@@ -656,7 +662,7 @@ mod tests {
     fn wide_tree_returns_all_children() {
         let width = 100;
         let (browser, root) = wide_tree(width);
-        let result = browser.browse(root, None).expect("browse should succeed");
+        let result = browser.browse(root, None).expect("failed to browse wide tree");
 
         assert_eq!(
             result.len(),
@@ -686,9 +692,7 @@ mod tests {
     #[test]
     fn empty_graph_returns_empty() {
         let browser = MockBrowser::new();
-        let result = browser
-            .browse(nid(999), None)
-            .expect("browse should succeed");
+        let result = browser.browse(nid(999), None).expect("failed to browse empty graph");
         assert!(result.is_empty());
     }
 
@@ -724,6 +728,7 @@ mod tests {
             .max_blocking_threads(1)
             .build()
             .expect("failed to build tokio runtime");
+
         let result = runtime
             .block_on(browser.browse_all(nid(1), None, None))
             .expect("browse should succeed");
