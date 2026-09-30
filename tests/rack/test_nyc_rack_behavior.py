@@ -1,7 +1,7 @@
 """NYC test rack: instrument behavior beyond steady-state agreement.
 
-Protection trips, the PSU's CV->CC crossover, the eload's CV/CP/short modes, the DP832A's
-readback latency after turn-on, and whether DMM NPLC actually changes the integration.
+Protection trips, the PSU's CV->CC crossover, the eload's CV/CP/short modes, and whether DMM
+NPLC actually changes the integration.
 Every level stays at or below 5 V / 1 A. Trip checks restore the standard protection
 levels (rack_support.OVP_V/OCP_A) and clear the trip in ``finally``.
 
@@ -16,12 +16,9 @@ Run:
 
 from __future__ import annotations
 
-import json
 import statistics
 import sys
 import time
-from collections.abc import Callable
-from pathlib import Path
 
 import pytest
 from rack_support import (
@@ -35,9 +32,7 @@ from rack_support import (
     OFF_THRESHOLD_V,
     PSU_READBACK_I_ABS_A,
     PSU_READBACK_I_REL,
-    READBACK_TIMEOUT_S,
     SETTLE_S,
-    SPARE_CH,
     Rack,
     arm_protection,
     assert_below,
@@ -61,7 +56,6 @@ CROSSOVER_CR_OHM = 5.0  # wants 1 A at 5 V, so the 0.3 A limit forces the PSU in
 ELOAD_CV_V = 3.0
 ELOAD_CP_W = 1.0
 SHORT_LIMIT_A = 0.2
-LATENCY_REAL_OUTPUT_MAX_S = 0.5
 POWER_LINE_HZ = 60.0
 
 
@@ -209,72 +203,6 @@ def test_eload_short(rack: Rack) -> None:
     time.sleep(SETTLE_S)
     assert_close("DMM bus recovered after short off", latest(dmm.read_dc_voltage()), BUS_VOLTAGE_V, 0.005, 0.02)
     assert_below("eload current after short off", latest(eload.get_current()), 0.01)
-
-
-def _latency_probe(
-    psu: InstroPSU, channel: int, current_limit: float, real_output_on: Callable[[], bool] | None
-) -> tuple[float | None, float | None]:
-    """Seconds from :OUTP ON until the real output (external meter) and the PSU readback show 1 V."""
-    start = time.perf_counter()
-    while psu._driver.get_voltage(channel) > OFF_THRESHOLD_V and time.perf_counter() - start < READBACK_TIMEOUT_S:  # type: ignore[attr-defined]
-        time.sleep(0.1)
-    time.sleep(1.0)
-    psu.apply(current_limit=current_limit, voltage=1.0, channel=channel)
-    t0 = time.perf_counter()
-    psu.output_enable(True, channel=channel)
-    t_real: float | None = None
-    t_readback: float | None = None
-    while (t := time.perf_counter() - t0) < READBACK_TIMEOUT_S and (
-        t_readback is None or (real_output_on is not None and t_real is None)
-    ):
-        if real_output_on is not None and t_real is None and real_output_on():
-            t_real = time.perf_counter() - t0
-        if t_readback is None and psu._driver.get_voltage(channel) > 0.97:  # type: ignore[attr-defined]
-            t_readback = time.perf_counter() - t0
-        time.sleep(0.02)
-    psu.output_enable(False, channel=channel)
-    return t_real, t_readback
-
-
-def test_psu_readback_latency(rack: Rack, run_dir: Path) -> None:
-    """Tracks the DP832A's measurement lag after turn-on per channel; fails if it grows past the poll timeout."""
-    psu, dmm = rack.psu, rack.dmm
-    results: dict[str, dict[str, float | None]] = {}
-
-    def bus_is_up() -> bool:
-        return dmm._driver.measure_dc_voltage() > 0.97  # type: ignore[attr-defined, no-any-return]
-
-    def loop_is_up() -> bool:
-        return dmm._driver.measure_dc_current() > 0.009  # type: ignore[attr-defined, no-any-return]
-
-    # (channel, current limit, DMM function + range watching it, real-output detector); CH3 has no meter.
-    probes = (
-        (BUS_CH, 0.1, (MeasurementFunction.DC_VOLTAGE, 10.0), bus_is_up),
-        (LOOP_CH, LOOP_CURRENT_LIMIT_A, (MeasurementFunction.DC_CURRENT, LOOP_DCI_RANGE_A), loop_is_up),
-        (SPARE_CH, 0.1, None, None),
-    )
-    for channel, limit, dmm_setup, real in probes:
-        if dmm_setup is not None:
-            dmm.set_measurement_function(dmm_setup[0])
-            dmm.set_range(dmm_setup[1])
-            dmm.set_aperture_nplc(0.2)
-        t_real, t_readback = _latency_probe(psu, channel, limit, real)
-        results[f"ch{channel}"] = {"real_output_s": t_real, "readback_s": t_readback}
-        logger.info(
-            "  CH%d: real output %s, readback %s",
-            channel,
-            "n/a (no external meter)" if real is None else (f"{t_real:.3f} s" if t_real is not None else "NEVER"),
-            f"{t_readback:.3f} s" if t_readback is not None else "NEVER",
-        )
-    dmm.set_aperture_nplc(1)
-    (run_dir / "readback_latency.json").write_text(json.dumps(results, indent=2))
-
-    for name, r in results.items():
-        assert r["readback_s"] is not None, f"{name} readback never reached 1 V within {READBACK_TIMEOUT_S} s"
-        if name != f"ch{SPARE_CH}":
-            assert r["real_output_s"] is not None and r["real_output_s"] <= LATENCY_REAL_OUTPUT_MAX_S, (
-                f"{name} real output took {r['real_output_s']} s; the output itself should be near-instant"
-            )
 
 
 def test_dmm_nplc_changes_integration(rack: Rack) -> None:

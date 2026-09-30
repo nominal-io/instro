@@ -12,8 +12,8 @@ adapter serial number), not the instrument behind it. So discovery:
 4. Matches the reply against ``KNOWN_INSTRUMENTS``, whose driver names are the keys of instro's
    own config registries, so a discovered instrument builds the same driver a JSON config would.
 
-``RACK_PSU_RESOURCE`` / ``RACK_DMM_RESOURCE`` / ``RACK_ELOAD_RESOURCE`` pin a category to one
-resource (it is still probed and matched).
+The report lists supported instruments, instruments that answered but have no in-tree driver,
+and resources that couldn't be identified (with why).
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ import logging
 import os
 import re
 import warnings
+from collections.abc import Iterable
 from typing import Any
 
 from serial.tools import list_ports
@@ -87,18 +88,6 @@ class SerialPortInfo:
 
 
 @dataclasses.dataclass(frozen=True)
-class Probe:
-    """One resource's probe outcome; ``baud_rate`` is set when a serial port answered."""
-
-    resource: str
-    idn: str | None
-    error: str | None
-    baud_rate: int | None = None
-    port: SerialPortInfo | None = None
-    skipped: str | None = None
-
-
-@dataclasses.dataclass(frozen=True)
 class DiscoveredInstrument:
     category: str
     resource: str
@@ -137,15 +126,27 @@ class DiscoveredInstrument:
 
 
 @dataclasses.dataclass(frozen=True)
-class DiscoveryReport:
-    probes: list[Probe]
-    instruments: list[DiscoveredInstrument]
-    selected: dict[str, DiscoveredInstrument]
+class UnsupportedInstrument:
+    """Answered *IDN?, but no in-tree driver matches it."""
 
-    @property
-    def unrecognized(self) -> list[Probe]:
-        matched = {i.resource for i in self.instruments}
-        return [p for p in self.probes if p.idn and p.resource not in matched]
+    resource: str
+    idn: str
+    baud_rate: int | None
+
+
+@dataclasses.dataclass(frozen=True)
+class UnreachableResource:
+    """Couldn't be identified: the probe failed, timed out, or the port was skipped."""
+
+    resource: str
+    reason: str
+
+
+@dataclasses.dataclass(frozen=True)
+class DiscoveryReport:
+    instruments: list[DiscoveredInstrument]
+    unsupported: list[UnsupportedInstrument]
+    unreachable: list[UnreachableResource]
 
 
 def _idn_fields(idn: str) -> list[str]:
@@ -194,18 +195,15 @@ def _query_idn(config: VisaConfig) -> str:
         driver.close()
 
 
-def _probe_visa(resource: str, backend: str) -> Probe:
-    try:
-        idn = _query_idn(
-            VisaConfig(visa_resource=resource, visa_backend=backend, timeout=TimeoutConfig(recv=VISA_TIMEOUT_S))
-        )
-        return Probe(resource=resource, idn=idn, error=None)
-    except Exception as exc:
-        return Probe(resource=resource, idn=None, error=f"{type(exc).__name__}: {exc}")
+def _identify_visa(resource: str, backend: str) -> str:
+    return _query_idn(
+        VisaConfig(visa_resource=resource, visa_backend=backend, timeout=TimeoutConfig(recv=VISA_TIMEOUT_S))
+    )
 
 
-def _probe_serial(resource: str, backend: str, port: SerialPortInfo | None) -> Probe:
-    errors = []
+def _identify_serial(resource: str, backend: str) -> tuple[str, int]:
+    """(*IDN? reply, baud rate) at the first baud that answers intelligibly; raises with every attempt otherwise."""
+    failures: dict[str, list[int]] = {}
     for baud in SERIAL_BAUDS:
         config = VisaConfig(
             visa_resource=resource,
@@ -216,12 +214,13 @@ def _probe_serial(resource: str, backend: str, port: SerialPortInfo | None) -> P
         try:
             reply = _query_idn(config)
         except Exception as exc:
-            errors.append(f"{baud}: {type(exc).__name__}")
+            failures.setdefault(f"{type(exc).__name__}: {exc}", []).append(baud)
             continue
         if _looks_like_idn(reply):
-            return Probe(resource=resource, idn=reply, error=None, baud_rate=baud, port=port)
-        errors.append(f"{baud}: unreadable reply {reply[:20]!r}")
-    return Probe(resource=resource, idn=None, error="; ".join(errors), port=port)
+            return reply, baud
+        failures.setdefault(f"unreadable reply {reply[:20]!r}", []).append(baud)
+    summary = "; ".join(f"{reason} (baud {', '.join(map(str, bauds))})" for reason, bauds in failures.items())
+    raise RuntimeError(f"no *IDN? reply: {summary}")
 
 
 def _serial_skip_reason(resource: str, port: SerialPortInfo | None) -> str | None:
@@ -229,18 +228,19 @@ def _serial_skip_reason(resource: str, port: SerialPortInfo | None) -> str | Non
     if resource.upper() in excluded or (port is not None and port.device.upper() in excluded):
         return "excluded by RACK_SERIAL_EXCLUDE"
     if os.environ.get("RACK_SERIAL_PROBE_ALL") != "1" and (port is None or not port.is_usb):
-        return "not a USB serial port (set RACK_SERIAL_PROBE_ALL=1 to probe)"
+        name = f"{port.device} ({port.description})" if port else "serial port"
+        return f"{name} is not a USB serial port; skipped (set RACK_SERIAL_PROBE_ALL=1 to probe)"
     return None
 
 
-def discover() -> DiscoveryReport:
+def discover(extra_resources: Iterable[str] = ()) -> DiscoveryReport:
+    """Probe every VISA resource and OS serial port, plus ``extra_resources`` (e.g. LAN addresses VISA doesn't list)."""
     rm, backend, _ = _open_resource_manager(None)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         visa_resources = set(rm.list_resources())
     serial_ports = list_serial_ports()
-    pinned = {r for c in CATEGORIES if (r := os.environ.get(f"RACK_{c.upper()}_RESOURCE"))}
-    resources = sorted(visa_resources | set(serial_ports) | pinned)
+    resources = sorted(visa_resources | set(serial_ports) | set(extra_resources))
     logger.info(
         "VISA backend %r: %d resource(s); OS serial ports: %s",
         backend,
@@ -248,80 +248,64 @@ def discover() -> DiscoveryReport:
         ", ".join(f"{p.device} ({p.description})" for p in serial_ports.values()) or "none",
     )
 
-    probes: list[Probe] = []
+    instruments: list[DiscoveredInstrument] = []
+    unsupported: list[UnsupportedInstrument] = []
+    unreachable: list[UnreachableResource] = []
     for resource in resources:
-        if resource.startswith("ASRL"):
-            port = serial_ports.get(resource)
-            if (reason := _serial_skip_reason(resource, port)) is not None:
-                logger.info("  skip  %-45s %s", resource, reason)
-                probes.append(Probe(resource=resource, idn=None, error=None, port=port, skipped=reason))
-                continue
-            logger.info("  probe %-45s serial, bauds %s", resource, SERIAL_BAUDS)
-            probe = _probe_serial(resource, backend, port)
-        else:
-            logger.info("  probe %-45s", resource)
-            probe = _probe_visa(resource, backend)
-        if probe.idn:
-            logger.info("        *IDN? -> %s%s", probe.idn, f"  (@ {probe.baud_rate} baud)" if probe.baud_rate else "")
-        else:
-            logger.warning("        no identity (%s)", probe.error)
-        probes.append(probe)
+        baud: int | None = None
+        try:
+            if resource.startswith("ASRL"):
+                if (reason := _serial_skip_reason(resource, serial_ports.get(resource))) is not None:
+                    logger.info("  skip  %-45s %s", resource, reason)
+                    unreachable.append(UnreachableResource(resource, reason))
+                    continue
+                logger.info("  probe %-45s serial, bauds %s", resource, SERIAL_BAUDS)
+                idn, baud = _identify_serial(resource, backend)
+            else:
+                logger.info("  probe %-45s", resource)
+                idn = _identify_visa(resource, backend)
+        except Exception as exc:
+            reason = f"{type(exc).__name__}: {exc}"
+            logger.warning("        unreachable: %s", reason)
+            unreachable.append(UnreachableResource(resource, reason))
+            continue
 
-    instruments = []
-    for probe in probes:
-        if not probe.idn:
-            continue
-        known = match_known(probe.idn)
+        at_baud = f"  (@ {baud} baud)" if baud else ""
+        known = match_known(idn)
         if known is None:
-            logger.warning("  unrecognized: %s -> %s", probe.resource, probe.idn)
+            logger.warning("        *IDN? -> %s%s  [no in-tree driver]", idn, at_baud)
+            unsupported.append(UnsupportedInstrument(resource, idn, baud))
             continue
+        logger.info("        *IDN? -> %s%s  [%s %s]", idn, at_baud, known.category, known.driver_name)
         instruments.append(
             DiscoveredInstrument(
                 category=known.category,
-                resource=probe.resource,
-                idn=probe.idn,
+                resource=resource,
+                idn=idn,
                 driver_name=known.driver_name,
                 num_channels=known.num_channels,
-                baud_rate=probe.baud_rate,
+                baud_rate=baud,
             )
         )
 
-    selected: dict[str, DiscoveredInstrument] = {}
-    for category in CATEGORIES:
-        candidates = [i for i in instruments if i.category == category]
-        pin = os.environ.get(f"RACK_{category.upper()}_RESOURCE")
-        if pin:
-            candidates = [i for i in candidates if i.resource == pin]
-            if not candidates:
-                logger.error(
-                    "  %-5s -> RACK_%s_RESOURCE=%s isn't a known %s", category, category.upper(), pin, category
-                )
-                continue
-        if not candidates:
-            logger.error("  %-5s -> NOT FOUND", category)
-            continue
-        if len(candidates) > 1:
-            logger.warning(
-                "  %-5s -> %d found, using the first; pin one with RACK_%s_RESOURCE: %s",
-                category,
-                len(candidates),
-                category.upper(),
-                [c.resource for c in candidates],
-            )
-        chosen = candidates[0]
-        selected[category] = chosen
-        logger.info("  %-5s -> %s via %s (%s)", category, chosen.model, chosen.driver_name, chosen.resource)
-    return DiscoveryReport(probes=probes, instruments=instruments, selected=selected)
+    logger.info(
+        "Discovered %d supported instrument(s), %d unsupported, %d unreachable",
+        len(instruments),
+        len(unsupported),
+        len(unreachable),
+    )
+    return DiscoveryReport(instruments=instruments, unsupported=unsupported, unreachable=unreachable)
 
 
 def main() -> int:
-    """Run discovery standalone and print the report; ``-v`` adds pyvisa/instro DEBUG logs, ``--json`` dumps it."""
+    """Run discovery standalone; ``-v`` adds pyvisa/instro DEBUG logs, ``--json`` prints the report."""
     import argparse
     import json
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("-v", "--verbose", action="store_true", help="also show DEBUG logs from pyvisa and instro")
     parser.add_argument("--json", action="store_true", help="print the full report as JSON")
+    parser.add_argument("resources", nargs="*", help="extra VISA resources to probe, e.g. LAN addresses")
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
@@ -330,11 +314,10 @@ def main() -> int:
     )
     logger.setLevel(logging.INFO)
 
-    report = discover()
+    report = discover(args.resources)
     if args.json:
         print(json.dumps(dataclasses.asdict(report), indent=2))
-    missing = [c for c in CATEGORIES if c not in report.selected]
-    return 1 if missing else 0
+    return 0
 
 
 if __name__ == "__main__":
