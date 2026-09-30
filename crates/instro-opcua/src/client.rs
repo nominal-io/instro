@@ -304,7 +304,8 @@ impl SessionHandle {
         if let Err(e) = self.term_rx.has_changed() {
             tracing::debug!(
                 target: "opcua::client::session_handle",
-                err = ?e, "stream session handle was dropped unexpectedly"
+                err = ?e,
+                "stream session handle was dropped unexpectedly"
             );
 
             true
@@ -394,14 +395,7 @@ impl OpcUaClient {
     pub async fn read_nodes<'nodes, 'attrs, 'batch>(
         &self,
         node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        > + use<'nodes, 'attrs, 'batch>,
-    > {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>> + use<'batch>> {
         let read_result = self
             .with_client(async |client| {
                 client
@@ -464,7 +458,7 @@ impl OpcUaClient {
                 subscription_builder
                     .create(client)
                     .await
-                    .context("creating OPC-UA subscription")
+                    .context("creating OPC UA subscription")
             })
             .await??;
 
@@ -479,11 +473,11 @@ impl OpcUaClient {
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
-            .context("creating OPC-UA monitored items")?;
+            .context("creating OPC UA monitored items")?;
 
         if item_results.len() != nodes.len() {
             bail!(
-                "OPC-UA server returned {} monitored-item results for {} requested nodes",
+                "OPC UA server returned {} monitored-item results for {} requested nodes",
                 item_results.len(),
                 nodes.len()
             );
@@ -605,7 +599,12 @@ impl OpcUaClient {
                 }
 
                 Err(NodeReadError::RuntimeError(e)) => {
-                    tracing::error!(target: "opcua::client::poll", "error reading nodes from poll loop: {e}");
+                    tracing::error!(
+                        target: "opcua::client::poll",
+                        err = ?e,
+                        "error reading nodes from poll loop"
+                    );
+
                     (None, None)
                 }
 
@@ -797,7 +796,10 @@ impl NodeReader for ClientNodeReader {
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
-            Some(client) => client.read_nodes(batch).await.map_err(NodeReadError::RuntimeError),
+            Some(client) => client
+                .read_nodes(batch)
+                .await
+                .map_err(NodeReadError::RuntimeError),
             None => Err(NodeReadError::ClientDropped),
         }
     }
@@ -1173,7 +1175,6 @@ mod tests {
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
         ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
-
             let samples = {
                 let mut state = self
                     .state
