@@ -220,7 +220,7 @@ async fn browse_iterative<B: Browse>(
             if let Some(limit) = node_limit
                 && count_visited >= limit
             {
-                Err(ClientError::BrowsedNodeLimitExceeded(current_node.node_id.clone(), limit))?;
+                Err(ClientError::BrowsedNodeLimitExceeded(node_id.clone(), current_node.node_id.clone(), limit))?;
             }
             count_visited = count_visited.saturating_add(1);
 

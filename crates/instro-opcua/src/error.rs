@@ -29,9 +29,9 @@ pub enum ClientError {
     StreamInit(#[source] std::io::Error),
     #[error("failed to browse node: {0}{source}", source = format_source(Some(.1)))]
     BrowseNode(OpcUaNodeId, #[source] UaError),
-    #[error("node limit exceeded: {0}")]
-    BrowsedNodeLimitExceeded(OpcUaNodeId, usize),
-    #[error("node reference cycle detected at node: {0}, browse root: {1}")]
+    #[error("node limit exceeded when traversing node '{1}' (limit: {2}, browse root: {0})")]
+    BrowsedNodeLimitExceeded(OpcUaNodeId, OpcUaNodeId, usize),
+    #[error("node reference cycle detected at node: {0} (browse root: {1})")]
     BrowseCycleDetected(OpcUaNodeId, OpcUaNodeId),
 }
 
