@@ -92,11 +92,7 @@ impl Browse for OpcUaClient {
         let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id.clone().into());
 
         let (mut all_refs, mut cont_pt) = self
-            .with_client(async |client|
-                client
-                    .browse(&browse_desc)
-                    .await
-            )
+            .with_client(async |client| client.browse(&browse_desc).await)
             .await?
             .map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
 
@@ -108,7 +104,8 @@ impl Browse for OpcUaClient {
 
             match results.pop() {
                 Some(result) => {
-                    let (more_refs, next_cp) = result.map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
+                    let (more_refs, next_cp) =
+                        result.map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
                     all_refs.extend(more_refs);
                     cont_pt = next_cp;
                 }
@@ -168,9 +165,12 @@ fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<(
         .segments()
         .last()
         .cloned()
-        .ok_or_else(|| OpcUaError::other(
-            format!("browse result for node {} had no browse path", child.node_id)
-        ))?;
+        .ok_or_else(|| {
+            OpcUaError::other(format!(
+                "browse result for node {} had no browse path",
+                child.node_id
+            ))
+        })?;
 
     child.browse_path = parent_path.child(segment);
 
@@ -213,19 +213,26 @@ async fn browse_iterative<B: Browse>(
         };
 
         if current < limit {
-            let current_node = nodes
-                .get(current)
-                .ok_or_else(|| OpcUaError::other(format!("browse stack referenced an out-of-bounds node index")))?;
+            let current_node = nodes.get(current).ok_or_else(|| {
+                OpcUaError::other("browse stack referenced an out-of-bounds node index".to_string())
+            })?;
 
             if let Some(limit) = node_limit
                 && count_visited >= limit
             {
-                Err(ClientError::BrowsedNodeLimitExceeded(node_id.clone(), current_node.node_id.clone(), limit))?;
+                Err(ClientError::BrowsedNodeLimitExceeded(
+                    node_id.clone(),
+                    current_node.node_id.clone(),
+                    limit,
+                ))?;
             }
             count_visited = count_visited.saturating_add(1);
 
             if ancestors.contains(&current_node.node_id) {
-                Err(ClientError::BrowseCycleDetected(current_node.node_id.clone(), node_id.clone()))?;
+                Err(ClientError::BrowseCycleDetected(
+                    current_node.node_id.clone(),
+                    node_id.clone(),
+                ))?;
             } else {
                 ancestors.insert(current_node.node_id.clone());
             }
@@ -260,9 +267,9 @@ async fn browse_iterative<B: Browse>(
             };
 
             let children = nodes.split_off(*prev_limit);
-            let prev_node = nodes
-                .get_mut(*prev)
-                .ok_or_else(|| OpcUaError::other(format!("browse stack referenced an out-of-bounds node index")))?;
+            let prev_node = nodes.get_mut(*prev).ok_or_else(|| {
+                OpcUaError::other("browse stack referenced an out-of-bounds node index".to_string())
+            })?;
 
             prev_node.children = children;
             ancestors.remove(&prev_node.node_id);
@@ -281,12 +288,12 @@ mod tests {
     use super::Browse;
     use super::BrowseAll;
     use super::browse_iterative;
+    use crate::error::Result;
     use crate::types::OpcUaBrowsePath;
     use crate::types::OpcUaNode;
     use crate::types::OpcUaNodeClass;
     use crate::types::OpcUaNodeId;
     use crate::types::OpcUaQualifiedName;
-    use crate::error::Result;
 
     fn nid(n: u32) -> OpcUaNodeId {
         OpcUaNodeId::numeric(0, n)
@@ -662,7 +669,9 @@ mod tests {
     fn wide_tree_returns_all_children() {
         let width = 100;
         let (browser, root) = wide_tree(width);
-        let result = browser.browse(root, None).expect("failed to browse wide tree");
+        let result = browser
+            .browse(root, None)
+            .expect("failed to browse wide tree");
 
         assert_eq!(
             result.len(),
@@ -692,7 +701,9 @@ mod tests {
     #[test]
     fn empty_graph_returns_empty() {
         let browser = MockBrowser::new();
-        let result = browser.browse(nid(999), None).expect("failed to browse empty graph");
+        let result = browser
+            .browse(nid(999), None)
+            .expect("failed to browse empty graph");
         assert!(result.is_empty());
     }
 
