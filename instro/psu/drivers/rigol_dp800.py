@@ -62,6 +62,21 @@ class RigolDP800(PSUDriverBase):
         return self._query_checked_bool(f":OUTP? CH{channel}")
 
     def get_operating_mode(self, channel: int) -> OperatingMode:
+        """Query the regulation state of ``channel``.
+
+        Returns ``OFF`` when the output is disabled, without consulting ``:OUTP:MODE?``, which
+        still answers ``CV`` for a disabled channel. Otherwise maps the ``CV``/``CC``/``UR`` reply
+        to ``CONSTANT_VOLTAGE``/``CONSTANT_CURRENT``/``UNREGULATED``.
+
+        Args:
+            channel: 1-based output channel.
+
+        Returns:
+            OperatingMode: The channel's regulation state.
+
+        Raises:
+            RuntimeError: On an unexpected output-state or mode reply, or a SCPI error.
+        """
         with self._visa.lock():
             # :OUTP:MODE? still answers CV for a disabled channel, so check the output state first.
             state = self._query_checked(f":OUTP? CH{channel}").strip().upper()
