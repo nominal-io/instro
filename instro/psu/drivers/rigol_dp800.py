@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.psu import PSUDriverBase
+from instro.psu import OperatingMode, PSUDriverBase
 
 
 @dataclass(frozen=True)
@@ -60,6 +60,23 @@ class RigolDP800(PSUDriverBase):
 
     def get_output_status(self, channel: int) -> bool:
         return self._query_checked_bool(f":OUTP? CH{channel}")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        with self._visa.lock():
+            # :OUTP:MODE? still answers CV for a disabled channel, so check the output state first.
+            if not self.get_output_status(channel):
+                return OperatingMode.OFF
+            mode = self._query_checked(f":OUTP:MODE? CH{channel}").strip().upper()
+
+        match mode:
+            case "CV":
+                return OperatingMode.CONSTANT_VOLTAGE
+            case "CC":
+                return OperatingMode.CONSTANT_CURRENT
+            case "UR":
+                return OperatingMode.UNREGULATED
+            case _:
+                raise RuntimeError(f"Unexpected Rigol operating mode for channel {channel}: {mode}")
 
     def get_voltage_setpoint(self, channel: int) -> float:
         return self._query_checked_float(f":SOUR{channel}:VOLT?")

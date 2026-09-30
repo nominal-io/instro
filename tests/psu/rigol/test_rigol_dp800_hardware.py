@@ -14,6 +14,7 @@ from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.publishers import NominalCorePublisher
 from instro.lib.transports import VisaConfig
 from instro.lib.types import Measurement
+from instro.psu import OperatingMode
 from instro.psu.drivers.rigol_dp800 import RigolDP800
 
 pytestmark = pytest.mark.hardware
@@ -387,6 +388,25 @@ def test_get_output_status(driver: RigolDP800, channel_config: ChannelConfig) ->
         state_on = driver.get_output_status(channel=channel_config.channel)
         _stream(f"ch{channel_config.channel}.output_enabled", float(state_on))
         assert state_on is True
+    finally:
+        driver.output_enable(False, channel=channel_config.channel)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_operating_mode(driver: RigolDP800, channel_config: ChannelConfig) -> None:
+    driver.output_enable(False, channel=channel_config.channel)
+    assert driver.get_operating_mode(channel=channel_config.channel) == OperatingMode.OFF
+
+    driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
+    driver.set_voltage(channel_config.programmed_voltage, channel=channel_config.channel)
+    try:
+        driver.output_enable(True, channel=channel_config.channel)
+        mode_on = driver.get_operating_mode(channel=channel_config.channel)
+        assert mode_on in {
+            OperatingMode.CONSTANT_VOLTAGE,
+            OperatingMode.CONSTANT_CURRENT,
+            OperatingMode.UNREGULATED,
+        }
     finally:
         driver.output_enable(False, channel=channel_config.channel)
 

@@ -7,6 +7,7 @@ import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
+from instro.psu import OperatingMode
 from instro.psu.drivers import RigolDP800
 
 _NO_ERROR = '0,"No error"'
@@ -164,6 +165,45 @@ def test_rigol_get_output_status_parses_state(rigol: RigolDP800, rigol_visa: Mag
 
     rigol_visa.query.side_effect = ["OFF", '0,"No error"']
     assert rigol.get_output_status(channel=1) is False
+
+
+def test_rigol_get_operating_mode_returns_off_without_mode_query(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["OFF", _NO_ERROR]
+
+    assert rigol.get_operating_mode(channel=2) == OperatingMode.OFF
+    assert rigol_visa.query.call_args_list == [call(":OUTP? CH2"), call(":SYST:ERR?")]
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("CV", OperatingMode.CONSTANT_VOLTAGE),
+        ("CC", OperatingMode.CONSTANT_CURRENT),
+        ("UR", OperatingMode.UNREGULATED),
+    ],
+)
+def test_rigol_get_operating_mode_maps_enabled_channel_mode(
+    rigol: RigolDP800,
+    rigol_visa: MagicMock,
+    reply: str,
+    expected: OperatingMode,
+) -> None:
+    rigol_visa.query.side_effect = ["ON", _NO_ERROR, f"{reply}\n", _NO_ERROR]
+
+    assert rigol.get_operating_mode(channel=3) == expected
+    assert rigol_visa.query.call_args_list == [
+        call(":OUTP? CH3"),
+        call(":SYST:ERR?"),
+        call(":OUTP:MODE? CH3"),
+        call(":SYST:ERR?"),
+    ]
+
+
+def test_rigol_get_operating_mode_raises_on_unexpected_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["ON", _NO_ERROR, "XX", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match="Unexpected Rigol operating mode for channel 1: XX"):
+        rigol.get_operating_mode(channel=1)
 
 
 def test_rigol_set_overvoltage_protection_level_writes_channel_command(
