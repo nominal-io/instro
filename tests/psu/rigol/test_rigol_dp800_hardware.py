@@ -147,14 +147,19 @@ _recorder = _EventRecorder()
 _publisher: NominalCorePublisher | None = None
 
 
-def _stream(channel: str, value: float) -> None:
-    """Stream a single scalar reading to Nominal Core. No-op when DATASET_RID is None."""
+def _stream(channel: str, value: float | str) -> None:
+    """Stream a single reading to Nominal Core; a str publishes a categorical channel. No-op when DATASET_RID is None."""
     if _publisher is None:
         return
+    values: list[float] | list[str]
+    if isinstance(value, str):
+        values = [value]
+    else:
+        values = [value]
     _publisher.publish(
         Measurement(
             timestamps=[time.time_ns()],
-            channel_data={channel: [value]},
+            channel_data={channel: values},
         )
     )
 
@@ -395,13 +400,16 @@ def test_get_output_status(driver: RigolDP800, channel_config: ChannelConfig) ->
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
 def test_get_operating_mode(driver: RigolDP800, channel_config: ChannelConfig) -> None:
     driver.output_enable(False, channel=channel_config.channel)
-    assert driver.get_operating_mode(channel=channel_config.channel) == OperatingMode.OFF
+    mode_off = driver.get_operating_mode(channel=channel_config.channel)
+    _stream(f"ch{channel_config.channel}.operating_mode", mode_off.value)
+    assert mode_off == OperatingMode.OFF
 
     driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
     driver.set_voltage(channel_config.programmed_voltage, channel=channel_config.channel)
     try:
         driver.output_enable(True, channel=channel_config.channel)
         mode_on = driver.get_operating_mode(channel=channel_config.channel)
+        _stream(f"ch{channel_config.channel}.operating_mode", mode_on.value)
         assert mode_on in {
             OperatingMode.CONSTANT_VOLTAGE,
             OperatingMode.CONSTANT_CURRENT,
