@@ -42,7 +42,7 @@ pub enum OpcUaError {
     #[error("failed to generate self-signed certificate{source}", source = format_source(.0.as_ref()))]
     GenerateSelfSignedCert(#[source] Option<UaError>),
     #[error("failed to convert value: {0} ({1:?})")]
-    TypeConversion(String, Box<dyn Debug + 'static>),
+    TypeConversion(String, Box<dyn Debug + Send + Sync + 'static>),
     #[error("error: {0}")]
     Other(String),
 }
@@ -52,7 +52,7 @@ fn format_source(e: Option<&UaError>) -> String {
 }
 
 impl OpcUaError {
-    pub(crate) fn ua_conversion<From, To>(src: impl Debug + 'static) -> Self {
+    pub(crate) fn ua_conversion<From, To>(src: impl Debug + Send + Sync + 'static) -> Self {
         Self::TypeConversion(
             format!(
                 "failed to convert value: from type '{}' into type '{}'",
