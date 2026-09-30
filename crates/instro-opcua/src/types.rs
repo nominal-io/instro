@@ -945,7 +945,9 @@ impl From<OpcUaBrowsePath> for String {
 
 fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     if segment.is_empty() {
-        Err(OpcUaError::other("browse path contains an empty segment".to_string()))?
+        Err(OpcUaError::other(
+            "browse path contains an empty segment".to_string(),
+        ))?
     }
 
     let ns_sep = namespace_separator(segment)?;
@@ -1501,8 +1503,7 @@ impl TryFrom<OpcUaValue> for ScalarValue {
                     .map_err(OpcUaError::ua_conversion::<OpcUaValue, Self>)?,
             ),
             OpcUaValue::DateTime(dt) => ScalarValue::DateTime(
-                DateTime::try_from(dt)
-                    .map_err(OpcUaError::ua_conversion::<OpcUaValue, Self>)?,
+                DateTime::try_from(dt).map_err(OpcUaError::ua_conversion::<OpcUaValue, Self>)?,
             ),
             OpcUaValue::LocalizedText(lt) => ScalarValue::LocalizedText(
                 ua::LocalizedText::new(lt.locale(), lt.text())

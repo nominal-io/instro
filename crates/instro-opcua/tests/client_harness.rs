@@ -1,4 +1,8 @@
-#![expect(clippy::expect_used, clippy::panic, reason = "testing harness that is not production code")]
+#![expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "testing harness that is not production code"
+)]
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -43,7 +47,10 @@ fn connect_client(server: &TestServer) -> Arc<OpcUaClient> {
 }
 
 fn ua_node_id(server: &TestServer, browse_name: &str) -> ua::NodeId {
-    server.node_id(browse_name).cloned().unwrap_or_else(|| panic!("test server did not register node `{browse_name}`"))
+    server
+        .node_id(browse_name)
+        .cloned()
+        .unwrap_or_else(|| panic!("test server did not register node `{browse_name}`"))
 }
 
 fn opcua_node_id(server: &TestServer, browse_name: &str) -> OpcUaNodeId {
@@ -129,7 +136,8 @@ async fn recv_matching_batch(
             .await
             .unwrap_or_else(|_| panic!("timed out waiting for {description}"));
 
-        let samples = maybe_samples.unwrap_or_else(|| panic!("callback channel closed while waiting for {description}"));
+        let samples = maybe_samples
+            .unwrap_or_else(|| panic!("callback channel closed while waiting for {description}"));
 
         if matches(&samples) {
             return samples;
