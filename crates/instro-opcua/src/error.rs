@@ -52,15 +52,14 @@ fn format_source(e: Option<&UaError>) -> String {
 }
 
 impl OpcUaError {
-    pub(crate) fn ua_conversion<From, To>(ctx: impl std::fmt::Display) -> Self {
+    pub(crate) fn ua_conversion<From, To>(src: UaError) -> Self {
         Self::TypeConversion(
             format!(
-                "failed to convert value: from type '{}' into type '{}': {}",
+                "failed to convert value: from type '{}' into type '{}'",
                 type_name::<From>(),
                 type_name::<To>(),
-                ctx
             ),
-            None,
+            Some(src),
         )
     }
 
