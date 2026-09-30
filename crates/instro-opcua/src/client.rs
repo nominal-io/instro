@@ -994,8 +994,8 @@ impl OpcUaClient {
 #[derive(Debug)]
 /// Manages a streaming session backed by an OPC-UA subscription or polling loop.
 ///
-/// The session is created by [`OpcUaClient::start_polling`] or [`OpcUaClient::start_subscription`].
-/// Dropping it signals shutdown cooperatively, with a 2 second timeout (see [`Drop`] impl).
+/// The session is created by [`OpcUaClient::start_polling`] or [`OpcUaClient::start_subscription`],
+/// and can be stopped using [`OpcUaStreamSession::stop`] or [`OpcUaStreamSession::stop_timeout`].
 pub struct OpcUaStreamSession {
     handle: Option<SessionHandle>,
 }
@@ -1075,6 +1075,7 @@ impl OpcUaStreamSession {
         Ok(())
     }
 
+    /// Returns true if the remote streaming thread has completed, either cooperatively or due to a panic.
     pub fn has_stopped(&self) -> bool {
         self.handle
             .as_ref()
