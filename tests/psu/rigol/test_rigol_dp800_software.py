@@ -206,6 +206,14 @@ def test_rigol_get_operating_mode_raises_on_unexpected_reply(rigol: RigolDP800, 
         rigol.get_operating_mode(channel=1)
 
 
+def test_rigol_get_operating_mode_raises_on_unexpected_output_state(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["??", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match=r"Unexpected Rigol output state for channel 1: \?\?"):
+        rigol.get_operating_mode(channel=1)
+    assert rigol_visa.query.call_args_list == [call(":OUTP? CH1"), call(":SYST:ERR?")]
+
+
 def test_rigol_set_overvoltage_protection_level_writes_channel_command(
     rigol: RigolDP800,
     rigol_visa: MagicMock,

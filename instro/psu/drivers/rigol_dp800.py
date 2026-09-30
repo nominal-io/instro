@@ -64,8 +64,14 @@ class RigolDP800(PSUDriverBase):
     def get_operating_mode(self, channel: int) -> OperatingMode:
         with self._visa.lock():
             # :OUTP:MODE? still answers CV for a disabled channel, so check the output state first.
-            if not self.get_output_status(channel):
-                return OperatingMode.OFF
+            state = self._query_checked(f":OUTP? CH{channel}").strip().upper()
+            match state:
+                case "OFF" | "0":
+                    return OperatingMode.OFF
+                case "ON" | "1":
+                    pass
+                case _:
+                    raise RuntimeError(f"Unexpected Rigol output state for channel {channel}: {state}")
             mode = self._query_checked(f":OUTP:MODE? CH{channel}").strip().upper()
 
         match mode:
