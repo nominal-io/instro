@@ -30,11 +30,6 @@ use std::panic::catch_unwind;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::Context as _;
-use anyhow::Error;
-use anyhow::Result;
-use anyhow::anyhow;
-use anyhow::bail;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use open62541::Certificate;
@@ -73,6 +68,9 @@ use serde::Serialize;
 use time::UtcDateTime;
 use uuid::Uuid;
 use zeroize::Zeroize as _;
+
+use crate::OpcUaError;
+use crate::Result;
 
 /// Convenience function to read values from raw `open62541-sys` types.
 /// This is necessary in some cases to access values from the raw C
@@ -172,7 +170,7 @@ pub enum OpcUaSecurityPolicy {
 }
 
 impl FromStr for OpcUaSecurityPolicy {
-    type Err = Error;
+    type Err = OpcUaError;
     fn from_str(s: &str) -> Result<Self> {
         Ok(match s {
             "http://opcfoundation.org/UA/SecurityPolicy#None" => Self::None,
@@ -185,7 +183,9 @@ impl FromStr for OpcUaSecurityPolicy {
             "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
                 Self::Aes256Sha256RsaPss
             }
-            _ => bail!("unsupported security policy URI: {s}"),
+            _ => Err(OpcUaError::ua_conversion::<OpcUaSecurityPolicy, Self>(
+                format!("invalid security policy: {s}")
+            ))?
         })
     }
 }
@@ -230,7 +230,7 @@ pub struct OpcUaUserTokenPolicy {
 }
 
 impl TryFrom<&UA_UserTokenPolicy> for OpcUaUserTokenPolicy {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(policy: &UA_UserTokenPolicy) -> Result<Self> {
         let policy_id = ua::String::clone_raw(&policy.policyId);
@@ -277,24 +277,30 @@ impl OpcUaUserToken {
 }
 
 impl TryFrom<OpcUaUserToken> for UserIdentityToken {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(token: OpcUaUserToken) -> Result<Self> {
         Ok(match token.inner {
             OpcUaUserTokenInner::Anonymous => UserIdentityToken::Anonymous(
-                AnonymousIdentityToken::init().with_policy_id(ua::String::new(&token.policy_id)?),
+                AnonymousIdentityToken::init()
+                    .with_policy_id(ua::String::new(&token.policy_id)
+                    .map_err(OpcUaError::ua_conversion::<String, Self>)?
+                ),
             ),
 
-            OpcUaUserTokenInner::Basic { username, password } => UserIdentityToken::UserName(
-                UserNameIdentityToken::init()
-                    .with_user_name(
-                        ua::String::new(&username)
-                            .context("user identity token had nul byte(s)")?,
-                    )
-                    .with_password(ua::ByteString::new(password.as_bytes())),
-            ),
+            OpcUaUserTokenInner::Basic { username, password } => {
+                UserIdentityToken::UserName(
+                    UserNameIdentityToken::init()
+                        .with_user_name(ua::String::new(&username).map_err(OpcUaError::ua_conversion::<OpcUaUserToken, Self>)?)
+                        // I really don't like the way that they handle the OOM case by panicking here,
+                        // but it's not worth the convolution to catch_unwind
+                        .with_password(ua::ByteString::new(password.as_bytes())),
+                )
+            }
 
             OpcUaUserTokenInner::Certificate { cert } => UserIdentityToken::X509(
-                X509IdentityToken::init().with_certificate(Certificate::from_bytes(&cert))?,
+                X509IdentityToken::init()
+                    .with_certificate(Certificate::from_bytes(&cert))
+                    .map_err(OpcUaError::ua_conversion::<OpcUaUserToken, Self>)?,
             ),
         })
     }
@@ -336,7 +342,7 @@ pub enum OpcUaUserTokenType {
 }
 
 impl TryFrom<&UA_UserTokenType> for OpcUaUserTokenType {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(token: &UA_UserTokenType) -> Result<Self> {
         let token_discriminant = {
             #[cfg(target_os = "windows")]
@@ -353,7 +359,9 @@ impl TryFrom<&UA_UserTokenType> for OpcUaUserTokenType {
             0 => Self::Anonymous,
             1 => Self::UserName,
             2 => Self::Certificate,
-            token_t => bail!("unsupported user token type: {}", token_t),
+            token_t => Err(OpcUaError::ua_conversion::<ua::UserIdentityToken, Self>(
+                format!( "invalid token discriminant: '{token_t}'")
+            ))?
         })
     }
 }
@@ -407,7 +415,7 @@ impl OpcUaServerDescription {
 }
 
 impl TryFrom<&EndpointDescription> for OpcUaEndpointInfo {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(endpoint: &EndpointDescription) -> Result<Self> {
         let server_certificate_bytes = endpoint
@@ -436,7 +444,7 @@ impl OpcUaEndpointInfo {
     ) -> Result<Vec<OpcUaUserTokenPolicy>> {
         read_inner(endpoint, |endpoint| {
             if endpoint.userIdentityTokens.is_null() || !endpoint.userIdentityTokens.is_aligned() {
-                bail!("user identity tokens are null or not aligned");
+                Err(OpcUaError::other("user identity tokens are null or not aligned"))?;
             }
 
             let mut policies = Vec::new();
@@ -486,7 +494,7 @@ pub enum OpcUaAttributeId {
 }
 
 impl TryFrom<ua::AttributeId> for OpcUaAttributeId {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(id: ua::AttributeId) -> Result<Self> {
         Self::try_from(&id)
@@ -494,7 +502,7 @@ impl TryFrom<ua::AttributeId> for OpcUaAttributeId {
 }
 
 impl TryFrom<&ua::AttributeId> for OpcUaAttributeId {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(id: &ua::AttributeId) -> Result<Self> {
         read_inner(id, |id| id.try_into())
@@ -502,7 +510,7 @@ impl TryFrom<&ua::AttributeId> for OpcUaAttributeId {
 }
 
 impl TryFrom<&UA_AttributeId> for OpcUaAttributeId {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(id: &UA_AttributeId) -> Result<Self> {
         Ok(match *id {
@@ -533,7 +541,9 @@ impl TryFrom<&UA_AttributeId> for OpcUaAttributeId {
             UA_AttributeId::UA_ATTRIBUTEID_USERROLEPERMISSIONS => Self::UserRolePermissions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSRESTRICTIONS => Self::AccessRestrictions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVELEX => Self::AccessLevelEx,
-            _ => bail!("invalid attribute id: {:?}", id),
+            UA_AttributeId(id) => Err(OpcUaError::ua_conversion::<ua::AttributeId, Self>(
+                format!("invalid OPC UA attribute id discriminant: '{id}'")
+            ))?
         })
     }
 }
@@ -702,39 +712,41 @@ impl Display for OpcUaNodeId {
 }
 
 impl FromStr for OpcUaNodeId {
-    type Err = Error;
+    type Err = OpcUaError;
 
     fn from_str(s: &str) -> Result<Self> {
         let rest = s
             .strip_prefix("ns=")
-            .ok_or_else(|| anyhow!("OpcUaNodeId '{s}': missing 'ns=' prefix"))?;
+            .ok_or_else(|| OpcUaError::other(format!("OpcUaNodeId '{s}': missing 'ns=' prefix")))?;
 
         let (ns_str, rest) = rest
             .split_once(';')
-            .ok_or_else(|| anyhow!("OpcUaNodeId '{s}': missing ';' after namespace"))?;
+            .ok_or_else(|| OpcUaError::other(format!("OpcUaNodeId '{s}': missing ';' after namespace")))?;
 
         let namespace: u16 = ns_str
             .parse()
-            .with_context(|| format!("OpcUaNodeId '{s}': invalid namespace '{ns_str}'"))?;
+            .map_err(|_| OpcUaError::other(format!("OpcUaNodeId '{s}': invalid namespace '{ns_str}'")))?;
 
         let kind = if let Some(num) = rest.strip_prefix("i=") {
             NodeIdKind::Numeric(
                 num.parse()
-                    .with_context(|| format!("OpcUaNodeId '{s}': invalid numeric id '{num}'"))?,
+                    .map_err(|_| OpcUaError::other(format!("OpcUaNodeId '{s}': invalid numeric id '{num}'")))?,
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
             NodeIdKind::String(Cow::Owned(string.to_string()))
         } else if let Some(guid) = rest.strip_prefix("g=") {
             let uuid = Uuid::from_str(guid)
-                .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
+                .map_err(|_| OpcUaError::other(format!("OpcUaNodeId '{s}': invalid guid '{guid}'")))?;
+
             NodeIdKind::Guid(uuid)
         } else if let Some(byte_string) = rest.strip_prefix("b=") {
-            let bytes = BASE64_STANDARD.decode(byte_string).with_context(|| {
-                format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'")
-            })?;
+            let bytes = BASE64_STANDARD
+                .decode(byte_string)
+                .map_err(|_| OpcUaError::other(format!("OpcUaNodeId '{s}': invalid byte string '{byte_string}'")))?;
+
             NodeIdKind::ByteString(bytes)
         } else {
-            bail!("OpcUaNodeId '{s}': identifier must start with 'i=', 's=', 'g=', or 'b='");
+            Err(OpcUaError::other(format!("OpcUaNodeId '{s}': identifier must start with 'i=', 's=', 'g=', or 'b='")))?
         };
 
         Ok(Self::new(namespace, kind))
@@ -748,21 +760,21 @@ impl From<OpcUaNodeId> for String {
 }
 
 impl TryFrom<String> for OpcUaNodeId {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(s: String) -> Result<Self> {
         s.parse()
     }
 }
 
 impl TryFrom<NodeId> for OpcUaNodeId {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(node_id: NodeId) -> Result<Self> {
         Self::try_from(&node_id)
     }
 }
 
 impl TryFrom<&NodeId> for OpcUaNodeId {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(node_id: &NodeId) -> Result<Self> {
         let (namespace, kind) = if let Some((ns, numeric)) = node_id.as_numeric() {
             (ns, NodeIdKind::Numeric(numeric))
@@ -771,7 +783,7 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
         } else if let Some((ns, binary)) = node_id.as_byte_string() {
             let bytes = binary
                 .as_bytes()
-                .context("invalid byte string node id")?
+                .ok_or_else(|| OpcUaError::other(format!("invalid byte string node id")))?
                 .to_vec();
             (ns, NodeIdKind::ByteString(bytes))
         } else if let Some((ns, guid)) = node_id.as_guid() {
@@ -785,7 +797,7 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
                 )),
             )
         } else {
-            bail!("node id wasn't valid: '{node_id:?}'");
+            Err(OpcUaError::other(format!("node id wasn't valid: '{node_id:?}'")))?
         };
 
         Ok(Self::new(namespace, kind))
@@ -867,7 +879,7 @@ impl Display for OpcUaBrowsePath {
 }
 
 impl FromStr for OpcUaBrowsePath {
-    type Err = Error;
+    type Err = OpcUaError;
 
     fn from_str(s: &str) -> Result<Self> {
         if s.is_empty() {
@@ -875,7 +887,7 @@ impl FromStr for OpcUaBrowsePath {
         }
 
         if !s.starts_with('/') {
-            bail!("browse path must start with '/' or be empty: {s}");
+            Err(OpcUaError::other(format!("browse path must start with '/' or be empty: {s}")))?
         }
 
         let mut segments = Vec::new();
@@ -905,7 +917,7 @@ impl FromStr for OpcUaBrowsePath {
 }
 
 impl TryFrom<String> for OpcUaBrowsePath {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(value: String) -> Result<Self> {
         value.parse()
@@ -920,18 +932,23 @@ impl From<OpcUaBrowsePath> for String {
 
 fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     if segment.is_empty() {
-        bail!("browse path contains an empty segment");
+        Err(OpcUaError::other(format!("browse path contains an empty segment")))?
     }
 
     let ns_sep = namespace_separator(segment)?;
 
     let (ns_index, name) = match ns_sep {
         Some(separator) => {
-            let (namespace, rest) = segment.split_at(separator);
+            let (ns_str, rest) = segment.split_at(separator);
             let name = rest
                 .strip_prefix(':')
-                .context("namespace separator should point at ':'")?;
-            (namespace.parse::<u16>()?, name)
+                .ok_or(OpcUaError::other("namespace separator should point at ':'"))?;
+
+            let ns = ns_str
+                .parse::<u16>()
+                .map_err(|_| OpcUaError::other(format!("invalid namespace index '{ns_str}'")))?;
+
+            (ns, name)
         }
 
         None => (0, segment),
@@ -939,7 +956,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
 
     let name = unescape_browse_name(name)?;
     if name.is_empty() {
-        bail!("browse path segment name must not be empty");
+        Err(OpcUaError::other("browse path segment name must not be empty"))?
     }
 
     Ok(OpcUaQualifiedName { ns_index, name })
@@ -964,7 +981,7 @@ fn namespace_separator(segment: &str) -> Result<Option<usize>> {
                 return Ok(Some(i));
             }
 
-            bail!("':' in a browse path segment must be escaped unless it separates a namespace");
+            Err(OpcUaError::other("':' in a browse path segment must be escaped unless it separates a namespace"))?
         }
     }
 
@@ -991,7 +1008,7 @@ fn unescape_browse_name(name: &str) -> Result<String> {
     for ch in name.chars() {
         if escaped {
             if !is_browse_path_reserved(ch) {
-                bail!("'&' in a browse path segment must escape a reserved character");
+                Err(OpcUaError::other("'&' in a browse path segment must escape a reserved character"))?
             }
 
             unescaped.push(ch);
@@ -1002,14 +1019,14 @@ fn unescape_browse_name(name: &str) -> Result<String> {
         if ch == '&' {
             escaped = true;
         } else if is_browse_path_reserved(ch) {
-            bail!("reserved character '{ch}' in a browse path segment must be escaped");
+            Err(OpcUaError::other(format!("reserved character '{ch}' in a browse path segment must be escaped")))?
         } else {
             unescaped.push(ch);
         }
     }
 
     if escaped {
-        bail!("browse path segment cannot end with an escape marker");
+        Err(OpcUaError::other("browse path segment cannot end with an escape marker"))?
     }
 
     Ok(unescaped)
@@ -1061,7 +1078,7 @@ impl OpcUaNodeClass {
             ua::NodeClass::DATATYPE_U32 => Self::DataType,
             ua::NodeClass::VIEW_U32 => Self::View,
             // anything outside of the spec should bubble up as an error
-            _ => bail!("invalid OPC UA node class: {raw}"),
+            _ => Err(OpcUaError::ua_conversion::<ua::NodeClass, Self>(format!("invalid OPC UA node class discriminant: '{raw}'")))?,
         })
     }
 }
@@ -1083,7 +1100,7 @@ impl From<OpcUaNodeClass> for ua::NodeClass {
 }
 
 impl TryFrom<&ua::NodeClass> for OpcUaNodeClass {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(node_class: &ua::NodeClass) -> Result<Self> {
         read_inner(node_class, |node_class| {
@@ -1256,7 +1273,7 @@ impl OpcUaDataPoint {
 }
 
 impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(value: DataValue<ua::Variant>) -> Result<Self> {
         let server_timestamp = value
@@ -1436,7 +1453,7 @@ pub enum OpcUaValue {
 }
 
 impl TryFrom<OpcUaValue> for ScalarValue {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(value: OpcUaValue) -> Result<Self> {
         Ok(match value {
@@ -1451,30 +1468,30 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::UInt64(u) => ScalarValue::UInt64(UInt64::new(u)),
             OpcUaValue::Float(f) => ScalarValue::Float(Float::new(f)),
             OpcUaValue::Double(d) => ScalarValue::Double(Double::new(d)),
-            OpcUaValue::String(s) => ScalarValue::String(ua::String::new(s.as_ref())?),
-            OpcUaValue::DateTime(dt) => ScalarValue::DateTime(DateTime::try_from(dt)?),
             OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid)),
             OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
             OpcUaValue::Unsupported => ScalarValue::Unsupported,
-            OpcUaValue::LocalizedText(lt) => {
-                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.locale(), lt.text())?)
-            }
+            OpcUaValue::String(s) => ScalarValue::String(ua::String::new(s.as_ref()).map_err(|e|
+                OpcUaError::ua_conversion::<OpcUaValue, Self>(e)
+            )?),
+            OpcUaValue::DateTime(dt) => ScalarValue::DateTime(DateTime::try_from(dt).map_err(|e|
+                OpcUaError::ua_conversion::<OpcUaValue, Self>(e)
+            )?),
+            OpcUaValue::LocalizedText(lt) => ScalarValue::LocalizedText(ua::LocalizedText::new(lt.locale(), lt.text()).map_err(|e|
+                OpcUaError::ua_conversion::<OpcUaValue, Self>(e)
+            )?),
             OpcUaValue::QualifiedName(qn) => {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
                 catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
                     .map(ScalarValue::QualifiedName)
-                    .map_err(|err| {
-                        anyhow!(
-                            "failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"
-                        )
-                    })?
+                    .map_err(|_| OpcUaError::ua_conversion::<OpcUaValue, Self>("qualified name contained NUL bytes"))?
             }
         })
     }
 }
 
 impl TryFrom<&ScalarValue> for OpcUaValue {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(value: &ScalarValue) -> Result<Self> {
         Ok(match value {
             ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
@@ -1489,26 +1506,28 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::Float(f) => OpcUaValue::Float(f.value()),
             ScalarValue::Double(d) => OpcUaValue::Double(d.value()),
             ScalarValue::String(s) => OpcUaValue::String(Cow::Owned(s.to_string())),
-            ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.clone().try_into()?),
+            ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| OpcUaError::other("invalid date time"))?),
             ScalarValue::NodeId(nid) => OpcUaValue::NodeId(nid.try_into()?),
             ScalarValue::QualifiedName(qn) => OpcUaValue::QualifiedName(qn.into()),
             ScalarValue::LocalizedText(lt) => OpcUaValue::LocalizedText(lt.into()),
             ScalarValue::Guid(g) => OpcUaValue::Guid(g.to_uuid()),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
-            _ => bail!("unsupported OPC-UA scalar value write: '{value:?}'"),
+            _ => Err(OpcUaError::ua_conversion::<ScalarValue, Self>(format!("unsupported OPC UA scalar value: {value:?}")))?,
         })
     }
 }
 
 impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
-    type Error = Error;
+    type Error = OpcUaError;
     fn try_from(variant: DataValue<ua::Variant>) -> Result<Self> {
         use open62541::VariantValue;
-        let value = variant.value().ok_or_else(|| anyhow!("value is null"))?;
+        let value = variant.value().ok_or_else(|| OpcUaError::other("value is null"))?;
 
         let scalar = match value.to_value() {
             VariantValue::Scalar(scalar) => scalar,
-            variant => bail!("unsupported OPC-UA variant value read: '{variant:?}'"),
+            variant => Err(OpcUaError::ua_conversion::<VariantValue, Self>(
+                format!("unsupported OPC UA variant value: {variant:?}")
+            ))?,
         };
 
         let unwrapped_value = match scalar {
@@ -1524,16 +1543,19 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
             ScalarValue::Float(v) => OpcUaValue::Float(v.value()),
             ScalarValue::Double(v) => OpcUaValue::Double(v.value()),
             ScalarValue::String(v) => OpcUaValue::String(Cow::Owned(v.to_string())),
-            ScalarValue::DateTime(dt) => {
-                OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
-            }
-
             ScalarValue::NodeId(v) => OpcUaValue::NodeId(v.try_into()?),
             ScalarValue::QualifiedName(v) => OpcUaValue::QualifiedName(v.into()),
             ScalarValue::LocalizedText(v) => OpcUaValue::LocalizedText(v.into()),
             ScalarValue::Guid(v) => OpcUaValue::Guid(v.to_uuid()),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
-            _ => bail!("unsupported OPC-UA scalar value read: '{scalar:?}'"),
+
+            ScalarValue::DateTime(dt) => {
+                OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| OpcUaError::other("invalid date time"))?)
+            }
+
+            _ => Err(OpcUaError::ua_conversion::<ScalarValue, Self>(
+                format!("unsupported OPC UA scalar value: {scalar:?}")
+            ))?,
         };
 
         Ok(unwrapped_value)
@@ -1549,7 +1571,7 @@ pub enum RawOpcUaPki {
 }
 
 impl TryFrom<RawOpcUaPki> for OpcUaPki {
-    type Error = Error;
+    type Error = OpcUaError;
 
     fn try_from(raw: RawOpcUaPki) -> Result<Self> {
         Ok(match raw {
@@ -1564,7 +1586,7 @@ impl TryFrom<RawOpcUaPki> for OpcUaPki {
                 let pki_result = cert
                     .clone()
                     .into_x509()
-                    .context("validating certificate for use as OPC-UA client certificate")
+                    .map_err(|e| OpcUaError::ua_conversion::<RawOpcUaPki, Self>(e))
                     .map(|_| Self::UseProvided(cert, PrivateKey::from_bytes(&private_key)));
 
                 private_key.zeroize();
@@ -1622,8 +1644,6 @@ mod tests {
     use std::collections::HashMap;
     use std::fmt::Debug;
 
-    use anyhow::Error;
-    use anyhow::Result;
     use instro_opcua_test::assert_roundtrip;
     use instro_test_utils::assertions::assert_serde_json_roundtrip_eq;
     use itertools::Itertools as _;
@@ -1638,6 +1658,7 @@ mod tests {
     use serde_json::from_str;
 
     use super::*;
+    use crate::error::Result;
 
     #[derive(Debug, Clone)]
     /// Newtype wrapper around ScalarValue that asserts equality of NaN values for float and double.
@@ -1711,7 +1732,7 @@ mod tests {
                     $(
                         $v(v) => ua::Variant::scalar(v),
                     )+
-                    _ => bail!("Unsupported scalar value: {:?}", s.0),
+                    scalar => Err(OpcUaError::ua_conversion::<ScalarEq, ua::Variant>(format!("unsupported scalar value: {scalar:?}")))?
                 })
             }
         }
@@ -1744,25 +1765,25 @@ mod tests {
     );
 
     impl TryFrom<&ScalarEq> for VariantEq {
-        type Error = Error;
+        type Error = OpcUaError;
         fn try_from(s: &ScalarEq) -> Result<Self> {
             Self::try_from(s.clone())
         }
     }
 
     impl TryFrom<ScalarEq> for VariantEq {
-        type Error = Error;
+        type Error = OpcUaError;
         fn try_from(s: ScalarEq) -> Result<Self> {
             Ok(Self(scalar_to_variant(s)?))
         }
     }
 
     impl TryFrom<VariantEq> for ScalarEq {
-        type Error = Error;
+        type Error = OpcUaError;
         fn try_from(v: VariantEq) -> Result<Self> {
             match v.0.to_value() {
                 VariantValue::Scalar(s) => Ok(ScalarEq(s)),
-                other => bail!("expected scalar variant, got {other:?}"),
+                variant => Err(OpcUaError::ua_conversion::<VariantEq, Self>(format!("unsupported variant value: {variant:?}")))?
             }
         }
     }
@@ -2208,7 +2229,7 @@ mod tests {
 
     #[test]
     fn nod_id_fails_to_parse_malformed_namespace() {
-        let parsed: Result<OpcUaNodeId, Error> = "nt=10000;i=85".parse();
+        let parsed: Result<OpcUaNodeId> = "nt=10000;i=85".parse();
         assert!(parsed.is_err());
     }
 

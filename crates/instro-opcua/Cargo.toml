@@ -19,7 +19,7 @@ exclude = ["tests/client_harness.rs"]
 base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["time", "macros", "rt", "sync"] }
 itertools.workspace = true
