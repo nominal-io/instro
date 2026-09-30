@@ -341,6 +341,27 @@ def test_siglent_get_overcurrent_protection_enabled_unsupported(
     siglent_visa.query.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "clear_overvoltage_protection",
+        "get_overvoltage_protection_tripped",
+        "clear_overcurrent_protection",
+        "get_overcurrent_protection_tripped",
+    ],
+)
+def test_siglent_protection_trip_methods_unsupported(
+    siglent: SiglentSPD3303,
+    siglent_visa: MagicMock,
+    method_name: str,
+) -> None:
+    with pytest.raises(FeatureNotSupportedError, match=f"{method_name} is not supported"):
+        getattr(siglent, method_name)(channel=1)
+
+    siglent_visa.write.assert_not_called()
+    siglent_visa.query.assert_not_called()
+
+
 def test_siglent_set_remote_sense_enabled_unsupported(
     siglent: SiglentSPD3303,
     siglent_visa: MagicMock,

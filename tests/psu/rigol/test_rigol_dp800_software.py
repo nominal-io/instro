@@ -349,6 +349,37 @@ def test_rigol_get_overcurrent_protection_enabled_parses_state(
     assert rigol.get_overcurrent_protection_enabled(channel=1) is False
 
 
+def test_rigol_clear_protection_writes_per_channel_clear(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.clear_overvoltage_protection(channel=2)
+    rigol.clear_overcurrent_protection(channel=3)
+
+    assert rigol_visa.write.call_args_list == [call(":OUTP:OVP:CLEAR CH2"), call(":OUTP:OCP:CLEAR CH3")]
+    assert rigol_visa.query.call_args_list == [call(":SYST:ERR?"), call(":SYST:ERR?")]
+
+
+def test_rigol_get_overvoltage_protection_tripped_parses_yes_no(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["YES", _NO_ERROR, "NO", _NO_ERROR]
+
+    assert rigol.get_overvoltage_protection_tripped(channel=1) is True
+    assert rigol.get_overvoltage_protection_tripped(channel=1) is False
+    assert rigol_visa.query.call_args_list[0] == call(":OUTP:OVP:QUES? CH1")
+
+
+def test_rigol_get_overcurrent_protection_tripped_parses_yes_no(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["YES", _NO_ERROR, "NO", _NO_ERROR]
+
+    assert rigol.get_overcurrent_protection_tripped(channel=2) is True
+    assert rigol.get_overcurrent_protection_tripped(channel=2) is False
+    assert rigol_visa.query.call_args_list[0] == call(":OUTP:OCP:QUES? CH2")
+
+
+def test_rigol_get_protection_tripped_raises_on_unexpected_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["1", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match="Unexpected .* reply to :OUTP:OVP:QUES\\? CH1: 1"):
+        rigol.get_overvoltage_protection_tripped(channel=1)
+
+
 def test_rigol_set_remote_sense_enabled_writes_state(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
     rigol.set_remote_sense_enabled(True, channel=2)
     rigol.set_remote_sense_enabled(False, channel=2)

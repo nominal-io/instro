@@ -107,6 +107,18 @@ class RigolDP800(PSUDriverBase):
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         return self._query_checked_bool(f":SOUR{channel}:CURR:PROT:STAT?")
 
+    def clear_overvoltage_protection(self, channel: int) -> None:
+        self._write_checked(f":OUTP:OVP:CLEAR CH{channel}")
+
+    def get_overvoltage_protection_tripped(self, channel: int) -> bool:
+        return self._query_checked_tripped(f":OUTP:OVP:QUES? CH{channel}")
+
+    def clear_overcurrent_protection(self, channel: int) -> None:
+        self._write_checked(f":OUTP:OCP:CLEAR CH{channel}")
+
+    def get_overcurrent_protection_tripped(self, channel: int) -> bool:
+        return self._query_checked_tripped(f":OUTP:OCP:QUES? CH{channel}")
+
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         self._write_checked(f":OUTP:SENS CH{channel},{'ON' if enabled else 'OFF'}")
 
@@ -218,6 +230,16 @@ class RigolDP800(PSUDriverBase):
 
     def _query_checked_bool(self, command: str) -> bool:
         return self._query_checked(command).strip().upper() in {"1", "ON"}
+
+    def _query_checked_tripped(self, command: str) -> bool:
+        reply = self._query_checked(command).strip().upper()
+        match reply:
+            case "YES":
+                return True
+            case "NO":
+                return False
+            case _:
+                raise RuntimeError(f"Unexpected {self.FRIENDLY_NAME} reply to {command}: {reply}")
 
     def _check_errors(self) -> None:
         err = self._visa.query(":SYST:ERR?")

@@ -190,6 +190,8 @@ def test_bk_single_invalid_channel_raises_without_scpi(
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
+        ("clear_overcurrent_protection", ()),
+        ("get_overcurrent_protection_tripped", ()),
     ],
 )
 def test_bk_single_overcurrent_protection_methods_raise_unsupported(

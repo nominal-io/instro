@@ -65,6 +65,18 @@ The typical InstroPSU workflow:
 5. **`stop()`**: ends the background daemon (if started).
 6. **`close()`**: disconnects from hardware.
 
+### Protection Trips
+
+When overvoltage or overcurrent protection trips, a supply typically latches the output off until the trip is cleared. `get_overvoltage_protection_tripped()` and `get_overcurrent_protection_tripped()` report the latch as a bool `Measurement` (`ch<n>.ovp.tripped`, `ch<n>.ocp.tripped`). `clear_overvoltage_protection()` and `clear_overcurrent_protection()` clear it and publish a `Command` (`ch<n>.ovp.clear.cmd`, `ch<n>.ocp.clear.cmd`). Check `get_output_status()` after a clear and re-enable the output if needed.
+
+```python
+psu.get_overcurrent_protection_tripped(channel=1)  # myPSU.ch1.ocp.tripped: [1.0]
+psu.clear_overcurrent_protection(channel=1)
+psu.output_enable(True, channel=1)
+```
+
+`RigolDP800` implements these methods. Drivers for supplies without the matching protection raise `FeatureNotSupportedError`; other drivers don't implement them yet and raise `NotImplementedError`.
+
 ### Init from a Config File
 
 `InstroPSU` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
