@@ -167,51 +167,61 @@ def test_rigol_get_output_status_parses_state(rigol: RigolDP800, rigol_visa: Mag
     assert rigol.get_output_status(channel=1) is False
 
 
-def test_rigol_get_operating_mode_returns_off_without_mode_query(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.side_effect = ["OFF", _NO_ERROR]
-
-    assert rigol.get_operating_mode(channel=2) == OperatingMode.OFF
-    assert rigol_visa.query.call_args_list == [call(":OUTP? CH2"), call(":SYST:ERR?")]
-
-
 @pytest.mark.parametrize(
     ("reply", "expected"),
     [
-        ("CV", OperatingMode.CONSTANT_VOLTAGE),
-        ("CC", OperatingMode.CONSTANT_CURRENT),
-        ("UR", OperatingMode.UNREGULATED),
+        ("0", OperatingMode.OFF),
+        ("1", OperatingMode.CONSTANT_CURRENT),
+        ("2\n", OperatingMode.CONSTANT_VOLTAGE),
+        ("3", OperatingMode.UNREGULATED),
+        ("6", OperatingMode.CONSTANT_VOLTAGE),  # OVP bit set; only the low two bits carry the mode
+        ("9", OperatingMode.CONSTANT_CURRENT),  # OCP bit set
     ],
 )
-def test_rigol_get_operating_mode_maps_enabled_channel_mode(
+def test_rigol_get_operating_mode_decodes_condition_register(
     rigol: RigolDP800,
     rigol_visa: MagicMock,
     reply: str,
     expected: OperatingMode,
 ) -> None:
-    rigol_visa.query.side_effect = ["ON", _NO_ERROR, f"{reply}\n", _NO_ERROR]
+    rigol_visa.query.side_effect = [reply, _NO_ERROR]
 
-    assert rigol.get_operating_mode(channel=3) == expected
-    assert rigol_visa.query.call_args_list == [
-        call(":OUTP? CH3"),
-        call(":SYST:ERR?"),
-        call(":OUTP:MODE? CH3"),
-        call(":SYST:ERR?"),
+    assert rigol.get_operating_mode(channel=2) == expected
+    assert rigol_visa.query.call_args_list == [call(":STAT:QUES:INST:ISUM2:COND?"), call(":SYST:ERR?")]
+
+
+def test_rigol_get_operating_mode_raises_on_non_numeric_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["XX", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match="Unexpected Rigol condition register for channel 1: XX"):
+        rigol.get_operating_mode(channel=1)
+
+
+def test_rigol_query_status_decodes_condition_register(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.idn = "RIGOL TECHNOLOGIES,DP832A,DP8A000000000,00.01.19"
+    rigol_visa.query.side_effect = [
+        "ON",
+        _NO_ERROR,
+        "6",
+        _NO_ERROR,
+        "OFF",
+        _NO_ERROR,
+        "8",
+        _NO_ERROR,
+        "OFF",
+        _NO_ERROR,
+        "3",
+        _NO_ERROR,
     ]
 
+    status = rigol.query_status()
 
-def test_rigol_get_operating_mode_raises_on_unexpected_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.side_effect = ["ON", _NO_ERROR, "XX", _NO_ERROR]
-
-    with pytest.raises(RuntimeError, match="Unexpected Rigol operating mode for channel 1: XX"):
-        rigol.get_operating_mode(channel=1)
-
-
-def test_rigol_get_operating_mode_raises_on_unexpected_output_state(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol_visa.query.side_effect = ["??", _NO_ERROR]
-
-    with pytest.raises(RuntimeError, match=r"Unexpected Rigol output state for channel 1: \?\?"):
-        rigol.get_operating_mode(channel=1)
-    assert rigol_visa.query.call_args_list == [call(":OUTP? CH1"), call(":SYST:ERR?")]
+    assert status == {
+        "ch1": {"enable": True, "mode": "CV", "OVP": True, "OCP": False},
+        "ch2": {"enable": False, "mode": "off", "OVP": False, "OCP": True},
+        "ch3": {"enable": False, "mode": "UNREGULATED", "OVP": False, "OCP": False},
+    }
+    assert rigol_visa.query.call_args_list[2] == call(":STAT:QUES:INST:ISUM1:COND?")
 
 
 def test_rigol_set_overvoltage_protection_level_writes_channel_command(
