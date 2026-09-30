@@ -264,11 +264,7 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     }
 }
 
-// `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
-// Ideally we'd use `tokio::sync::oneshot::*` types for both ends of the synchronization pipe,
-// but there's too many footguns (i.e., runtime lifetimes, nested `block_on`s, etc.)
 type TerminationReceiver = watch::Receiver<bool>;
-// `oneshot::Sender` lets us wait in a select! block with the `stop_tx` sender next to whatever session-specific work is running
 type StopSender = oneshot::Sender<()>;
 
 #[derive(Debug)]
@@ -330,7 +326,9 @@ type ReadNodeItem<'batch> = (
 );
 
 impl OpcUaClient {
-    /// Attempts to gracefully disconnect from the server, returning an error if the client has outstanding references.
+    /// Gracefully disconnects from the server.
+    ///
+    /// This method will synchronize with disconnection of the client from the server.
     pub async fn disconnect(self: Arc<Self>) {
         let client = {
             // tokio's `RwLock` should give us fair write-starvation protection
@@ -938,7 +936,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
-    #[must_use = "dropping the returned client will immediately disconnect from the OPC-UA server"]
+    #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
         let user_token = self.user_token.context("no user token provided")?;
 
