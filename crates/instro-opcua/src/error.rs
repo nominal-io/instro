@@ -1,4 +1,4 @@
-use std::any::type_name;
+use std::{any::type_name, fmt::Debug};
 
 use open62541::Error as UaError;
 use thiserror::Error;
@@ -39,10 +39,10 @@ pub enum ClientError {
 pub enum OpcUaError {
     #[error("client error: {0}")]
     Client(#[from] ClientError),
-    #[error("failed to generate self-signed certificate")]
+    #[error("failed to generate self-signed certificate{source}", source = format_source(.0.as_ref()))]
     GenerateSelfSignedCert(#[source] Option<UaError>),
-    #[error("failed to convert value: {0}{source}", source = format_source(.1.as_ref()))]
-    TypeConversion(String, #[source] Option<UaError>),
+    #[error("failed to convert value: {0} ({1:?})")]
+    TypeConversion(String, Box<dyn Debug + 'static>),
     #[error("error: {0}")]
     Other(String),
 }
@@ -52,14 +52,14 @@ fn format_source(e: Option<&UaError>) -> String {
 }
 
 impl OpcUaError {
-    pub(crate) fn ua_conversion<From, To>(src: UaError) -> Self {
+    pub(crate) fn ua_conversion<From, To>(src: impl Debug + 'static) -> Self {
         Self::TypeConversion(
             format!(
                 "failed to convert value: from type '{}' into type '{}'",
                 type_name::<From>(),
                 type_name::<To>(),
             ),
-            Some(src),
+            Box::new(src),
         )
     }
 
