@@ -9,7 +9,7 @@ pub type Result<T> = core::result::Result<T, OpcUaError>;
 
 #[derive(Debug, Error)]
 pub enum ClientError {
-    #[error("failed to build client: {0}")]
+    #[error("failed to build client: {0}{source}", source = format_source(.1.as_ref()))]
     Builder(String, #[source] Option<UaError>),
     #[error("failed to connect to OPC UA server")]
     Connect(#[source] UaError),
@@ -19,15 +19,15 @@ pub enum ClientError {
     Subscription(#[source] UaError),
     #[error("response from OPC UA service was malformed: {0}")]
     MalformedServiceResponse(String),
-    #[error("failure during OPC UA poll stream: {0}")]
+    #[error("failure during OPC UA poll stream: {0}{source}", source = format_source(.1.as_ref()))]
     Poll(String, #[source] Option<UaError>),
-    #[error("failure while reading node attribute values: {0}")]
+    #[error("failure while reading node attribute values: {0}{source}", source = format_source(.1.as_ref()))]
     ReadNodes(String, #[source] Option<UaError>),
     #[error("failed to stop stream before timeout")]
     StreamStopTimeout(#[source] tokio::time::error::Elapsed),
     #[error("failed to spawn background streaming task")]
     StreamInit(#[source] std::io::Error),
-    #[error("failed to browse node: {0}")]
+    #[error("failed to browse node: {0}{source}", source = format_source(Some(.1)))]
     BrowseNode(OpcUaNodeId, #[source] UaError),
     #[error("node limit exceeded: {0}")]
     BrowsedNodeLimitExceeded(OpcUaNodeId, usize),
@@ -42,10 +42,14 @@ pub enum OpcUaError {
     Client(#[from] ClientError),
     #[error("failed to generate self-signed certificate")]
     GenerateSelfSignedCert(#[source] Option<UaError>),
-    #[error("failed to convert value: {0}")]
+    #[error("failed to convert value: {0}{source}", source = format_source(.1.as_ref()))]
     TypeConversion(String, #[source] Option<UaError>),
     #[error("error: {0}")]
     Other(String),
+}
+
+fn format_source(e: Option<&UaError>) -> String {
+    e.map(|e| format!(": ({:?})", e)).unwrap_or_default()
 }
 
 impl OpcUaError {
