@@ -200,7 +200,7 @@ async fn browse_iterative<B: Browse>(
     let mut count_visited = 0_usize;
 
     let mut ancestors = HashSet::from([node_id.clone()]);
-    let mut nodes = browser.browse_node(node_id).await?;
+    let mut nodes = browser.browse_node(node_id.clone()).await?;
     let mut stack = Vec::from([(0_usize, nodes.len())]);
 
     for child in &mut nodes {
@@ -220,12 +220,12 @@ async fn browse_iterative<B: Browse>(
             if let Some(limit) = node_limit
                 && count_visited >= limit
             {
-                Err(ClientError::BrowsedNodeLimitExceeded(limit))?;
+                Err(ClientError::BrowsedNodeLimitExceeded(current_node.node_id.clone(), limit))?;
             }
             count_visited = count_visited.saturating_add(1);
 
             if ancestors.contains(&current_node.node_id) {
-                Err(ClientError::BrowseCycleDetected(current_node.node_id.clone()))?;
+                Err(ClientError::BrowseCycleDetected(current_node.node_id.clone(), node_id.clone()))?;
             } else {
                 ancestors.insert(current_node.node_id.clone());
             }
