@@ -1,3 +1,5 @@
+#![expect(clippy::expect_used, clippy::panic, reason = "testing harness that is not production code")]
+
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -41,19 +43,16 @@ fn connect_client(server: &TestServer) -> Arc<OpcUaClient> {
 }
 
 fn ua_node_id(server: &TestServer, browse_name: &str) -> ua::NodeId {
-    server
-        .node_id(browse_name)
-        .cloned()
-        .expect(&format!("test server did not register node `{browse_name}`"))
+    server.node_id(browse_name).cloned().unwrap_or_else(|| panic!("test server did not register node `{browse_name}`"))
 }
 
 fn opcua_node_id(server: &TestServer, browse_name: &str) -> OpcUaNodeId {
     let node_id = ua_node_id(server, browse_name);
-    OpcUaNodeId::try_from(&node_id).expect(&format!("converting `{browse_name}` NodeId"))
+    OpcUaNodeId::try_from(&node_id).unwrap_or_else(|_| panic!("converting `{browse_name}` NodeId"))
 }
 
 fn nonzero(value: u32) -> NonZeroU32 {
-    NonZeroU32::new(value).expect(&format!("expected {value} to be nonzero"))
+    NonZeroU32::new(value).unwrap_or_else(|| panic!("expected {value} to be nonzero"))
 }
 
 fn subscription_config() -> OpcUaSubscriptionConfig {
@@ -128,10 +127,9 @@ async fn recv_matching_batch(
         let remaining = deadline.saturating_duration_since(now);
         let maybe_samples = tokio::time::timeout(remaining, rx.recv())
             .await
-            .expect(&format!("timed out waiting for {description}"));
+            .unwrap_or_else(|_| panic!("timed out waiting for {description}"));
 
-        let samples = maybe_samples
-            .expect(&format!("callback channel closed while waiting for {description}"));
+        let samples = maybe_samples.unwrap_or_else(|| panic!("callback channel closed while waiting for {description}"));
 
         if matches(&samples) {
             return samples;
@@ -454,13 +452,15 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<(), ()> {
     let (tx, mut rx) = mpsc::unbounded_channel();
     let client = connect_client(&server);
 
-    let session = client.start_polling(
-        vec![temperature_node.clone()],
-        Duration::from_millis(25),
-        move |samples| {
-            let _ = tx.send(samples.collect::<Vec<_>>());
-        },
-    ).expect("testing client should not fail to start polling");
+    let session = client
+        .start_polling(
+            vec![temperature_node.clone()],
+            Duration::from_millis(25),
+            move |samples| {
+                let _ = tx.send(samples.collect::<Vec<_>>());
+            },
+        )
+        .expect("testing client should not fail to start polling");
 
     let initial = recv_matching_batch(&mut rx, "initial polling batch", |samples| {
         has_value(samples, &temperature_node, &OpcUaValue::Double(1.0))
@@ -469,14 +469,17 @@ async fn start_polling_emits_batches_and_stops_cleanly() -> Result<(), ()> {
     assert_eq!(initial.len(), 1);
     assert_timestamps_present(&initial);
 
-    server.set_value(
-        &temperature_ua_id,
-        ua::Variant::scalar(ua::Double::new(2.5)),
-    ).expect("testing server should not fail to set value");
+    server
+        .set_value(
+            &temperature_ua_id,
+            ua::Variant::scalar(ua::Double::new(2.5)),
+        )
+        .expect("testing server should not fail to set value");
 
     let changed = recv_matching_batch(&mut rx, "updated polling batch", |samples| {
         has_value(samples, &temperature_node, &OpcUaValue::Double(2.5))
-    }).await;
+    })
+    .await;
     assert_eq!(changed.len(), 1);
     assert_timestamps_present(&changed);
 
@@ -518,14 +521,17 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<(), ()> 
         .await
         .expect("testing client should not fail to start subscription");
 
-    server.set_value(
-        &temperature_ua_id,
-        ua::Variant::scalar(ua::Double::new(9.5)),
-    ).expect("testing server should not fail to set value");
+    server
+        .set_value(
+            &temperature_ua_id,
+            ua::Variant::scalar(ua::Double::new(9.5)),
+        )
+        .expect("testing server should not fail to set value");
 
     let changed = recv_matching_batch(&mut rx, "subscription change", |samples| {
         has_value(samples, &temperature_node, &OpcUaValue::Double(9.5))
-    }).await;
+    })
+    .await;
 
     assert_eq!(
         sample_value(&changed, &temperature_node),
@@ -574,7 +580,8 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
     // background polling: the node's value is never changed, so the subscription stays silent.
     recv_matching_batch(&mut rx, "initial subscription value", |samples| {
         has_value(samples, &static_node, &OpcUaValue::Double(42.0))
-    }).await;
+    })
+    .await;
 
     // Over the window, the never-changing node yields no further notifications, so any samples
     // collected here must be background polls. The window spans many poll intervals; require at

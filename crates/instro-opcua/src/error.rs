@@ -35,7 +35,6 @@ pub enum ClientError {
     BrowseCycleDetected(OpcUaNodeId, OpcUaNodeId),
 }
 
-
 #[derive(Debug, Error)]
 pub enum OpcUaError {
     #[error("client error: {0}")]

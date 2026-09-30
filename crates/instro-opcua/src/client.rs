@@ -355,7 +355,7 @@ impl OpcUaClient {
     {
         let client_guard = self.client.read().await;
         let Some(client) = client_guard.as_ref() else {
-            return Err(OpcUaError::client_disconnected())
+            return Err(OpcUaError::client_disconnected());
         };
 
         Ok(f(client).await)
@@ -403,14 +403,23 @@ impl OpcUaClient {
                 client
                     .read_many_attributes(node_list.pairs())
                     .await
-                    .map_err(|e| ClientError::ReadNodes("requesting values from remote server".into(), Some(e)))
+                    .map_err(|e| {
+                        ClientError::ReadNodes(
+                            "requesting values from remote server".into(),
+                            Some(e),
+                        )
+                    })
             })
             .await??;
 
         if read_result.len() != node_list.len() {
             Err(ClientError::ReadNodes(
-                format!("length mismatch between requested and received values: {} != {}", read_result.len(), node_list.len()),
-                None
+                format!(
+                    "length mismatch between requested and received values: {} != {}",
+                    read_result.len(),
+                    node_list.len()
+                ),
+                None,
             ))?;
         }
 
@@ -459,7 +468,7 @@ impl OpcUaClient {
                 subscription_builder
                     .create(client)
                     .await
-                    .map_err(|e| ClientError::Subscription(e))
+                    .map_err(ClientError::Subscription)
             })
             .await??;
 
@@ -474,7 +483,7 @@ impl OpcUaClient {
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
-            .map_err(|e| ClientError::Subscription(e))?;
+            .map_err(ClientError::Subscription)?;
 
         if item_results.len() != nodes.len() {
             Err(ClientError::MalformedServiceResponse(format!(
@@ -532,9 +541,7 @@ impl OpcUaClient {
         }
 
         if valid_streams.is_empty() {
-            Err(ClientError::MalformedServiceResponse(format!(
-                "no valid monitored item streams were created"
-            )))?
+            Err(ClientError::MalformedServiceResponse("no valid monitored item streams were created".to_string()))?
         }
 
         let reader = ClientNodeReader { client: this };
@@ -791,9 +798,7 @@ impl NodeReader for ClientNodeReader {
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
-            Some(client) => client
-                .read_nodes(batch)
-                .await,
+            Some(client) => client.read_nodes(batch).await,
             None => Err(ClientError::ClientDisconnect)?,
         }
     }
@@ -934,24 +939,37 @@ impl OpcUaClientBuilder {
     /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
     #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
-        let user_token = self.user_token.ok_or(ClientError::Builder("no user token provided".into(), None))?;
+        let user_token = self
+            .user_token
+            .ok_or(ClientError::Builder("no user token provided".into(), None))?;
 
         let security_mode = match self.security_mode {
             Some(mode) if !mode.is_invalid() => mode.into(),
             Some(_) => Err(ClientError::Builder("invalid security mode".into(), None))?,
-            None => Err(ClientError::Builder("no security mode provided".into(), None))?,
+            None => Err(ClientError::Builder(
+                "no security mode provided".into(),
+                None,
+            ))?,
         };
 
         let mut builder = match self.pki {
             OpcUaPki::UseProvided(certificate, private_key) => {
-                ClientBuilder::default_encryption(&certificate, &private_key)
-                    .map_err(|e| ClientError::Builder("failed to create encrypted client builder".into(), Some(e)))?
+                ClientBuilder::default_encryption(&certificate, &private_key).map_err(|e| {
+                    ClientError::Builder(
+                        "failed to create encrypted client builder".into(),
+                        Some(e),
+                    )
+                })?
             }
 
             OpcUaPki::GenerateSelfSigned => {
                 let (certificate, private_key) = generate_self_signed_cert()?;
-                ClientBuilder::default_encryption(&certificate, &private_key)
-                    .map_err(|e| ClientError::Builder("failed to create encrypted client builder".into(), Some(e)))?
+                ClientBuilder::default_encryption(&certificate, &private_key).map_err(|e| {
+                    ClientError::Builder(
+                        "failed to create encrypted client builder".into(),
+                        Some(e),
+                    )
+                })?
             }
 
             OpcUaPki::None => ClientBuilder::default(),
@@ -977,7 +995,7 @@ impl OpcUaClientBuilder {
 
         let client = builder
             .connect(endpoint_url)
-            .map_err(|e| ClientError::Connect(e))?
+            .map_err(ClientError::Connect)?
             .into_async();
 
         Ok(OpcUaClient::new(client))
@@ -1174,10 +1192,7 @@ mod tests {
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
         ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
             let samples = {
-                let mut state = self
-                    .state
-                    .lock()
-                    .unwrap();
+                let mut state = self.state.lock().unwrap();
 
                 if !state.is_alive {
                     Err(ClientError::ClientDisconnect)?
@@ -1253,8 +1268,8 @@ mod tests {
     async fn await_signal(rx: &mut mpsc::UnboundedReceiver<()>, what: &str) {
         timeout(TEST_TIMEOUT, rx.recv())
             .await
-            .expect(&format!("timed out waiting for {what}"))
-            .expect(&format!("channel closed waiting for {what}"));
+            .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+            .unwrap_or_else(|| panic!("channel closed waiting for {what}"));
     }
 
     /// Awaits the next non-empty output batch, used as a barrier that a notification (or flush)
@@ -1266,8 +1281,8 @@ mod tests {
         loop {
             let batch = timeout(TEST_TIMEOUT, rx.recv())
                 .await
-                .expect(&format!("timed out waiting for {what}"))
-                .expect(&format!("channel closed waiting for {what}"));
+                .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+                .unwrap_or_else(|| panic!("channel closed waiting for {what}"));
 
             if !batch.is_empty() {
                 return batch;
@@ -1350,11 +1365,7 @@ mod tests {
         );
 
         // Three reads happened, each requesting the single static node.
-        let requested = state
-            .lock()
-            .unwrap()
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
 
         assert_eq!(requested.len(), 3);
 
@@ -1539,11 +1550,7 @@ mod tests {
         await_loop(handle).await;
         let _ = drain_batches(&mut out_rx);
 
-        let requested = state
-            .lock()
-            .unwrap()
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
 
         assert_eq!(requested.len(), 3, "expected three poll reads");
 
@@ -1599,11 +1606,7 @@ mod tests {
         assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(7));
 
-        let requested = state
-            .lock()
-            .unwrap()
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
         assert!(
             requested.is_empty(),
             "no background reads should occur without a poll interval"
@@ -1709,10 +1712,7 @@ mod tests {
         await_signal(&mut read_done_rx, "tick 1 read").await;
 
         // Simulate the client being dropped, then tick again. The loop should break.
-        state
-            .lock()
-            .unwrap()
-            .is_alive = false;
+        state.lock().unwrap().is_alive = false;
         pulse_tx.send(()).expect("sending tick 2 should not fail");
 
         // The stream is never closed; the loop must terminate solely via the liveness check.
@@ -1733,11 +1733,7 @@ mod tests {
         assert_eq!(sample.server_timestamp, Some(1));
 
         // Tick 2 broke before reading, so exactly one read (from tick 1) was issued.
-        let requested = state
-            .lock()
-            .unwrap()
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
         assert_eq!(
             requested.len(),
             1,
