@@ -30,21 +30,48 @@ def run_dir() -> Path:
     return path
 
 
+def _pinned_resource(category: str) -> str | None:
+    return os.environ.get(f"RACK_{category.upper()}_RESOURCE")
+
+
 @pytest.fixture(scope="session")
 def discovery(run_dir: Path) -> DiscoveryReport:
     logger.info("=== Instrument discovery ===")
-    report = discover()
+    report = discover(extra_resources=[r for c in CATEGORIES if (r := _pinned_resource(c))])
     (run_dir / "discovery.json").write_text(json.dumps(dataclasses.asdict(report), indent=2))
     return report
 
 
 @pytest.fixture(scope="session")
 def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
-    """Category -> the discovered instrument the rack uses; fails every dependent check if one is missing."""
-    missing = [c for c in CATEGORIES if c not in discovery.selected]
+    """Category -> the instrument the rack uses: the first discovered, or the one pinned by RACK_<CATEGORY>_RESOURCE."""
+    chosen: dict[str, DiscoveredInstrument] = {}
+    for category in CATEGORIES:
+        candidates = [i for i in discovery.instruments if i.category == category]
+        if pin := _pinned_resource(category):
+            candidates = [i for i in candidates if i.resource == pin]
+        if not candidates:
+            continue
+        if len(candidates) > 1:
+            logger.warning(
+                "  %d %ss found, using %s; pin one with RACK_%s_RESOURCE",
+                len(candidates),
+                category,
+                candidates[0].resource,
+                category.upper(),
+            )
+        chosen[category] = candidates[0]
+        logger.info(
+            "  rack %-5s -> %s via %s (%s)",
+            category,
+            chosen[category].model,
+            chosen[category].driver_name,
+            chosen[category].resource,
+        )
+    missing = [c for c in CATEGORIES if c not in chosen]
     if missing:
-        pytest.fail(f"no known {', '.join(missing)} discovered; see discovery.json in the run directory")
-    return discovery.selected
+        pytest.fail(f"no supported {', '.join(missing)} discovered; see discovery.json in the run directory")
+    return chosen
 
 
 @pytest.fixture(scope="module")

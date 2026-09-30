@@ -61,14 +61,17 @@ pytestmark = pytest.mark.hardware
 
 
 def test_discovery(discovery: DiscoveryReport) -> None:
-    logger.info("%-45s %-8s %s", "RESOURCE", "SERIAL", "IDN / RESULT")
-    for probe in discovery.probes:
-        serial = f"{probe.baud_rate}" if probe.baud_rate else ("-" if probe.port is None else "no id")
-        logger.info("%-45s %-8s %s", probe.resource, serial, probe.idn or probe.skipped or f"<{probe.error}>")
-    for probe in discovery.unrecognized:
-        logger.warning("  no in-tree driver matches %s (%s)", probe.idn, probe.resource)
-    missing = [c for c in CATEGORIES if c not in discovery.selected]
-    assert not missing, f"no known {', '.join(missing)} discovered"
+    logger.info("  supported:")
+    for found in discovery.instruments:
+        logger.info("    %-5s %-16s %-45s %s", found.category, found.driver_name, found.resource, found.idn)
+    logger.info("  unsupported (no in-tree driver): %s", "none" if not discovery.unsupported else "")
+    for other in discovery.unsupported:
+        logger.info("    %-45s %s", other.resource, other.idn)
+    logger.info("  unreachable: %s", "none" if not discovery.unreachable else "")
+    for dead in discovery.unreachable:
+        logger.info("    %-45s %s", dead.resource, dead.reason)
+    missing = [c for c in CATEGORIES if not any(i.category == c for i in discovery.instruments)]
+    assert not missing, f"no supported {', '.join(missing)} discovered"
 
 
 def test_identities(rack: Rack, instruments: dict[str, DiscoveredInstrument]) -> None:
