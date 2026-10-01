@@ -21,12 +21,15 @@ The default development environment needs **Rust and a C/C++ toolchain**, even f
 | Rust toolchain (pinned by `rust-toolchain.toml`) + C/C++ compiler/linker | ✅ | ✅ |
 | CMake + LLVM/libclang (to build `open62541-sys`/`mbedtls`) | — | ✅ |
 | Separate nightly toolchain with `rustfmt` | — | `just check` only |
+| [`cargo-nextest`](https://nexte.st/) (Rust test runner) | — | `just test` only |
 
 You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. [rust-toolchain.toml](./rust-toolchain.toml) pins the Rust build toolchain, which `rustup` installs on first use. Formatting uses a separate `cargo +nightly fmt` invocation in `just check-rust` and `just fix-rust`; after installing rustup, install nightly rustfmt as [CI does](./.github/workflows/build-check-test.yml):
 
 ```bash
 rustup toolchain install nightly --profile minimal --component rustfmt
 ```
+
+`just test-rust` runs the workspace's unit and integration tests with [`cargo-nextest`](https://nexte.st/) and falls back to `cargo test --doc` for doctests, which nextest does not run. Install a prebuilt binary from the [nextest docs](https://nexte.st/docs/installation/pre-built-binaries/) or `cargo install cargo-nextest --locked`.
 
 The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
 
