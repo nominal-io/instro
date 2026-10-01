@@ -76,7 +76,7 @@ def test_psu_driver_base_get_operating_mode_raises_not_implemented(
         ("get_overvoltage_protection_enabled", ()),
         ("set_overvoltage_protection_delay", (0.25,)),
         ("get_overvoltage_protection_delay", ()),
-        ("clear_overvoltage_protection", ()),
+        ("clear_protection", ()),
         ("get_overvoltage_protection_tripped", ()),
     ],
 )
@@ -96,7 +96,6 @@ def test_psu_driver_base_ovp_methods_raise_not_implemented(
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
-        ("clear_overcurrent_protection", ()),
         ("get_overcurrent_protection_tripped", ()),
     ],
 )
@@ -392,18 +391,15 @@ def test_nominal_psu_protection_trip_methods_delegate_and_package() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
 
-    ovp_clear = psu.clear_overvoltage_protection(channel=2)
+    clear = psu.clear_protection(channel=2)
     ovp_tripped = psu.get_overvoltage_protection_tripped(channel=2)
-    ocp_clear = psu.clear_overcurrent_protection(channel=2)
     ocp_tripped = psu.get_overcurrent_protection_tripped(channel=2)
 
-    driver.clear_overvoltage_protection.assert_called_once_with(channel=2)
+    driver.clear_protection.assert_called_once_with(channel=2)
     driver.get_overvoltage_protection_tripped.assert_called_once_with(channel=2)
-    driver.clear_overcurrent_protection.assert_called_once_with(channel=2)
     driver.get_overcurrent_protection_tripped.assert_called_once_with(channel=2)
-    assert ovp_clear.channel_data == {"ut.ch2.ovp.clear.cmd": 1.0}
+    assert clear.channel_data == {"ut.ch2.protection.clear.cmd": 1.0}
     assert ovp_tripped.channel_data == {"ut.ch2.ovp.tripped": [1.0]}  # type: ignore[union-attr]
-    assert ocp_clear.channel_data == {"ut.ch2.ocp.clear.cmd": 1.0}
     assert ocp_tripped.channel_data == {"ut.ch2.ocp.tripped": [0.0]}  # type: ignore[union-attr]
 
 
@@ -434,7 +430,7 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     voltage_cmd = psu.set_voltage(5.0, channel=1)
     current_cmd = psu.set_current_limit(1.5, channel=1)
     enabled_cmd = psu.output_enable(True, channel=2)
-    ovp_clear_cmd = psu.clear_overvoltage_protection(channel=1)
+    clear_cmd = psu.clear_protection(channel=1)
     ocp_tripped = psu.get_overcurrent_protection_tripped(channel=1)
 
     assert "ut.ch1_v" in voltage.channel_data  # type: ignore[union-attr]
@@ -443,7 +439,7 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     assert "ut.ch1_v.cmd" in voltage_cmd.channel_data
     assert "ut.ch1_i.cmd" in current_cmd.channel_data
     assert "ut.ch2_en.cmd" in enabled_cmd.channel_data
-    assert "ut.ch1_ovp_clear.cmd" in ovp_clear_cmd.channel_data
+    assert "ut.ch1_protection_clear.cmd" in clear_cmd.channel_data
     assert "ut.ch1_ocp_tripped" in ocp_tripped.channel_data  # type: ignore[union-attr]
 
 

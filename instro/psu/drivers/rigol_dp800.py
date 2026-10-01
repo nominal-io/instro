@@ -107,14 +107,12 @@ class RigolDP800(PSUDriverBase):
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         return self._query_checked_bool(f":SOUR{channel}:CURR:PROT:STAT?")
 
-    def clear_overvoltage_protection(self, channel: int) -> None:
+    def clear_protection(self, channel: int) -> None:
         self._write_checked(f":OUTP:OVP:CLEAR CH{channel}")
+        self._write_checked(f":OUTP:OCP:CLEAR CH{channel}")
 
     def get_overvoltage_protection_tripped(self, channel: int) -> bool:
         return self._query_checked_tripped(f":OUTP:OVP:QUES? CH{channel}")
-
-    def clear_overcurrent_protection(self, channel: int) -> None:
-        self._write_checked(f":OUTP:OCP:CLEAR CH{channel}")
 
     def get_overcurrent_protection_tripped(self, channel: int) -> bool:
         return self._query_checked_tripped(f":OUTP:OCP:QUES? CH{channel}")

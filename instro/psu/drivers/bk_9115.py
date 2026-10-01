@@ -89,10 +89,6 @@ class BK9115(PSUDriverBase):
         _check_channel(channel)
         raise FeatureNotSupportedError(f"get_overcurrent_protection_enabled is not supported by the {FRIENDLY_NAME}")
 
-    def clear_overcurrent_protection(self, channel: int) -> None:
-        _check_channel(channel)
-        raise FeatureNotSupportedError(f"clear_overcurrent_protection is not supported by the {FRIENDLY_NAME}")
-
     def get_overcurrent_protection_tripped(self, channel: int) -> bool:
         _check_channel(channel)
         raise FeatureNotSupportedError(f"get_overcurrent_protection_tripped is not supported by the {FRIENDLY_NAME}")

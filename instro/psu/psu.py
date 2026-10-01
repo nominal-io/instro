@@ -115,17 +115,13 @@ class PSUDriverBase(abc.ABC):
         """Query whether overcurrent protection is enabled on `channel`."""
         raise NotImplementedError(f"get_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
 
-    def clear_overvoltage_protection(self, channel: int) -> None:
-        """Clear a latched overvoltage protection trip on `channel`."""
-        raise NotImplementedError(f"clear_overvoltage_protection is not implemented for {type(self).__name__}")
+    def clear_protection(self, channel: int) -> None:
+        """Clear every latched protection trip on `channel`. The output stays off until re-enabled."""
+        raise NotImplementedError(f"clear_protection is not implemented for {type(self).__name__}")
 
     def get_overvoltage_protection_tripped(self, channel: int) -> bool:
         """Query whether overvoltage protection has tripped on `channel` and not been cleared."""
         raise NotImplementedError(f"get_overvoltage_protection_tripped is not implemented for {type(self).__name__}")
-
-    def clear_overcurrent_protection(self, channel: int) -> None:
-        """Clear a latched overcurrent protection trip on `channel`."""
-        raise NotImplementedError(f"clear_overcurrent_protection is not implemented for {type(self).__name__}")
 
     def get_overcurrent_protection_tripped(self, channel: int) -> bool:
         """Query whether overcurrent protection has tripped on `channel` and not been cleared."""
@@ -508,15 +504,18 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
-    def clear_overvoltage_protection(self, channel: int, **kwargs) -> Command:
-        """Clear a latched overvoltage protection trip on ``channel``. Publishes ``True`` on the ``ovp.clear`` command channel."""
-        return self._execute_command(
-            lambda _, channel: self._driver.clear_overvoltage_protection(channel=channel),
-            value=True,
-            channel=channel,
-            channel_suffix="ovp.clear",
-            legacy_suffix="ovp_clear",
-            **kwargs,
+    @publish_command
+    def clear_protection(self, channel: int, **kwargs) -> Command:
+        """Clear every latched protection trip on ``channel``. Publishes ``True`` on the ``protection.clear`` command channel.
+
+        The output stays off after the clear; re-enable it with `output_enable` once the cause is fixed.
+        """
+        with self._resource_lock:
+            self._driver.clear_protection(channel=channel)
+            timestamp = time.time_ns()
+
+        return self._package_command(
+            self._command_descriptor(channel, "protection.clear", "protection_clear"), True, timestamp, **kwargs
         )
 
     def get_overvoltage_protection_tripped(self, channel: int, **kwargs) -> Measurement | None:
@@ -530,17 +529,6 @@ class InstroPSU(Instrument):
             channel=channel,
             channel_suffix="ovp.tripped",
             legacy_suffix="ovp_tripped",
-            **kwargs,
-        )
-
-    def clear_overcurrent_protection(self, channel: int, **kwargs) -> Command:
-        """Clear a latched overcurrent protection trip on ``channel``. Publishes ``True`` on the ``ocp.clear`` command channel."""
-        return self._execute_command(
-            lambda _, channel: self._driver.clear_overcurrent_protection(channel=channel),
-            value=True,
-            channel=channel,
-            channel_suffix="ocp.clear",
-            legacy_suffix="ocp_clear",
             **kwargs,
         )
 

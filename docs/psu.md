@@ -67,11 +67,11 @@ The typical InstroPSU workflow:
 
 ### Protection Trips
 
-When overvoltage or overcurrent protection trips, a supply typically latches the output off until the trip is cleared. `get_overvoltage_protection_tripped()` and `get_overcurrent_protection_tripped()` report the latch as a bool `Measurement` (`ch<n>.ovp.tripped`, `ch<n>.ocp.tripped`). `clear_overvoltage_protection()` and `clear_overcurrent_protection()` clear it and publish a `Command` (`ch<n>.ovp.clear.cmd`, `ch<n>.ocp.clear.cmd`). Check `get_output_status()` after a clear and re-enable the output if needed.
+When overvoltage or overcurrent protection trips, a supply typically latches the output off until the trip is cleared. `get_overvoltage_protection_tripped()` and `get_overcurrent_protection_tripped()` report the latch as a bool `Measurement` (`ch<n>.ovp.tripped`, `ch<n>.ocp.tripped`). `clear_protection()` clears every latched trip on the channel and publishes a `Command` (`ch<n>.protection.clear.cmd`). The output stays off after a clear; fix the cause, then re-enable it with `output_enable()`.
 
 ```python
 psu.get_overcurrent_protection_tripped(channel=1)  # myPSU.ch1.ocp.tripped: [1.0]
-psu.clear_overcurrent_protection(channel=1)
+psu.clear_protection(channel=1)
 psu.output_enable(True, channel=1)
 ```
 

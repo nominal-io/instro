@@ -349,11 +349,10 @@ def test_rigol_get_overcurrent_protection_enabled_parses_state(
     assert rigol.get_overcurrent_protection_enabled(channel=1) is False
 
 
-def test_rigol_clear_protection_writes_per_channel_clear(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
-    rigol.clear_overvoltage_protection(channel=2)
-    rigol.clear_overcurrent_protection(channel=3)
+def test_rigol_clear_protection_clears_ovp_and_ocp(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.clear_protection(channel=2)
 
-    assert rigol_visa.write.call_args_list == [call(":OUTP:OVP:CLEAR CH2"), call(":OUTP:OCP:CLEAR CH3")]
+    assert rigol_visa.write.call_args_list == [call(":OUTP:OVP:CLEAR CH2"), call(":OUTP:OCP:CLEAR CH2")]
     assert rigol_visa.query.call_args_list == [call(":SYST:ERR?"), call(":SYST:ERR?")]
 
 

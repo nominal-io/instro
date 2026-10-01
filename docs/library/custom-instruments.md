@@ -234,14 +234,11 @@ def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> Non
 def get_overcurrent_protection_enabled(self, channel: int) -> bool:
     """Query and return whether overcurrent protection is enabled."""
 
-def clear_overvoltage_protection(self, channel: int) -> None:
-    """Clear a latched overvoltage protection trip on `channel`."""
+def clear_protection(self, channel: int) -> None:
+    """Clear every latched protection trip on `channel`, leaving the output off."""
 
 def get_overvoltage_protection_tripped(self, channel: int) -> bool:
     """Query and return whether overvoltage protection has tripped and not been cleared."""
-
-def clear_overcurrent_protection(self, channel: int) -> None:
-    """Clear a latched overcurrent protection trip on `channel`."""
 
 def get_overcurrent_protection_tripped(self, channel: int) -> bool:
     """Query and return whether overcurrent protection has tripped and not been cleared."""
