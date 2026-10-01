@@ -34,3 +34,6 @@ indexing_slicing = "warn"
 panic = "warn"
 todo = "warn"
 result_large_err = "allow"
+
+[profile.dev.package.open62541-sys]
+opt-level = 3
