@@ -68,7 +68,9 @@ use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
-use crate::error::ClientError;
+use crate::bail;
+use crate::error::ErrorExt as _;
+use crate::error::UaErrorExt as _;
 use crate::types::OpcUaAttributeId;
 use crate::types::OpcUaNodeId;
 
@@ -355,7 +357,7 @@ impl OpcUaClient {
     {
         let client_guard = self.client.read().await;
         let Some(client) = client_guard.as_ref() else {
-            return Err(OpcUaError::client_disconnected());
+            return Err(OpcUaError::ClientDisconnected);
         };
 
         Ok(f(client).await)
@@ -403,24 +405,16 @@ impl OpcUaClient {
                 client
                     .read_many_attributes(node_list.pairs())
                     .await
-                    .map_err(|e| {
-                        ClientError::ReadNodes(
-                            "requesting values from remote server".into(),
-                            Some(e),
-                        )
-                    })
+                    .ua_context("requesting values from remote server")
             })
             .await??;
 
         if read_result.len() != node_list.len() {
-            Err(ClientError::ReadNodes(
-                format!(
-                    "length mismatch between requested and received values: {} != {}",
-                    read_result.len(),
-                    node_list.len()
-                ),
-                None,
-            ))?;
+            bail!(
+                internal = "length mismatch between requested and received values: {} != {}",
+                read_result.len(),
+                node_list.len()
+            )
         }
 
         Ok(node_list.keys().zip(read_result).enumerate().filter_map(
@@ -468,7 +462,7 @@ impl OpcUaClient {
                 subscription_builder
                     .create(client)
                     .await
-                    .map_err(ClientError::Subscription)
+                    .context("creating subscription")
             })
             .await??;
 
@@ -483,14 +477,14 @@ impl OpcUaClient {
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
-            .map_err(ClientError::Subscription)?;
+            .context("creating monitored items")?;
 
         if item_results.len() != nodes.len() {
-            Err(ClientError::MalformedServiceResponse(format!(
-                "length mismatch between requested and registered monitored items: {} != {}",
+            bail!(
+                internal = "length mismatch between requested and registered monitored items: {} != {}",
                 item_results.len(),
                 nodes.len()
-            )))?
+            )
         }
 
         // Merge monitored-item streams into one pump to avoid per-node tasks; the pump does not
@@ -541,9 +535,7 @@ impl OpcUaClient {
         }
 
         if valid_streams.is_empty() {
-            Err(ClientError::MalformedServiceResponse(format!(
-                "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
-            )))?
+            bail!(internal = "no valid monitored item streams were created; all {requested_count} requested node(s) failed")
         }
 
         let reader = ClientNodeReader { client: this };
@@ -607,7 +599,7 @@ impl OpcUaClient {
                     )
                 }
 
-                Err(OpcUaError::Client(ClientError::ClientDisconnect)) => {
+                Err(OpcUaError::ClientDisconnected) => {
                     tracing::info!(target: "opcua::client::poll", "stopping poll loop");
                     break;
                 }
@@ -683,7 +675,7 @@ impl OpcUaClient {
 
                         let reads = match reader.read_nodes(&batch).await {
                             Ok(reads) => reads,
-                            Err(OpcUaError::Client(ClientError::ClientDisconnect)) => break,
+                            Err(OpcUaError::ClientDisconnected) => break,
 
                             Err(e) => {
                                 tracing::error!(
@@ -801,7 +793,7 @@ impl NodeReader for ClientNodeReader {
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
             Some(client) => client.read_nodes(batch).await,
-            None => Err(ClientError::ClientDisconnect)?,
+            None => return Err(OpcUaError::ClientDisconnected),
         }
     }
 }
@@ -943,35 +935,23 @@ impl OpcUaClientBuilder {
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
         let user_token = self
             .user_token
-            .ok_or(ClientError::Builder("no user token provided".into(), None))?;
+            .context("no user token provided")?;
 
         let security_mode = match self.security_mode {
             Some(mode) if !mode.is_invalid() => mode.into(),
-            Some(_) => Err(ClientError::Builder("invalid security mode".into(), None))?,
-            None => Err(ClientError::Builder(
-                "no security mode provided".into(),
-                None,
-            ))?,
+            Some(_) => bail!(internal = "invalid security mode"),
+            None => bail!(internal = "no security mode provided"),
         };
 
         let mut builder = match self.pki {
             OpcUaPki::UseProvided(certificate, private_key) => {
-                ClientBuilder::default_encryption(&certificate, &private_key).map_err(|e| {
-                    ClientError::Builder(
-                        "failed to create encrypted client builder".into(),
-                        Some(e),
-                    )
-                })?
+                ClientBuilder::default_encryption(&certificate, &private_key).context("creating encrypted client builder")?
             }
 
             OpcUaPki::GenerateSelfSigned => {
                 let (certificate, private_key) = generate_self_signed_cert()?;
-                ClientBuilder::default_encryption(&certificate, &private_key).map_err(|e| {
-                    ClientError::Builder(
-                        "failed to create encrypted client builder".into(),
-                        Some(e),
-                    )
-                })?
+                ClientBuilder::default_encryption(&certificate, &private_key)
+                    .ua_context("failed to create encrypted client builder")?
             }
 
             OpcUaPki::None => ClientBuilder::default(),
@@ -997,7 +977,7 @@ impl OpcUaClientBuilder {
 
         let client = builder
             .connect(endpoint_url)
-            .map_err(ClientError::Connect)?
+            .ua_context("connecting to endpoint")?
             .into_async();
 
         Ok(OpcUaClient::new(client))
@@ -1029,7 +1009,7 @@ impl OpcUaStreamSession {
         let runtime = runtime::Builder::new_current_thread()
             .enable_time()
             .build()
-            .map_err(ClientError::StreamInit)?;
+            .context("creating runtime")?;
 
         let (stop_tx, stop_rx) = oneshot::channel();
         let (term_tx, term_rx) = watch::channel(false);
@@ -1069,7 +1049,7 @@ impl OpcUaStreamSession {
                     }
                 })
             })
-            .map_err(ClientError::StreamInit)?;
+            .context("creating runtime thread")?;
 
         Ok(Self {
             handle: Some(SessionHandle { stop_tx, term_rx }),
@@ -1090,7 +1070,7 @@ impl OpcUaStreamSession {
         if let Some(handle) = self.handle.take() {
             timeout(to, handle.stop())
                 .await
-                .map_err(ClientError::StreamStopTimeout)?
+                .context("stopping stream session")?
         }
 
         Ok(())
@@ -1142,7 +1122,7 @@ mod tests {
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
     use super::ReadNodeItem;
-    use crate::error::ClientError;
+    use crate::OpcUaError;
     use crate::error::Result;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
@@ -1197,7 +1177,7 @@ mod tests {
                 let mut state = self.state.lock().unwrap();
 
                 if !state.is_alive {
-                    Err(ClientError::ClientDisconnect)?
+                    return Err(OpcUaError::ClientDisconnected);
                 }
 
                 let timestamp = state.next_timestamp;

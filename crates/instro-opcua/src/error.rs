@@ -1,73 +1,96 @@
-use std::{any::type_name, fmt::Debug};
+use std::{error::Error, fmt::Debug};
 
 use open62541::Error as UaError;
-use thiserror::Error;
-
-use crate::types::OpcUaNodeId;
+use open62541::Result as UaResult;
 
 pub type Result<T> = core::result::Result<T, OpcUaError>;
 
-#[derive(Debug, Error)]
-pub enum ClientError {
-    #[error("failed to build client: {0}{source}", source = format_source(.1.as_ref()))]
-    Builder(String, #[source] Option<UaError>),
-    #[error("failed to connect to OPC UA server")]
-    Connect(#[source] UaError),
-    #[error("client disconnected")]
-    ClientDisconnect,
-    #[error("failure while processing OPC UA subscription stream")]
-    Subscription(#[source] UaError),
-    #[error("response from OPC UA service was malformed: {0}")]
-    MalformedServiceResponse(String),
-    #[error("failure during OPC UA poll stream: {0}{source}", source = format_source(.1.as_ref()))]
-    Poll(String, #[source] Option<UaError>),
-    #[error("failure while reading node attribute values: {0}{source}", source = format_source(.1.as_ref()))]
-    ReadNodes(String, #[source] Option<UaError>),
-    #[error("failed to stop stream before timeout")]
-    StreamStopTimeout(#[source] tokio::time::error::Elapsed),
-    #[error("failed to spawn background streaming task")]
-    StreamInit(#[source] std::io::Error),
-    #[error("failed to browse node: {0}{source}", source = format_source(Some(.1)))]
-    BrowseNode(OpcUaNodeId, #[source] UaError),
-    #[error("node limit exceeded when traversing node '{1}' (limit: {2}, browse root: {0})")]
-    BrowsedNodeLimitExceeded(OpcUaNodeId, OpcUaNodeId, usize),
-    #[error("node reference cycle detected at node: {0} (browse root: {1})")]
-    BrowseCycleDetected(OpcUaNodeId, OpcUaNodeId),
-}
+type BoxedError = Box<dyn Error + Send + Sync>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum OpcUaError {
-    #[error("client error: {0}")]
-    Client(#[from] ClientError),
-    #[error("failed to generate self-signed certificate{source}", source = format_source(.0.as_ref()))]
-    GenerateSelfSignedCert(#[source] Option<UaError>),
-    #[error("failed to convert value: {0} ({1:?})")]
-    TypeConversion(String, Box<dyn Debug + Send + Sync + 'static>),
-    #[error("error: {0}")]
-    Other(String),
+    #[error("OPC UA error: {0}")]
+    Ua(#[source] UaError),
+    #[error("OPC UA error: {1}: {0}")]
+    UaWithContext(#[source] UaError, BoxedError),
+    #[error("attempted to use a disconnected client")]
+    ClientDisconnected,
+    #[error("internal error: {0}")]
+    Internal(BoxedError),
 }
 
-fn format_source(e: Option<&UaError>) -> String {
-    e.map(|e| format!(": ({:?})", e)).unwrap_or_default()
+impl From<UaError> for OpcUaError {
+    fn from(err: UaError) -> Self {
+        OpcUaError::Ua(err)
+    }
 }
+
+pub(crate) trait UaErrorExt<T>: Sized {
+    fn ua_context(self, ctx: impl Into<BoxedError>) -> Result<T>;
+    fn with_ua_context<F: FnOnce() -> E, E: Into<BoxedError>>(self, f: F) -> Result<T>;
+}
+
+impl<T> UaErrorExt<T> for UaResult<T> {
+    fn ua_context(self, ctx: impl Into<BoxedError>) -> Result<T> {
+        self.map_err(|e| OpcUaError::UaWithContext(e, ctx.into()))
+    }
+
+    fn with_ua_context<F: FnOnce() -> E, E: Into<BoxedError>>(self, f: F) -> Result<T> {
+        self.map_err(|e| OpcUaError::UaWithContext(e, f().into()))
+    }
+}
+
+pub(crate) trait ErrorExt<T>: Sized {
+    fn context(self, ctx: impl Into<BoxedError>) -> Result<T>;
+    fn with_context<F: FnOnce() -> E, E: Into<BoxedError>>(self, f: F) -> Result<T>;
+}
+
+impl<T> ErrorExt<T> for Option<T> {
+    fn context(self, ctx: impl Into<BoxedError>) -> Result<T> {
+        self.ok_or_else(|| OpcUaError::internal(ctx.into()))
+    }
+
+    fn with_context<F: FnOnce() -> E, E: Into<BoxedError>>(self, f: F) -> Result<T> {
+        self.ok_or_else(|| OpcUaError::internal(f().into()))
+    }
+}
+
+impl<T, E: Error + Send + Sync> ErrorExt<T> for std::result::Result<T, E> {
+    fn context(self, ctx: impl Into<BoxedError>) -> Result<T> {
+        self.map_err(|e| OpcUaError::internal(format!("{}: {e}", ctx.into())))
+    }
+
+    fn with_context<F: FnOnce() -> _E, _E: Into<BoxedError>>(self, f: F) -> Result<T> {
+        self.map_err(|e| OpcUaError::internal(format!("{}: {e}", f().into())))
+    }
+}
+
 
 impl OpcUaError {
-    pub(crate) fn ua_conversion<From, To>(src: impl Debug + Send + Sync + 'static) -> Self {
-        Self::TypeConversion(
-            format!(
-                "failed to convert value: from type '{}' into type '{}'",
-                type_name::<From>(),
-                type_name::<To>(),
-            ),
-            Box::new(src),
-        )
+    pub(crate) fn internal(ctx: impl Into<BoxedError>) -> Self {
+        Self::Internal(ctx.into())
     }
+}
 
-    pub(crate) fn other(ctx: impl std::fmt::Display) -> Self {
-        Self::Other(ctx.to_string())
-    }
+#[macro_export]
+macro_rules! err {
+    (internal = $($arg:tt)*) => {
+        OpcUaError::internal(format!($($arg)*))
+    };
 
-    pub(crate) const fn client_disconnected() -> Self {
-        Self::Client(ClientError::ClientDisconnect)
-    }
+    (ua = $err:expr) => {
+        OpcUaError::Ua(format!($($arg)*))
+    };
+
+    (ua = $err:expr, $($arg:tt)*) => {
+        OpcUaError::UaWithContext($err, format!($($arg)*))
+    };
+}
+
+#[macro_export]
+macro_rules! bail {
+    ($($arg:tt)*) => {{
+        use crate::err;
+        return Err(err!($($arg)*))
+    }}
 }
