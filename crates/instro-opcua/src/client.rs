@@ -539,7 +539,8 @@ impl OpcUaClient {
         if valid_streams.is_empty() {
             bail!(
                 internal,
-                "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
+                "no valid monitored item streams were created; all {requested_count} requested \
+                 node(s) failed"
             )
         }
 

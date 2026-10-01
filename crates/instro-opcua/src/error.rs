@@ -1,4 +1,5 @@
-use std::{error::Error, fmt::Debug};
+use std::error::Error;
+use std::fmt::Debug;
 
 use open62541::Error as UaError;
 use open62541::Result as UaResult;
