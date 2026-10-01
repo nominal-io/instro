@@ -72,10 +72,6 @@ class RigolDP800(PSUDriverBase):
     def get_operating_mode(self, channel: int) -> OperatingMode:
         """Query the regulation state of ``channel``.
 
-        Reads the channel's questionable-status condition register in one query, so a disabled
-        channel reports ``OFF`` directly. (``:OUTP:MODE?`` is not used: it still answers ``CV``
-        for a disabled channel.)
-
         Args:
             channel: 1-based output channel.
 
