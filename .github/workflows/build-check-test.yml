@@ -59,6 +59,13 @@ jobs:
       - name: Run unit tests
         run: |
           just test
+      # TEMPORARY (INSTRO-680): measure run-to-run variance of the OPC UA cert test.
+      - name: Time generate_cert on Windows
+        if: runner.os == 'Windows'
+        run: |
+          for i in 1 2 3 4 5; do
+            cargo nextest run -p instro-opcua --all-features --lib -E 'test(generate_cert_produces_nonempty_keypair)' --status-level all
+          done
 
   rust-check:
     runs-on: ${{ matrix.os }}
