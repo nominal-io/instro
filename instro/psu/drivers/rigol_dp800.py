@@ -81,7 +81,12 @@ class RigolDP800(PSUDriverBase):
         Raises:
             RuntimeError: On a non-numeric register reply or a SCPI error.
         """
-        return _CONDITION_MODES[self._query_channel_condition(channel) & 3]
+        reply = self._query_checked(f":STAT:QUES:INST:ISUM{channel}:COND?").strip()
+        try:
+            condition = int(reply)
+        except ValueError:
+            raise RuntimeError(f"Unexpected Rigol condition register for channel {channel}: {reply}") from None
+        return _CONDITION_MODES[condition & 3]
 
     def get_voltage_setpoint(self, channel: int) -> float:
         return self._query_checked_float(f":SOUR{channel}:VOLT?")
@@ -146,14 +151,6 @@ class RigolDP800(PSUDriverBase):
                 )
             case _:
                 raise RuntimeError(f"Unexpected Rigol remote-sense state for channel {channel}: {state}")
-
-    def _query_channel_condition(self, channel: int) -> int:
-        """Read ``:STAT:QUES:INST:ISUM<n>:COND?`` for ``channel`` as an integer bit field."""
-        reply = self._query_checked(f":STAT:QUES:INST:ISUM{channel}:COND?").strip()
-        try:
-            return int(reply)
-        except ValueError:
-            raise RuntimeError(f"Unexpected Rigol condition register for channel {channel}: {reply}") from None
 
     def _channel_count(self) -> int:
         if not self.idn:
