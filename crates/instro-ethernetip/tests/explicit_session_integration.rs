@@ -136,8 +136,10 @@ mod support {
     use std::env;
     use std::sync::OnceLock;
 
-    use instro_ethernetip::{ExplicitSession, Value};
-    use tokio::sync::{Mutex, MutexGuard};
+    use instro_ethernetip::ExplicitSession;
+    use instro_ethernetip::Value;
+    use tokio::sync::Mutex;
+    use tokio::sync::MutexGuard;
 
     fn test_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -263,7 +265,10 @@ mod support {
                     return None;
                 }
                 Some(slot.parse::<u8>().unwrap_or_else(|error| {
-                    panic!("{ROUTE_PATH_SLOTS_ENV_VAR} must contain comma-separated u8 slot values: {error}")
+                    panic!(
+                        "{ROUTE_PATH_SLOTS_ENV_VAR} must contain comma-separated u8 slot values: \
+                         {error}"
+                    )
                 }))
             })
             .collect()
@@ -424,11 +429,14 @@ mod support {
     }
 
     mod cpppo_simulator {
-        use std::io::{BufRead, BufReader};
+        use std::io::BufRead;
+        use std::io::BufReader;
         #[cfg(unix)]
         use std::os::unix::process::CommandExt;
         use std::path::PathBuf;
-        use std::process::{Child, Command, Stdio};
+        use std::process::Child;
+        use std::process::Command;
+        use std::process::Stdio;
         use std::sync::mpsc;
         use std::thread;
         use std::time::Duration;
@@ -520,7 +528,9 @@ mod support {
                         panic!("failed to wait for simulator process after timeout: {error}")
                     });
                     panic!(
-                        "failed waiting for the simulator to indicate it started by sending its ip/port to stdout within {STARTUP_TIMEOUT:?}; process exited with {status}",
+                        "failed waiting for the simulator to indicate it started by sending its \
+                         ip/port to stdout within {STARTUP_TIMEOUT:?}; process exited with \
+                         {status}",
                     );
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -530,7 +540,8 @@ mod support {
                         )
                     });
                     panic!(
-                        "failed waiting for the simulator to indicate it started by sending its ip/port to stdout; process exited with {status}"
+                        "failed waiting for the simulator to indicate it started by sending its \
+                         ip/port to stdout; process exited with {status}"
                     );
                 }
             };
@@ -539,7 +550,8 @@ mod support {
                     panic!("failed to wait for simulator process: {error}")
                 });
                 panic!(
-                    "simulator did not print an endpoint before returning; process exited with {status}"
+                    "simulator did not print an endpoint before returning; process exited with \
+                     {status}"
                 );
             }
             endpoint
@@ -574,7 +586,8 @@ mod support {
                 Value::Lreal(value) => value.to_string(),
                 Value::String(_) | Value::Struct(_) => {
                     panic!(
-                        "string and structured values are not supported by the cpppo integration simulator"
+                        "string and structured values are not supported by the cpppo integration \
+                         simulator"
                     )
                 }
             }

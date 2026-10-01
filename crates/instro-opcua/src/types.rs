@@ -934,7 +934,10 @@ impl FromStr for OpcUaBrowsePath {
         }
 
         if !s.starts_with('/') {
-            bail!(internal, "browse path must start with '/' or be empty (original: '{s}')")
+            bail!(
+                internal,
+                "browse path must start with '/' or be empty (original: '{s}')"
+            )
         }
 
         let mut segments = Vec::new();
@@ -1003,7 +1006,10 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
 
     let name = unescape_browse_name(name)?;
     if name.is_empty() {
-        bail!(internal, "browse path segment name must not be empty (original: '{segment}')")
+        bail!(
+            internal,
+            "browse path segment name must not be empty (original: '{segment}')"
+        )
     }
 
     Ok(OpcUaQualifiedName { ns_index, name })
@@ -1030,7 +1036,8 @@ fn namespace_separator(segment: &str) -> Result<Option<usize>> {
 
             bail!(
                 internal,
-                "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')"
+                "':' in a browse path segment must be escaped unless it separates a namespace \
+                 (original: '{segment}')"
             )
         }
     }
@@ -1060,7 +1067,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
             if !is_browse_path_reserved(ch) {
                 bail!(
                     internal,
-                    "'&' in a browse path segment must escape a reserved character (original: '{name}')"
+                    "'&' in a browse path segment must escape a reserved character (original: \
+                     '{name}')"
                 )
             }
 
@@ -1074,7 +1082,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
         } else if is_browse_path_reserved(ch) {
             bail!(
                 internal,
-                "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')"
+                "reserved character '{ch}' in a browse path segment must be escaped (original: \
+                 '{name}')"
             )
         } else {
             unescaped.push(ch);
@@ -1876,13 +1885,11 @@ mod tests {
         fn try_from(v: VariantEq) -> Result<Self> {
             match v.0.to_value() {
                 VariantValue::Scalar(s) => Ok(ScalarEq(s)),
-                variant => {
-                    Err(type_conv_err!(
-                        VariantEq,
-                        Self,
-                        format_args!("unsupported variant value: {variant:?}")
-                    ))
-                }
+                variant => Err(type_conv_err!(
+                    VariantEq,
+                    Self,
+                    format_args!("unsupported variant value: {variant:?}")
+                )),
             }
         }
     }
