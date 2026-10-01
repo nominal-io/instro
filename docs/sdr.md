@@ -13,7 +13,7 @@ Using InstroSDR to capture IQ samples and spectrum summaries
 This Instrument category is new and is currently available only in the Unstable package. Its API is not settled and may change without notice between releases. See [Additional Packages](/installation.md#additional-packages).
 :::
 
-`InstroSDR` provides a unified interface for software defined radios. This class is initialized with a vendor-specific driver, and provides the vendor-agnostic API (`set_center_freq`, `set_sample_rate`, `set_gain`, `measure_iq`, `measure_spectrum`, …).
+`InstroSDR` provides a unified interface for software defined radios. This class is initialized with a vendor-specific driver (`HackRFOne`, …), and provides the vendor-agnostic API (`set_center_freq`, `set_sample_rate`, `set_gain`, `measure_iq`, `measure_spectrum`, …).
 
 ## Creating an InstroSDR
 
@@ -35,7 +35,10 @@ sdr = InstroSDR(
 
 ## Supported Vendors
 
-No vendor drivers ship in this release yet. To use a radio now, see [Custom Driver Development](/library/custom-instruments.md#software-defined-radio-sdr), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
+:::{driver-cards} sdr
+:::
+
+If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#software-defined-radio-sdr), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
 ## Details
 

@@ -69,6 +69,7 @@ Here is a table of available packages:
 | **EtherNet** | `ethernetip` | EtherNet/IP support |
 | **Other** | `contrib` | Community-contributed drivers |
 |  | `unstable` | Experimental unstable modules |
+| **SDR** | `hackrf` | HackRF One bindings (`python-hackrf`). Not part of `all`: it builds against a system `libhackrf` ([libhackrf](#libhackrf)) |
 
 ## Using Nominal Connect
 
@@ -100,6 +101,7 @@ The table below shows which vendor drivers are required for which `instro` instr
 | **LJM (LabJack Module)** | LabJack T-Series devices | `LabJackTSeriesDriver` |
 | **MCC Universal Library (`mcculw`)** | Measurement Computing DAQ devices | `MCCDriver` |
 | **Total Phase USB Drivers** | Total Phase Aardvark I2C/SPI Host Adapter | `Aardvark` |
+| **libhackrf** | HackRF One software defined radio | `HackRFOne` |
 
 ## VISA
 ### Used By
@@ -184,3 +186,22 @@ Total Phase USB Drivers are required to communicate with Total Phase Aardvark I2
 ### Installation
 
 1. Download the USB Drivers from the [Total Phase website](https://www.totalphase.com/products/usb-drivers/)
+
+## libhackrf
+
+`libhackrf` is the Great Scott Gadgets host library required to communicate with a HackRF One. The `python-hackrf` bindings ship as a source distribution and build against it at install time.
+
+### Used By
+
+- **`InstroSDR`**: HackRF One (via `HackRFOne`)
+
+### Installation
+
+1. Install `libhackrf` 2024.02.1 or newer: `brew install hackrf` on macOS, or `libhackrf-dev` on Debian and Ubuntu.
+2. Make sure `pkg-config` and a C compiler are available, since the bindings compile against the library.
+3. Install the `instro[unstable,hackrf]` extras, which build the Python bindings (`python-hackrf`).
+4. Run `hackrf_info` to confirm the radio enumerates. A HackRF that shows its **3V3** LED but not **USB** has power but no data connection, which usually means a charge-only cable.
+
+:::{note}
+The `hackrf` extra is not part of `instro[all]`, because building it needs the system library above.
+:::
