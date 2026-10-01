@@ -29,8 +29,10 @@ use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
 
 use crate::OpcUaError;
-use crate::error::ClientError;
+use crate::bail;
+use crate::error::ErrorExt as _;
 use crate::error::Result;
+use crate::error::UaErrorExt as _;
 
 /// A trait for browsing a single node and returning its children.
 pub trait Browse {
@@ -93,19 +95,18 @@ impl Browse for OpcUaClient {
 
         let (mut all_refs, mut cont_pt) = self
             .with_client(async |client| client.browse(&browse_desc).await)
-            .await?
-            .map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
+            .await??;
 
         while let Some(cp) = cont_pt {
             let mut results = self
                 .with_client(async |client| client.browse_next(&[cp]).await)
-                .await?
-                .map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
+                .await??;
 
             match results.pop() {
                 Some(result) => {
                     let (more_refs, next_cp) =
-                        result.map_err(|e| ClientError::BrowseNode(node_id.clone(), e))?;
+                        result.with_ua_context(|| format!("continuing browse of node '{node_id}'"))?;
+
                     all_refs.extend(more_refs);
                     cont_pt = next_cp;
                 }
@@ -165,12 +166,10 @@ fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<(
         .segments()
         .last()
         .cloned()
-        .ok_or_else(|| {
-            OpcUaError::other(format!(
-                "browse result for node {} had no browse path",
-                child.node_id
-            ))
-        })?;
+        .with_context(|| format!(
+            "browse result for node {} had no browse path",
+            child.node_id
+        ))?;
 
     child.browse_path = parent_path.child(segment);
 
@@ -213,26 +212,29 @@ async fn browse_iterative<B: Browse>(
         };
 
         if current < limit {
-            let current_node = nodes.get(current).ok_or_else(|| {
-                OpcUaError::other("browse stack referenced an out-of-bounds node index".to_string())
-            })?;
+            let current_node = nodes
+                .get(current)
+                .context("browse stack referenced an out-of-bounds node index")?;
 
             if let Some(limit) = node_limit
                 && count_visited >= limit
             {
-                Err(ClientError::BrowsedNodeLimitExceeded(
-                    node_id.clone(),
+                bail!(
+                    internal = "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root node: '{}')",
                     current_node.node_id.clone(),
                     limit,
-                ))?;
+                    node_id.clone(),
+                );
             }
+
             count_visited = count_visited.saturating_add(1);
 
             if ancestors.contains(&current_node.node_id) {
-                Err(ClientError::BrowseCycleDetected(
+                bail!(
+                    internal = "browse cycle detected while browsing node '{}' (browse root node: '{}')",
                     current_node.node_id.clone(),
                     node_id.clone(),
-                ))?;
+                );
             } else {
                 ancestors.insert(current_node.node_id.clone());
             }
@@ -267,9 +269,10 @@ async fn browse_iterative<B: Browse>(
             };
 
             let children = nodes.split_off(*prev_limit);
-            let prev_node = nodes.get_mut(*prev).ok_or_else(|| {
-                OpcUaError::other("browse stack referenced an out-of-bounds node index".to_string())
-            })?;
+
+            let prev_node = nodes
+                .get_mut(*prev)
+                .context("browse stack referenced an out-of-bounds node index")?;
 
             prev_node.children = children;
             ancestors.remove(&prev_node.node_id);
