@@ -111,6 +111,7 @@ See [Installation](https://instro.nominal.io/installation) for more info.
 | Electronic Load | `InstroELoad` | B&K Precision (85xxB-series), EA Elektro-Automatik (PSB 10000-series) |
 | Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
 | Flow Controller | `InstroFlowController` | Alicat MC-series |
+| Software Defined Radio | `InstroSDR` | RTL-SDR / `librtlsdr`-compatible dongles (unstable) |
 | DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series, DewesoftX (unstable) |
 | I2C | `I2CInterface` | Total Phase Aardvark |
 | Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |

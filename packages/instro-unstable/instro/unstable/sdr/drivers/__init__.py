@@ -1,3 +1,7 @@
 """Concrete SDR drivers."""
 
-__all__: list[str] = []
+from instro.unstable.sdr.drivers.rtl_sdr import RTLSDR
+
+__all__ = [
+    "RTLSDR",
+]

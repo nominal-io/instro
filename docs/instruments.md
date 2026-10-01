@@ -51,6 +51,11 @@ Supported hardware and protocols
 :::{driver-cards} flowcontroller
 :::
 
+### Software defined radios: `InstroSDR`
+
+:::{driver-cards} sdr
+:::
+
 ## Protocols
 
 ### Modbus: `ModbusDevice`
