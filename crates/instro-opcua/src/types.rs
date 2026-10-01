@@ -381,7 +381,13 @@ impl TryFrom<&UA_UserTokenType> for OpcUaUserTokenType {
             0 => Self::Anonymous,
             1 => Self::UserName,
             2 => Self::Certificate,
-            token_t => return Err(type_conv_err!(UA_UserTokenType, Self, format!("invalid token discriminant: '{token_t}'"))),
+            token_t => {
+                return Err(type_conv_err!(
+                    UA_UserTokenType,
+                    Self,
+                    format!("invalid token discriminant: '{token_t}'")
+                ));
+            }
         })
     }
 }
@@ -563,9 +569,13 @@ impl TryFrom<&UA_AttributeId> for OpcUaAttributeId {
             UA_AttributeId::UA_ATTRIBUTEID_USERROLEPERMISSIONS => Self::UserRolePermissions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSRESTRICTIONS => Self::AccessRestrictions,
             UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVELEX => Self::AccessLevelEx,
-            UA_AttributeId(id) => return Err(type_conv_err!(ua::AttributeId, Self, format_args!(
-                "invalid OPC UA attribute id discriminant: '{id}'"
-            )))?,
+            UA_AttributeId(id) => {
+                return Err(type_conv_err!(
+                    ua::AttributeId,
+                    Self,
+                    format_args!("invalid OPC UA attribute id discriminant: '{id}'")
+                ))?;
+            }
         })
     }
 }
@@ -753,23 +763,25 @@ impl FromStr for OpcUaNodeId {
             NodeIdKind::Numeric(
                 numeric
                     .parse::<u32>()
-                    .with_context(|| format!("invalid numeric id '{numeric}' (original: '{s}'"))?
+                    .with_context(|| format!("invalid numeric id '{numeric}' (original: '{s}'"))?,
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
             NodeIdKind::String(Cow::Owned(string.to_string()))
         } else if let Some(guid) = rest.strip_prefix("g=") {
             NodeIdKind::Guid(
                 Uuid::from_str(guid)
-                    .with_context(|| format!("invalid guid id '{guid}' (original: '{s}'"))?
+                    .with_context(|| format!("invalid guid id '{guid}' (original: '{s}'"))?,
             )
         } else if let Some(byte_string) = rest.strip_prefix("b=") {
-            let bytes = BASE64_STANDARD
-                .decode(byte_string)
-                .with_context(|| format!("invalid byte string id '{byte_string}' (original: '{s}'"))?;
+            let bytes = BASE64_STANDARD.decode(byte_string).with_context(|| {
+                format!("invalid byte string id '{byte_string}' (original: '{s}'")
+            })?;
 
             NodeIdKind::ByteString(bytes)
         } else {
-            bail!(internal = "identifier must start with 'i=', 's=', 'g=', or 'b=' (original: '{s}'")
+            bail!(
+                internal = "identifier must start with 'i=', 's=', 'g=', or 'b=' (original: '{s}'"
+            )
         };
 
         Ok(Self::new(namespace, kind))
@@ -806,11 +818,13 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
         } else if let Some((ns, binary)) = node_id.as_byte_string() {
             let bytes = binary
                 .as_bytes()
-                .ok_or_else(|| type_conv_err!(
-                    NodeId,
-                    Self,
-                    format_args!("invalid byte string node ID: '{node_id:?}'")
-                ))?
+                .ok_or_else(|| {
+                    type_conv_err!(
+                        NodeId,
+                        Self,
+                        format_args!("invalid byte string node ID: '{node_id:?}'")
+                    )
+                })?
                 .to_vec();
 
             (ns, NodeIdKind::ByteString(bytes))
@@ -825,7 +839,11 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
                 )),
             )
         } else {
-            return Err(type_conv_err!(NodeId, Self, format_args!("node ID wasn't valid: '{node_id:?}'")))
+            return Err(type_conv_err!(
+                NodeId,
+                Self,
+                format_args!("node ID wasn't valid: '{node_id:?}'")
+            ));
         };
 
         Ok(Self::new(namespace, kind))
@@ -968,13 +986,13 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     let (ns_index, name) = match ns_sep {
         Some(separator) => {
             let (ns_str, rest) = segment.split_at(separator);
-            let name = rest
-                .strip_prefix(':')
-                .with_context(|| format!("namespace separator should point at ':' (original: '{segment}')"))?;
+            let name = rest.strip_prefix(':').with_context(|| {
+                format!("namespace separator should point at ':' (original: '{segment}')")
+            })?;
 
-            let ns = ns_str
-                .parse::<u16>()
-                .with_context(|| format!("invalid namespace index '{ns_str}' (original: '{segment}')"))?;
+            let ns = ns_str.parse::<u16>().with_context(|| {
+                format!("invalid namespace index '{ns_str}' (original: '{segment}')")
+            })?;
 
             (ns, name)
         }
@@ -1009,7 +1027,9 @@ fn namespace_separator(segment: &str) -> Result<Option<usize>> {
                 return Ok(Some(i));
             }
 
-            bail!(internal = "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')")
+            bail!(
+                internal = "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')"
+            )
         }
     }
 
@@ -1036,7 +1056,9 @@ fn unescape_browse_name(name: &str) -> Result<String> {
     for ch in name.chars() {
         if escaped {
             if !is_browse_path_reserved(ch) {
-                bail!(internal = "'&' in a browse path segment must escape a reserved character (original: '{name}')")
+                bail!(
+                    internal = "'&' in a browse path segment must escape a reserved character (original: '{name}')"
+                )
             }
 
             unescaped.push(ch);
@@ -1047,14 +1069,18 @@ fn unescape_browse_name(name: &str) -> Result<String> {
         if ch == '&' {
             escaped = true;
         } else if is_browse_path_reserved(ch) {
-            bail!(internal = "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')")
+            bail!(
+                internal = "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')"
+            )
         } else {
             unescaped.push(ch);
         }
     }
 
     if escaped {
-        bail!(internal = "browse path segment cannot end with an escape marker (original: '{name}')")
+        bail!(
+            internal = "browse path segment cannot end with an escape marker (original: '{name}')"
+        )
     }
 
     Ok(unescaped)
@@ -1106,9 +1132,13 @@ impl OpcUaNodeClass {
             ua::NodeClass::DATATYPE_U32 => Self::DataType,
             ua::NodeClass::VIEW_U32 => Self::View,
             // anything outside of the spec should bubble up as an error
-            _ => return Err(type_conv_err!(ua::NodeClass, Self, format!(
-                "invalid OPC UA node class discriminant: '{raw}'"
-            )))?,
+            _ => {
+                return Err(type_conv_err!(
+                    ua::NodeClass,
+                    Self,
+                    format!("invalid OPC UA node class discriminant: '{raw}'")
+                ))?;
+            }
         })
     }
 }
@@ -1515,7 +1545,9 @@ impl TryFrom<OpcUaValue> for ScalarValue {
                 // upstream chooses to panic here instead of returning an error, so we have to catch and convert
                 catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
                     .map(ScalarValue::QualifiedName)
-                    .map_err(|_| type_conv_err!(OpcUaValue, Self, "qualified name contained NUL bytes"))?
+                    .map_err(|_| {
+                        type_conv_err!(OpcUaValue, Self, "qualified name contained NUL bytes")
+                    })?
             }
         })
     }
@@ -1546,7 +1578,13 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::LocalizedText(lt) => OpcUaValue::LocalizedText(lt.into()),
             ScalarValue::Guid(g) => OpcUaValue::Guid(g.to_uuid()),
             ScalarValue::Unsupported => OpcUaValue::Unsupported,
-            _ => return Err(type_conv_err!(ScalarValue, Self, format!( "unsupported OPC UA scalar value: {value:?}")))?,
+            _ => {
+                return Err(type_conv_err!(
+                    ScalarValue,
+                    Self,
+                    format!("unsupported OPC UA scalar value: {value:?}")
+                ))?;
+            }
         })
     }
 }
@@ -1561,9 +1599,13 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
 
         let scalar = match value.to_value() {
             VariantValue::Scalar(scalar) => scalar,
-            variant => return Err(type_conv_err!(VariantValue, Self, format!(
-                "unsupported OPC UA variant value: {variant:?}"
-            )))?,
+            variant => {
+                return Err(type_conv_err!(
+                    VariantValue,
+                    Self,
+                    format!("unsupported OPC UA variant value: {variant:?}")
+                ))?;
+            }
         };
 
         let unwrapped_value = match scalar {
@@ -1590,9 +1632,13 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
                     .ok_or_else(|| type_conv_err!(ScalarValue, Self, "invalid date time"))?,
             ),
 
-            _ => return Err(type_conv_err!(ScalarValue, Self, format!(
-                "unsupported OPC UA scalar value: {scalar:?}"
-            )))?,
+            _ => {
+                return Err(type_conv_err!(
+                    ScalarValue,
+                    Self,
+                    format!("unsupported OPC UA scalar value: {scalar:?}")
+                ))?;
+            }
         };
 
         Ok(unwrapped_value)
@@ -1825,11 +1871,13 @@ mod tests {
         fn try_from(v: VariantEq) -> Result<Self> {
             match v.0.to_value() {
                 VariantValue::Scalar(s) => Ok(ScalarEq(s)),
-                variant => return Err(type_conv_err!(
-                    VariantEq,
-                    Self,
-                    format_args!("unsupported variant value: {variant:?}")
-                )),
+                variant => {
+                    Err(type_conv_err!(
+                        VariantEq,
+                        Self,
+                        format_args!("unsupported variant value: {variant:?}")
+                    ))
+                }
             }
         }
     }

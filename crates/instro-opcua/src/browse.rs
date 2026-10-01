@@ -104,8 +104,8 @@ impl Browse for OpcUaClient {
 
             match results.pop() {
                 Some(result) => {
-                    let (more_refs, next_cp) =
-                        result.with_ua_context(|| format!("continuing browse of node '{node_id}'"))?;
+                    let (more_refs, next_cp) = result
+                        .with_ua_context(|| format!("continuing browse of node '{node_id}'"))?;
 
                     all_refs.extend(more_refs);
                     cont_pt = next_cp;
@@ -166,10 +166,12 @@ fn append_path(parent_path: &OpcUaBrowsePath, child: &mut OpcUaNode) -> Result<(
         .segments()
         .last()
         .cloned()
-        .with_context(|| format!(
-            "browse result for node {} had no browse path",
-            child.node_id
-        ))?;
+        .with_context(|| {
+            format!(
+                "browse result for node {} had no browse path",
+                child.node_id
+            )
+        })?;
 
     child.browse_path = parent_path.child(segment);
 
@@ -231,7 +233,8 @@ async fn browse_iterative<B: Browse>(
 
             if ancestors.contains(&current_node.node_id) {
                 bail!(
-                    internal = "browse cycle detected while browsing node '{}' (browse root node: '{}')",
+                    internal =
+                        "browse cycle detected while browsing node '{}' (browse root node: '{}')",
                     current_node.node_id.clone(),
                     node_id.clone(),
                 );

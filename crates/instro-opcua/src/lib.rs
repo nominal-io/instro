@@ -26,8 +26,7 @@ pub fn generate_self_signed_cert() -> Result<(Certificate, PrivateKey)> {
 
     let subject_alt_name = ua::Array::from_slice(&[
         ua::String::new("DNS:localhost").map_err(OpcUaError::Ua)?,
-        ua::String::new("URI:urn:nominal:instro-opcua-client")
-            .map_err(OpcUaError::Ua)?,
+        ua::String::new("URI:urn:nominal:instro-opcua-client").map_err(OpcUaError::Ua)?,
     ]);
 
     create_certificate(
