@@ -481,7 +481,8 @@ impl OpcUaClient {
 
         if item_results.len() != nodes.len() {
             bail!(
-                internal = "length mismatch between requested and registered monitored items: {} != {}",
+                internal =
+                    "length mismatch between requested and registered monitored items: {} != {}",
                 item_results.len(),
                 nodes.len()
             )
@@ -535,7 +536,9 @@ impl OpcUaClient {
         }
 
         if valid_streams.is_empty() {
-            bail!(internal = "no valid monitored item streams were created; all {requested_count} requested node(s) failed")
+            bail!(
+                internal = "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
+            )
         }
 
         let reader = ClientNodeReader { client: this };
@@ -793,7 +796,7 @@ impl NodeReader for ClientNodeReader {
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
             Some(client) => client.read_nodes(batch).await,
-            None => return Err(OpcUaError::ClientDisconnected),
+            None => Err(OpcUaError::ClientDisconnected),
         }
     }
 }
@@ -933,9 +936,7 @@ impl OpcUaClientBuilder {
     /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
     #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
-        let user_token = self
-            .user_token
-            .context("no user token provided")?;
+        let user_token = self.user_token.context("no user token provided")?;
 
         let security_mode = match self.security_mode {
             Some(mode) if !mode.is_invalid() => mode.into(),
@@ -945,7 +946,8 @@ impl OpcUaClientBuilder {
 
         let mut builder = match self.pki {
             OpcUaPki::UseProvided(certificate, private_key) => {
-                ClientBuilder::default_encryption(&certificate, &private_key).context("creating encrypted client builder")?
+                ClientBuilder::default_encryption(&certificate, &private_key)
+                    .context("creating encrypted client builder")?
             }
 
             OpcUaPki::GenerateSelfSigned => {

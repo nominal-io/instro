@@ -65,7 +65,6 @@ impl<T, E: Error + Send + Sync> ErrorExt<T> for std::result::Result<T, E> {
     }
 }
 
-
 impl OpcUaError {
     pub(crate) fn internal(ctx: impl Into<BoxedError>) -> Self {
         Self::Internal(ctx.into())
@@ -90,7 +89,7 @@ macro_rules! err {
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {{
-        use crate::err;
+        use $crate::err;
         return Err(err!($($arg)*))
     }}
 }
