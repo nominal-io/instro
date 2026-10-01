@@ -111,21 +111,15 @@ class SiglentSPD3303(PSUDriverBase):
             "the published SPD3303X/X-E SCPI command list does not define OVP, OCP, or remote-sense commands"
         )
 
-    def clear_overvoltage_protection(self, channel: int) -> None:
+    def clear_protection(self, channel: int) -> None:
         raise FeatureNotSupportedError(
-            "clear_overvoltage_protection is not supported by SiglentSPD3303; "
+            "clear_protection is not supported by SiglentSPD3303; "
             "the published SPD3303X/X-E SCPI command list does not define OVP, OCP, or remote-sense commands"
         )
 
     def get_overvoltage_protection_tripped(self, channel: int) -> bool:
         raise FeatureNotSupportedError(
             "get_overvoltage_protection_tripped is not supported by SiglentSPD3303; "
-            "the published SPD3303X/X-E SCPI command list does not define OVP, OCP, or remote-sense commands"
-        )
-
-    def clear_overcurrent_protection(self, channel: int) -> None:
-        raise FeatureNotSupportedError(
-            "clear_overcurrent_protection is not supported by SiglentSPD3303; "
             "the published SPD3303X/X-E SCPI command list does not define OVP, OCP, or remote-sense commands"
         )
 

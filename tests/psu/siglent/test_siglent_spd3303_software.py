@@ -344,9 +344,8 @@ def test_siglent_get_overcurrent_protection_enabled_unsupported(
 @pytest.mark.parametrize(
     "method_name",
     [
-        "clear_overvoltage_protection",
+        "clear_protection",
         "get_overvoltage_protection_tripped",
-        "clear_overcurrent_protection",
         "get_overcurrent_protection_tripped",
     ],
 )
