@@ -5,9 +5,10 @@ NPLC actually changes the integration. Every level stays at or below 5 V / 1 A. 
 skips, with the reason, when the discovered instrument or this instro version lacks the
 capability it needs:
 
-- Trip checks use ``InstroPSU``'s trip query/clear methods and skip on PSUs whose driver doesn't
-  implement them. They restore the rack's protection levels (rack_support.OVP_V/OCP_A) and clear
-  the trip in ``finally``.
+- Trip checks use ``InstroPSU``'s per-protection trip queries and ``clear_protection``, which
+  clears every latched trip on a channel and leaves the output off. They skip on PSUs whose driver
+  doesn't implement them, and restore the rack's protection levels (rack_support.OVP_V/OCP_A) and
+  clear the trip in ``finally``.
 - Regulation-mode assertions use ``InstroPSU.get_operating_mode`` and are logged as not checked
   when the driver doesn't report a mode.
 
@@ -51,6 +52,7 @@ from rack_support import (
 
 from instro.dmm.types import MeasurementFunction
 from instro.eload.types import LoadMode
+from instro.psu import InstroPSU
 
 pytestmark = pytest.mark.hardware
 
@@ -74,6 +76,22 @@ def _wait_for_trip(query: Callable[[], bool], label: str) -> bool:
     return tripped
 
 
+def _clear_and_verify(psu: InstroPSU, channel: int) -> None:
+    """``clear_protection`` publishes its command, clears both latches, and leaves the output off."""
+    command = require(lambda: psu.clear_protection(channel=channel), "protection clear")
+    assert command.channel_data == {f"psu.ch{channel}.protection.clear.cmd": 1.0}, command.channel_data
+    for flag, query in (
+        ("OVP", psu.get_overvoltage_protection_tripped),
+        ("OCP", psu.get_overcurrent_protection_tripped),
+    ):
+        tripped = optional(lambda: latest(query(channel=channel)), f"CH{channel} {flag} trip query")
+        if tripped is not None:
+            assert not tripped, f"CH{channel} {flag} still reports tripped after clear_protection"
+    logger.info("  PASS  clear_protection cleared CH%d's latches", channel)
+    assert latest(psu.get_output_status(channel=channel)) == 0.0, "clear_protection must leave the output off"
+    assert_mode(psu, channel, "OFF", "clear_protection leaves the output off")
+
+
 def _set_protection_level(call: Callable[[], object], capability: str) -> None:
     """Program a trip level; skip if the PSU can't do it or refuses a level this low."""
     try:
@@ -86,7 +104,6 @@ def test_ocp_trips_output_and_clears(rack: Rack) -> None:
     require_channel(rack, LOOP_CH, "the OCP test load (the DC current loop)")
     psu, dmm = rack.psu, rack.dmm
     tripped_query = psu.get_overcurrent_protection_tripped
-    clear = psu.clear_overcurrent_protection
     dmm.set_measurement_function(MeasurementFunction.DC_CURRENT)
     optional(lambda: dmm.set_range(LOOP_DCI_RANGE_A), "DMM DCI range")
 
@@ -106,18 +123,15 @@ def test_ocp_trips_output_and_clears(rack: Rack) -> None:
         time.sleep(SETTLE_S)  # output capacitance discharges through the loop for ~0.1 s after the trip
         assert_below("DMM loop current after OCP trip", latest(dmm.read_dc_current()), OFF_THRESHOLD_A)
 
-        require(lambda: clear(channel=LOOP_CH), "OCP trip clear")
-        assert not latest(tripped_query(channel=LOOP_CH)), "OCP still reports tripped after clear"
-        logger.info("  output after clear: %s", "ON" if latest(psu.get_output_status(channel=LOOP_CH)) else "OFF")
+        _clear_and_verify(psu, LOOP_CH)
     finally:
-        optional(lambda: clear(channel=LOOP_CH), "OCP trip clear")
+        optional(lambda: psu.clear_protection(channel=LOOP_CH), "protection clear")
         arm_protection(psu, rack.psu_channels)
 
 
 def test_ovp_trips_output_and_clears(rack: Rack) -> None:
     psu, dmm = rack.psu, rack.dmm
     tripped_query = psu.get_overvoltage_protection_tripped
-    clear = psu.clear_overvoltage_protection
 
     require(lambda: latest(tripped_query(channel=BUS_CH)), "OVP trip query")
     try:
@@ -144,12 +158,10 @@ def test_ovp_trips_output_and_clears(rack: Rack) -> None:
         time.sleep(SETTLE_S)
         assert_below("DMM bus after OVP trip", latest(dmm.read_dc_voltage()), OFF_THRESHOLD_V)
 
-        require(lambda: clear(channel=BUS_CH), "OVP trip clear")
-        assert not latest(tripped_query(channel=BUS_CH)), "OVP still reports tripped after clear"
-        logger.info("  output after clear: %s", "ON" if latest(psu.get_output_status(channel=BUS_CH)) else "OFF")
+        _clear_and_verify(psu, BUS_CH)
     finally:
         optional(lambda: psu.set_voltage(1.0, channel=BUS_CH), "bus setpoint reset")
-        optional(lambda: clear(channel=BUS_CH), "OVP trip clear")
+        optional(lambda: psu.clear_protection(channel=BUS_CH), "protection clear")
         arm_protection(psu, rack.psu_channels)
 
 
