@@ -35,7 +35,7 @@ test-python:
 
 # run Rust library, integration, and doc tests for the workspace
 test-rust:
-    cargo test --workspace --all-features --all-targets
+    cargo nextest run --workspace --all-features --all-targets
     cargo test --workspace --all-features --doc
 
 # run all python and Rust tests plus EtherNet/IP packaging checks
@@ -64,7 +64,7 @@ check-imports:
 # run all python static analysis checks
 check-python: check-format check-types check-imports
 
-# check Rust formatting, lints, and lockfile | fix formatting with `just fix-rust`
+# check Rust formatting, lints, and lockfile | fix with `just fix-rust`
 check-rust:
     cargo +nightly fmt --all --check
     cargo clippy --locked --all-features --all-targets --workspace -- -D warnings
@@ -83,8 +83,9 @@ fix-format:
 # fix python imports and formatting
 fix-python: fix-format fix-imports
 
-# fixes Rust code formatting (note: mutates the code)
+# fixes Rust lints and code formatting (note: mutates the code)
 fix-rust:
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features --workspace
     cargo +nightly fmt --all
 
 # fix imports and formatting
@@ -183,5 +184,5 @@ eip-wheel-smoke-test:
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
 eip-test: eip-sdist-smoke-test eip-wheel-smoke-test
-    cargo test --all-features --all-targets -p instro-ethernetip
+    cargo nextest run --all-features --all-targets -p instro-ethernetip
     uv run --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q

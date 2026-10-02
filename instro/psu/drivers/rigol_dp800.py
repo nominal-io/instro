@@ -4,7 +4,15 @@ from dataclasses import dataclass
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.psu import PSUDriverBase
+from instro.psu import OperatingMode, PSUDriverBase
+
+# Regulation state in the low two bits of :STAT:QUES:INST:ISUM<n>:COND? (bit 2 is OVP, bit 3 OCP).
+_CONDITION_MODES = {
+    0: OperatingMode.OFF,
+    1: OperatingMode.CONSTANT_CURRENT,
+    2: OperatingMode.CONSTANT_VOLTAGE,
+    3: OperatingMode.UNREGULATED,
+}
 
 
 @dataclass(frozen=True)
@@ -60,6 +68,25 @@ class RigolDP800(PSUDriverBase):
 
     def get_output_status(self, channel: int) -> bool:
         return self._query_checked_bool(f":OUTP? CH{channel}")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        """Query the regulation state of ``channel``.
+
+        Args:
+            channel: 1-based output channel.
+
+        Returns:
+            OperatingMode: ``OFF``, ``CONSTANT_CURRENT``, ``CONSTANT_VOLTAGE``, or ``UNREGULATED``.
+
+        Raises:
+            RuntimeError: On a non-numeric register reply or a SCPI error.
+        """
+        reply = self._query_checked(f":STAT:QUES:INST:ISUM{channel}:COND?").strip()
+        try:
+            condition = int(reply)
+        except ValueError:
+            raise RuntimeError(f"Unexpected Rigol condition register for channel {channel}: {reply}") from None
+        return _CONDITION_MODES[condition & 3]
 
     def get_voltage_setpoint(self, channel: int) -> float:
         return self._query_checked_float(f":SOUR{channel}:VOLT?")
@@ -134,45 +161,6 @@ class RigolDP800(PSUDriverBase):
                 )
             case _:
                 raise RuntimeError(f"Unexpected Rigol remote-sense state for channel {channel}: {state}")
-
-    def query_status(self) -> dict:
-        """Query the status of the PSU (output enable, regulation mode, OVP/OCP flags)."""
-        status: dict = {}
-
-        with self._visa.lock():
-            num_channels = self._channel_count()
-
-            for channel in range(1, num_channels + 1):
-                channel_dict: dict = {}
-                channel_dict["enable"] = self.get_output_status(channel)
-
-                cond_code = int(self._visa.query(f":STAT:QUES:INST:ISUM{channel}:COND?"))
-                self._check_errors()
-                channel_dict.update(self._decode_channel_condition(cond_code))
-
-                status[f"ch{channel}"] = channel_dict
-
-        return status
-
-    def _decode_channel_condition(self, cond_code: int) -> dict:
-        """Decode questionable instrument summary condition bits for a given channel."""
-        match cond_code & 3:
-            case 0:
-                mode = "off"
-            case 1:
-                mode = "CC"
-            case 2:
-                mode = "CV"
-            case 3:
-                mode = "UNREGULATED"
-            case _:
-                mode = "UNDEFINED"
-
-        return {
-            "mode": mode,
-            "OVP": bool(cond_code & 4),
-            "OCP": bool(cond_code & 8),
-        }
 
     def _channel_count(self) -> int:
         if not self.idn:
