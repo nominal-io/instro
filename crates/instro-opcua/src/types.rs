@@ -204,7 +204,7 @@ impl FromStr for OpcUaSecurityPolicy {
             "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
                 Self::Aes256Sha256RsaPss
             }
-            _ => bail!(internal = "invalid security policy: {s}"),
+            _ => bail!(internal, "invalid security policy: {s}"),
         })
     }
 }
@@ -780,7 +780,8 @@ impl FromStr for OpcUaNodeId {
             NodeIdKind::ByteString(bytes)
         } else {
             bail!(
-                internal = "identifier must start with 'i=', 's=', 'g=', or 'b=' (original: '{s}'"
+                internal,
+                "identifier must start with 'i=', 's=', 'g=', or 'b=' (original: '{s}')"
             )
         };
 
@@ -933,7 +934,7 @@ impl FromStr for OpcUaBrowsePath {
         }
 
         if !s.starts_with('/') {
-            bail!(internal = "browse path must start with '/' or be empty (original: '{s}')")
+            bail!(internal, "browse path must start with '/' or be empty (original: '{s}')")
         }
 
         let mut segments = Vec::new();
@@ -978,7 +979,7 @@ impl From<OpcUaBrowsePath> for String {
 
 fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     if segment.is_empty() {
-        bail!(internal = "browse path contains an empty segment")
+        bail!(internal, "browse path contains an empty segment")
     }
 
     let ns_sep = namespace_separator(segment)?;
@@ -1002,7 +1003,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
 
     let name = unescape_browse_name(name)?;
     if name.is_empty() {
-        bail!(internal = "browse path segment name must not be empty (original: '{segment}')")
+        bail!(internal, "browse path segment name must not be empty (original: '{segment}')")
     }
 
     Ok(OpcUaQualifiedName { ns_index, name })
@@ -1028,7 +1029,8 @@ fn namespace_separator(segment: &str) -> Result<Option<usize>> {
             }
 
             bail!(
-                internal = "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')"
+                internal,
+                "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')"
             )
         }
     }
@@ -1057,7 +1059,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
         if escaped {
             if !is_browse_path_reserved(ch) {
                 bail!(
-                    internal = "'&' in a browse path segment must escape a reserved character (original: '{name}')"
+                    internal,
+                    "'&' in a browse path segment must escape a reserved character (original: '{name}')"
                 )
             }
 
@@ -1070,7 +1073,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
             escaped = true;
         } else if is_browse_path_reserved(ch) {
             bail!(
-                internal = "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')"
+                internal,
+                "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')"
             )
         } else {
             unescaped.push(ch);
@@ -1079,7 +1083,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
 
     if escaped {
         bail!(
-            internal = "browse path segment cannot end with an escape marker (original: '{name}')"
+            internal,
+            "browse path segment cannot end with an escape marker (original: '{name}')"
         )
     }
 
