@@ -23,6 +23,7 @@ from instro.psu import InstroPSU
 
 @pytest.fixture(scope="session")
 def run_dir() -> Path:
+    """Before each session, define a run directory for the session's captures and discovery report."""
     run_id = os.environ.get("RACK_RUN_ID") or datetime.now().strftime("%Y%m%d-%H%M%S")
     path = CAPTURE_ROOT / run_id
     path.mkdir(parents=True, exist_ok=True)
@@ -36,6 +37,7 @@ def _pinned_resource(category: str) -> str | None:
 
 @pytest.fixture(scope="session")
 def discovery(run_dir: Path) -> DiscoveryReport:
+    """Before each session, discover the instruments in the rack and write a report to the run directory."""
     logger.info("=== Instrument discovery ===")
     report = discover(extra_resources=[r for c in CATEGORIES if (r := _pinned_resource(c))])
     (run_dir / "discovery.json").write_text(json.dumps(dataclasses.asdict(report), indent=2))
@@ -44,7 +46,10 @@ def discovery(run_dir: Path) -> DiscoveryReport:
 
 @pytest.fixture(scope="session")
 def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
-    """Category -> the instrument the rack uses: the first discovered, or the one pinned by RACK_<CATEGORY>_RESOURCE."""
+    """Before each session, select the instruments the rack uses.
+
+    The first discovered instrument per category or the one pinned by RACK_<CATEGORY>_RESOURCE.
+    """
     chosen: dict[str, DiscoveredInstrument] = {}
     for category in CATEGORIES:
         candidates = [i for i in discovery.instruments if i.category == category]
@@ -76,7 +81,10 @@ def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
 
 @pytest.fixture(scope="module")
 def rack(instruments: dict[str, DiscoveredInstrument], run_dir: Path, request: pytest.FixtureRequest) -> Iterator[Rack]:
-    """All three discovered instruments opened through instro, protection armed, publishing to a per-suite capture."""
+    """For each module, open the instruments and put them in a safe state.
+
+    At the end of the module, return them to a safe state and close them.
+    """
     suite = request.module.__name__.rsplit(".", 1)[-1].removeprefix("test_nyc_rack_")
     capture = FilePublisher(directory=run_dir, format="jsonl", custom_file_name=suite)
     shared = SharedPublisher(capture)
