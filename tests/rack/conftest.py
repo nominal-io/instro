@@ -110,7 +110,7 @@ def rack(instruments: dict[str, DiscoveredInstrument], run_dir: Path, request: p
         run_id=run_id,
         suite=suite,
     )
-    rack = Rack(psu=psu, dmm=dmm, eload=eload, capture_path=capture.file_path)
+    rack = Rack(psu=psu, dmm=dmm, eload=eload, capture_path=capture.file_path, found=instruments)
 
     opened: list[Instrument] = []
     try:
@@ -119,7 +119,7 @@ def rack(instruments: dict[str, DiscoveredInstrument], run_dir: Path, request: p
             instrument.open()
             opened.append(instrument)
         rack.safe_state()
-        arm_protection(psu)
+        arm_protection(psu, rack.psu_channels)
         eload.set_mode(LoadMode.CC)
         eload.set_level(0.0)
         logger.info("Rack ready; publishing to %s", rack.capture_path)

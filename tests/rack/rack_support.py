@@ -29,13 +29,17 @@ import math
 import os
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 
 import pytest
+from discovery import DiscoveredInstrument
 
 from instro.dmm import InstroDMM
 from instro.eload import InstroELoad
+from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.types import Measurement
 from instro.psu import InstroPSU
 
@@ -44,10 +48,11 @@ logger = logging.getLogger("rack")
 RACK_DIR = Path(__file__).parent
 CAPTURE_ROOT = RACK_DIR / "captures"
 
+# Channel roles fixed by the rack wiring. A PSU with fewer channels skips the checks that need
+# the missing role (require_channel), so a 1-channel supply still runs every bus check.
 BUS_CH = 1
 LOOP_CH = 2
-SPARE_CH = 3
-PSU_CHANNELS = (1, 2, 3)
+SPARE_CH = 3  # unconnected
 
 BUS_VOLTAGE_V = 5.0
 BUS_CURRENT_LIMIT_A = 1.0
@@ -67,11 +72,12 @@ ELOAD_CC_RANGE_A = 3.0
 ELOAD_CR_OHM = 25.0
 
 # Protection trips well above anything the checks program, so a wiring fault trips the PSU.
+# Armed only where the PSU supports it and the channel exists.
 OVP_V = {BUS_CH: 7.0, LOOP_CH: 7.0}
 OCP_A = {BUS_CH: 1.2, LOOP_CH: 0.1}
 
-# The DP832A's output is live within ~40 ms of :OUTP ON (handheld-meter verified), but its own
-# measurement (front panel and :MEAS?) keeps reporting 0 V for 0.5-2.3 s. Turn-on checks poll the
+# A PSU's own readback can trail its real output: the DP832A reports 0 V for 0.5-2.3 s after
+# :OUTP ON while a meter on the terminals already reads the setpoint. Turn-on checks poll the
 # readback instead of sleeping; SETTLE_S only covers level steps on an already-live output.
 READBACK_TIMEOUT_S = 5.0
 READBACK_POLL_S = 0.25
@@ -79,9 +85,6 @@ READBACK_POLL_S = 0.25
 # mid-transient (27.5 mA reported vs 19.5 mA real), so current is read twice, one refresh apart.
 READBACK_REFRESH_S = 0.6
 CURRENT_STABLE_A = 0.0005
-# DP832A current readback accuracy, all channels: ±(0.15% + 5 mA) (DP800 datasheet, annual, 25 °C ± 5 °C).
-PSU_READBACK_I_REL = 0.0015
-PSU_READBACK_I_ABS_A = 0.005
 SETTLE_S = 2.0
 OFF_THRESHOLD_V = 0.05
 OFF_THRESHOLD_A = 0.0005
@@ -95,13 +98,53 @@ class Rack:
     dmm: InstroDMM
     eload: InstroELoad
     capture_path: Path
+    found: dict[str, DiscoveredInstrument]
 
     @property
     def instruments(self) -> tuple[InstroPSU, InstroDMM, InstroELoad]:
         return (self.psu, self.dmm, self.eload)
 
+    @property
+    def psu_channels(self) -> range:
+        """The PSU's channels, from the channel count discovery matched for its model."""
+        count = self.found["psu"].num_channels
+        assert count is not None, "discovery registry gives every PSU a channel count"
+        return range(1, count + 1)
+
+    @property
+    def psu_current_readback(self) -> tuple[float, float]:
+        """±(fraction, amperes) accuracy of the PSU's current readback, from the discovery registry."""
+        return self.found["psu"].current_readback
+
     def safe_state(self) -> None:
-        safe_state(self.psu, self.eload)
+        safe_state(self.psu, self.eload, self.psu_channels)
+
+
+# Calls into an optional capability raise one of these when the instrument or driver lacks it.
+UNSUPPORTED = (NotImplementedError, FeatureNotSupportedError)
+T = TypeVar("T")
+
+
+def require(call: Callable[[], T], capability: str) -> T:
+    """Run ``call``; skip the check if the instrument doesn't support ``capability``."""
+    try:
+        return call()
+    except UNSUPPORTED as exc:
+        pytest.skip(f"{capability} not supported: {type(exc).__name__}: {exc}")
+
+
+def optional(call: Callable[[], T], capability: str) -> T | None:
+    """Run ``call``; return None (and log it) if the instrument doesn't support ``capability``."""
+    try:
+        return call()
+    except UNSUPPORTED as exc:
+        logger.info("  n/a   %s: %s", capability, exc)
+        return None
+
+
+def require_channel(rack: Rack, channel: int, role: str) -> None:
+    if channel not in rack.psu_channels:
+        pytest.skip(f"{role} is wired to CH{channel}; this PSU has {len(rack.psu_channels)} channel(s)")
 
 
 def assert_close(label: str, measured: float, expected: float, rel: float, abs_: float) -> None:
@@ -177,29 +220,41 @@ def wait_for_stable_psu_current(psu: InstroPSU, channel: int) -> float:
         previous = current
 
 
-def psu_mode(psu: InstroPSU, channel: int) -> str:
-    """Regulation mode (CV/CC/off/UNREGULATED) from the DP800 questionable-status register."""
-    mode: str = psu._driver.query_status()[f"ch{channel}"]["mode"]  # type: ignore[attr-defined]
-    return mode
+def psu_mode(psu: InstroPSU, channel: int) -> str | None:
+    """``InstroPSU.get_operating_mode`` value ("CV", "CC", "OFF", ...), or None if the driver doesn't report it."""
+    measurement = optional(lambda: psu.get_operating_mode(channel=channel), f"PSU CH{channel} operating mode")
+    return None if measurement is None else str(measurement.latest)
 
 
-def arm_protection(psu: InstroPSU) -> None:
-    logger.info("Arming PSU protection: OVP %s V, OCP %s A", OVP_V, OCP_A)
+def assert_mode(psu: InstroPSU, channel: int, expected: str, why: str) -> None:
+    """Assert the PSU's regulation mode when its driver reports one; otherwise log that it wasn't checked."""
+    mode = psu_mode(psu, channel)
+    if mode is None:
+        logger.info("  n/a   CH%d mode not checked (expected %s: %s)", channel, expected, why)
+        return
+    logger.info("  %s  PSU CH%d mode %s (expected %s)", "PASS" if mode == expected else "FAIL", channel, mode, expected)
+    assert mode == expected, f"PSU CH{channel} should be {expected} ({why}), got {mode}"
+
+
+def arm_protection(psu: InstroPSU, channels: range) -> None:
+    """Arm OVP/OCP at the rack levels on each of ``channels``, skipping what the PSU doesn't support."""
+    logger.info("Arming PSU protection where supported: OVP %s V, OCP %s A", OVP_V, OCP_A)
     for ch, level in OVP_V.items():
-        psu.set_overvoltage_protection_level(level, channel=ch)
-        psu.set_overvoltage_protection_enabled(True, channel=ch)
+        if ch in channels:
+            optional(lambda: psu.set_overvoltage_protection_level(level, channel=ch), f"CH{ch} OVP level")
+            optional(lambda: psu.set_overvoltage_protection_enabled(True, channel=ch), f"CH{ch} OVP enable")
     for ch, level in OCP_A.items():
-        psu.set_overcurrent_protection_level(level, channel=ch)
-        psu.set_overcurrent_protection_enabled(True, channel=ch)
+        if ch in channels:
+            optional(lambda: psu.set_overcurrent_protection_level(level, channel=ch), f"CH{ch} OCP level")
+            optional(lambda: psu.set_overcurrent_protection_enabled(True, channel=ch), f"CH{ch} OCP enable")
 
 
-def safe_state(psu: InstroPSU, eload: InstroELoad) -> None:
+def safe_state(psu: InstroPSU, eload: InstroELoad, channels: range) -> None:
     """Eload input off first (stop the draw), then every PSU output off; each step best-effort."""
     try:
         eload.output_enable(False)
     except Exception:
         logger.exception("safe_state: failed to disable eload input")
-    channels = range(1, psu._num_channels + 1)
     for ch in channels:
         try:
             psu.output_enable(False, channel=ch)
