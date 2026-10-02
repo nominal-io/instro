@@ -111,9 +111,10 @@ intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 # -- HTML: Shibuya, styled like the former Mintlify site -------------------------
 html_theme = "shibuya"
 html_title = "instro"
-# the docs are published under /python/ (landing page at the root; `just build-site`)
-html_baseurl = "https://nominal-io.github.io/instro/python/"
+html_baseurl = "https://instro.nominal.io/"
 html_static_path = ["_static"]
+# 404.html at the site root: sends links from when the docs were under /python/ to their new paths
+html_extra_path = ["_extra"]
 html_css_files = [
     "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
     "custom.css",
