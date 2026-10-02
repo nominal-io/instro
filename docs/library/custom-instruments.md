@@ -202,7 +202,7 @@ def get_current_setpoint(self, channel: int) -> float:
     """Query and return the configured current-limit setpoint in amperes (not the measured output). Output may vary from actual measured current outside of constant current mode."""
 
 def get_operating_mode(self, channel: int) -> OperatingMode:
-    """Query whether `channel` is regulating in constant voltage, constant current, or off."""
+    """Query whether `channel` is regulating in constant voltage, constant current, unregulated, or off."""
 
 def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
     """Set the overvoltage protection threshold (volts) on `channel`."""

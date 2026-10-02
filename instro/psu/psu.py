@@ -72,7 +72,7 @@ class PSUDriverBase(abc.ABC):
         raise NotImplementedError(f"get_current_setpoint is not implemented for {type(self).__name__}")
 
     def get_operating_mode(self, channel: int) -> OperatingMode:
-        """Query whether `channel` is regulating in constant voltage, constant current, or off."""
+        """Query whether `channel` is regulating in constant voltage, constant current, unregulated, or off."""
         raise NotImplementedError(f"get_operating_mode is not implemented for {type(self).__name__}")
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
@@ -368,7 +368,7 @@ class InstroPSU(Instrument):
         )
 
     def get_operating_mode(self, channel: int, **kwargs) -> Measurement | None:
-        """Query whether ``channel`` is regulating in constant voltage, constant current, or off (published as a string)."""
+        """Query whether ``channel`` is regulating in constant voltage, constant current, unregulated, or off (published as a string)."""
         return self._execute_measurement(
             self._driver.get_operating_mode,
             channel=channel,

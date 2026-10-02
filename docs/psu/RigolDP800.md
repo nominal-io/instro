@@ -29,4 +29,8 @@ psu = InstroPSU(
 )
 ```
 
+## Operating mode
+
+`get_operating_mode` reads the channel's questionable-status condition register (`:STAT:QUES:INST:ISUM<n>:COND?`) in a single query. Its low two bits give `OperatingMode.OFF`, `OperatingMode.CONSTANT_CURRENT`, `OperatingMode.CONSTANT_VOLTAGE`, or `OperatingMode.UNREGULATED` (the DP800's critical state between CV and CC). The `:OUTP:MODE?` query is not used because it still answers `CV` for a disabled channel.
+
 Parameters and methods specific to {py:obj}`RigolDP800 <instro.psu.drivers.rigol_dp800.RigolDP800>` can be found in the [SDK](/sdk/index.md).
