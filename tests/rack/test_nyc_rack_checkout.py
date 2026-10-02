@@ -39,6 +39,7 @@ from rack_support import (
     OVP_V,
     POLL_DURATION_S,
     POLL_INTERVAL_S,
+    PSU_CURRENT_READBACK,
     SETTLE_S,
     SPARE_CH,
     Rack,
@@ -166,7 +167,7 @@ def test_bus_voltage_sweep(rack: Rack) -> None:
         assert_below(
             f"PSU CH{BUS_CH} current (divider only)",
             latest(psu.get_current(channel=BUS_CH)),
-            rack.psu_current_readback[1],
+            PSU_CURRENT_READBACK[1],
         )
         assert_mode(psu, BUS_CH, "CV", "only the divider loads the bus")
 
@@ -180,7 +181,7 @@ def test_dc_current_loop(rack: Rack) -> None:
     """The loop channel drives the 100 Ω loop into the DMM current input; DMM DCI must match the PSU readback."""
     require_channel(rack, LOOP_CH, "the DC current loop")
     psu, dmm = rack.psu, rack.dmm
-    rel, abs_a = rack.psu_current_readback
+    rel, abs_a = PSU_CURRENT_READBACK
     _configure_dmm(rack, MeasurementFunction.DC_CURRENT, LOOP_DCI_RANGE_A)
     psu.apply(current_limit=LOOP_CURRENT_LIMIT_A, voltage=LOOP_SWEEP_V[0], enable=True, channel=LOOP_CH)
     for voltage in LOOP_SWEEP_V:
@@ -220,7 +221,6 @@ def test_bus_and_loop_isolated(rack: Rack) -> None:
 
 def test_eload_cc_draw_from_bus(rack: Rack) -> None:
     psu, eload = rack.psu, rack.eload
-    rel, abs_a = rack.psu_current_readback
     eload.set_mode(LoadMode.CC)
     optional(lambda: eload.set_range(ELOAD_CC_RANGE_A), "eload CC range")
     eload.set_level(ELOAD_CC_STEPS_A[0])
@@ -237,8 +237,8 @@ def test_eload_cc_draw_from_bus(rack: Rack) -> None:
             f"PSU CH{BUS_CH} current @ {current} A",
             latest(psu.get_current(channel=BUS_CH)),
             current,
-            max(rel, 0.02),
-            max(abs_a, 0.01),
+            0.02,
+            0.01,
         )
         assert_close(
             f"PSU CH{BUS_CH} voltage @ {current} A",
@@ -254,7 +254,6 @@ def test_eload_cc_draw_from_bus(rack: Rack) -> None:
 
 def test_eload_cr_draw_from_bus(rack: Rack) -> None:
     psu, eload = rack.psu, rack.eload
-    rel, abs_a = rack.psu_current_readback
     require(lambda: eload.set_mode(LoadMode.CR), "eload CR mode")
     eload.set_level(ELOAD_CR_OHM)
     psu.apply(current_limit=BUS_CURRENT_LIMIT_A, voltage=BUS_VOLTAGE_V, enable=True, channel=BUS_CH)
@@ -270,8 +269,8 @@ def test_eload_cr_draw_from_bus(rack: Rack) -> None:
         f"PSU CH{BUS_CH} current (V/R)",
         latest(psu.get_current(channel=BUS_CH)),
         expected_current,
-        max(rel, 0.03),
-        max(abs_a, 0.01),
+        0.03,
+        0.01,
     )
 
 
