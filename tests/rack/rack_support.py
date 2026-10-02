@@ -85,6 +85,9 @@ READBACK_POLL_S = 0.25
 # mid-transient (27.5 mA reported vs 19.5 mA real), so current is read twice, one refresh apart.
 READBACK_REFRESH_S = 0.6
 CURRENT_STABLE_A = 0.0005
+# ±(fraction of reading, amperes) allowed when comparing a PSU's own current readback with an
+# independent meter. Conservative for bench supplies; the DP832A's datasheet ±(0.15% + 5 mA) fits inside.
+PSU_CURRENT_READBACK = (0.01, 0.010)
 SETTLE_S = 2.0
 OFF_THRESHOLD_V = 0.05
 OFF_THRESHOLD_A = 0.0005
@@ -110,11 +113,6 @@ class Rack:
         count = self.found["psu"].num_channels
         assert count is not None, "discovery registry gives every PSU a channel count"
         return range(1, count + 1)
-
-    @property
-    def psu_current_readback(self) -> tuple[float, float]:
-        """±(fraction, amperes) accuracy of the PSU's current readback, from the discovery registry."""
-        return self.found["psu"].current_readback
 
     def safe_state(self) -> None:
         safe_state(self.psu, self.eload, self.psu_channels)

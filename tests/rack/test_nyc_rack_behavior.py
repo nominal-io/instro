@@ -34,6 +34,7 @@ from rack_support import (
     LOOP_DCI_RANGE_A,
     OFF_THRESHOLD_A,
     OFF_THRESHOLD_V,
+    PSU_CURRENT_READBACK,
     SETTLE_S,
     UNSUPPORTED,
     Rack,
@@ -167,7 +168,7 @@ def test_ovp_trips_output_and_clears(rack: Rack) -> None:
 
 def test_psu_cv_to_cc_crossover(rack: Rack) -> None:
     psu, dmm, eload = rack.psu, rack.dmm, rack.eload
-    rel, abs_a = rack.psu_current_readback
+    rel, abs_a = PSU_CURRENT_READBACK
     require(lambda: eload.set_mode(LoadMode.CR), "eload CR mode")
     eload.set_level(CROSSOVER_CR_OHM)
     psu.apply(current_limit=CROSSOVER_LIMIT_A, voltage=BUS_VOLTAGE_V, enable=True, channel=BUS_CH)
@@ -205,7 +206,6 @@ def test_eload_cv_mode(rack: Rack) -> None:
 
 def test_eload_cp_mode(rack: Rack) -> None:
     psu, eload = rack.psu, rack.eload
-    rel, abs_a = rack.psu_current_readback
     require(lambda: eload.set_mode(LoadMode.CP), "eload CP mode")
     eload.set_level(ELOAD_CP_W)
     psu.apply(current_limit=BUS_CURRENT_LIMIT_A, voltage=BUS_VOLTAGE_V, enable=True, channel=BUS_CH)
@@ -220,8 +220,8 @@ def test_eload_cp_mode(rack: Rack) -> None:
         "PSU current = P/V",
         latest(psu.get_current(channel=BUS_CH)),
         ELOAD_CP_W / voltage,
-        max(rel, 0.02),
-        max(abs_a, 0.01),
+        0.02,
+        0.01,
     )
     assert_mode(
         psu, BUS_CH, "CV", f"{ELOAD_CP_W} W at {BUS_VOLTAGE_V} V is well under the {BUS_CURRENT_LIMIT_A} A limit"
@@ -230,7 +230,7 @@ def test_eload_cp_mode(rack: Rack) -> None:
 
 def test_eload_short(rack: Rack) -> None:
     psu, dmm, eload = rack.psu, rack.dmm, rack.eload
-    rel, abs_a = rack.psu_current_readback
+    rel, abs_a = PSU_CURRENT_READBACK
     psu.apply(current_limit=SHORT_LIMIT_A, voltage=BUS_VOLTAGE_V, enable=True, channel=BUS_CH)
     wait_for_psu_readback(psu, BUS_CH, BUS_VOLTAGE_V, 0.005, 0.02)
     try:

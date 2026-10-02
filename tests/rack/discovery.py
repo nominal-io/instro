@@ -46,9 +46,6 @@ REGISTRIES: dict[str, dict[str, str]] = {
 VISA_TIMEOUT_S = 2
 SERIAL_TIMEOUT_S = 1.0
 SERIAL_BAUDS = (9600, 19200, 38400, 57600, 115200)
-# ±(fraction of reading, amperes) for a PSU's own current readback, used when comparing it to an
-# independent meter. Models without a datasheet value in the registry get this conservative default.
-GENERIC_CURRENT_READBACK = (0.01, 0.010)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,16 +57,12 @@ class KnownInstrument:
     model: str  # regex matched against the IDN model field, case-insensitive
     driver_name: str  # key in the category's instro config registry
     num_channels: int | None = None
-    current_readback: tuple[float, float] = GENERIC_CURRENT_READBACK
 
-
-# DP832/DP832A current readback: ±(0.15% + 5 mA) on every channel (DP800 datasheet, annual, 25 °C ± 5 °C).
-_DP83X_CURRENT_READBACK = (0.0015, 0.005)
 
 KNOWN_INSTRUMENTS: tuple[KnownInstrument, ...] = (
     KnownInstrument("psu", ("RIGOL",), r"^DP811", "RigolDP800", 1),
     KnownInstrument("psu", ("RIGOL",), r"^DP821", "RigolDP800", 2),
-    KnownInstrument("psu", ("RIGOL",), r"^DP83[12]", "RigolDP800", 3, _DP83X_CURRENT_READBACK),
+    KnownInstrument("psu", ("RIGOL",), r"^DP83[12]", "RigolDP800", 3),
     KnownInstrument("psu", ("SIGLENT",), r"^SPD3303", "SiglentSPD3303", 2),
     KnownInstrument("psu", ("B&K",), r"^9115", "BK9115", 1),
     KnownInstrument("psu", ("B&K",), r"^914\d", "BK914X", 3),
@@ -102,7 +95,6 @@ class DiscoveredInstrument:
     driver_name: str
     num_channels: int | None
     baud_rate: int | None
-    current_readback: tuple[float, float] = GENERIC_CURRENT_READBACK
 
     @property
     def model(self) -> str:
@@ -293,7 +285,6 @@ def discover(extra_resources: Iterable[str] = ()) -> DiscoveryReport:
                 driver_name=known.driver_name,
                 num_channels=known.num_channels,
                 baud_rate=baud,
-                current_readback=known.current_readback,
             )
         )
 
