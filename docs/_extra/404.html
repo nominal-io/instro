@@ -7,8 +7,10 @@
   <script>
     // The docs were under /python/ until #607; send those links to the same page at the root.
     const path = location.pathname;
+    // Collapse leading slashes: "//host" would be read as another site.
     if (path === "/python" || path.startsWith("/python/")) {
-      location.replace((path.slice("/python".length) || "/") + location.search + location.hash);
+      const rest = path.slice("/python".length).replace(/^\/+/, "");
+      location.replace("/" + rest + location.search + location.hash);
     }
   </script>
   <style>
