@@ -52,9 +52,13 @@ jobs:
   # https://github.com/nominal-io/pub-docs#publishing-from-another-repo
   publish-hub:
     needs: deploy
-    uses: nominal-io/pub-docs/.github/workflows/publish.yml@main
+    # only what publishing needs: no Pages or OIDC permissions, and only the deploy key
+    permissions:
+      contents: read
+    uses: nominal-io/pub-docs/.github/workflows/publish.yml@e926d86836cc6c18f98d0406f70c2ab72688565b # main
     with:
       lang: python
       project: instro
       artifact: instro-docs
-    secrets: inherit
+    secrets:
+      DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
