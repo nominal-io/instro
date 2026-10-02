@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.22.0](https://github.com/nominal-io/instro/compare/instro-v1.21.0...instro-v1.22.0) (2026-10-02)
+
+
+### Features
+
+* **dmm:** add per-function read shorthands to InstroDMM ([#559](https://github.com/nominal-io/instro/issues/559)) ([c11e7ae](https://github.com/nominal-io/instro/commit/c11e7aee7dc88ecf064cf6acf2d8f456d4c3f324))
+* **docs:** port sdk mkdocs to sphinx ([#583](https://github.com/nominal-io/instro/issues/583)) ([e758e73](https://github.com/nominal-io/instro/commit/e758e73c1d4e2b4ae9420bafd043b909d4399334))
+* **psu:** add InstroPSU.apply for one-call channel bring-up ([#560](https://github.com/nominal-io/instro/issues/560)) ([1509827](https://github.com/nominal-io/instro/commit/1509827d28961fdd13c9d7cdc8ba7d080e7cf018))
+* **psu:** add OVP/OCP trip clear and query methods ([#599](https://github.com/nominal-io/instro/issues/599)) ([90f2ceb](https://github.com/nominal-io/instro/commit/90f2ceba72cb02b87d80206f82d9b294ec112670))
+* **psu:** implement get_operating_mode for RigolDP800 ([#598](https://github.com/nominal-io/instro/issues/598)) ([2bb81f4](https://github.com/nominal-io/instro/commit/2bb81f436c24bf3f292b32b7fdcce279f2e0c601))
+
+
+### Bug Fixes
+
+* **just:** run clippy --fix in fix-rust recipe ([#568](https://github.com/nominal-io/instro/issues/568)) ([964921d](https://github.com/nominal-io/instro/commit/964921dda4b1b7811195de8e570c2ba5d9b27eb1))
+
 ## [1.21.0](https://github.com/nominal-io/instro/compare/instro-v1.20.0...instro-v1.21.0) (2026-09-18)
 
 
