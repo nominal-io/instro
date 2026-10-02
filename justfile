@@ -116,17 +116,6 @@ _check-docs-python:
 build-docs: _check-docs-python
     uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
-# the published site, docs/_build/site: the landing page (docs/_landing) at the root, the docs under /python/
-build-site: build-docs
-    rm -rf docs/_build/site
-    mkdir -p docs/_build/site
-    cp -r docs/_landing/. docs/_build/site/
-    cp -r docs/_build/dirhtml docs/_build/site/python
-
-# build the published site and serve it on http://127.0.0.1:8000 (landing page at /, docs at /python/); no live rebuild
-serve-site: build-site
-    uv run python -m http.server 8000 --bind 127.0.0.1 -d docs/_build/site
-
 # live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
 serve-docs: _check-docs-python
     uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"

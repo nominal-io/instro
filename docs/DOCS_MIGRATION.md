@@ -2,6 +2,8 @@
 
 The guides (Mintlify, `instro.nominal.io`) and the API reference (GitHub Pages, `nominal-io.github.io/instro`) are now one Sphinx site built from `docs/` (#584). Once merged, it deploys to `https://nominal-io.github.io/instro/`: a landing page at the root (`docs/_landing/`) and the docs under `/python/`, with the API reference at `/python/sdk/`. Mintlify keeps serving `instro.nominal.io` from the frozen `docs/guides/` folder until the steps below move the domain.
 
+Since #607 the site has no landing page and serves the docs at the root (`instro.nominal.io/psu/`); old `/python/...` links redirect there.
+
 These steps need org, repo-admin, DNS, or vendor access, and must happen in this order. Old URLs are not preserved, so there are no redirects to set up. Owners are TBD; fill them in before starting.
 
 ## Before cutover (any time)
@@ -26,9 +28,7 @@ These steps need org, repo-admin, DNS, or vendor access, and must happen in this
 - [ ] **Retire Mintlify** (billing owner): remove the custom domain from the Mintlify project, uninstall the Mintlify GitHub app from the repo/org so it stops building on pushes, then delete the project and cancel the subscription.
 - [ ] **Clean up the repo** (one PR):
   - delete `docs/guides/` and its entry in `exclude_patterns` in `docs/conf.py`;
-  - set `html_baseurl` in `docs/conf.py` to `https://instro.nominal.io/python/`;
-  - point the README's SDK badge at `https://instro.nominal.io/python/sdk/`;
-  - move links to guide pages under `/python/`: `instro.nominal.io/installation` and `/instruments` in `README.md` (two each). These point at live Mintlify pages until the switch, so they wait for it;
+  - ~~set `html_baseurl`, point the README's SDK badge at the new site, and fix the README's guide links~~: done in #607, which moved the docs from `/python/` to the site root (so `instro.nominal.io/installation` and `/instruments` resolve again);
   - delete this file and `NEW_DOCS_CHANGES.md`.
 - [ ] **Tell users** on Discord and the forum that the docs' AI assistant and MCP server (both Mintlify-hosted) are gone, and update any pinned links.
 - [ ] **Search Console**, if used: verify `instro.nominal.io` and resubmit the sitemap.
