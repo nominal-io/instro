@@ -76,6 +76,8 @@ def test_psu_driver_base_get_operating_mode_raises_not_implemented(
         ("get_overvoltage_protection_enabled", ()),
         ("set_overvoltage_protection_delay", (0.25,)),
         ("get_overvoltage_protection_delay", ()),
+        ("clear_protection", ()),
+        ("get_overvoltage_protection_tripped", ()),
     ],
 )
 def test_psu_driver_base_ovp_methods_raise_not_implemented(
@@ -94,6 +96,7 @@ def test_psu_driver_base_ovp_methods_raise_not_implemented(
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
+        ("get_overcurrent_protection_tripped", ()),
     ],
 )
 def test_psu_driver_base_ocp_methods_raise_not_implemented(
@@ -166,6 +169,8 @@ def _stub_driver() -> MagicMock:
     driver.get_overvoltage_protection_delay.return_value = 0.25
     driver.get_overcurrent_protection_level.return_value = 2.0
     driver.get_overcurrent_protection_enabled.return_value = True
+    driver.get_overvoltage_protection_tripped.return_value = True
+    driver.get_overcurrent_protection_tripped.return_value = False
     driver.get_remote_sense_enabled.return_value = True
     return driver
 
@@ -382,6 +387,22 @@ def test_nominal_psu_ocp_methods_delegate_and_package() -> None:
     assert "ut.ch1.ocp.enabled" in enabled.channel_data  # type: ignore[union-attr]
 
 
+def test_nominal_psu_protection_trip_methods_delegate_and_package() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2)
+
+    clear = psu.clear_protection(channel=2)
+    ovp_tripped = psu.get_overvoltage_protection_tripped(channel=2)
+    ocp_tripped = psu.get_overcurrent_protection_tripped(channel=2)
+
+    driver.clear_protection.assert_called_once_with(channel=2)
+    driver.get_overvoltage_protection_tripped.assert_called_once_with(channel=2)
+    driver.get_overcurrent_protection_tripped.assert_called_once_with(channel=2)
+    assert clear.channel_data == {"ut.ch2.protection.clear.cmd": 1.0}
+    assert ovp_tripped.channel_data == {"ut.ch2.ovp.tripped": [1.0]}  # type: ignore[union-attr]
+    assert ocp_tripped.channel_data == {"ut.ch2.ocp.tripped": [0.0]}  # type: ignore[union-attr]
+
+
 def test_nominal_psu_remote_sense_methods_delegate_and_package() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
@@ -409,6 +430,8 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     voltage_cmd = psu.set_voltage(5.0, channel=1)
     current_cmd = psu.set_current_limit(1.5, channel=1)
     enabled_cmd = psu.output_enable(True, channel=2)
+    clear_cmd = psu.clear_protection(channel=1)
+    ocp_tripped = psu.get_overcurrent_protection_tripped(channel=1)
 
     assert "ut.ch1_v" in voltage.channel_data  # type: ignore[union-attr]
     assert "ut.ch1_i" in current.channel_data  # type: ignore[union-attr]
@@ -416,6 +439,8 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     assert "ut.ch1_v.cmd" in voltage_cmd.channel_data
     assert "ut.ch1_i.cmd" in current_cmd.channel_data
     assert "ut.ch2_en.cmd" in enabled_cmd.channel_data
+    assert "ut.ch1_protection_clear.cmd" in clear_cmd.channel_data
+    assert "ut.ch1_ocp_tripped" in ocp_tripped.channel_data  # type: ignore[union-attr]
 
 
 def test_default_naming_publishes_new_psu_channel_names() -> None:

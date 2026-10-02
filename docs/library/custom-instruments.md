@@ -234,6 +234,15 @@ def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> Non
 def get_overcurrent_protection_enabled(self, channel: int) -> bool:
     """Query and return whether overcurrent protection is enabled."""
 
+def clear_protection(self, channel: int) -> None:
+    """Clear every latched protection trip on `channel`, leaving the output off."""
+
+def get_overvoltage_protection_tripped(self, channel: int) -> bool:
+    """Query and return whether overvoltage protection has tripped and not been cleared."""
+
+def get_overcurrent_protection_tripped(self, channel: int) -> bool:
+    """Query and return whether overcurrent protection has tripped and not been cleared."""
+
 def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
     """Enable or disable remote sense on `channel`."""
 
