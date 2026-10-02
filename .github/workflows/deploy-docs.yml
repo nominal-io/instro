@@ -31,6 +31,14 @@ jobs:
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - name: Build docs
         run: just build-site
+      # the docs alone, for dev.nominal.io/python/instro/ (publish-hub below); hidden files
+      # such as Sphinx's .doctrees cache are left out by default
+      - name: Upload docs for dev.nominal.io
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: instro-docs
+          path: docs/_build/dirhtml
+          retention-days: 1
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
@@ -38,3 +46,19 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+  # Publish the docs to the Nominal developer docs hub at dev.nominal.io/python/instro/
+  # (nominal-io/pub-docs). Needs the DOCS_DEPLOY_KEY secret: see
+  # https://github.com/nominal-io/pub-docs#publishing-from-another-repo
+  publish-hub:
+    needs: deploy
+    # only what publishing needs: no Pages or OIDC permissions, and only the deploy key
+    permissions:
+      contents: read
+    uses: nominal-io/pub-docs/.github/workflows/publish.yml@e926d86836cc6c18f98d0406f70c2ab72688565b # main
+    with:
+      lang: python
+      project: instro
+      artifact: instro-docs
+    secrets:
+      DOCS_DEPLOY_KEY: ${{ secrets.DOCS_DEPLOY_KEY }}
