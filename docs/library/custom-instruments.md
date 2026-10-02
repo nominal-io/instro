@@ -12,7 +12,7 @@ Add a driver to an existing instrument type, or build a whole new instrument typ
 :::{tip}
 **Looking to add a new vendor or model to a supported instrument type?**
 
-Jump to that category's driver-development section below: [Oscilloscope (Scope)](#oscilloscope-scope), [Power Supply (PSU)](#power-supply-psu), [Digital Multimeter (DMM)](#digital-multimeter-dmm), [Data Acquisition (DAQ)](#data-acquisition-daq), [Arbitrary Waveform Generator (AWG)](#arbitrary-waveform-generator-awg), [Electronic Load (ELoad)](#electronic-load-eload), [Flow Controller](#flow-controller), or [I2C](/library/protocols/i2c/overview.md#driver-development).
+Jump to that category's driver-development section below: [Oscilloscope (Scope)](#oscilloscope-scope), [Power Supply (PSU)](#power-supply-psu), [Digital Multimeter (DMM)](#digital-multimeter-dmm), [Data Acquisition (DAQ)](#data-acquisition-daq), [Arbitrary Waveform Generator (AWG)](#arbitrary-waveform-generator-awg), [Electronic Load (ELoad)](#electronic-load-eload), [Flow Controller](#flow-controller), [Software Defined Radio (SDR)](#software-defined-radio-sdr), or [I2C](/library/protocols/i2c/overview.md#driver-development).
 
 If your instrument doesn't fit any supported type at all, see [Generic Custom Instrumentation](#generic-custom-instrumentation) below instead — that's for building an entirely new instrument type using `Instrument`.
 :::
@@ -1379,6 +1379,155 @@ Driver development requires careful mapping of vendor-specific behavior to the u
 - Implementing all six abstract methods on `FlowControllerDriverBase`
 - Returning correctly typed `FlowData` from measurement methods
 - Parsing and raising instrument errors appropriately
+
+### Software Defined Radio (SDR)
+
+This section is for developers implementing `InstroSDR` support for radios that aren't shipped in the library.
+
+#### Overview
+
+A driver subclasses `SDRDriverBase` and implements the vendor's transport. It owns its own connection lifecycle and holds no reference back to `InstroSDR`. The caller chooses a concrete driver and passes it to `InstroSDR`:
+
+```python
+sdr = InstroSDR(name="my_radio", driver=MyVendorSDR(...))
+sdr.open()
+```
+
+#### SDRDriverBase Interface
+
+Required methods are abstract; every radio can tune, set a rate, and hand back samples:
+
+| Method | Signature | Description |
+|---|---|---|
+| `open` | `() -> None` | Open the transport or SDR handle |
+| `close` | `() -> None` | Close it |
+| `set_center_freq` | `(frequency_hz: float, *, direction, channel) -> None` | Tune |
+| `get_center_freq` | `(*, direction, channel) -> float` | Read the tuned frequency |
+| `set_sample_rate` | `(sample_rate_hz: float, *, direction, channel) -> None` | Set the IQ rate |
+| `get_sample_rate` | `(*, direction, channel) -> float` | Read the IQ rate |
+| `read_iq` | `(n_samples: int, *, channels) -> IQCapture` | Return an aligned receive block with its timebase |
+
+Everything else raises `NotImplementedError` by default. Override only what the hardware supports, and leave the rest alone:
+
+| Method | Description |
+|---|---|
+| `set_gain` / `get_gain` | Overall gain in dB, where the radio has a single gain figure |
+| `set_gain_mode` / `get_gain_mode` | Hand gain to the AGC or take manual control |
+| `get_gain_range` | Lowest and highest settable gain |
+| `set_bandwidth` / `get_bandwidth` | IF or filter bandwidth, where it is separable from the sample rate |
+| `set_freq_correction` / `get_freq_correction` | Reference oscillator error in ppm |
+| `list_antennas` / `set_antenna` / `get_antenna` | Antenna port selection |
+| `get_num_channels` | Signal paths per direction; `0` means the radio cannot do it |
+| `get_frequency_range` / `get_sample_rate_range` | Settable limits |
+| `start(direction, channels)` / `stop(direction)` | Begin and end one direction's stream |
+| `fetch_iq(n_samples)` | Next contiguous block across the receive stream's channels |
+| `get_backlog()` | Samples per channel captured and waiting on the receive stream |
+
+:::{note}
+The two tiers are not symmetric by accident. Radios disagree about what "gain" even means: an RTL-SDR has one figure, while a vector signal analyzer has a reference level plus mechanical, IF and preamp stages. Forcing every driver to stub a capability its hardware lacks is what the optional tier exists to avoid.
+:::
+
+##### IQCapture
+
+`read_iq` returns an `IQCapture` rather than a bare array, so the timebase travels with the samples it describes:
+
+| Field | Type | Description |
+|---|---|---|
+| `samples` | `np.ndarray` | Complex IQ samples, shaped `(n_channels, n_samples)` |
+| `sample_period_ns` | `float` | Seconds per sample times 1e9, shared by every channel |
+| `channels` | `tuple[str, ...]` | Which signal path each row came from |
+| `center_freq_hz` | `tuple[float, ...]` | Tuned frequency per channel |
+| `t0_ns` | `int \| None` | Hardware timestamp of the first sample; `None` if the device has no clock |
+| `dropped_samples` | `int` | How many samples went missing before this block |
+| `overflow` | `bool` | Derived: `dropped_samples > 0` |
+
+`samples` is always two-dimensional, even for a single-channel radio, and every row shares one timebase. That is not a convenience: it is the guarantee multi-channel radios exist to provide. SoapySDR fills one buffer per channel from a single `readStream`, and UHD sets `ERROR_CODE_ALIGNMENT` rather than hand back channels it could not align. Encoding the alignment in the type keeps a driver from returning rows that silently drifted apart.
+
+`center_freq_hz` is per channel because channels of one stream tune independently on a USRP or a Pluto. Reporting it from the same device snapshot as the samples is what lets the spectrum carry a real frequency axis; querying it separately would let a retune slip in between and mislabel the result. `samples_for(channel)` and `center_freq_for(channel)` read a single path out of a capture.
+
+Set `t0_ns` when the hardware timestamps its own samples (UHD's `TimeSpec`, NI-RFSA's `absolute_initial_x`). `InstroSDR` then places the block exactly where the device says. Leave it `None` and the host anchors the block instead, backstamping it to end when the read returned. A radio with no clock of its own leaves it unset.
+
+##### Direction and channel
+
+Every per-path **configuration** method takes keyword-only `direction` (`Direction.RX` or `Direction.TX`) and `channel`, a string identifier. Both default to the first receive path, so a single-channel receiver never has to mention them.
+
+**Acquisition does not take a direction.** `read_iq`, `fetch_iq`, `measure_iq`, `measure_spectrum`, `compute_psd` and `get_backlog` are receive-only, because sampling is: SoapySDR fixes direction at `setupStream` and `readStream` takes only the handle, UHD splits `recv` from `send`, pyadi-iio splits `rx()` from `tx()`, and NI uses different drivers entirely for RFSA and RFSG. There is no transmit-side IQ to read, so the verb carries the direction and a transmit acquisition is not expressible.
+
+Configuration readback on a transmit path is a different thing and remains useful: `get_center_freq(direction=Direction.TX)` publishes on `tx0.center_freq`. What a transmitter is tuned to is a real measurement; a transmit-side IQ block is not.
+
+`channel` is a string rather than an index because the APIs this contract has to sit over disagree: SoapySDR uses integer indices, UHD names antennas (`"RX2"`), and NI-RFSA uses port strings with no indexing at all. A string spans all three.
+
+Drivers validate their own arguments. A receive-only, single-path driver rejects anything but `rx` channel `"0"` rather than silently acting on the path it does have.
+
+:::{warning}
+`sample_period_ns` must describe the block being returned, not the rate last requested. A tuner quantizes what it was asked for, and `InstroSDR` derives every IQ timestamp from this field, so a nominal value mislabels the timebase of everything the driver produces.
+:::
+
+#### Implementation Example
+
+A receive-only, single-channel radio whose vendor SDK reads in fixed-size USB blocks:
+
+```python
+from typing import Any, ClassVar
+
+import numpy as np
+
+from instro.unstable.sdr.sdr import IQCapture, SDRDriverBase
+from instro.unstable.sdr.types import Direction
+
+
+class MyVendorSDR(SDRDriverBase):
+    """Single-channel USB receiver. Connection params captured in ``__init__``; USB opens on ``open()``."""
+
+    READ_GRANULARITY: ClassVar[int] = 256
+
+    def __init__(self, device_index: int = 0, **kwargs: Any):
+        self._device_index = device_index
+        self._kwargs = kwargs
+        self._device: Any = None
+
+    def open(self) -> None:
+        from vendor_sdk import Radio  # vendor SDK stays at the driver boundary
+
+        if self._device is None:
+            self._device = Radio(device_index=self._device_index, **self._kwargs)
+
+    def close(self) -> None:
+        if self._device is not None:
+            self._device.close()
+            self._device = None
+
+    def set_center_freq(self, frequency_hz: float) -> None:
+        self._require_device().center_freq = float(frequency_hz)
+
+    def get_center_freq(self) -> float:
+        return float(self._require_device().center_freq)
+
+    # ... remaining accessors follow the same shape ...
+
+    def read_iq(self, n_samples: int, *, channels=("0",)) -> IQCapture:
+        if n_samples <= 0 or n_samples % self.READ_GRANULARITY:
+            raise ValueError(f"n_samples must be a positive multiple of {self.READ_GRANULARITY}")
+        device = self._require_device()
+        samples = np.asarray(device.read_samples(n_samples), dtype=np.complex128)
+        return IQCapture(
+            samples=samples.reshape(1, -1),  # one row per channel, even when there is one
+            sample_period_ns=1e9 / float(device.sample_rate),
+            channels=("0",),
+            center_freq_hz=(float(device.center_freq),),
+        )
+
+    def _require_device(self) -> Any:
+        if self._device is None:
+            raise RuntimeError("MyVendorSDR driver is not open; call open() first")
+        return self._device
+```
+
+Importing the vendor SDK inside `open()` rather than at module scope keeps the dependency optional and lets the driver be unit-tested without hardware attached.
+
+#### Summary
+
+`InstroSDR` gives SDRs the same shape as every other instro category: a vendor-independent HAL over a driver that owns its transport. IQ blocks carry the device's own timebase and publish as paired `.i`/`.q` channels; spectrum work publishes scalar features and hands the full array back to the caller.
 
 ### Generic Custom Instrumentation
 
