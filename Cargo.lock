@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "instro-opcua"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -411,7 +411,7 @@ dependencies = [
 
 [[package]]
 name = "instro-opcua-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "instro-opcua",
  "pyo3",
