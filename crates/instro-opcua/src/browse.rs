@@ -222,7 +222,8 @@ async fn browse_iterative<B: Browse>(
                 && count_visited >= limit
             {
                 bail!(
-                    internal = "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root node: '{}')",
+                    internal,
+                    "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root node: '{}')",
                     current_node.node_id.clone(),
                     limit,
                     node_id.clone(),
@@ -233,8 +234,8 @@ async fn browse_iterative<B: Browse>(
 
             if ancestors.contains(&current_node.node_id) {
                 bail!(
-                    internal =
-                        "browse cycle detected while browsing node '{}' (browse root node: '{}')",
+                    internal,
+                    "browse cycle detected while browsing node '{}' (browse root node: '{}')",
                     current_node.node_id.clone(),
                     node_id.clone(),
                 );

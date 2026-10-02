@@ -73,15 +73,15 @@ impl OpcUaError {
 
 #[macro_export]
 macro_rules! err {
-    (internal = $($arg:tt)*) => {
+    (internal, $($arg:tt)*) => {
         OpcUaError::internal(format!($($arg)*))
     };
 
-    (ua = $err:expr) => {
+    (ua, $err:expr) => {
         OpcUaError::Ua(format!($($arg)*))
     };
 
-    (ua = $err:expr, $($arg:tt)*) => {
+    (ua, $err:expr, $($arg:tt)*) => {
         OpcUaError::UaWithContext($err, format!($($arg)*))
     };
 }

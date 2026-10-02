@@ -411,7 +411,8 @@ impl OpcUaClient {
 
         if read_result.len() != node_list.len() {
             bail!(
-                internal = "length mismatch between requested and received values: {} != {}",
+                internal,
+                "length mismatch between requested and received values: {} != {}",
                 read_result.len(),
                 node_list.len()
             )
@@ -481,8 +482,8 @@ impl OpcUaClient {
 
         if item_results.len() != nodes.len() {
             bail!(
-                internal =
-                    "length mismatch between requested and registered monitored items: {} != {}",
+                internal,
+                "length mismatch between requested and registered monitored items: {} != {}",
                 item_results.len(),
                 nodes.len()
             )
@@ -537,7 +538,8 @@ impl OpcUaClient {
 
         if valid_streams.is_empty() {
             bail!(
-                internal = "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
+                internal,
+                "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
             )
         }
 
@@ -940,8 +942,8 @@ impl OpcUaClientBuilder {
 
         let security_mode = match self.security_mode {
             Some(mode) if !mode.is_invalid() => mode.into(),
-            Some(_) => bail!(internal = "invalid security mode"),
-            None => bail!(internal = "no security mode provided"),
+            Some(_) => bail!(internal, "invalid security mode"),
+            None => bail!(internal, "no security mode provided"),
         };
 
         let mut builder = match self.pki {
