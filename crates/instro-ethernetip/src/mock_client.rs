@@ -1,9 +1,15 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use rust_ethernet_ip::{BatchError, EtherNetIpError, PlcValue};
+use rust_ethernet_ip::BatchError;
+use rust_ethernet_ip::EtherNetIpError;
+use rust_ethernet_ip::PlcValue;
 
-use crate::{ClientFuture, ConnectFuture, ExplicitClient, ExplicitConnector};
+use crate::ClientFuture;
+use crate::ConnectFuture;
+use crate::ExplicitClient;
+use crate::ExplicitConnector;
 
 pub(crate) type BatchReadResult =
     std::result::Result<Vec<std::result::Result<PlcValue, BatchError>>, EtherNetIpError>;

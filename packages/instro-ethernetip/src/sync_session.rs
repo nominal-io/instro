@@ -1,10 +1,12 @@
 use instro_ethernetip::blocking::ExplicitSession;
-use pyo3::exceptions::{PyResourceWarning, PyRuntimeError};
+use pyo3::exceptions::PyResourceWarning;
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
 use crate::errors::map_error_with_py;
-use crate::values::{py_to_value, rust_value_to_py};
+use crate::values::py_to_value;
+use crate::values::rust_value_to_py;
 
 #[pyclass(module = "instro.ethernetip._ethernetip")]
 /// Synchronous EtherNet/IP session wrapper for Python.

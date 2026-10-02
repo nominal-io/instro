@@ -27,7 +27,6 @@ use super::types::OpcUaBrowsePath;
 use super::types::OpcUaNode;
 use super::types::OpcUaNodeClass;
 use super::types::OpcUaNodeId;
-
 use crate::OpcUaError;
 use crate::bail;
 use crate::error::ErrorExt as _;
@@ -223,7 +222,8 @@ async fn browse_iterative<B: Browse>(
             {
                 bail!(
                     internal,
-                    "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root node: '{}')",
+                    "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root \
+                     node: '{}')",
                     current_node.node_id.clone(),
                     limit,
                     node_id.clone(),
