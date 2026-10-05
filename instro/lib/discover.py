@@ -8,7 +8,7 @@ from typing import Any
 
 import pyvisa
 
-from instro.lib.registry import iter_driver_entries, resolve_driver_class
+from instro.lib.registry import driver_registry, iter_driver_entries
 from instro.lib.transports.visa import SerialConfig, TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
 
 VISA_TRANSPORT = "visa"
@@ -46,7 +46,8 @@ class DiscoveredInstrument:
             the driver's constructor takes (an NI-DAQmx device name, an MCC serial number, ...).
         idn: Identity reply the match was made from (the raw ``*IDN?`` string for SCPI instruments).
         category: Instrument category (``"psu"``, ``"dmm"``, ``"daq"``, ...).
-        driver_name: Registry key / class name of the matched driver, e.g. ``"BK9115"``.
+        driver_name: Key of the matched driver in the category's registry
+            (:func:`~instro.lib.registry.driver_registry`), e.g. ``"BK9115"``.
         num_channels: Programmable channel count where the category tracks it, else ``None``.
         transport: ``"visa"`` for SCPI-over-VISA instruments. Discovery providers for vendor SDKs
             set their own token; only ``"visa"`` records can build a :class:`VisaConfig`.
@@ -86,8 +87,15 @@ class DiscoveredInstrument:
         return VisaConfig(visa_resource=self.resource, visa_backend=self.backend, serial_config=serial)
 
     def driver_class(self) -> type:
-        """The matched driver class, imported on demand."""
-        return resolve_driver_class(self.category, self.driver_name)
+        """The matched driver class, loaded from the category's driver registry on demand.
+
+        Raises:
+            KeyError: ``driver_name`` is not registered for ``category``.
+        """
+        try:
+            return driver_registry(self.category)[self.driver_name].load()
+        except KeyError:
+            raise KeyError(f"no driver named {self.driver_name!r} registered for category {self.category!r}") from None
 
     def make_driver(self) -> Any:
         """A new, unopened driver for this instrument.

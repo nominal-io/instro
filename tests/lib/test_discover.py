@@ -4,6 +4,7 @@ import pytest
 import pyvisa
 
 from instro.lib.discover import DiscoveredInstrument, VisaInstrumentInfo, match_idn, parse_idn, scan_visa_resources
+from instro.lib.registry import DriverEntry
 from instro.lib.transports.visa import ControlFlow, Parity, SerialConfig, StopBits, VisaConfig
 from instro.psu.config import VisaDriverConfig as PSUVisaDriverConfig
 from instro.psu.drivers.bk_9115 import BK9115
@@ -276,17 +277,26 @@ def test_discovered_instrument_without_serial_config_uses_transport_defaults() -
 
 
 def test_discovered_instrument_non_visa_transport_passes_resource_to_driver() -> None:
+    """A vendor-SDK provider's record resolves through the same registry lookup as a VISA one."""
     found = DiscoveredInstrument(
-        resource="Dev1", idn="NI USB-6002", category="daq", driver_name="FakeDAQ", transport="nidaqmx"
+        resource="Dev1", idn="USB-6002", category="daq", driver_name="FakeDAQ", transport="nidaqmx"
     )
-    with patch("instro.lib.discover.resolve_driver_class") as resolve:
-        found.make_driver()
-    resolve.assert_called_once_with("daq", "FakeDAQ")
-    resolve.return_value.assert_called_once_with("Dev1")
+    entry = MagicMock(spec=DriverEntry)
+    with patch("instro.lib.discover.driver_registry", return_value={"FakeDAQ": entry}) as registry:
+        driver = found.make_driver()
+    registry.assert_called_once_with("daq")
+    entry.load.return_value.assert_called_once_with("Dev1")
+    assert driver is entry.load.return_value.return_value
     with pytest.raises(ValueError, match="not VISA"):
         found.visa_config()
     with pytest.raises(ValueError, match="no JSON config schema"):
         found.config_block()
+
+
+def test_discovered_instrument_unregistered_driver_name_raises() -> None:
+    found = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="PSUDriverBase")
+    with pytest.raises(KeyError, match="not registered|registered for category 'psu'"):
+        found.driver_class()
 
 
 def test_scan_records_backend_for_visa_config() -> None:
