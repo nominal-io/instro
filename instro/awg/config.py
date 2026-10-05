@@ -31,7 +31,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
-from instro.lib.registry import DriverEntry, IdnPattern
+from instro.lib.registry import DriverEntry, IdnPattern, check_registry
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -91,6 +91,9 @@ class VisaDriverConfig(BaseModel):
         if v not in AWG_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
         return v
+
+
+check_registry("awg", AWG_VENDOR_REGISTRY, VisaDriverConfig)
 
 
 class SineConfig(BaseModel):

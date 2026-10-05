@@ -10,12 +10,17 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 __all__ = [
     "CATEGORIES",
     "DriverEntry",
     "IdnPattern",
+    "check_registry",
     "driver_registry",
     "iter_driver_entries",
 ]
@@ -103,3 +108,26 @@ def iter_driver_entries() -> Iterator[tuple[str, str, DriverEntry]]:
     for category in CATEGORIES:
         for name, entry in driver_registry(category).items():
             yield category, name, entry
+
+
+def check_registry(category: str, registry: Mapping[str, DriverEntry], driver_config: type[BaseModel]) -> None:
+    """Fail at import time if a registry entry cannot produce a valid config block for ``category``.
+
+    Called at the bottom of each category ``config.py``. When the category's driver config model
+    requires ``num_channels``, every :class:`IdnPattern` must carry one, because
+    :meth:`~instro.lib.discover.DiscoveredInstrument.config_block` emits the field only when the
+    matched pattern has it. The requirement is read from the model so the two never disagree.
+
+    Raises:
+        ValueError: a pattern lacks ``num_channels`` for a category whose config requires it.
+    """
+    field = driver_config.model_fields.get("num_channels")
+    if field is None or not field.is_required():
+        return
+    for name, entry in registry.items():
+        for pattern in entry.idn_patterns:
+            if pattern.num_channels is None:
+                raise ValueError(
+                    f"{category}.{name}: IdnPattern {pattern.model!r} needs num_channels; "
+                    f"{driver_config.__name__} requires it"
+                )

@@ -11,4 +11,5 @@
    ~instro.lib.registry.IdnPattern
    ~instro.lib.registry.driver_registry
    ~instro.lib.registry.iter_driver_entries
+   ~instro.lib.registry.check_registry
 ```
