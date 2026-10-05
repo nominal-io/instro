@@ -35,8 +35,6 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/_build/dirhtml
-          # the Nominal developer docs hub (nominal-io/pub-docs) pulls this upload; the default
-          # lifetime of 1 day is too short for its daily runs
           retention-days: 30
       - name: Deploy to GitHub Pages
         id: deployment
