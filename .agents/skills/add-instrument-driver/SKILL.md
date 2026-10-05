@@ -136,6 +136,10 @@ driver is wired before assuming:
 
 - **Core categories:** edit `instro/<category>/drivers/__init__.py`, adding both
   the import and the `__all__` entry.
+  Then add a `DriverEntry` to `<CAT>_VENDOR_REGISTRY` in
+  `instro/<category>/config.py` with the driver's `*IDN?` `IdnPattern`(s)
+  (vendor substrings, anchored model regex, programmable channel count), so the
+  JSON config path and `instro discover` both know the driver.
 - **Workspace vendor packages (e.g. `daq`, `i2c`):** the driver lives in its own
   package under `packages/`; register it in that package's `drivers/__init__.py`
   (import + `__all__`). The category's top-level `drivers/__init__.py` relies on

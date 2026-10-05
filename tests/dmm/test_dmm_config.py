@@ -319,8 +319,8 @@ def test_vendor_registry_complete():
     from instro.dmm.config import DMM_VENDOR_REGISTRY
     from instro.dmm.dmm import DMMDriverBase
 
-    for key, path in DMM_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
+    for key, entry in DMM_VENDOR_REGISTRY.items():
+        mod_path, cls_name = entry.path.rsplit(".", 1)
         cls = getattr(importlib.import_module(mod_path), cls_name)
         assert issubclass(cls, DMMDriverBase), f"{key} does not point to a DMMDriverBase subclass"
 

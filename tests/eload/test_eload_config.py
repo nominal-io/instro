@@ -272,8 +272,8 @@ def test_vendor_registry_complete():
     from instro.eload.config import ELOAD_VENDOR_REGISTRY
     from instro.eload.eload import ELoadDriverBase
 
-    for key, path in ELOAD_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
+    for key, entry in ELOAD_VENDOR_REGISTRY.items():
+        mod_path, cls_name = entry.path.rsplit(".", 1)
         cls = getattr(importlib.import_module(mod_path), cls_name)
         assert issubclass(cls, ELoadDriverBase), f"{key} does not point to an ELoadDriverBase subclass"
 

@@ -5,6 +5,8 @@ from instro.lib.discover import (
     VisaScanError,
     VisaScanResult,
     VisaUnrecognizedInstrument,
+    match_idn,
+    parse_idn,
     scan_visa_resources,
 )
 from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
@@ -30,5 +32,7 @@ __all__ = [
     "VisaScanResult",
     "VisaUnrecognizedInstrument",
     "install_nominal_core_log_handler",
+    "match_idn",
+    "parse_idn",
     "scan_visa_resources",
 ]

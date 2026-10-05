@@ -13,6 +13,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 from instro.scope.types import (
@@ -40,10 +41,26 @@ __all__ = [
     "VisaDriverConfig",
 ]
 
-SCOPE_VENDOR_REGISTRY: dict[str, str] = {
-    "Keysight1200X": "instro.scope.drivers.keysight_1200x.Keysight1200X",
-    "SiglentSDS1000XE": "instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE",
-    "Tektronix2SeriesMSO": "instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO",
+SCOPE_VENDOR_REGISTRY: dict[str, DriverEntry] = {
+    "Keysight1200X": DriverEntry(
+        "instro.scope.drivers.keysight_1200x.Keysight1200X",
+        (
+            IdnPattern(("KEYSIGHT TECHNOLOGIES",), r"^DSOX120", 2),
+            IdnPattern(("KEYSIGHT TECHNOLOGIES",), r"^EDUX105", 2),
+        ),
+    ),
+    "SiglentSDS1000XE": DriverEntry(
+        "instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE",
+        (
+            IdnPattern(("SIGLENT TECHNOLOGIES",), r"^SDS1104X-E", 4),
+            IdnPattern(("SIGLENT TECHNOLOGIES",), r"^SDS1202X-E", 2),
+            IdnPattern(("SIGLENT TECHNOLOGIES",), r"^SDS1204X-E", 4),
+        ),
+    ),
+    "Tektronix2SeriesMSO": DriverEntry(
+        "instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO",
+        (IdnPattern(("TEKTRONIX",), r"^MSO2[24]", 4),),
+    ),
 }
 
 
@@ -153,10 +170,7 @@ def resolve_scope_from_config(
     config: ScopeConfig,
 ) -> tuple[str, ScopeDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated ScopeConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroScope needs."""
-    import importlib
-
-    module_path, class_name = SCOPE_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
-    driver_cls = getattr(importlib.import_module(module_path), class_name)
+    driver_cls = SCOPE_VENDOR_REGISTRY[config.driver.name].load()
     driver: ScopeDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]

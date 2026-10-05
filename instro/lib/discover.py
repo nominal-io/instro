@@ -1,4 +1,4 @@
-"""VISA instrument discovery: scan resources, query identity, match to known drivers."""
+"""VISA instrument discovery: scan resources, query identity, match to registered drivers."""
 
 # the difficult thing is that this only works reliably for VISA instruments atm (sometimes)
 # we will need to eventually expand this to cover non-visa instruments!
@@ -9,7 +9,27 @@ import warnings
 
 import pyvisa
 
+from instro.lib.registry import iter_driver_entries
 from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
+
+
+@dataclasses.dataclass(frozen=True)
+class IdnFields:
+    """The four comma-separated fields of an IEEE 488.2 ``*IDN?`` reply; missing fields are ``""``."""
+
+    manufacturer: str
+    model: str
+    serial: str
+    firmware: str
+
+
+@dataclasses.dataclass(frozen=True)
+class DriverMatch:
+    """The registered driver an ``*IDN?`` reply maps to."""
+
+    category: str
+    driver_name: str
+    num_channels: int | None
 
 
 @dataclasses.dataclass
@@ -41,37 +61,24 @@ class VisaScanResult:
     errors: list[VisaScanError]
 
 
-# Key: (vendor, model) substrings matched case-insensitively against the *IDN? response.
-# Value: (category, driver_class_name, num_channels). num_channels is the count of
-# SCPI-programmable channels where known, not necessarily the instrument's physical output
-# count (e.g. SiglentSPD3303's CH3 has no SCPI voltage/current access); left None where it
-# isn't tracked (dmm, eload).
-_IDN_MAP: dict[tuple[str, str], tuple[str, str, int | None]] = {
-    ("AGILENT TECHNOLOGIES", "34401A"): ("dmm", "Agilent34401A", None),
-    ("HEWLETT-PACKARD", "34401A"): ("dmm", "Agilent34401A", None),
-    ("KEITHLEY INSTRUMENTS", "2400"): ("dmm", "Keithley2400", None),
-    ("KEYSIGHT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None),
-    ("AGILENT TECHNOLOGIES", "34461A"): ("dmm", "Keysight34461A", None),
-    ("B&K PRECISION", "9115"): ("psu", "BK9115", 1),
-    ("B&K PRECISION", "9140"): ("psu", "BK914X", 3),
-    ("RIGOL TECHNOLOGIES", "DP811"): ("psu", "RigolDP800", 1),
-    ("RIGOL TECHNOLOGIES", "DP821"): ("psu", "RigolDP800", 2),
-    ("RIGOL TECHNOLOGIES", "DP831"): ("psu", "RigolDP800", 3),
-    ("RIGOL TECHNOLOGIES", "DP832"): ("psu", "RigolDP800", 3),
-    ("SIGLENT TECHNOLOGIES", "SPD3303"): ("psu", "SiglentSPD3303", 2),
-    ("B&K PRECISION", "BK85"): ("eload", "BK85XXB", None),
-    ("KEYSIGHT TECHNOLOGIES", "DSOX120"): ("scope", "Keysight1200X", 2),
-    ("KEYSIGHT TECHNOLOGIES", "EDUX105"): ("scope", "Keysight1200X", 2),
-    ("TEKTRONIX", "MSO22"): ("scope", "Tektronix2SeriesMSO", 4),
-    ("TEKTRONIX", "MSO24"): ("scope", "Tektronix2SeriesMSO", 4),
-    ("SIGLENT TECHNOLOGIES", "SDS1104X-E"): ("scope", "SiglentSDS1000XE", 4),
-    ("SIGLENT TECHNOLOGIES", "SDS1202X-E"): ("scope", "SiglentSDS1000XE", 2),
-    ("SIGLENT TECHNOLOGIES", "SDS1204X-E"): ("scope", "SiglentSDS1000XE", 4),
-    ("RIGOL TECHNOLOGIES", "DG1022Z"): ("awg", "RigolDG1022Z", 2),
-    ("RIGOL TECHNOLOGIES", "DG1062Z"): ("awg", "RigolDG1022Z", 2),
-    ("AGILENT TECHNOLOGIES", "33521B"): ("awg", "Keysight33521B", 1),
-    ("KEYSIGHT TECHNOLOGIES", "33521B"): ("awg", "Keysight33521B", 1),
-}
+def parse_idn(idn: str) -> IdnFields:
+    """Split an ``*IDN?`` reply into its fields, tolerating missing trailing fields."""
+    fields = [f.strip() for f in idn.split(",")]
+    fields += [""] * (4 - len(fields))
+    return IdnFields(*fields[:4])
+
+
+def match_idn(idn: str) -> DriverMatch | None:
+    """Match an ``*IDN?`` reply against every registered driver's :class:`~instro.lib.registry.IdnPattern`.
+
+    Returns the first match in registry order, or ``None`` when no in-tree driver claims the identity.
+    """
+    fields = parse_idn(idn)
+    for category, driver_name, entry in iter_driver_entries():
+        for pattern in entry.idn_patterns:
+            if pattern.matches(fields.manufacturer, fields.model):
+                return DriverMatch(category=category, driver_name=driver_name, num_channels=pattern.num_channels)
+    return None
 
 
 def _classify_error_hint(exc: Exception) -> str | None:
@@ -123,29 +130,17 @@ def scan_visa_resources(
         try:
             driver.open()
             idn = driver.query("*IDN?").strip()
-            parts = [p.strip().lower() for p in idn.split(",")]
-            vendor = parts[0] if len(parts) > 0 else ""
-            model = parts[1] if len(parts) > 1 else ""
-
-            match = next(
-                (
-                    v
-                    for (k_vendor, k_model), v in _IDN_MAP.items()
-                    if k_vendor.lower() in vendor and k_model.lower() in model
-                ),
-                None,
-            )
+            match = match_idn(idn)
             if match is None:
                 unrecognized.append(VisaUnrecognizedInstrument(resource=resource, idn=idn))
             else:
-                category, driver_class_name, num_channels = match
                 instruments.append(
                     VisaInstrumentInfo(
                         resource=resource,
                         idn=idn,
-                        category=category,
-                        driver_class_name=driver_class_name,
-                        num_channels=num_channels,
+                        category=match.category,
+                        driver_class_name=match.driver_name,
+                        num_channels=match.num_channels,
                     )
                 )
         except Exception as e:

@@ -406,8 +406,8 @@ def test_vendor_registry_complete():
 
     from instro.scope.config import SCOPE_VENDOR_REGISTRY
 
-    for key, path in SCOPE_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
+    for key, entry in SCOPE_VENDOR_REGISTRY.items():
+        mod_path, cls_name = entry.path.rsplit(".", 1)
         cls = getattr(importlib.import_module(mod_path), cls_name)
         assert issubclass(cls, ScopeDriverBase), f"{key} does not point to a ScopeDriverBase subclass"
 
