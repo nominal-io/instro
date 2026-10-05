@@ -47,7 +47,7 @@ def _rm_mock():
 def test_discover_empty_bench():
     mock_rm = _rm_mock()
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
@@ -58,7 +58,7 @@ def test_discover_empty_bench():
 def test_discover_reports_ivi_backend():
     mock_rm = _rm_mock()
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
@@ -70,7 +70,7 @@ def test_discover_py_fallback_reports_degraded_interfaces():
     mock_rm = _rm_mock()
     mock_rm.visalib.get_debug_info.return_value = _GPIB_DEGRADED_DEBUG_INFO
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
@@ -91,7 +91,7 @@ def test_discover_explicit_py_backend_reports_degraded_interfaces():
         errors=[],
     )
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=unrecognized_result),
     ):
         result = runner.invoke(app, ["discover", "--backend", "@py"])
@@ -109,7 +109,7 @@ def test_discover_suppresses_gpib_warning_at_construction():
         return mock_rm
 
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=_warn_then_return),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", side_effect=_warn_then_return),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
         warnings.catch_warnings(record=True) as caught,
     ):
@@ -135,7 +135,7 @@ def test_discover_mixed_bench():
         errors=[],
     )
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=mixed_result),
     ):
         result = runner.invoke(app, ["discover"])
@@ -152,7 +152,7 @@ def test_discover_failed_probe():
         errors=[ScanError(resource="USB0::0x1234::INSTR", message="timeout")],
     )
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=error_result),
     ):
         result = runner.invoke(app, ["discover"])
@@ -175,7 +175,7 @@ def test_discover_failed_probe_prefers_hint_over_raw_message():
         ],
     )
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=error_result),
     ):
         result = runner.invoke(app, ["discover"])
@@ -222,7 +222,7 @@ def test_discover_two_supported_one_unsupported_one_serial():
     )
 
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=mixed_result),
     ):
         result = runner.invoke(app, ["discover"])
@@ -246,13 +246,13 @@ def test_discover_passes_requested_backend_to_discovery():
     """The resolved backend is for the header only; discovery gets what the user asked for so records keep the fallback."""
     mock_rm = _rm_mock()
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
     ):
         runner.invoke(app, ["discover"])
     run.assert_called_once_with(backend=None)
     with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
     ):
         runner.invoke(app, ["discover", "--backend", "@py"])

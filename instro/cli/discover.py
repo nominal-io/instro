@@ -1,11 +1,10 @@
-import pyvisa
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from instro.lib.discover import DiscoveryReport, SerialPortInfo, describe_serial_config
 from instro.lib.discover import discover as discover_instruments
-from instro.lib.transports.visa import _open_resource_manager
+from instro.lib.transports.visa import DegradedInterface, backend_diagnostics
 
 MARK = "⟢"
 GREEN = "#4ADE80"
@@ -17,50 +16,10 @@ FOREGROUND_ERROR = "#B91C1C"
 BORDER = "#333333"
 
 
-_INTERFACE_HINTS = {
-    "GPIB": "install NI-488.2 or linux-gpib",
-    "USB": "install libusb",
-    "ASRL": "install pyserial",
-}
-
-_INTERFACE_SUFFIXES = (" INSTR", " INTFC", " SOCKET", " RAW")
-
-
-def _degraded_interfaces(rm: pyvisa.ResourceManager) -> list[tuple[str, str]]:
-    """Return (interface family, reason) for pyvisa-py interfaces that are not Available."""
-    get_debug_info = getattr(rm.visalib, "get_debug_info", None)
-    if get_debug_info is None:
-        return []
-    degraded: dict[str, str] = {}
-    for key, value in get_debug_info().items():
-        if not key.endswith(_INTERFACE_SUFFIXES):
-            continue
-        lines = value if isinstance(value, list) else str(value).splitlines()
-        reason = lines[0].strip() if lines else ""
-        if reason.startswith("Available"):
-            continue
-        degraded.setdefault(key.split(" ", 1)[0], reason.rstrip("."))
-    return sorted(degraded.items())
-
-
-def _degraded_line(family: str, reason: str) -> str:
-    hint = _INTERFACE_HINTS.get(family)
-    suffix = f" ({hint})" if hint else ""
-    return f"{family}: unavailable — {reason}{suffix}"
-
-
-def _backend_label(active_backend: str, used_py_fallback: bool) -> str:
-    if active_backend == "@ivi":
-        return "@ivi (system IVI VISA)"
-    if active_backend == "@py":
-        return "@py (pyvisa-py — no IVI VISA found)" if used_py_fallback else "@py (pyvisa-py)"
-    return active_backend
-
-
-def _no_devices_panel(degraded: list[tuple[str, str]]) -> Panel:
+def _no_devices_panel(degraded: tuple[DegradedInterface, ...]) -> Panel:
     body = f"   [bold {FOREGROUND_ERROR}]NO DEVICES FOUND[/]"
-    for family, reason in degraded:
-        body += f"\n   [dim]{_degraded_line(family, reason)}[/]"
+    for interface in degraded:
+        body += f"\n   [dim]{interface.describe()}[/]"
     return Panel(body, border_style=FOREGROUND_ERROR)
 
 
@@ -83,13 +42,13 @@ def discover(backend: str | None = None) -> None:
     width = console.width
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
 
-    rm, active_backend, used_py_fallback = _open_resource_manager(backend)
-    degraded = _degraded_interfaces(rm) if active_backend == "@py" else []
+    diagnostics = backend_diagnostics(backend)
+    degraded = diagnostics.degraded
 
     console.print("\nScanning VISA resources and serial ports ... ", style="dim")
-    console.print(f"   backend: {_backend_label(active_backend, used_py_fallback)}", style="dim")
-    for family, reason in degraded:
-        console.print(f"   {_degraded_line(family, reason)}", style="dim")
+    console.print(f"   backend: {diagnostics.label}", style="dim")
+    for interface in degraded:
+        console.print(f"   {interface.describe()}", style="dim")
     console.print()
 
     report = discover_instruments(backend=backend)

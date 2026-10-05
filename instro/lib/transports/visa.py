@@ -149,7 +149,7 @@ class VisaDriver(TransportBase):
             # pyvisa caches one ResourceManager per backend and shares it across every
             # driver in the process; closing it would kill all other drivers' sessions.
             # pyvisa closes it via its own atexit handler.
-            rm, _, used_py_fallback = _open_resource_manager(cfg.visa_backend)
+            rm, _, used_py_fallback = open_resource_manager(cfg.visa_backend)
             inst: pyvisa.resources.MessageBasedResource | None = None
             try:
                 inst = typing.cast(
@@ -269,8 +269,13 @@ class VisaDriver(TransportBase):
         return self._inst
 
 
-def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, str, bool]:
-    """Open a ResourceManager, returning (rm, active_backend, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
+def open_resource_manager(backend: str | None = None) -> tuple[pyvisa.ResourceManager, str, bool]:
+    """Open a ResourceManager, returning ``(rm, active_backend, used_py_fallback)``.
+
+    An unset ``backend`` uses ``@ivi`` and falls back to ``@py`` when no IVI VISA is installed; an
+    explicit backend is used as-is. pyvisa caches one ResourceManager per backend, so calling this
+    repeatedly is cheap and never closes a session another driver holds.
+    """
     # gpib_ctypes warns at @py construction when the GPIB C library is missing;
     # irrelevant unless the resource being opened is GPIB, which fails at
     # open_resource with its own actionable error.
@@ -288,6 +293,82 @@ def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager,
                 FALLBACK_VISA_BACKEND,
             )
             return pyvisa.ResourceManager(FALLBACK_VISA_BACKEND), FALLBACK_VISA_BACKEND, True
+
+
+_open_resource_manager = open_resource_manager
+
+INTERFACE_HINTS: dict[str, str] = {
+    "GPIB": "install NI-488.2 or linux-gpib",
+    "USB": "install libusb",
+    "ASRL": "install pyserial",
+}
+_INTERFACE_SUFFIXES = (" INSTR", " INTFC", " SOCKET", " RAW")
+
+
+@dataclasses.dataclass(frozen=True)
+class DegradedInterface:
+    """A pyvisa-py interface family the backend cannot serve, and why."""
+
+    family: str
+    reason: str
+    hint: str | None = None
+
+    def describe(self) -> str:
+        """One line for humans: ``GPIB: unavailable — <reason> (install NI-488.2 or linux-gpib)``."""
+        suffix = f" ({self.hint})" if self.hint else ""
+        return f"{self.family}: unavailable — {self.reason}{suffix}"
+
+
+@dataclasses.dataclass(frozen=True)
+class BackendDiagnostics:
+    """Which VISA backend is in use and what it cannot cover; explains an empty scan."""
+
+    backend: str
+    used_py_fallback: bool
+    degraded: tuple[DegradedInterface, ...] = ()
+
+    @property
+    def label(self) -> str:
+        """``@ivi (system IVI VISA)``, ``@py (pyvisa-py)``, or ``@py (pyvisa-py — no IVI VISA found)``."""
+        if self.backend == DEFAULT_VISA_BACKEND:
+            return f"{DEFAULT_VISA_BACKEND} (system IVI VISA)"
+        if self.backend == FALLBACK_VISA_BACKEND:
+            return (
+                f"{FALLBACK_VISA_BACKEND} (pyvisa-py — no IVI VISA found)"
+                if self.used_py_fallback
+                else f"{FALLBACK_VISA_BACKEND} (pyvisa-py)"
+            )
+        return self.backend
+
+
+def degraded_interfaces(rm: pyvisa.ResourceManager) -> tuple[DegradedInterface, ...]:
+    """Interface families pyvisa-py reports as not Available, from its ``get_debug_info``; empty for other backends."""
+    get_debug_info = getattr(rm.visalib, "get_debug_info", None)
+    if get_debug_info is None:
+        return ()
+    degraded: dict[str, str] = {}
+    for key, value in get_debug_info().items():
+        if not key.endswith(_INTERFACE_SUFFIXES):
+            continue
+        lines = value if isinstance(value, list) else str(value).splitlines()
+        reason = lines[0].strip() if lines else ""
+        if reason.startswith("Available"):
+            continue
+        degraded.setdefault(key.split(" ", 1)[0], reason.rstrip("."))
+    return tuple(
+        DegradedInterface(family, reason, INTERFACE_HINTS.get(family)) for family, reason in sorted(degraded.items())
+    )
+
+
+def backend_diagnostics(backend: str | None = None) -> BackendDiagnostics:
+    """Resolve ``backend`` the way :class:`VisaDriver` would and report what it can and cannot reach.
+
+    Degraded interfaces are only inspected on ``@py``; an IVI VISA covers every interface it was
+    installed for and has no equivalent self-report.
+    """
+    rm, active_backend, used_py_fallback = open_resource_manager(backend)
+    degraded = degraded_interfaces(rm) if active_backend == FALLBACK_VISA_BACKEND else ()
+    return BackendDiagnostics(backend=active_backend, used_py_fallback=used_py_fallback, degraded=degraded)
 
 
 def _is_missing_backend_error(exc: BaseException) -> bool:
