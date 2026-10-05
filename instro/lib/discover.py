@@ -1,7 +1,5 @@
 """VISA instrument discovery: scan resources, query identity, match to registered drivers."""
 
-# the difficult thing is that this only works reliably for VISA instruments atm (sometimes)
-# we will need to eventually expand this to cover non-visa instruments!
 from __future__ import annotations
 
 import dataclasses

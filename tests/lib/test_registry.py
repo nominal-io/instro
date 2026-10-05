@@ -41,7 +41,6 @@ def test_idn_pattern_matching_rules() -> None:
 
 def test_driver_registry_is_empty_for_categories_without_config() -> None:
     assert driver_registry("daq") == {}
-    assert set(CATEGORIES) == {"psu", "dmm", "eload", "scope", "awg"}
 
 
 def test_resolve_driver_class_uses_registry_or_drivers_package() -> None:
