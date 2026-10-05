@@ -5,7 +5,15 @@ import pytest
 from typer.testing import CliRunner
 
 from instro.cli.main import app
-from instro.lib.discover import DiscoveredInstrument, VisaScanError, VisaScanResult, VisaUnrecognizedInstrument
+from instro.lib.discover import (
+    DiscoveredInstrument,
+    DiscoveryReport,
+    ScanError,
+    SerialPortInfo,
+    SkippedResource,
+    UnrecognizedInstrument,
+)
+from instro.lib.transports.visa import SerialConfig
 
 runner = CliRunner()
 
@@ -20,7 +28,7 @@ _GPIB_DEGRADED_DEBUG_INFO = {
     ],
 }
 
-_EMPTY_RESULT = VisaScanResult(instruments=[], unrecognized=[], errors=[])
+_EMPTY_RESULT = DiscoveryReport(instruments=[], unrecognized=[], errors=[])
 
 
 def _rm_mock():
@@ -29,46 +37,22 @@ def _rm_mock():
     return mock
 
 
-@pytest.fixture(autouse=True)
-def _no_serial_devices():
-    with patch("instro.cli.discover.list_ports") as mock_lp:
-        mock_lp.comports.return_value = []
-        yield mock_lp
-
-
 def test_discover_empty_bench():
     mock_rm = _rm_mock()
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
     assert result.exit_code == 0
     assert "NO DEVICES FOUND" in result.output
 
 
-def test_discover_passes_requested_backend_to_scan():
-    """The resolved backend is for the header only; results must record what the user asked for."""
-    mock_rm = _rm_mock()
-    with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
-    ):
-        runner.invoke(app, ["discover"])
-    scan.assert_called_once_with(backend=None, rm=mock_rm)
-    with (
-        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
-    ):
-        runner.invoke(app, ["discover", "--backend", "@py"])
-    scan.assert_called_once_with(backend="@py", rm=mock_rm)
-
-
 def test_discover_reports_ivi_backend():
     mock_rm = _rm_mock()
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
     assert "backend: @ivi" in result.output
@@ -80,7 +64,7 @@ def test_discover_py_fallback_reports_degraded_interfaces():
     mock_rm.visalib.get_debug_info.return_value = _GPIB_DEGRADED_DEBUG_INFO
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
     ):
         result = runner.invoke(app, ["discover"])
     assert result.exit_code == 0
@@ -94,14 +78,14 @@ def test_discover_py_fallback_reports_degraded_interfaces():
 def test_discover_explicit_py_backend_reports_degraded_interfaces():
     mock_rm = _rm_mock()
     mock_rm.visalib.get_debug_info.return_value = _GPIB_DEGRADED_DEBUG_INFO
-    unrecognized_result = VisaScanResult(
+    unrecognized_result = DiscoveryReport(
         instruments=[],
-        unrecognized=[VisaUnrecognizedInstrument(resource="USB0::0x1234::0x5678::INSTR", idn="UNKNOWN VENDOR,XYZ")],
+        unrecognized=[UnrecognizedInstrument(resource="USB0::0x1234::0x5678::INSTR", idn="UNKNOWN VENDOR,XYZ")],
         errors=[],
     )
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=unrecognized_result),
+        patch("instro.cli.discover.discover_instruments", return_value=unrecognized_result),
     ):
         result = runner.invoke(app, ["discover", "--backend", "@py"])
     assert result.exit_code == 0
@@ -119,7 +103,7 @@ def test_discover_suppresses_gpib_warning_at_construction():
 
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=_warn_then_return),
-        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT),
         warnings.catch_warnings(record=True) as caught,
     ):
         warnings.simplefilter("always")
@@ -130,7 +114,7 @@ def test_discover_suppresses_gpib_warning_at_construction():
 
 def test_discover_mixed_bench():
     mock_rm = _rm_mock()
-    mixed_result = VisaScanResult(
+    mixed_result = DiscoveryReport(
         instruments=[
             DiscoveredInstrument(
                 resource="USB0::0x05E6::0x9999::INSTR",
@@ -140,12 +124,12 @@ def test_discover_mixed_bench():
                 num_channels=None,
             )
         ],
-        unrecognized=[VisaUnrecognizedInstrument(resource="USB0::0x1234::0x5678::INSTR", idn="UNKNOWN VENDOR,XYZ")],
+        unrecognized=[UnrecognizedInstrument(resource="USB0::0x1234::0x5678::INSTR", idn="UNKNOWN VENDOR,XYZ")],
         errors=[],
     )
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=mixed_result),
+        patch("instro.cli.discover.discover_instruments", return_value=mixed_result),
     ):
         result = runner.invoke(app, ["discover"])
     assert "RECOGNIZED" in result.output
@@ -155,14 +139,14 @@ def test_discover_mixed_bench():
 
 def test_discover_failed_probe():
     mock_rm = _rm_mock()
-    error_result = VisaScanResult(
+    error_result = DiscoveryReport(
         instruments=[],
         unrecognized=[],
-        errors=[VisaScanError(resource="USB0::0x1234::INSTR", message="timeout")],
+        errors=[ScanError(resource="USB0::0x1234::INSTR", message="timeout")],
     )
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=error_result),
+        patch("instro.cli.discover.discover_instruments", return_value=error_result),
     ):
         result = runner.invoke(app, ["discover"])
     assert result.exit_code == 0
@@ -172,11 +156,11 @@ def test_discover_failed_probe():
 
 def test_discover_failed_probe_prefers_hint_over_raw_message():
     mock_rm = _rm_mock()
-    error_result = VisaScanResult(
+    error_result = DiscoveryReport(
         instruments=[],
         unrecognized=[],
         errors=[
-            VisaScanError(
+            ScanError(
                 resource="USB0::0x1234::INSTR",
                 message="VI_ERROR_SYSTEM_ERROR (-1073807360): raw pyvisa detail",
                 hint="permission denied - check udev rules",
@@ -185,16 +169,16 @@ def test_discover_failed_probe_prefers_hint_over_raw_message():
     )
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=error_result),
+        patch("instro.cli.discover.discover_instruments", return_value=error_result),
     ):
         result = runner.invoke(app, ["discover"])
     assert "permission denied - check udev rules" in result.output
     assert "raw pyvisa detail" not in result.output
 
 
-def test_discover_two_supported_one_unsupported_one_serial(_no_serial_devices):
+def test_discover_two_supported_one_unsupported_one_serial():
     mock_rm = _rm_mock()
-    mixed_result = VisaScanResult(
+    mixed_result = DiscoveryReport(
         instruments=[
             DiscoveredInstrument(
                 resource="USB0::0x05E6::0x2400::INSTR",
@@ -204,40 +188,65 @@ def test_discover_two_supported_one_unsupported_one_serial(_no_serial_devices):
                 num_channels=None,
             ),
             DiscoveredInstrument(
-                resource="USB0::0x0957::0x0607::INSTR",
+                resource="ASRL/dev/ttyUSB1::INSTR",
                 idn="AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
                 category="dmm",
                 driver_name="Agilent34401A",
                 num_channels=None,
+                serial_config=SerialConfig(),
             ),
         ],
-        unrecognized=[VisaUnrecognizedInstrument(resource="USB0::0xABCD::0x9999::INSTR", idn="UNKNOWN VENDOR,XYZ")],
-        errors=[],
+        unrecognized=[UnrecognizedInstrument(resource="USB0::0xABCD::0x9999::INSTR", idn="UNKNOWN VENDOR,XYZ")],
+        errors=[
+            ScanError(
+                resource="ASRL/dev/ttyUSB0::INSTR",
+                message="VI_ERROR_TMO",
+                hint="no *IDN? reply at 9600 baud, 8N1, no flow control; set this port's serial_config manually",
+            )
+        ],
+        skipped=[SkippedResource(resource="ASRL3::INSTR", reason="COM3 is not a USB serial port")],
+        serial_ports=[
+            SerialPortInfo(
+                "/dev/ttyUSB0", "ASRL/dev/ttyUSB0::INSTR", "Arduino Uno", "Arduino LLC", "Arduino Uno", 0x2341, 0x43
+            ),
+            SerialPortInfo("/dev/ttyUSB1", "ASRL/dev/ttyUSB1::INSTR", "USB-Serial", "FTDI", "FT232R", 0x403, 0x6001),
+            SerialPortInfo("COM3", "ASRL3::INSTR", "USB Serial Port (COM3)"),
+        ],
     )
-
-    mock_port = MagicMock()
-    mock_port.device = "/dev/ttyUSB0"
-    mock_port.manufacturer = "Arduino LLC"
-    mock_port.product = "Arduino Uno"
-    mock_port.description = "Arduino Uno"
-    mock_port_no_product = MagicMock()
-    mock_port_no_product.device = "COM3"
-    mock_port_no_product.manufacturer = None
-    mock_port_no_product.product = None
-    mock_port_no_product.description = "USB Serial Port (COM3)"
-    _no_serial_devices.comports.return_value = [mock_port, mock_port_no_product]
 
     with (
         patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
-        patch("instro.cli.discover.scan_visa_resources", return_value=mixed_result),
+        patch("instro.cli.discover.discover_instruments", return_value=mixed_result),
     ):
         result = runner.invoke(app, ["discover"])
 
     assert result.exit_code == 0
     assert "RECOGNIZED DEVICES" in result.output
     assert "UNRECOGNIZED DEVICES" in result.output
+    assert "SERIAL PORTS NOT IDENTIFIED" in result.output
+    assert "ERRORS" not in result.output  # serial failures go to the serial table, not ERRORS
     assert result.output.count("Keithley2400") == 1
     assert result.output.count("Agilent34401A") == 1
+    assert "9600 baud, 8N1" in result.output
     assert "Arduino Uno" in result.output
+    assert "serial_config manually" in result.output
     assert "COM3" in result.output
     assert "unknown" in result.output
+    assert "FT232R" not in result.output  # identified: listed as a recognized device instead
+
+
+def test_discover_passes_requested_backend_to_discovery():
+    """The resolved backend is for the header only; discovery gets what the user asked for so records keep the fallback."""
+    mock_rm = _rm_mock()
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
+    ):
+        runner.invoke(app, ["discover"])
+    run.assert_called_once_with(backend=None)
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
+    ):
+        runner.invoke(app, ["discover", "--backend", "@py"])
+    run.assert_called_once_with(backend="@py")

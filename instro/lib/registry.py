@@ -3,6 +3,10 @@
 Each category's ``config.py`` owns a ``<CAT>_VENDOR_REGISTRY`` of :class:`DriverEntry` values. The JSON
 config path resolves ``driver.name`` through it, and :func:`instro.lib.discover.match_idn` scans the same
 entries' :class:`IdnPattern` tuples, so a driver registered once is both configurable and discoverable.
+
+Drivers that ship in vendor packages (NI, LabJack, MCC) are registered here too, in the core
+``DAQ_VENDOR_REGISTRY``: the entry's import path points into the vendor package, so the name resolves
+whenever that package is installed and fails with a plain ``ModuleNotFoundError`` when it is not.
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ __all__ = [
 ]
 
 # Categories whose config module exposes a <CAT>_VENDOR_REGISTRY.
-CATEGORIES: tuple[str, ...] = ("psu", "dmm", "eload", "scope", "awg")
+CATEGORIES: tuple[str, ...] = ("psu", "dmm", "eload", "scope", "awg", "daq")
 
 
 @dataclasses.dataclass(frozen=True)
