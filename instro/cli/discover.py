@@ -102,7 +102,7 @@ def discover(backend: str | None = None) -> None:
         table.add_column("Category", style=FOREGROUND_MUTED, no_wrap=False)
         table.add_column("Driver", style=f"bold {FOREGROUND}", no_wrap=False)
         for instrument in result.instruments:
-            table.add_row(instrument.resource, instrument.category, instrument.driver_class_name)
+            table.add_row(instrument.resource, instrument.category, instrument.driver_name)
         console.print(table)
 
     if serial_devices:

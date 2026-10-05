@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import dataclasses
 import warnings
+from typing import Any
 
 import pyvisa
 
-from instro.lib.registry import iter_driver_entries
-from instro.lib.transports.visa import TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
+from instro.lib.registry import iter_driver_entries, resolve_driver_class
+from instro.lib.transports.visa import SerialConfig, TimeoutConfig, VisaConfig, VisaDriver, _open_resource_manager
+
+VISA_TRANSPORT = "visa"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -30,13 +33,98 @@ class DriverMatch:
     num_channels: int | None
 
 
-@dataclasses.dataclass
-class VisaInstrumentInfo:
+@dataclasses.dataclass(frozen=True)
+class DiscoveredInstrument:
+    """An instrument that discovery identified and matched to a registered driver.
+
+    The record is enough to construct the driver (:meth:`make_driver`) or to emit the ``driver``
+    block of an instro JSON config (:meth:`config_block`), so scripts and fixtures don't re-derive
+    either from the resource string.
+
+    Attributes:
+        resource: Address the driver opens: a VISA resource string, or for other transports whatever
+            the driver's constructor takes (an NI-DAQmx device name, an MCC serial number, ...).
+        idn: Identity reply the match was made from (the raw ``*IDN?`` string for SCPI instruments).
+        category: Instrument category (``"psu"``, ``"dmm"``, ``"daq"``, ...).
+        driver_name: Registry key / class name of the matched driver, e.g. ``"BK9115"``.
+        num_channels: Programmable channel count where the category tracks it, else ``None``.
+        transport: ``"visa"`` for SCPI-over-VISA instruments. Discovery providers for vendor SDKs
+            set their own token; only ``"visa"`` records can build a :class:`VisaConfig`.
+        backend: pyvisa backend the instrument was reached through, so :meth:`visa_config` reproduces it.
+        baud_rate: Baud the serial instrument answered at, else ``None``.
+
+    Example::
+
+        report = scan_visa_resources()
+        psu = next(i for i in report.instruments if i.category == "psu")
+        instro_psu = InstroPSU(name="psu", driver=psu.make_driver(), num_channels=psu.num_channels)
+    """
+
     resource: str
     idn: str
     category: str
-    driver_class_name: str
-    num_channels: int | None
+    driver_name: str
+    num_channels: int | None = None
+    transport: str = VISA_TRANSPORT
+    backend: str | None = None
+    baud_rate: int | None = None
+
+    @property
+    def driver_class_name(self) -> str:
+        """Deprecated alias of :attr:`driver_name`."""
+        return self.driver_name
+
+    def visa_config(self) -> VisaConfig:
+        """The :class:`VisaConfig` that reaches this instrument, carrying the backend and baud it answered on.
+
+        Raises:
+            ValueError: the instrument is not on the VISA transport.
+        """
+        if self.transport != VISA_TRANSPORT:
+            raise ValueError(f"{self.resource} is on the {self.transport!r} transport, not VISA")
+        serial = SerialConfig(baud_rate=self.baud_rate) if self.baud_rate is not None else SerialConfig()
+        return VisaConfig(visa_resource=self.resource, visa_backend=self.backend, serial_config=serial)
+
+    def driver_class(self) -> type:
+        """The matched driver class, imported on demand."""
+        return resolve_driver_class(self.category, self.driver_name)
+
+    def make_driver(self) -> Any:
+        """A new, unopened driver for this instrument.
+
+        VISA instruments get a :class:`VisaConfig`; drivers on other transports receive
+        :attr:`resource` directly, which is the ``device_id`` convention the DAQ vendor drivers use.
+        """
+        cls = self.driver_class()
+        if self.transport == VISA_TRANSPORT:
+            return cls(self.visa_config())
+        return cls(self.resource)
+
+    def config_block(self) -> dict[str, Any]:
+        """The ``driver`` block of an instro JSON config for this instrument.
+
+        ``num_channels`` is included when discovery knows it, which is exactly the set of categories
+        whose driver config requires it (psu, scope, awg).
+
+        Raises:
+            ValueError: the instrument is not on the VISA transport, which is the only one with a
+                JSON config schema today.
+        """
+        if self.transport != VISA_TRANSPORT:
+            raise ValueError(f"no JSON config schema for the {self.transport!r} transport")
+        visa: dict[str, Any] = {"visa_resource": self.resource}
+        if self.backend is not None:
+            visa["visa_backend"] = self.backend
+        if self.baud_rate is not None:
+            visa["serial_config"] = {"baud_rate": self.baud_rate}
+        block: dict[str, Any] = {"name": self.driver_name, "visa": visa}
+        if self.num_channels is not None:
+            block["num_channels"] = self.num_channels
+        return block
+
+
+VisaInstrumentInfo = DiscoveredInstrument
+"""Deprecated alias of :class:`DiscoveredInstrument`."""
 
 
 @dataclasses.dataclass
@@ -54,7 +142,7 @@ class VisaUnrecognizedInstrument:
 
 @dataclasses.dataclass
 class VisaScanResult:
-    instruments: list[VisaInstrumentInfo]
+    instruments: list[DiscoveredInstrument]
     unrecognized: list[VisaUnrecognizedInstrument]
     errors: list[VisaScanError]
 
@@ -114,7 +202,7 @@ def scan_visa_resources(
         warnings.simplefilter("ignore")
         resources = rm.list_resources()
 
-    instruments: list[VisaInstrumentInfo] = []
+    instruments: list[DiscoveredInstrument] = []
     unrecognized: list[VisaUnrecognizedInstrument] = []
     errors: list[VisaScanError] = []
 
@@ -133,12 +221,13 @@ def scan_visa_resources(
                 unrecognized.append(VisaUnrecognizedInstrument(resource=resource, idn=idn))
             else:
                 instruments.append(
-                    VisaInstrumentInfo(
+                    DiscoveredInstrument(
                         resource=resource,
                         idn=idn,
                         category=match.category,
-                        driver_class_name=match.driver_name,
+                        driver_name=match.driver_name,
                         num_channels=match.num_channels,
+                        backend=active_backend,
                     )
                 )
         except Exception as e:

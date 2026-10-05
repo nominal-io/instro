@@ -1,6 +1,7 @@
 """Cross-category building blocks: base instrument, transports, publishers, shared scaling types."""
 
 from instro.lib.discover import (
+    DiscoveredInstrument,
     DriverMatch,
     IdnFields,
     VisaInstrumentInfo,
@@ -20,6 +21,7 @@ from instro.lib.types import Command, DeviceInfo, LinearScale, Measurement, Scal
 __all__ = [
     "Command",
     "DeviceInfo",
+    "DiscoveredInstrument",
     "DriverMatch",
     "FeatureNotSupportedError",
     "IdnFields",
