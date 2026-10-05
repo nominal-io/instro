@@ -51,7 +51,8 @@ class DiscoveredInstrument:
         num_channels: Programmable channel count where the category tracks it, else ``None``.
         transport: ``"visa"`` for SCPI-over-VISA instruments. Discovery providers for vendor SDKs
             set their own token; only ``"visa"`` records can build a :class:`VisaConfig`.
-        backend: pyvisa backend the instrument was reached through, so :meth:`visa_config` reproduces it.
+        backend: pyvisa backend the scan was asked for (``None`` for the default with fallback), so
+            :meth:`visa_config` resolves it the same way the scan did.
         serial_config: Serial settings a serial (``ASRL``) instrument answered with, else ``None``.
 
     Example::
@@ -212,7 +213,12 @@ def scan_visa_resources(
     Pass an already-open ``rm`` (e.g. one a caller opened via ``_open_resource_manager`` for its
     own backend diagnostics) with the ``backend`` string used to open it, to reuse that resource
     manager instead of opening a second one.
+
+    Each result records the ``backend`` the caller asked for, not the one it resolved to, so a
+    ``None`` stays ``None``: the :class:`VisaConfig` and config block built from the result keep the
+    default-then-fallback behavior instead of pinning whichever backend this machine happened to use.
     """
+    requested_backend = backend
     if rm is None:
         rm, backend, _ = _open_resource_manager(backend)
     active_backend = backend
@@ -246,7 +252,7 @@ def scan_visa_resources(
                         category=match.category,
                         driver_name=match.driver_name,
                         num_channels=match.num_channels,
-                        backend=active_backend,
+                        backend=requested_backend,
                     )
                 )
         except Exception as e:

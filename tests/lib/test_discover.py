@@ -299,12 +299,24 @@ def test_discovered_instrument_unregistered_driver_name_raises() -> None:
         found.driver_class()
 
 
-def test_scan_records_backend_for_visa_config() -> None:
+def test_scan_records_requested_backend_not_resolved_one() -> None:
     mock_rm = _rm_mock(("USB0::0x15EF::0x0099::MY001::INSTR",))
     with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
         with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
             mock_driver_cls.return_value.query.return_value = "B&K PRECISION,9115,12345,1.0"
-            result = scan_visa_resources(backend="@py")
-    assert result.instruments[0].visa_config().visa_backend == "@py"
+            explicit = scan_visa_resources(backend="@py")
+    assert explicit.instruments[0].backend == "@py"
+    assert explicit.instruments[0].visa_config().visa_backend == "@py"
+    assert explicit.instruments[0].config_block()["visa"]["visa_backend"] == "@py"
+
+    # default request that fell back to @py: the record must not pin @py, or the config it
+    # produces would skip @ivi on a bench that has it
+    with patch("instro.lib.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI"), mock_rm]):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = "B&K PRECISION,9115,12345,1.0"
+            default = scan_visa_resources()
+    assert default.instruments[0].backend is None
+    assert default.instruments[0].visa_config().visa_backend is None
+    assert "visa_backend" not in default.instruments[0].config_block()["visa"]
     assert VisaInstrumentInfo is DiscoveredInstrument
-    assert result.instruments[0].driver_class_name == "BK9115"
+    assert default.instruments[0].driver_class_name == "BK9115"
