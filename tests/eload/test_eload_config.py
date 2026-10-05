@@ -267,14 +267,11 @@ def test_init_with_config_dict_with_publishers(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.eload.config import ELOAD_VENDOR_REGISTRY
     from instro.eload.eload import ELoadDriverBase
 
     for key, entry in ELOAD_VENDOR_REGISTRY.items():
-        mod_path, cls_name = entry.path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+        cls = entry.load()
         assert issubclass(cls, ELoadDriverBase), f"{key} does not point to an ELoadDriverBase subclass"
 
 

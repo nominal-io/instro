@@ -250,14 +250,11 @@ def test_init_with_config_dict_unknown_publisher_type(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.awg import AWGDriverBase
     from instro.awg.config import AWG_VENDOR_REGISTRY
 
     for key, entry in AWG_VENDOR_REGISTRY.items():
-        mod_path, cls_name = entry.path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+        cls = entry.load()
         assert issubclass(cls, AWGDriverBase), f"{key} does not point to an AWGDriverBase subclass"
 
 

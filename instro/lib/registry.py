@@ -18,11 +18,9 @@ __all__ = [
     "IdnPattern",
     "driver_registry",
     "iter_driver_entries",
-    "resolve_driver_class",
 ]
 
-# Categories whose config module exposes a <CAT>_VENDOR_REGISTRY. Categories without one
-# (daq, i2c, modbus) resolve driver names through their drivers package instead.
+# Categories whose config module exposes a <CAT>_VENDOR_REGISTRY.
 CATEGORIES: tuple[str, ...] = ("psu", "dmm", "eload", "scope", "awg")
 
 
@@ -105,28 +103,3 @@ def iter_driver_entries() -> Iterator[tuple[str, str, DriverEntry]]:
     for category in CATEGORIES:
         for name, entry in driver_registry(category).items():
             yield category, name, entry
-
-
-def resolve_driver_class(category: str, driver_name: str) -> type:
-    """Resolve a driver name to its class.
-
-    A category with a registry resolves only registered names. Categories without one (``daq``,
-    ``i2c``, ``modbus``) resolve against ``instro.<category>.drivers``, which is where workspace
-    vendor packages publish their classes, so ``resolve_driver_class("daq", "NIDAQDriver")`` works
-    when ``instro-daq-ni`` is installed.
-
-    Raises:
-        KeyError: ``driver_name`` is not registered for the category, or, for a category without a
-            registry, not exported by its drivers package.
-    """
-    registry = driver_registry(category)
-    if registry:
-        try:
-            return registry[driver_name].load()
-        except KeyError:
-            raise KeyError(f"no driver named {driver_name!r} registered for category {category!r}") from None
-    drivers = importlib.import_module(f"instro.{category}.drivers")
-    cls = getattr(drivers, driver_name, None)
-    if not isinstance(cls, type):
-        raise KeyError(f"no driver named {driver_name!r} in category {category!r}")
-    return cls
