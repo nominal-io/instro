@@ -51,7 +51,7 @@ class DiscoveredInstrument:
         transport: ``"visa"`` for SCPI-over-VISA instruments. Discovery providers for vendor SDKs
             set their own token; only ``"visa"`` records can build a :class:`VisaConfig`.
         backend: pyvisa backend the instrument was reached through, so :meth:`visa_config` reproduces it.
-        baud_rate: Baud the serial instrument answered at, else ``None``.
+        serial_config: Serial settings a serial (``ASRL``) instrument answered with, else ``None``.
 
     Example::
 
@@ -67,7 +67,7 @@ class DiscoveredInstrument:
     num_channels: int | None = None
     transport: str = VISA_TRANSPORT
     backend: str | None = None
-    baud_rate: int | None = None
+    serial_config: SerialConfig | None = None
 
     @property
     def driver_class_name(self) -> str:
@@ -75,14 +75,14 @@ class DiscoveredInstrument:
         return self.driver_name
 
     def visa_config(self) -> VisaConfig:
-        """The :class:`VisaConfig` that reaches this instrument, carrying the backend and baud it answered on.
+        """The :class:`VisaConfig` that reaches this instrument, carrying the backend and serial settings it answered with.
 
         Raises:
             ValueError: the instrument is not on the VISA transport.
         """
         if self.transport != VISA_TRANSPORT:
             raise ValueError(f"{self.resource} is on the {self.transport!r} transport, not VISA")
-        serial = SerialConfig(baud_rate=self.baud_rate) if self.baud_rate is not None else SerialConfig()
+        serial = self.serial_config if self.serial_config is not None else SerialConfig()
         return VisaConfig(visa_resource=self.resource, visa_backend=self.backend, serial_config=serial)
 
     def driver_class(self) -> type:
@@ -115,8 +115,8 @@ class DiscoveredInstrument:
         visa: dict[str, Any] = {"visa_resource": self.resource}
         if self.backend is not None:
             visa["visa_backend"] = self.backend
-        if self.baud_rate is not None:
-            visa["serial_config"] = {"baud_rate": self.baud_rate}
+        if self.serial_config is not None:
+            visa["serial_config"] = _serial_config_block(self.serial_config)
         block: dict[str, Any] = {"name": self.driver_name, "visa": visa}
         if self.num_channels is not None:
             block["num_channels"] = self.num_channels
@@ -125,6 +125,17 @@ class DiscoveredInstrument:
 
 VisaInstrumentInfo = DiscoveredInstrument
 """Deprecated alias of :class:`DiscoveredInstrument`."""
+
+
+def _serial_config_block(serial: SerialConfig) -> dict[str, Any]:
+    """``SerialConfig`` as the JSON config schema spells it: enum fields by value."""
+    return {
+        "baud_rate": serial.baud_rate,
+        "data_bits": serial.data_bits,
+        "stop_bits": serial.stop_bits.value,
+        "parity": serial.parity.value,
+        "flow_control": int(serial.flow_control),
+    }
 
 
 @dataclasses.dataclass

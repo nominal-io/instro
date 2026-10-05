@@ -4,7 +4,7 @@ import pytest
 import pyvisa
 
 from instro.lib.discover import DiscoveredInstrument, VisaInstrumentInfo, match_idn, parse_idn, scan_visa_resources
-from instro.lib.transports.visa import VisaConfig
+from instro.lib.transports.visa import ControlFlow, Parity, SerialConfig, StopBits, VisaConfig
 from instro.psu.config import VisaDriverConfig as PSUVisaDriverConfig
 from instro.psu.drivers.bk_9115 import BK9115
 
@@ -236,6 +236,7 @@ def test_scan_mixed() -> None:
 
 
 def test_discovered_instrument_builds_driver_and_config_block() -> None:
+    serial = SerialConfig(baud_rate=57600, stop_bits=StopBits.TWO, parity=Parity.EVEN, flow_control=ControlFlow.DTR_DSR)
     found = DiscoveredInstrument(
         resource="ASRL3::INSTR",
         idn="B&K PRECISION,9115,12345,1.0",
@@ -243,22 +244,35 @@ def test_discovered_instrument_builds_driver_and_config_block() -> None:
         driver_name="BK9115",
         num_channels=1,
         backend="@py",
-        baud_rate=57600,
+        serial_config=serial,
     )
     assert found.driver_class() is BK9115
     cfg = found.visa_config()
-    assert (cfg.visa_resource, cfg.visa_backend, cfg.serial_config.baud_rate) == ("ASRL3::INSTR", "@py", 57600)
+    assert (cfg.visa_resource, cfg.visa_backend) == ("ASRL3::INSTR", "@py")
+    assert cfg.serial_config == serial
     assert isinstance(found.make_driver(), BK9115)
 
     block = found.config_block()
     assert block == {
         "name": "BK9115",
         "num_channels": 1,
-        "visa": {"visa_resource": "ASRL3::INSTR", "visa_backend": "@py", "serial_config": {"baud_rate": 57600}},
+        "visa": {
+            "visa_resource": "ASRL3::INSTR",
+            "visa_backend": "@py",
+            "serial_config": {"baud_rate": 57600, "data_bits": 8, "stop_bits": 2, "parity": "E", "flow_control": 4},
+        },
     }
     validated = PSUVisaDriverConfig.model_validate(block)
     assert isinstance(validated.visa, VisaConfig)
-    assert validated.visa.serial_config.baud_rate == 57600
+    assert validated.visa.serial_config == serial
+
+
+def test_discovered_instrument_without_serial_config_uses_transport_defaults() -> None:
+    found = DiscoveredInstrument(
+        resource="USB0::1::2::INSTR", idn="B&K PRECISION,9115,1,1.0", category="psu", driver_name="BK9115"
+    )
+    assert found.visa_config().serial_config == SerialConfig()
+    assert "serial_config" not in found.config_block()["visa"]
 
 
 def test_discovered_instrument_non_visa_transport_passes_resource_to_driver() -> None:
