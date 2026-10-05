@@ -23,7 +23,7 @@ python -m http.server 8000 -d docs/_build/dirhtml
 - **Examples** are generated at build time from the scripts in `examples/` (and the `examples/` folders inside `instro-unstable` and `instro-contrib`), one page per script.
 - **API reference** (`sdk/`) comes from docstrings via autodoc/autosummary: a page per class, and per method for behavioural classes. Vendor packages import from source with their hardware SDKs mocked, so no drivers need installing.
 - **Navigation** is the `toctree` blocks in `index.md`. The header tabs (Guides, Examples, SDK) switch which part the sidebar shows.
-- **Look**: the Shibuya theme, styled in `_static/custom.css` to match the former Mintlify site.
+- **Look**: the Shibuya theme with Nominal's shared styling, `nominal-sphinx-theme` from [nominal-io/pub-docs](https://github.com/nominal-io/pub-docs) (`theme/`). `_static/custom.css` holds only instro's own styles (driver cards and images, logo size).
 - **Old URLs**: the docs were under `/python/` until #607; `_extra/404.html` (copied to the site root) sends those links to the new paths.
 - **CI**: PRs run a strict build and upload the site as a `docs-site` artifact; merges to `main` deploy to GitHub Pages.
 
