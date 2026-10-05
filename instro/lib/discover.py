@@ -88,7 +88,8 @@ class DiscoveredInstrument:
         """
         if self.transport != VISA_TRANSPORT:
             raise ValueError(f"{self.resource} is on the {self.transport!r} transport, not VISA")
-        serial = self.serial_config if self.serial_config is not None else SerialConfig()
+        # A copy, so adjusting the returned config cannot reach back into this frozen record.
+        serial = dataclasses.replace(self.serial_config) if self.serial_config is not None else SerialConfig()
         return VisaConfig(visa_resource=self.resource, visa_backend=self.backend, serial_config=serial)
 
     def driver_class(self) -> type:

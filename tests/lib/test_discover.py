@@ -252,6 +252,9 @@ def test_discovered_instrument_builds_driver_and_config_block() -> None:
     cfg = found.visa_config()
     assert (cfg.visa_resource, cfg.visa_backend) == ("ASRL3::INSTR", "@py")
     assert cfg.serial_config == serial
+    assert cfg.serial_config is not found.serial_config  # a copy: tweaking the config leaves the record alone
+    cfg.serial_config.baud_rate = 9600
+    assert found.serial_config.baud_rate == 57600
     assert isinstance(found.make_driver(), BK9115)
 
     block = found.config_block()

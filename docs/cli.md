@@ -108,7 +108,7 @@ from instro.psu import InstroPSU
 
 psu_info = next(i for i in result.instruments if i.category == "psu")
 
-# a ready-to-open driver (VisaConfig with the backend and, for a serial port, the serial settings it answered with)
+# a ready-to-open driver (VisaConfig with the backend the scan was asked for)
 psu = InstroPSU(name="psu", driver=psu_info.make_driver(), num_channels=psu_info.num_channels)
 
 # or the ``driver`` block of a JSON config, for InstroPSU(config=...)
