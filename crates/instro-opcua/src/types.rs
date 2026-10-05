@@ -934,7 +934,10 @@ impl FromStr for OpcUaBrowsePath {
         }
 
         if !s.starts_with('/') {
-            bail!(internal, "browse path must start with '/' or be empty (original: '{s}')")
+            bail!(
+                internal,
+                "browse path must start with '/' or be empty (original: '{s}')"
+            )
         }
 
         let mut segments = Vec::new();
@@ -1003,7 +1006,10 @@ fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
 
     let name = unescape_browse_name(name)?;
     if name.is_empty() {
-        bail!(internal, "browse path segment name must not be empty (original: '{segment}')")
+        bail!(
+            internal,
+            "browse path segment name must not be empty (original: '{segment}')"
+        )
     }
 
     Ok(OpcUaQualifiedName { ns_index, name })
@@ -1876,13 +1882,11 @@ mod tests {
         fn try_from(v: VariantEq) -> Result<Self> {
             match v.0.to_value() {
                 VariantValue::Scalar(s) => Ok(ScalarEq(s)),
-                variant => {
-                    Err(type_conv_err!(
-                        VariantEq,
-                        Self,
-                        format_args!("unsupported variant value: {variant:?}")
-                    ))
-                }
+                variant => Err(type_conv_err!(
+                    VariantEq,
+                    Self,
+                    format_args!("unsupported variant value: {variant:?}")
+                )),
             }
         }
     }
