@@ -402,13 +402,10 @@ def test_channel_snap_fields_track_channel_config():
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.scope.config import SCOPE_VENDOR_REGISTRY
 
-    for key, path in SCOPE_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+    for key, entry in SCOPE_VENDOR_REGISTRY.items():
+        cls = entry.load()
         assert issubclass(cls, ScopeDriverBase), f"{key} does not point to a ScopeDriverBase subclass"
 
 

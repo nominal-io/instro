@@ -31,6 +31,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -63,9 +64,15 @@ __all__ = [
     "resolve_awg_from_config",
 ]
 
-AWG_VENDOR_REGISTRY: dict[str, str] = {
-    "Keysight33521B": "instro.awg.drivers.keysight_33521b.Keysight33521B",
-    "RigolDG1022Z": "instro.awg.drivers.rigol_dg1022z.RigolDG1022Z",
+AWG_VENDOR_REGISTRY: dict[str, DriverEntry] = {
+    "Keysight33521B": DriverEntry(
+        "instro.awg.drivers.keysight_33521b.Keysight33521B",
+        (IdnPattern(("KEYSIGHT TECHNOLOGIES", "AGILENT TECHNOLOGIES"), r"^33521B", 1),),
+    ),
+    "RigolDG1022Z": DriverEntry(
+        "instro.awg.drivers.rigol_dg1022z.RigolDG1022Z",
+        (IdnPattern(("RIGOL TECHNOLOGIES",), r"^DG10[26]2Z", 2),),
+    ),
 }
 
 
@@ -327,10 +334,7 @@ def resolve_awg_from_config(
     config: AWGConfig,
 ) -> tuple[str, AWGDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated AWGConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroAWG needs."""
-    import importlib
-
-    module_path, class_name = AWG_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
-    driver_cls = getattr(importlib.import_module(module_path), class_name)
+    driver_cls = AWG_VENDOR_REGISTRY[config.driver.name].load()
     driver: AWGDriverBase = driver_cls(config.driver.visa)
 
     config_publishers = [build_publisher(p) for p in config.publishers]

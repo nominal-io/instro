@@ -1,10 +1,9 @@
-import importlib
 from unittest.mock import MagicMock, patch
 
 import pytest
 import pyvisa
 
-from instro.lib.discover import _IDN_MAP, scan_visa_resources
+from instro.lib.discover import match_idn, parse_idn, scan_visa_resources
 
 
 def _rm_mock(resources=()):
@@ -13,10 +12,32 @@ def _rm_mock(resources=()):
     return mock
 
 
-@pytest.mark.parametrize("category,class_name", {(v[0], v[1]) for v in _IDN_MAP.values()})
-def test_idn_map_drivers_importable(category: str, class_name: str) -> None:
-    module = importlib.import_module(f"instro.{category}.drivers")
-    assert hasattr(module, class_name), f"{class_name} not found in instro.{category}.drivers"
+def test_parse_idn_pads_missing_fields() -> None:
+    fields = parse_idn("B&K PRECISION, 9115 ")
+    assert (fields.manufacturer, fields.model, fields.serial, fields.firmware) == ("B&K PRECISION", "9115", "", "")
+
+
+@pytest.mark.parametrize(
+    "idn,category,driver_name,num_channels",
+    [
+        # registered but previously missing from discovery's own IDN table
+        ("Keysight Technologies,E36103A,MY00000000,1.0", "psu", "KeysightE36100", 1),
+        ("Agilent Technologies,N5744A,US00000000,D.00.01", "psu", "KeysightN5700", 1),
+        ("LAMBDA,GEN60-25,00000,1.0", "psu", "TDKLambdaGenesys", 1),
+        # vendor substring and model regex are case-insensitive
+        ("rigol technologies,dp832,DP8C000000000,00.01.14", "psu", "RigolDP800", 3),
+        ("B&K PRECISION,8514B,000000000,1.0", "eload", "BK85XXB", None),
+    ],
+)
+def test_match_idn(idn: str, category: str, driver_name: str, num_channels: int | None) -> None:
+    match = match_idn(idn)
+    assert match is not None
+    assert (match.category, match.driver_name, match.num_channels) == (category, driver_name, num_channels)
+
+
+@pytest.mark.parametrize("idn", ["UNKNOWN VENDOR,XYZ,000,1.0", "RIGOL TECHNOLOGIES,DS1054Z,SN,1.0", ""])
+def test_match_idn_unknown(idn: str) -> None:
+    assert match_idn(idn) is None
 
 
 def test_scan_empty_bench() -> None:

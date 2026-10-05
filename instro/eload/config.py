@@ -12,6 +12,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -30,8 +31,11 @@ __all__ = [
     "VisaDriverConfig",
 ]
 
-ELOAD_VENDOR_REGISTRY: dict[str, str] = {
-    "BK85XXB": "instro.eload.drivers.bk_85xxb.BK85XXB",
+ELOAD_VENDOR_REGISTRY: dict[str, DriverEntry] = {
+    "BK85XXB": DriverEntry(
+        "instro.eload.drivers.bk_85xxb.BK85XXB",
+        (IdnPattern(("B&K PRECISION",), r"^(BK)?85\d\dB"),),
+    ),
 }
 
 
@@ -92,10 +96,7 @@ def resolve_eload_from_config(
     config: ELoadConfig,
 ) -> tuple[str, ELoadDriverBase, list[Publisher], float | None]:
     """Resolve a validated ELoadConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroELoad needs."""
-    import importlib
-
-    module_path, class_name = ELOAD_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
-    driver_cls = getattr(importlib.import_module(module_path), class_name)
+    driver_cls = ELOAD_VENDOR_REGISTRY[config.driver.name].load()
     driver: ELoadDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]

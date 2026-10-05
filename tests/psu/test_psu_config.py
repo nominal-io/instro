@@ -236,14 +236,11 @@ def test_init_with_config_dict_unknown_publisher_type(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.psu.config import PSU_VENDOR_REGISTRY
     from instro.psu.psu import PSUDriverBase
 
-    for key, path in PSU_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+    for key, entry in PSU_VENDOR_REGISTRY.items():
+        cls = entry.load()
         assert issubclass(cls, PSUDriverBase), f"{key} does not point to a PSUDriverBase subclass"
 
 
