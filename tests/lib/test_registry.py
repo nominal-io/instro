@@ -44,8 +44,11 @@ def test_driver_registry_is_empty_for_categories_without_config() -> None:
     assert set(CATEGORIES) == {"psu", "dmm", "eload", "scope", "awg"}
 
 
-def test_resolve_driver_class_uses_registry_then_drivers_package() -> None:
+def test_resolve_driver_class_uses_registry_or_drivers_package() -> None:
     assert resolve_driver_class("psu", "BK9115").__name__ == "BK9115"
     assert resolve_driver_class("daq", "Keysight34980A") is Keysight34980A
     with pytest.raises(KeyError):
         resolve_driver_class("daq", "NoSuchDriver")
+    # exported by instro.psu.drivers, but a registry category never falls back to the package
+    with pytest.raises(KeyError, match="not registered|registered for category"):
+        resolve_driver_class("psu", "PSUDriverBase")
