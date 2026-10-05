@@ -1,3 +1,4 @@
+import dataclasses
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -266,6 +267,17 @@ def test_discovered_instrument_builds_driver_and_config_block() -> None:
     validated = PSUVisaDriverConfig.model_validate(block)
     assert isinstance(validated.visa, VisaConfig)
     assert validated.visa.serial_config == serial
+
+
+def test_discovered_instrument_is_immutable_and_not_hashable() -> None:
+    usb = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="BK9115")
+    serial = dataclasses.replace(usb, resource="ASRL1::INSTR", serial_config=SerialConfig())
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        usb.resource = "other"  # type: ignore[misc]
+    for record in (usb, serial):  # the same answer whether or not serial settings are attached
+        with pytest.raises(TypeError):
+            hash(record)
+    assert usb == dataclasses.replace(usb)
 
 
 def test_discovered_instrument_without_serial_config_uses_transport_defaults() -> None:

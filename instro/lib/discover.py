@@ -71,6 +71,10 @@ class DiscoveredInstrument:
     backend: str | None = None
     serial_config: SerialConfig | None = None
 
+    # Identified by `resource`, not used as a set member or dict key; declaring this keeps a
+    # record with a (mutable, unhashable) SerialConfig behaving like one without.
+    __hash__ = None  # type: ignore[assignment]
+
     @property
     def driver_class_name(self) -> str:
         """Deprecated alias of :attr:`driver_name`."""
