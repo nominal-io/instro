@@ -103,8 +103,8 @@ test = [
 docs = [
     "sphinx>=9.1.0; python_version >= '3.12'",
     "shibuya>=2026.7.12; python_version >= '3.12'",
-    # nominal-sphinx-theme is not here: the justfile's docs recipes install its latest main, unpinned
-    # until the theme settles (THEME in the justfile)
+    # Nominal's shared look for Shibuya (nominal-io/nominal-sphinx-theme)
+    "nominal-sphinx-theme @ git+https://github.com/nominal-io/nominal-sphinx-theme ; python_version >= '3.12'",
     "myst-parser>=5.1.0; python_version >= '3.12'",
     "sphinx-design>=0.7.0; python_version >= '3.12'",
     "sphinx-copybutton>=0.5.2; python_version >= '3.12'",
