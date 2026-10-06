@@ -666,7 +666,6 @@ docs = [
     { name = "autodoc-pydantic", marker = "python_full_version >= '3.12'" },
     { name = "mcculw", marker = "python_full_version >= '3.12'" },
     { name = "myst-parser", marker = "python_full_version >= '3.12'" },
-    { name = "nominal-sphinx-theme", marker = "python_full_version >= '3.12'" },
     { name = "shibuya", marker = "python_full_version >= '3.12'" },
     { name = "sphinx", marker = "python_full_version >= '3.12'" },
     { name = "sphinx-copybutton", marker = "python_full_version >= '3.12'" },
@@ -725,7 +724,6 @@ docs = [
     { name = "autodoc-pydantic", marker = "python_full_version >= '3.12'", specifier = ">=2.2.0" },
     { name = "mcculw", marker = "python_full_version >= '3.12'", specifier = ">=1.0.0" },
     { name = "myst-parser", marker = "python_full_version >= '3.12'", specifier = ">=5.1.0" },
-    { name = "nominal-sphinx-theme", marker = "python_full_version >= '3.12'", git = "https://github.com/nominal-io/nominal-sphinx-theme" },
     { name = "shibuya", marker = "python_full_version >= '3.12'", specifier = ">=2026.7.12" },
     { name = "sphinx", marker = "python_full_version >= '3.12'", specifier = ">=9.1.0" },
     { name = "sphinx-copybutton", marker = "python_full_version >= '3.12'", specifier = ">=0.5.2" },
@@ -1205,15 +1203,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/df/d8/64b92d5a3d9412d6720f6e20fc81ef44c713e7092cc48931988b9346bfb7/nominal_api_protos-0.1379.0-py3-none-any.whl", hash = "sha256:a130c438c3651cdf700b5e8ccb1c9b91c4979b765ddfe004a4f4e3497b442646", size = 675212, upload-time = "2026-08-11T17:02:50.606Z" },
-]
-
-[[package]]
-name = "nominal-sphinx-theme"
-version = "0.1.0"
-source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#ee9a9511387768315697aae7151919c0c3fb2d6d" }
-dependencies = [
-    { name = "shibuya" },
-    { name = "sphinx" },
 ]
 
 [[package]]

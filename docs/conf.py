@@ -145,6 +145,12 @@ html_theme_options = theme_options(
         {"title": "SDK", "url": "sdk/index"},
         {"title": "GitHub", "url": "https://github.com/nominal-io/instro"},
     ],
+    # header icons, before the theme's buttons
+    nav_socials=[
+        "github",
+        "discord",
+        {"name": "Forum", "url": "https://community.instro.nominal.io", "icon": "lucide:messages-square"},
+    ],
     # left nav lists pages only; generated class/member pages are reached from their tables
     toctree_maxdepth=1,
 )

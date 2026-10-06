@@ -112,13 +112,17 @@ build:
 _check-docs-python:
     uv run python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else f'The docs toolchain needs Python >= 3.12 in the project environment (found {sys.version.split()[0]}). Recreate it with: uv sync --python 3.13 --group docs')"
 
+# Nominal's shared docs theme, at its latest main: unpinned (and out of uv.lock) until the theme
+# settles, then it moves to the docs group in pyproject.toml at a fixed revision
+THEME := "--with 'nominal-sphinx-theme @ git+https://github.com/nominal-io/nominal-sphinx-theme' --refresh-package nominal-sphinx-theme"
+
 # build the docs site (guides + API reference) into docs/_build/dirhtml; warnings fail the build
 build-docs: _check-docs-python
-    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
+    uv run --group docs {{THEME}} sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
 # live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
 serve-docs: _check-docs-python
-    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
+    uv run --group docs {{THEME}} --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
