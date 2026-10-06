@@ -85,7 +85,7 @@ def discover(backend: str | None = None) -> None:
         if p.description != "n/a"
     ]
 
-    result = scan_visa_resources(backend=active_backend, rm=rm)
+    result = scan_visa_resources(backend=backend, rm=rm)
 
     if not result.instruments and not result.unrecognized and not result.errors and not serial_devices:
         console.print(_no_devices_panel(degraded))

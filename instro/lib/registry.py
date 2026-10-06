@@ -118,6 +118,12 @@ def check_registry(category: str, registry: Mapping[str, DriverEntry], driver_co
     :meth:`~instro.lib.discover.DiscoveredInstrument.config_block` emits the field only when the
     matched pattern has it. The requirement is read from the model so the two never disagree.
 
+    Args:
+        category: Category name, used in the error message (e.g. ``"psu"``).
+        registry: The category's ``<CAT>_VENDOR_REGISTRY`` mapping.
+        driver_config: The category's driver config Pydantic model; whether its ``num_channels``
+            field is required decides whether the check applies.
+
     Raises:
         ValueError: a pattern lacks ``num_channels`` for a category whose config requires it.
     """

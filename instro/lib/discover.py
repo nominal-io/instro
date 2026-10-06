@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 import warnings
 from typing import Any
 
@@ -99,9 +100,10 @@ class DiscoveredInstrument:
             KeyError: ``driver_name`` is not registered for ``category``.
         """
         try:
-            return driver_registry(self.category)[self.driver_name].load()
+            entry = driver_registry(self.category)[self.driver_name]
         except KeyError:
             raise KeyError(f"no driver named {self.driver_name!r} registered for category {self.category!r}") from None
+        return entry.load()
 
     def make_driver(self) -> Any:
         """A new, unopened driver for this instrument.
@@ -142,14 +144,12 @@ VisaInstrumentInfo = DiscoveredInstrument
 
 
 def _serial_config_block(serial: SerialConfig) -> dict[str, Any]:
-    """``SerialConfig`` as the JSON config schema spells it: enum fields by value."""
-    return {
-        "baud_rate": serial.baud_rate,
-        "data_bits": serial.data_bits,
-        "stop_bits": serial.stop_bits.value,
-        "parity": serial.parity.value,
-        "flow_control": int(serial.flow_control),
-    }
+    """``SerialConfig`` as the JSON config schema spells it: every field, enums by value."""
+    block: dict[str, Any] = {}
+    for field in dataclasses.fields(serial):
+        value = getattr(serial, field.name)
+        block[field.name] = value.value if isinstance(value, enum.Enum) else value
+    return block
 
 
 @dataclasses.dataclass
@@ -215,18 +215,18 @@ def scan_visa_resources(
 ) -> VisaScanResult:
     """Scan VISA resources, query each for identity, and return matched instruments.
 
-    Pass an already-open ``rm`` (e.g. one a caller opened via ``_open_resource_manager`` for its
-    own backend diagnostics) with the ``backend`` string used to open it, to reuse that resource
-    manager instead of opening a second one.
+    Pass an already-open ``rm`` (e.g. one a caller opened for its own backend diagnostics) to reuse
+    it instead of opening a second one. ``backend`` is always the backend the caller *asked for*:
+    ``None`` for the default with ``@py`` fallback, or an explicit specifier.
 
-    Each result records the ``backend`` the caller asked for, not the one it resolved to, so a
-    ``None`` stays ``None``: the :class:`VisaConfig` and config block built from the result keep the
+    Each result records that requested ``backend``, not the one it resolved to, so a ``None`` stays
+    ``None`` and the :class:`VisaConfig` and config block built from the result keep the
     default-then-fallback behavior instead of pinning whichever backend this machine happened to use.
     """
-    requested_backend = backend
+    # pyvisa caches one ResourceManager per backend, so resolving here is free even when rm is given.
+    resolved_rm, active_backend, _ = _open_resource_manager(backend)
     if rm is None:
-        rm, backend, _ = _open_resource_manager(backend)
-    active_backend = backend
+        rm = resolved_rm
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -257,7 +257,7 @@ def scan_visa_resources(
                         category=match.category,
                         driver_name=match.driver_name,
                         num_channels=match.num_channels,
-                        backend=requested_backend,
+                        backend=backend,
                     )
                 )
         except Exception as e:

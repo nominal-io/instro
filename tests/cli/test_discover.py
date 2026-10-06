@@ -47,6 +47,23 @@ def test_discover_empty_bench():
     assert "NO DEVICES FOUND" in result.output
 
 
+def test_discover_passes_requested_backend_to_scan():
+    """The resolved backend is for the header only; results must record what the user asked for."""
+    mock_rm = _rm_mock()
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
+        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
+    ):
+        runner.invoke(app, ["discover"])
+    scan.assert_called_once_with(backend=None, rm=mock_rm)
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
+    ):
+        runner.invoke(app, ["discover", "--backend", "@py"])
+    scan.assert_called_once_with(backend="@py", rm=mock_rm)
+
+
 def test_discover_reports_ivi_backend():
     mock_rm = _rm_mock()
     with (

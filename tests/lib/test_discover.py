@@ -1,4 +1,5 @@
 import dataclasses
+import enum
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -283,6 +284,24 @@ def test_discovered_instrument_is_immutable_and_not_hashable() -> None:
     assert usb == dataclasses.replace(usb)
 
 
+def test_driver_class_does_not_mask_key_errors_raised_while_loading_the_driver() -> None:
+    found = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="BK9115")
+    entry = MagicMock(spec=DriverEntry)
+    entry.load.side_effect = KeyError("missing_setting")  # raised inside the driver module, not by the registry
+    with patch("instro.lib.discover.driver_registry", return_value={"BK9115": entry}):
+        with pytest.raises(KeyError, match="missing_setting"):
+            found.driver_class()
+
+
+def test_serial_config_block_covers_every_field() -> None:
+    found = DiscoveredInstrument(
+        resource="ASRL1::INSTR", idn="x", category="psu", driver_name="BK9115", serial_config=SerialConfig()
+    )
+    block = found.config_block()["visa"]["serial_config"]
+    assert set(block) == {f.name for f in dataclasses.fields(SerialConfig)}
+    assert all(not isinstance(v, enum.Enum) for v in block.values())
+
+
 def test_discovered_instrument_without_serial_config_uses_transport_defaults() -> None:
     found = DiscoveredInstrument(
         resource="USB0::1::2::INSTR", idn="B&K PRECISION,9115,1,1.0", category="psu", driver_name="BK9115"
@@ -310,7 +329,7 @@ def test_discovered_instrument_non_visa_transport_passes_resource_to_driver() ->
 
 def test_discovered_instrument_unregistered_driver_name_raises() -> None:
     found = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="PSUDriverBase")
-    with pytest.raises(KeyError, match="not registered|registered for category 'psu'"):
+    with pytest.raises(KeyError, match="registered for category 'psu'"):
         found.driver_class()
 
 
