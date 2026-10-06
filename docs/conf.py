@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+from nominal_sphinx_theme import theme_options
+
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "_ext"))
 
@@ -28,7 +30,7 @@ extensions = [
     "pysummary",
     "driver_cards",
     "examples",
-    "sections",
+    "nominal_sphinx_theme",
 ]
 
 templates_path = ["_templates"]
@@ -108,20 +110,17 @@ autodoc_pydantic_model_member_order = "bysource"
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
-# -- HTML: Shibuya, styled like the former Mintlify site -------------------------
+# -- HTML: the shared Nominal theme (nominal-io/nominal-sphinx-theme) ----------
 html_theme = "shibuya"
 html_title = "instro"
 html_baseurl = "https://instro.nominal.io/"
 html_static_path = ["_static"]
 # 404.html at the site root: sends links from when the docs were under /python/ to their new paths
 html_extra_path = ["_extra"]
-html_css_files = [
-    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
-    "custom.css",
-]
-html_js_files = ["external-links.js"]
+html_css_files = ["custom.css"]
 html_favicon = "_static/favicon.png"
 html_copy_source = False
+nominal_ga_id = "G-LR7QM29GGQ"
 
 html_context = {
     "source_type": "github",
@@ -134,33 +133,27 @@ html_context = {
 # Right sidebar: on-page contents and edit link, no GitHub repo-stats box.
 html_sidebars = {"**": ["sidebars/localtoc.html", "sidebars/edit-this-page.html"]}
 
-html_theme_options = {
-    "accent_color": "gray",
-    "light_logo": "_static/logo/instro-logo-solid-black.svg",
-    "dark_logo": "_static/logo/instro-logo-solid-white.svg",
-    "github_url": "https://github.com/nominal-io/instro",
-    "discord_url": "https://discord.gg/nN4RzhQkr",
-    "linkedin_url": "https://linkedin.com/company/nominal-io",
-    "x_url": "https://x.com/nominal_io",
-    # section tabs; the sidebar follows them (_ext/sections.py)
-    "nav_links": [
+html_theme_options = theme_options(
+    github_url="https://github.com/nominal-io/instro",
+    light_logo="_static/logo/instro-logo-solid-black.svg",
+    dark_logo="_static/logo/instro-logo-solid-white.svg",
+    discord_url="https://discord.gg/nN4RzhQkr",
+    # section tabs; the sidebar follows them (nominal_sphinx_theme)
+    nav_links=[
         {"title": "Guides", "url": "index"},
         {"title": "Examples", "url": "examples/index"},
         {"title": "SDK", "url": "sdk/index"},
         {"title": "GitHub", "url": "https://github.com/nominal-io/instro"},
     ],
-    # right of the search box; "Get a demo" follows them (_templates/partials/nav-socials.html)
-    "nav_socials": [
+    # header icons, before the theme's buttons
+    nav_socials=[
         "github",
-        "x",
         "discord",
         {"name": "Forum", "url": "https://community.instro.nominal.io", "icon": "lucide:messages-square"},
-        "linkedin",
     ],
-    "toctree_titles_only": True,
     # left nav lists pages only; generated class/member pages are reached from their tables
-    "toctree_maxdepth": 1,
-}
+    toctree_maxdepth=1,
+)
 add_module_names = False
 
 
