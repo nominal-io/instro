@@ -27,7 +27,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `sdk/` | API reference: category pages, library modules, protocols, changelog. |
 
 - **Sections:** the header tabs (Guides, Examples, SDK) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`sdk/`, `examples/`, else guides), from `nav_links` in `conf.py`.
-- **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/pub-docs, `theme/`); change it there. Keep `_static/custom.css` to instro-only styles.
+- **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/nominal-sphinx-theme); change it there, then `uv lock --upgrade-package nominal-sphinx-theme` here. Keep `_static/custom.css` to instro-only styles.
 - **Hidden pages:** pages outside the sidebar set `orphan: true` in front matter. Driver pages and protocol sub-pages are orphans.
 - **Page head:** `# Title`, then an optional `{.lead}` paragraph (grey subtitle), with `myst: html_meta: description:` in front matter for search engines.
 

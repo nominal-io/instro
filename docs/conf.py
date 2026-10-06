@@ -110,7 +110,7 @@ autodoc_pydantic_model_member_order = "bysource"
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
-# -- HTML: the shared Nominal theme (nominal-io/pub-docs, theme/) ----------------
+# -- HTML: the shared Nominal theme (nominal-io/nominal-sphinx-theme) ----------
 html_theme = "shibuya"
 html_title = "instro"
 html_baseurl = "https://instro.nominal.io/"
