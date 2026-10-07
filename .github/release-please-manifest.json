@@ -1,5 +1,5 @@
 {
-  ".": "1.21.0",
+  ".": "1.22.0",
   "packages/instro-daq-labjack": "1.1.0",
   "packages/instro-daq-mcc": "1.1.0",
   "packages/instro-daq-ni": "1.1.0",
@@ -8,5 +8,6 @@
   "packages/instro-ethernetip": "1.0.1",
   "packages/instro-contrib": "1.0.0",
   "crates/instro-ethernetip": "1.0.0",
-  "crates/instro-opcua": "1.1.0"
+  "crates/instro-opcua": "1.2.0",
+  "packages/instro-opcua": "0.1.1"
 }
