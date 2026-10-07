@@ -19,7 +19,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `_extra/404.html` | Copied to the site root. Sends links from when the docs were under `/python/` to their new paths; otherwise a not-found page. |
 | `index.md` | Home page, and every sidebar group: one hidden `toctree` per caption, for all three sections. |
 | `quickstart.md`, `installation.md`, `cli.md`, `using-instro.md`, `instruments.md` | Overview pages. |
-| `<category>.md` | One guide per category (`psu`, `dmm`, `scope`, `daq`, `awg`, `eload`, `flowcontroller`). |
+| `<category>.md` | One guide per category (`psu`, `dmm`, `scope`, `daq`, `awg`, `eload`, `flowcontroller`, `sdr`). |
 | `<category>/<Driver>.md` + `<Driver>.png` | One page per vendor driver, with its card in front matter. Protocol drivers live in `library/protocols/<protocol>/`. |
 | `library/` | Concepts and reference: publishers, config files, custom instruments (all "Driver Development" sections), contrib, protocols, transports. |
 | `images/` | Shared images. |
@@ -61,7 +61,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 
 ## Terminology and style
 
-- Call the library **`instro`**; reserve *Nominal* for the platform (Nominal Core, Nominal Connect, the Nominal publishers). Keep HAL casing: `InstroScope`, `InstroPSU`, `InstroDMM`, `InstroDAQ`, `InstroAWG`, `InstroELoad`, `InstroFlowController`, `I2CInterface`.
+- Call the library **`instro`**; reserve *Nominal* for the platform (Nominal Core, Nominal Connect, the Nominal publishers). Keep HAL casing: `InstroScope`, `InstroPSU`, `InstroDMM`, `InstroDAQ`, `InstroAWG`, `InstroELoad`, `InstroFlowController`, `InstroSDR`, `I2CInterface`.
 - A *channel* is a named signal for a series of measurements or computed values.
 - Concise, one idea per sentence; active voice and the imperative ("Configure the check"). No em or en dashes. Nominal in the third person, never *we*. Sentence-case headings, **bold** UI elements, `code` for files, commands, and identifiers. Lowercase data primitives (*channel*, *source*).
 - Document `instro` only; link out for Nominal Core, Nominal Connect, and the dashboard.

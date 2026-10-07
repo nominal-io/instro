@@ -13,6 +13,7 @@ instruments. Each instrument type defines a standard API that works across multi
 | [`InstroFlowController`](flowcontroller.md) | Flow Controllers |
 | [`I2CInterface`](i2c.md) | I2C bus communication devices |
 | [`InstroAWG`](awg.md) | Arbitrary waveform generators |
+| [`InstroSDR`](sdr.md) | Software defined radios (unstable) |
 
 Each instrument page includes the interface, configuration types, driver base classes,
 and vendor-specific driver implementations. Errors raised by instrument methods are
