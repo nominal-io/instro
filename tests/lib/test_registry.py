@@ -1,3 +1,4 @@
+import importlib
 import re
 from pathlib import Path
 
@@ -53,7 +54,14 @@ def test_categories_covers_every_vendor_registry() -> None:
     assert with_registry == set(CATEGORIES)
 
 
-def test_check_registry_requires_num_channels_only_when_the_config_model_does() -> None:
+@pytest.mark.parametrize("category", CATEGORIES)
+def test_registry_channel_counts_match_the_config_model(category: str) -> None:
+    """Every registered pattern can produce a config block the category's driver config accepts."""
+    config = importlib.import_module(f"instro.{category}.config")
+    check_registry(category, driver_registry(category), config.VisaDriverConfig)
+
+
+def test_check_registry_enforces_num_channels_in_both_directions() -> None:
     """The requirement is read from the category's driver config, so the registry and the schema cannot drift."""
     from pydantic import BaseModel
 
@@ -73,3 +81,7 @@ def test_check_registry_requires_num_channels_only_when_the_config_model_does() 
         ValueError, match=r"psu\.Y: IdnPattern '\^B' needs num_channels; ChannelledDriverConfig requires it"
     ):
         check_registry("psu", uncounted, ChannelledDriverConfig)
+    with pytest.raises(
+        ValueError, match=r"dmm\.X: IdnPattern '\^A' carries num_channels; ChannellessDriverConfig has no such field"
+    ):
+        check_registry("dmm", counted, ChannellessDriverConfig)

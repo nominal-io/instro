@@ -76,6 +76,11 @@ class DiscoveredInstrument:
     # record with a (mutable, unhashable) SerialConfig behaving like one without.
     __hash__ = None  # type: ignore[assignment]
 
+    def __post_init__(self) -> None:
+        """Copy ``serial_config`` so the record owns it; the caller may keep mutating the object it passed in."""
+        if self.serial_config is not None:
+            object.__setattr__(self, "serial_config", dataclasses.replace(self.serial_config))
+
     @property
     def driver_class_name(self) -> str:
         """Deprecated alias of :attr:`driver_name`."""

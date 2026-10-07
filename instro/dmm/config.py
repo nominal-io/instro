@@ -12,7 +12,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
-from instro.lib.registry import DriverEntry, IdnPattern, check_registry
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -81,9 +81,6 @@ class VisaDriverConfig(BaseModel):
         if v not in DMM_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
         return v
-
-
-check_registry("dmm", DMM_VENDOR_REGISTRY, VisaDriverConfig)
 
 
 class DMMConfig(BaseModel):

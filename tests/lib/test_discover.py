@@ -256,6 +256,9 @@ def test_discovered_instrument_builds_driver_and_config_block() -> None:
     assert cfg.serial_config is not found.serial_config  # a copy: tweaking the config leaves the record alone
     cfg.serial_config.baud_rate = 9600
     assert found.serial_config.baud_rate == 57600
+    serial.baud_rate = 9600  # the caller's own object is not the record's either
+    assert found.serial_config.baud_rate == 57600
+    assert found.config_block()["visa"]["serial_config"]["baud_rate"] == 57600
     assert isinstance(found.make_driver(), BK9115)
 
     block = found.config_block()
@@ -270,7 +273,7 @@ def test_discovered_instrument_builds_driver_and_config_block() -> None:
     }
     validated = PSUVisaDriverConfig.model_validate(block)
     assert isinstance(validated.visa, VisaConfig)
-    assert validated.visa.serial_config == serial
+    assert validated.visa.serial_config == found.serial_config  # `serial` was mutated above on purpose
 
 
 def test_discovered_instrument_is_immutable_and_not_hashable() -> None:
