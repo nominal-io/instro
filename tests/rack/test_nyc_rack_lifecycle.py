@@ -18,7 +18,7 @@ import sys
 import time
 
 import pytest
-from discovery import DiscoveredInstrument
+from discovery import model_of
 from rack_support import (
     BUS_CH,
     BUS_CURRENT_LIMIT_A,
@@ -36,6 +36,7 @@ from rack_support import (
 
 from instro.dmm import InstroDMM
 from instro.eload import InstroELoad
+from instro.lib.discover import DiscoveredInstrument
 from instro.psu import InstroPSU
 
 pytestmark = pytest.mark.hardware
@@ -87,8 +88,8 @@ def test_psu_config_construction(instruments: dict[str, DiscoveredInstrument]) -
     config = {
         "version": 1,
         "instrument": "InstroPSU",
-        "device": {"name": "cfg_psu", "model": found.model},
-        "driver": found.config_driver_block(),
+        "device": {"name": "cfg_psu", "model": model_of(found)},
+        "driver": found.config_block(),
         "timing": {"poll_interval": 0.5},
     }
     psu = InstroPSU(config=config)
@@ -115,7 +116,7 @@ def test_dmm_config_applies_measurement_on_every_open(instruments: dict[str, Dis
         "version": 1,
         "instrument": "InstroDMM",
         "device": {"name": "cfg_dmm"},
-        "driver": found.config_driver_block(),
+        "driver": found.config_block(),
     }
     dmm = InstroDMM(config={**base, "measurement": {"function": "DC_VOLTAGE"}})
     with dmm:
@@ -157,7 +158,7 @@ def test_eload_config_applies_load_block_without_enabling_input(instruments: dic
             "version": 1,
             "instrument": "InstroELoad",
             "device": {"name": "cfg_eload"},
-            "driver": instruments["eload"].config_driver_block(),
+            "driver": instruments["eload"].config_block(),
             "load": {"mode": "CC", "level": CONFIG_CC_A},
         }
     )

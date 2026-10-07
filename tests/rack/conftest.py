@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import dataclasses
-import json
 import os
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
 import pytest
-from discovery import CATEGORIES, DiscoveredInstrument, DiscoveryReport, discover
+from discovery import CATEGORIES, DiscoveryReport, discover, model_of, to_json
 from rack_support import CAPTURE_ROOT, Rack, arm_protection, logger
 
 from instro.dmm import InstroDMM
 from instro.eload import InstroELoad
 from instro.eload.types import LoadMode
 from instro.lib import Instrument
+from instro.lib.discover import DiscoveredInstrument
 from instro.lib.publishers import FilePublisher, SharedPublisher
 from instro.psu import InstroPSU
 
@@ -40,7 +39,7 @@ def discovery(run_dir: Path) -> DiscoveryReport:
     """Before each session, discover the instruments in the rack and write a report to the run directory."""
     logger.info("=== Instrument discovery ===")
     report = discover(extra_resources=[r for c in CATEGORIES if (r := _pinned_resource(c))])
-    (run_dir / "discovery.json").write_text(json.dumps(dataclasses.asdict(report), indent=2))
+    (run_dir / "discovery.json").write_text(to_json(report))
     return report
 
 
@@ -69,7 +68,7 @@ def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
         logger.info(
             "  rack %-5s -> %s via %s (%s)",
             category,
-            chosen[category].model,
+            model_of(chosen[category]),
             chosen[category].driver_name,
             chosen[category].resource,
         )
@@ -123,7 +122,7 @@ def rack(instruments: dict[str, DiscoveredInstrument], run_dir: Path, request: p
     opened: list[Instrument] = []
     try:
         for instrument, info in zip(rack.instruments, (psu_info, dmm_info, eload_info)):
-            logger.info("Opening %s: %s via %s on %s", instrument.name, info.model, info.driver_name, info.resource)
+            logger.info("Opening %s: %s via %s on %s", instrument.name, model_of(info), info.driver_name, info.resource)
             instrument.open()
             opened.append(instrument)
         rack.safe_state()

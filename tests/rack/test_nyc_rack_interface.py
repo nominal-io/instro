@@ -22,7 +22,6 @@ from collections.abc import Callable
 from importlib.metadata import version
 
 import pytest
-from discovery import DiscoveredInstrument
 from rack_support import (
     BUS_CH,
     BUS_CURRENT_LIMIT_A,
@@ -46,6 +45,7 @@ from instro.dmm import InstroDMM
 from instro.dmm.types import MeasurementFunction
 from instro.eload import InstroELoad
 from instro.eload.types import LoadMode, SlewRateDirection
+from instro.lib.discover import DiscoveredInstrument
 from instro.lib.types import Command, Measurement
 
 pytestmark = pytest.mark.hardware

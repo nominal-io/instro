@@ -35,10 +35,10 @@ from pathlib import Path
 from typing import TypeVar
 
 import pytest
-from discovery import DiscoveredInstrument
 
 from instro.dmm import InstroDMM
 from instro.eload import InstroELoad
+from instro.lib.discover import DiscoveredInstrument
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.types import Measurement
 from instro.psu import InstroPSU

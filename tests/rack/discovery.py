@@ -1,16 +1,15 @@
-"""Discover the rack's instruments: enumerate VISA and serial ports, identify each by *IDN?, match a driver.
+"""Discover the rack's instruments, on top of ``instro.lib.discover``.
 
-Serial ports carry no identity of their own: the OS reports the USB-serial *adapter* (VID/PID,
-adapter serial number), not the instrument behind it. So discovery:
+instro's ``scan_visa_resources()`` identifies every non-serial VISA resource by ``*IDN?`` and matches
+it against the vendor registries (``match_idn()``), returning ``DiscoveredInstrument`` records that
+build their own drivers and config blocks. It skips serial ports, so this module adds them:
 
 1. Lists serial ports through the OS (pyserial) without sending anything.
 2. Probes only USB serial ports by default; motherboard ports (no USB VID) are skipped because
    probing them costs a timeout each and could send bytes to non-SCPI equipment.
    ``RACK_SERIAL_PROBE_ALL=1`` probes them too; ``RACK_SERIAL_EXCLUDE=COM5,COM7`` skips ports.
 3. Identifies what's behind each port by ``*IDN?``, trying ``SERIAL_BAUDS`` in order and stopping
-   at the first well-formed reply.
-4. Matches the reply against ``KNOWN_INSTRUMENTS``, whose driver names are the keys of instro's
-   own config registries, so a discovered instrument builds the same driver a JSON config would.
+   at the first well-formed reply, then matches it with ``match_idn()`` like any other instrument.
 
 The report lists supported instruments, instruments that answered but have no in-tree driver,
 and resources that couldn't be identified (with why).
@@ -19,59 +18,26 @@ and resources that couldn't be identified (with why).
 from __future__ import annotations
 
 import dataclasses
-import importlib
+import enum
+import json
 import logging
 import os
 import re
 import warnings
 from collections.abc import Iterable
-from typing import Any
 
 from serial.tools import list_ports
 
-from instro.dmm.config import DMM_VENDOR_REGISTRY
-from instro.eload.config import ELOAD_VENDOR_REGISTRY
+from instro.lib.discover import DiscoveredInstrument, match_idn, parse_idn, scan_visa_resources
 from instro.lib.transports import SerialConfig, VisaConfig
 from instro.lib.transports.visa import TimeoutConfig, VisaDriver, _open_resource_manager
-from instro.psu.config import PSU_VENDOR_REGISTRY
 
 logger = logging.getLogger("rack.discovery")
 
 CATEGORIES = ("psu", "dmm", "eload")
-REGISTRIES: dict[str, dict[str, str]] = {
-    "psu": PSU_VENDOR_REGISTRY,
-    "dmm": DMM_VENDOR_REGISTRY,
-    "eload": ELOAD_VENDOR_REGISTRY,
-}
 VISA_TIMEOUT_S = 2
 SERIAL_TIMEOUT_S = 1.0
 SERIAL_BAUDS = (9600, 19200, 38400, 57600, 115200)
-
-
-@dataclasses.dataclass(frozen=True)
-class KnownInstrument:
-    """An *IDN? pattern and the in-tree driver that handles it."""
-
-    category: str
-    vendors: tuple[str, ...]  # substrings of the IDN manufacturer field, case-insensitive
-    model: str  # regex matched against the IDN model field, case-insensitive
-    driver_name: str  # key in the category's instro config registry
-    num_channels: int | None = None
-
-
-KNOWN_INSTRUMENTS: tuple[KnownInstrument, ...] = (
-    KnownInstrument("psu", ("RIGOL",), r"^DP811", "RigolDP800", 1),
-    KnownInstrument("psu", ("RIGOL",), r"^DP821", "RigolDP800", 2),
-    KnownInstrument("psu", ("RIGOL",), r"^DP83[12]", "RigolDP800", 3),
-    KnownInstrument("psu", ("SIGLENT",), r"^SPD3303", "SiglentSPD3303", 2),
-    KnownInstrument("psu", ("B&K",), r"^9115", "BK9115", 1),
-    KnownInstrument("psu", ("B&K",), r"^914\d", "BK914X", 3),
-    KnownInstrument("psu", ("KEYSIGHT", "AGILENT"), r"^E361\d\d", "KeysightE36100", 1),
-    KnownInstrument("dmm", ("KEYSIGHT", "AGILENT"), r"^34461A", "Keysight34461A"),
-    KnownInstrument("dmm", ("AGILENT", "HEWLETT-PACKARD"), r"^34401A", "Agilent34401A"),
-    KnownInstrument("dmm", ("KEITHLEY",), r"^2400", "Keithley2400"),
-    KnownInstrument("eload", ("B&K",), r"^85\d\dB$", "BK85XXB"),
-)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -85,44 +51,6 @@ class SerialPortInfo:
     @property
     def is_usb(self) -> bool:
         return self.usb_vid is not None
-
-
-@dataclasses.dataclass(frozen=True)
-class DiscoveredInstrument:
-    category: str
-    resource: str
-    idn: str
-    driver_name: str
-    num_channels: int | None
-    baud_rate: int | None
-
-    @property
-    def model(self) -> str:
-        return _idn_fields(self.idn)[1]
-
-    def visa_config(self) -> VisaConfig:
-        if self.baud_rate is None:
-            return VisaConfig(visa_resource=self.resource)
-        return VisaConfig(visa_resource=self.resource, serial_config=SerialConfig(baud_rate=self.baud_rate))
-
-    def driver_class(self) -> type:
-        module_path, _, class_name = REGISTRIES[self.category][self.driver_name].rpartition(".")
-        cls: type = getattr(importlib.import_module(module_path), class_name)
-        return cls
-
-    def make_driver(self) -> Any:
-        """A new, unopened driver for this instrument."""
-        return self.driver_class()(self.visa_config())
-
-    def config_driver_block(self) -> dict:
-        """The ``driver`` block of an instro JSON config for this instrument."""
-        visa: dict = {"visa_resource": self.resource}
-        if self.baud_rate is not None:
-            visa["serial_config"] = {"baud_rate": self.baud_rate}
-        block: dict = {"name": self.driver_name, "visa": visa}
-        if self.category == "psu":
-            block["num_channels"] = self.num_channels
-        return block
 
 
 @dataclasses.dataclass(frozen=True)
@@ -149,22 +77,23 @@ class DiscoveryReport:
     unreachable: list[UnreachableResource]
 
 
-def _idn_fields(idn: str) -> list[str]:
-    fields = [f.strip() for f in idn.split(",")]
-    return fields + [""] * (4 - len(fields))
+def model_of(instrument: DiscoveredInstrument) -> str:
+    """The model field of the instrument's ``*IDN?`` reply, e.g. ``"DP832A"``."""
+    return parse_idn(instrument.idn).model
+
+
+def to_json(report: DiscoveryReport) -> str:
+    """The report as JSON; enums (in serial settings) are written by value."""
+
+    def default(value: object) -> object:
+        return value.value if isinstance(value, enum.Enum) else str(value)
+
+    return json.dumps(dataclasses.asdict(report), indent=2, default=default)
 
 
 def _looks_like_idn(reply: str) -> bool:
     """Wrong-baud replies are garbage or empty; a real *IDN? has printable text and 3+ commas-separated fields."""
     return reply.isprintable() and len([f for f in reply.split(",") if f.strip()]) >= 3
-
-
-def match_known(idn: str) -> KnownInstrument | None:
-    vendor, model = (f.lower() for f in _idn_fields(idn)[:2])
-    for known in KNOWN_INSTRUMENTS:
-        if any(v.lower() in vendor for v in known.vendors) and re.search(known.model, model, re.IGNORECASE):
-            return known
-    return None
 
 
 def _asrl_resource(device: str) -> str:
@@ -193,12 +122,6 @@ def _query_idn(config: VisaConfig) -> str:
         return driver.query("*IDN?").strip()
     finally:
         driver.close()
-
-
-def _identify_visa(resource: str, backend: str) -> str:
-    return _query_idn(
-        VisaConfig(visa_resource=resource, visa_backend=backend, timeout=TimeoutConfig(recv=VISA_TIMEOUT_S))
-    )
 
 
 def _identify_serial(resource: str, backend: str) -> tuple[str, int]:
@@ -233,74 +156,100 @@ def _serial_skip_reason(resource: str, port: SerialPortInfo | None) -> str | Non
     return None
 
 
+def _record(
+    resource: str, idn: str, report: DiscoveryReport, serial_config: SerialConfig | None = None
+) -> DiscoveredInstrument | None:
+    """Match ``idn`` and file the result as supported or unsupported."""
+    match = match_idn(idn)
+    baud = serial_config.baud_rate if serial_config is not None else None
+    at_baud = f"  (@ {baud} baud)" if baud else ""
+    if match is None:
+        logger.warning("        *IDN? -> %s%s  [no in-tree driver]", idn, at_baud)
+        report.unsupported.append(UnsupportedInstrument(resource, idn, baud))
+        return None
+    logger.info("        *IDN? -> %s%s  [%s %s]", idn, at_baud, match.category, match.driver_name)
+    instrument = DiscoveredInstrument(
+        resource=resource,
+        idn=idn,
+        category=match.category,
+        driver_name=match.driver_name,
+        num_channels=match.num_channels,
+        serial_config=serial_config,
+    )
+    report.instruments.append(instrument)
+    return instrument
+
+
 def discover(extra_resources: Iterable[str] = ()) -> DiscoveryReport:
-    """Probe every VISA resource and OS serial port, plus ``extra_resources`` (e.g. LAN addresses VISA doesn't list)."""
+    """Identify every VISA resource and OS serial port, plus ``extra_resources`` (e.g. LAN addresses VISA doesn't list)."""
+    report = DiscoveryReport(instruments=[], unsupported=[], unreachable=[])
+
+    scan = scan_visa_resources()
+    logger.info(
+        "VISA scan (non-serial): %d resource(s) answered or failed",
+        len(scan.instruments) + len(scan.unrecognized) + len(scan.errors),
+    )
+    for found in scan.instruments:
+        logger.info("  probe %-45s", found.resource)
+        logger.info("        *IDN? -> %s  [%s %s]", found.idn, found.category, found.driver_name)
+        report.instruments.append(found)
+    for other in scan.unrecognized:
+        logger.info("  probe %-45s", other.resource)
+        logger.warning("        *IDN? -> %s  [no in-tree driver]", other.idn)
+        report.unsupported.append(UnsupportedInstrument(other.resource, other.idn, None))
+    for error in scan.errors:
+        reason = f"{error.message} ({error.hint})" if error.hint else error.message
+        logger.warning("  probe %-45s unreachable: %s", error.resource, reason)
+        report.unreachable.append(UnreachableResource(error.resource, reason))
+
     rm, backend, _ = _open_resource_manager(None)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        visa_resources = set(rm.list_resources())
+        listed = set(rm.list_resources())
     serial_ports = list_serial_ports()
-    resources = sorted(visa_resources | set(serial_ports) | set(extra_resources))
     logger.info(
-        "VISA backend %r: %d resource(s); OS serial ports: %s",
-        backend,
-        len(resources),
+        "OS serial ports: %s",
         ", ".join(f"{p.device} ({p.description})" for p in serial_ports.values()) or "none",
     )
-
-    instruments: list[DiscoveredInstrument] = []
-    unsupported: list[UnsupportedInstrument] = []
-    unreachable: list[UnreachableResource] = []
-    for resource in resources:
-        baud: int | None = None
+    serial_resources = {r for r in listed | set(serial_ports) | set(extra_resources) if r.startswith("ASRL")}
+    for resource in sorted(serial_resources):
+        if (skip := _serial_skip_reason(resource, serial_ports.get(resource))) is not None:
+            logger.info("  skip  %-45s %s", resource, skip)
+            report.unreachable.append(UnreachableResource(resource, skip))
+            continue
+        logger.info("  probe %-45s serial, bauds %s", resource, SERIAL_BAUDS)
         try:
-            if resource.startswith("ASRL"):
-                if (reason := _serial_skip_reason(resource, serial_ports.get(resource))) is not None:
-                    logger.info("  skip  %-45s %s", resource, reason)
-                    unreachable.append(UnreachableResource(resource, reason))
-                    continue
-                logger.info("  probe %-45s serial, bauds %s", resource, SERIAL_BAUDS)
-                idn, baud = _identify_serial(resource, backend)
-            else:
-                logger.info("  probe %-45s", resource)
-                idn = _identify_visa(resource, backend)
+            idn, baud = _identify_serial(resource, backend)
         except Exception as exc:
             reason = f"{type(exc).__name__}: {exc}"
             logger.warning("        unreachable: %s", reason)
-            unreachable.append(UnreachableResource(resource, reason))
+            report.unreachable.append(UnreachableResource(resource, reason))
             continue
+        _record(resource, idn, report, SerialConfig(baud_rate=baud))
 
-        at_baud = f"  (@ {baud} baud)" if baud else ""
-        known = match_known(idn)
-        if known is None:
-            logger.warning("        *IDN? -> %s%s  [no in-tree driver]", idn, at_baud)
-            unsupported.append(UnsupportedInstrument(resource, idn, baud))
+    for resource in sorted(r for r in set(extra_resources) - listed if not r.startswith("ASRL")):
+        logger.info("  probe %-45s (not listed by VISA)", resource)
+        try:
+            idn = _query_idn(VisaConfig(visa_resource=resource, timeout=TimeoutConfig(recv=VISA_TIMEOUT_S)))
+        except Exception as exc:
+            reason = f"{type(exc).__name__}: {exc}"
+            logger.warning("        unreachable: %s", reason)
+            report.unreachable.append(UnreachableResource(resource, reason))
             continue
-        logger.info("        *IDN? -> %s%s  [%s %s]", idn, at_baud, known.category, known.driver_name)
-        instruments.append(
-            DiscoveredInstrument(
-                category=known.category,
-                resource=resource,
-                idn=idn,
-                driver_name=known.driver_name,
-                num_channels=known.num_channels,
-                baud_rate=baud,
-            )
-        )
+        _record(resource, idn, report)
 
     logger.info(
         "Discovered %d supported instrument(s), %d unsupported, %d unreachable",
-        len(instruments),
-        len(unsupported),
-        len(unreachable),
+        len(report.instruments),
+        len(report.unsupported),
+        len(report.unreachable),
     )
-    return DiscoveryReport(instruments=instruments, unsupported=unsupported, unreachable=unreachable)
+    return report
 
 
 def main() -> int:
     """Run discovery standalone; ``-v`` adds pyvisa/instro DEBUG logs, ``--json`` prints the report."""
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("-v", "--verbose", action="store_true", help="also show DEBUG logs from pyvisa and instro")
@@ -316,7 +265,7 @@ def main() -> int:
 
     report = discover(args.resources)
     if args.json:
-        print(json.dumps(dataclasses.asdict(report), indent=2))
+        print(to_json(report))
     return 0
 
 
