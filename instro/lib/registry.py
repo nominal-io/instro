@@ -10,12 +10,17 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 __all__ = [
     "CATEGORIES",
     "DriverEntry",
     "IdnPattern",
+    "check_registry",
     "driver_registry",
     "iter_driver_entries",
 ]
@@ -103,3 +108,42 @@ def iter_driver_entries() -> Iterator[tuple[str, str, DriverEntry]]:
     for category in CATEGORIES:
         for name, entry in driver_registry(category).items():
             yield category, name, entry
+
+
+def check_registry(category: str, registry: Mapping[str, DriverEntry], driver_config: type[BaseModel]) -> None:
+    """Verify every pattern in ``registry`` can produce a valid config block for ``category``.
+
+    :meth:`~instro.lib.discover.DiscoveredInstrument.config_block` emits ``num_channels`` exactly
+    when the matched :class:`IdnPattern` carries one, and each category's driver config either
+    requires that field or forbids it (``extra="forbid"``). So a pattern must carry a count when
+    the model requires one and must not when the model has no such field. The requirement is read
+    from the model so the registry and the schema cannot drift apart.
+
+    Run by the registry tests for every category rather than at import time: a bad pattern is a
+    contributor mistake, and an import-time failure in one category would take ``match_idn()`` and
+    ``instro discover`` down for all of them.
+
+    Args:
+        category: Category name, used in the error message (e.g. ``"psu"``).
+        registry: The category's ``<CAT>_VENDOR_REGISTRY`` mapping.
+        driver_config: The category's driver config Pydantic model; whether its ``num_channels``
+            field is required decides which direction is enforced.
+
+    Raises:
+        ValueError: a pattern lacks ``num_channels`` where the config requires it, or carries one
+            where the config has no such field.
+    """
+    field = driver_config.model_fields.get("num_channels")
+    required = field is not None and field.is_required()
+    for name, entry in registry.items():
+        for pattern in entry.idn_patterns:
+            if required and pattern.num_channels is None:
+                raise ValueError(
+                    f"{category}.{name}: IdnPattern {pattern.model!r} needs num_channels; "
+                    f"{driver_config.__name__} requires it"
+                )
+            if not required and pattern.num_channels is not None:
+                raise ValueError(
+                    f"{category}.{name}: IdnPattern {pattern.model!r} carries num_channels; "
+                    f"{driver_config.__name__} has no such field"
+                )

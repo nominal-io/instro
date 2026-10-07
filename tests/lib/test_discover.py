@@ -1,9 +1,15 @@
+import dataclasses
+import enum
 from unittest.mock import MagicMock, patch
 
 import pytest
 import pyvisa
 
-from instro.lib.discover import match_idn, parse_idn, scan_visa_resources
+from instro.lib.discover import DiscoveredInstrument, VisaInstrumentInfo, match_idn, parse_idn, scan_visa_resources
+from instro.lib.registry import DriverEntry
+from instro.lib.transports.visa import ControlFlow, Parity, SerialConfig, StopBits, VisaConfig
+from instro.psu.config import VisaDriverConfig as PSUVisaDriverConfig
+from instro.psu.drivers.bk_9115 import BK9115
 
 
 def _rm_mock(resources=()):
@@ -62,7 +68,7 @@ def test_scan_recognized_psu() -> None:
     info = result.instruments[0]
     assert info.resource == "USB0::0x15EF::0x0099::MY001::INSTR"
     assert info.category == "psu"
-    assert info.driver_class_name == "BK9115"
+    assert info.driver_name == "BK9115"
     assert info.num_channels == 1
 
 
@@ -78,7 +84,7 @@ def test_scan_recognized_siglent_spd3303_reports_two_programmable_channels() -> 
 
     assert len(result.instruments) == 1
     info = result.instruments[0]
-    assert info.driver_class_name == "SiglentSPD3303"
+    assert info.driver_name == "SiglentSPD3303"
     assert info.num_channels == 2
 
 
@@ -92,7 +98,7 @@ def test_scan_recognized_dmm() -> None:
     assert len(result.instruments) == 1
     info = result.instruments[0]
     assert info.category == "dmm"
-    assert info.driver_class_name == "Keithley2400"
+    assert info.driver_name == "Keithley2400"
     assert info.num_channels is None
 
 
@@ -114,7 +120,7 @@ def test_scan_recognized_scope(idn: str, driver_class: str) -> None:
     assert len(result.instruments) == 1
     info = result.instruments[0]
     assert info.category == "scope"
-    assert info.driver_class_name == driver_class
+    assert info.driver_name == driver_class
 
 
 @pytest.mark.parametrize(
@@ -136,7 +142,7 @@ def test_scan_recognized_awg(idn: str, driver_class: str, num_channels: int) -> 
     assert len(result.instruments) == 1
     info = result.instruments[0]
     assert info.category == "awg"
-    assert info.driver_class_name == driver_class
+    assert info.driver_name == driver_class
     assert info.num_channels == num_channels
 
 
@@ -230,3 +236,124 @@ def test_scan_mixed() -> None:
     assert len(result.errors) == 1
     assert result.instruments[0].category == "psu"
     assert result.instruments[1].category == "dmm"
+
+
+def test_discovered_instrument_builds_driver_and_config_block() -> None:
+    serial = SerialConfig(baud_rate=57600, stop_bits=StopBits.TWO, parity=Parity.EVEN, flow_control=ControlFlow.DTR_DSR)
+    found = DiscoveredInstrument(
+        resource="ASRL3::INSTR",
+        idn="B&K PRECISION,9115,12345,1.0",
+        category="psu",
+        driver_name="BK9115",
+        num_channels=1,
+        backend="@py",
+        serial_config=serial,
+    )
+    assert found.driver_class() is BK9115
+    cfg = found.visa_config()
+    assert (cfg.visa_resource, cfg.visa_backend) == ("ASRL3::INSTR", "@py")
+    assert cfg.serial_config == serial
+    assert cfg.serial_config is not found.serial_config  # a copy: tweaking the config leaves the record alone
+    cfg.serial_config.baud_rate = 9600
+    assert found.serial_config.baud_rate == 57600
+    serial.baud_rate = 9600  # the caller's own object is not the record's either
+    assert found.serial_config.baud_rate == 57600
+    assert found.config_block()["visa"]["serial_config"]["baud_rate"] == 57600
+    assert isinstance(found.make_driver(), BK9115)
+
+    block = found.config_block()
+    assert block == {
+        "name": "BK9115",
+        "num_channels": 1,
+        "visa": {
+            "visa_resource": "ASRL3::INSTR",
+            "visa_backend": "@py",
+            "serial_config": {"baud_rate": 57600, "data_bits": 8, "stop_bits": 2, "parity": "E", "flow_control": 4},
+        },
+    }
+    validated = PSUVisaDriverConfig.model_validate(block)
+    assert isinstance(validated.visa, VisaConfig)
+    assert validated.visa.serial_config == found.serial_config  # `serial` was mutated above on purpose
+
+
+def test_discovered_instrument_is_immutable_and_not_hashable() -> None:
+    usb = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="BK9115")
+    serial = dataclasses.replace(usb, resource="ASRL1::INSTR", serial_config=SerialConfig())
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        usb.resource = "other"  # type: ignore[misc]
+    for record in (usb, serial):  # the same answer whether or not serial settings are attached
+        with pytest.raises(TypeError):
+            hash(record)
+    assert usb == dataclasses.replace(usb)
+
+
+def test_driver_class_does_not_mask_key_errors_raised_while_loading_the_driver() -> None:
+    found = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="BK9115")
+    entry = MagicMock(spec=DriverEntry)
+    entry.load.side_effect = KeyError("missing_setting")  # raised inside the driver module, not by the registry
+    with patch("instro.lib.discover.driver_registry", return_value={"BK9115": entry}):
+        with pytest.raises(KeyError, match="missing_setting"):
+            found.driver_class()
+
+
+def test_serial_config_block_covers_every_field() -> None:
+    found = DiscoveredInstrument(
+        resource="ASRL1::INSTR", idn="x", category="psu", driver_name="BK9115", serial_config=SerialConfig()
+    )
+    block = found.config_block()["visa"]["serial_config"]
+    assert set(block) == {f.name for f in dataclasses.fields(SerialConfig)}
+    assert all(not isinstance(v, enum.Enum) for v in block.values())
+
+
+def test_discovered_instrument_without_serial_config_uses_transport_defaults() -> None:
+    found = DiscoveredInstrument(
+        resource="USB0::1::2::INSTR", idn="B&K PRECISION,9115,1,1.0", category="psu", driver_name="BK9115"
+    )
+    assert found.visa_config().serial_config == SerialConfig()
+    assert "serial_config" not in found.config_block()["visa"]
+
+
+def test_discovered_instrument_non_visa_transport_passes_resource_to_driver() -> None:
+    """A vendor-SDK provider's record resolves through the same registry lookup as a VISA one."""
+    found = DiscoveredInstrument(
+        resource="Dev1", idn="USB-6002", category="daq", driver_name="FakeDAQ", transport="nidaqmx"
+    )
+    entry = MagicMock(spec=DriverEntry)
+    with patch("instro.lib.discover.driver_registry", return_value={"FakeDAQ": entry}) as registry:
+        driver = found.make_driver()
+    registry.assert_called_once_with("daq")
+    entry.load.return_value.assert_called_once_with("Dev1")
+    assert driver is entry.load.return_value.return_value
+    with pytest.raises(ValueError, match="not VISA"):
+        found.visa_config()
+    with pytest.raises(ValueError, match="no JSON config schema"):
+        found.config_block()
+
+
+def test_discovered_instrument_unregistered_driver_name_raises() -> None:
+    found = DiscoveredInstrument(resource="USB0::1::2::INSTR", idn="x", category="psu", driver_name="PSUDriverBase")
+    with pytest.raises(KeyError, match="registered for category 'psu'"):
+        found.driver_class()
+
+
+def test_scan_records_requested_backend_not_resolved_one() -> None:
+    mock_rm = _rm_mock(("USB0::0x15EF::0x0099::MY001::INSTR",))
+    with patch("instro.lib.discover.pyvisa.ResourceManager", return_value=mock_rm):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = "B&K PRECISION,9115,12345,1.0"
+            explicit = scan_visa_resources(backend="@py")
+    assert explicit.instruments[0].backend == "@py"
+    assert explicit.instruments[0].visa_config().visa_backend == "@py"
+    assert explicit.instruments[0].config_block()["visa"]["visa_backend"] == "@py"
+
+    # default request that fell back to @py: the record must not pin @py, or the config it
+    # produces would skip @ivi on a bench that has it
+    with patch("instro.lib.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI"), mock_rm]):
+        with patch("instro.lib.discover.VisaDriver") as mock_driver_cls:
+            mock_driver_cls.return_value.query.return_value = "B&K PRECISION,9115,12345,1.0"
+            default = scan_visa_resources()
+    assert default.instruments[0].backend is None
+    assert default.instruments[0].visa_config().visa_backend is None
+    assert "visa_backend" not in default.instruments[0].config_block()["visa"]
+    assert VisaInstrumentInfo is DiscoveredInstrument
+    assert default.instruments[0].driver_class_name == "BK9115"
