@@ -466,9 +466,7 @@ def test_discover_skips_non_usb_serial_unless_probe_serial_all(_no_serial_ports)
             disabled = discover(probe_serial="none")
 
     assert default.skipped == [
-        SkippedResource(
-            "ASRL1::INSTR", "COM1 (Communications Port) is not a USB serial port; probe it with probe_serial='all'"
-        )
+        SkippedResource("ASRL1::INSTR", "COM1 (Communications Port) is not a USB serial port and was not probed")
     ]
     assert everything.instruments[0].serial_config == SerialConfig()
     assert disabled.skipped == [SkippedResource("ASRL1::INSTR", "serial probing disabled")]

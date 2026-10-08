@@ -17,6 +17,13 @@ from instro.lib.transports.visa import SerialConfig
 
 runner = CliRunner()
 
+
+@pytest.fixture(autouse=True)
+def _wide_console(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rich wraps table cells at the console width; pin it so substring assertions don't depend on the terminal."""
+    monkeypatch.setenv("COLUMNS", "200")
+
+
 _GPIB_DEGRADED_DEBUG_INFO = {
     "Version": "0.8.1",
     "ASRL INSTR": "Available via PySerial (3.5)",

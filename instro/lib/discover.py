@@ -553,7 +553,7 @@ def _skip_reason(candidate: Candidate, options: DiscoveryOptions) -> str | None:
         return "serial probing disabled"
     if options.probe_serial == "usb" and (candidate.port is None or not candidate.port.is_usb):
         name = f"{candidate.port.device} ({candidate.port.description})" if candidate.port else candidate.resource
-        return f"{name} is not a USB serial port; probe it with probe_serial='all'"
+        return f"{name} is not a USB serial port and was not probed"
     return None
 
 
