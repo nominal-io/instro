@@ -8,7 +8,7 @@ The layers are usable on their own and the CLI is one consumer of them:
 * :class:`DiscoveryProvider` is a source of discovery records, selected by name through
   :data:`SOURCES`. :class:`VisaProvider` covers SCPI over VISA (USB, LAN, GPIB, serial) and is the
   default; vendor-SDK sources for DAQs register under their own names so callers opt in to them.
-* :func:`discover` runs every provider and assembles a :class:`DiscoveryReport`.
+* :func:`discover` runs the selected providers and assembles a :class:`DiscoveryReport`.
 """
 
 from __future__ import annotations
@@ -303,7 +303,7 @@ class DiscoveryOptions:
 
     Attributes:
         backend: pyvisa backend, or ``None`` for the default (``@ivi`` with ``@py`` fallback).
-        timeout: Seconds to wait for a non-serial identity reply.
+        timeout: Seconds to wait for each identity reply.
         extra_resources: Addresses VISA does not enumerate but should be probed, e.g. LAN sockets.
         exclude: Resources or serial device names (case-insensitive) never to probe.
         probe_serial: ``"usb"`` probes USB serial adapters only (motherboard ports cost a timeout each
@@ -311,6 +311,7 @@ class DiscoveryOptions:
         serial_config: The one serial configuration every serial port is probed with. A port that does
             not answer at it is reported as an error asking for manual serial settings; discovery does
             not sweep baud rates or framings.
+        serial_ports: The OS serial ports, enumerated once per scan so providers don't repeat it.
     """
 
     backend: str | None = None
@@ -319,6 +320,8 @@ class DiscoveryOptions:
     exclude: tuple[str, ...] = ()
     probe_serial: SerialProbePolicy = "usb"
     serial_config: SerialConfig = dataclasses.field(default_factory=SerialConfig)
+    serial_ports: tuple[SerialPortInfo, ...] = ()
+    """The OS serial ports, enumerated once by :func:`discover` and shared with every provider."""
 
     def is_excluded(self, resource: str, port: SerialPortInfo | None = None) -> bool:
         excluded = {e.upper() for e in self.exclude}
@@ -403,7 +406,7 @@ def enumerate_candidates(
     VISA resources come first, in the order the backend lists them. Nothing is opened or queried.
     """
     if rm is None:
-        rm, backend, _ = _open_resource_manager(backend)
+        rm, _, _ = _open_resource_manager(backend)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         visa_resources = list(rm.list_resources())
@@ -490,8 +493,7 @@ def _classify_error_hint(exc: Exception) -> str | None:
 class VisaProvider:
     """SCPI-over-VISA discovery: VISA resources, OS serial ports and extra addresses, identified by ``*IDN?``.
 
-    Pass an already-open ``rm`` to reuse a resource manager a caller opened for its own diagnostics;
-    ``options.backend`` must then be the backend it was opened with.
+    Pass an already-open ``rm`` to reuse a resource manager a caller opened for its own diagnostics.
 
     Records carry ``options.backend`` as requested, not the backend it resolved to, so a default
     request stays ``None`` and the :class:`VisaConfig` built from a record keeps the fallback behavior.
@@ -503,12 +505,14 @@ class VisaProvider:
         self._rm = rm
 
     def discover(self, options: DiscoveryOptions, emit: EmitFn) -> Iterable[Record]:
-        backend: str | None = options.backend
-        rm = self._rm
-        if rm is None:
-            rm, backend, _ = _open_resource_manager(options.backend)
+        # Resolve once for probing; pyvisa caches one ResourceManager per backend, so this is free
+        # even when rm was given, and it saves a failed @ivi attempt per resource on a @py bench.
+        resolved_rm, backend, _ = _open_resource_manager(options.backend)
+        rm = self._rm if self._rm is not None else resolved_rm
 
-        for candidate in enumerate_candidates(backend, options.extra_resources, rm=rm):
+        for candidate in enumerate_candidates(
+            backend, options.extra_resources, rm=rm, serial_ports=options.serial_ports
+        ):
             reason = _skip_reason(candidate, options)
             if reason is not None:
                 yield SkippedResource(candidate.resource, reason)
@@ -593,7 +597,7 @@ def discover(
     sources: Iterable[str] = DEFAULT_SOURCES,
     providers: Sequence[DiscoveryProvider] | None = None,
 ) -> DiscoveryReport:
-    """Run every discovery provider and return what was found.
+    """Run the selected discovery providers and return what was found.
 
     Args:
         backend: pyvisa backend, e.g. ``"@py"``; ``None`` uses ``@ivi`` and falls back to ``@py``.
@@ -617,6 +621,7 @@ def discover(
         for found in report.instruments:
             print(found.resource, found.category, found.driver_name)
     """
+    serial_ports = list_serial_ports()
     options = DiscoveryOptions(
         backend=backend,
         timeout=timeout,
@@ -624,9 +629,10 @@ def discover(
         exclude=tuple(exclude),
         probe_serial=probe_serial,
         serial_config=serial_config if serial_config is not None else SerialConfig(),
+        serial_ports=tuple(serial_ports),
     )
     emit: EmitFn = on_event if on_event is not None else (lambda event: None)
-    report = DiscoveryReport(instruments=[], unrecognized=[], errors=[], serial_ports=list_serial_ports())
+    report = DiscoveryReport(instruments=[], unrecognized=[], errors=[], serial_ports=serial_ports)
 
     for provider in providers_for(sources) if providers is None else providers:
         for record in provider.discover(options, emit):

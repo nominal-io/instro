@@ -434,6 +434,7 @@ def test_discover_identifies_usb_serial_port_and_records_serial_config(_no_seria
     assert found.serial_config == SerialConfig(baud_rate=19200)
     assert found.visa_config().serial_config.baud_rate == 19200
     assert report.skipped == [] and report.errors == []
+    _no_serial_ports.comports.assert_called_once()  # enumerated once per scan, shared with the provider
 
 
 def test_discover_reports_silent_serial_port_with_manual_settings_hint(_no_serial_ports) -> None:
@@ -588,3 +589,18 @@ def test_scan_visa_resources_is_a_visa_only_wrapper() -> None:
         result = scan_visa_resources(backend="@py", rm=mock_rm)
     mock_driver_cls.assert_not_called()
     assert result.skipped == [SkippedResource("ASRL1::INSTR", "serial probing disabled")]
+
+
+def test_provider_resolves_probing_backend_once_when_given_an_rm() -> None:
+    """A passed rm is reused for enumeration, but probes use the resolved backend, not a per-resource fallback."""
+    mock_rm = _rm_mock(("USB0::A::INSTR", "USB0::B::INSTR"))
+    with (
+        patch("instro.lib.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI"), mock_rm]) as rm_cls,
+        patch("instro.lib.discover.VisaDriver") as mock_driver_cls,
+    ):
+        mock_driver_cls.return_value.query.return_value = "B&K PRECISION,9115,1,1.0"
+        result = scan_visa_resources(rm=mock_rm)  # backend=None: default with @py fallback
+    assert rm_cls.call_count == 2  # one @ivi attempt, one @py fallback, nothing per resource
+    assert [c.args[0].visa_backend for c in mock_driver_cls.call_args_list] == ["@py", "@py"]
+    assert [i.backend for i in result.instruments] == [None, None]
+    mock_rm.list_resources.assert_called_once()
