@@ -31,7 +31,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 | Python/`uv` | `instro/lib/transports/` | Transport drivers (`VisaDriver`). Category bases are transport-agnostic; concrete drivers compose transports. |
 | Python/`uv` | `packages/instro-contrib/` | Community-contributed drivers. Mirrors core layout under `instro/contrib/`. |
 | Python/`uv` | `packages/instro-unstable/` | In-development categories and abstractions whose API isn't settled. |
-| Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. Their drivers are registered in core (`instro/daq/config.py`) by import path so discovery records resolve them by name. |
+| Python/`uv` | `packages/instro-{daq-ni,daq-labjack,daq-mcc,i2c-aardvark}` | Vendor packages wrapping proprietary native SDKs. Their drivers are registered in core (`instro/daq/config.py`) by import path, and core discovers their devices through the opt-in sources in `instro/lib/vendor_discovery.py` (`nidaq`, `labjack`, `mccdaq`), which import the SDK only when they run. |
 | Python/`uv` | `tests/<category>/` | Per-category tests, predominantly mocked-transport unit tests. |
 | Rust/`cargo` | `crates/<category>` | Pure-Rust drivers/utilities (e.g. `instro-ethernetip`). Mixed Rust/Python crates with an entrypoint exposed by the `instro` python package should not live here. |
 
