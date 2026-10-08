@@ -111,3 +111,5 @@ driver_block = psu_info.config_block()  # the ``driver`` block of a JSON config,
 ```
 
 `visa_config()` and `driver_class()` give you the pieces when you want to construct the driver yourself. The layers under `discover` are public too: `enumerate_candidates()` lists what could be probed without touching anything, `identify(resource)` runs a single `*IDN?` probe, `match_idn(idn)` maps an identity string you already have to a driver, and `scan_visa_resources()` remains as a VISA-only wrapper with serial probing disabled.
+
+The backend notes the CLI prints come from `instro.lib.transports.visa.backend_diagnostics()`, which returns the active backend, whether the `@py` fallback was used, and the interfaces pyvisa-py cannot serve, so a script or test fixture can explain an empty scan the same way.

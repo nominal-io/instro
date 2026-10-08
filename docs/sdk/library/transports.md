@@ -35,6 +35,10 @@ implementing a new transport.
    ~instro.lib.transports.visa.StopBits
    ~instro.lib.transports.visa.Parity
    ~instro.lib.transports.visa.ControlFlow
+   ~instro.lib.transports.visa.open_resource_manager
+   ~instro.lib.transports.visa.backend_diagnostics
+   ~instro.lib.transports.visa.BackendDiagnostics
+   ~instro.lib.transports.visa.DegradedInterface
 ```
 
 ## Modbus transport

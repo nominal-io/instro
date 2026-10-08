@@ -30,7 +30,7 @@ from instro.lib.transports.visa import (
     TimeoutConfig,
     VisaConfig,
     VisaDriver,
-    _open_resource_manager,
+    open_resource_manager,
 )
 
 VISA_TRANSPORT = "visa"
@@ -406,7 +406,7 @@ def enumerate_candidates(
     VISA resources come first, in the order the backend lists them. Nothing is opened or queried.
     """
     if rm is None:
-        rm, _, _ = _open_resource_manager(backend)
+        rm, _, _ = open_resource_manager(backend)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         visa_resources = list(rm.list_resources())
@@ -507,7 +507,7 @@ class VisaProvider:
     def discover(self, options: DiscoveryOptions, emit: EmitFn) -> Iterable[Record]:
         # Resolve once for probing; pyvisa caches one ResourceManager per backend, so this is free
         # even when rm was given, and it saves a failed @ivi attempt per resource on a @py bench.
-        resolved_rm, backend, _ = _open_resource_manager(options.backend)
+        resolved_rm, backend, _ = open_resource_manager(options.backend)
         rm = self._rm if self._rm is not None else resolved_rm
 
         for candidate in enumerate_candidates(
