@@ -5,7 +5,6 @@ pub(crate) mod metrics;
 pub mod types;
 
 pub use open62541;
-
 use open62541::Certificate;
 use open62541::PrivateKey;
 use open62541::create_certificate;

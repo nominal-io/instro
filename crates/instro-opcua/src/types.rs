@@ -1036,7 +1036,8 @@ fn namespace_separator(segment: &str) -> Result<Option<usize>> {
 
             bail!(
                 internal,
-                "':' in a browse path segment must be escaped unless it separates a namespace (original: '{segment}')"
+                "':' in a browse path segment must be escaped unless it separates a namespace \
+                 (original: '{segment}')"
             )
         }
     }
@@ -1066,7 +1067,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
             if !is_browse_path_reserved(ch) {
                 bail!(
                     internal,
-                    "'&' in a browse path segment must escape a reserved character (original: '{name}')"
+                    "'&' in a browse path segment must escape a reserved character (original: \
+                     '{name}')"
                 )
             }
 
@@ -1080,7 +1082,8 @@ fn unescape_browse_name(name: &str) -> Result<String> {
         } else if is_browse_path_reserved(ch) {
             bail!(
                 internal,
-                "reserved character '{ch}' in a browse path segment must be escaped (original: '{name}')"
+                "reserved character '{ch}' in a browse path segment must be escaped (original: \
+                 '{name}')"
             )
         } else {
             unescaped.push(ch);
