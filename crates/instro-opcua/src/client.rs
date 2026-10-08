@@ -26,11 +26,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future;
-use std::ops::Deref;
-use std::ops::DerefMut;
 use std::sync::Arc;
 use std::sync::Weak;
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -53,11 +50,14 @@ use open62541::PrivateKey;
 use open62541::SubscriptionBuilder;
 use open62541::ua;
 use tokio::runtime;
+use tokio::sync::RwLock;
 use tokio::sync::oneshot;
+use tokio::sync::watch;
 use tokio::task::yield_now;
 use tokio::time::Interval;
 use tokio::time::MissedTickBehavior;
 use tokio::time::interval;
+use tokio::time::timeout;
 
 use super::generate_self_signed_cert;
 use super::metrics::NodeReadCounts;
@@ -264,11 +264,7 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     }
 }
 
-// `mpsc::Receiver` let's us do non-async timeouts when waiting for the session to exit.
-// Ideally we'd use `tokio::sync::oneshot::*` types for both ends of the synchronization pipe,
-// but there's too many footguns (i.e., runtime lifetimes, nested `block_on`s, etc.)
-type TerminationReceiver = mpsc::Receiver<()>;
-// `oneshot::Sender` lets us wait in a select! block with the `stop_tx` sender next to whatever session-specific work is running
+type TerminationReceiver = watch::Receiver<bool>;
 type StopSender = oneshot::Sender<()>;
 
 #[derive(Debug)]
@@ -279,30 +275,39 @@ struct SessionHandle {
 
 impl SessionHandle {
     /// Sends a stop signal to the session, waiting until the session has exited
-    fn stop(self) -> Result<()> {
-        if let Err(e) = self.stop_tx.send(()) {
-            tracing::warn!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "stream session likely terminated before stop signal could be sent"
-            );
+    fn stop(self) -> impl Future<Output = Result<()>> {
+        let Self {
+            stop_tx,
+            mut term_rx,
+        } = self;
+        if *term_rx.borrow_and_update() {
+            return future::ready(Ok(())).left_future();
         }
 
-        self.term_rx.recv().context("waiting for session to exit")
+        _ = stop_tx.send(());
+
+        async move {
+            term_rx
+                .changed()
+                .await
+                .context("waiting for remote streaming session to exit")
+        }
+        .right_future()
     }
 
-    fn stop_timeout(self, timeout: Duration) -> Result<()> {
-        if let Err(e) = self.stop_tx.send(()) {
-            tracing::warn!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "stream session likely terminated before stop signal could be sent"
+    /// Checks the status of the session and returns `true` if it has been stopped.
+    fn has_stopped(&self) -> bool {
+        if let Err(e) = self.term_rx.has_changed() {
+            tracing::debug!(
+                target: "opcua::client::session_handle",
+                err = ?e,
+                "stream session handle was dropped unexpectedly"
             );
-        }
 
-        self.term_rx
-            .recv_timeout(timeout)
-            .context("waiting for session to exit")
+            true
+        } else {
+            *self.term_rx.borrow()
+        }
     }
 }
 
@@ -312,22 +317,44 @@ impl SessionHandle {
 /// The client is created by the [`OpcUaClientBuilder::connect`] method, which returns an [`Arc`] of the client.
 /// Streaming sessions started from this client own their own tokio runtime; see [`OpcUaStreamSession`].
 pub struct OpcUaClient {
-    client: AsyncClient,
+    client: RwLock<Option<AsyncClient>>,
 }
 
-impl OpcUaClient {
-    /// Attempts to gracefully disconnect from the server, returning an error if the client has outstanding references.
-    pub async fn disconnect(self: Arc<Self>) -> Result<()> {
-        match Arc::into_inner(self) {
-            None => bail!(
-                "OPC-UA client has outstanding references; cannot perform graceful disconnect"
-            ),
+type ReadNodeItem<'batch> = (
+    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
+    OpcUaDataPoint,
+);
 
-            Some(Self { client }) => {
-                client.disconnect().await;
-                Ok(())
-            }
-        }
+impl OpcUaClient {
+    /// Gracefully disconnects from the server.
+    ///
+    /// This method will synchronize with disconnection of the client from the server.
+    pub async fn disconnect(self: Arc<Self>) {
+        let client = {
+            // tokio's `RwLock` should give us fair write-starvation protection
+            let Some(client) = self.client.write().await.take() else {
+                return;
+            };
+
+            client
+        };
+
+        client.disconnect().await;
+    }
+
+    /// Attempts to access the underlying [`AsyncClient`] and invoke `f` with it.
+    ///
+    /// Returns [`Err`] if the client has been disconnected before the function could be invoked.
+    pub async fn with_client<F, T>(&self, f: F) -> Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a AsyncClient) -> T,
+    {
+        let client_guard = self.client.read().await;
+        let Some(client) = client_guard.as_ref() else {
+            bail!("OPC UA client has been disconnected");
+        };
+
+        Ok(f(client).await)
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
@@ -366,18 +393,15 @@ impl OpcUaClient {
     pub async fn read_nodes<'nodes, 'attrs, 'batch>(
         &self,
         node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        > + use<'nodes, 'attrs, 'batch>,
-    > {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>> + use<'batch>> {
         let read_result = self
-            .read_many_attributes(node_list.pairs())
-            .await
-            .context("reading node attributes")?;
+            .with_client(async |client| {
+                client
+                    .read_many_attributes(node_list.pairs())
+                    .await
+                    .context("reading node attributes")
+            })
+            .await??;
 
         if read_result.len() != node_list.len() {
             bail!(
@@ -426,10 +450,16 @@ impl OpcUaClient {
         F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
-        let (_, subscription) = subscription_builder
-            .create(self)
-            .await
-            .context("creating OPC-UA subscription")?;
+
+        let (_, subscription) = self
+            .with_client(async |client| {
+                subscription_builder
+                    .create(client)
+                    .await
+                    .context("creating OPC UA subscription")
+            })
+            .await??;
+
         let this = Arc::downgrade(self);
 
         let nodes = nodes.into_list();
@@ -441,11 +471,11 @@ impl OpcUaClient {
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
-            .context("creating OPC-UA monitored items")?;
+            .context("creating OPC UA monitored items")?;
 
         if item_results.len() != nodes.len() {
             bail!(
-                "OPC-UA server returned {} monitored-item results for {} requested nodes",
+                "OPC UA server returned {} monitored-item results for {} requested nodes",
                 item_results.len(),
                 nodes.len()
             );
@@ -548,21 +578,12 @@ impl OpcUaClient {
 
             let read_start = metrics.start_read();
 
-            let read_result = if reader.is_alive() {
-                reader
-                    .read_nodes(&node_list)
-                    .await
-                    .context("reading nodes from poll loop")
-            } else {
-                tracing::warn!(target: "opcua::client::poll", "stopping poll loop");
-                break;
-            };
-
-            let (outcome, samples) = match read_result {
+            let (outcome, samples) = match reader.read_nodes(&node_list).await {
                 Ok(values) => {
                     let values = values
                         .map(|((id, _), value)| (id.clone(), value))
                         .collect_vec();
+
                     let successful_reads = values.len() as u64;
                     let failed_reads = total_nodes.saturating_sub(successful_reads);
 
@@ -575,14 +596,19 @@ impl OpcUaClient {
                     )
                 }
 
-                Err(e) => {
+                Err(NodeReadError::RuntimeError(e)) => {
                     tracing::error!(
                         target: "opcua::client::poll",
-                        error = ?e,
-                        "error reading node attributes"
+                        err = ?e,
+                        "error reading nodes from poll loop"
                     );
 
                     (None, None)
+                }
+
+                Err(NodeReadError::ClientDropped) => {
+                    tracing::info!(target: "opcua::client::poll", "stopping poll loop");
+                    break;
                 }
             };
 
@@ -634,11 +660,6 @@ impl OpcUaClient {
             select_biased! {
                 // Ticks are first so ready poll work is not starved by a burst of notifications.
                 _ = maybe_tick.fuse() => {
-                    // If the client is gone, stop before another read; the exit drain still flushes buffered polls.
-                    if !reader.is_alive() {
-                        break;
-                    }
-
                     let polled_samples_to_flush = polled_nodes
                         .drain()
                         .collect_vec();
@@ -651,8 +672,9 @@ impl OpcUaClient {
 
                         let reads = match reader.read_nodes(&batch).await {
                             Ok(reads) => reads,
+                            Err(NodeReadError::ClientDropped) => break,
 
-                            Err(e) => {
+                            Err(NodeReadError::RuntimeError(e)) => {
                                 tracing::error!(
                                     target: "opcua::client::subscribe",
                                     error = ?e,
@@ -746,21 +768,16 @@ fn polled_sample_filter(
 // single-threaded session runtime, so no work crosses threads after the timer/read seams.
 #[allow(async_fn_in_trait)]
 pub(crate) trait NodeReader {
-    /// Returns `false` once the backing client has been dropped, signalling the loop to stop.
-    fn is_alive(&self) -> bool;
-
     /// Reads the configured attribute for every node in `batch`, returning decoded samples.
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        >,
-    >;
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError>;
+}
+
+pub(crate) enum NodeReadError {
+    ClientDropped,
+    RuntimeError(anyhow::Error),
 }
 
 /// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
@@ -769,27 +786,19 @@ pub(crate) struct ClientNodeReader {
 }
 
 impl NodeReader for ClientNodeReader {
-    fn is_alive(&self) -> bool {
-        self.client.strong_count() > 0
-    }
-
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<
-        impl Iterator<
-            Item = (
-                (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                OpcUaDataPoint,
-            ),
-        >,
-    > {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
-            Some(client) => client.read_nodes(batch).await,
-            None => bail!("OPC-UA client dropped before background poll read"),
+            Some(client) => client
+                .read_nodes(batch)
+                .await
+                .map_err(NodeReadError::RuntimeError),
+            None => Err(NodeReadError::ClientDropped),
         }
     }
 }
@@ -927,7 +936,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
-    #[must_use = "dropping the returned client will immediately disconnect from the OPC-UA server"]
+    #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
         let user_token = self.user_token.context("no user token provided")?;
 
@@ -976,28 +985,17 @@ impl OpcUaClientBuilder {
 
 impl OpcUaClient {
     fn new(client: AsyncClient) -> Arc<Self> {
-        Arc::new(Self { client })
-    }
-}
-
-impl Deref for OpcUaClient {
-    type Target = AsyncClient;
-    fn deref(&self) -> &Self::Target {
-        &self.client
-    }
-}
-
-impl DerefMut for OpcUaClient {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.client
+        Arc::new(Self {
+            client: RwLock::new(Some(client)),
+        })
     }
 }
 
 #[derive(Debug)]
 /// Manages a streaming session backed by an OPC-UA subscription or polling loop.
 ///
-/// The session is created by [`OpcUaClient::start_polling`] or [`OpcUaClient::start_subscription`].
-/// Dropping it signals shutdown cooperatively, with a 2 second timeout (see [`Drop`] impl).
+/// The session is created by [`OpcUaClient::start_polling`] or [`OpcUaClient::start_subscription`],
+/// and can be stopped using [`OpcUaStreamSession::stop`] or [`OpcUaStreamSession::stop_timeout`].
 pub struct OpcUaStreamSession {
     handle: Option<SessionHandle>,
 }
@@ -1013,29 +1011,43 @@ impl OpcUaStreamSession {
             .context("creating tokio runtime for opcua task")?;
 
         let (stop_tx, stop_rx) = oneshot::channel();
-        let (term_tx, term_rx) = mpsc::sync_channel(1);
+        let (term_tx, term_rx) = watch::channel(false);
 
         // don't care about joining the thread, since we're using `SessionHandle` to synchronize session exit
         let _ = thread::Builder::new()
             .name(format!("opcua-worker-thread-{name}"))
-            .spawn(move || runtime.block_on(async move {
-                tokio::select! {
-                    _ = stop_rx => {
-                        tracing::info!(target: "opcua::client::spawn_task", "task {name} stopped cooperatively");
+            .spawn(move || {
+                runtime.block_on(async move {
+                    tokio::select! {
+                        stop_result = stop_rx => {
+                            match stop_result {
+                                Ok(_) => tracing::debug!(
+                                    target: "opcua::client::spawn_task",
+                                    task = name,
+                                    "stopped cooperatively",
+                                ),
+                                Err(e) => tracing::debug!(
+                                    target: "opcua::client::spawn_task",
+                                    task = name,
+                                    err = ?e,
+                                    "stop signal likely dropped before task completed",
+                                ),
+                            }
+                        }
+
+                        _ = f() => ()
                     }
 
-                    _ = f() => ()
-                }
-
-                if let Err(e) = term_tx.send(()) {
-                    tracing::error!(
-                        target: "opcua::client::spawn_task",
-                        err = ?e,
-                        task = name,
-                        "error sending finished signal to task"
-                    );
-                }
-            }))
+                    if let Err(e) = term_tx.send(true) {
+                        tracing::debug!(
+                            target: "opcua::client::spawn_task",
+                            err = ?e,
+                            task = name,
+                            "error sending finished signal to task"
+                        );
+                    }
+                })
+            })
             .context("spawning thread for opcua task")?;
 
         Ok(Self {
@@ -1044,36 +1056,39 @@ impl OpcUaStreamSession {
     }
 
     /// Stops the stream session, blocking until the session exits.
-    pub fn stop(mut self) -> Result<()> {
+    pub async fn stop(mut self) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            handle.stop()?;
+            handle.stop().await?;
         }
 
         Ok(())
     }
 
     /// Stops the stream session, returning an error if the session does not exit within the given timeout.
-    pub fn stop_timeout(mut self, timeout: Duration) -> Result<()> {
+    pub async fn stop_timeout(mut self, to: Duration) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            handle.stop_timeout(timeout)?;
+            timeout(to, handle.stop())
+                .await
+                .context("waiting for stream session to exit")??;
         }
 
         Ok(())
+    }
+
+    /// Returns true if the remote streaming thread has completed, either cooperatively or due to a panic.
+    pub fn has_stopped(&self) -> bool {
+        self.handle
+            .as_ref()
+            .map(SessionHandle::has_stopped)
+            .unwrap_or(true)
     }
 }
 
 impl Drop for OpcUaStreamSession {
     fn drop(&mut self) {
-        // 2s is generous for a cooperatively-cancellable loop; if the worker is
-        // wedged past that, accept the leak rather than block Drop indefinitely.
-        if let Some(sync) = self.handle.take()
-            && let Err(e) = sync.stop_timeout(Duration::from_secs(2))
-        {
-            tracing::error!(
-                target: "opcua::client::stream_session",
-                error = ?e,
-                "error stopping stream session"
-            );
+        if let Some(handle) = self.handle.take() {
+            // don't need to await the result, the stop signal was sent imperatively
+            _ = handle.stop();
         }
     }
 }
@@ -1104,10 +1119,12 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio::time::timeout;
 
+    use super::NodeReadError;
     use super::NodeReader;
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
+    use super::ReadNodeItem;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNodeId;
@@ -1153,26 +1170,19 @@ mod tests {
     }
 
     impl NodeReader for MockNodeReader {
-        fn is_alive(&self) -> bool {
-            self.state.lock().map(|s| s.is_alive).unwrap_or(false)
-        }
-
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<
-            impl Iterator<
-                Item = (
-                    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-                    OpcUaDataPoint,
-                ),
-            >,
-        > {
+        ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
             let samples = {
                 let mut state = self
                     .state
                     .lock()
-                    .map_err(|_| anyhow!("reader state poisoned"))?;
+                    .map_err(|_| NodeReadError::RuntimeError(anyhow!("reader state poisoned")))?;
+
+                if !state.is_alive {
+                    return Err(NodeReadError::ClientDropped);
+                }
 
                 let timestamp = state.next_timestamp;
                 state.next_timestamp = state.next_timestamp.saturating_add(1);
