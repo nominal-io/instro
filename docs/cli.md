@@ -39,6 +39,8 @@ instro --version # prints version information
 
 Scans VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
 
+By default the command scans VISA, serial ports included. Add `--source` to also run a vendor-SDK source (see [Non-SCPI instruments](#non-scpi-instruments)), or `--source all` for everything.
+
 To force a specific VISA backend, pass `--backend`:
 
 ```bash
@@ -98,7 +100,7 @@ for error in report.errors:
     print(error.resource, error.hint or error.message)
 ```
 
-`discover` returns a `DiscoveryReport` with `instruments`, `unrecognized`, `errors`, `skipped`, and the OS `serial_ports`; `report.by_category("psu")` filters the instruments. Its keyword arguments cover the backend, extra resources, ports to exclude, the serial probe policy and settings, the per-probe timeout, which discovery `sources` run (only `visa` exists today), and an `on_event` progress callback; see the [API reference](/sdk/library/discover.md).
+`discover` returns a `DiscoveryReport` with `instruments`, `unrecognized`, `errors`, `skipped`, and the OS `serial_ports`; `report.by_category("psu")` filters the instruments. Its keyword arguments cover the backend, extra resources, ports to exclude, the serial probe policy and settings, the per-probe timeout, which discovery `sources` run, and an `on_event` progress callback; see the [API reference](/sdk/library/discover.md).
 
 Each `DiscoveredInstrument` builds what you need next, so a script never re-derives the driver from the resource string:
 
@@ -113,3 +115,23 @@ driver_block = psu_info.config_block()  # the ``driver`` block of a JSON config,
 `visa_config()` and `driver_class()` give you the pieces when you want to construct the driver yourself. The layers under `discover` are public too: `enumerate_candidates()` lists what could be probed without touching anything, `identify(resource)` runs a single `*IDN?` probe, `match_idn(idn)` maps an identity string you already have to a driver, and `scan_visa_resources()` remains as a VISA-only wrapper with serial probing disabled.
 
 The backend notes the CLI prints come from `instro.lib.transports.visa.backend_diagnostics()`, which returns the active backend, whether the `@py` fallback was used, and the interfaces pyvisa-py cannot serve, so a script or test fixture can explain an empty scan the same way.
+
+### Non-SCPI instruments
+
+Discovery runs the *sources* you ask for. The default, `visa`, is the SCPI-over-VISA scan described above, serial ports included. The DAQs reached through a vendor SDK have their own sources that you opt in to, because enumerating through an SDK can be slow or touch the network:
+
+| Source | Package | Found through | `resource` on the record | Driver |
+|---|---|---|---|---|
+| `nidaq` | `instro-daq-ni` (`instro[nidaq]`) | NI-DAQmx `System.local().devices` | the DAQmx device name, e.g. `Dev1` | `NIDAQDriver` |
+| `labjack` | `instro-daq-labjack` (`instro[labjack]`) | LJM `listAll` | the serial number | `LabJackTSeriesDriver` |
+| `mccdaq` | `instro-daq-mcc` (`instro[mccdaq]`) | UL `get_daq_device_inventory` | the unique id | `MCCDriver` |
+
+```bash
+instro discover --source nidaq            # NI devices only
+instro discover --source visa --source nidaq
+instro discover --source all
+```
+
+Programmatically, pass the same names: `discover(sources=["visa", "nidaq"])` or `sources=["all"]`. Selecting a source whose package is not installed adds one entry to `report.skipped` naming the extra to install, which the CLI prints as a note; an SDK or runtime that fails to load lands in `report.errors` with a hint.
+
+A record from a vendor source carries the SDK's identity string in `idn`, the vendor as `transport`, and a `driver_name` from `DAQ_VENDOR_REGISTRY`, so `driver_class()` and `make_driver()` work the same way: `make_driver()` passes `resource` straight to the driver constructor, which is the `device_id` the DAQ drivers take. `visa_config()` and `config_block()` raise `ValueError` for them, since there is no VISA connection or JSON schema to build. The Keysight 34980A is a VISA instrument and is matched by `*IDN?` like everything else.

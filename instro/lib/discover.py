@@ -557,11 +557,26 @@ def _skip_reason(candidate: Candidate, options: DiscoveryOptions) -> str | None:
     return None
 
 
-SOURCES: dict[str, Callable[[], DiscoveryProvider]] = {VISA_TRANSPORT: VisaProvider}
+def _vendor_source(name: str) -> Callable[[], DiscoveryProvider]:
+    def factory() -> DiscoveryProvider:
+        from instro.lib.vendor_discovery import vendor_provider  # imports record types from here; resolved at call time
+
+        return vendor_provider(name)
+
+    return factory
+
+
+SOURCES: dict[str, Callable[[], DiscoveryProvider]] = {
+    VISA_TRANSPORT: VisaProvider,
+    "nidaq": _vendor_source("nidaq"),
+    "labjack": _vendor_source("labjack"),
+    "mccdaq": _vendor_source("mccdaq"),
+}
 """Discovery sources by name: what ``discover(sources=...)`` and ``instro discover --source`` can run.
 
-``"visa"`` is the built-in SCPI-over-VISA scan, which also covers serial ports. Packages that discover
-through a vendor SDK add their own entry so callers opt in by name; ``"all"`` selects every entry.
+``"visa"`` is the built-in SCPI-over-VISA scan, which also covers serial ports, and the default. The
+vendor-SDK sources (:mod:`instro.lib.vendor_discovery`) are opt-in because enumerating through an SDK
+can be slow or touch the network; ``"all"`` selects every entry.
 """
 
 DEFAULT_SOURCES: tuple[str, ...] = (VISA_TRANSPORT,)

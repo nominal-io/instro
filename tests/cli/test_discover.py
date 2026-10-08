@@ -250,10 +250,29 @@ def test_discover_passes_requested_backend_to_discovery():
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
     ):
         runner.invoke(app, ["discover"])
-    run.assert_called_once_with(backend=None)
+    run.assert_called_once_with(backend=None, sources=("visa",))
     with (
         patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
         patch("instro.cli.discover.discover_instruments", return_value=_EMPTY_RESULT) as run,
     ):
         runner.invoke(app, ["discover", "--backend", "@py"])
-    run.assert_called_once_with(backend="@py")
+    run.assert_called_once_with(backend="@py", sources=("visa",))
+
+
+def test_discover_source_option_selects_sources_and_notes_missing_packages():
+    mock_rm = _rm_mock()
+    noted = DiscoveryReport(
+        instruments=[],
+        unrecognized=[],
+        errors=[],
+        skipped=[SkippedResource("NI-DAQmx", 'instro-daq-ni not installed (pip install "instro[nidaq]")')],
+    )
+    with (
+        patch("instro.lib.transports.visa.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.cli.discover.discover_instruments", return_value=noted) as run,
+    ):
+        result = runner.invoke(app, ["discover", "--source", "visa", "--source", "nidaq"])
+    assert result.exit_code == 0
+    run.assert_called_once_with(backend=None, sources=["visa", "nidaq"])
+    assert 'instro-daq-ni not installed (pip install "instro[nidaq]")' in result.output
+    assert "NO DEVICES FOUND" in result.output

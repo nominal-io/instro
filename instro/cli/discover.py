@@ -1,8 +1,10 @@
+from collections.abc import Sequence
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from instro.lib.discover import DiscoveryReport, SerialPortInfo, describe_serial_config
+from instro.lib.discover import DEFAULT_SOURCES, DiscoveryReport, SerialPortInfo, describe_serial_config
 from instro.lib.discover import discover as discover_instruments
 from instro.lib.transports.visa import DegradedInterface, backend_diagnostics
 
@@ -36,8 +38,8 @@ def _serial_rows(report: DiscoveryReport) -> list[tuple[str, str, str]]:
     return rows
 
 
-def discover(backend: str | None = None) -> None:
-    """Scan for instruments and print a discovery table."""
+def discover(backend: str | None = None, sources: Sequence[str] = DEFAULT_SOURCES) -> None:
+    """Scan the named sources for instruments and print a discovery table."""
     console = Console()
     width = console.width
     console.print(Panel(f"[bold {FOREGROUND}]{MARK} INSTRO — DISCOVER[/]", border_style=BORDER))
@@ -51,7 +53,10 @@ def discover(backend: str | None = None) -> None:
         console.print(f"   {interface.describe()}", style="dim")
     console.print()
 
-    report = discover_instruments(backend=backend)
+    report = discover_instruments(backend=backend, sources=sources)
+    for note in report.skipped:
+        if not note.resource.upper().startswith("ASRL"):
+            console.print(f"   {note.resource}: {note.reason}", style="dim", markup=False)  # reasons contain [extras]
     serial_rows = _serial_rows(report)
     other_errors = [e for e in report.errors if not e.resource.upper().startswith("ASRL")]
 

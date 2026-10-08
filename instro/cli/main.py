@@ -4,6 +4,7 @@ from typing import Annotated
 import typer
 
 from instro.cli.discover import discover
+from instro.lib.discover import DEFAULT_SOURCES
 
 _WORKSPACE_PACKAGES = (
     ("instro-contrib", "contrib"),
@@ -48,9 +49,16 @@ def main(
 @app.command("discover")
 def discover_cmd(
     backend: Annotated[str | None, typer.Option(help="pyvisa backend, e.g. '@py' or '@ivi'")] = None,
+    source: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--source",
+            help="Discovery source to run (repeatable): visa (default; includes serial ports), nidaq, labjack, mccdaq, or all.",
+        ),
+    ] = None,
 ) -> None:
     """Scan VISA resources and serial ports for instruments and print a summary table."""
-    discover(backend=backend)
+    discover(backend=backend, sources=source or DEFAULT_SOURCES)
 
 
 if __name__ == "__main__":

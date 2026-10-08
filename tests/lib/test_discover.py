@@ -565,7 +565,7 @@ def test_discover_runs_custom_providers_alongside_visa() -> None:
 def test_sources_select_providers_by_name() -> None:
     from instro.lib.discover import SOURCES, VisaProvider, providers_for
 
-    with patch.dict(SOURCES, {"fakedaq": _FakeDAQProvider}):
+    with patch.dict(SOURCES, {"visa": VisaProvider, "fakedaq": _FakeDAQProvider}, clear=True):
         assert [type(p) for p in providers_for(("visa",))] == [VisaProvider]
         assert [type(p) for p in providers_for(("fakedaq", "visa", "fakedaq"))] == [_FakeDAQProvider, VisaProvider]
         assert [type(p) for p in providers_for(("all",))] == [VisaProvider, _FakeDAQProvider]

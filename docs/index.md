@@ -166,6 +166,7 @@ sdk/library/registry
 sdk/library/exceptions
 sdk/library/publishers
 sdk/library/discover
+sdk/library/vendor_discovery
 sdk/library/transports
 ```
 
