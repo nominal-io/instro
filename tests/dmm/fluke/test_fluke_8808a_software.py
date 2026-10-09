@@ -13,9 +13,11 @@ from instro.lib.transports.visa import VisaConfig
 from instro.unstable.dmm.drivers import Fluke8808A
 
 RESOURCE = "ASRL/dev/ttyUSB0::INSTR"
-IDN = "FLUKE, 8808A, 1234567, 1.0 D1.0\r"
 OK = "=>\r"
-OPEN_COMMANDS = ["*RST", "*CLS", "REMS", "FORMAT 1", "TRIGGER 1"]
+TIMEOUT = VisaIOError(StatusCode.error_timeout)
+OPEN_COMMANDS = ["*RST", "RWLS", "FORMAT 1", "TRIGGER 1"]
+# ^C's "=>" and the quiet that ends the drain, then the "=>" answering the *CLS prompt probe.
+CLEAR_AND_PROBE = [OK, TIMEOUT, OK]
 
 
 @pytest.fixture
@@ -32,7 +34,7 @@ def visa(visa_cls: MagicMock) -> MagicMock:
 @pytest.fixture
 def fluke(visa: MagicMock) -> Fluke8808A:
     """An opened driver on a meter that sends prompts, with the open() traffic cleared."""
-    visa.read.side_effect = [OK, IDN, OK] + [OK] * len(OPEN_COMMANDS)
+    visa.read.side_effect = CLEAR_AND_PROBE + [OK] * len(OPEN_COMMANDS)
     driver = Fluke8808A(RESOURCE)
     driver.open()
     visa.reset_mock()
@@ -49,25 +51,24 @@ def test_init_builds_visa_from_config(visa_cls: MagicMock) -> None:
     visa_cls.assert_called_once_with(config)
 
 
-def test_open_clears_and_resets_into_remote(visa: MagicMock) -> None:
-    visa.read.side_effect = [OK, IDN, OK] + [OK] * len(OPEN_COMMANDS)
-    Fluke8808A(RESOURCE, lockout=True).open()
+def test_open_clears_and_resets_into_locked_remote(visa: MagicMock) -> None:
+    visa.read.side_effect = CLEAR_AND_PROBE + [OK] * len(OPEN_COMMANDS)
+    Fluke8808A(RESOURCE).open()
 
     visa.write_raw.assert_called_once_with(b"\x03")
-    assert _writes(visa) == ["*IDN?", "*RST", "*CLS", "RWLS", "FORMAT 1", "TRIGGER 1"]
+    assert _writes(visa) == ["*CLS", *OPEN_COMMANDS]
 
 
-def test_open_rejects_other_instrument_and_closes(visa: MagicMock) -> None:
-    visa.read.side_effect = [OK, "FLUKE, 45, 0, 1.0\r", OK]
-    with pytest.raises(InstroError, match="not a Fluke 8808A"):
+def test_open_failure_closes_transport(visa: MagicMock) -> None:
+    visa.read.side_effect = [*CLEAR_AND_PROBE, "!>\r"]
+    with pytest.raises(InstroError, match="execution error"):
         Fluke8808A(RESOURCE).open()
     visa.close.assert_called_once_with()
 
 
 def test_without_prompts_writes_chain_esr_check(visa: MagicMock) -> None:
-    # No prompt after *IDN? (Echo off, per the manual): every non-query is followed by *ESR?.
-    timeout = VisaIOError(StatusCode.error_timeout)
-    visa.read.side_effect = [OK, IDN, timeout] + ["0\r"] * len(OPEN_COMMANDS) + ["32\r"]
+    # No prompt answers *CLS (Echo off, per the manual): every non-query is followed by *ESR?.
+    visa.read.side_effect = [OK, TIMEOUT, TIMEOUT] + ["0\r"] * len(OPEN_COMMANDS) + ["32\r"]
     driver = Fluke8808A(RESOURCE)
     driver.open()
     assert _writes(visa)[1:] == [f"{c}; *ESR?" for c in OPEN_COMMANDS]
@@ -114,6 +115,22 @@ def test_measure_skips_echo_and_parses_reading(fluke: Fluke8808A, visa: MagicMoc
     visa.read.side_effect = ["MEAS1?\r", "+1.2345E+0\r", OK]
     assert fluke.measure_dc_voltage() == pytest.approx(1.2345)
     assert _writes(visa) == ["MEAS1?"]
+
+
+def test_measure_selects_function_only_when_it_changed(fluke: Fluke8808A, visa: MagicMock) -> None:
+    visa.read.side_effect = [OK, "+1.0E+3\r", OK, "+2.0E+3\r", OK]
+    assert fluke.measure_resistance() == pytest.approx(1000.0)
+    assert fluke.measure_resistance() == pytest.approx(2000.0)
+    assert _writes(visa) == ["OHMS; WIRE2", "MEAS1?", "MEAS1?"]
+
+
+def test_timeout_discards_late_reply(fluke: Fluke8808A, visa: MagicMock) -> None:
+    # The first reading times out and then arrives late; the next read must not return it.
+    visa.read.side_effect = [TIMEOUT, "+1.0E+0\r", OK, TIMEOUT, "+2.0E+0\r", OK]
+    with pytest.raises(VisaIOError):
+        fluke.measure_dc_voltage()
+    visa.write_raw.assert_called_once_with(b"\x03")
+    assert fluke.measure_dc_voltage() == pytest.approx(2.0)
 
 
 @pytest.mark.parametrize(
