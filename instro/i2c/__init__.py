@@ -6,6 +6,14 @@ from pkgutil import extend_path
 # under instro.i2c.*.
 __path__ = extend_path(__path__, __name__)
 
+from instro.i2c.config import (
+    BatchCommandConfig,
+    CommandDeviceConfig,
+    DataFormatConfig,
+    I2CConfig,
+    RegisterConfig,
+    RegisterDeviceConfig,
+)
 from instro.i2c.i2c import I2CDriverBase, I2CInterface
 from instro.i2c.types import (
     CommandDevice,
@@ -20,6 +28,12 @@ from instro.i2c.types import (
 __all__ = [
     "I2CDriverBase",
     "I2CInterface",
+    "I2CConfig",
+    "RegisterDeviceConfig",
+    "RegisterConfig",
+    "CommandDeviceConfig",
+    "BatchCommandConfig",
+    "DataFormatConfig",
     "SystemDefinition",
     "RegisterDevice",
     "CommandDevice",

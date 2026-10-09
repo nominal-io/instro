@@ -7,6 +7,9 @@ import pytest
 from instro.i2c import I2CDriverBase, I2CInterface
 from instro.i2c.types import DataFormat, FieldDef, RegisterDef, RegisterDevice, SystemDefinition
 
+# These tests exercise the deprecated system_definition= path on purpose.
+pytestmark = pytest.mark.filterwarnings("ignore:Passing system_definition:DeprecationWarning")
+
 
 def _make_system_definition() -> SystemDefinition:
     """Build a minimal SystemDefinition with one register device exposing one register + one field."""

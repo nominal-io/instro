@@ -12,7 +12,7 @@ Using I2CInterface for vendor-independent I2C communication
 
 ## I2CInterface
 
-I2CInterface is a hardware abstraction layer (HAL) that provides a unified interface for I2C communication across multiple adapter vendors. The key benefit is **vendor-independent code**: create your `SystemDefinition` once, and the same code works with different I2C adapters.
+I2CInterface is a hardware abstraction layer (HAL) that provides a unified interface for I2C communication across multiple adapter vendors. The key benefit is **vendor-independent code**: describe your bus once in a JSON config (or an `I2CConfig` built in Python), and the same code works with different I2C adapters.
 
 ### Supported Vendors
 
@@ -24,9 +24,9 @@ If your adapter vendor is not listed, [custom driver development](#driver-develo
 
 #### System Definition
 
-I2CInterface's architecture utilizes a `SystemDefinition` to provide a **low-code, human-readable way** to interact with I2C devices on the bus. This design reduces the need for magic numbers, manual bitwise operations, and scattered hardware knowledge throughout your test code.
+I2CInterface's architecture utilizes a system definition to provide a **low-code, human-readable way** to interact with I2C devices on the bus. This design reduces the need for magic numbers, manual bitwise operations, and scattered hardware knowledge throughout your test code.
 
-The `SystemDefinition` serves as a **single source of truth** about your I2C bus configuration, centralizing:
+The system definition is the `devices` list of an `I2CConfig`, loaded from a JSON file or built in Python. It serves as a **single source of truth** about your I2C bus configuration, centralizing:
 - Device addresses and names
 - Register maps and bit field definitions
 - Data formats and scaling functions
@@ -48,23 +48,25 @@ value = i2c.read("gpio_expander", "OUTPUT")
 mode = i2c.read("gpio_expander", "CONFIG", field="mode")
 ```
 
-See the [System Definition](/library/protocols/i2c/system-definition.md) page for detailed information on creating and configuring your `SystemDefinition`.
+See the [System Definition](/library/protocols/i2c/system-definition.md) page for detailed information on describing your devices, registers, and commands.
 
 :::{tip}
-Create your SystemDefinition in a separate file and import it into your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
+Keep the bus description in its own JSON file, separate from your test code. This cleanly separates hardware configuration (typically done by a hardware/firmware engineer) from the test and automation logic (usually the test engineer's domain), leading to more maintainable and collaborative code.
 :::
 
 #### Lifecycle Pattern
 
 The typical I2CInterface workflow follows this pattern:
 
-1. **Create a `SystemDefinition`** - Define all I2C devices, registers, and commands (see [System Definition](/library/protocols/i2c/system-definition.md))
-2. **Construct `I2CInterface(name, driver=..., system_definition=...)`** - Compose a vendor driver (e.g. `Aardvark`) and pass it directly
+1. **Describe your bus** - Write a JSON config or build an `I2CConfig` in Python (see [System Definition](/library/protocols/i2c/system-definition.md))
+2. **Construct `I2CInterface(config=...)`** - The driver comes from the config's `connection` block, or pass `driver=Aardvark(...)` directly
 3. **`open()`** - Establish connection to the I2C adapter hardware
-5. **`start()`** - Begins a periodic daemon in the background. (Optional)
-4. **Configure and communicate** - Access registers, fields, or send commands to devices
+4. **`start()`** - Begins a periodic daemon in the background that reads every register and batch command marked `poll: true`. (Optional)
+5. **Configure and communicate** - Access registers, fields, or send commands to devices
 6. **`stop()`** - End background daemon (if started)
 7. **`close()`** - Disconnect from hardware
+
+Pass `autostart=True` to combine steps 3 and 4. This requires a `timing` section in the config.
 
 **Custom Background Daemon**
 * To define your own background daemon, call `define_background_daemon()`.
@@ -89,165 +91,177 @@ I2CInterface's `System Definition` supports two types of I2C devices:
 - **Register-based devices** - Devices with register maps (e.g., GPIO expanders, sensors with registers)
 - **Command-based devices** - Devices that respond to command bytes (e.g., ADCs that accept {abbr}`channel (A named signal for a series of measurements or computed values, example: voltage, pressure, system state.)` selection commands)
 
-Both device types are configured in the `SystemDefinition` with human-readable names, allowing you to access devices without remembering raw I2C addresses.
+Both device types are configured in the config with human-readable names, allowing you to access devices without remembering raw I2C addresses.
 
 :::{note}
-You can read and write directly to the I2C bus using `write_raw()` and `read_raw()`, which bypasses the benefits provided by the SystemDefinition architecture.
+You can read and write directly to the I2C bus using `write_raw()` and `read_raw()`, which bypasses the benefits provided by the system definition architecture.
 This is useful for using I2C devices that I2CInterface doesn't yet provide lower-code interactions with, allowing you to move forward regardless.
 :::
 
 ### Creating an I2CInterface Instance
 
-Construct `I2CInterface` directly. The caller picks a vendor driver and passes it in. There is no factory method or vendor enum.
+`I2CInterface` takes a `config`: a path to a JSON file, a dict, or an {py:class}`~instro.i2c.config.I2CConfig`. The config describes the bus and, optionally, the adapter it hangs off:
+
+::::{tab-set}
+:::{tab-item} From JSON
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from instro.i2c.types import SystemDefinition
 
-# Create system definition (see System Definition page for details)
-system = SystemDefinition()
-# ... add devices to system definition ...
+# The driver comes from the config's `connection` block.
+i2c = I2CInterface(config="sensor_bus.json")
 
-# Create I2C instrument
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+# Or pass the driver explicitly. It overrides `connection`, so one config can
+# serve benches with different adapters.
+from instro.i2c.drivers.totalphase import Aardvark
+
+i2c = I2CInterface(config="sensor_bus.json", driver=Aardvark(serial_number="123456"))
 ```
+:::
+:::{tab-item} Config (sensor_bus.json)
+
+```json
+{
+  "version": 1,
+  "protocol": "i2c",
+  "device": {"name": "sensor_bus", "manufacturer": "Total Phase", "model": "Aardvark"},
+  "timing": {"poll_interval": 1.0},
+  "connection": {"interface": "aardvark", "serial_number": "123456"},
+  "devices": [
+    {
+      "type": "register",
+      "name": "gpio_expander",
+      "address": "0x20",
+      "registers": [
+        {"alias": "OUTPUT", "register": "0x01", "poll": true},
+        {
+          "alias": "CONFIG",
+          "register": "0x0A",
+          "fields": [
+            {"name": "interrupt_enable", "lsb": 0, "width_bits": 1},
+            {"name": "interrupt_polarity", "lsb": 1, "width_bits": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "type": "command",
+      "name": "adc",
+      "address": "0x48",
+      "data_format": {
+        "transfer_bits": 16,
+        "signed": true,
+        "scaling": {"type": "linear", "gain": 0.001, "offset": 0.0},
+        "units": "V"
+      },
+      "commands": {"channel": {"CH0": "0x00", "CH1": "0x10"}},
+      "batch_commands": [
+        {"name": "read_ch0", "commands": {"channel": "CH0"}, "poll": true},
+        {"name": "read_ch1", "commands": {"channel": "CH1"}}
+      ]
+    }
+  ]
+}
+```
+:::
+:::{tab-item} In Python
+
+```python
+from instro.i2c import (
+    CommandDeviceConfig,
+    BatchCommandConfig,
+    DataFormatConfig,
+    I2CConfig,
+    I2CInterface,
+    RegisterConfig,
+    RegisterDeviceConfig,
+)
+from instro.i2c.drivers.totalphase import Aardvark
+from instro.i2c.types import FieldDef
+from instro.lib.config import TimingConfig
+from instro.lib.types import DeviceInfo, LinearScale
+
+config = I2CConfig(
+    device=DeviceInfo(name="sensor_bus"),
+    timing=TimingConfig(poll_interval=1.0),
+    devices=[
+        RegisterDeviceConfig(
+            name="gpio_expander",
+            address=0x20,
+            registers=[
+                RegisterConfig(alias="OUTPUT", register=0x01, poll=True),
+                RegisterConfig(
+                    alias="CONFIG",
+                    register=0x0A,
+                    fields=[FieldDef("interrupt_enable", lsb=0), FieldDef("interrupt_polarity", lsb=1)],
+                ),
+            ],
+        ),
+        CommandDeviceConfig(
+            name="adc",
+            address=0x48,
+            data_format=DataFormatConfig(transfer_bits=16, signed=True, scaling=LinearScale(gain=0.001), units="V"),
+            commands={"channel": {"CH0": 0x00, "CH1": 0x10}},
+            batch_commands=[
+                BatchCommandConfig(name="read_ch0", commands={"channel": "CH0"}, poll=True),
+                BatchCommandConfig(name="read_ch1", commands={"channel": "CH1"}),
+            ],
+        ),
+    ],
+)
+
+i2c = I2CInterface(config=config, driver=Aardvark(serial_number="123456"))
+```
+:::
+::::
 
 #### Parameters
 
-- **`name`**: A name for this I2C instance. Used as a prefix for channel names when using a publisher.
-- **`driver`**: An `I2CDriverBase` implementation (e.g. `Aardvark(serial_number=...)`)
-- **`system_definition`**: Complete `SystemDefinition` object describing all I2C devices (required)
+- **`config`**: A path to a JSON file, a dict, or an `I2CConfig`. `device.name` becomes the channel-name prefix unless `name` is given. A passed-in config object is copied up front, so later edits to it don't reach the instrument.
+- **`driver`**: An `I2CDriverBase` implementation (e.g. `Aardvark(serial_number=...)`). Overrides the config's `connection` block, and is required when the config has none.
+- **`name`**: Optional channel-name prefix; defaults to `config.device.name`.
 - **`publishers`**: Optional list of publishers to attach
+- **`autostart`**: When `True`, opens the adapter and starts background polling immediately. Requires a `timing` section in the config.
 - **`**kwargs`**: Additional keyword arguments become default tags when using a publisher that supports tags (like `NominalCorePublisher`).
 
-:::{warning}
-**SystemDefinition Required**
+:::{note}
+**Deprecated construction**
 
-I2CInterface requires a `SystemDefinition` parameter. You cannot create a I2CInterface instance without first defining your I2C devices. See the [System Definition](/library/protocols/i2c/system-definition.md) page for details.
+`I2CInterface(name, driver, system_definition)`, with a `SystemDefinition` built from the `instro.i2c.types` dataclasses, still works but emits a `DeprecationWarning` and will be removed in a future release. Migrate the definition to an `I2CConfig`; the field names are the same.
 :::
+
+#### Background polling
+
+Any register or batch command with `"poll": true` is read by the background daemon once `start()` is called, at `timing.poll_interval` seconds (or the default interval when the config has no `timing` section). `poll` defaults to `false`: I2C reads can have side effects (clear-on-read status registers, FIFOs), so nothing is polled without opting in.
+
+#### Custom scaling at runtime
+
+JSON expresses linear scaling only. For anything else, load the config and then attach a {py:class}`~instro.i2c.types.ScalingFunction` with `set_scaling()`. It replaces the scaling from the config and takes effect on the next read, including background polls:
+
+```python
+from instro.i2c.types import CustomScaling
+
+i2c = I2CInterface(config="sensor_bus.json")
+
+# Command device: the device's single data format is rescaled.
+i2c.set_scaling("adc", CustomScaling(to_physical_fn=lambda raw: raw / 4095 * 5.0 * 7.2))
+
+# Register device: name the register.
+i2c.set_scaling("gpio_expander", CustomScaling(to_physical_fn=thermistor_curve), register_alias="OUTPUT")
+```
 
 ### Examples
 
 All measurement methods return {py:class}`~instro.lib.types.Measurement` objects. This is common amongst all `Instrument` objects.
 
-All examples below import from a shared `system_definition.py` file. This follows the recommended practice of separating hardware configuration from test logic.
-
-#### System Definition File
-
-First, create a `system_definition.py` file that defines your I2C bus configuration:
-
-```python
-# system_definition.py
-from instro.i2c.types import (
-    SystemDefinition,
-    RegisterDevice,
-    RegisterDef,
-    FieldDef,
-    CommandDevice,
-    DataFormat,
-    LinearScaling,
-)
-from enum import Enum
-
-# Command enum for ADC
-class ADCChannel(Enum):
-    CH0 = 0x00
-    CH1 = 0x10
-
-def create_system_definition() -> SystemDefinition:
-    """Create and return the complete I2C system definition."""
-    system = SystemDefinition()
-
-    # GPIO Expander (register-based device)
-    gpio = RegisterDevice(
-        name="gpio_expander",
-        address=0x20,
-        addr_width_bytes=1,
-        registers={
-            "OUTPUT": RegisterDef(
-                alias="OUTPUT",
-                register=0x01,
-                default_value=0x00,
-                format=DataFormat(transfer_bits=8),
-            ),
-            "CONFIG": RegisterDef(
-                alias="CONFIG",
-                register=0x0A,
-                default_value=0x00,
-                format=DataFormat(transfer_bits=8),
-                fields={
-                    "interrupt_enable": FieldDef(name="interrupt_enable", lsb=0, width_bits=1),
-                    "interrupt_polarity": FieldDef(name="interrupt_polarity", lsb=1, width_bits=1),
-                }
-            ),
-        }
-    )
-    system.add_device(gpio)
-
-    # ADC (command-based device)
-    adc = CommandDevice(
-        name="adc",
-        address=0x48,
-        data_format=DataFormat(
-            transfer_bits=16,
-            signed=True,
-            scaling=LinearScaling(gain=0.001, offset=0.0),  # 1 mV per LSB
-            units="V"
-        ),
-        endianness="big",
-        batch_commands={
-            "read_ch0": [ADCChannel.CH0],
-            "read_ch1": [ADCChannel.CH1],
-        }
-    )
-    system.add_device(adc)
-
-    # Temperature sensor (command-based device)
-    class TempCommand(Enum):
-        START_CONVERSION = 0x01
-        READ_RESULT = 0x02
-
-    temp_sensor = CommandDevice(
-        name="temperature_sensor",
-        address=0x4A,
-        data_format=DataFormat(
-            transfer_bits=16,
-            data_width_bits=12,
-            signed=True,
-            scaling=LinearScaling(gain=0.0625, offset=0.0),  # 0.0625°C per LSB
-            units="°C"
-        ),
-        endianness="big",
-        batch_commands={
-            "read_temperature": [TempCommand.START_CONVERSION, TempCommand.READ_RESULT],
-        }
-    )
-    system.add_device(temp_sensor)
-
-    return system
-```
+All examples below load the `sensor_bus.json` shown above. This follows the recommended practice of separating hardware configuration from test logic.
 
 #### Basic Register Read/Write
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from system_definition import create_system_definition
 
-# Import the shared system definition
-system = create_system_definition()
-
-# Create I2C instrument
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+i2c = I2CInterface(config="sensor_bus.json")
 
 i2c.open()
 
@@ -266,18 +280,9 @@ i2c.close()
 For registers with bit fields, you can read and write individual fields:
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from system_definition import create_system_definition
 
-# Import the shared system definition
-system = create_system_definition()
-
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+i2c = I2CInterface(config="sensor_bus.json")
 
 i2c.open()
 
@@ -295,28 +300,15 @@ i2c.close()
 For command-based devices (like ADCs):
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from system_definition import create_system_definition
 
-# Import the shared system definition
-system = create_system_definition()
-
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+i2c = I2CInterface(config="sensor_bus.json")
 
 i2c.open()
 
 # Query device (sends command and reads back scaled result)
 voltage = i2c.query("adc", "read_ch0")
 print(f"Channel 0 voltage: {voltage.latest}V")
-
-# Query temperature sensor
-temperature = i2c.query("temperature_sensor", "read_temperature")
-print(f"Temperature: {temperature.latest}°C")
 
 i2c.close()
 ```
@@ -326,18 +318,10 @@ i2c.close()
 For advanced use cases, you can bypass the system definition and use raw I2C operations:
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from system_definition import create_system_definition
 
-# Import the shared system definition (still needed to create the instrument)
-system = create_system_definition()
-
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+# The config is still needed to create the instrument.
+i2c = I2CInterface(config="sensor_bus.json")
 
 i2c.open()
 
@@ -383,11 +367,11 @@ Reset a register to its default value as defined in the system definition:
 i2c.reset_reg("gpio_expander", "CONFIG")
 ```
 
-This is equivalent to writing the `default_value` specified in the `RegisterDef`.
+This is equivalent to writing the register's `default_value` from the config.
 
 ### Published channels
 
-Every read/write produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the constructor argument and `{descriptor}` is built from the device names you defined in your `SystemDefinition`.
+Every read/write produces a channel keyed under `{name}.{descriptor}`, where `{name}` is the instrument name (`config.device.name` unless overridden) and `{descriptor}` is built from the device names you defined in the config.
 
 | Method | Descriptor | Type |
 |--------|------------|------|
@@ -397,19 +381,20 @@ Every read/write produces a channel keyed under `{name}.{descriptor}`, where `{n
 | `write(peripheral, register_alias, field=..., ...)` | `{peripheral}.{register_alias}.{field}.cmd` | command |
 | `query(peripheral, batch_command)` | `{peripheral}.{batch_command}` | telemetry |
 
-`{peripheral}`, `{register_alias}`, `{field}`, and `{batch_command}` are the names you assigned in your `SystemDefinition`. If you depend on the pre-v1.0 underscore-separator form (e.g. `{name}_{peripheral}_{register}` with a trailing `_cmd`), pass [`legacy_naming=True`](/library/library.md#backwards-compatible-channel-naming-legacy_naming) to the constructor.
+`{peripheral}`, `{register_alias}`, `{field}`, and `{batch_command}` are the names you assigned in the config. If you depend on the pre-v1.0 underscore-separator form (e.g. `{name}_{peripheral}_{register}` with a trailing `_cmd`), pass [`legacy_naming=True`](/library/library.md#backwards-compatible-channel-naming-legacy_naming) to the constructor.
 
 ### Method Reference
 
 | Method | Purpose |
 |--------|---------|
-| `I2CInterface(name, driver, system_definition, publishers=None, legacy_naming=False, **kwargs)` | Construct an I2CInterface instance composing a vendor driver |
+| `I2CInterface(config=..., driver=None, name=None, publishers=None, autostart=False, legacy_naming=False, **kwargs)` | Construct an I2CInterface instance from a config, with the driver from the config's `connection` or passed in |
 | `open()` | Establish connection to the I2C adapter |
 | `close()` | Disconnect from adapter and close all publishers |
 | `read(peripheral, register_alias, field="", **kwargs)` | Read a register or field from a register-based device |
 | `write(peripheral, register_alias, value, field="", **kwargs)` | Write to a register or field on a register-based device |
 | `reset_reg(peripheral, register_alias, **kwargs)` | Reset a register to its default value |
 | `query(peripheral, batch_command, **kwargs)` | Send command to a command-based device and read response |
+| `set_scaling(peripheral, scaling, register_alias=None)` | Replace a register's or command device's scaling at runtime |
 | `read_raw(address, length, endianness)` | Perform raw I2C read operation |
 | `write_raw(address, data)` | Perform raw I2C write operation |
 | `write_read_raw(address, payload, length, endianness)` | Write then read without stop condition |
@@ -548,11 +533,10 @@ class Aardvark(I2CDriverBase):
 
 ### Using Custom Drivers
 
-For custom drivers, construct `I2CInterface` directly and pass your driver instance:
+For custom drivers, pass your driver instance alongside the config. It takes the place of the config's `connection` block:
 
 ```python
 from instro.i2c import I2CInterface, I2CDriverBase
-from instro.i2c.types import SystemDefinition
 
 class MyCustomI2CDriver(I2CDriverBase):
     """Custom driver for my lab's proprietary I2C adapter."""
@@ -571,13 +555,9 @@ class MyCustomI2CDriver(I2CDriverBase):
 
     # ... implement other required methods ...
 
-system = SystemDefinition()
-# ... configure system definition ...
-
 i2c = I2CInterface(
-    name="custom_i2c",
+    config="sensor_bus.json",
     driver=MyCustomI2CDriver(device_id="<DEVICE_ID>"),
-    system_definition=system,
 )
 
 i2c.open()
