@@ -18,6 +18,7 @@ Electronic loads.
 | Vendor | Model | Description |
 |--------|-------|-------------|
 | B&K Precision | {py:class}`85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` | {pysummary}`instro.eload.drivers.bk_85xxb.BK85XXB` |
+| Rigol | {py:class}`DL3000 <instro.eload.drivers.rigol_dl3000.RigolDL3000>` | {pysummary}`instro.eload.drivers.rigol_dl3000.RigolDL3000` |
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
 descriptions still come from the docstrings via {pysummary}. autosummary needs to
@@ -32,6 +33,7 @@ regardless, so the pages still appear in the sidebar. -->
       :toctree: generated
 
       instro.eload.drivers.bk_85xxb.BK85XXB
+      instro.eload.drivers.rigol_dl3000.RigolDL3000
 ```
 
 ## Types & Configuration
