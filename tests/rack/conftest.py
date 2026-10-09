@@ -8,14 +8,14 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-from discovery import CATEGORIES, DiscoveryReport, discover, model_of, to_json
+from discovery import CATEGORIES, discover_rack, model_of, pinned_resource, to_json
 from rack_support import CAPTURE_ROOT, Rack, arm_protection, logger
 
 from instro.dmm import InstroDMM
 from instro.eload import InstroELoad
 from instro.eload.types import LoadMode
 from instro.lib import Instrument
-from instro.lib.discover import DiscoveredInstrument
+from instro.lib.discover import DiscoveredInstrument, DiscoveryReport
 from instro.lib.publishers import FilePublisher, SharedPublisher
 from instro.psu import InstroPSU
 
@@ -30,15 +30,11 @@ def run_dir() -> Path:
     return path
 
 
-def _pinned_resource(category: str) -> str | None:
-    return os.environ.get(f"RACK_{category.upper()}_RESOURCE")
-
-
 @pytest.fixture(scope="session")
 def discovery(run_dir: Path) -> DiscoveryReport:
     """Before each session, discover the instruments in the rack and write a report to the run directory."""
     logger.info("=== Instrument discovery ===")
-    report = discover(extra_resources=[r for c in CATEGORIES if (r := _pinned_resource(c))])
+    report = discover_rack()
     (run_dir / "discovery.json").write_text(to_json(report))
     return report
 
@@ -51,8 +47,8 @@ def instruments(discovery: DiscoveryReport) -> dict[str, DiscoveredInstrument]:
     """
     chosen: dict[str, DiscoveredInstrument] = {}
     for category in CATEGORIES:
-        candidates = [i for i in discovery.instruments if i.category == category]
-        if pin := _pinned_resource(category):
+        candidates = discovery.by_category(category)
+        if pin := pinned_resource(category):
             candidates = [i for i in candidates if i.resource == pin]
         if not candidates:
             continue

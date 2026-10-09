@@ -17,7 +17,7 @@ import sys
 import time
 
 import pytest
-from discovery import CATEGORIES, DiscoveryReport
+from discovery import CATEGORIES
 from rack_support import (
     BUS_CH,
     BUS_CURRENT_LIMIT_A,
@@ -59,6 +59,7 @@ from rack_support import (
 
 from instro.dmm.types import MeasurementFunction
 from instro.eload.types import LoadMode
+from instro.lib.discover import DiscoveryReport, describe_serial_config
 
 pytestmark = pytest.mark.hardware
 
@@ -66,14 +67,21 @@ pytestmark = pytest.mark.hardware
 def test_discovery(discovery: DiscoveryReport) -> None:
     logger.info("  supported:")
     for found in discovery.instruments:
-        logger.info("    %-5s %-16s %-45s %s", found.category, found.driver_name, found.resource, found.idn)
-    logger.info("  unsupported (no in-tree driver): %s", "none" if not discovery.unsupported else "")
-    for other in discovery.unsupported:
+        serial = f" [{describe_serial_config(found.serial_config)}]" if found.serial_config else ""
+        logger.info("    %-5s %-16s %-45s %s%s", found.category, found.driver_name, found.resource, found.idn, serial)
+    logger.info("  unrecognized (no in-tree driver): %s", "none" if not discovery.unrecognized else "")
+    for other in discovery.unrecognized:
         logger.info("    %-45s %s", other.resource, other.idn)
-    logger.info("  unreachable: %s", "none" if not discovery.unreachable else "")
-    for dead in discovery.unreachable:
-        logger.info("    %-45s %s", dead.resource, dead.reason)
-    missing = [c for c in CATEGORIES if not any(i.category == c for i in discovery.instruments)]
+    logger.info("  errors: %s", "none" if not discovery.errors else "")
+    for error in discovery.errors:
+        logger.info("    %-45s %s", error.resource, error.hint or error.message)
+    logger.info("  skipped: %s", "none" if not discovery.skipped else "")
+    for skip in discovery.skipped:
+        logger.info("    %-45s %s", skip.resource, skip.reason)
+    logger.info(
+        "  OS serial ports: %s", ", ".join(f"{p.device} ({p.description})" for p in discovery.serial_ports) or "none"
+    )
+    missing = [c for c in CATEGORIES if not discovery.by_category(c)]
     assert not missing, f"no supported {', '.join(missing)} discovered"
 
 
