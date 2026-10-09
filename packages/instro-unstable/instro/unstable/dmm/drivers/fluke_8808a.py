@@ -1,21 +1,19 @@
 """Fluke 8808A 5.5-digit multimeter driver over RS-232.
 
-The 8808A's only remote interface is its RS-232 port, so this driver talks to it with pyserial
-rather than ``VisaDriver``. It speaks the Fluke 45-style command set (``VDC``, ``RANGE 3``,
-``MEAS1?``), not SCPI, and has no error queue: the meter reports each command line's outcome
-with a prompt (``=>`` ok, ``?>`` command error, ``!>`` execution error).
+The 8808A's only remote interface is its RS-232 port, reached as a VISA ASRL resource. It
+speaks the Fluke 45-style command set (``VDC``, ``RANGE 3``, ``MEAS1?``), not SCPI, and has no
+error queue: the meter reports each command line's outcome with a prompt (``=>`` ok,
+``?>`` command error, ``!>`` execution error).
 """
 
 from __future__ import annotations
 
-import threading
-
-import serial
+import pyvisa
 
 from instro.dmm import DMMDriverBase
 from instro.dmm.types import MeasurementFunction
 from instro.lib import InstroError
-from instro.lib.transports.visa import ControlFlow, SerialConfig
+from instro.lib.transports.visa import VisaConfig, VisaDriver
 
 _PROMPT_OK = "=>"
 _PROMPT_ERRORS = {
@@ -25,7 +23,7 @@ _PROMPT_ERRORS = {
 # Standard event status bits QYE | DDE | EXE | CME.
 _ESR_ERROR_MASK = 0b0011_1100
 _DEVICE_CLEAR = b"\x03"
-_PROBE_TIMEOUT_S = 0.5
+_PROBE_TIMEOUT_MS = 500
 
 _FUNCTION_COMMAND: dict[MeasurementFunction, str] = {
     MeasurementFunction.DC_VOLTAGE: "VDC",
@@ -55,82 +53,56 @@ _DIGITS_RATE = {5: "S", 4: "F"}
 class Fluke8808A(DMMDriverBase):
     """Fluke 8808A on its RS-232 port, primary display only. Resolution is set via ``set_digits``."""
 
-    def __init__(
-        self,
-        port: str,
-        serial_config: SerialConfig | None = None,
-        timeout_s: float = 3.0,
-        lockout: bool = False,
-    ) -> None:
+    def __init__(self, visa_resource: str | VisaConfig, lockout: bool = False) -> None:
         """Configure the driver; the port is not opened until ``open()``.
 
         Args:
-            port (str): Serial port, e.g. ``"COM3"`` or ``"/dev/ttyUSB0"``.
-            serial_config (SerialConfig | None): Line settings. Must match the meter's front-panel
-                RS-232 setup; ``None`` uses the factory default of 9600 baud, 8N1, no flow control.
-            timeout_s (float): Read timeout in seconds. A slow-rate reading takes 0.4 s plus any
-                autorange settling.
+            visa_resource (str | VisaConfig): ASRL resource string, e.g. ``"ASRL3::INSTR"`` or
+                ``"ASRL/dev/ttyUSB0::INSTR"``, or a ``VisaConfig`` whose ``serial_config`` matches
+                the meter's front-panel RS-232 setup. The defaults (9600 baud, 8N1, no flow
+                control) match the factory setup.
             lockout (bool): If ``True``, lock the front panel while in remote (``RWLS``) instead of
                 leaving it usable (``REMS``).
 
         Example:
             >>> from instro.dmm import InstroDMM
             >>> from instro.unstable.dmm.drivers import Fluke8808A
-            >>> dmm = InstroDMM(name="fluke", driver=Fluke8808A("/dev/ttyUSB0"))
+            >>> dmm = InstroDMM(name="fluke", driver=Fluke8808A("ASRL/dev/ttyUSB0::INSTR"))
             >>> dmm.open()
             >>> dmm.read_dc_voltage()
         """
-        self._port = port
-        self._serial_config = serial_config or SerialConfig()
-        self._timeout_s = timeout_s
+        self._visa = VisaDriver(visa_resource)
         self._lockout = lockout
-        self._serial: serial.Serial | None = None
         self._prompts = True
         self._function: MeasurementFunction | None = None
-        self._lock = threading.Lock()
 
     def open(self) -> None:
-        """Open the port, verify the meter's identity, and reset it into remote mode. Idempotent."""
-        if self._serial is not None:
-            return
-        cfg = self._serial_config
-        self._serial = serial.Serial(
-            port=self._port,
-            baudrate=cfg.baud_rate,
-            bytesize=cfg.data_bits,
-            parity=cfg.parity.value,
-            stopbits=cfg.stop_bits.value,
-            timeout=self._timeout_s,
-            xonxoff=cfg.flow_control is ControlFlow.XON_XOFF,
-            rtscts=cfg.flow_control is ControlFlow.RTS_CTS,
-            dsrdtr=cfg.flow_control is ControlFlow.DTR_DSR,
-        )
+        """Open the port, verify the meter's identity, and reset it into remote mode."""
+        self._visa.open()
         try:
-            self._device_clear()
-            idn = self._probe_identity()
-            if "8808A" not in idn.upper():
-                raise InstroError(f"Device on {self._port} is not a Fluke 8808A: {idn!r}")
-            self._transact("*RST")
-            self._transact("*CLS")
-            self._transact("RWLS" if self._lockout else "REMS")
-            # Bare mantissa/exponent readings, and continuous triggering so MEAS1? returns.
-            self._transact("FORMAT 1")
-            self._transact("TRIGGER 1")
+            with self._visa.lock():
+                self._device_clear()
+                idn = self._probe_identity()
+                if "8808A" not in idn.upper():
+                    raise InstroError(f"Device is not a Fluke 8808A: {idn!r}")
+                self._transact("*RST")
+                self._transact("*CLS")
+                self._transact("RWLS" if self._lockout else "REMS")
+                # Bare mantissa/exponent readings, and continuous triggering so MEAS1? returns.
+                self._transact("FORMAT 1")
+                self._transact("TRIGGER 1")
             self._function = MeasurementFunction.DC_VOLTAGE
         except BaseException:
-            self._serial.close()
-            self._serial = None
+            self._visa.close()
             raise
 
     def close(self) -> None:
-        """Return the meter to local control and close the port. Idempotent."""
-        if self._serial is None:
-            return
+        """Return the meter to local control and close the port."""
         try:
-            self._transact("LOCS")
+            if self._visa.is_open:
+                self._transact("LOCS")
         finally:
-            self._serial.close()
-            self._serial = None
+            self._visa.close()
             self._function = None
 
     def set_measurement_function(self, function: MeasurementFunction) -> None:
@@ -210,23 +182,17 @@ class Fluke8808A(DMMDriverBase):
     def measure_four_wire_resistance(self) -> float:
         return self._read_value()
 
-    # --- Serial framing ---
-
-    def _require_open(self) -> serial.Serial:
-        if self._serial is None:
-            raise InstroError("Fluke 8808A serial port is not open")
-        return self._serial
+    # --- Line framing ---
 
     def _device_clear(self) -> None:
-        """Send ^C to discard any partial command in the meter's input buffer, then drain its reply."""
-        ser = self._require_open()
-        ser.write(_DEVICE_CLEAR)
-        ser.timeout = _PROBE_TIMEOUT_S
-        try:
-            ser.read_until(f"{_PROMPT_OK}\r\n".encode("ascii"))
-        finally:
-            ser.timeout = self._timeout_s
-        ser.reset_input_buffer()
+        """Send ^C to discard any partial command in the meter's input buffer, then drain its ``=>`` reply."""
+        with self._visa.lock():
+            self._visa.write_raw(_DEVICE_CLEAR)
+            try:
+                with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
+                    self._visa.read()
+            except pyvisa.errors.VisaIOError:
+                pass
 
     def _probe_identity(self) -> str:
         """Query ``*IDN?`` and record whether the meter follows each command line with a prompt.
@@ -234,41 +200,38 @@ class Fluke8808A(DMMDriverBase):
         The manual says prompts are only sent with Echo on (a front-panel-only setting), so
         detect them rather than assume.
         """
-        ser = self._require_open()
-        with self._lock:
-            ser.write(b"*IDN?\r\n")
+        with self._visa.lock():
+            self._visa.write("*IDN?")
             idn = self._read_response("*IDN?")
-            ser.timeout = _PROBE_TIMEOUT_S
             try:
-                line = ser.readline().decode("ascii", errors="replace").strip()
-            finally:
-                ser.timeout = self._timeout_s
-        self._prompts = bool(line)
-        if line:
-            self._check_prompt("*IDN?", line)
+                with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
+                    prompt = self._read_line()
+            except pyvisa.errors.VisaIOError:
+                prompt = ""
+        self._prompts = bool(prompt)
+        if prompt:
+            self._check_prompt("*IDN?", prompt)
         return idn
 
     def _transact(self, command: str) -> str | None:
         """Send one command line, check it executed, and return its response (``None`` for a non-query)."""
-        ser = self._require_open()
-        is_query = command.endswith("?")
-        with self._lock:
+        with self._visa.lock():
             if self._prompts:
-                ser.write(f"{command}\r\n".encode("ascii"))
+                self._visa.write(command)
                 response: str | None = None
                 while True:
-                    line = self._read_line(command)
+                    line = self._read_line()
                     if line == _PROMPT_OK or line in _PROMPT_ERRORS:
                         self._check_prompt(command, line)
                         return response
                     if line.upper() != command.upper():
                         response = line
-            if is_query:
-                ser.write(f"{command}\r\n".encode("ascii"))
+            if command.endswith("?"):
+                self._visa.write(command)
                 return self._read_response(command)
             # Without prompts, chain *ESR? so the reply both confirms completion and carries errors.
             line = f"{command}; *ESR?"
-            ser.write(f"{line}\r\n".encode("ascii"))
+            self._visa.write(line)
             esr = int(self._read_response(line))
         if esr & _ESR_ERROR_MASK:
             raise InstroError(f"Fluke 8808A rejected {command!r}: *ESR? = {esr}")
@@ -277,17 +240,14 @@ class Fluke8808A(DMMDriverBase):
     def _read_response(self, command: str) -> str:
         """Read the response line to ``command``, skipping its echo when Echo is on."""
         while True:
-            line = self._read_line(command)
+            line = self._read_line()
             if line.upper() != command.upper():
                 return line
 
-    def _read_line(self, command: str) -> str:
-        ser = self._require_open()
+    def _read_line(self) -> str:
+        """Read the next non-blank line; the meter terminates lines with CR LF."""
         while True:
-            raw = ser.readline()
-            if not raw.endswith(b"\n"):
-                raise InstroError(f"Fluke 8808A timed out waiting for a reply to {command!r}")
-            line = raw.decode("ascii", errors="replace").strip()
+            line = self._visa.read().strip()
             if line:
                 return line
 
