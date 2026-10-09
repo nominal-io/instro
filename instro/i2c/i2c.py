@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import logging
 import threading
 import time
+import warnings
+from pathlib import Path
 from typing import Literal, Optional
 
-from instro.i2c.types import CommandDevice, RegisterDevice, SystemDefinition
+from instro.i2c.config import I2CConfig, RegisterDeviceConfig
+from instro.i2c.types import CommandDevice, RegisterDevice, ScalingFunction, SystemDefinition
 from instro.lib import Command, Instrument, Measurement
+from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 
@@ -66,41 +71,144 @@ class I2CInterface(Instrument):
     """I2C interface supporting register-based and command-based devices.
 
     Commands are enum values OR'd together and sent as a single byte stream.
-    The ``SystemDefinition`` is read-only — ``I2CInterface`` resolves names to
-    transactions on every call; the vendor driver never sees it.
+    ``I2CInterface`` resolves names to transactions on every call through its
+    ``SystemDefinition``, built from the ``config``; the vendor driver never sees it.
     """
 
     def __init__(
         self,
-        name: str,
-        driver: I2CDriverBase,
-        system_definition: SystemDefinition,
+        name: str | None = None,
+        driver: I2CDriverBase | None = None,
+        system_definition: SystemDefinition | None = None,
         publishers: Optional[list[Publisher]] = None,
+        *,
+        config: I2CConfig | dict | Path | str | None = None,
+        autostart: bool = False,
         **kwargs,
     ):
         """Initialize an I2CInterface.
 
+        Provide ``config`` (with the driver coming from its ``connection`` block or ``driver``),
+        or ``name``, ``driver``, and ``system_definition`` together (deprecated).
+
         Args:
-            name: Channel-name prefix for published data.
-            driver: Concrete I2C-adapter driver; owns its own transport::
+            name: Channel-name prefix for published data. Falls back to ``config.device.name``
+                when ``config`` is given.
+            driver: Concrete I2C-adapter driver; owns its own transport. Overrides the config's
+                ``connection`` block; required when the config has none::
 
-                i2c = I2CInterface(
-                    "main",
-                    driver=Aardvark(serial_number="2239-764425"),
-                    system_definition=system,
-                )
+                    i2c = I2CInterface(config="sensor_bus.json")
+                    i2c = I2CInterface(config=I2CConfig(...), driver=Aardvark(serial_number="2239-764425"))
 
-            system_definition: Bus description (devices, register maps, comms params).
+            system_definition: Deprecated. Bus description built programmatically; use ``config``
+                instead. Mutually exclusive with ``config``.
             publishers: Publishers that receive emitted Measurement/Command data.
+            config: An ``I2CConfig``, a dict, or a path to a JSON config file describing the bus.
+                Registers and batch commands with ``poll: true`` are read by the background daemon,
+                and ``timing.poll_interval`` sets its interval.
+            autostart: When True, open the driver and start background polling. Requires a
+                ``timing`` section in the config.
             **kwargs: Default tags applied to every emitted Measurement/Command.
                 Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
                 (uses the on-disk 'default' Nominal credential).
+
+        Raises:
+            ValueError: Both or neither of ``config`` and ``system_definition`` given, no driver
+                in args or config, ``name``/``driver`` missing on the deprecated path, or
+                ``autostart=True`` without a ``timing`` section.
         """
+        resolved_config: I2CConfig | None = None
+        if config is not None:
+            if system_definition is not None:
+                raise ValueError(
+                    "I2CInterface(config=...) cannot be combined with system_definition; "
+                    "use one construction style or the other."
+                )
+            resolved_config = load_config(config, I2CConfig)
+            system_definition = resolved_config.build_system_definition()
+            if driver is None:
+                if resolved_config.connection is None:
+                    raise ValueError(
+                        "No connection configuration provided. Either include a 'connection' section "
+                        "in the config or pass a 'driver' argument to I2CInterface()."
+                    )
+                driver = resolved_config.connection.build()
+            if name is None:
+                name = resolved_config.device.name
+        elif system_definition is not None:
+            warnings.warn(
+                "Passing system_definition to I2CInterface is deprecated and will be removed in a future "
+                "release; describe the bus with an I2CConfig and pass it as config=... instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if name is None or driver is None:
+                raise ValueError("I2CInterface requires name and driver together with system_definition.")
+        else:
+            raise ValueError(
+                "I2CInterface requires either config=..., or name, driver, and system_definition together."
+            )
+
         super().__init__(name=name, publishers=publishers, **kwargs)
 
         self._driver = driver
         self._sysdef = system_definition
+        self._config = resolved_config
         self._resource_lock = threading.Lock()
+
+        if resolved_config is not None:
+            self._define_background_daemon(resolved_config)
+            if resolved_config.timing is not None:
+                self.background_interval = resolved_config.timing.poll_interval
+
+        if autostart:
+            if resolved_config is None or resolved_config.timing is None:
+                raise ValueError(
+                    "autostart=True requires a config with a 'timing' section (with poll_interval). "
+                    "Without polling configured, autostart has no effect — call open() manually instead."
+                )
+            self.open()
+            self.start()
+
+    def _define_background_daemon(self, config: I2CConfig) -> None:
+        """Register daemon polling for every register and batch command marked ``poll: true``."""
+        for device in config.devices:
+            if isinstance(device, RegisterDeviceConfig):
+                for reg in device.registers:
+                    if reg.poll:
+                        self.add_background_daemon_function(self.read, device.name, reg.alias)
+            else:
+                for batch in device.batch_commands:
+                    if batch.poll:
+                        self.add_background_daemon_function(self.query, device.name, batch.name)
+
+    def set_scaling(self, peripheral: str, scaling: ScalingFunction, register_alias: str | None = None) -> None:
+        """Replace the scaling on a register's or command device's data format.
+
+        Lets a config-loaded bus use scaling JSON can't express (``CustomScaling``). Takes effect
+        on the next read, including background polls, and may be called before or after ``open()``.
+
+        Args:
+            peripheral: Device name from the system definition.
+            scaling: The ``ScalingFunction`` to apply, replacing any scaling from the config.
+            register_alias: The register to rescale; required for register devices, rejected for
+                command devices (whose single ``data_format`` is rescaled).
+
+        Raises:
+            ValueError: ``register_alias`` missing for a register device or given for a command device.
+        """
+        device = self._sysdef.device(peripheral)
+        with self._resource_lock:
+            if isinstance(device, RegisterDevice):
+                if register_alias is None:
+                    raise ValueError(f"Device '{peripheral}' is a register-based device; register_alias is required")
+                reg_def = device.register(register_alias)
+                new_format = dataclasses.replace(reg_def.format, scaling=scaling)
+                device.registers[register_alias] = dataclasses.replace(reg_def, format=new_format)
+            else:
+                if register_alias is not None:
+                    raise ValueError(f"Device '{peripheral}' is a command-based device; register_alias does not apply")
+                device.data_format = dataclasses.replace(device.data_format, scaling=scaling)
 
     @staticmethod
     def _addr_prefix(addr_width_bytes: int, reg_addr: int) -> bytes:
