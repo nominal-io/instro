@@ -53,16 +53,17 @@ _DIGITS_RATE = {5: "S", 4: "F"}
 class Fluke8808A(DMMDriverBase):
     """Fluke 8808A on its RS-232 port, primary display only. Resolution is set via ``set_digits``."""
 
-    def __init__(self, visa_resource: str | VisaConfig, lockout: bool = False) -> None:
+    def __init__(self, visa_resource: str | VisaConfig) -> None:
         """Configure the driver; the port is not opened until ``open()``.
+
+        The front panel is locked (``RWLS``) while the driver holds the meter, so the function
+        it tracks can't be changed underneath it.
 
         Args:
             visa_resource (str | VisaConfig): ASRL resource string, e.g. ``"ASRL3::INSTR"`` or
                 ``"ASRL/dev/ttyUSB0::INSTR"``, or a ``VisaConfig`` whose ``serial_config`` matches
                 the meter's front-panel RS-232 setup. The defaults (9600 baud, 8N1, no flow
                 control) match the factory setup.
-            lockout (bool): If ``True``, lock the front panel while in remote (``RWLS``) instead of
-                leaving it usable (``REMS``).
 
         Example:
             >>> from instro.dmm import InstroDMM
@@ -72,22 +73,18 @@ class Fluke8808A(DMMDriverBase):
             >>> dmm.read_dc_voltage()
         """
         self._visa = VisaDriver(visa_resource)
-        self._lockout = lockout
         self._prompts = True
         self._function: MeasurementFunction | None = None
 
     def open(self) -> None:
-        """Open the port, verify the meter's identity, and reset it into remote mode."""
+        """Open the port and reset the meter into remote mode with the front panel locked."""
         self._visa.open()
         try:
             with self._visa.lock():
                 self._device_clear()
-                idn = self._probe_identity()
-                if "8808A" not in idn.upper():
-                    raise InstroError(f"Device is not a Fluke 8808A: {idn!r}")
+                self._detect_prompts()
                 self._transact("*RST")
-                self._transact("*CLS")
-                self._transact("RWLS" if self._lockout else "REMS")
+                self._transact("RWLS")
                 # Bare mantissa/exponent readings, and continuous triggering so MEAS1? returns.
                 self._transact("FORMAT 1")
                 self._transact("TRIGGER 1")
@@ -155,87 +152,98 @@ class Fluke8808A(DMMDriverBase):
     def set_four_wire_resistance_range(self, value: float | None) -> None:
         self._set_range(MeasurementFunction.FOUR_WIRE_RESISTANCE, value)
 
-    # --- Measurements. Function is already selected; MEAS1? waits for the next fresh reading. ---
+    # --- Measurements. MEAS1? waits for the next fresh reading. ---
     # An overload ("0L" on the display) reads as +/-1.0E+9.
 
-    def _read_value(self) -> float:
-        response = self._transact("MEAS1?")
+    def _read_value(self, function: MeasurementFunction) -> float:
+        with self._visa.lock():
+            # Only re-select on a change: re-selecting the active function may reset its range.
+            if self._function is not function:
+                self.set_measurement_function(function)
+            response = self._transact("MEAS1?")
         if response is None:
             raise InstroError("Fluke 8808A returned no reading for MEAS1?")
         return float(response)
 
     def measure_dc_voltage(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.DC_VOLTAGE)
 
     def measure_ac_voltage(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.AC_VOLTAGE)
 
     def measure_dc_current(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.DC_CURRENT)
 
     def measure_ac_current(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.AC_CURRENT)
 
     def measure_resistance(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.TWO_WIRE_RESISTANCE)
 
     def measure_four_wire_resistance(self) -> float:
-        return self._read_value()
+        return self._read_value(MeasurementFunction.FOUR_WIRE_RESISTANCE)
 
     # --- Line framing ---
 
     def _device_clear(self) -> None:
-        """Send ^C to discard any partial command in the meter's input buffer, then drain its ``=>`` reply."""
+        """Send ^C to abort any pending command, then discard everything the meter sends until it goes quiet."""
         with self._visa.lock():
             self._visa.write_raw(_DEVICE_CLEAR)
             try:
                 with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
-                    self._visa.read()
+                    while True:
+                        self._visa.read()
             except pyvisa.errors.VisaIOError:
                 pass
 
-    def _probe_identity(self) -> str:
-        """Query ``*IDN?`` and record whether the meter follows each command line with a prompt.
+    def _detect_prompts(self) -> None:
+        """Send ``*CLS`` and record whether the meter answers each command line with a prompt.
 
         The manual says prompts are only sent with Echo on (a front-panel-only setting), so
         detect them rather than assume.
         """
         with self._visa.lock():
-            self._visa.write("*IDN?")
-            idn = self._read_response("*IDN?")
+            self._visa.write("*CLS")
             try:
                 with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
-                    prompt = self._read_line()
+                    prompt = self._read_response("*CLS")
             except pyvisa.errors.VisaIOError:
-                prompt = ""
-        self._prompts = bool(prompt)
-        if prompt:
-            self._check_prompt("*IDN?", prompt)
-        return idn
+                self._prompts = False
+                return
+        self._prompts = True
+        self._check_prompt("*CLS", prompt)
 
     def _transact(self, command: str) -> str | None:
         """Send one command line, check it executed, and return its response (``None`` for a non-query)."""
         with self._visa.lock():
-            if self._prompts:
-                self._visa.write(command)
-                response: str | None = None
-                while True:
-                    line = self._read_line()
-                    if line == _PROMPT_OK or line in _PROMPT_ERRORS:
-                        self._check_prompt(command, line)
-                        return response
-                    if line.upper() != command.upper():
-                        response = line
-            if command.endswith("?"):
-                self._visa.write(command)
-                return self._read_response(command)
-            # Without prompts, chain *ESR? so the reply both confirms completion and carries errors.
-            line = f"{command}; *ESR?"
-            self._visa.write(line)
-            esr = int(self._read_response(line))
+            try:
+                if self._prompts:
+                    return self._transact_prompted(command)
+                if command.endswith("?"):
+                    self._visa.write(command)
+                    return self._read_response(command)
+                # Without prompts, chain *ESR? so the reply both confirms completion and carries errors.
+                line = f"{command}; *ESR?"
+                self._visa.write(line)
+                esr = int(self._read_response(line))
+            except pyvisa.errors.VisaIOError:
+                # A reply that arrives after a timeout would otherwise be read as the next command's.
+                self._device_clear()
+                raise
         if esr & _ESR_ERROR_MASK:
             raise InstroError(f"Fluke 8808A rejected {command!r}: *ESR? = {esr}")
         return None
+
+    def _transact_prompted(self, command: str) -> str | None:
+        self._visa.write(command)
+        response: str | None = None
+        while True:
+            line = self._read_line()
+            if line == _PROMPT_OK or line in _PROMPT_ERRORS:
+                self._check_prompt(command, line)
+                return response
+            if line.upper() != command.upper():
+                response = line
 
     def _read_response(self, command: str) -> str:
         """Read the response line to ``command``, skipping its echo when Echo is on."""
