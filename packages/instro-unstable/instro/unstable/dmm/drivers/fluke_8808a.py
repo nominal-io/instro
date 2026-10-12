@@ -208,6 +208,8 @@ class Fluke8808A(DMMDriverBase):
                 with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
                     prompt = self._read_response("*CLS")
             except pyvisa.errors.VisaIOError:
+                # A prompt that lands just after the window would otherwise be read as the next *ESR? reply.
+                self._device_clear()
                 self._prompts = False
                 return
         self._prompts = True
@@ -225,11 +227,16 @@ class Fluke8808A(DMMDriverBase):
                 # Without prompts, chain *ESR? so the reply both confirms completion and carries errors.
                 line = f"{command}; *ESR?"
                 self._visa.write(line)
-                esr = int(self._read_response(line))
+                reply = self._read_response(line)
             except pyvisa.errors.VisaIOError:
                 # A reply that arrives after a timeout would otherwise be read as the next command's.
                 self._device_clear()
                 raise
+            try:
+                esr = int(reply)
+            except ValueError:
+                self._device_clear()
+                raise InstroError(f"Fluke 8808A sent unexpected *ESR? reply {reply!r} for {command!r}") from None
         if esr & _ESR_ERROR_MASK:
             raise InstroError(f"Fluke 8808A rejected {command!r}: *ESR? = {esr}")
         return None

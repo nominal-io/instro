@@ -67,14 +67,26 @@ def test_open_failure_closes_transport(visa: MagicMock) -> None:
 
 
 def test_without_prompts_writes_chain_esr_check(visa: MagicMock) -> None:
-    # No prompt answers *CLS (Echo off, per the manual): every non-query is followed by *ESR?.
-    visa.read.side_effect = [OK, TIMEOUT, TIMEOUT] + ["0\r"] * len(OPEN_COMMANDS) + ["32\r"]
+    # No prompt answers *CLS within the probe window (Echo off, per the manual): every non-query
+    # is followed by *ESR?. A prompt that arrives late is drained, not parsed as an *ESR? reply.
+    visa.read.side_effect = [OK, TIMEOUT, TIMEOUT, OK, TIMEOUT] + ["0\r"] * len(OPEN_COMMANDS) + ["32\r"]
     driver = Fluke8808A(RESOURCE)
     driver.open()
     assert _writes(visa)[1:] == [f"{c}; *ESR?" for c in OPEN_COMMANDS]
 
     with pytest.raises(InstroError, match=r"\*ESR\? = 32"):
         driver.set_measurement_function(MeasurementFunction.AC_VOLTAGE)
+
+
+def test_without_prompts_unexpected_esr_reply_clears(visa: MagicMock) -> None:
+    visa.read.side_effect = [OK, TIMEOUT, TIMEOUT, TIMEOUT] + ["0\r"] * len(OPEN_COMMANDS) + ["?>\r", TIMEOUT]
+    driver = Fluke8808A(RESOURCE)
+    driver.open()
+    visa.write_raw.reset_mock()
+
+    with pytest.raises(InstroError, match="unexpected"):
+        driver.set_digits(5)
+    visa.write_raw.assert_called_once_with(b"\x03")
 
 
 def test_close_returns_to_local(fluke: Fluke8808A, visa: MagicMock) -> None:
