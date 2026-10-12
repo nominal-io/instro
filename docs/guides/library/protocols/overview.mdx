@@ -1,0 +1,21 @@
+---
+title: Protocols
+description: Protocol-based instrument communication for industrial protocols
+---
+
+<Info>The Nominal Instrumentation Library is in alpha testing. To request access, open the [Support Portal](https://portal.usepylon.com/nominal).</Info>
+
+# Protocols
+
+Protocol clients use JSON config files to describe device interfaces for standard industrial protocols. They complement instrument drivers: drivers expose purpose-built APIs for specific instrument categories, while protocol clients expose registers or tags on devices that speak Modbus or EtherNet/IP.
+
+## When to use protocol clients
+
+Use a protocol client when the device interface is already defined by a protocol and a config file can name the addresses, tags, and polling interval. The config becomes the portable definition of how Nominal reads the device; teams can version it with the test setup and change polling without editing Python.
+
+Use protocol clients for industrial devices that do not use SCPI or VISA transports, such as PLCs, sensors, motor controllers, and environmental monitors. Data from those devices flows through the same [publisher system](/library/publishers) and background worker infrastructure as instrument driver data.
+
+## Supported protocols
+
+- **[Modbus](/library/protocols/modbus)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and publisher support.
+- **[EtherNet/IP](/library/protocols/ethernetip)**: Allen-Bradley PLC tag access with config-driven scalar reads, writes, and batched background collection.

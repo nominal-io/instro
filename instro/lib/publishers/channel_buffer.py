@@ -31,8 +31,8 @@ class ChannelBufferPublisher(ABC):
         self._closed = False
 
     @abstractmethod
-    def _ensure_channel(self, channel_name: str) -> None:
-        """Ensure a channel exists in the buffers. Must be implemented by subclasses."""
+    def _ensure_channel(self, channel_name: str, values) -> None:
+        """Ensure a channel exists in the buffers, sized/typed for ``values``. Must be implemented by subclasses."""
 
     @abstractmethod
     def _extend_values(self, channel_name: str, values) -> None:
@@ -43,7 +43,7 @@ class ChannelBufferPublisher(ABC):
         """Extend the timestamps buffer for a channel. Must be implemented by subclasses."""
 
     @abstractmethod
-    def _get_values(self, channel_name: str, length: int) -> list[float]:
+    def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
         """Get the latest values from a channel. Must be implemented by subclasses."""
 
     @abstractmethod
@@ -59,7 +59,7 @@ class ChannelBufferPublisher(ABC):
         if isinstance(data, Measurement):
             with self._condition:
                 for channel_name, values in data.channel_data.items():
-                    self._ensure_channel(channel_name)
+                    self._ensure_channel(channel_name, values)
                     n_new = len(values)
                     self._extend_values(channel_name, values)
                     self._extend_timestamps(channel_name, data.timestamps)
@@ -203,7 +203,7 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
     def __init__(self, maxlen: int):
         super().__init__(maxlen)
 
-    def _ensure_channel(self, channel_name: str) -> None:
+    def _ensure_channel(self, channel_name: str, values) -> None:
         if channel_name not in self._values:
             self._values[channel_name] = deque(maxlen=self.maxlen)
             self._timestamps[channel_name] = deque(maxlen=self.maxlen)
@@ -214,7 +214,7 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
     def _extend_timestamps(self, channel_name: str, timestamps) -> None:
         self._timestamps[channel_name].extend(timestamps)
 
-    def _get_values(self, channel_name: str, length: int) -> list[float]:
+    def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
         n = min(length, len(self._values[channel_name]))
         return list(self._values[channel_name])[-n:] if n else []
 
@@ -246,23 +246,39 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
 
 
 class NumpyInMemoryPublisher(ChannelBufferPublisher):
+    """String-valued channels are stored in a plain deque; a float32 ring cannot hold them."""
+
     def __init__(self, maxlen: int, value_dtype: Any = np.float32):
         super().__init__(maxlen)
         self._value_dtype = value_dtype
 
-    def _ensure_channel(self, channel_name: str) -> None:
-        if channel_name not in self._values:
+    def _ensure_channel(self, channel_name: str, values) -> None:
+        if channel_name in self._values:
+            return
+        if not values:
+            # No values yet: defer store-kind selection until a non-empty batch arrives.
+            return
+        if isinstance(values[0], str):
+            self._values[channel_name] = deque(maxlen=self.maxlen)
+        else:
             self._values[channel_name] = NumpyRingBuffer(self.maxlen, self._value_dtype)
-            self._timestamps[channel_name] = NumpyRingBuffer(self.maxlen, np.int64)
 
     def _extend_values(self, channel_name: str, values) -> None:
+        if channel_name not in self._values:
+            return
         self._values[channel_name].extend(values)
 
     def _extend_timestamps(self, channel_name: str, timestamps) -> None:
+        if channel_name not in self._timestamps:
+            self._timestamps[channel_name] = NumpyRingBuffer(self.maxlen, np.int64)
         self._timestamps[channel_name].extend(timestamps)
 
-    def _get_values(self, channel_name: str, length: int) -> list[float]:
-        return self._values[channel_name].get_latest(length).tolist()
+    def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
+        store = self._values[channel_name]
+        if isinstance(store, deque):
+            n = min(length, len(store))
+            return list(store)[-n:] if n else []
+        return store.get_latest(length).tolist()
 
     def _get_timestamps(self, channel_name: str, length: int) -> list[int]:
         return self._timestamps[channel_name].get_latest(length).tolist()
@@ -275,16 +291,22 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
         """Return the current memory in bytes."""
         size = sys.getsizeof(self._values) + sys.getsizeof(self._timestamps)
 
-        # Add size of each RingBuffer and its numpy arrays
+        # Add size of each channel's store and its elements. `_values` and `_timestamps` are
+        # populated by separate calls (_extend_values / _extend_timestamps); guard against a
+        # channel present in one but not yet the other (e.g. an allocation failure between the
+        # two calls) rather than assuming the invariant always holds.
         for channel_name in self._values:
-            values_buffer = self._values[channel_name]
+            if channel_name not in self._timestamps:
+                continue
+            values_store = self._values[channel_name]
             timestamps_buffer = self._timestamps[channel_name]
 
-            # Size of RingBuffer objects
-            size += sys.getsizeof(values_buffer) + sys.getsizeof(timestamps_buffer)
+            size += sys.getsizeof(values_store) + sys.getsizeof(timestamps_buffer)
 
-            # Size of numpy arrays (nbytes gives actual data size)
-            size += values_buffer._buffer.nbytes
+            if isinstance(values_store, deque):
+                size += sum(sys.getsizeof(v) for v in values_store)
+            else:
+                size += values_store._buffer.nbytes  # numpy array: nbytes gives actual data size
             size += timestamps_buffer._buffer.nbytes
 
         return size

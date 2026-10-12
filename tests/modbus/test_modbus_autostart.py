@@ -97,7 +97,7 @@ class TestAutostart:
         )
         dev = ModbusDevice(config=config, autostart=True)
         try:
-            assert dev._modbus.is_open  # open() ran
+            assert dev._transport.is_open  # open() ran
         finally:
             dev.close()
 
@@ -111,6 +111,6 @@ class TestAutostart:
         )
         dev = ModbusDevice(config=config)
         try:
-            assert not dev._modbus.is_open
+            assert not dev._transport.is_open
         finally:
             dev.close()

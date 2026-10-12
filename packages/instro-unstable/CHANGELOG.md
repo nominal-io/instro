@@ -1,5 +1,74 @@
 # Changelog
 
+## [1.12.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.11.0...instro-unstable-v1.12.0) (2026-09-18)
+
+
+### Features
+
+* **dewesoftx:** add dewesoftx daq driver ([#443](https://github.com/nominal-io/instro/issues/443)) ([905422d](https://github.com/nominal-io/instro/commit/905422dd0f7c1209008e9a9786557afcba36f88d))
+
+## [1.11.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.10.0...instro-unstable-v1.11.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453))
+
+### Features
+
+* **awg:** expand config to extra features ([#450](https://github.com/nominal-io/instro/issues/450)) ([dfdc79b](https://github.com/nominal-io/instro/commit/dfdc79b9830dcbce11dce755f36f6732ef67e8ee))
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453)) ([ed9adfd](https://github.com/nominal-io/instro/commit/ed9adfd9f4aba9d5ea796769981e09736be06d1a))
+
+
+### Documentation
+
+* **unstable:** add package README ([#479](https://github.com/nominal-io/instro/issues/479)) ([ee687b0](https://github.com/nominal-io/instro/commit/ee687b02b92940d9401e12258b00c43ee7d8a3f4)), closes [#476](https://github.com/nominal-io/instro/issues/476)
+
+## [1.10.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.9.0...instro-unstable-v1.10.0) (2026-09-03)
+
+
+### Features
+
+* **unstable:** add motor-controller HAL and VESC 6 CAN driver ([#386](https://github.com/nominal-io/instro/issues/386)) ([e7f9627](https://github.com/nominal-io/instro/commit/e7f9627cefb8c48e7e2f50c45b488ec6a0e02f68))
+
+## [1.9.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.8.0...instro-unstable-v1.9.0) (2026-09-02)
+
+
+### Features
+
+* **unstable:** add VNA category and NanoVNA driver ([#439](https://github.com/nominal-io/instro/issues/439)) ([20dc3ea](https://github.com/nominal-io/instro/commit/20dc3eaea5d3dca60b99cab01dd7502a1394f7e4))
+
+
+### Bug Fixes
+
+* **awg:** standardize sample_rate in arbitrary waveforms ([#442](https://github.com/nominal-io/instro/issues/442)) ([f0e2432](https://github.com/nominal-io/instro/commit/f0e2432e747fcc66964b5b16311b3b95cad90bae))
+
+## [1.8.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.7.0...instro-unstable-v1.8.0) (2026-08-31)
+
+
+### Features
+
+* **awg:** add burst to Keysight 33521B driver ([#405](https://github.com/nominal-io/instro/issues/405)) ([bc38a6b](https://github.com/nominal-io/instro/commit/bc38a6b183904c00718d92b8f407dda031fa6e43))
+* **awg:** add sweep to Keysight 33521B driver ([#410](https://github.com/nominal-io/instro/issues/410)) ([a55974c](https://github.com/nominal-io/instro/commit/a55974c1cbecc561e721440556dc2031dd3d0faa))
+* **awg:** use bulk download for small LAN waveforms ([#432](https://github.com/nominal-io/instro/issues/432)) ([bde7b1e](https://github.com/nominal-io/instro/commit/bde7b1ee24a9ef77b0c1332a3d4700c8185dbef2))
+* publish categorical instrument reads as Measurement ([#445](https://github.com/nominal-io/instro/issues/445)) ([6ccce83](https://github.com/nominal-io/instro/commit/6ccce834b59f67753c192374c4154d0901d8bb3a))
+
+## [1.7.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.6.0...instro-unstable-v1.7.0) (2026-08-21)
+
+
+### Features
+
+* **awg:** add sweep to Rigol DG1022Z driver ([#412](https://github.com/nominal-io/instro/issues/412)) ([bd18a1b](https://github.com/nominal-io/instro/commit/bd18a1b454cc91d7327808405c1700f2f811268a))
+
+## [1.6.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.5.0...instro-unstable-v1.6.0) (2026-08-21)
+
+
+### Features
+
+* **awg:** add keysight 33500b awg driver ([#359](https://github.com/nominal-io/instro/issues/359)) ([4d36ade](https://github.com/nominal-io/instro/commit/4d36ade00313184e8aa202bd3a58e88cd3ec2393))
+* **awg:** add sweep functions to AWG base ([#388](https://github.com/nominal-io/instro/issues/388)) ([2b6227a](https://github.com/nominal-io/instro/commit/2b6227ac07ff3ac6f2a1538a750a8b5fb65dc58e))
+* **unstable:** add a shared CAN transport on TransportBase ([#396](https://github.com/nominal-io/instro/issues/396)) ([18da653](https://github.com/nominal-io/instro/commit/18da653ae41097b7f930e11d3ac3145d670a7691))
+
 ## [1.5.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.4.1...instro-unstable-v1.5.0) (2026-08-13)
 
 

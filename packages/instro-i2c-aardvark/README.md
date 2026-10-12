@@ -31,4 +31,4 @@ See the [I2C guides](https://instro.nominal.io) for system definitions, register
 
 ## License
 
-[Apache License 2.0](./LICENSE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/packages/instro-i2c-aardvark/LICENSE).

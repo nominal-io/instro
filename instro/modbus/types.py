@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from functools import cached_property
 from pathlib import Path
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from instro.lib.transports.modbus import (
-    ConnectionType,
     DataType,
-    ModbusDriver,
+    ModbusRTUTransport,
+    ModbusTCPTransport,
+    ModbusTransport,
     RegisterType,
-    RTUConnection,
-    TCPConnection,
+    register_count,
 )
 from instro.lib.types import (
     DeviceInfo,
@@ -28,13 +29,59 @@ __all__ = [
     "ScaleType",
     "ModbusConfig",
     "TimingConfig",
-    "TCPConnection",
-    "RTUConnection",
     "RegisterType",
     "DataType",
     "RegisterDef",
     "BitDef",
 ]
+
+
+# ============ Connection Config (private: the declarative path only) ============
+
+
+class _TCPConnectionConfig(BaseModel):
+    """Declarative Modbus TCP connection block. Private: users construct ``ModbusTCPTransport`` directly."""
+
+    transport: Literal["tcp"] = "tcp"
+    host: str
+    port: int = Field(default=502, ge=1, le=65535)
+    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
+    unit_id: int | None = Field(default=None, ge=0, le=ModbusTCPTransport._max_unit_id)
+
+    def build(self) -> ModbusTransport:
+        """Build the transport this block describes."""
+        return ModbusTCPTransport(host=self.host, port=self.port, timeout=self.timeout)
+
+
+class _RTUConnectionConfig(BaseModel):
+    """Declarative Modbus RTU connection block. Private: users construct ``ModbusRTUTransport`` directly."""
+
+    transport: Literal["rtu"] = "rtu"
+    port: str  # e.g., "/dev/ttyUSB0" (Linux), "/dev/cu.usbserial-1234" (macOS), "COM3" (Windows)
+    baudrate: int = 9600
+    parity: Literal["N", "E", "O"] = "N"
+    stopbits: Literal[1, 2] = 1
+    bytesize: Literal[5, 6, 7, 8] = 8
+    timeout: float = Field(default=3.0, gt=0, description="Response timeout in seconds")
+    framer: Literal["rtu", "ascii"] = "rtu"
+    # 248-255 are reserved per Modbus over Serial Line spec 2.2, so the serial block caps lower than TCP.
+    unit_id: int | None = Field(default=None, ge=0, le=ModbusRTUTransport._max_unit_id)
+
+    def build(self) -> ModbusTransport:
+        """Build the transport this block describes."""
+        return ModbusRTUTransport(
+            port=self.port,
+            baudrate=self.baudrate,
+            parity=self.parity,
+            stopbits=self.stopbits,
+            bytesize=self.bytesize,
+            timeout=self.timeout,
+            framer=self.framer,
+        )
+
+
+_ConnectionConfig = Annotated[_TCPConnectionConfig | _RTUConnectionConfig, Field(discriminator="transport")]
+_CONNECTION_ADAPTER: TypeAdapter[_TCPConnectionConfig | _RTUConnectionConfig] = TypeAdapter(_ConnectionConfig)
 
 
 # ============ Bitmap Definition ============
@@ -292,7 +339,7 @@ class RegisterDef(BaseModel):
     @property
     def register_count(self) -> int:
         """Number of 16-bit registers this data type spans (uint16→1, uint32→2, uint64→4)."""
-        return ModbusDriver.register_count(self.data_type)
+        return register_count(self.data_type)
 
 
 # ============ Top-Level Config ============
@@ -305,7 +352,7 @@ class ModbusConfig(BaseModel):
     protocol: str = "modbus"
     device: DeviceInfo
     timing: TimingConfig | None = None
-    connection: ConnectionType | None = Field(default=None, discriminator="transport")
+    connection: _ConnectionConfig | None = None
     registers: list[RegisterDef] = Field(default_factory=list)
 
     def model_post_init(self, __context) -> None:

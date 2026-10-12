@@ -1,0 +1,24 @@
+/* instro-only styles; the rest comes from nominal_sphinx_theme (nominal.css). */
+
+/* Driver cards (driver-cards directive): name above the product photo, as on Mintlify. */
+.driver-card .sd-card-img-bottom {
+  height: 100px;
+  object-fit: contain;
+  padding: 0.75rem;
+  background: #fff;
+}
+.driver-card .sd-card-body {
+  padding: 0.5rem 1rem;
+}
+
+/* Product photo at the top of a driver page. */
+.yue img.driver-image {
+  max-height: 140px;
+  width: auto;
+  margin: 0 0 1rem;
+}
+
+/* instro's logo, a step smaller than the theme's 28px. */
+.sy-head-brand img {
+  height: 20px;
+}

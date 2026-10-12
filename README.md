@@ -1,115 +1,136 @@
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./res/logo/instro-logo-ascii-white.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./res/logo/instro-logo-ascii-black.svg">
-  <img width="512" alt="Nominal Instro SDK Logo" src="./res/logo/instro-logo-ascii-black.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-white.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
+  <img width="512" alt="Nominal Instro SDK Logo" src="https://raw.githubusercontent.com/nominal-io/instro/main/res/logo/instro-logo-ascii-black.svg">
 </picture>
 </div>
 
 <br>
 
-Python library for talking to test instrumentation (power supplies, multimeters, electronic loads, DAQs, oscilloscopes, PLCs) from a unified, typed API.
+An open-source, vendor-agnostic Python library for interfacing with test equipment.
 
 [![PyPI](https://img.shields.io/pypi/v/instro.svg?color=419B55)](https://pypi.org/project/instro/)
 [![Downloads](https://img.shields.io/pepy/dt/instro?color=419B55&label=downloads)](https://pypi.org/project/instro/)
 [![Docs](https://img.shields.io/badge/docs-instro.nominal.io-419B55)](https://instro.nominal.io)
-[![SDK](https://img.shields.io/badge/sdk-nominal--io.github.io-419B55)](https://nominal-io.github.io/instro/)
+[![SDK](https://img.shields.io/badge/sdk-instro.nominal.io-419B55)](https://instro.nominal.io/sdk/)
 [![Community](https://img.shields.io/badge/community-community.instro.nominal.io-419B55)](https://community.instro.nominal.io)
+[![Discord](https://img.shields.io/badge/discord-join-419B55?logo=discord&logoColor=white)](https://discord.gg/nN4RzhQkr)
 
 ## Quickstart
 
-Talk to a simulated PSU. No hardware required.
+```python
+from instro.daq.drivers.labjack import LabJackTSeriesDriver
+# from instro.daq.drivers.ni import NIDAQDriver
+from instro.daq import InstroDAQ
+from instro.lib.publishers import FilePublisher
+
+pub = FilePublisher(format="jsonl", directory="/tmp/instro/")
+
+daq = InstroDAQ(
+  name       = "myDAQ",
+  driver     = LabJackTSeriesDriver(device_id="1234"),
+  publishers = [pub],
+  #driver    = NIDAQDriver(device_id="Dev1") # swap drivers, same code
+  )
+daq.open()
+daq.configure_voltage_input(
+    physical_channel="AIN0", alias="ch_0", range_min=0, range_max=5
+)
+measurement = daq.read_analog()  # written to `publishers`
+print(pub.file_path.read_text())
+```
+
+## [Installation](https://instro.nominal.io/installation)
+
+### Basic
+<table>
+<tr>
+<td>
 
 ```bash
-# Terminal 1: start the in-process SCPI sim server:
-python -m instro.psu.scpi_sim_server
+uv add instro
 ```
 
-```python
-# Terminal 2: run this:
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
-
-with InstroPSU(
-    name="my-psu",
-    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
-    num_channels=2,
-) as psu:
-    psu.set_voltage(3.3, channel=1)
-    psu.output_enable(True, channel=1)
-    print(psu.get_voltage(channel=1))
-```
-
-That's the flow. Construct, `open()`, configure, measure, `close()`. When you want to capture the data, attach a publisher to stream it to a file, a custom destination, or [Nominal](https://nominal.io). For the full walkthrough (including the background polling daemon and publishers), see the [official documentation](https://instro.nominal.io).
-
-## Installation
+</td>
+<td>
 
 ```bash
 pip install instro
 ```
 
-Requires [Python 3.10 to 3.14](https://www.python.org/downloads/).
+</td>
+</tr>
+</table>
+
+### With Additional Packages
+<table>
+<tr>
+<td>
+
+```bash
+uv add "instro[all]"
+```
+
+</td>
+<td>
+
+```bash
+pip install "instro[all]"
+```
+
+</td>
+</tr>
+</table>
+
+Available packages:
+
+| Instrument Type | Package | Contents |
+| --- | --- | --- |
+| **All** | `all` | All drivers in this table|
+| **DAQ** | `daq` | All DAQ drivers |
+|  | `nidaq` | NI DAQ package |
+|  | `mccdaq` | Measurement Computing (MCC) package |
+|  | `labjack` | LabJack package |
+| **I2C** | `i2c` | All I2C packages |
+|  | `aardvark` | TotalPhase Aardvark package |
+| **EtherNet** | `ethernetip` | EtherNet/IP support |
+| **Other** | `contrib` | Community-contributed drivers |
+|  | `unstable` | Experimental unstable modules |
+
+See [Installation](https://instro.nominal.io/installation) for more info.
+
+## [Supported devices](https://instro.nominal.io/instruments)
+
+<!-- --8<-- [start:supported-devices] -->
+| Category | Class | Vendors |
+|---|---|---|
+| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), EA Elektro-Automatik (PSB 10000-series), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
+| Multimeter | `InstroDMM` | Agilent 34401A, Keysight 34461A, Keithley 2400, Keithley 2750 (unstable), simulated |
+| Arbitrary Waveform Generator | `InstroAWG` | Keysight (33521B), Rigol (DG1022Z) |
+| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series), EA Elektro-Automatik (PSB 10000-series) |
+| Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
+| Flow Controller | `InstroFlowController` | Alicat MC-series |
+| DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series, DewesoftX (unstable) |
+| I2C | `I2CInterface` | Total Phase Aardvark |
+| Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
+| Motor Controller | `InstroMotorController` | VESC 6 over CAN via python-can (unstable) |
+| EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
+<!-- --8<-- [end:supported-devices] -->
+
+See [Supported devices](https://instro.nominal.io/instruments) for more info.
+
+## [Contributing](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md)
 
 To work on `instro` itself, clone and install with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/nominal-io/instro.git
 cd instro
-uv sync --extra all
+uv sync
 ```
-
-This creates a virtual environment with the core library, all optional vendor drivers, and dev dependencies. 
-Run with `uv run python your_script.py` or activate via `source .venv/bin/activate` (Unix) / `.venv\Scripts\activate` (Windows).
-
-For the full toolchain needed to run `just check` and `just test` (including the native Rust/CMake/LLVM dependencies their Rust recipes require), see [Prerequisites](./CONTRIBUTING.md#prerequisites) in the contributing guide.
-
-## Optional Extras
-
-Instro drivers that require a separate vendor sdk installation ship as separate packages so the heavy dependencies stay optional, and community-contributed drivers ship in their own package. Install only what you need:
-
-| Extra | Pulls in <img width="500" height="1"> | Package |
-|---|---|---|
-| `instro[nidaq]` | NI-DAQmx (Linux + Windows) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-ni.svg?label=instro-daq-ni&color=419B55)](https://pypi.org/project/instro-daq-ni/) |
-| `instro[labjack]` | LabJack LJM | [![PyPI](https://img.shields.io/pypi/v/instro-daq-labjack.svg?label=instro-daq-labjack&color=419B55)](https://pypi.org/project/instro-daq-labjack/) |
-| `instro[mccdaq]` | MCC UL (Windows-only) | [![PyPI](https://img.shields.io/pypi/v/instro-daq-mcc.svg?label=instro-daq-mcc&color=419B55)](https://pypi.org/project/instro-daq-mcc/) |
-| `instro[aardvark]` | Total Phase Aardvark (I2C) | [![PyPI](https://img.shields.io/pypi/v/instro-i2c-aardvark.svg?label=instro-i2c-aardvark&color=419B55)](https://pypi.org/project/instro-i2c-aardvark/) |
-| `instro[ethernetip]` | EtherNet/IP support for Allen-Bradley PLCs | [![PyPI](https://img.shields.io/pypi/v/instro-ethernetip.svg?label=instro-ethernetip&color=419B55)](https://pypi.org/project/instro-ethernetip/) |
-| `instro[contrib]` | Community-contributed hardware drivers | [![PyPI](https://img.shields.io/pypi/v/instro-contrib.svg?label=instro-contrib&color=419B55)](https://pypi.org/project/instro-contrib/) |
-| `instro[unstable]` | In-development features whose API isn't settled | [![PyPI](https://img.shields.io/pypi/v/instro-unstable.svg?label=instro-unstable&color=419B55)](https://pypi.org/project/instro-unstable/) |
-| `instro[all]` | Everything above | — |
-
-Pass the extra package name in brackets to `pip install`:
-
-```bash
-pip install "instro[labjack]"
-pip install "instro[nidaq,contrib]"
-```
-
-## Supported devices
-
-<!-- --8<-- [start:supported-devices] -->
-| Category | Class | Vendors |
-|---|---|---|
-| Power Supply | `InstroPSU` | B&K Precision (9115, 914X), Keysight (E36100-series), Rigol (DP800-series), Siglent (SPD3303), TDK Lambda (Genesys), simulated |
-| Multimeter | `InstroDMM` | Agilent 34401A, Keysight 34461A, Keithley 2400, Keithley 2750 (unstable), simulated |
-| Arbitrary Waveform Generator | `InstroAWG` | Keysight (33521B, unstable), Rigol (DG1022Z, unstable) |
-| Electronic Load | `InstroELoad` | B&K Precision (85xxB-series) |
-| Oscilloscope | `InstroScope` | Keysight (1200X-series), Tektronix (2-series), Siglent (SDS1000X-E) |
-| Flow Controller | `InstroFlowController` | Alicat MC-series |
-| DAQ | `InstroDAQ` | Keysight 34980A, NI-DAQmx, LabJack T-series, MCC USB-series |
-| I2C | `I2CInterface` | Total Phase Aardvark |
-| Modbus | `ModbusDevice` | Any Modbus TCP / RTU device |
-| EtherNet/IP | `EtherNetIPDevice` | Allen-Bradley / CompactLogix-class PLCs |
-<!-- --8<-- [end:supported-devices] -->
-
-Don't see your vendor? Drivers we can't test directly land in [`instro-contrib`](./packages/instro-contrib/).
-Install them with `instro[contrib]`. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the verification expectations.
-
-## Contributing
-
-- **Humans**: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development setup, PR conventions, and where different kinds of contributions belong in the workspace.
-- **AI coding tools** (Claude Code, Cursor, Codex, Copilot Workspace, …): see [`AGENTS.md`](./AGENTS.md) for codebase landmarks, conventions, and common workflows. The repo ships reusable skills and subagents for both Claude Code (`.claude/`) and Codex CLI (`.agents/`, `.codex/`). The existing skills are `add-instrument-driver` which scaffolds a new vendor driver from a programming manual/API, and `validate-driver-hardware` which smoke-tests an authored driver against the real instrument and self-corrects it. See [Repo skills and subagents](./AGENTS.md#repo-skills-and-subagents).
+See [Contributing](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for more info.
 
 ## License
 
-[Apache License 2.0](./LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](./NOTICE).
+[Apache License 2.0](https://github.com/nominal-io/instro/blob/main/LICENSE). Third-party dependency notices and proprietary vendor runtime requirements are documented in [NOTICE](https://github.com/nominal-io/instro/blob/main/NOTICE).

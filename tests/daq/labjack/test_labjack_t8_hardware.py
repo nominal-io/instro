@@ -219,8 +219,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         return daq
 
     def _configure_ai(self, daq, physical, alias, range_min=-11.0, range_max=11.0):
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=physical,
             alias=alias,
             range_min=range_min,
@@ -228,8 +227,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     def _configure_ao(self, daq, physical, alias):
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=physical,
             alias=alias,
             range_min=0,
@@ -237,12 +235,8 @@ class TestLabJackT8Hardware(unittest.TestCase):
         )
 
     def _configure_digital_lines(self, daq):
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
-        )
-        daq.configure_digital_line(
-            direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
-        )
+        daq.configure_digital_output(physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS)
+        daq.configure_digital_input(physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS)
 
     def _assert_t8(self, daq):
         device_type, conn_type, serial, _ip, _port, _ = daq.driver.get_info()
@@ -546,7 +540,7 @@ class TestLabJackT8Hardware(unittest.TestCase):
         """write() on an unconfigured alias must raise KeyError.
 
         InstroDAQ guards every write with a channel lookup. If the alias
-        has not been registered via configure_analog_channel(OUTPUT), a
+        has not been registered via configure_voltage_output(), a
         KeyError should be raised immediately rather than a cryptic LJM
         error or a silent no-op. This confirms the guard rail works.
         """
@@ -1249,6 +1243,60 @@ class TestLabJackT8Hardware(unittest.TestCase):
         self._run_step(
             "NotImplementedError — relay control",
             "Assert close_relay() raises NotImplementedError on the T8 driver.",
+            step,
+        )
+
+    # ==================================================================
+    # 25. stop() halts the stream engine, and a restart works in one session
+    # ==================================================================
+    def test_25_stream_stop_and_restart(self):
+        """stop() stops the device stream and retires the LJM callback, so a second start() succeeds."""
+
+        def step(start_ns: int):
+            print(f"         [start {self._ts(start_ns)}]")
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq, AI_CHANNEL_0, AI_ALIAS_0)
+                daq.configure_ai_hw_sample_rate(sample_rate=SAMPLE_RATE_HZ, samples_per_channel=SAMPLES_PER_CHANNEL)
+                driver = daq.driver
+
+                daq.start()
+                time.sleep(0.5)
+                first = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 50, True)
+                self.assertGreaterEqual(len(first.values), 1, "stream delivered no samples before stop()")
+                daq.stop()
+
+                # The device stream engine is off, so open() has no leftover stream to clear.
+                enabled = ljm.eReadName(driver._handle, "STREAM_ENABLE")
+                self.assertEqual(enabled, 0, f"stop() left the stream running (STREAM_ENABLE={enabled})")
+
+                # The callback is retired, so nothing refills the queue stop() drained.
+                self.assertTrue(driver._data_queue.empty(), "stop() left scans queued")
+                time.sleep(0.3)
+                self.assertTrue(driver._data_queue.empty(), "the callback queued scans after stop()")
+
+                # Fetching after stop() reports no active scan instead of stalling for the 5 s timeout.
+                with self.assertRaises(RuntimeError):
+                    daq.read_analog()
+                print("         stop(): STREAM_ENABLE=0, queue empty, read_analog() raises RuntimeError")
+
+                # A second start() in one session used to fail on an already-active stream.
+                daq.start()
+                try:
+                    time.sleep(0.5)
+                    second = daq.get_channel(f"{NAME}.{AI_ALIAS_0}", 50, True)
+                    self.assertGreaterEqual(len(second.values), 1, "restarted stream delivered no samples")
+                    self.assertTrue(all(math.isfinite(v) for v in second.values), "non-finite samples after restart")
+                    print(f"         restart delivered {len(second.values)} samples on {AI_ALIAS_0}")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Stream stop and restart",
+            "Start HW-timed acquisition and stop it. Verify STREAM_ENABLE reads 0, the LJM callback queues "
+            "nothing more, and a second start() in the same session streams real samples.",
             step,
         )
 

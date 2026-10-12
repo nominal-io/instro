@@ -1,0 +1,104 @@
+---
+title: Config Files
+description: Constructing instruments from JSON config files instead of Python setup code
+---
+
+Every config-driven category (`InstroPSU`, `InstroDMM`, `InstroELoad`, `InstroAWG`, `InstroScope`, …) can be constructed directly from a JSON config file, a plain dict, or an already-built config object, instead of `driver=...` Python setup code:
+
+```python
+psu = InstroPSU(config="bench_psu.json")
+psu = InstroPSU(config={"device": {"name": "bench_psu"}, "driver": {...}, ...})
+psu = InstroPSU(config=my_psu_config)
+```
+
+`config` is mutually exclusive with `driver`/`num_channels`. A passed-in config object is copied up front, so later edits to the object you passed don't reach the instrument.
+
+## Shape shared by every category
+
+```json
+{
+  "version": 1,
+  "instrument": "InstroPSU",
+  "device": {
+    "name": "bench_psu",
+    "description": "Bench channel 1 supply",
+    "manufacturer": "B&K Precision",
+    "model": "9115"
+  },
+  "driver": {
+    "name": "BK9115",
+    "num_channels": 1,
+    "connection_type": "visa",
+    "visa": { "visa_resource": "USB0::0x2A8D::0x0101::MY12345::INSTR" }
+  },
+  "timing": { "poll_interval": 1.0 },
+  "publishers": [
+    { "type": "NominalCorePublisher", "dataset_rid": "<dataset_rid>" }
+  ]
+}
+```
+
+- **`device.name`** is required and used as the channel-name prefix when publishing. `description`, `manufacturer`, and `model` are optional descriptive metadata about the physical instrument.
+- **`driver.name`** must match one of that category's registered vendor/model keys. The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
+- **`driver.num_channels`** is required by the multi-channel categories (PSU, Scope, AWG) and rejected by the single-channel ones (DMM, ELoad). The `driver` block is category-specific, not a shared component: each category validates it strictly, so a config copied between categories will not validate unchanged.
+- **`timing.poll_interval`** is optional and sets the background daemon's polling interval. Some categories require an initial-state block to be present before `timing` is meaningful (see each category below).
+- **`publishers`** is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`.
+- **`autostart=True`** opens the connection and starts background polling immediately: `InstroPSU(config="bench_psu.json", autostart=True)`.
+- Every category's config model is validated strictly: fields outside the documented set are rejected, so there's no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
+
+Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
+
+## Category-specific state blocks
+
+Beyond the shared shape above, some categories accept an optional block that sets initial instrument state through the same public setters a manual call would use, so it publishes the same `.cmd` channels.
+
+### PSU
+
+`InstroPSU`'s config has no initial-state block — only `device`, `driver`, `timing`, and `publishers`. See the [PSU guide](/psu#creating-an-instropsu) for a full example.
+
+### DMM
+
+An optional `measurement` block:
+
+- **`function`** (required within the block): one of `DC_VOLTAGE`, `AC_VOLTAGE`, `DC_CURRENT`, `AC_CURRENT`, `TWO_WIRE_RESISTANCE`, `FOUR_WIRE_RESISTANCE`.
+- **`digits`**: resolution in digits. Omit to keep the instrument default. Driver support varies: the Agilent 34401A accepts it, while the Keysight 34461A rejects it in favor of `aperture_nplc`.
+- **`aperture_nplc`** / **`aperture_seconds`**: integration time, in power-line cycles or seconds. At most one of the two.
+- **`range`**: a number for a manual range in the function's units, or `"auto"` for auto-range. Omit to keep the instrument default.
+
+Because background polling cannot start without a measurement function, a config that declares `timing` must also declare `measurement`.
+
+### ELoad
+
+An optional `load` block:
+
+- **`mode`** (required within the block): one of `CC`, `CV`, `CP`, `CR`. Required because level and range cannot be set before a mode.
+- **`level`**: operating level in the mode's units (CC: A, CV: V, CP: W, CR: Ω). Omit to keep the instrument default.
+- **`range`**: operating range in the mode's units. Driver support for `range` on `CP`/`CR` modes varies by vendor.
+- **`slew_rate`**: `{"direction": "RISE" | "FALL" | "BOTH", "rate": <A/µs>}`, mapping to `set_slewrate`.
+
+<Note>
+The config never enables the input. The `load` block pre-arms the setpoint; enabling the input stays an explicit runtime call (`eload.output_enable(True)`). The polled measurements (`get_voltage`, `get_current`) work regardless of mode, so `timing` is valid without a `load` block for passive monitoring.
+</Note>
+
+### AWG
+
+A required, non-empty `channels` dict, keyed by channel number as a string. Each entry is applied once per session on `open()` (a `close()` + `open()` cycle reapplies it):
+
+- **`waveform`** (required): one of `sine`, `square`, `sawtooth`, `triangle`, `pulse`, `arbitrary`, or `static_value`, discriminated by a `shape` field. `arbitrary`'s `samples` accepts an inline array of at least 2 floats normalized to `[-1.0, 1.0]`, or a string path to a CSV file (read fresh on every `open()`; a relative path resolves against the process's working directory, not the config file).
+- **`amplitude`** (optional): `{"value": <float>, "unit": "VPP" | "VP" | "VRMS" | "DBM"}`; `unit` defaults to `VPP`.
+- **`offset`** (optional): DC offset in volts.
+- **`modulation`** / **`burst`** / **`sweep`** (optional): at most one may carry `"enable": true` per channel. See `set_modulation`, `set_burst*`, `set_sweep*` for the field semantics.
+
+`output_enable` cannot be set from the config; call `awg.output_enable(channel, True)` explicitly after `open()`.
+
+### Scope
+
+Optional `channels`, `acquisition`, and `trigger` blocks, applied through the public setters when `open()` runs, in dependency order (coupling/attenuation before scale, trigger before acquisition, `average_count` before `mode`). If `acquisition.start_acquisition_on_open` is set, `run()` fires before the `acquisition` block applies, since some scopes only accept acquisition-mode changes while running.
+
+- **`channels`**: per-channel initial state keyed by 1-based channel number. Accepts `vertical_scale`, `vertical_offset`, `coupling` (`"AC"`/`"DC"`), `probe_attenuation`, and a `measurements` list to poll from the background daemon.
+- **`acquisition`**: `mode`, `average_count` (requires `mode: "AVERAGE"`), `horizontal_scale`, `start_acquisition_on_open` (default `false`).
+- **`trigger`**: `source` (required within the block), `type`, `level`, `slope`, `mode`.
+
+After the blocks apply, `open()` calls `sync_configuration()` and logs one warning per field the instrument reports differently from the config (scopes snap requested values to the nearest supported step). Trigger fields are not checked, since `sync_configuration()` does not read them back. `autostart` (host-side daemon) and `acquisition.start_acquisition_on_open` (instrument acquiring) are independent knobs.
+
+See the [Scope guide](/scope#creating-an-instroscope) for a full example.

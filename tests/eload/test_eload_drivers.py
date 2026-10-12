@@ -85,6 +85,11 @@ def test_set_level_uses_parameter_mode(bk: BK85XXB, visa_mock: MagicMock) -> Non
     visa_mock.query.assert_called_once_with("SYST:ERR?")
 
 
+def test_set_level_ignores_curr_limit(bk: BK85XXB, visa_mock: MagicMock) -> None:
+    bk.set_level(mode=LoadMode.CV, value=12.0, channel=1, curr_limit=2.0)
+    visa_mock.write.assert_called_once_with("VOLT 12.0")
+
+
 @pytest.mark.parametrize(
     ("mode", "expected_command"),
     [
@@ -187,6 +192,18 @@ def test_nominal_eload_set_mode_delegates() -> None:
     driver.set_mode.assert_called_once_with(mode=LoadMode.CC, channel=2)
 
 
+def test_nominal_eload_set_mode_leaves_mode_unset_when_driver_raises() -> None:
+    driver = _stub_driver()
+    driver.set_mode.side_effect = NotImplementedError("CP not supported")
+    eload = InstroELoad(name="ut", driver=driver)
+
+    with pytest.raises(NotImplementedError):
+        eload.set_mode(LoadMode.CP)
+
+    with pytest.raises(ValueError, match="Mode must be set"):
+        eload.set_level(value=1.0)
+
+
 def test_nominal_eload_set_level_requires_mode() -> None:
     driver = _stub_driver()
     eload = InstroELoad(name="ut", driver=driver)
@@ -199,6 +216,16 @@ def test_nominal_eload_set_level_delegates_with_current_mode() -> None:
     eload = InstroELoad(name="ut", driver=driver)
     eload.set_mode(LoadMode.CC)
     driver.reset_mock()
+    eload.set_level(value=1.0, channel=1)
+    driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.0, channel=1, curr_limit=None)
+
+
+def test_nominal_eload_cached_mode_survives_close_and_reopen() -> None:
+    driver = _stub_driver()
+    eload = InstroELoad(name="ut", driver=driver)
+    eload.set_mode(LoadMode.CC)
+    eload.close()
+    eload.open()
     eload.set_level(value=1.0, channel=1)
     driver.set_level.assert_called_once_with(mode=LoadMode.CC, value=1.0, channel=1, curr_limit=None)
 

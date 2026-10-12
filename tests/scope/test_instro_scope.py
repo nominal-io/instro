@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from instro.lib.transports.visa import SerialConfig, VisaConfig
+from instro.lib.types import BackgroundDaemonConfig, Measurement
 from instro.scope import (
     AcquisitionMode,
     AcquisitionState,
@@ -120,6 +121,17 @@ def test_keysight_set_trigger_level_without_source_omits_channel(
 def test_keysight_acquisition_mode_envelope_rejected(keysight: Keysight1200X) -> None:
     with pytest.raises(NotImplementedError, match="ENVELOPE"):
         keysight.set_acquisition_mode(AcquisitionMode.ENVELOPE)
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [("NORM", AcquisitionMode.NORMAL), ("AVER", AcquisitionMode.AVERAGE), ("HRES", AcquisitionMode.HIGH_RESOLUTION)],
+)
+def test_keysight_get_acquisition_mode_parses_short_form_response(
+    keysight: Keysight1200X, keysight_visa: MagicMock, response: str, expected: AcquisitionMode
+) -> None:
+    keysight_visa.query.return_value = response
+    assert keysight.get_acquisition_mode() == expected
 
 
 def test_keysight_digitize_uses_cached_source_and_temp_timeout(
@@ -851,14 +863,14 @@ def test_instro_scope_set_vertical_scale_delegates_and_updates_config(
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
     scope.set_vertical_scale(0.25, channel=1)
     assert ("set_vertical_scale", 0.25, 1) in stub_driver.calls
-    assert scope._config.channels[1].vertical_scale == 0.25
+    assert scope._state.channels[1].vertical_scale == 0.25
 
 
 def test_instro_scope_set_trigger_source_delegates(stub_driver: _StubScopeDriver) -> None:
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
     scope.set_trigger_source(channel=2)
     assert ("set_trigger_source", 2) in stub_driver.calls
-    assert scope._config.trigger.source == 2
+    assert scope._state.trigger.source == 2
 
 
 def test_instro_scope_check_errors_calls_driver(stub_driver: _StubScopeDriver) -> None:
@@ -870,4 +882,35 @@ def test_instro_scope_check_errors_calls_driver(stub_driver: _StubScopeDriver) -
 
 def test_instro_scope_initializes_channel_configs(stub_driver: _StubScopeDriver) -> None:
     scope = InstroScope(name="ut", driver=stub_driver, num_channels=4)
-    assert set(scope._config.channels.keys()) == {1, 2, 3, 4}
+    assert set(scope._state.channels.keys()) == {1, 2, 3, 4}
+
+
+def test_instro_scope_get_coupling_publishes_a_measurement_and_is_readable_from_the_buffer(
+    stub_driver: _StubScopeDriver,
+) -> None:
+    """instro#440: a categorical read publishes as Measurement, not Command.
+
+    get_coupling is the hardest of this design's retrofit sites -- per-channel,
+    legacy_naming-aware, cached, and error-checked -- so it exercises every constraint the
+    retrofit must preserve.
+    """
+    scope = InstroScope(
+        name="ut",
+        driver=stub_driver,
+        num_channels=1,
+        background_config=BackgroundDaemonConfig(interval=0.01),
+    )
+    scope.start()
+    try:
+        measurement = scope.get_coupling(channel=1)
+
+        # A categorical read publishes as a read (Measurement), not a write (Command).
+        assert isinstance(measurement, Measurement)
+
+        # It publishes on a bare, read-shaped channel -- no `.cmd` suffix, unlike the setter.
+        assert measurement.channel_data == {"ut.ch1.coupling": ["DC"]}
+
+        # It is readable back out of the in-memory buffer, same as any other read.
+        assert scope.get_single_channel_value("ch1.coupling") == "DC"
+    finally:
+        scope.stop()

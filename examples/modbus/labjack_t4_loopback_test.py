@@ -39,8 +39,8 @@ CONFIG = {
         "transport": "tcp",
         "host": HOST,
         "port": PORT,
-        "unit_id": 1,
         "timeout": 3.0,
+        "unit_id": 1,
     },
     "registers": [
         # Device identity

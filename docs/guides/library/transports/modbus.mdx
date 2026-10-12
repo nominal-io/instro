@@ -1,0 +1,208 @@
+---
+title: Modbus transport
+description: Modbus transport driver for building custom register-mapped instrument drivers
+---
+
+# Modbus transport
+
+`ModbusTCPTransport` and `ModbusRTUTransport` are the Modbus transports that register-mapped instrument drivers sit on top of. They are a public part of the library so customers can build their own drivers for Modbus-attached instruments (temperature and process controllers, meters, PLCs) without wrapping [pymodbus](https://pymodbus.readthedocs.io/) themselves.
+
+They are intentionally narrow: a transport opens, closes, and locks a Modbus TCP or RTU connection and exposes raw function-code I/O plus typed register encode and decode. The caller owns the register map (which address holds what).
+
+<Note>
+Modbus is a register-and-coil protocol. A driver reads and writes numbered 16-bit registers and single-bit coils by address; there is no self-describing command set. The Modbus transports use pymodbus under the hood and support both Modbus TCP and Modbus RTU (serial).
+</Note>
+
+## When to reach for it
+
+The Modbus transports address Modbus TCP and RTU (serial) devices, exposing raw function-code ops plus a typed codec. Reach for one when the register map is fixed in code, or when you want a standalone client addressing registers by number. For a comparison against the other transports, see [Transports](/library/transports/overview).
+
+For a config-driven device where the register map lives in a JSON file rather than driver code, use [`ModbusDevice`](/library/protocols/modbus) instead. `ModbusDevice` composes a Modbus transport and adds semantic access by register alias, scaling, validation, and background polling.
+
+## Quickstart
+
+A Modbus transport holds no unit address of its own: it serves any number of unit addresses on the line. Every I/O method takes the target's `unit_id` as a keyword argument:
+
+```python
+from instro.lib.transports import ModbusTCPTransport
+
+modbus = ModbusTCPTransport(host="192.168.1.50", port=502)
+
+modbus.open()
+try:
+    # Raw function-code access by address.
+    setpoint_regs = modbus.read_holding_registers(0x0100, count=2, unit_id=1)
+
+    # Typed access decodes across registers, applying byte/word/long swaps.
+    process_value = modbus.read_typed("input", 0x0000, "float32", unit_id=1)
+    modbus.write_typed("holding", 0x0100, 72.5, "float32", unit_id=1)
+finally:
+    modbus.close()
+```
+
+Use `ModbusRTUTransport` for serial devices. It supports both Modbus serial-line transmission modes: RTU framing (the default) and ASCII framing, via `framer`:
+
+```python
+from instro.lib.transports import ModbusRTUTransport
+
+modbus = ModbusRTUTransport(port="/dev/ttyUSB0", baudrate=19200)
+
+ascii_modbus = ModbusRTUTransport(port="/dev/ttyUSB1", framer="ascii")
+```
+
+## Register and data types
+
+Modbus defines four address spaces. The Modbus transports name them with the `RegisterType` vocabulary, and the typed access path dispatches on it:
+
+| `RegisterType` | Width | Access | Function codes |
+| --- | --- | --- | --- |
+| `"holding"` | 16-bit register | read and write | FC03 read, FC06 write one, FC16 write many |
+| `"input"` | 16-bit register | read only | FC04 |
+| `"coil"` | single bit | read and write | FC01 read, FC05 write one, FC15 write many |
+| `"discrete"` | single bit | read only | FC02 |
+
+Values wider than 16 bits span consecutive registers. `DataType` names the encoding, and `register_count()` reports the span:
+
+| `DataType` | Registers | Notes |
+| --- | --- | --- |
+| `"uint16"`, `"int16"` | 1 | |
+| `"uint32"`, `"int32"`, `"float32"` | 2 | |
+| `"uint64"`, `"int64"`, `"float64"` | 4 | |
+| `"bool"` | 1 | The only type valid for `"coil"` and `"discrete"` |
+
+## Typed access
+
+`read_typed` and `write_typed` handle the multi-register encode and decode, so callers work in native Python types rather than assembling 16-bit words:
+
+```python
+process_value = modbus.read_typed("input", 0x0000, "float32", unit_id=1)
+modbus.write_typed("holding", 0x0100, 72.5, "float32", unit_id=1)
+```
+
+Modbus itself does not specify how a multi-register value is ordered, so vendors differ. Three keyword flags cover the common permutations, all defaulting to `False` (big-endian, high word first):
+
+| Flag | Effect |
+| --- | --- |
+| `byte_swap` | Reverses the two bytes within each register |
+| `word_swap` | Swaps the 16-bit words within each 32-bit group |
+| `long_swap` | Swaps the 32-bit halves of a 64-bit value |
+
+```python
+# A device that reports float32 low-word-first.
+flow_rate = modbus.read_typed("input", 0x0010, "float32", unit_id=1, word_swap=True)
+```
+
+Four rules the typed path enforces:
+
+- **`"input"` and `"discrete"` are read-only.** `write_typed` raises `ValueError` rather than issuing a doomed request.
+- **Single-bit spaces require `"bool"`.** Passing any other `data_type` for `"coil"` or `"discrete"` raises `ValueError`.
+- **Coil writes require an actual `bool`.** There is no numeric coercion, so `write_typed("coil", addr, 1, "bool")` raises rather than silently treating `1` as `True`.
+- **Register count follows from the data type.** `read_typed` reads exactly the span `register_count()` reports, so callers never pass a count.
+
+`register_count`, `decode_registers`, and `encode_value` are also available as module-level functions for callers that hold raw registers already and only need the codec.
+
+## Atomic multi-step sequences
+
+Hold the [transport lock](/library/transports/overview#atomic-multi-step-sequences) across several ops to keep them atomic, for example selecting a page or bank register and then reading from it:
+
+```python
+with modbus.lock():
+    modbus.write_holding_register(0x00FF, page, unit_id=1)
+    values = modbus.read_holding_registers(0x0000, count=8, unit_id=1)
+```
+
+Note that a transport error inside the block closes the dead socket before re-raising, so the next op after the `with` reconnects rather than reusing it.
+
+## Sharing one connection across unit addresses
+
+An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several devices at different unit addresses over what is physically one connection. Build a single transport and address each device by `unit_id` per call instead of opening a connection per device. Callers that share the transport pass a holder identity to `open`/`close`, so the connection opens once and tears down only when the last owner leaves:
+
+```python
+modbus = ModbusTCPTransport(host="192.168.1.50", port=502)
+
+flow_meter, level_sensor = object(), object()  # any owner identity, typically a driver instance
+
+modbus.open(flow_meter)
+modbus.open(level_sensor)   # shares the connection flow_meter already opened
+
+flow_rate = modbus.read_typed("input", 0x0000, "float32", unit_id=1)
+level = modbus.read_typed("input", 0x0000, "float32", unit_id=2)
+
+modbus.close(flow_meter)    # connection stays open: level_sensor still holds it
+modbus.close(level_sensor)  # last owner leaves: connection tears down
+```
+
+The valid `unit_id` range is 0 to 255 on `ModbusTCPTransport` and 0 to 247 on `ModbusRTUTransport` (Modbus over Serial Line reserves 248-255, so a real RTU/ASCII slave will never have one of those addresses); `check_unit_id()` validates an address against the transport's range up front. This is the same shared-ownership mechanism described in [Transports: shared ownership](/library/transports/overview#shared-ownership), applied to one line instead of one device with two categories.
+
+For config-driven devices, [`ModbusDevice`](/library/protocols/modbus) wraps this pattern: pass the same transport to several devices, each with its own `unit_id`.
+
+## Configuration
+
+### `ModbusTCPTransport`
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `host` | `str` | required | Hostname or IP address |
+| `port` | `int` | `502` | 1 to 65535 |
+| `timeout` | `float` | `3.0` | Response timeout in seconds |
+
+### `ModbusRTUTransport`
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `port` | `str` | required | Serial device, e.g. `/dev/ttyUSB0`, `/dev/cu.usbserial-1234`, `COM3` |
+| `baudrate` | `int` | `9600` | |
+| `parity` | `"N"`, `"E"`, `"O"` | `"N"` | None, even, odd |
+| `stopbits` | `1`, `2` | `1` | |
+| `bytesize` | `5`, `6`, `7`, `8` | `8` | |
+| `timeout` | `float` | `3.0` | Response timeout in seconds |
+| `framer` | `"rtu"`, `"ascii"` | `"rtu"` | Modbus serial-line transmission mode |
+
+Neither transport carries a unit address: every I/O method takes `unit_id` as a keyword argument. The valid range is 0 to 255 on `ModbusTCPTransport` and 0 to 247 on `ModbusRTUTransport` (248-255 are reserved on a real serial line, never assigned to a slave).
+
+## Method reference
+
+| Method | Purpose |
+| --- | --- |
+| `ModbusTCPTransport(host, port=502, timeout=3.0)` / `ModbusRTUTransport(port, ..., framer="rtu")` | Construct the transport. No I/O yet. |
+| `check_unit_id(unit_id)` | Validate a unit address against the transport's range (0-255 for TCP, 0-247 for RTU) and return it. |
+| `is_open` | Property: `True` once opened and not closed. Stays `True` across a dropped socket, which the next op reconnects. |
+| `open(holder=None)` | Connect. Idempotent. See [Lifecycle](/library/transports/overview#lifecycle). |
+| `close(holder=None)` | Disconnect. See [Shared ownership](/library/transports/overview#shared-ownership). |
+| `lock()` | The reentrant lock, for atomic multi-step sequences. |
+| `read_holding_registers(address, count, *, unit_id)` | FC03. Returns `list[int]`. |
+| `read_input_registers(address, count, *, unit_id)` | FC04. Returns `list[int]`. |
+| `write_holding_register(address, value, *, unit_id)` | FC06. Writes one 16-bit register. |
+| `write_holding_registers(address, values, *, unit_id)` | FC16. Writes consecutive registers. |
+| `read_coils(address, count, *, unit_id)` | FC01. Returns `list[bool]`. |
+| `write_coil(address, value, *, unit_id)` | FC05. Writes one coil. |
+| `write_coils(address, values, *, unit_id)` | FC15. Writes consecutive coils. |
+| `read_discrete_inputs(address, count, *, unit_id)` | FC02. Returns `list[bool]`. |
+| `read_typed(register_type, address, data_type, *, unit_id, byte_swap, word_swap, long_swap)` | Read and decode across registers. |
+| `write_typed(register_type, address, value, data_type, *, unit_id, byte_swap, word_swap, long_swap)` | Encode and write across registers. |
+| `register_count(data_type)` | Module-level function. Registers the type spans. |
+| `decode_registers(registers, data_type, byte_swap, word_swap, long_swap)` | Module-level function. Raw registers to a typed value. |
+| `encode_value(value, data_type, byte_swap, word_swap, long_swap)` | Module-level function. Typed value to raw registers. |
+
+## Error handling
+
+| Error | Cause |
+| --- | --- |
+| `RuntimeError: Modbus client not connected. Call open() first.` | An op was issued before `open()`, or after `close()`. |
+| `RuntimeError: Modbus error <operation>: <name> (0x<code>)` | The device returned a Modbus exception response. The name and code come from the standard set below. |
+| `ConnectionError: Failed to connect to Modbus device at <target>` | `open()` could not establish the TCP or serial connection. |
+| `ValueError` | A typed-access rule was violated: writing a read-only space, a non-`"bool"` type on a single-bit space, a non-`bool` coil value, an unknown register or data type, or a unit address outside the transport's valid range (0-255 for TCP, 0-247 for RTU). |
+
+Device-side failures carry the standard Modbus exception-code name, so the message identifies the protocol-level cause rather than just reporting a failure:
+
+| Code | Name | Code | Name |
+| --- | --- | --- | --- |
+| `0x01` | `IllegalFunction` | `0x06` | `SlaveDeviceBusy` |
+| `0x02` | `IllegalDataAddress` | `0x08` | `MemoryParityError` |
+| `0x03` | `IllegalDataValue` | `0x0A` | `GatewayPathUnavailable` |
+| `0x04` | `SlaveDeviceFailure` | `0x0B` | `GatewayNoResponse` |
+| `0x05` | `Acknowledge` | | |
+
+<Tip>
+The pymodbus synchronous client does not reconnect on its own between operations. The Modbus transport closes the dead socket when an op fails with a transport error and re-raises, so the next call establishes a fresh connection. Application code still has to decide whether to retry; the transport does not retry for you.
+</Tip>

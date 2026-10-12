@@ -243,8 +243,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
         """Configure the AIN0 and AIN1 input channels (RSE)."""
         for channel, alias in ((AI0_CHANNEL, AI0_ALIAS), (AI1_CHANNEL, AI1_ALIAS)):
-            daq.configure_analog_channel(
-                direction=Direction.INPUT,
+            daq.configure_voltage_input(
                 physical_channel=channel,
                 alias=alias,
                 range_min=range_min,
@@ -254,8 +253,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
     def _configure_ao(self, daq: InstroDAQ):
         """Configure the DAC0 and DAC1 output channels (0-5 V)."""
         for channel, alias in ((AO0_CHANNEL, AO0_ALIAS), (AO1_CHANNEL, AO1_ALIAS)):
-            daq.configure_analog_channel(
-                direction=Direction.OUTPUT,
+            daq.configure_voltage_output(
                 physical_channel=channel,
                 alias=alias,
                 range_min=0,
@@ -264,14 +262,12 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
     def _configure_digital_lines(self, daq: InstroDAQ):
         """Configure FIO0 as output and FIO1 as input (single lines)."""
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT,
+        daq.configure_digital_output(
             physical_channel=DO_LINE,
             logic=Logic.HIGH,
             alias=DO_ALIAS,
         )
-        daq.configure_digital_line(
-            direction=Direction.INPUT,
+        daq.configure_digital_input(
             physical_channel=DI_LINE,
             logic=Logic.HIGH,
             alias=DI_ALIAS,
@@ -405,8 +401,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
                 print(f"         single-ended: AIN0={ain0:.4f} V, AIN1={ain1:.4f} V, diff={single_ended_diff:+.4f} V")
 
                 # Reconfigure AIN0 as the positive leg of a differential pair (AIN1 = negative).
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
+                daq.configure_voltage_input(
                     physical_channel=AI0_CHANNEL,
                     alias=AI0_ALIAS,
                     terminal_config=TerminalConfig.DIFF,
@@ -913,8 +908,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
             # Construct but deliberately do NOT open the DAQ.
             daq = InstroDAQ(name=NAME, driver=LabJackTSeriesDriver(device_id=DEVICE_ID))
             with self.assertRaises(InstrumentNotOpenError):
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
+                daq.configure_voltage_input(
                     physical_channel=AI0_CHANNEL,
                     alias=AI0_ALIAS,
                 )
@@ -924,7 +918,7 @@ class TestLabJackT7Hardware(unittest.TestCase):
 
         self._run_step(
             "Lifecycle guard (not open)",
-            "Verify configure_analog_channel() and read() raise InstrumentNotOpenError when called "
+            "Verify configure_voltage_input() and read() raise InstrumentNotOpenError when called "
             "before open(), confirming the _require_open() gate.",
             step,
         )
@@ -1091,6 +1085,62 @@ class TestLabJackT7Hardware(unittest.TestCase):
     def test_21_relay_control_unsupported(self):
         """Relay control is not supported by the LabJack driver."""
         self.skipTest("DAQDriverBase relays unsupported by LabJack")
+
+    # =====================================================================
+    # 22. stop() halts the stream engine, and a restart works in one session
+    # =====================================================================
+    def test_22_stream_stop_and_restart(self):
+        """stop() stops the device stream and retires the LJM callback, so a second start() succeeds."""
+
+        def step():
+            daq = self._create_daq()
+            try:
+                self._configure_ai(daq)
+                daq.configure_ai_hw_sample_rate(
+                    sample_rate=SAMPLE_RATE_HZ,
+                    samples_per_channel=SAMPLES_PER_CHANNEL,
+                )
+                driver = daq.driver
+
+                daq.start()
+                time.sleep(0.5)
+                first = daq.get_channel(f"{NAME}.{AI0_ALIAS}", 50, True)
+                self.assertGreaterEqual(len(first.values), 1, "stream delivered no samples before stop()")
+                daq.stop()
+
+                # The device stream engine is off, so open() has no leftover stream to clear.
+                enabled = ljm.eReadName(driver._handle, "STREAM_ENABLE")
+                self.assertEqual(enabled, 0, f"stop() left the stream running (STREAM_ENABLE={enabled})")
+
+                # The callback is retired, so nothing refills the queue stop() drained.
+                self.assertTrue(driver._data_queue.empty(), "stop() left scans queued")
+                time.sleep(0.3)
+                self.assertTrue(driver._data_queue.empty(), "the callback queued scans after stop()")
+
+                # Fetching after stop() reports no active scan instead of stalling for the 5 s timeout.
+                with self.assertRaises(RuntimeError):
+                    daq.read_analog()
+                print("         stop(): STREAM_ENABLE=0, queue empty, read_analog() raises RuntimeError")
+
+                # A second start() in one session used to fail on an already-active stream.
+                daq.start()
+                try:
+                    time.sleep(0.5)
+                    second = daq.get_channel(f"{NAME}.{AI0_ALIAS}", 50, True)
+                    self.assertGreaterEqual(len(second.values), 1, "restarted stream delivered no samples")
+                    self.assertTrue(all(math.isfinite(v) for v in second.values), "non-finite samples after restart")
+                    print(f"         restart delivered {len(second.values)} samples on {AI0_ALIAS}")
+                finally:
+                    daq.stop()
+            finally:
+                daq.close()
+
+        self._run_step(
+            "Stream stop and restart",
+            "Start HW-timed acquisition and stop it. Verify STREAM_ENABLE reads 0, the LJM callback queues "
+            "nothing more, and a second start() in the same session streams real samples.",
+            step,
+        )
 
 
 if __name__ == "__main__":

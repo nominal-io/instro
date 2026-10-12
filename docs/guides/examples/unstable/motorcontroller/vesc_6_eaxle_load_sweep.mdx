@@ -1,0 +1,97 @@
+---
+title: "e-axle load sweep, one VESC 6 under test driven against two VESC 6 load motors on a shared CAN bus"
+---
+
+<Warning>
+  This example uses `instro-unstable`. This code is new and may change without notice.
+</Warning>
+
+```python vesc_6_eaxle_load_sweep.py
+"""Example: e-axle load sweep, one VESC 6 under test driven against two VESC 6 load motors on a shared CAN bus.
+
+Stand: the motor under test (DUT) drives a reduction to an axle, and a load motor
+on each axle output brakes it. All three VESCs hang off one gs_usb adapter, so
+the three drivers share one CanTransport. The DUT holds a velocity setpoint while
+both load motors step through brake-current levels; brake current opposes each
+motor's own rotation, so the two loads cannot fight through the differential.
+
+Telemetry is collected by each instrument's background daemon, so the test loop
+only has to keep re-sending setpoints (the VESC releases its motor ~0.5 s after
+the last command). Every telemetry sample and setpoint streams to one Nominal
+Core dataset; each instrument owns its own publisher, and channels are prefixed
+by instrument name (dut.velocity, load_left.motor_current, ...).
+
+VESC Tool prerequisites: a distinct VESC ID per controller, CAN baud 500 kbps,
+CAN status message mode including statuses 1/4/5 on every controller, and FOC
+motor detection completed on every motor.
+
+Run:
+    uv run python packages/instro-unstable/instro/unstable/motorcontroller/examples/vesc_6_eaxle_load_sweep.py
+"""
+
+import statistics
+import time
+
+from instro.lib.publishers import NominalCorePublisher
+from instro.unstable.motorcontroller import InstroMotorController
+from instro.unstable.motorcontroller.drivers import VESC6
+from instro.unstable.transports import CanConfig, CanTransport
+
+DATASET_RID = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"  # replace with the stand's dataset RID
+
+bus = CanTransport(CanConfig(channel=0, interface="gs_usb"))
+dut = InstroMotorController("dut", driver=VESC6(bus, pole_pairs=4, controller_id=0))
+load_left = InstroMotorController("load_left", driver=VESC6(bus, pole_pairs=7, controller_id=1))
+load_right = InstroMotorController("load_right", driver=VESC6(bus, pole_pairs=7, controller_id=2))
+motors = (dut, load_left, load_right)
+
+dut.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+load_left.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+load_right.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
+
+DUT_RPM = 1200.0
+BRAKE_STEPS_A = (0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 0.0)  # unloaded baseline, the sweep, then release
+HOLD_SECONDS = 5.0
+KEEPALIVE_SECONDS = 0.05
+TELEMETRY_SECONDS = 0.1  # slower polling overflows the adapter FIFO, which drops the newest frames
+ABORT_CURRENT_A = 30.0  # sanity guard above the DUT spin-up surge; the VESC motor current limit is the real protection
+
+
+def hold(brake_a: float) -> None:
+    """Hold the DUT at DUT_RPM and both loads at brake_a for HOLD_SECONDS."""
+    deadline = time.monotonic() + HOLD_SECONDS
+    while time.monotonic() < deadline:
+        dut.set_velocity(DUT_RPM)
+        load_left.set_brake_current(brake_a)
+        load_right.set_brake_current(brake_a)
+        for motor in motors:
+            current = motor.get_single_channel_value("motor_current")
+            if current is not None and abs(float(current)) > ABORT_CURRENT_A:
+                raise RuntimeError(f"{motor.name} drew {current} A, aborting the sweep")
+        time.sleep(KEEPALIVE_SECONDS)
+
+
+def last_second_mean(motor: InstroMotorController, channel: str) -> float:
+    samples = motor.get_channel(channel, length=10).channel_data[f"{motor.name}.{channel}"]
+    return statistics.fmean(float(sample) for sample in samples)
+
+
+def report(brake_a: float) -> None:
+    print(
+        f"loads {brake_a:.1f} A brake  ->  "
+        f"DUT {last_second_mean(dut, 'velocity'):.0f} rpm, "
+        f"{last_second_mean(dut, 'motor_current'):.2f} A motor, "
+        f"{last_second_mean(dut, 'input_current'):.2f} A input;  "
+        f"loads {last_second_mean(load_left, 'motor_current'):.2f} A / {last_second_mean(load_right, 'motor_current'):.2f} A"
+    )
+
+
+with dut, load_left, load_right:  # exits in reverse order: loads release before the DUT stops
+    for motor in motors:
+        motor.background_interval = TELEMETRY_SECONDS
+        motor.start()
+
+    for brake_a in BRAKE_STEPS_A:
+        hold(brake_a)
+        report(brake_a)
+```

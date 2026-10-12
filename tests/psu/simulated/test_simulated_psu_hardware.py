@@ -6,6 +6,7 @@ import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
+from instro.psu import OperatingMode
 from instro.psu.drivers.simulated import SimulatedPSU
 from instro.psu.scpi_sim_server import SimulatedPSU as SimulatedPSUSimulator
 from instro.psu.scpi_sim_server import SimulatedPSUServer
@@ -105,6 +106,50 @@ def test_get_current(driver: SimulatedPSU, channel: int, current_limit: float, v
     current = driver.get_current(channel=channel)
 
     assert current == pytest.approx(0.0, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    ("channel", "voltage"),
+    [
+        (1, 6.0),
+        (2, 7.5),
+    ],
+)
+def test_get_voltage_setpoint(driver: SimulatedPSU, channel: int, voltage: float) -> None:
+    driver.set_voltage(voltage, channel=channel)
+
+    assert driver.get_voltage_setpoint(channel=channel) == pytest.approx(voltage)
+
+
+@pytest.mark.parametrize(
+    ("channel", "current_limit"),
+    [
+        (1, 1.0),
+        (2, 1.5),
+    ],
+)
+def test_get_current_setpoint(driver: SimulatedPSU, channel: int, current_limit: float) -> None:
+    driver.set_current_limit(current_limit, channel=channel)
+
+    assert driver.get_current_setpoint(channel=channel) == pytest.approx(current_limit)
+
+
+@pytest.mark.parametrize(
+    ("current_limit", "voltage", "enabled", "expected_mode"),
+    [
+        (1.0, 6.0, True, OperatingMode.CONSTANT_VOLTAGE),
+        (0.001, 6.0, True, OperatingMode.CONSTANT_CURRENT),
+        (1.0, 6.0, False, OperatingMode.OFF),
+    ],
+)
+def test_get_operating_mode(
+    driver: SimulatedPSU, current_limit: float, voltage: float, enabled: bool, expected_mode: OperatingMode
+) -> None:
+    driver.set_current_limit(current_limit, channel=1)
+    driver.set_voltage(voltage, channel=1)
+    driver.output_enable(enabled, channel=1)
+
+    assert driver.get_operating_mode(channel=1) == expected_mode
 
 
 @pytest.mark.parametrize(
@@ -455,6 +500,24 @@ def test_set_current_limit_invalid_channel(driver: SimulatedPSU, invalid_channel
 def test_get_current_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
     with pytest.raises(RuntimeError, match="Header suffix out of range"):
         driver.get_current(channel=invalid_channel)
+
+
+@pytest.mark.parametrize("invalid_channel", [3])
+def test_get_voltage_setpoint_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+    with pytest.raises(RuntimeError, match="Header suffix out of range"):
+        driver.get_voltage_setpoint(channel=invalid_channel)
+
+
+@pytest.mark.parametrize("invalid_channel", [3])
+def test_get_current_setpoint_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+    with pytest.raises(RuntimeError, match="Header suffix out of range"):
+        driver.get_current_setpoint(channel=invalid_channel)
+
+
+@pytest.mark.parametrize("invalid_channel", [3])
+def test_get_operating_mode_invalid_channel(driver: SimulatedPSU, invalid_channel: int) -> None:
+    with pytest.raises(RuntimeError, match="Header suffix out of range"):
+        driver.get_operating_mode(channel=invalid_channel)
 
 
 @pytest.mark.parametrize(("invalid_channel", "enabled"), [(3, True)])

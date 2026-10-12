@@ -7,6 +7,7 @@ import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
+from instro.psu import OperatingMode
 from instro.psu.drivers import RigolDP800
 
 _NO_ERROR = '0,"No error"'
@@ -164,6 +165,36 @@ def test_rigol_get_output_status_parses_state(rigol: RigolDP800, rigol_visa: Mag
 
     rigol_visa.query.side_effect = ["OFF", '0,"No error"']
     assert rigol.get_output_status(channel=1) is False
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("0", OperatingMode.OFF),
+        ("1", OperatingMode.CONSTANT_CURRENT),
+        ("2\n", OperatingMode.CONSTANT_VOLTAGE),
+        ("3", OperatingMode.UNREGULATED),
+        ("6", OperatingMode.CONSTANT_VOLTAGE),  # OVP bit set; only the low two bits carry the mode
+        ("9", OperatingMode.CONSTANT_CURRENT),  # OCP bit set
+    ],
+)
+def test_rigol_get_operating_mode_decodes_condition_register(
+    rigol: RigolDP800,
+    rigol_visa: MagicMock,
+    reply: str,
+    expected: OperatingMode,
+) -> None:
+    rigol_visa.query.side_effect = [reply, _NO_ERROR]
+
+    assert rigol.get_operating_mode(channel=2) == expected
+    assert rigol_visa.query.call_args_list == [call(":STAT:QUES:INST:ISUM2:COND?"), call(":SYST:ERR?")]
+
+
+def test_rigol_get_operating_mode_raises_on_non_numeric_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["XX", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match="Unexpected Rigol condition register for channel 1: XX"):
+        rigol.get_operating_mode(channel=1)
 
 
 def test_rigol_set_overvoltage_protection_level_writes_channel_command(
@@ -347,6 +378,36 @@ def test_rigol_get_overcurrent_protection_enabled_parses_state(
 
     rigol_visa.query.side_effect = ["0", '0,"No error"']
     assert rigol.get_overcurrent_protection_enabled(channel=1) is False
+
+
+def test_rigol_clear_protection_clears_ovp_and_ocp(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol.clear_protection(channel=2)
+
+    assert rigol_visa.write.call_args_list == [call(":OUTP:OVP:CLEAR CH2"), call(":OUTP:OCP:CLEAR CH2")]
+    assert rigol_visa.query.call_args_list == [call(":SYST:ERR?"), call(":SYST:ERR?")]
+
+
+def test_rigol_get_overvoltage_protection_tripped_parses_yes_no(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["YES", _NO_ERROR, "NO", _NO_ERROR]
+
+    assert rigol.get_overvoltage_protection_tripped(channel=1) is True
+    assert rigol.get_overvoltage_protection_tripped(channel=1) is False
+    assert rigol_visa.query.call_args_list[0] == call(":OUTP:OVP:QUES? CH1")
+
+
+def test_rigol_get_overcurrent_protection_tripped_parses_yes_no(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["YES", _NO_ERROR, "NO", _NO_ERROR]
+
+    assert rigol.get_overcurrent_protection_tripped(channel=2) is True
+    assert rigol.get_overcurrent_protection_tripped(channel=2) is False
+    assert rigol_visa.query.call_args_list[0] == call(":OUTP:OCP:QUES? CH2")
+
+
+def test_rigol_get_protection_tripped_raises_on_unexpected_reply(rigol: RigolDP800, rigol_visa: MagicMock) -> None:
+    rigol_visa.query.side_effect = ["1", _NO_ERROR]
+
+    with pytest.raises(RuntimeError, match="Unexpected .* reply to :OUTP:OVP:QUES\\? CH1: 1"):
+        rigol.get_overvoltage_protection_tripped(channel=1)
 
 
 def test_rigol_set_remote_sense_enabled_writes_state(rigol: RigolDP800, rigol_visa: MagicMock) -> None:

@@ -1,7 +1,7 @@
 """Example: Write digital line."""
 
 from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor, Direction, Logic
+from instro.daq.types import DAQVendor, Logic
 from instro.lib.publishers import NominalCorePublisher
 
 # Configuration: Choose your vendor.
@@ -46,11 +46,7 @@ daq = InstroDAQ(name="myDAQ", driver=driver)
 daq.add_publisher(NominalCorePublisher(dataset_rid=DATASET_RID))
 
 with daq:
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel=CHANNEL_0, alias="do_0", logic=Logic.HIGH, logic_level=5.0
-    )
-    daq.configure_digital_line(
-        direction=Direction.OUTPUT, physical_channel=CHANNEL_1, alias="do_1", logic=Logic.LOW, logic_level=5.0
-    )
+    daq.configure_digital_output(physical_channel=CHANNEL_0, alias="do_0", logic=Logic.HIGH, logic_level=5.0)
+    daq.configure_digital_output(physical_channel=CHANNEL_1, alias="do_1", logic=Logic.LOW, logic_level=5.0)
 
     daq.write_batch(["do_0", "do_1"], [1, 0])

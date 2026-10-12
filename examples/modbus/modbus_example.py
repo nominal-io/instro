@@ -22,12 +22,12 @@ from pathlib import Path
 from instro.lib.publishers import NominalCorePublisher
 from instro.modbus import ModbusDevice
 
-CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020, "unit_id": 1, "timeout": 2.0}
+CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020, "timeout": 2.0}
 CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 
 
 def main():
-    device = ModbusDevice(str(CONFIG_PATH), connection=CONNECTION, autostart=True)
+    device = ModbusDevice(str(CONFIG_PATH), connection=CONNECTION, unit_id=1, autostart=True)
     device.add_publisher(
         NominalCorePublisher("ri.catalog.cerulean-staging.dataset.056356ba-5c64-479c-9fc8-da0eba27ae0b")
     )

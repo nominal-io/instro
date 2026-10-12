@@ -1,0 +1,15 @@
+The [`Keysight34461A`](https://nominal-io.github.io/instro/python/sdk/instruments/generated/instro.dmm.drivers.keysight_34461a.Keysight34461A/) provides a driver that can be used to instantiate an [InstroDMM](/dmm).
+
+## Creating an [`InstroDMM`](/dmm) with [`Keysight34461A`](https://nominal-io.github.io/instro/python/sdk/instruments/generated/instro.dmm.drivers.keysight_34461a.Keysight34461A/)
+
+```python
+from instro.dmm.drivers import Keysight34461A
+from instro.dmm import InstroDMM
+
+dmm = InstroDMM(
+    name="myDMM",
+    driver=Keysight34461A("<visa_resource>"),
+)
+```
+
+Parameters and methods specific to [`Keysight34461A`](https://nominal-io.github.io/instro/python/sdk/instruments/generated/instro.dmm.drivers.keysight_34461a.Keysight34461A/) can be found in the [SDK](https://nominal-io.github.io/instro/python/sdk/).

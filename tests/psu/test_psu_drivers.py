@@ -1,10 +1,14 @@
 """Tests for PSU drivers (driver-owned VisaDriver transport) and InstroPSU composition."""
 
-from unittest.mock import MagicMock
+import threading
+from unittest.mock import MagicMock, call
 
 import pytest
 
+from instro.lib import Command, Measurement
+from instro.lib.publishers import Publisher
 from instro.psu import InstroPSU, PSUDriverBase
+from instro.psu.types import OperatingMode
 
 # --- PSUDriverBase ---
 
@@ -56,6 +60,13 @@ def test_psu_driver_base_setpoint_getters_raise_not_implemented(
         getattr(base_only_psu_driver, method_name)(*args, channel=1)
 
 
+def test_psu_driver_base_get_operating_mode_raises_not_implemented(
+    base_only_psu_driver: _BaseOnlyPSUDriver,
+) -> None:
+    with pytest.raises(NotImplementedError, match="get_operating_mode is not implemented for _BaseOnlyPSUDriver"):
+        base_only_psu_driver.get_operating_mode(channel=1)
+
+
 @pytest.mark.parametrize(
     ("method_name", "args"),
     [
@@ -65,6 +76,8 @@ def test_psu_driver_base_setpoint_getters_raise_not_implemented(
         ("get_overvoltage_protection_enabled", ()),
         ("set_overvoltage_protection_delay", (0.25,)),
         ("get_overvoltage_protection_delay", ()),
+        ("clear_protection", ()),
+        ("get_overvoltage_protection_tripped", ()),
     ],
 )
 def test_psu_driver_base_ovp_methods_raise_not_implemented(
@@ -83,6 +96,7 @@ def test_psu_driver_base_ovp_methods_raise_not_implemented(
         ("get_overcurrent_protection_level", ()),
         ("set_overcurrent_protection_enabled", (True,)),
         ("get_overcurrent_protection_enabled", ()),
+        ("get_overcurrent_protection_tripped", ()),
     ],
 )
 def test_psu_driver_base_ocp_methods_raise_not_implemented(
@@ -113,6 +127,35 @@ def test_psu_driver_base_remote_sense_methods_raise_not_implemented(
 # --- InstroPSU composition ---
 
 
+class _CountingLock:
+    """Counts how many times the resource lock is taken, to prove a sequence is never split."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.acquisitions = 0
+
+    def __enter__(self) -> "_CountingLock":
+        self._lock.acquire()
+        self.acquisitions += 1
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._lock.release()
+
+
+class _RecordingPublisher(Publisher):
+    """Captures published data so a test can assert what reached the publishers."""
+
+    def __init__(self) -> None:
+        self.published: list[Measurement | Command] = []
+
+    def publish(self, data: Measurement | Command, **kwargs: object) -> None:
+        self.published.append(data)
+
+    def close(self) -> None:
+        pass
+
+
 def _stub_driver() -> MagicMock:
     driver = MagicMock(spec=PSUDriverBase)
     driver.get_voltage.return_value = 12.0
@@ -120,11 +163,14 @@ def _stub_driver() -> MagicMock:
     driver.get_output_status.return_value = True
     driver.get_voltage_setpoint.return_value = 5.0
     driver.get_current_setpoint.return_value = 1.5
+    driver.get_operating_mode.return_value = OperatingMode.CONSTANT_VOLTAGE
     driver.get_overvoltage_protection_level.return_value = 15.0
     driver.get_overvoltage_protection_enabled.return_value = True
     driver.get_overvoltage_protection_delay.return_value = 0.25
     driver.get_overcurrent_protection_level.return_value = 2.0
     driver.get_overcurrent_protection_enabled.return_value = True
+    driver.get_overvoltage_protection_tripped.return_value = True
+    driver.get_overcurrent_protection_tripped.return_value = False
     driver.get_remote_sense_enabled.return_value = True
     return driver
 
@@ -161,6 +207,78 @@ def test_nominal_psu_set_voltage_delegates() -> None:
     psu = InstroPSU(name="ut", driver=driver, num_channels=2)
     psu.set_voltage(5.0, channel=2)
     driver.set_voltage.assert_called_once_with(5.0, channel=2)
+
+
+def test_nominal_psu_apply_sets_limit_then_voltage_then_output() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2)
+    commands = psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=2)
+    # Current limit must land before the voltage it guards.
+    driver.assert_has_calls(
+        [
+            call.set_current_limit(1.0, channel=2),
+            call.set_voltage(5.0, channel=2),
+            call.output_enable(True, channel=2),
+        ]
+    )
+    assert [list(command.channel_data) for command in commands] == [
+        ["ut.ch2.current.cmd"],
+        ["ut.ch2.voltage.cmd"],
+        ["ut.ch2.enabled.cmd"],
+    ]
+
+
+def test_nominal_psu_apply_rejects_positional_arguments() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    # Keyword-only guards against swapping the two setpoints and against energizing
+    # the output without `enable=True` spelled out at the call site.
+    with pytest.raises(TypeError, match="positional argument"):
+        psu.apply(0.5, 12.0, True, channel=1)  # type: ignore[misc]
+    assert not driver.method_calls
+
+
+def test_nominal_psu_apply_disables_output_before_writing_setpoints() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    psu.apply(current_limit=0.5, voltage=3.3, channel=1)
+    # An already-live channel must go dark before it sees the new setpoints.
+    driver.assert_has_calls(
+        [
+            call.output_enable(False, channel=1),
+            call.set_current_limit(0.5, channel=1),
+            call.set_voltage(3.3, channel=1),
+        ]
+    )
+
+
+def test_nominal_psu_apply_holds_the_resource_lock_for_the_whole_sequence() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    lock = _CountingLock()
+    psu._resource_lock = lock  # type: ignore[assignment]
+
+    psu.apply(current_limit=1.0, voltage=5.0, channel=1)
+
+    # One acquisition, not one per step: releasing in between would let the
+    # background daemon publish a half-applied channel.
+    assert lock.acquisitions == 1
+
+
+def test_nominal_psu_apply_publishes_steps_that_landed_before_a_failure() -> None:
+    driver = _stub_driver()
+    driver.set_voltage.side_effect = RuntimeError("out of range")
+    publisher = _RecordingPublisher()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1, publishers=[publisher])
+
+    with pytest.raises(RuntimeError, match="out of range"):
+        psu.apply(current_limit=0.5, voltage=99.0, channel=1)
+
+    # The disable and the current limit reached the hardware, so they must not be lost from the record.
+    assert [list(command.channel_data) for command in publisher.published] == [
+        ["ut.ch1.enabled.cmd"],
+        ["ut.ch1.current.cmd"],
+    ]
 
 
 def test_nominal_psu_get_voltage_returns_measurement() -> None:
@@ -204,6 +322,18 @@ def test_nominal_psu_get_current_setpoint_returns_measurement() -> None:
     driver.get_current_setpoint.assert_called_once_with(channel=1)
     assert measurement is not None
     assert measurement.channel_data["ut.ch1.current.setpoint"] == [1.5]
+
+
+def test_nominal_psu_get_operating_mode_returns_measurement() -> None:
+    from instro.lib import Measurement
+
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=1)
+    measurement = psu.get_operating_mode(channel=1)
+    driver.get_operating_mode.assert_called_once_with(channel=1)
+    assert isinstance(measurement, Measurement)
+    assert measurement.channel_data["ut.ch1.operating_mode"] == ["CV"]
+    assert "ut.ch1.operating_mode.cmd" not in measurement.channel_data
 
 
 def test_nominal_psu_set_current_limit_delegates() -> None:
@@ -257,6 +387,22 @@ def test_nominal_psu_ocp_methods_delegate_and_package() -> None:
     assert "ut.ch1.ocp.enabled" in enabled.channel_data  # type: ignore[union-attr]
 
 
+def test_nominal_psu_protection_trip_methods_delegate_and_package() -> None:
+    driver = _stub_driver()
+    psu = InstroPSU(name="ut", driver=driver, num_channels=2)
+
+    clear = psu.clear_protection(channel=2)
+    ovp_tripped = psu.get_overvoltage_protection_tripped(channel=2)
+    ocp_tripped = psu.get_overcurrent_protection_tripped(channel=2)
+
+    driver.clear_protection.assert_called_once_with(channel=2)
+    driver.get_overvoltage_protection_tripped.assert_called_once_with(channel=2)
+    driver.get_overcurrent_protection_tripped.assert_called_once_with(channel=2)
+    assert clear.channel_data == {"ut.ch2.protection.clear.cmd": 1.0}
+    assert ovp_tripped.channel_data == {"ut.ch2.ovp.tripped": [1.0]}  # type: ignore[union-attr]
+    assert ocp_tripped.channel_data == {"ut.ch2.ocp.tripped": [0.0]}  # type: ignore[union-attr]
+
+
 def test_nominal_psu_remote_sense_methods_delegate_and_package() -> None:
     driver = _stub_driver()
     psu = InstroPSU(name="ut", driver=driver, num_channels=1)
@@ -284,6 +430,8 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     voltage_cmd = psu.set_voltage(5.0, channel=1)
     current_cmd = psu.set_current_limit(1.5, channel=1)
     enabled_cmd = psu.output_enable(True, channel=2)
+    clear_cmd = psu.clear_protection(channel=1)
+    ocp_tripped = psu.get_overcurrent_protection_tripped(channel=1)
 
     assert "ut.ch1_v" in voltage.channel_data  # type: ignore[union-attr]
     assert "ut.ch1_i" in current.channel_data  # type: ignore[union-attr]
@@ -291,6 +439,8 @@ def test_legacy_naming_publishes_old_psu_channel_names() -> None:
     assert "ut.ch1_v.cmd" in voltage_cmd.channel_data
     assert "ut.ch1_i.cmd" in current_cmd.channel_data
     assert "ut.ch2_en.cmd" in enabled_cmd.channel_data
+    assert "ut.ch1_protection_clear.cmd" in clear_cmd.channel_data
+    assert "ut.ch1_ocp_tripped" in ocp_tripped.channel_data  # type: ignore[union-attr]
 
 
 def test_default_naming_publishes_new_psu_channel_names() -> None:

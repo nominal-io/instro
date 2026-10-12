@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
@@ -14,6 +15,7 @@ from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
 from instro.psu.config import PSUConfig, resolve_psu_from_config
+from instro.psu.types import OperatingMode
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class PSUDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def get_voltage(self, channel: int) -> float:
-        """Query the measured output voltage (volts) on `channel`."""
+        """Query the measured output voltage (volts) on `channel`. Output may vary from voltage setpoint outside of constant voltage mode."""
         raise NotImplementedError(f"get_voltage is not implemented for {type(self).__name__}")
 
     @abc.abstractmethod
@@ -48,7 +50,7 @@ class PSUDriverBase(abc.ABC):
 
     @abc.abstractmethod
     def get_current(self, channel: int) -> float:
-        """Query the measured output current (amperes) on `channel`."""
+        """Query the measured output current (amperes) on `channel`. Output may vary from current-limit setpoint outside of constant current mode."""
         raise NotImplementedError(f"get_current is not implemented for {type(self).__name__}")
 
     @abc.abstractmethod
@@ -62,12 +64,16 @@ class PSUDriverBase(abc.ABC):
         raise NotImplementedError(f"get_output_status is not implemented for {type(self).__name__}")
 
     def get_voltage_setpoint(self, channel: int) -> float:
-        """Query the configured voltage setpoint (volts) on `channel`."""
+        """Query the configured voltage setpoint (volts) on `channel`. Output may vary from actual measured voltage outside of constant voltage mode."""
         raise NotImplementedError(f"get_voltage_setpoint is not implemented for {type(self).__name__}")
 
     def get_current_setpoint(self, channel: int) -> float:
-        """Query the configured current-limit setpoint (amperes) on `channel`."""
+        """Query the configured current-limit setpoint (amperes) on `channel`. Output may vary from actual measured current outside of constant current mode."""
         raise NotImplementedError(f"get_current_setpoint is not implemented for {type(self).__name__}")
+
+    def get_operating_mode(self, channel: int) -> OperatingMode:
+        """Query whether `channel` is regulating in constant voltage, constant current, unregulated, or off."""
+        raise NotImplementedError(f"get_operating_mode is not implemented for {type(self).__name__}")
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
         """Set the overvoltage protection threshold (volts) on `channel`."""
@@ -108,6 +114,18 @@ class PSUDriverBase(abc.ABC):
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         """Query whether overcurrent protection is enabled on `channel`."""
         raise NotImplementedError(f"get_overcurrent_protection_enabled is not implemented for {type(self).__name__}")
+
+    def clear_protection(self, channel: int) -> None:
+        """Clear every latched protection trip on `channel`. The output stays off until re-enabled."""
+        raise NotImplementedError(f"clear_protection is not implemented for {type(self).__name__}")
+
+    def get_overvoltage_protection_tripped(self, channel: int) -> bool:
+        """Query whether overvoltage protection has tripped on `channel` and not been cleared."""
+        raise NotImplementedError(f"get_overvoltage_protection_tripped is not implemented for {type(self).__name__}")
+
+    def get_overcurrent_protection_tripped(self, channel: int) -> bool:
+        """Query whether overcurrent protection has tripped on `channel` and not been cleared."""
+        raise NotImplementedError(f"get_overcurrent_protection_tripped is not implemented for {type(self).__name__}")
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
         """Enable or disable remote sense on `channel`."""
@@ -211,11 +229,15 @@ class InstroPSU(Instrument):
             driver_method(value, channel=channel)
             timestamp = time.time_ns()
 
+        return self._package_command(
+            self._command_descriptor(channel, channel_suffix, legacy_suffix), value, timestamp, **kwargs
+        )
+
+    def _command_descriptor(self, channel: int, channel_suffix: str, legacy_suffix: str) -> str:
+        """Build the published command descriptor for ``channel``."""
         if self.legacy_naming:
-            descriptor = f"ch{channel}_{legacy_suffix}.cmd"
-        else:
-            descriptor = f"ch{channel}.{channel_suffix}.cmd"
-        return self._package_command(descriptor, value, timestamp, **kwargs)
+            return f"ch{channel}_{legacy_suffix}.cmd"
+        return f"ch{channel}.{channel_suffix}.cmd"
 
     @publish_measurement
     def _execute_measurement(
@@ -230,6 +252,7 @@ class InstroPSU(Instrument):
         with self._resource_lock:
             val = driver_method(channel=channel)
             timestamp = time.time_ns()
+        val = val.value if isinstance(val, Enum) else val
 
         if self.legacy_naming:
             descriptor = f"ch{channel}_{legacy_suffix}"
@@ -250,6 +273,47 @@ class InstroPSU(Instrument):
         self._driver.close()
         logger.info("Closed PSU '%s'", self.name)
 
+    def apply(
+        self, *, current_limit: float, voltage: float, enable: bool = False, channel: int, **kwargs
+    ) -> list[Command]:
+        """Set the current limit, then the voltage, then the output state on ``channel``.
+
+        The output stays off unless ``enable=True`` is passed, and on the default
+        path it is disabled before the new setpoints are written, so setpoints are
+        never applied to a live output. Every argument is keyword-only, so a value
+        can't land on the wrong setpoint and the output can't be energized without
+        ``enable=True`` spelled out at the call site.
+
+        Holds the resource lock across all steps so nothing observes a half-applied
+        channel, and publishes only after releasing it so publisher I/O never blocks
+        the background daemon or other threads waiting on the instrument.
+
+        Not atomic on the instrument: if a step raises, earlier steps have already
+        been committed and the channel is left in an unknown state. Commands for the
+        steps that did land are still published before the exception propagates.
+        """
+        steps: list[tuple[Callable, Any, str, str]] = []
+        if not enable:
+            steps.append((self._driver.output_enable, False, "enabled", "en"))
+        steps.append((self._driver.set_current_limit, current_limit, "current", "i"))
+        steps.append((self._driver.set_voltage, voltage, "voltage", "v"))
+        if enable:
+            steps.append((self._driver.output_enable, True, "enabled", "en"))
+
+        commands: list[Command] = []
+        try:
+            with self._resource_lock:
+                for driver_method, value, channel_suffix, legacy_suffix in steps:
+                    driver_method(value, channel=channel)
+                    timestamp = time.time_ns()
+                    descriptor = self._command_descriptor(channel, channel_suffix, legacy_suffix)
+                    commands.append(self._package_command(descriptor, value, timestamp, **kwargs))
+        finally:
+            # Publish outside the lock, and publish what landed even when a later step raised.
+            for command in commands:
+                self.publish(command)
+        return commands
+
     def set_voltage(self, voltage: float, channel: int, **kwargs) -> Command:
         """Set the output voltage (volts) on ``channel``."""
         return self._execute_command(
@@ -262,7 +326,7 @@ class InstroPSU(Instrument):
         )
 
     def get_voltage(self, channel: int, **kwargs) -> Measurement | None:
-        """Measure the voltage (volts) sensed at ``channel`` terminals. Returns ``None`` if unavailable."""
+        """Measure the voltage (volts) sensed at ``channel`` terminals. Output may vary from voltage setpoint outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage, channel=channel, channel_suffix="voltage", legacy_suffix="v", **kwargs
         )
@@ -279,7 +343,7 @@ class InstroPSU(Instrument):
         )
 
     def get_current(self, channel: int, **kwargs) -> Measurement | None:
-        """Measure the current (amperes) flowing through ``channel``. Returns ``None`` if unavailable."""
+        """Measure the current (amperes) flowing through ``channel``. Output may vary from current-limit setpoint outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current, channel=channel, channel_suffix="current", legacy_suffix="i", **kwargs
         )
@@ -306,7 +370,7 @@ class InstroPSU(Instrument):
         )
 
     def get_voltage_setpoint(self, channel: int, **kwargs) -> Measurement | None:
-        """Query the configured voltage setpoint (volts) on ``channel``. Returns ``None`` if unavailable."""
+        """Query the configured voltage setpoint (volts) on ``channel``. Output may vary from actual measured voltage outside of constant voltage mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_voltage_setpoint,
             channel=channel,
@@ -315,8 +379,18 @@ class InstroPSU(Instrument):
             **kwargs,
         )
 
+    def get_operating_mode(self, channel: int, **kwargs) -> Measurement | None:
+        """Query whether ``channel`` is regulating in constant voltage, constant current, unregulated, or off (published as a string)."""
+        return self._execute_measurement(
+            self._driver.get_operating_mode,
+            channel=channel,
+            channel_suffix="operating_mode",
+            legacy_suffix="operating_mode",
+            **kwargs,
+        )
+
     def get_current_setpoint(self, channel: int, **kwargs) -> Measurement | None:
-        """Query the configured current-limit setpoint (amperes) on ``channel``. Returns ``None`` if unavailable."""
+        """Query the configured current-limit setpoint (amperes) on ``channel``. Output may vary from actual measured current outside of constant current mode. Returns ``None`` if unavailable."""
         return self._execute_measurement(
             self._driver.get_current_setpoint,
             channel=channel,
@@ -427,6 +501,48 @@ class InstroPSU(Instrument):
             channel=channel,
             channel_suffix="ocp.enabled",
             legacy_suffix="ocp_en",
+            **kwargs,
+        )
+
+    @publish_command
+    def clear_protection(self, channel: int, **kwargs) -> Command:
+        """Clear every latched protection trip on ``channel``. Publishes ``True`` on the ``protection.clear`` command channel.
+
+        The output stays off after the clear; re-enable it with `output_enable` once the cause is fixed.
+        """
+        with self._resource_lock:
+            self._driver.clear_protection(channel=channel)
+            timestamp = time.time_ns()
+
+        return self._package_command(
+            self._command_descriptor(channel, "protection.clear", "protection_clear"), True, timestamp, **kwargs
+        )
+
+    def get_overvoltage_protection_tripped(self, channel: int, **kwargs) -> Measurement | None:
+        """Query whether overvoltage protection has tripped on ``channel`` and not been cleared.
+
+        Raises ``NotImplementedError`` if the driver does not implement the query, or
+        ``FeatureNotSupportedError`` if the supply has no overvoltage protection.
+        """
+        return self._execute_measurement(
+            self._driver.get_overvoltage_protection_tripped,
+            channel=channel,
+            channel_suffix="ovp.tripped",
+            legacy_suffix="ovp_tripped",
+            **kwargs,
+        )
+
+    def get_overcurrent_protection_tripped(self, channel: int, **kwargs) -> Measurement | None:
+        """Query whether overcurrent protection has tripped on ``channel`` and not been cleared.
+
+        Raises ``NotImplementedError`` if the driver does not implement the query, or
+        ``FeatureNotSupportedError`` if the supply has no overcurrent protection.
+        """
+        return self._execute_measurement(
+            self._driver.get_overcurrent_protection_tripped,
+            channel=channel,
+            channel_suffix="ocp.tripped",
+            legacy_suffix="ocp_tripped",
             **kwargs,
         )
 

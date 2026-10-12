@@ -79,7 +79,7 @@ from instro.lib.publishers import NominalCorePublisher  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration — edit before running
 # ---------------------------------------------------------------------------
-DEVICE_ID = "cDAQ5"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
+DEVICE_ID = "<NI DEVICE NAME>"  # NI device name as shown in NI MAX (e.g. "Dev1" or a cDAQ chassis like "cDAQ1")
 NAME = "ni_validate"
 
 # Set to a Nominal dataset RID to stream validation data via NominalCorePublisher;
@@ -233,14 +233,12 @@ class TestNIDAQHardware(unittest.TestCase):
 
     def _configure_digital_lines(self, daq: InstroDAQ):
         """Configure DO_LINE as output and DI_LINE as input (single lines)."""
-        daq.configure_digital_line(
-            direction=Direction.OUTPUT,
+        daq.configure_digital_output(
             physical_channel=DO_LINE,
             logic=Logic.HIGH,
             alias=DO_ALIAS,
         )
-        daq.configure_digital_line(
-            direction=Direction.INPUT,
+        daq.configure_digital_input(
             physical_channel=DI_LINE,
             logic=Logic.HIGH,
             alias=DI_ALIAS,

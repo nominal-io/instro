@@ -11,7 +11,6 @@ import time
 
 from instro.daq import InstroDAQ
 from instro.daq.drivers.ni import NIDAQDriver
-from instro.daq.types import Direction
 
 # Show write_batch's per-channel "<alias> -> succeeded/failed" debug logs.
 logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -32,8 +31,7 @@ daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id=DEVICE_ID))
 with daq:
     aliases = [f"ao_{i}" for i in range(NUM_CHANNELS)]
     for i, alias in enumerate(aliases):
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=f"{MODULE}/ao{i}",
             alias=alias,
             range_min=RANGE_MIN,

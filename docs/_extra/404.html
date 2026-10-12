@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found · instro</title>
+  <script>
+    // The docs were under /python/ until #607; send those links to the same page at the root.
+    const path = location.pathname;
+    // Collapse leading slashes: "//host" would be read as another site.
+    if (path === "/python" || path.startsWith("/python/")) {
+      const rest = path.slice("/python".length).replace(/^\/+/, "");
+      location.replace("/" + rest + location.search + location.hash);
+    }
+  </script>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-content: center;
+      padding: 0 16px;
+      text-align: center;
+      font: 16px/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #fff;
+      color: #0b0b0b;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0b0b0b; color: #fff; }
+    }
+    h1 { font-weight: 600; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Page not found</h1>
+  <p><a href="/">Go to the instro docs</a></p>
+</body>
+</html>

@@ -11,97 +11,49 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Docs",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Overview",
             "icon": "rocket",
-            "root": "getting-started",
+            "root": "overview",
             "expanded": true,
             "pages": [
-              "instrumentation/quickstart",
-              "instrumentation/overview",
-              "instrumentation/scope",
-              "instrumentation/installation",
-              "instrumentation/driver-dependencies",
-              "instrumentation/cli"
-            ]
-          },
-          {
-            "group": "Concepts",
-            "icon": "book-open",
-            "root": "instrumentation/concepts",
-            "expanded": true,
-            "pages": [
-              "instrumentation/publishers",
-              "instrumentation/library",
-              "instrumentation/exceptions",
-              "instrumentation/custom-instruments",
-              "instrumentation/contrib"
+              "quickstart",
+              "installation",
+              "cli"
             ]
           },
           {
             "group": "Instruments",
             "icon": "microchip",
-            "root": "instrumentation/instruments",
+            "root": "instruments",
             "expanded": true,
             "pages": [
-              {
-                "group": "Power Supply (PSU)",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/psu",
-                  "instrumentation/psu-simulator"
-                ]
-              },
-              "instrumentation/eload",
-              {
-                "group": "Multimeter (DMM)",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/dmm",
-                  "instrumentation/dmm-simulator"
-                ]
-              },
-              "instrumentation/daq",
-              "instrumentation/oscilloscope",
-              "instrumentation/awg",
-              "instrumentation/flowcontroller"
+              "scope",
+              "psu",
+              "dmm",
+              "daq",
+              "awg",
+              "eload",
+              "flowcontroller"
             ]
           },
           {
-            "group": "Protocols",
-            "icon": "network-wired",
-            "root": "instrumentation/protocols/overview",
+            "group": "Library",
+            "icon": "book-open",
+            "root": "library/concepts",
             "expanded": true,
             "pages": [
-              {
-                "group": "I2C",
-                "expanded": true,
-                "pages": [
-                  "instrumentation/protocols/i2c/overview",
-                  "instrumentation/protocols/i2c/system-definition"
-                ]
-              },
-              "instrumentation/protocols/modbus",
-              "instrumentation/protocols/ethernetip"
-            ]
-          },
-          {
-            "group": "Transports",
-            "icon": "plug",
-            "root": "instrumentation/transports/overview",
-            "expanded": true,
-            "pages": [
-              "instrumentation/transports/visa",
-              "instrumentation/transports/modbus"
-            ]
-          },
-          {
-            "group": "Migration",
-            "icon": "arrow-right-arrow-left",
-            "pages": [
-              "migration/v1"
+              "library/library",
+              "library/publishers",
+              "library/protocols/overview",
+              "library/transports/overview",
+              "library/config-files",
+              "library/simulated-instruments",
+              "library/custom-instruments",
+              "library/contrib",
+              "library/exceptions"
             ]
           }
         ]
@@ -110,133 +62,43 @@
         "tab": "Examples",
         "groups": [
           {
-            "group": "Overview",
+            "group": "Stable",
             "pages": [
-              "instrumentation/examples"
+              "examples",
+              "examples/daq/index",
+              "examples/dmm/index",
+              "examples/psu/index",
+              "examples/eload/index",
+              "examples/awg/index",
+              "examples/i2c/index",
+              "examples/publishers/index",
+              "examples/modbus/index",
+              "examples/ethernetip/index",
+              "examples/test_rack_example/index",
+              "examples/custom/index",
+              "examples/scope/index"
             ]
           },
           {
-            "group": "DAQ",
+            "group": "Additional packages",
             "pages": [
-              "instrumentation/examples/daq/daq_analog_loopback",
-              "instrumentation/examples/daq/daq_read_analog_hw_timed",
-              "instrumentation/examples/daq/daq_read_analog_hw_timed_no_background",
-              "instrumentation/examples/daq/daq_read_analog_sw_timed",
-              "instrumentation/examples/daq/daq_read_digital_line",
-              "instrumentation/examples/daq/daq_relays",
-              "instrumentation/examples/daq/daq_write_analog_sw_timed",
-              "instrumentation/examples/daq/daq_write_digital_line",
-              "instrumentation/examples/daq/daq_read_digital_port",
-              "instrumentation/examples/daq/daq_write_digital_port",
-              "instrumentation/examples/daq/daq_multi_rate_ni",
-              "instrumentation/examples/daq/daq_hw_and_sw_timed_ni",
-              "instrumentation/examples/daq/daq_read_analog_sw_timed_no_background",
-              "instrumentation/examples/daq/daq_write_batch_continuous_ni"
-            ]
-          },
-          {
-            "group": "DMM",
-            "pages": [
-              "instrumentation/examples/dmm/dmm_basic",
-              "instrumentation/examples/dmm/dmm_config"
-            ]
-          },
-          {
-            "group": "PSU",
-            "pages": [
-              "instrumentation/examples/psu/psu",
-              "instrumentation/examples/psu/psu_background_daemon",
-              "instrumentation/examples/psu/psu_config"
-            ]
-          },
-          {
-            "group": "Electronic Load",
-            "pages": [
-              "instrumentation/examples/eload/eload"
-            ]
-          },
-          {
-            "group": "I2C",
-            "pages": [
-              "instrumentation/examples/i2c/i2c_basic",
-              "instrumentation/examples/i2c/i2c_command"
-            ]
-          },
-          {
-            "group": "Publishers",
-            "pages": [
-              "instrumentation/examples/publishers/publish_buffered",
-              "instrumentation/examples/publishers/publish_custom",
-              "instrumentation/examples/publishers/publish_file",
-              "instrumentation/examples/publishers/publish_jsonl",
-              "instrumentation/examples/publishers/publish_queued",
-              "instrumentation/examples/publishers/publish_shared"
-            ]
-          },
-          {
-            "group": "Modbus",
-            "pages": [
-              "instrumentation/examples/modbus/labjack_t4_loopback_test",
-              "instrumentation/examples/modbus/minimal_example",
-              "instrumentation/examples/modbus/modbus_example",
-              "instrumentation/examples/modbus/programmatic_config_example"
-            ]
-          },
-          {
-            "group": "EtherNet/IP",
-            "pages": [
-              "instrumentation/examples/ethernetip/ethernetip_example",
-              "instrumentation/examples/ethernetip/minimal_example",
-              "instrumentation/examples/ethernetip/programmatic_config_example"
-            ]
-          },
-          {
-            "group": "Test Rack",
-            "pages": [
-              "instrumentation/examples/test_rack_example/test_rack"
-            ]
-          },
-          {
-            "group": "Custom",
-            "pages": [
-              "instrumentation/examples/custom/simple_temp_controller"
-            ]
-          },
-          {
-            "group": "Scope",
-            "pages": [
-              "instrumentation/examples/scope/scope_background",
-              "instrumentation/examples/scope/scope_basic"
-            ]
-          },
-          {
-            "group": "Flowcontroller (Unstable)",
-            "pages": [
-              "instrumentation/examples/unstable/flowcontroller/flowcontroller",
-              "instrumentation/examples/unstable/flowcontroller/alicat_mc"
+              "examples/unstable/index",
+              "examples/contrib/index"
             ]
           }
         ]
+      },
+      {
+        "tab": "SDK",
+        "href": "https://nominal-io.github.io/instro/python/sdk/"
+      },
+      {
+        "tab": "GitHub",
+        "href": "https://github.com/nominal-io/instro"
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "SDK Reference",
-          "href": "https://nominal-io.github.io/instro/",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/nominal-io/instro",
-          "icon": "github"
-        },
-        {
-          "anchor": "Changelog",
-          "href": "https://nominal-io.github.io/instro/changelog/",
-          "icon": "book"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {
@@ -246,8 +108,12 @@
   "navbar": {
     "links": [
       {
-        "label": "Community",
+        "label": "Forum",
         "href": "https://community.instro.nominal.io"
+      },
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/nN4RzhQkr"
       }
     ],
     "primary": {
@@ -271,6 +137,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/nominal_io",
+      "discord": "https://discord.gg/nN4RzhQkr",
       "github": "https://github.com/nominal-io/instro",
       "linkedin": "https://linkedin.com/company/nominal-io"
     }

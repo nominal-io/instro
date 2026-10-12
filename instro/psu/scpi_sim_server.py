@@ -94,7 +94,7 @@ class SCPIError(IntEnum):
         return self._message
 
 
-class OperatingMode(Enum):
+class SimOperatingMode(Enum):
     OFF = "OFF"
     CV = "CV"  # voltage regulated
     CC = "CC"  # current regulated
@@ -138,7 +138,7 @@ class SimulatedPSUChannel:
         self.terminal_voltage = 0.0
         self.load_voltage = 0.0
         self.current = 0.0
-        self.mode = OperatingMode.OFF
+        self.mode = SimOperatingMode.OFF
         self.overvoltage_tripped = False
         self.overcurrent_tripped = False
         self.protection_latched = False
@@ -408,6 +408,11 @@ class SimulatedPSU:
         ch = self._require_channel(channel)
         return 1 if (ch and ch.output_enabled) else 0
 
+    def _query_mode(self, channel: int, args: list[str]) -> str:
+        self._update()
+        ch = self._require_channel(channel)
+        return ch.mode.value if ch else SimOperatingMode.OFF.value
+
     def _clear_protection_latch(self, channel: int, args: list[str]) -> None:
         ch = self._require_channel(channel)
         if ch is None:
@@ -509,7 +514,7 @@ class SimulatedPSU:
             ch.terminal_voltage = 0.0
             ch.load_voltage = 0.0
             ch.current = 0.0
-            ch.mode = OperatingMode.OFF
+            ch.mode = SimOperatingMode.OFF
             return
 
         self._update_voltage_source(ch)
@@ -522,7 +527,7 @@ class SimulatedPSU:
             ch.terminal_voltage = 0.0
             ch.load_voltage = 0.0
             ch.current = 0.0
-            ch.mode = OperatingMode.OFF
+            ch.mode = SimOperatingMode.OFF
             return
 
         if ch.overcurrent_protection_enabled and abs(ch.current) > ch.overcurrent_protection_level:
@@ -533,7 +538,7 @@ class SimulatedPSU:
             ch.terminal_voltage = 0.0
             ch.load_voltage = 0.0
             ch.current = 0.0
-            ch.mode = OperatingMode.OFF
+            ch.mode = SimOperatingMode.OFF
             return
 
     def _update_voltage_source(self, ch: SimulatedPSUChannel) -> None:
@@ -553,7 +558,7 @@ class SimulatedPSU:
             i_demand = (v_set - emf) / r_total
 
         if i_demand <= i_limit:
-            ch.mode = OperatingMode.CV
+            ch.mode = SimOperatingMode.CV
             ch.current = i_demand
             if ch.remote_sense:
                 ch.load_voltage = v_set
@@ -562,7 +567,7 @@ class SimulatedPSU:
                 ch.terminal_voltage = v_set
                 ch.load_voltage = v_set - i_demand * r_probe
         else:
-            ch.mode = OperatingMode.CC
+            ch.mode = SimOperatingMode.CC
             ch.current = i_limit
             if math.isfinite(r_load):
                 ch.load_voltage = ch.current * r_load + emf
@@ -641,6 +646,7 @@ _SCPI_COMMANDS = (
     _SCPICommand("OUTPut[:STATe]", SimulatedPSU._set_output, query=SimulatedPSU._query_output),
     _SCPICommand("OUTPut:PROTection:CLEar", SimulatedPSU._clear_protection_latch),
     _SCPICommand("OUTPut:PROTection:TRIPped", query=SimulatedPSU._query_protection_tripped),
+    _SCPICommand("OUTPut:MODE", query=SimulatedPSU._query_mode),
     _SCPICommand("MEASure:VOLTage", query=SimulatedPSU._measure_voltage),
     _SCPICommand("MEASure:CURRent", query=SimulatedPSU._measure_current),
     _SCPICommand(

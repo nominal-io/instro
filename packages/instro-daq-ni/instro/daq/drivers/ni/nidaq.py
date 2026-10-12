@@ -478,7 +478,7 @@ class NIDAQDriver(DAQDriverBase):
 
     def _capture_sample_rate(self):
         if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before starting the DAQ.")
+            raise RuntimeError("configure_ai_hw_sample_rate() must be called before starting the DAQ.")
         ai_task = self._tasks[ChannelType.ANALOG_INPUT]
         actual_rate = ai_task.timing.samp_clk_rate
         self._actual_sample_rate = actual_rate
@@ -521,7 +521,7 @@ class NIDAQDriver(DAQDriverBase):
         if ChannelType.ANALOG_INPUT not in self._running_channel_types:
             raise RuntimeError("No active scan. Call start() before fetch_analog().")
         if self._ai_hw_timing_config is None:
-            raise RuntimeError("configure_ai_sample_rate() must be called before fetching analog data.")
+            raise RuntimeError("configure_ai_hw_sample_rate() must be called before fetching analog data.")
         task = self._tasks[ChannelType.ANALOG_INPUT]
 
         data = task.read(number_of_samples_per_channel=self._ai_hw_timing_config.samples_per_channel)

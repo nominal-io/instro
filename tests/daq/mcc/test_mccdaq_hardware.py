@@ -81,7 +81,7 @@ from instro.lib.publishers import NominalCorePublisher
 # ---------------------------------------------------------------------------
 # Configuration from environment
 # ---------------------------------------------------------------------------
-DEVICE_ID = "344371"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
+DEVICE_ID = "<MCC ID>"  # MCC device unique ID, optionally suffixed with ":<board_number>" (default 0)
 NAME = "mccdaq_test"  # InstroDAQ instance name; prefixes every published channel key
 DATASET_RID = None  # Set to a dataset RID to stream test events to Nominal Core; None to skip publishing.
 
@@ -208,16 +208,14 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_ai(self, daq: InstroDAQ, range_min: float = -10, range_max: float = 10):
         """Configure the two standard differential AI channels."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=AI_CH0,
             alias="ai_0",
             range_min=range_min,
             range_max=range_max,
             terminal_config=TerminalConfig.DIFF,
         )
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=AI_CH1,
             alias="ai_1",
             range_min=range_min,
@@ -227,15 +225,13 @@ class TestMCCDAQHardware(unittest.TestCase):
 
     def _configure_ao(self, daq: InstroDAQ):
         """Configure the two standard AO channels."""
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=AO_CH0,
             alias="ao_0",
             range_min=-10,
             range_max=10,
         )
-        daq.configure_analog_channel(
-            direction=Direction.OUTPUT,
+        daq.configure_voltage_output(
             physical_channel=AO_CH1,
             alias="ao_1",
             range_min=-10,
@@ -326,9 +322,7 @@ class TestMCCDAQHardware(unittest.TestCase):
                 board_num = daq.driver._board_number
                 info = daq.driver.get_info()
 
-                # DaqDeviceInfo.product_name / unique_id are lazy properties that call
-                # into the UL at access time, so they must be read before daq.close()
-                # releases the board (otherwise: "Invalid board number").
+                # get_info() returns the MCCDeviceInfo snapshot captured at open()
                 product_name = info.product_name
                 unique_id = info.unique_id
 
@@ -456,8 +450,7 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 self._configure_ao(daq)
 
-                daq.configure_analog_channel(
-                    direction=Direction.INPUT,
+                daq.configure_voltage_input(
                     physical_channel=AI_CH0,
                     alias="ai_0_narrow",
                     range_min=-1,
@@ -1141,7 +1134,7 @@ class TestMCCDAQHardware(unittest.TestCase):
     # 23. Per-line digital config unsupported on USB-1616HS-4
     # =====================================================================
     def test_23_digital_line_config_unsupported(self):
-        """configure_digital_line() must raise on the USB-1616HS-4 (no d_config_bit support).
+        """configure_digital_output() must raise on the USB-1616HS-4 (no d_config_bit support).
 
         The USB-1616HS-4 cannot configure individual digital lines (d_config_bit), so the MCC
         driver re-raises the UL failure as a RuntimeError directing the caller to the port-width
@@ -1153,10 +1146,9 @@ class TestMCCDAQHardware(unittest.TestCase):
             try:
                 with self.assertRaises(
                     RuntimeError,
-                    msg="configure_digital_line should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
+                    msg="configure_digital_output should raise RuntimeError on the USB-1616HS-4 (no per-line config)",
                 ):
-                    daq.configure_digital_line(
-                        direction=Direction.OUTPUT,
+                    daq.configure_digital_output(
                         physical_channel="FIRSTPORTA/0",
                         logic=Logic.HIGH,
                     )
@@ -1165,7 +1157,7 @@ class TestMCCDAQHardware(unittest.TestCase):
 
         self._run_step(
             "Per-line digital config unsupported",
-            "Assert configure_digital_line() raises RuntimeError on the USB-1616HS-4, which lacks "
+            "Assert configure_digital_output() raises RuntimeError on the USB-1616HS-4, which lacks "
             "per-bit digital configuration. Port-width digital I/O is covered by tests 12–14.",
             step,
         )

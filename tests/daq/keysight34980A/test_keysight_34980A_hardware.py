@@ -127,8 +127,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         range_max: float = 10,
     ):
         """Configure a mux input channel measured by the internal DMM (DC volts)."""
-        daq.configure_analog_channel(
-            direction=Direction.INPUT,
+        daq.configure_voltage_input(
             physical_channel=physical,
             alias=alias,
             range_min=range_min,
@@ -230,7 +229,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         daq = self._create_daq()
         try:
             self._configure_ai(daq)
-            daq.configure_ai_sample_rate(
+            daq.configure_ai_hw_sample_rate(
                 sample_rate=SAMPLE_RATE_HZ,
                 samples_per_channel=SAMPLES_PER_CHANNEL,
             )
@@ -258,7 +257,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         daq = self._create_daq()
         try:
             self._configure_ai(daq)
-            daq.configure_ai_sample_rate(
+            daq.configure_ai_hw_sample_rate(
                 sample_rate=SAMPLE_RATE_HZ,
                 samples_per_channel=SAMPLES_PER_CHANNEL,
             )
@@ -317,12 +316,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
             self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
         daq = self._create_daq()
         try:
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
-            )
-            daq.configure_digital_line(
-                direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
-            )
+            daq.configure_digital_output(physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS)
+            daq.configure_digital_input(physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS)
             errs = []
             for state in (0, 1, 0, 1, 0):
                 daq.write(DO_ALIAS, state)
@@ -409,12 +404,8 @@ class TestKeysight34980AHardware(unittest.TestCase):
             self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
         daq = self._create_daq()
         try:
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
-            )
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2
-            )
+            daq.configure_digital_output(physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS)
+            daq.configure_digital_output(physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2)
 
             # Normal commanding of a single channel.
             cmd = daq.write(DO_ALIAS, 1)
@@ -455,9 +446,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
             self._configure_ai(daq, physical=AI_CHANNEL_2, alias=AI_ALIAS_2)
             aliases = [AI_ALIAS, AI_ALIAS_2]
             if HAS_DIGITAL_MODULE:
-                daq.configure_digital_line(
-                    direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
-                )
+                daq.configure_digital_input(physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS)
                 aliases.append(DI_ALIAS)
 
             # Reading of a single channel.
@@ -504,18 +493,10 @@ class TestKeysight34980AHardware(unittest.TestCase):
             self.skipTest("no digital I/O module (e.g. 34950A) in this mainframe configuration")
         daq = self._create_daq()
         try:
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2
-            )
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=f"{DIGITAL_SLOT}101/2", logic=Logic.HIGH, alias="do_broken"
-            )
-            daq.configure_digital_line(
-                direction=Direction.OUTPUT, physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS
-            )
-            daq.configure_digital_line(
-                direction=Direction.INPUT, physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS
-            )
+            daq.configure_digital_output(physical_channel=DO_LINE_2, logic=Logic.HIGH, alias=DO_ALIAS_2)
+            daq.configure_digital_output(physical_channel=f"{DIGITAL_SLOT}101/2", logic=Logic.HIGH, alias="do_broken")
+            daq.configure_digital_output(physical_channel=DO_LINE, logic=Logic.HIGH, alias=DO_ALIAS)
+            daq.configure_digital_input(physical_channel=DI_LINE, logic=Logic.HIGH, alias=DI_ALIAS)
             # Drive the DO low first so the stopped-batch check starts from a known state.
             daq.write(DO_ALIAS, 0)
 
@@ -555,8 +536,7 @@ class TestKeysight34980AHardware(unittest.TestCase):
         daq = self._create_daq()
         try:
             with self.assertRaises((NotImplementedError, AttributeError, RuntimeError, ValueError, TypeError)):
-                daq.configure_analog_channel(
-                    direction=Direction.OUTPUT,
+                daq.configure_voltage_output(
                     physical_channel=AI_CHANNEL,
                     alias="ao0",
                     range_min=-10,

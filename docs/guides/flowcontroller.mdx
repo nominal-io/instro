@@ -1,0 +1,64 @@
+---
+title: Flow Controller
+description: Using InstroFlowController for gas flow controllers
+---
+
+<Warning>This Instrument category is new and is currently available only in the Unstable package</Warning>
+
+import FlowControllers from "/snippets/drivers/flowcontroller.mdx";
+
+`InstroFlowController` provides a unified interface for gas flow controllers. This class is initialized with a vendor-specific driver (`AlicatMC`, …), and provides the vendor-agnostic API (`get_flow_data`, `set_setpoint`, `select_gas`, `tare_flow`, …).
+
+## Creating an InstroFlowController
+
+```python
+from instro.unstable.flowcontroller.drivers import AlicatMC
+from instro.unstable.flowcontroller import InstroFlowController
+
+fc = InstroFlowController(
+    name="myFlowController",
+    driver=AlicatMC("ASRL7::INSTR"),
+)
+```
+
+A bare resource string applies the Alicat RS-232 defaults (19200 baud, carriage-return terminators). Pass a `VisaConfig` from `instro.lib.transports.visa` instead to override them, and `device_id` to address a unit other than `"A"`.
+
+## Supported Vendors
+
+<FlowControllers />
+
+If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments#flow-controller), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
+
+## Example
+
+More examples found in [Examples](/examples/unstable/index#flow-controller)
+
+## Details
+
+The following presents details about the `InstroFlowController`. Specific driver details can be found on [their pages](#supported-vendors).
+
+### Driver Composition
+
+An `InstroFlowController` is built from a concrete driver:
+
+```python
+InstroFlowController(name="FlowController", driver=AlicatMC("ASRL7::INSTR"))
+```
+
+- The **vendor driver** (e.g. `AlicatMC`) owns the connection setup and vendor-specific command mapping.
+- **`InstroFlowController`** owns the category-level workflow: measurements, commands, publishers, the background daemon.
+
+### Lifecycle
+
+The typical InstroFlowController workflow:
+
+1. **Construct**: instantiate the vendor driver and pass it to `InstroFlowController`.
+2. **`open()`**: establishes the VISA connection.
+3. **Configure and measure**: select gas, set flow setpoint, tare flow (optional), and read flow data.
+4. **`start()`**: begins a periodic background daemon. (Optional) By default this calls `get_flow_data` periodically.
+5. **`stop()`**: ends the background daemon (if started).
+6. **`close()`**: disconnects from hardware.
+
+## Custom Driver Development
+
+For more information on writing a custom driver, see [Custom Driver Development](/library/custom-instruments#flow-controller).

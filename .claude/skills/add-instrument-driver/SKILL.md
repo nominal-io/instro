@@ -25,7 +25,7 @@ over shared mixins/factories.
    from model knowledge.
 2. **Vendor and model** (e.g. "Siglent SPD3303"). Confirm the exact model family
    the driver should cover; SCPI surfaces and APIs are often shared across a series.
-3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `ethernetip`.
+3. **Category.** One of `psu`, `dmm`, `eload`, `daq`, `i2c`, `modbus`, `scope`, `awg`, `ethernetip`.
    Infer from the instrument type; confirm with the user if ambiguous.
 4. **Tracking issue + branch.** Per `AGENTS.md`, no untracked work. Confirm an
    issue exists (or create one) and branch off `main` named after it
@@ -142,6 +142,10 @@ driver is wired before assuming:
 
 - **Core categories:** edit `instro/<category>/drivers/__init__.py`, adding both
   the import and the `__all__` entry.
+  Then add a `DriverEntry` to `<CAT>_VENDOR_REGISTRY` in
+  `instro/<category>/config.py` with the driver's `*IDN?` `IdnPattern`(s)
+  (vendor substrings, anchored model regex, programmable channel count), so the
+  JSON config path and `instro discover` both know the driver.
 - **Workspace vendor packages (e.g. `daq`, `i2c`):** the driver lives in its own
   package under `packages/`; register it in that package's `drivers/__init__.py`
   (import + `__all__`). The category's top-level `drivers/__init__.py` relies on
@@ -185,10 +189,14 @@ Per `AGENTS.md` "Documentation":
 - **`README.md`** — add the model to the **"Supported devices"** table for core
   categories. Categories in `instro-unstable` (e.g. `scope`) are listed under
   **"Experimental modules"** instead — update that prose, not the table.
-- **`docs/guides/instrumentation/<category>.mdx`** — add a guide entry only if
-  the device introduces a new user-facing workflow.
-- If a new public API/category was introduced (rare for a single driver), update
-  `docs/reference/src/` and `docs/guides/docs.json` navigation too.
+- **`docs/<category>/<Driver>.md`** plus `<Driver>.png` — the driver's guide
+  page, copied from a sibling; its front-matter card puts it in the category's
+  card grid. Then add a row to the Vendor Drivers table in
+  `docs/sdk/instruments/<category>.md` and the class to the hidden autosummary
+  list beneath it (see `docs/AGENTS.md` "Add a vendor driver"). Check with
+  `just build-docs`.
+- If a new public API/category was introduced (rare for a single driver), also
+  add its pages and the sidebar toctrees in `docs/index.md`.
 - Do **not** hand-edit `CHANGELOG.md` (release-please generates it).
 
 ## Step 8 — Verify

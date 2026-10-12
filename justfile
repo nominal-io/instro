@@ -35,7 +35,7 @@ test-python:
 
 # run Rust library, integration, and doc tests for the workspace
 test-rust:
-    cargo test --workspace --all-features --all-targets
+    cargo nextest run --workspace --all-features --all-targets
     cargo test --workspace --all-features --doc
 
 # run all python and Rust tests plus EtherNet/IP packaging checks
@@ -64,7 +64,7 @@ check-imports:
 # run all python static analysis checks
 check-python: check-format check-types check-imports
 
-# check Rust formatting, lints, and lockfile | fix formatting with `just fix-rust`
+# check Rust formatting, lints, and lockfile | fix with `just fix-rust`
 check-rust:
     cargo +nightly fmt --all --check
     cargo clippy --locked --all-features --all-targets --workspace -- -D warnings
@@ -83,8 +83,9 @@ fix-format:
 # fix python imports and formatting
 fix-python: fix-format fix-imports
 
-# fixes Rust code formatting (note: mutates the code)
+# fixes Rust lints and code formatting (note: mutates the code)
 fix-rust:
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features --workspace
     cargo +nightly fmt --all
 
 # fix imports and formatting
@@ -107,17 +108,17 @@ clean:
 build:
     uv build --wheel --all-packages
 
-# build docs
-build-docs:
-    uv run mkdocs build --config-file docs/reference/mkdocs.yml
+# the docs group is empty below Python 3.12, so sphinx-build would fail with an opaque "not found"
+_check-docs-python:
+    uv run python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else f'The docs toolchain needs Python >= 3.12 in the project environment (found {sys.version.split()[0]}). Recreate it with: uv sync --python 3.13 --group docs')"
 
-# generate Mintlify example pages and refresh docs/guides/docs.json navigation
-gen-examples:
-    uv run python docs/guides/generate_examples.py
+# build the docs site (guides + API reference) into docs/_build/dirhtml; warnings fail the build
+build-docs: _check-docs-python
+    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
-# performs the gen-examples step in a temp sandbox and reports if any files don't match
-check-examples:
-    uv run python docs/guides/check_examples.py
+# live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
+serve-docs: _check-docs-python
+    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:
@@ -172,5 +173,5 @@ eip-wheel-smoke-test:
 
 # Full EIP test suite: wheel smoke test, Rust/Python bindings, and cpppo integration
 eip-test: eip-sdist-smoke-test eip-wheel-smoke-test
-    cargo test --all-features --all-targets -p instro-ethernetip
+    cargo nextest run --all-features --all-targets -p instro-ethernetip
     uv run --reinstall-package instro-ethernetip --with-editable . pytest tests/ethernetip/test_ethernetip_bindings.py -q

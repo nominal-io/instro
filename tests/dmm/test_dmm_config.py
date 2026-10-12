@@ -133,6 +133,23 @@ def test_open_closes_driver_and_rolls_back_state_when_measurement_apply_fails(va
         dmm.start()
 
 
+def test_close_releases_driver_and_resets_apply_flag_when_publisher_close_raises(valid_config):
+    dmm, mock_driver = _make_dmm_with_mock_driver({**valid_config, "measurement": {"function": "DC_VOLTAGE"}})
+    failing_publisher = MagicMock()
+    failing_publisher.close.side_effect = OSError("disk full")
+    dmm.publishers = [failing_publisher]
+
+    dmm.open()
+    with pytest.raises(OSError):
+        dmm.close()
+
+    mock_driver.close.assert_called_once()
+    dmm.open()
+    assert mock_driver.set_measurement_function.call_count == 2, (
+        "measurement block must be re-applied on reopen after a failed close"
+    )
+
+
 def test_reopen_without_close_does_not_reapply_measurement(valid_config):
     dmm, mock_driver = _make_dmm_with_mock_driver({**valid_config, "measurement": {"function": "DC_VOLTAGE"}})
 
@@ -297,14 +314,11 @@ def test_init_with_config_dict_with_publishers(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.dmm.config import DMM_VENDOR_REGISTRY
     from instro.dmm.dmm import DMMDriverBase
 
-    for key, path in DMM_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+    for key, entry in DMM_VENDOR_REGISTRY.items():
+        cls = entry.load()
         assert issubclass(cls, DMMDriverBase), f"{key} does not point to a DMMDriverBase subclass"
 
 

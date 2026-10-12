@@ -1,0 +1,56 @@
+{
+    "version": 1,
+    "instrument": "InstroScope",
+    "device": {
+        "name": "bench_scope",
+        "description": "Bench oscilloscope",
+        "manufacturer": "Keysight",
+        "model": "DSOX1204A"
+    },
+    "driver": {
+        "connection_type": "visa",
+        "name": "Keysight1200X",
+        "num_channels": 4,
+        "visa": {
+            "visa_resource": "TCPIP0::192.168.1.50::INSTR"
+        }
+    },
+    "channels": {
+        "1": {
+            "vertical_scale": 1.0,
+            "vertical_offset": 0.0,
+            "coupling": "DC",
+            "probe_attenuation": 10.0,
+            "measurements": ["VRMS", "FREQUENCY"]
+        },
+        "2": {
+            "vertical_scale": 0.5,
+            "coupling": "AC",
+            "probe_attenuation": 1.0,
+            "measurements": ["VPP"]
+        }
+    },
+    "acquisition": {
+        "mode": "AVERAGE",
+        "average_count": 16,
+        "horizontal_scale": 0.001,
+        "start_acquisition_on_open": true
+    },
+    "trigger": {
+        "source": 1,
+        "type": "EDGE",
+        "level": 0.5,
+        "slope": "RISING",
+        "mode": "NORMAL"
+    },
+    "timing": {
+        "poll_interval": 1.0
+    },
+    "publishers": [
+        {
+            "type": "FilePublisher",
+            "directory": "scope_captures",
+            "format": "csv"
+        }
+    ]
+}

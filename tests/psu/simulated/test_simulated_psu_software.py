@@ -7,6 +7,7 @@ import pytest
 
 from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.transports import VisaConfig
+from instro.psu import OperatingMode
 from instro.psu.drivers.simulated import SimulatedPSU
 
 
@@ -75,6 +76,27 @@ def test_simulated_get_current_queries_channel_command(sim: SimulatedPSU, sim_vi
 
     assert sim.get_current(channel=1) == pytest.approx(0.25)
     assert sim_visa.query.call_args_list == [call(":MEAS1:CURR?"), call(":SYST:ERR?")]
+
+
+def test_simulated_get_voltage_setpoint_queries_channel_command(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["5.000", '0,"No error"']
+
+    assert sim.get_voltage_setpoint(channel=2) == pytest.approx(5.0)
+    assert sim_visa.query.call_args_list == [call(":SOUR2:VOLT?"), call(":SYST:ERR?")]
+
+
+def test_simulated_get_current_setpoint_queries_channel_command(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["0.500", '0,"No error"']
+
+    assert sim.get_current_setpoint(channel=1) == pytest.approx(0.5)
+    assert sim_visa.query.call_args_list == [call(":SOUR1:CURR?"), call(":SYST:ERR?")]
+
+
+def test_simulated_get_operating_mode_queries_channel_command(sim: SimulatedPSU, sim_visa: MagicMock) -> None:
+    sim_visa.query.side_effect = ["CV", '0,"No error"']
+
+    assert sim.get_operating_mode(channel=2) == OperatingMode.CONSTANT_VOLTAGE
+    assert sim_visa.query.call_args_list == [call(":OUTP2:MODE?"), call(":SYST:ERR?")]
 
 
 def test_simulated_output_enable_writes_on_and_off(sim: SimulatedPSU, sim_visa: MagicMock) -> None:

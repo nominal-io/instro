@@ -8,7 +8,7 @@
 //!    [`OpcUaUserTokenType`], [`OpcUaUserTokenPolicy`]), node identity
 //!    ([`OpcUaNodeId`] (with its [`NodeIdKind`] variants), [`OpcUaNode`],
 //!    [`OpcUaNodeClass`]), scalar values ([`OpcUaValue`]), timestamped sample
-//!    data ([`OpcUaDataPoint`], [`OpcUaSample`]), and server/endpoint metadata
+//!    data ([`OpcUaDataPoint`]), and server/endpoint metadata
 //!    ([`OpcUaServerDescription`], [`OpcUaEndpointInfo`]).
 //!
 //!    Scalar value types correspond to the IEC 61131-3 types used across PLC
@@ -26,6 +26,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::num::NonZeroU32;
+use std::panic::catch_unwind;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -64,7 +65,7 @@ use open62541::ua::UInt64;
 use open62541::ua::UserIdentityToken;
 use open62541::ua::UserNameIdentityToken;
 use open62541::ua::X509IdentityToken;
-use open62541_sys::UA_NodeClass;
+use open62541_sys::UA_AttributeId;
 use open62541_sys::UA_UserTokenPolicy;
 use open62541_sys::UA_UserTokenType;
 use serde::Deserialize;
@@ -452,6 +453,125 @@ impl OpcUaEndpointInfo {
     }
 }
 
+/// OPC UA attribute identifier.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum OpcUaAttributeId {
+    NodeId,
+    NodeClass,
+    BrowseName,
+    DisplayName,
+    Description,
+    WriteMask,
+    UserWriteMask,
+    IsAbstract,
+    Symmetric,
+    InverseName,
+    ContainsNoLoops,
+    EventNotifier,
+    Value,
+    DataType,
+    ValueRank,
+    ArrayDimensions,
+    AccessLevel,
+    UserAccessLevel,
+    MinimumSamplingInterval,
+    Historizing,
+    Executable,
+    UserExecutable,
+    DataTypeDefinition,
+    RolePermissions,
+    UserRolePermissions,
+    AccessRestrictions,
+    AccessLevelEx,
+}
+
+impl TryFrom<ua::AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: ua::AttributeId) -> Result<Self> {
+        Self::try_from(&id)
+    }
+}
+
+impl TryFrom<&ua::AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: &ua::AttributeId) -> Result<Self> {
+        read_inner(id, |id| id.try_into())
+    }
+}
+
+impl TryFrom<&UA_AttributeId> for OpcUaAttributeId {
+    type Error = Error;
+
+    fn try_from(id: &UA_AttributeId) -> Result<Self> {
+        Ok(match *id {
+            UA_AttributeId::UA_ATTRIBUTEID_NODEID => Self::NodeId,
+            UA_AttributeId::UA_ATTRIBUTEID_NODECLASS => Self::NodeClass,
+            UA_AttributeId::UA_ATTRIBUTEID_BROWSENAME => Self::BrowseName,
+            UA_AttributeId::UA_ATTRIBUTEID_DISPLAYNAME => Self::DisplayName,
+            UA_AttributeId::UA_ATTRIBUTEID_DESCRIPTION => Self::Description,
+            UA_AttributeId::UA_ATTRIBUTEID_WRITEMASK => Self::WriteMask,
+            UA_AttributeId::UA_ATTRIBUTEID_USERWRITEMASK => Self::UserWriteMask,
+            UA_AttributeId::UA_ATTRIBUTEID_ISABSTRACT => Self::IsAbstract,
+            UA_AttributeId::UA_ATTRIBUTEID_SYMMETRIC => Self::Symmetric,
+            UA_AttributeId::UA_ATTRIBUTEID_INVERSENAME => Self::InverseName,
+            UA_AttributeId::UA_ATTRIBUTEID_CONTAINSNOLOOPS => Self::ContainsNoLoops,
+            UA_AttributeId::UA_ATTRIBUTEID_EVENTNOTIFIER => Self::EventNotifier,
+            UA_AttributeId::UA_ATTRIBUTEID_VALUE => Self::Value,
+            UA_AttributeId::UA_ATTRIBUTEID_DATATYPE => Self::DataType,
+            UA_AttributeId::UA_ATTRIBUTEID_VALUERANK => Self::ValueRank,
+            UA_AttributeId::UA_ATTRIBUTEID_ARRAYDIMENSIONS => Self::ArrayDimensions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVEL => Self::AccessLevel,
+            UA_AttributeId::UA_ATTRIBUTEID_USERACCESSLEVEL => Self::UserAccessLevel,
+            UA_AttributeId::UA_ATTRIBUTEID_MINIMUMSAMPLINGINTERVAL => Self::MinimumSamplingInterval,
+            UA_AttributeId::UA_ATTRIBUTEID_HISTORIZING => Self::Historizing,
+            UA_AttributeId::UA_ATTRIBUTEID_EXECUTABLE => Self::Executable,
+            UA_AttributeId::UA_ATTRIBUTEID_USEREXECUTABLE => Self::UserExecutable,
+            UA_AttributeId::UA_ATTRIBUTEID_DATATYPEDEFINITION => Self::DataTypeDefinition,
+            UA_AttributeId::UA_ATTRIBUTEID_ROLEPERMISSIONS => Self::RolePermissions,
+            UA_AttributeId::UA_ATTRIBUTEID_USERROLEPERMISSIONS => Self::UserRolePermissions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSRESTRICTIONS => Self::AccessRestrictions,
+            UA_AttributeId::UA_ATTRIBUTEID_ACCESSLEVELEX => Self::AccessLevelEx,
+            _ => bail!("invalid attribute id: {:?}", id),
+        })
+    }
+}
+
+impl From<OpcUaAttributeId> for ua::AttributeId {
+    fn from(id: OpcUaAttributeId) -> Self {
+        match id {
+            OpcUaAttributeId::NodeId => Self::NODEID,
+            OpcUaAttributeId::NodeClass => Self::NODECLASS,
+            OpcUaAttributeId::BrowseName => Self::BROWSENAME,
+            OpcUaAttributeId::DisplayName => Self::DISPLAYNAME,
+            OpcUaAttributeId::Description => Self::DESCRIPTION,
+            OpcUaAttributeId::WriteMask => Self::WRITEMASK,
+            OpcUaAttributeId::UserWriteMask => Self::USERWRITEMASK,
+            OpcUaAttributeId::IsAbstract => Self::ISABSTRACT,
+            OpcUaAttributeId::Symmetric => Self::SYMMETRIC,
+            OpcUaAttributeId::InverseName => Self::INVERSENAME,
+            OpcUaAttributeId::ContainsNoLoops => Self::CONTAINSNOLOOPS,
+            OpcUaAttributeId::EventNotifier => Self::EVENTNOTIFIER,
+            OpcUaAttributeId::Value => Self::VALUE,
+            OpcUaAttributeId::DataType => Self::DATATYPE,
+            OpcUaAttributeId::ValueRank => Self::VALUERANK,
+            OpcUaAttributeId::ArrayDimensions => Self::ARRAYDIMENSIONS,
+            OpcUaAttributeId::AccessLevel => Self::ACCESSLEVEL,
+            OpcUaAttributeId::UserAccessLevel => Self::USERACCESSLEVEL,
+            OpcUaAttributeId::MinimumSamplingInterval => Self::MINIMUMSAMPLINGINTERVAL,
+            OpcUaAttributeId::Historizing => Self::HISTORIZING,
+            OpcUaAttributeId::Executable => Self::EXECUTABLE,
+            OpcUaAttributeId::UserExecutable => Self::USEREXECUTABLE,
+            OpcUaAttributeId::DataTypeDefinition => Self::DATATYPEDEFINITION,
+            OpcUaAttributeId::RolePermissions => Self::ROLEPERMISSIONS,
+            OpcUaAttributeId::UserRolePermissions => Self::USERROLEPERMISSIONS,
+            OpcUaAttributeId::AccessRestrictions => Self::ACCESSRESTRICTIONS,
+            OpcUaAttributeId::AccessLevelEx => Self::ACCESSLEVELEX,
+        }
+    }
+}
+
 /// OPC-UA NodeId.
 ///
 /// A [`NodeId`] is used to identify nodes in an OPC-UA address space. Nodes may hold a list of child nodes,
@@ -471,14 +591,24 @@ impl OpcUaNodeId {
         Self { namespace, kind }
     }
 
+    /// Creates the null node ID (`ns=0;i=0`).
+    pub const fn nulled() -> Self {
+        Self::numeric(0, 0)
+    }
+
     /// Creates a numeric node id.
     pub const fn numeric(namespace: u16, value: u32) -> Self {
         Self::new(namespace, NodeIdKind::Numeric(value))
     }
 
-    /// Creates a string node id.
+    /// Creates a string node ID from an owned [`String`].
     pub const fn string(namespace: u16, value: String) -> Self {
-        Self::new(namespace, NodeIdKind::String(value))
+        Self::new(namespace, NodeIdKind::String(Cow::Owned(value)))
+    }
+
+    /// Creates a string node ID from a borrowed string literal.
+    pub const fn str(namespace: u16, value: &'static str) -> Self {
+        Self::new(namespace, NodeIdKind::String(Cow::Borrowed(value)))
     }
 
     /// Creates a byte-string node id.
@@ -499,6 +629,62 @@ impl OpcUaNodeId {
     /// The node id variant.
     pub const fn kind(&self) -> &NodeIdKind {
         &self.kind
+    }
+
+    /// Determines if the node id represents a null value as defined by the OPC-UA specification.
+    pub const fn is_null(&self) -> bool {
+        self.namespace == 0 && matches!(self.kind, NodeIdKind::Numeric(0))
+    }
+
+    /// `true` if the node ID has a namespace index of 0 (i.e. the standardized UA namespace).
+    pub const fn is_ns0(&self) -> bool {
+        self.namespace == 0
+    }
+
+    /// Extracts the value of a numeric node ID, if it is one.
+    /// Returns `None` if the node ID is not a numeric node ID.
+    pub const fn as_numeric(&self) -> Option<(u16, u32)> {
+        if let NodeIdKind::Numeric(n) = self.kind {
+            Some((self.namespace, n))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a string node ID, if it is one.
+    /// Returns `None` if the node ID is not a string node ID.
+    pub const fn as_string(&self) -> Option<(u16, &str)> {
+        if let NodeIdKind::String(ref s) = self.kind {
+            Some((
+                self.namespace,
+                match s {
+                    Cow::Borrowed(s) => *s,
+                    Cow::Owned(s) => s.as_str(),
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of an opaque node ID, if it is one.
+    /// Returns `None` if the node ID is not a byte-string node ID.
+    pub const fn as_byte_string(&self) -> Option<(u16, &[u8])> {
+        if let NodeIdKind::ByteString(ref b) = self.kind {
+            Some((self.namespace, b.as_slice()))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the value of a GUID node ID, if it is one.
+    /// Returns `None` if the node ID is not a GUID node ID.
+    pub const fn as_guid(&self) -> Option<(u16, Uuid)> {
+        if let NodeIdKind::Guid(g) = self.kind {
+            Some((self.namespace, g))
+        } else {
+            None
+        }
     }
 }
 
@@ -537,7 +723,7 @@ impl FromStr for OpcUaNodeId {
                     .with_context(|| format!("OpcUaNodeId '{s}': invalid numeric id '{num}'"))?,
             )
         } else if let Some(string) = rest.strip_prefix("s=") {
-            NodeIdKind::String(string.to_owned())
+            NodeIdKind::String(Cow::Owned(string.to_string()))
         } else if let Some(guid) = rest.strip_prefix("g=") {
             let uuid = Uuid::from_str(guid)
                 .with_context(|| format!("OpcUaNodeId '{s}': invalid guid '{guid}'"))?;
@@ -581,7 +767,7 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
         let (namespace, kind) = if let Some((ns, numeric)) = node_id.as_numeric() {
             (ns, NodeIdKind::Numeric(numeric))
         } else if let Some((ns, string)) = node_id.as_string() {
-            (ns, NodeIdKind::String(string.to_string()))
+            (ns, NodeIdKind::String(Cow::Owned(string.to_string())))
         } else if let Some((ns, binary)) = node_id.as_byte_string() {
             let bytes = binary
                 .as_bytes()
@@ -608,6 +794,12 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
 
 impl From<OpcUaNodeId> for NodeId {
     fn from(other: OpcUaNodeId) -> Self {
+        ua::NodeId::from(&other)
+    }
+}
+
+impl From<&OpcUaNodeId> for NodeId {
+    fn from(other: &OpcUaNodeId) -> Self {
         match other.kind {
             NodeIdKind::Numeric(n) => NodeId::numeric(other.namespace, n),
             NodeIdKind::String(ref s) => NodeId::string(other.namespace, s),
@@ -620,78 +812,61 @@ impl From<OpcUaNodeId> for NodeId {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeIdKind {
     Numeric(u32),
-    String(String),
+    String(Cow<'static, str>),
     ByteString(Vec<u8>),
     Guid(Uuid),
 }
 
-/// A browse-path segment preserving the OPC UA namespace that qualifies its name.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QualifiedBrowseName {
-    /// The namespace index qualifying the browse name.
-    pub namespace_index: u16,
-    /// The browse name within its namespace.
-    pub name: String,
-}
-
-impl QualifiedBrowseName {
-    /// Creates a namespace-qualified browse name.
-    pub fn new(namespace_index: u16, name: String) -> Self {
-        Self {
-            namespace_index,
-            name,
-        }
-    }
-}
-
 /// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "String", into = "String")]
-pub struct BrowsePath {
-    segments: Vec<QualifiedBrowseName>,
+pub struct OpcUaBrowsePath {
+    segments: Vec<OpcUaQualifiedName>,
 }
 
-impl BrowsePath {
+impl OpcUaBrowsePath {
     /// Creates a browse path containing one segment.
-    pub fn from_segment(segment: QualifiedBrowseName) -> Self {
+    pub fn from_segment(segment: OpcUaQualifiedName) -> Self {
         Self {
             segments: vec![segment],
         }
     }
 
     /// Returns a new browse path with `segment` appended.
-    pub fn child(&self, segment: QualifiedBrowseName) -> Self {
+    pub fn child(&self, segment: OpcUaQualifiedName) -> Self {
         let mut segments = self.segments.clone();
         segments.push(segment);
         Self { segments }
     }
 
     /// Returns whether the browse path contains no segments.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.segments.is_empty()
     }
 
     /// Returns the path's namespace-qualified segments.
-    pub fn segments(&self) -> &[QualifiedBrowseName] {
-        &self.segments
+    pub const fn segments(&self) -> &[OpcUaQualifiedName] {
+        self.segments.as_slice()
     }
 }
 
-impl Display for BrowsePath {
+impl Display for OpcUaBrowsePath {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for segment in &self.segments {
             f.write_str("/")?;
-            if segment.namespace_index != 0 {
-                write!(f, "{}:", segment.namespace_index)?;
+
+            if segment.namespace_index() != 0 {
+                write!(f, "{}:", segment.namespace_index())?;
             }
-            f.write_str(&escape_browse_name(&segment.name))?;
+
+            f.write_str(&escape_browse_name(segment.name()))?;
         }
 
         Ok(())
     }
 }
 
-impl FromStr for BrowsePath {
+impl FromStr for OpcUaBrowsePath {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
@@ -729,7 +904,7 @@ impl FromStr for BrowsePath {
     }
 }
 
-impl TryFrom<String> for BrowsePath {
+impl TryFrom<String> for OpcUaBrowsePath {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
@@ -737,19 +912,20 @@ impl TryFrom<String> for BrowsePath {
     }
 }
 
-impl From<BrowsePath> for String {
-    fn from(value: BrowsePath) -> Self {
+impl From<OpcUaBrowsePath> for String {
+    fn from(value: OpcUaBrowsePath) -> Self {
         value.to_string()
     }
 }
 
-fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
+fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
     if segment.is_empty() {
         bail!("browse path contains an empty segment");
     }
 
-    let namespace_separator = namespace_separator(segment)?;
-    let (namespace_index, name) = match namespace_separator {
+    let ns_sep = namespace_separator(segment)?;
+
+    let (ns_index, name) = match ns_sep {
         Some(separator) => {
             let (namespace, rest) = segment.split_at(separator);
             let name = rest
@@ -757,6 +933,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
                 .context("namespace separator should point at ':'")?;
             (namespace.parse::<u16>()?, name)
         }
+
         None => (0, segment),
     };
 
@@ -765,10 +942,7 @@ fn parse_browse_path_segment(segment: &str) -> Result<QualifiedBrowseName> {
         bail!("browse path segment name must not be empty");
     }
 
-    Ok(QualifiedBrowseName {
-        namespace_index,
-        name,
-    })
+    Ok(OpcUaQualifiedName { ns_index, name })
 }
 
 fn namespace_separator(segment: &str) -> Result<Option<usize>> {
@@ -845,7 +1019,7 @@ const fn is_browse_path_reserved(ch: char) -> bool {
     matches!(ch, '/' | '.' | '<' | '>' | ':' | '#' | '!' | '&')
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct OpcUaNode {
     pub node_id: OpcUaNodeId,
     pub browse_name: String,
@@ -853,52 +1027,65 @@ pub struct OpcUaNode {
     pub node_class: OpcUaNodeClass,
     /// The namespace-qualified browse path to this node.
     #[serde(default)]
-    pub browse_path: BrowsePath,
+    pub browse_path: OpcUaBrowsePath,
     pub children: Vec<OpcUaNode>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
+#[repr(u32)]
 pub enum OpcUaNodeClass {
-    Object,
-    Variable,
-    Method,
-    View,
-    Other(u32),
+    #[default]
+    Unspecified = 0x00,
+    Object = 0x01,
+    Variable = 0x02,
+    Method = 0x04,
+    ObjectType = 0x08,
+    VariableType = 0x10,
+    ReferenceType = 0x20,
+    DataType = 0x40,
+    View = 0x80,
+}
+
+impl OpcUaNodeClass {
+    pub(crate) fn try_from_raw(raw: u32) -> Result<Self> {
+        Ok(match raw {
+            ua::NodeClass::UNSPECIFIED_U32 => Self::Unspecified,
+            ua::NodeClass::OBJECT_U32 => Self::Object,
+            ua::NodeClass::VARIABLE_U32 => Self::Variable,
+            ua::NodeClass::METHOD_U32 => Self::Method,
+            ua::NodeClass::OBJECTTYPE_U32 => Self::ObjectType,
+            ua::NodeClass::VARIABLETYPE_U32 => Self::VariableType,
+            ua::NodeClass::REFERENCETYPE_U32 => Self::ReferenceType,
+            ua::NodeClass::DATATYPE_U32 => Self::DataType,
+            ua::NodeClass::VIEW_U32 => Self::View,
+            // anything outside of the spec should bubble up as an error
+            _ => bail!("invalid OPC UA node class: {raw}"),
+        })
+    }
 }
 
 impl From<OpcUaNodeClass> for ua::NodeClass {
     fn from(node_class: OpcUaNodeClass) -> Self {
         match node_class {
+            OpcUaNodeClass::Unspecified => ua::NodeClass::UNSPECIFIED,
             OpcUaNodeClass::Object => ua::NodeClass::OBJECT,
             OpcUaNodeClass::Variable => ua::NodeClass::VARIABLE,
             OpcUaNodeClass::Method => ua::NodeClass::METHOD,
             OpcUaNodeClass::View => ua::NodeClass::VIEW,
-            OpcUaNodeClass::Other(other) => {
-                let inner;
-                #[cfg(target_os = "windows")]
-                {
-                    inner = UA_NodeClass(other as i32);
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    inner = UA_NodeClass(other);
-                }
-
-                const {
-                    if std::mem::size_of::<std::ffi::c_uint>() < 4 {
-                        panic!("OPC-UA crate is not supported on AVR or MSP430 microcontrollers");
-                    }
-                }
-
-                // SAFETY: `inner` is valid for the given `other` value.
-                unsafe { ua::NodeClass::from_raw(inner) }
-            }
+            OpcUaNodeClass::DataType => ua::NodeClass::DATATYPE,
+            OpcUaNodeClass::ObjectType => ua::NodeClass::OBJECTTYPE,
+            OpcUaNodeClass::VariableType => ua::NodeClass::VARIABLETYPE,
+            OpcUaNodeClass::ReferenceType => ua::NodeClass::REFERENCETYPE,
         }
     }
 }
 
-impl From<&ua::NodeClass> for OpcUaNodeClass {
-    fn from(node_class: &ua::NodeClass) -> Self {
+impl TryFrom<&ua::NodeClass> for OpcUaNodeClass {
+    type Error = Error;
+
+    fn try_from(node_class: &ua::NodeClass) -> Result<Self> {
         read_inner(node_class, |node_class| {
             let node_class_discriminant = {
                 #[cfg(target_os = "windows")]
@@ -911,13 +1098,7 @@ impl From<&ua::NodeClass> for OpcUaNodeClass {
                 }
             };
 
-            match node_class_discriminant {
-                ua::NodeClass::OBJECT_U32 => Self::Object,
-                ua::NodeClass::VARIABLE_U32 => Self::Variable,
-                ua::NodeClass::METHOD_U32 => Self::Method,
-                ua::NodeClass::VIEW_U32 => Self::View,
-                other => Self::Other(other),
-            }
+            Self::try_from_raw(node_class_discriminant)
         })
     }
 }
@@ -1048,19 +1229,6 @@ impl OpcUaMonitoredItemConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct OpcUaSample {
-    pub node_id: OpcUaNodeId,
-    #[serde(flatten)]
-    pub data: OpcUaDataPoint,
-}
-
-impl OpcUaSample {
-    pub fn new(node_id: OpcUaNodeId, data: OpcUaDataPoint) -> Self {
-        Self { node_id, data }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OpcUaDataPoint {
     pub server_timestamp: Option<u64>,
     pub source_timestamp: Option<u64>,
@@ -1107,21 +1275,164 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaDataPoint {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OpcUaQualifiedName {
+    name: String,
+    ns_index: u16,
+}
+
+impl OpcUaQualifiedName {
+    pub const fn new(ns_index: u16, name: String) -> Self {
+        Self { ns_index, name }
+    }
+
+    pub const fn namespace_index(&self) -> u16 {
+        self.ns_index
+    }
+
+    pub const fn name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+impl From<ua::QualifiedName> for OpcUaQualifiedName {
+    fn from(qn: ua::QualifiedName) -> Self {
+        Self::from(&qn)
+    }
+}
+
+impl From<&ua::QualifiedName> for OpcUaQualifiedName {
+    fn from(qn: &ua::QualifiedName) -> Self {
+        Self {
+            ns_index: qn.namespace_index(),
+            name: qn.name().to_string(),
+        }
+    }
+}
+
+impl Display for OpcUaQualifiedName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if self.ns_index == 0 {
+            return self.name.fmt(f);
+        }
+
+        write!(f, "{}:{}", self.ns_index, self.name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpcUaLocalizedText {
+    locale: String,
+    text: String,
+}
+
+impl OpcUaLocalizedText {
+    pub const fn new(locale: String, text: String) -> Self {
+        Self { locale, text }
+    }
+
+    pub const fn text(&self) -> &str {
+        self.text.as_str()
+    }
+
+    pub const fn locale(&self) -> &str {
+        self.locale.as_str()
+    }
+}
+
+impl From<ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: ua::LocalizedText) -> Self {
+        Self::from(&lt)
+    }
+}
+
+impl From<&ua::LocalizedText> for OpcUaLocalizedText {
+    fn from(lt: &ua::LocalizedText) -> Self {
+        Self {
+            text: lt.text().to_string(),
+            locale: lt.locale().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[non_exhaustive]
 pub enum OpcUaValue {
+    #[serde(alias = "boolean", alias = "bool", alias = "BOOL")]
     Boolean(bool),
+    #[serde(
+        alias = "int8",
+        alias = "SBYTE",
+        alias = "sbyte",
+        alias = "SINT",
+        alias = "sint"
+    )]
     Int8(i8),
+    #[serde(
+        alias = "uint8",
+        alias = "BYTE",
+        alias = "byte",
+        alias = "USINT",
+        alias = "usint",
+        alias = "CHAR",
+        alias = "char"
+    )]
     UInt8(u8),
+    #[serde(alias = "int16", alias = "INT", alias = "int")]
     Int16(i16),
+    #[serde(
+        alias = "uint16",
+        alias = "UINT",
+        alias = "uint",
+        alias = "WORD",
+        alias = "word",
+        alias = "WCHAR",
+        alias = "wchar"
+    )]
     UInt16(u16),
+    #[serde(alias = "int32", alias = "DINT", alias = "dint")]
     Int32(i32),
+    #[serde(
+        alias = "uint32",
+        alias = "UDINT",
+        alias = "udint",
+        alias = "DWORD",
+        alias = "dword"
+    )]
     UInt32(u32),
+    #[serde(alias = "int64", alias = "LINT", alias = "lint")]
     Int64(i64),
+    #[serde(
+        alias = "uint64",
+        alias = "ULINT",
+        alias = "ulint",
+        alias = "LWORD",
+        alias = "lword"
+    )]
     UInt64(u64),
+    #[serde(alias = "float", alias = "REAL", alias = "real")]
     Float(f32),
+    #[serde(alias = "double", alias = "LREAL", alias = "lreal")]
     Double(f64),
+    #[serde(alias = "string", alias = "STRING")]
     String(Cow<'static, str>),
+    #[serde(
+        alias = "datetime",
+        alias = "dateTime",
+        alias = "DATE_AND_TIME",
+        alias = "date_and_time"
+    )]
     DateTime(UtcDateTime),
+    #[serde(alias = "nodeid", alias = "nodeId")]
+    NodeId(OpcUaNodeId),
+    #[serde(alias = "qualifiedName")]
+    QualifiedName(OpcUaQualifiedName),
+    #[serde(alias = "localizedText")]
+    LocalizedText(OpcUaLocalizedText),
+    #[serde(alias = "guid")]
+    Guid(Uuid),
+    #[serde(other)]
+    Unsupported,
 }
 
 impl TryFrom<OpcUaValue> for ScalarValue {
@@ -1142,13 +1453,28 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::Double(d) => ScalarValue::Double(Double::new(d)),
             OpcUaValue::String(s) => ScalarValue::String(ua::String::new(s.as_ref())?),
             OpcUaValue::DateTime(dt) => ScalarValue::DateTime(DateTime::try_from(dt)?),
+            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid)),
+            OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
+            OpcUaValue::Unsupported => ScalarValue::Unsupported,
+            OpcUaValue::LocalizedText(lt) => {
+                ScalarValue::LocalizedText(ua::LocalizedText::new(lt.locale(), lt.text())?)
+            }
+            OpcUaValue::QualifiedName(qn) => {
+                // upstream chooses to panic here instead of returning an error, so we have to catch and convert
+                catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
+                    .map(ScalarValue::QualifiedName)
+                    .map_err(|err| {
+                        anyhow!(
+                            "failed to convert `OpcUaQualifiedName` to `ua::QualifiedName`: {err:?}"
+                        )
+                    })?
+            }
         })
     }
 }
 
 impl TryFrom<&ScalarValue> for OpcUaValue {
     type Error = Error;
-
     fn try_from(value: &ScalarValue) -> Result<Self> {
         Ok(match value {
             ScalarValue::Boolean(b) => OpcUaValue::Boolean(b.value()),
@@ -1164,29 +1490,14 @@ impl TryFrom<&ScalarValue> for OpcUaValue {
             ScalarValue::Double(d) => OpcUaValue::Double(d.value()),
             ScalarValue::String(s) => OpcUaValue::String(Cow::Owned(s.to_string())),
             ScalarValue::DateTime(dt) => OpcUaValue::DateTime(dt.clone().try_into()?),
-
-            _ => bail!("Unsupported scalar value: {:?}", value),
+            ScalarValue::NodeId(nid) => OpcUaValue::NodeId(nid.try_into()?),
+            ScalarValue::QualifiedName(qn) => OpcUaValue::QualifiedName(qn.into()),
+            ScalarValue::LocalizedText(lt) => OpcUaValue::LocalizedText(lt.into()),
+            ScalarValue::Guid(g) => OpcUaValue::Guid(g.to_uuid()),
+            ScalarValue::Unsupported => OpcUaValue::Unsupported,
+            _ => bail!("unsupported OPC-UA scalar value write: '{value:?}'"),
         })
     }
-}
-
-pub fn scalar_to_variant(scalar: ScalarValue) -> Result<ua::Variant> {
-    Ok(match scalar {
-        ScalarValue::Boolean(v) => ua::Variant::scalar(v),
-        ScalarValue::SByte(v) => ua::Variant::scalar(v),
-        ScalarValue::Byte(v) => ua::Variant::scalar(v),
-        ScalarValue::Int16(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt16(v) => ua::Variant::scalar(v),
-        ScalarValue::Int32(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt32(v) => ua::Variant::scalar(v),
-        ScalarValue::Int64(v) => ua::Variant::scalar(v),
-        ScalarValue::UInt64(v) => ua::Variant::scalar(v),
-        ScalarValue::Float(v) => ua::Variant::scalar(v),
-        ScalarValue::Double(v) => ua::Variant::scalar(v),
-        ScalarValue::String(v) => ua::Variant::scalar(v),
-        ScalarValue::DateTime(v) => ua::Variant::scalar(v),
-        _ => bail!("unsupported ScalarValue variant for OPC-UA write"),
-    })
 }
 
 impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
@@ -1217,9 +1528,12 @@ impl TryFrom<DataValue<ua::Variant>> for OpcUaValue {
                 OpcUaValue::DateTime(dt.to_utc().ok_or_else(|| anyhow!("invalid date time"))?)
             }
 
-            scalar_variant => {
-                bail!("unsupported OPC-UA scalar value read: '{scalar_variant:?}'")
-            }
+            ScalarValue::NodeId(v) => OpcUaValue::NodeId(v.try_into()?),
+            ScalarValue::QualifiedName(v) => OpcUaValue::QualifiedName(v.into()),
+            ScalarValue::LocalizedText(v) => OpcUaValue::LocalizedText(v.into()),
+            ScalarValue::Guid(v) => OpcUaValue::Guid(v.to_uuid()),
+            ScalarValue::Unsupported => OpcUaValue::Unsupported,
+            _ => bail!("unsupported OPC-UA scalar value read: '{scalar:?}'"),
         };
 
         Ok(unwrapped_value)
@@ -1305,6 +1619,7 @@ impl Eq for OpcUaPki {}
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::collections::HashMap;
     use std::fmt::Debug;
 
     use anyhow::Error;
@@ -1317,8 +1632,10 @@ mod tests {
     use open62541::ua;
     use open62541::ua::MessageSecurityMode;
     use open62541::ua::NodeId;
+    use open62541_sys::UA_NodeClass;
     use open62541_sys::UA_UserTokenPolicy;
     use open62541_sys::UA_UserTokenType;
+    use serde_json::from_str;
 
     use super::*;
 
@@ -1327,36 +1644,46 @@ mod tests {
     /// Used in unit tests only.
     struct ScalarEq(ScalarValue);
 
-    impl PartialEq for ScalarEq {
-        fn eq(&self, other: &Self) -> bool {
-            match (&self.0, &other.0) {
-                (ScalarValue::Boolean(a), ScalarValue::Boolean(b)) => a.value() == b.value(),
-                (ScalarValue::SByte(a), ScalarValue::SByte(b)) => a.value() == b.value(),
-                (ScalarValue::Byte(a), ScalarValue::Byte(b)) => a.value() == b.value(),
-                (ScalarValue::Int16(a), ScalarValue::Int16(b)) => a.value() == b.value(),
-                (ScalarValue::UInt16(a), ScalarValue::UInt16(b)) => a.value() == b.value(),
-                (ScalarValue::Int32(a), ScalarValue::Int32(b)) => a.value() == b.value(),
-                (ScalarValue::UInt32(a), ScalarValue::UInt32(b)) => a.value() == b.value(),
-                (ScalarValue::Int64(a), ScalarValue::Int64(b)) => a.value() == b.value(),
-                (ScalarValue::UInt64(a), ScalarValue::UInt64(b)) => a.value() == b.value(),
-                (ScalarValue::Float(a), ScalarValue::Float(b)) => a.value() == b.value(),
-                (ScalarValue::Double(a), ScalarValue::Double(b)) => a.value() == b.value(),
-                (ScalarValue::String(a), ScalarValue::String(b)) => a == b,
-                (ScalarValue::DateTime(a), ScalarValue::DateTime(b)) => a == b,
-                (ScalarValue::Guid(a), ScalarValue::Guid(b)) => a == b,
-                (ScalarValue::ByteString(a), ScalarValue::ByteString(b)) => a == b,
-                (ScalarValue::NodeId(a), ScalarValue::NodeId(b)) => a == b,
-                (ScalarValue::ExpandedNodeId(a), ScalarValue::ExpandedNodeId(b)) => a == b,
-                (ScalarValue::StatusCode(a), ScalarValue::StatusCode(b)) => a == b,
-                (ScalarValue::QualifiedName(a), ScalarValue::QualifiedName(b)) => a == b,
-                (ScalarValue::LocalizedText(a), ScalarValue::LocalizedText(b)) => a == b,
-                (ScalarValue::Structure(a), ScalarValue::Structure(b)) => a == b,
-                (ScalarValue::Enumeration(a), ScalarValue::Enumeration(b)) => a == b,
-                (ScalarValue::Argument(a), ScalarValue::Argument(b)) => a == b,
-                _ => false,
+    macro_rules! decl_eq {
+        ($($v:path),+ $(,)?) => {
+            impl PartialEq for ScalarEq {
+                fn eq(&self, other: &Self) -> bool {
+                    match (&self.0, &other.0) {
+                        $(
+                            ($v(l), $v(r)) => l == r,
+                        )+
+                        _ => false,
+                    }
+                }
             }
         }
     }
+
+    decl_eq!(
+        ScalarValue::Boolean,
+        ScalarValue::SByte,
+        ScalarValue::Byte,
+        ScalarValue::Int16,
+        ScalarValue::UInt16,
+        ScalarValue::Int32,
+        ScalarValue::UInt32,
+        ScalarValue::Int64,
+        ScalarValue::UInt64,
+        ScalarValue::Float,
+        ScalarValue::Double,
+        ScalarValue::String,
+        ScalarValue::DateTime,
+        ScalarValue::Guid,
+        ScalarValue::ByteString,
+        ScalarValue::NodeId,
+        ScalarValue::ExpandedNodeId,
+        ScalarValue::StatusCode,
+        ScalarValue::QualifiedName,
+        ScalarValue::LocalizedText,
+        ScalarValue::Structure,
+        ScalarValue::Enumeration,
+        ScalarValue::Argument,
+    );
 
     impl Eq for ScalarEq {}
 
@@ -1377,10 +1704,56 @@ mod tests {
     /// Used in unit tests only.
     struct VariantEq(ua::Variant);
 
+    macro_rules! match_variant {
+        ($($v:path),+ $(,)?) => {
+            fn scalar_to_variant(s: ScalarEq) -> Result<ua::Variant> {
+                Ok(match s.0 {
+                    $(
+                        $v(v) => ua::Variant::scalar(v),
+                    )+
+                    _ => bail!("Unsupported scalar value: {:?}", s.0),
+                })
+            }
+        }
+    }
+
+    match_variant!(
+        ScalarValue::Boolean,
+        ScalarValue::SByte,
+        ScalarValue::Byte,
+        ScalarValue::Int16,
+        ScalarValue::UInt16,
+        ScalarValue::Int32,
+        ScalarValue::UInt32,
+        ScalarValue::Int64,
+        ScalarValue::UInt64,
+        ScalarValue::Float,
+        ScalarValue::Double,
+        ScalarValue::String,
+        ScalarValue::DateTime,
+        ScalarValue::Guid,
+        ScalarValue::ByteString,
+        ScalarValue::NodeId,
+        ScalarValue::ExpandedNodeId,
+        ScalarValue::StatusCode,
+        ScalarValue::QualifiedName,
+        ScalarValue::LocalizedText,
+        ScalarValue::Structure,
+        ScalarValue::Enumeration,
+        ScalarValue::Argument,
+    );
+
     impl TryFrom<&ScalarEq> for VariantEq {
         type Error = Error;
         fn try_from(s: &ScalarEq) -> Result<Self> {
-            Ok(VariantEq(scalar_to_variant(s.0.clone())?))
+            Self::try_from(s.clone())
+        }
+    }
+
+    impl TryFrom<ScalarEq> for VariantEq {
+        type Error = Error;
+        fn try_from(s: ScalarEq) -> Result<Self> {
+            Ok(Self(scalar_to_variant(s)?))
         }
     }
 
@@ -1435,69 +1808,114 @@ mod tests {
     }
 
     #[test]
-    fn node_class_conversions() {
-        assert_roundtrip(&ua::NodeClass::OBJECT, OpcUaNodeClass::Object);
-        assert_roundtrip(&ua::NodeClass::VARIABLE, OpcUaNodeClass::Variable);
-        assert_roundtrip(&ua::NodeClass::METHOD, OpcUaNodeClass::Method);
-        assert_roundtrip(&ua::NodeClass::VIEW, OpcUaNodeClass::View);
+    fn node_id_converts_from_reference() {
+        let id = OpcUaNodeId::string(3, "MyNode".into());
+        let converted = NodeId::from(&id);
 
-        // SAFETY: populating raw fields for test; node class lives on stack for duration of test
-        assert_roundtrip(
-            &unsafe { ua::NodeClass::from_raw(UA_NodeClass(99)) },
-            OpcUaNodeClass::Other(99),
+        assert_eq!(
+            OpcUaNodeId::try_from(&converted).expect("node ID should convert back"),
+            id
         );
     }
 
     #[test]
-    fn opc_value_scalar_roundtrips() {
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
-            OpcUaValue::Boolean(true),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-42))),
-            OpcUaValue::Int8(-42),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Byte(ua::Byte::new(255))),
-            OpcUaValue::UInt8(255),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-1000))),
-            OpcUaValue::Int16(-1000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(50000))),
-            OpcUaValue::UInt16(50000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-100_000))),
-            OpcUaValue::Int32(-100_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(3_000_000))),
-            OpcUaValue::UInt32(3_000_000),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Int64(ua::Int64::new(i64::MIN))),
-            OpcUaValue::Int64(i64::MIN),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(u64::MAX))),
-            OpcUaValue::UInt64(u64::MAX),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Float(ua::Float::new(1.5))),
-            OpcUaValue::Float(1.5),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::Double(ua::Double::new(1.234))),
-            OpcUaValue::Double(1.234),
-        );
-        assert_roundtrip(
-            &ScalarEq(ScalarValue::String(ua::String::new("hello").unwrap())),
-            OpcUaValue::String(Cow::Borrowed("hello")),
-        );
+    fn node_class_conversions() {
+        assert_roundtrip(&ua::NodeClass::UNSPECIFIED, OpcUaNodeClass::Unspecified);
+        assert_roundtrip(&ua::NodeClass::OBJECT, OpcUaNodeClass::Object);
+        assert_roundtrip(&ua::NodeClass::VARIABLE, OpcUaNodeClass::Variable);
+        assert_roundtrip(&ua::NodeClass::METHOD, OpcUaNodeClass::Method);
+        assert_roundtrip(&ua::NodeClass::VIEW, OpcUaNodeClass::View);
+        assert_roundtrip(&ua::NodeClass::DATATYPE, OpcUaNodeClass::DataType);
+        assert_roundtrip(&ua::NodeClass::OBJECTTYPE, OpcUaNodeClass::ObjectType);
+        assert_roundtrip(&ua::NodeClass::VARIABLETYPE, OpcUaNodeClass::VariableType);
+        assert_roundtrip(&ua::NodeClass::REFERENCETYPE, OpcUaNodeClass::ReferenceType);
+    }
+
+    #[test]
+    #[should_panic]
+    fn node_class_conversions_should_fail_on_invalid_variant() {
+        let invalid = unsafe { ua::NodeClass::from_raw(UA_NodeClass(99)) };
+        let _ = OpcUaNodeClass::try_from(&invalid).unwrap();
+    }
+
+    #[test]
+    fn attribute_id_conversions() {
+        let ids = [
+            (ua::AttributeId::NODEID, OpcUaAttributeId::NodeId),
+            (ua::AttributeId::NODECLASS, OpcUaAttributeId::NodeClass),
+            (ua::AttributeId::BROWSENAME, OpcUaAttributeId::BrowseName),
+            (ua::AttributeId::DISPLAYNAME, OpcUaAttributeId::DisplayName),
+            (ua::AttributeId::DESCRIPTION, OpcUaAttributeId::Description),
+            (ua::AttributeId::WRITEMASK, OpcUaAttributeId::WriteMask),
+            (
+                ua::AttributeId::USERWRITEMASK,
+                OpcUaAttributeId::UserWriteMask,
+            ),
+            (ua::AttributeId::ISABSTRACT, OpcUaAttributeId::IsAbstract),
+            (ua::AttributeId::SYMMETRIC, OpcUaAttributeId::Symmetric),
+            (ua::AttributeId::INVERSENAME, OpcUaAttributeId::InverseName),
+            (
+                ua::AttributeId::CONTAINSNOLOOPS,
+                OpcUaAttributeId::ContainsNoLoops,
+            ),
+            (
+                ua::AttributeId::EVENTNOTIFIER,
+                OpcUaAttributeId::EventNotifier,
+            ),
+            (ua::AttributeId::VALUE, OpcUaAttributeId::Value),
+            (ua::AttributeId::DATATYPE, OpcUaAttributeId::DataType),
+            (ua::AttributeId::VALUERANK, OpcUaAttributeId::ValueRank),
+            (
+                ua::AttributeId::ARRAYDIMENSIONS,
+                OpcUaAttributeId::ArrayDimensions,
+            ),
+            (ua::AttributeId::ACCESSLEVEL, OpcUaAttributeId::AccessLevel),
+            (
+                ua::AttributeId::USERACCESSLEVEL,
+                OpcUaAttributeId::UserAccessLevel,
+            ),
+            (
+                ua::AttributeId::MINIMUMSAMPLINGINTERVAL,
+                OpcUaAttributeId::MinimumSamplingInterval,
+            ),
+            (ua::AttributeId::HISTORIZING, OpcUaAttributeId::Historizing),
+            (ua::AttributeId::EXECUTABLE, OpcUaAttributeId::Executable),
+            (
+                ua::AttributeId::USEREXECUTABLE,
+                OpcUaAttributeId::UserExecutable,
+            ),
+            (
+                ua::AttributeId::DATATYPEDEFINITION,
+                OpcUaAttributeId::DataTypeDefinition,
+            ),
+            (
+                ua::AttributeId::ROLEPERMISSIONS,
+                OpcUaAttributeId::RolePermissions,
+            ),
+            (
+                ua::AttributeId::USERROLEPERMISSIONS,
+                OpcUaAttributeId::UserRolePermissions,
+            ),
+            (
+                ua::AttributeId::ACCESSRESTRICTIONS,
+                OpcUaAttributeId::AccessRestrictions,
+            ),
+            (
+                ua::AttributeId::ACCESSLEVELEX,
+                OpcUaAttributeId::AccessLevelEx,
+            ),
+        ];
+
+        for (upstream, expected) in ids {
+            assert_roundtrip(&upstream, expected);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn attribute_id_conversions_should_fail_on_invalid_variant() {
+        let invalid = unsafe { ua::AttributeId::from_raw(UA_AttributeId(99)) };
+        let _ = OpcUaAttributeId::try_from(&invalid).unwrap();
     }
 
     #[test]
@@ -1693,6 +2111,34 @@ mod tests {
     }
 
     #[test]
+    fn opcua_value_roundtrips_lowercase() {
+        const CASES: &[(&str, OpcUaValue)] = &[
+            ("{ \"bool\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"boolean\": true }", OpcUaValue::Boolean(true)),
+            ("{ \"float\": 1.1 }", OpcUaValue::Float(1.1)),
+            ("{ \"double\": 2.2 }", OpcUaValue::Double(2.2)),
+            ("{ \"int8\": -1 }", OpcUaValue::Int8(-1)),
+            ("{ \"int16\": -2 }", OpcUaValue::Int16(-2)),
+            ("{ \"int32\": -3 }", OpcUaValue::Int32(-3)),
+            ("{ \"int64\": -4 }", OpcUaValue::Int64(-4)),
+            ("{ \"uint8\": 1 }", OpcUaValue::UInt8(1)),
+            ("{ \"uint16\": 2 }", OpcUaValue::UInt16(2)),
+            ("{ \"uint32\": 3 }", OpcUaValue::UInt32(3)),
+            ("{ \"uint64\": 4 }", OpcUaValue::UInt64(4)),
+            (
+                "{ \"string\": \"test\" }",
+                OpcUaValue::String(Cow::Borrowed("test")),
+            ),
+        ];
+
+        for (case, expected) in CASES {
+            let parsed = from_str::<OpcUaValue>(case)
+                .unwrap_or_else(|_| panic!("lowercase value variant should deserialize: {case}"));
+            assert_eq!(&parsed, expected);
+        }
+    }
+
+    #[test]
     fn serde_roundtrip_node() {
         let node = OpcUaNodeId::string(2, "Temperature".into());
 
@@ -1769,13 +2215,13 @@ mod tests {
     #[test]
     fn browse_path_display_and_parse_roundtrip() {
         let cases = [
-            BrowsePath::default(),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-                .child(QualifiedBrowseName::new(0, "Objects".into()))
-                .child(QualifiedBrowseName::new(0, "Temperature".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(4, "PLC1".into())),
-            BrowsePath::from_segment(QualifiedBrowseName::new(
+            OpcUaBrowsePath::default(),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+                .child(OpcUaQualifiedName::new(0, "Objects".into()))
+                .child(OpcUaQualifiedName::new(0, "Temperature".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(4, "PLC1".into())),
+            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
                 2,
                 "Name/with:reserved&chars".into(),
             )),
@@ -1783,16 +2229,16 @@ mod tests {
 
         for path in cases {
             let rendered = path.to_string();
-            let parsed: BrowsePath = rendered.parse().expect("browse path should parse");
+            let parsed: OpcUaBrowsePath = rendered.parse().expect("browse path should parse");
             assert_eq!(parsed, path);
         }
     }
 
     #[test]
     fn browse_path_renders_standard_relative_path_text() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()))
-            .child(QualifiedBrowseName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
+        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+            .child(OpcUaQualifiedName::new(0, "Objects".into()))
+            .child(OpcUaQualifiedName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
 
         assert_eq!(
             path.to_string(),
@@ -1812,23 +2258,25 @@ mod tests {
             "/Root/Foo&",
             "/Root/Foo.Bar",
         ] {
-            let parsed: Result<BrowsePath> = malformed.parse();
+            let parsed: Result<OpcUaBrowsePath> = malformed.parse();
             assert!(parsed.is_err(), "{malformed} should fail to parse");
         }
     }
 
     #[test]
     fn browse_path_serializes_as_json_object_key() {
-        let path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()))
-            .child(QualifiedBrowseName::new(0, "Objects".into()));
-        let mut map = std::collections::BTreeMap::new();
+        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
+            .child(OpcUaQualifiedName::new(0, "Objects".into()));
+
+        let mut map = HashMap::new();
         map.insert(path.clone(), "selected".to_owned());
 
         let json = serde_json::to_value(&map).expect("serialize browse path map");
         assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
 
-        let back: std::collections::BTreeMap<BrowsePath, String> =
+        let back: HashMap<OpcUaBrowsePath, String> =
             serde_json::from_value(json).expect("deserialize browse path map");
+
         assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
     }
 
@@ -1839,13 +2287,16 @@ mod tests {
             browse_name: "Objects".into(),
             display_name: "Objects".into(),
             node_class: OpcUaNodeClass::Object,
-            browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(0, "Objects".into())),
+            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
+                0,
+                "Objects".into(),
+            )),
             children: vec![OpcUaNode {
                 node_id: OpcUaNodeId::string(2, "Temp".into()),
                 browse_name: "Temperature".into(),
                 display_name: "Temperature".into(),
                 node_class: OpcUaNodeClass::Variable,
-                browse_path: BrowsePath::from_segment(QualifiedBrowseName::new(
+                browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
                     2,
                     "Temperature".into(),
                 )),
@@ -1862,6 +2313,7 @@ mod tests {
             "node_id": "ns=0;i=85",
             "browse_name": "Objects",
             "display_name": "Objects",
+            "type_definition": "ns=0;i=86",
             "node_class": "Object",
             "children": [],
         }))
@@ -2015,5 +2467,170 @@ mod tests {
 
         assert_eq!(data_point.source_timestamp, None);
         assert_eq!(data_point.server_timestamp, Some(100));
+    }
+
+    #[test]
+    fn null_node_id_has_expected_identity() {
+        let null_id = OpcUaNodeId::nulled();
+
+        assert!(null_id.is_null());
+        assert!(null_id.is_ns0());
+        assert_eq!(null_id.as_numeric(), Some((0, 0)));
+        assert_eq!(null_id.as_string(), None);
+        assert_eq!(null_id.as_byte_string(), None);
+        assert_eq!(null_id.as_guid(), None);
+    }
+
+    #[test]
+    fn numeric_node_id_is_extractable() {
+        let id = OpcUaNodeId::numeric(1, 2);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), Some((1, 2)));
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn string_node_id_is_extractable() {
+        let id = OpcUaNodeId::string(1, "test".into());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), Some((1, "test")));
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn bytestring_node_id_is_extractable() {
+        let bytes = vec![1u8, 2, 3];
+        let id = OpcUaNodeId::byte_string(1, bytes.clone());
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), Some((1, bytes.as_slice())));
+        assert_eq!(id.as_guid(), None);
+    }
+
+    #[test]
+    fn guid_node_id_is_extractable() {
+        let guid = Uuid::from_u128(12345678901234567890);
+        let id = OpcUaNodeId::guid(1, guid);
+
+        assert!(!id.is_null());
+        assert!(!id.is_ns0());
+        assert_eq!(id.as_numeric(), None);
+        assert_eq!(id.as_string(), None);
+        assert_eq!(id.as_byte_string(), None);
+        assert_eq!(id.as_guid(), Some((1, guid)));
+    }
+
+    #[test]
+    fn test_scalar_value_roundtrip() {
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Boolean(ua::Boolean::new(true))),
+            OpcUaValue::Boolean(true),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::SByte(ua::SByte::new(-1))),
+            OpcUaValue::Int8(-1),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Byte(ua::Byte::new(2))),
+            OpcUaValue::UInt8(2),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int16(ua::Int16::new(-3))),
+            OpcUaValue::Int16(-3),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt16(ua::UInt16::new(4))),
+            OpcUaValue::UInt16(4),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int32(ua::Int32::new(-5))),
+            OpcUaValue::Int32(-5),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt32(ua::UInt32::new(6))),
+            OpcUaValue::UInt32(6),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Int64(ua::Int64::new(-7))),
+            OpcUaValue::Int64(-7),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::UInt64(ua::UInt64::new(8))),
+            OpcUaValue::UInt64(8),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Float(ua::Float::new(1.0))),
+            OpcUaValue::Float(1.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Double(ua::Double::new(2.0))),
+            OpcUaValue::Double(2.0),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::String(ua::String::new("test").unwrap())),
+            OpcUaValue::String("test".into()),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::DateTime(
+                ua::DateTime::try_from_unix_timestamp_nanos(
+                    UtcDateTime::UNIX_EPOCH.unix_timestamp_nanos(),
+                )
+                .unwrap(),
+            )),
+            OpcUaValue::DateTime(UtcDateTime::UNIX_EPOCH),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::numeric(1, 2))),
+            OpcUaValue::NodeId(OpcUaNodeId::numeric(1, 2)),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::QualifiedName(ua::QualifiedName::new(
+                1, "test",
+            ))),
+            OpcUaValue::QualifiedName(OpcUaQualifiedName::new(1, "test".into())),
+        );
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::LocalizedText(
+                ua::LocalizedText::new("en-US", "test").unwrap(),
+            )),
+            OpcUaValue::LocalizedText(OpcUaLocalizedText::new("en-US".into(), "test".into())),
+        );
+
+        const GUID: Uuid = Uuid::from_u128(12345678901234567890);
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::Guid(ua::Guid::from_uuid(GUID))),
+            OpcUaValue::Guid(GUID),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::string(2, "abc"))),
+            OpcUaValue::NodeId(OpcUaNodeId::string(2, "abc".into())),
+        );
+
+        let bytes = vec![1u8, 2, 3, 4];
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::byte_string(3, &bytes))),
+            OpcUaValue::NodeId(OpcUaNodeId::byte_string(3, bytes)),
+        );
+
+        assert_roundtrip(
+            &ScalarEq(ScalarValue::NodeId(ua::NodeId::guid(
+                4,
+                ua::Guid::from_uuid(GUID),
+            ))),
+            OpcUaValue::NodeId(OpcUaNodeId::guid(4, GUID)),
+        );
     }
 }

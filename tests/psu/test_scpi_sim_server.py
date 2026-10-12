@@ -10,8 +10,8 @@ import pytest
 from textual.widgets import Input
 
 from instro.psu.scpi_sim_server import (
-    OperatingMode,
     SCPIError,
+    SimOperatingMode,
     SimulatedLoad,
     SimulatedPSU,
     SimulatedPSUApp,
@@ -574,7 +574,7 @@ def test_current_limit_can_enter_cc_without_ocp_trip(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":CURR:PROT:STAT ON")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CC
+    assert psu.channels[0].mode == SimOperatingMode.CC
     assert psu.channels[0].output_enabled is True
     assert psu.channels[0].overcurrent_tripped is False
 
@@ -689,7 +689,7 @@ def test_cv_mode_measures_setpoint_voltage(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.channels[0].mode == SimOperatingMode.CV
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
 
 
@@ -699,7 +699,7 @@ def test_current_limit_clamps_into_cc_mode(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CC
+    assert psu.channels[0].mode == SimOperatingMode.CC
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(1.0, rel=0.05)
 
 
@@ -718,7 +718,7 @@ def test_zero_resistance_load_enters_cc_mode(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CC
+    assert psu.channels[0].mode == SimOperatingMode.CC
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(1.0, rel=0.05)
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(0.0, abs=0.01)
 
@@ -729,7 +729,7 @@ def test_zero_resistance_load_at_matching_emf_stays_in_cv_mode(psu: SimulatedPSU
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.channels[0].mode == SimOperatingMode.CV
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
 
@@ -740,9 +740,30 @@ def test_infinite_resistance_load_stays_in_cv_mode(psu: SimulatedPSU) -> None:
     psu.process_scpi_command(":VOLT 5.0")
     psu.process_scpi_command(":OUTP ON")
 
-    assert psu.channels[0].mode == OperatingMode.CV
+    assert psu.channels[0].mode == SimOperatingMode.CV
     assert psu.process_scpi_command(":MEAS:CURR?") == pytest.approx(0.0, abs=0.01)
     assert psu.process_scpi_command(":MEAS:VOLT?") == pytest.approx(5.0, rel=0.05)
+
+
+def test_mode_query_reports_off_when_output_disabled(psu: SimulatedPSU) -> None:
+    assert psu.process_scpi_command(":OUTP:MODE?") == SimOperatingMode.OFF.value
+
+
+def test_mode_query_reports_cv_when_voltage_regulated(psu: SimulatedPSU) -> None:
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.process_scpi_command(":OUTP:MODE?") == SimOperatingMode.CV.value
+
+
+def test_mode_query_reports_cc_when_current_clamped(psu: SimulatedPSU) -> None:
+    psu.channels[0].load = SimulatedLoad(resistance=0.1, probe_resistance=0.0)
+    psu.process_scpi_command(":CURR 1.0")
+    psu.process_scpi_command(":VOLT 5.0")
+    psu.process_scpi_command(":OUTP ON")
+
+    assert psu.process_scpi_command(":OUTP:MODE?") == SimOperatingMode.CC.value
 
 
 @pytest.mark.parametrize(

@@ -6,8 +6,6 @@ from instro.modbus.types import (
     BitDef,
     ModbusConfig,
     RegisterDef,
-    RTUConnection,
-    TCPConnection,
     TimingConfig,
 )
 
@@ -15,8 +13,6 @@ __all__ = [
     "ModbusDevice",
     "ModbusConfig",
     "TimingConfig",
-    "TCPConnection",
-    "RTUConnection",
     "RegisterDef",
     "BitDef",
     "DeviceInfo",

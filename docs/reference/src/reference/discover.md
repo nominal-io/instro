@@ -1,3 +1,0 @@
-# Discover
-
-::: instro.lib.discover
