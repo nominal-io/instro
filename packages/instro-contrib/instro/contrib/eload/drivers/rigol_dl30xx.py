@@ -1,4 +1,4 @@
-"""RIGOL DL3031A DC eload driver."""
+"""RIGOL DL30xx DC eload driver."""
 
 from typing import Literal
 
@@ -24,7 +24,7 @@ def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
     }[direction]
 
 
-class RigolDL3031A(ELoadDriverBase):
+class RigolDL30xx(ELoadDriverBase):
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
 
@@ -52,7 +52,7 @@ class RigolDL3031A(ELoadDriverBase):
 
     def set_range(self, mode: LoadMode, value: float, channel: int) -> None:
         if mode == LoadMode.CP:
-            raise NotImplementedError("Rigol DL3031A has no :RANGe command in CP mode")
+            raise NotImplementedError("Rigol DL30xx has no :RANGe command in CP mode")
         else:
             self._write_checked(f"{loadmode_to_rigol(mode)}:RANGe {value}")
 
@@ -69,7 +69,7 @@ class RigolDL3031A(ELoadDriverBase):
     def get_voltage(self, channel: int) -> float:
         return self._query_checked_float("MEASure:VOLTage?")
 
-    # following functions are DL3031A-specific extensions beyond ELoadDriverBase class
+    # following functions are DL30xx-specific extensions beyond ELoadDriverBase class
     # :TRIGger commands
     def trigger(self) -> None:
         """Initiate trigger when Bus is selected as trigger source.
@@ -333,4 +333,4 @@ class RigolDL3031A(ELoadDriverBase):
     def _check_errors(self) -> None:
         err = self._visa.query("SYST:ERR?")
         if not err.startswith("0"):
-            raise RuntimeError(f"Rigol DL3031A reported error: {err}")
+            raise RuntimeError(f"Rigol DL30xx reported error: {err}")

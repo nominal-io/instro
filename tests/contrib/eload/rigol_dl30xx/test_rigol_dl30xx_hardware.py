@@ -1,4 +1,4 @@
-"""Hardware validation for Rigol DL3031A DC eload driver."""
+"""Hardware validation for Rigol DL30xx DC eload driver."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 import pytest
 
-from instro.contrib.eload.drivers.rigol_dl3031a import RigolDL3031A
+from instro.contrib.eload.drivers.rigol_dl30xx import RigolDL30xx
 from instro.eload import InstroELoad
 from instro.eload.types import LoadMode, SlewRateDirection
 
@@ -35,7 +35,7 @@ DISCHARGE_BATTERY = False
 
 
 def _make_eload() -> InstroELoad:
-    eload = InstroELoad(name="test_rigol_dl3031a", driver=RigolDL3031A(RESOURCE), publishers=None)
+    eload = InstroELoad(name="test_rigol_dl30xx", driver=RigolDL30xx(RESOURCE), publishers=None)
     eload.open()
     return eload
 
@@ -311,7 +311,7 @@ def run_all() -> list:
 
 
 @pytest.mark.hardware
-def test_rigol_dl3031a_hardware() -> None:
+def test_rigol_dl30xx_hardware() -> None:
     failures = run_all()
     assert not failures, f"{len(failures)} hardware check(s) failed: {failures}"
 

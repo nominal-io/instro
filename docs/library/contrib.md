@@ -66,10 +66,11 @@ This is the complete set of `instro-contrib` drivers as of the current release.
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 
-### Rigol DL3031A DC electronic load
+### Rigol DL3000-series DC electronic load
 
-**Class**: `RigolDL3031A`  
-**Import**: `from instro.contrib.eload.drivers import RigolDL3031A`  
+**Class**: `RigolDL30xx`  
+**Models**: DL3021, DL3021A, DL3031, DL3031A, DL3041 (one SCPI command set; battery/OCP/OPP commands need firmware newer than 00.01.02)  
+**Import**: `from instro.contrib.eload.drivers import RigolDL30xx`  
 **Tested against**: DL3031A (150 V, 0–60 A, 350 W); firmware 00.01.05.00.01  
 **Protocol**: SCPI over VISA (USB confirmed, LAN/RS232/GPIB documented but untested)
 
