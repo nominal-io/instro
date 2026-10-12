@@ -36,6 +36,10 @@ ELOAD_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         "instro.eload.drivers.bk_85xxb.BK85XXB",
         (IdnPattern(("B&K PRECISION",), r"^(BK)?85\d\dB"),),
     ),
+    "RigolDL30xx": DriverEntry(
+        "instro.eload.drivers.rigol_dl30xx.RigolDL30xx",
+        (IdnPattern(("RIGOL TECHNOLOGIES",), r"^DL30[234]1"),),
+    ),
 }
 
 

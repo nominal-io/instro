@@ -10,8 +10,8 @@ from collections.abc import Callable
 
 import pytest
 
-from instro.contrib.eload.drivers.rigol_dl30xx import RigolDL30xx
 from instro.eload import InstroELoad
+from instro.eload.drivers.rigol_dl30xx import RigolDL30xx
 from instro.eload.types import LoadMode, SlewRateDirection
 
 RESOURCE = "USB0::0x1AB1::0x0E11::DL3D254300331::INSTR"  # change to VISA resource string

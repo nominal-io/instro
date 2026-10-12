@@ -5,14 +5,14 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from instro.contrib.eload.drivers.rigol_dl30xx import RigolDL30xx, loadmode_to_rigol, slew_direction_to_rigol
+from instro.eload.drivers.rigol_dl30xx import RigolDL30xx, loadmode_to_rigol, slew_direction_to_rigol
 from instro.eload.types import LoadMode, SlewRateDirection
 from instro.lib.transports import VisaConfig
 
 
 @pytest.fixture
 def visa_driver_cls() -> Iterator[MagicMock]:
-    with patch("instro.contrib.eload.drivers.rigol_dl30xx.VisaDriver", autospec=True) as driver_cls:
+    with patch("instro.eload.drivers.rigol_dl30xx.VisaDriver", autospec=True) as driver_cls:
         yield driver_cls
 
 
