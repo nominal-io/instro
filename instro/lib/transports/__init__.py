@@ -9,7 +9,9 @@ from instro.lib.transports.modbus import (
 )
 from instro.lib.transports.transport_base import TransportBase
 from instro.lib.transports.visa import (
+    BackendDiagnostics,
     ControlFlow,
+    DegradedInterface,
     Parity,
     SerialConfig,
     StopBits,
@@ -17,10 +19,14 @@ from instro.lib.transports.visa import (
     TimeoutConfig,
     VisaConfig,
     VisaDriver,
+    backend_diagnostics,
+    open_resource_manager,
 )
 
 __all__ = [
+    "BackendDiagnostics",
     "ControlFlow",
+    "DegradedInterface",
     "DataType",
     "ModbusRTUTransport",
     "ModbusTCPTransport",
@@ -34,4 +40,6 @@ __all__ = [
     "TransportBase",
     "VisaConfig",
     "VisaDriver",
+    "backend_diagnostics",
+    "open_resource_manager",
 ]
