@@ -15,6 +15,7 @@ from instro.unstable.dmm.drivers import Fluke8808A
 RESOURCE = "ASRL/dev/ttyUSB0::INSTR"
 OK = "=>\r"
 TIMEOUT = VisaIOError(StatusCode.error_timeout)
+PORT_LOST = VisaIOError(StatusCode.error_connection_lost)
 OPEN_COMMANDS = ["*RST", "RWLS", "FORMAT 1", "TRIGGER 1"]
 # ^C's "=>" and the quiet that ends the drain, then the "=>" answering the *CLS prompt probe.
 CLEAR_AND_PROBE = [OK, TIMEOUT, OK]
@@ -63,6 +64,22 @@ def test_open_failure_closes_transport(visa: MagicMock) -> None:
     visa.read.side_effect = [*CLEAR_AND_PROBE, "!>\r"]
     with pytest.raises(InstroError, match="execution error"):
         Fluke8808A(RESOURCE).open()
+    visa.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    "reads",
+    [
+        pytest.param([PORT_LOST], id="device-clear-drain"),
+        pytest.param([OK, TIMEOUT, PORT_LOST], id="prompt-probe"),
+    ],
+)
+def test_open_raises_non_timeout_visa_error(visa: MagicMock, reads: list) -> None:
+    # Only a timeout means the meter went quiet; a port fault must not be read as one.
+    visa.read.side_effect = reads
+    with pytest.raises(VisaIOError) as excinfo:
+        Fluke8808A(RESOURCE).open()
+    assert excinfo.value is PORT_LOST
     visa.close.assert_called_once_with()
 
 

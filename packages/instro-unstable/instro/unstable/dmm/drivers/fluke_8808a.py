@@ -193,8 +193,10 @@ class Fluke8808A(DMMDriverBase):
                 with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
                     while True:
                         self._visa.read()
-            except pyvisa.errors.VisaIOError:
-                pass
+            except pyvisa.errors.VisaIOError as e:
+                # A timeout is the only signal that the meter has gone quiet; anything else is a real fault.
+                if e.error_code != pyvisa.constants.StatusCode.error_timeout:
+                    raise
 
     def _detect_prompts(self) -> None:
         """Send ``*CLS`` and record whether the meter answers each command line with a prompt.
@@ -207,7 +209,9 @@ class Fluke8808A(DMMDriverBase):
             try:
                 with self._visa.temporary_timeout(_PROBE_TIMEOUT_MS):
                     prompt = self._read_response("*CLS")
-            except pyvisa.errors.VisaIOError:
+            except pyvisa.errors.VisaIOError as e:
+                if e.error_code != pyvisa.constants.StatusCode.error_timeout:
+                    raise
                 # A prompt that lands just after the window would otherwise be read as the next *ESR? reply.
                 self._device_clear()
                 self._prompts = False
