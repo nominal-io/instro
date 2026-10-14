@@ -28,8 +28,8 @@ def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
 class RigolDL30xx(ELoadDriverBase):
     """Rigol DL3000-series DC E-Load (DL3021/DL3021A/DL3031/DL3031A/DL3041).
 
-    Hardware-validated against the DL3031A (firmware 00.01.05.00.01) over USB; others share the SCPI surface
-    but have not been bench-tested. Battery, OCP, and OPP commands need firmware newer than 00.01.02.
+    Hardware-validated over USB against the DL3031A and DL3021 (firmware 00.01.05.00.01); others share the SCPI
+    surface but have not been bench-tested. Battery, OCP, and OPP commands need firmware newer than 00.01.02.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
