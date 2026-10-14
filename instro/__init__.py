@@ -1,13 +1,20 @@
 """Typed Python API for test-and-measurement instruments."""
 
-# Let workspace packages (instro-contrib, instro-unstable, instro-ethernetip, ...)
-# contribute top-level subpackages under instro.* — without this, turning instro
-# into a regular package below would pin its __path__ to this directory alone
-# and hide those workspace trees. The exact spelling below (rather than
-# `from pkgutil import extend_path; ...`) matters: griffe/mkdocstrings pattern-match
-# this specific idiom to keep treating instro as a mergeable namespace for API docs.
-__path__ = __import__("pkgutil").extend_path(__path__, __name__)
+import importlib as _importlib
+import pkgutil as _pkgutil
 
-from instro import cli, daq, dmm, eload, i2c, lib, modbus, psu, scope
+# Workspace packages (instro-contrib, instro-unstable, ...) add subpackages under instro/.
+__path__ = _pkgutil.extend_path(__path__, __name__)
 
-__all__ = ["cli", "daq", "dmm", "eload", "i2c", "lib", "modbus", "psu", "scope"]
+__all__ = ["awg", "cli", "daq", "dmm", "eload", "i2c", "lib", "modbus", "psu", "scope"]
+
+
+def __getattr__(name: str) -> object:
+    if name in __all__:
+        return _importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    # Include subpackages already imported, such as instro.contrib.
+    return sorted({*globals(), *__all__})
