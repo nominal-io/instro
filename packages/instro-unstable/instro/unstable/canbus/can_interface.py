@@ -113,22 +113,23 @@ class CANInterface(Instrument):
 
     def open(self) -> None:
         """Take a hold on the transport (opening the bus if this is the first holder) and start receiving."""
-        if self._subscription is not None:
-            return
-        self._transport.open(self)
         with self._lock:
+            if self._subscription is not None:
+                return
+            self._transport.open(self)
             self._latest_frames.clear()
             self._unpublished.clear()
             self._subscription = self._transport.subscribe(self._is_rx_frame)
 
     def close(self) -> None:
         """Stop the daemon and release this interface's hold; the bus closes when its last holder leaves."""
-        super().close()
-        if self._subscription is None:
-            return
-        self._transport.unsubscribe(self._subscription)
-        self._subscription = None
-        self._transport.close(self)
+        super().close()  # joins the daemon, whose poll() takes self._lock, so this stays outside it
+        with self._lock:
+            if self._subscription is None:
+                return
+            self._transport.unsubscribe(self._subscription)
+            self._subscription = None
+            self._transport.close(self)
 
     @property
     def is_open(self) -> bool:
