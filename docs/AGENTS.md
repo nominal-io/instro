@@ -49,7 +49,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 
 1. `docs/<category>/<Driver>.md` and `<Driver>.png`. Copy a sibling: front matter `orphan: true`, `card: <Vendor Model>`, `image: <Driver>.png`; `# <Driver>`, a `{.lead}` line, the image, a `## Creating an Instro<Category> with <Driver>` example. The category's `driver-cards` grid picks it up.
 2. In `sdk/instruments/<category>.md`, add a Vendor Drivers table row and the class path to the hidden `.. only:: autosummary_stubs` list beneath it (the table is hand-written, so this block is what generates the class page).
-3. `just build-docs`.
+3. `just build-docs`. `_ext/driver_docs.py` warns, and so fails the build, for each name in `instro.<category>.drivers.__all__` (except `*DriverBase`) that has no step 1 page or no dotted `instro.` reference on its step 2 page. For a name that cannot meet a check (a simulator, a multi-category device class), add `"<category>.<Name>": {"sdk", "guide"}` (or one of the two) to `driver_docs_exempt` in `conf.py`, with a comment that gives the reason. An exemption that no longer applies is also a warning.
 
 ### Add an instrument category
 

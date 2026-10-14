@@ -29,6 +29,7 @@ extensions = [
     "sphinx_copybutton",
     "pysummary",
     "driver_cards",
+    "driver_docs",
     "examples",
     "nominal_sphinx_theme",
 ]
@@ -107,6 +108,17 @@ autodoc_pydantic_model_show_validator_members = False
 autodoc_pydantic_model_show_field_summary = False
 autodoc_pydantic_field_list_validators = False
 autodoc_pydantic_model_member_order = "bysource"
+
+# -- driver_docs: names exported by instro.<category>.drivers that skip a check --
+driver_docs_exempt = {
+    # Device class that vends the EAPSB10000VisaSource / EAPSB10000VisaSink drivers
+    "psu.EAPSB10000Visa": {"sdk", "guide"},
+    "eload.EAPSB10000Visa": {"sdk", "guide"},
+    # Simulators and helpers: documented on the SDK page only
+    "psu.SimulatedPSU": {"guide"},
+    "dmm.SimulatedDMM": {"guide"},
+    "daq.HWTimestamper": {"guide"},
+}
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
