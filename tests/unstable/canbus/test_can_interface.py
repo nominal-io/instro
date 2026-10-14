@@ -145,3 +145,11 @@ def test_frames_without_decodable_signal_data_are_skipped(interface: CANInterfac
 
     assert published["vehicle_bus.BMS_Status.pack_voltage"] == [400.0]
     assert published["vehicle_bus.Motor_Feedback.speed"] == [-1500]
+
+
+def test_send_frame_sends_raw_bytes_outside_the_dbc(interface: CANInterface, peer: can.BusABC) -> None:
+    interface.send_frame(0x7DF, b"\x02\x01\x0d", is_extended_id=False)
+
+    frame = peer.recv(timeout=1.0)
+    assert frame is not None
+    assert (frame.arbitration_id, frame.is_extended_id, bytes(frame.data)) == (0x7DF, False, b"\x02\x01\x0d")
