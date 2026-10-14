@@ -20,6 +20,7 @@ Programmable power supplies.
 | B&K Precision | {py:class}`9115 <instro.psu.drivers.bk_9115.BK9115>` | {pysummary}`instro.psu.drivers.bk_9115.BK9115` |
 | B&K Precision | {py:class}`914X <instro.psu.drivers.bk_914x.BK914X>` | {pysummary}`instro.psu.drivers.bk_914x.BK914X` |
 | Keysight | {py:class}`E36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>` | {pysummary}`instro.psu.drivers.keysight_e36100.KeysightE36100` |
+| Keysight | {py:class}`N5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` | {pysummary}`instro.psu.drivers.keysight_n5700.KeysightN5700` |
 | Rigol | {py:class}`DP800 <instro.psu.drivers.rigol_dp800.RigolDP800>` | {pysummary}`instro.psu.drivers.rigol_dp800.RigolDP800` |
 | Siglent | {py:class}`SPD3303 <instro.psu.drivers.siglent_spd3303.SiglentSPD3303>` | {pysummary}`instro.psu.drivers.siglent_spd3303.SiglentSPD3303` |
 | TDK Lambda | {py:class}`Genesys <instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys>` | {pysummary}`instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys` |
@@ -39,6 +40,7 @@ regardless, so the pages still appear in the sidebar. -->
       instro.psu.drivers.bk_9115.BK9115
       instro.psu.drivers.bk_914x.BK914X
       instro.psu.drivers.keysight_e36100.KeysightE36100
+      instro.psu.drivers.keysight_n5700.KeysightN5700
       instro.psu.drivers.rigol_dp800.RigolDP800
       instro.psu.drivers.siglent_spd3303.SiglentSPD3303
       instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys
