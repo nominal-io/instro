@@ -26,5 +26,7 @@ try:
     time.sleep(2.0)
     print("Motor speed:", bus.read("Motor_Feedback.speed").latest, "rpm")
 finally:
-    bus.write("Motor_Command.enable", 0)
-    bus.close()
+    try:
+        bus.write("Motor_Command.enable", 0)
+    finally:
+        bus.close()
