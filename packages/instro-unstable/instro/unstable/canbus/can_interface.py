@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import threading
 import time
 from pathlib import Path
 from typing import cast
 
 import can
+import cantools
 from cantools.database.can import Message, Signal
 
 from instro.lib import Command, Instrument, Measurement
@@ -18,16 +20,18 @@ from instro.unstable.transports.can import CanSubscription, CanTransport
 
 from .types import CANConfig, CANConnectionInfo
 
+logger = logging.getLogger(__name__)
+
 
 @dataclasses.dataclass(frozen=True)
 class _ReceivedFrame:
-    """The newest frame seen for one message.
+    """The decoded newest frame seen for one message.
 
     Stamped with host receive time because adapter timestamps are not wall clock
     (gs_usb reports a device microsecond counter, or 0).
     """
 
-    data: bytes
+    values: dict[str, float]  # physical signal values, by signal name
     received_at: int  # ns since the Unix epoch
 
 
@@ -157,12 +161,10 @@ class CANInterface(Instrument):
             frame = self._latest_frames.get(message.name)
         if frame is None:
             raise RuntimeError(f"No '{message.name}' frame received since open().")
-
-        values = _decode(message, frame.data)
-        if signal_name not in values:
+        if signal_name not in frame.values:
             raise RuntimeError(f"'{signal}' is not in the latest '{message.name}' frame (multiplexed out).")
         return Measurement(
-            channel_data={f"{self.name}.{signal}": [values[signal_name]]},
+            channel_data={f"{self.name}.{signal}": [frame.values[signal_name]]},
             timestamps=[frame.received_at],
             tags={**self.default_tags, **kwargs},
         )
@@ -189,17 +191,16 @@ class CANInterface(Instrument):
             fresh = {name: self._latest_frames[name] for name in sorted(self._unpublished)}
             self._unpublished.clear()
 
-        measurements = []
-        for message_name, frame in fresh.items():
-            values = _decode(self._rx_messages_by_name[message_name], frame.data)
-            measurements.append(
-                Measurement(
-                    channel_data={f"{self.name}.{message_name}.{signal}": [value] for signal, value in values.items()},
-                    timestamps=[frame.received_at],
-                    tags={**self.default_tags, **kwargs},
-                )
+        return [
+            Measurement(
+                channel_data={
+                    f"{self.name}.{message_name}.{signal}": [value] for signal, value in frame.values.items()
+                },
+                timestamps=[frame.received_at],
+                tags={**self.default_tags, **kwargs},
             )
-        return measurements
+            for message_name, frame in fresh.items()
+        ]
 
     # ============ Writing ============
 
@@ -250,15 +251,23 @@ class CANInterface(Instrument):
     # ============ Internal Helpers ============
 
     def _is_rx_frame(self, frame: can.Message) -> bool:
+        # Remote requests and error frames reuse message IDs but carry no signal data.
+        if frame.is_remote_frame or frame.is_error_frame:
+            return False
         return (frame.arbitration_id, frame.is_extended_id) in self._rx_messages_by_frame_id
 
     def _drain_locked(self) -> None:
-        """Move pending frames off the bus, keeping the newest frame of each message. Caller holds ``self._lock``."""
+        """Move pending frames off the bus, keeping the newest decodable frame of each message. Caller holds ``self._lock``."""
         subscription = self._require_open_locked()
         received_at = time.time_ns()
         for frame in subscription.drain():
             message = self._rx_messages_by_frame_id[(frame.arbitration_id, frame.is_extended_id)]
-            self._latest_frames[message.name] = _ReceivedFrame(bytes(frame.data), received_at)
+            try:
+                values = _decode(message, bytes(frame.data))
+            except cantools.database.DecodeError as exc:
+                logger.warning("Dropping a '%s' frame that does not match the DBC: %s", message.name, exc)
+                continue
+            self._latest_frames[message.name] = _ReceivedFrame(values, received_at)
             self._unpublished.add(message.name)
 
     def _require_open_locked(self) -> CanSubscription:

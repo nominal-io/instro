@@ -133,3 +133,15 @@ def test_write_outside_the_dbc_range_sends_nothing(tx_interface: CANInterface, p
         tx_interface.write("Motor_Command.torque_request", 999)
 
     assert peer.recv(timeout=0.05) is None
+
+
+def test_frames_without_decodable_signal_data_are_skipped(interface: CANInterface, peer: can.BusABC) -> None:
+    peer.send(_bms_status(volts_raw=(40_000).to_bytes(2, "little"), amps_raw=bytes(2)))
+    peer.send(can.Message(arbitration_id=0x123, is_extended_id=False, is_remote_frame=True, dlc=8))
+    peer.send(can.Message(arbitration_id=0x123, is_extended_id=False, data=b"\x01\x02"))  # DLC 2, DBC says 8
+    peer.send(can.Message(arbitration_id=0x18FF50E5, data=(-1500).to_bytes(2, "little", signed=True) + bytes(6)))
+
+    published = {name: values for m in interface.poll() for name, values in m.channel_data.items()}
+
+    assert published["vehicle_bus.BMS_Status.pack_voltage"] == [400.0]
+    assert published["vehicle_bus.Motor_Feedback.speed"] == [-1500]
