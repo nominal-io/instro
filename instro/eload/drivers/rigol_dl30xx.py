@@ -1,5 +1,6 @@
 """RIGOL DL30xx DC eload driver."""
 
+from collections.abc import Mapping
 from typing import Literal
 
 from instro.eload import ELoadDriverBase
@@ -25,6 +26,12 @@ def slew_direction_to_rigol(direction: SlewRateDirection) -> str:
 
 
 class RigolDL30xx(ELoadDriverBase):
+    """Rigol DL3000-series DC E-Load (DL3021/DL3021A/DL3031/DL3031A/DL3041).
+
+    Hardware-validated over USB against the DL3031A and DL3021 (firmware 00.01.05.00.01); others share the SCPI
+    surface but have not been bench-tested. Battery, OCP, and OPP commands need firmware newer than 00.01.02.
+    """
+
     def __init__(self, visa_resource: str | VisaConfig) -> None:
         self._visa = VisaDriver(visa_resource)
 
@@ -313,7 +320,7 @@ class RigolDL30xx(ELoadDriverBase):
         """Enable/disable sense function."""
         self._write_checked(f"SENSe {enable}")
 
-    def _write_cmd_with_params(self, cmd_root: str, params: dict[str, object]) -> None:
+    def _write_cmd_with_params(self, cmd_root: str, params: Mapping[str, object]) -> None:
         """Writes command with provided values."""
         for cmd, value in params.items():
             if value is not None:

@@ -74,7 +74,7 @@ Electronic loads can operate in four modes:
 
 The operating mode must be set using `set_mode()` before you can configure the level or range. Not all electronic loads support all four modes. Consult your instrument's manual.
 
-`set_range()` applies to CC and CV modes only; CP and CR are auto-ranged from the level value (on the `BK85XXB` driver, calling `set_range()` in CP or CR mode raises `NotImplementedError`).
+`set_range()` support depends on the driver. `BK85XXB` supports CC and CV, and auto-ranges CP and CR from the level value. `RigolDL30xx` supports CC, CV, and CR. In other modes, `set_range()` raises `NotImplementedError`.
 :::
 
 ### Init from a Config File

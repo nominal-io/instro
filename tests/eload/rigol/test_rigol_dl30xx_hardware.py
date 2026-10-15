@@ -10,11 +10,11 @@ from collections.abc import Callable
 
 import pytest
 
-from instro.contrib.eload.drivers.rigol_dl30xx import RigolDL30xx
 from instro.eload import InstroELoad
+from instro.eload.drivers.rigol_dl30xx import RigolDL30xx
 from instro.eload.types import LoadMode, SlewRateDirection
 
-RESOURCE = "USB0::0x1AB1::0x0E11::DL3D254300331::INSTR"  # change to VISA resource string
+RESOURCE = "USB0::0x1AB1::0x0E11::DL3A286M00348::INSTR"  # change to VISA resource string
 
 # Params for testing without DUT
 CC_TEST_CURRENT = 0.1  # A
@@ -70,13 +70,28 @@ def run_all() -> list:
     try:
         # Connect to eload
         def idn() -> None:
-            print(f"IDN: {driver._visa.query('*IDN?').strip()}")
+            idn = driver._visa.query("*IDN?").strip()
+            print(f"IDN: {idn}")
+            assert "RIGOL" in idn and "DL30" in idn, f"unexpected identity: {idn!r}"
 
         _run("connection/*IDN?", idn, failures)
+
+        # set_level requires a mode first
+        def level_requires_mode() -> None:
+            fresh = InstroELoad(name="guard", driver=RigolDL30xx(RESOURCE), publishers=None)
+            try:
+                fresh.set_level(CC_TEST_CURRENT, channel=ch)
+            except ValueError:
+                return
+            raise AssertionError("set_level before set_mode should raise ValueError")
+
+        _run("set_level guard: mode required", level_requires_mode, failures)
 
         # Test LoadModes + level + measure
         def check_mode(mode: LoadMode, level: float, expected: float | None) -> None:
             eload.set_mode(mode, channel=ch)
+            active = driver._visa.query("FUNCtion?").strip()
+            assert active == mode.value, f"{mode.value}: device reports {active!r}"
             eload.set_level(level, channel=ch)
             eload.output_enable(True, channel=ch)
             time.sleep(SLEEP_TIME)
@@ -113,15 +128,43 @@ def run_all() -> list:
             failures,
         )
 
-        # Set range (CC/CV/CR)
-        def set_range() -> None:
-            eload.set_mode(LoadMode.CC, channel=ch)
-            eload.set_range(6.0, channel=ch)
-            time.sleep(SLEEP_TIME)
-            eload.set_range(60.0, channel=ch)
-            time.sleep(SLEEP_TIME)
+        # set_range is rejected in CP mode, which has no :RANGe command
+        def range_rejects_cp() -> None:
+            eload.set_mode(LoadMode.CP, channel=ch)
+            try:
+                eload.set_range(10.0, channel=ch)
+            except NotImplementedError:
+                return
+            raise AssertionError("set_range should raise NotImplementedError in CP")
 
-        _run("set_range: CC low + high range", set_range, failures)
+        _run("set_range rejected: CP", range_rejects_cp, failures)
+
+        # Set range (CV/CR/CC), ending in CC. CR rejects a range below its present level, so first set a level
+        # that fits the low range.
+        def set_range() -> None:
+            for mode, level, low, high in (
+                (LoadMode.CV, CV_TEST_VOLTAGE, 15.0, 150.0),
+                (LoadMode.CR, 10.0, 15.0, 15000.0),
+                (LoadMode.CC, CC_TEST_CURRENT, 6.0, 60.0),
+            ):
+                eload.set_mode(mode, channel=ch)
+                eload.set_level(level, channel=ch)
+                eload.set_range(low, channel=ch)
+                time.sleep(SLEEP_TIME)
+                eload.set_range(high, channel=ch)
+                time.sleep(SLEEP_TIME)
+
+        _run("set_range: CV/CR/CC low + high range", set_range, failures)
+
+        # short_output is not implemented: :SYSTem:KEY 33 only toggles the short and its state cannot be queried
+        def short() -> None:
+            try:
+                eload.short_output(True, channel=ch)
+            except NotImplementedError:
+                return
+            raise AssertionError("short_output should raise NotImplementedError")
+
+        _run("short_output: not implemented", short, failures)
 
         # Set params for CC/CV/CR/CP
         def cc_params() -> None:
@@ -156,9 +199,9 @@ def run_all() -> list:
             time.sleep(SLEEP_TIME)
             # Select transient mode for POS/NEG slew to take effect
             driver._visa.write("CURR:TRAN:MODE CONT")
-            eload.set_slewrate(SlewRateDirection.RISE, rate=0.5, channel=ch)
+            eload.set_slewrate(SlewRateDirection.RISE, rate=0.1, channel=ch)
             time.sleep(SLEEP_TIME)
-            eload.set_slewrate(SlewRateDirection.FALL, rate=0.5, channel=ch)
+            eload.set_slewrate(SlewRateDirection.FALL, rate=0.1, channel=ch)
             time.sleep(SLEEP_TIME)
 
         _run("set_slewrate: RISE/FALL/BOTH", slew, failures)
@@ -200,52 +243,45 @@ def run_all() -> list:
 
         _run("set_list_params + set_list_step_params", list_mode, failures)
 
-        # Set function mode
+        # Set function mode. FUNCtion:MODE? only reports WAV (fixed CC/CV/CR/CP), LIST, or BATT (battery, OCP,
+        # OPP), and FUNCtion:MODE FIXed/WAVe leave it unchanged, so reset to fixed CC (WAV) before each check.
         def function_mode() -> None:
             results = []
-            mode_to_expected = {
-                "LIST": "LIST",
-                "WAVe": "WAV",
-                "BATTery": "BATT",
-                "OCP": "OCP",
-                "OPP": "OPP",
-                "FIX": "FIX",
-            }
+            mode_to_expected = {"LIST": "LIST", "BATTery": "BATT", "OCP": "BATT", "OPP": "BATT"}
 
             for mode, expected in mode_to_expected.items():
+                eload.set_mode(LoadMode.CC, channel=ch)
+                baseline = driver._visa.query("FUNCtion:MODE?").strip()
                 driver.set_function_mode(mode)
                 time.sleep(SLEEP_TIME)
                 actual = driver._visa.query("FUNCtion:MODE?").strip()
-                results.append((mode, expected, actual))
+                results.append((mode, baseline, expected, actual))
 
-            failures = [(m, e, a) for m, e, a in results if a != e]
-            assert not failures, f"function_mode mismatches: {failures}"
+            mismatches = [r for r in results if r[1] != "WAV" or r[2] != r[3]]
+            assert not mismatches, f"function_mode mismatches (mode, baseline, expected, actual): {mismatches}"
 
-        _run("set_function_mode: LIST + FIXed + BATTery", function_mode, failures)
+            # FIXed and WAVe leave FUNCtion:MODE? unchanged, so only check that the instrument accepts them
+            driver.set_function_mode("WAVe")
+            driver.set_function_mode("FIXed")
 
-        # Set OCP/OPP params
+        _run("set_function_mode: LIST + BATTery + OCP + OPP from fixed CC", function_mode, failures)
+
+        # set_ocp/opp/wave_params only write settings and do not change FUNCtion:MODE, so there is no mode readback
         def ocp_params() -> None:
             driver.set_ocp_params(i_set=0.5, i_step=0.1, i_delay_step=500, i_max=1.0, i_min=0.1)
             time.sleep(SLEEP_TIME)
-            mode = driver._visa.query("FUNCtion:MODE?")
-            assert mode == "OCP", f"expected FUNCtion:MODE? to return 'OCP', got {mode}"
 
         _run("set_ocp_params:", ocp_params, failures)
 
         def opp_params() -> None:
             driver.set_opp_params(p_set=1.0, p_step=0.5, p_delay_step=500, p_max=10.0, p_min=1.0)
             time.sleep(SLEEP_TIME)
-            mode = driver._visa.query("FUNCtion:MODE?")
-            assert mode == "OPP", f"expected FUNCtion:MODE? to return 'OPP', got {mode}"
 
         _run("set_opp_params:", opp_params, failures)
 
-        # Set wave mode params
         def wave_params() -> None:
             driver.set_wave_params(time="ADD", t_step=1)
             time.sleep(SLEEP_TIME)
-            mode = driver._visa.query("FUNCtion:MODE?")
-            assert mode == "WAV", f"expected FUNC:MODE? to return 'WAV', got {mode}"
 
         _run("set_wave_params: TIMe + TSTep", wave_params, failures)
 
@@ -262,6 +298,18 @@ def run_all() -> list:
             assert state == 0, f"expected SENSe? to return 1, got {state}"
 
         _run("set_sense_state: enable + disable", sense, failures)
+
+        # A bad command surfaces as RuntimeError via SYST:ERR?
+        def error_propagation() -> None:
+            driver._visa.write("BOGUS:COMMAND")
+            try:
+                eload.get_voltage(channel=ch)
+            except RuntimeError as e:
+                assert "Rigol DL30xx reported error" in str(e), f"unexpected error text: {e}"
+                return
+            raise AssertionError("a bad command should surface as RuntimeError via SYST:ERR?")
+
+        _run("error propagation: SYST:ERR?", error_propagation, failures)
 
         def battery_discharge() -> None:
             # Tested with single 21700 Li-ion cell
