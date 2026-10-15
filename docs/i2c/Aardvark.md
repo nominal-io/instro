@@ -19,19 +19,22 @@ The {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>` provide
 ## Creating an [`I2CInterface`](/library/protocols/i2c/overview.md) with {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>`
 
 ```python
+from instro.i2c import I2CInterface
+
+# The adapter comes from the config's `connection` block:
+#   "connection": {"interface": "aardvark", "serial_number": "123456"}
+i2c = I2CInterface(config="sensor_bus.json")
+```
+
+Or pass the driver explicitly, which overrides the config's `connection` block:
+
+```python
 from instro.i2c.drivers.totalphase import Aardvark
 from instro.i2c import I2CInterface
-from instro.i2c.types import SystemDefinition
 
-# Create system definition (see the System Definition page for details)
-system = SystemDefinition()
-# ... add devices to system definition ...
-
-i2c = I2CInterface(
-    name="main_i2c",
-    driver=Aardvark(serial_number="123456"),
-    system_definition=system,
-)
+i2c = I2CInterface(config="sensor_bus.json", driver=Aardvark(serial_number="123456"))
 ```
+
+See the [System Definition](/library/protocols/i2c/system-definition.md) page for the config file format.
 
 Parameters and methods specific to {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>` can be found in the [SDK](/sdk/index.md).
