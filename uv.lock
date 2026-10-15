@@ -1212,7 +1212,7 @@ wheels = [
 [[package]]
 name = "nominal-sphinx-theme"
 version = "0.1.0"
-source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#ee9ba93a4e73d52c8e775aa647405ff337aa6dff" }
+source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#226bd86b2eb74cb03c705adf208bf7ed8f0e045a" }
 dependencies = [
     { name = "shibuya" },
     { name = "sphinx" },
