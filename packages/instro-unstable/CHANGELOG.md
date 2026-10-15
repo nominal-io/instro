@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.12.0...instro-unstable-v1.13.0) (2026-10-15)
+
+
+### Features
+
+* **unstable:** sdr first pass ([#447](https://github.com/nominal-io/instro/issues/447)) ([a64cd13](https://github.com/nominal-io/instro/commit/a64cd131ed4f2b9110a65367822ba740f8c59f76))
+
 ## [1.12.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.11.0...instro-unstable-v1.12.0) (2026-09-18)
 
 

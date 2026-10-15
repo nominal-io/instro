@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-contrib-v1.0.0...instro-contrib-v1.1.0) (2026-10-15)
+
+
+### Features
+
+* **contrib/eload:** add Rigol DL3031A eload driver ([#368](https://github.com/nominal-io/instro/issues/368)) ([0779dcc](https://github.com/nominal-io/instro/commit/0779dccf3ff5db1feb79c848175537a1bec6fbbf))
+* **eload:** move rigol dl30xx driver from contrib to core ([#642](https://github.com/nominal-io/instro/issues/642)) ([dfb672b](https://github.com/nominal-io/instro/commit/dfb672b81de3813b66221e5f3d37c30b0e18d61f))
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-contrib-v0.2.0...instro-contrib-v1.0.0) (2026-07-02)
 
 
