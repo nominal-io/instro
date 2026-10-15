@@ -72,6 +72,7 @@ def psu() -> Iterator[InstroPSU]:
     )
     instrument.open()
     try:
+        instrument.output_enable(False, 1)
         yield instrument
     finally:
         _restore_safe_state(instrument)

@@ -113,7 +113,7 @@ def test_gpd_output_status_reads_bit6_and_drains_legend_lines(
     assert gpd_visa.read.call_count == 2
 
 
-@pytest.mark.parametrize("reply", ["", "garbage", "1 1 1", "No Error."])
+@pytest.mark.parametrize("reply", ["", "garbage", "1 1 1", "No Error.", "x x x x x X x X", "0 0 0 1 1 X 2 X"])
 def test_gpd_status_rejects_malformed_reply_instead_of_reporting_output_off(
     gpd: GWInstekGPD3303, gpd_visa: MagicMock, reply: str
 ) -> None:

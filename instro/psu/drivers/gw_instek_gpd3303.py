@@ -11,6 +11,7 @@ from instro.psu.types import OperatingMode
 _TERMINATOR = TerminatorConfig(read="\r", write="\r\n")
 _STATUS_LEGEND_LINES = 2
 _STATUS_BITS = 8
+_STATUS_DEFINED_BITS = (0, 1, 2, 3, 4, 6)
 _NO_PROTECTION_REASON = "the GPD-3303 remote command set defines no OVP, OCP, or remote-sense commands"
 
 
@@ -155,7 +156,7 @@ class GWInstekGPD3303(PSUDriverBase):
             for _ in range(_STATUS_LEGEND_LINES):
                 self._visa.read()
         bits = reply.split()
-        if len(bits) != _STATUS_BITS:
+        if len(bits) != _STATUS_BITS or any(bits[i] not in ("0", "1") for i in _STATUS_DEFINED_BITS):
             raise RuntimeError(f"GW Instek PSU returned an unexpected STATUS? reply: {reply!r}")
         return sum(1 << i for i, bit in enumerate(bits) if bit == "1")
 
