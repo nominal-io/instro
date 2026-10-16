@@ -111,6 +111,7 @@ docs = [
     "autodoc-pydantic>=2.2.0; python_version >= '3.12'",
     # pure-Python enums for the MCC driver; its DLL-backed modules are mocked in conf.py
     "mcculw>=1.0.0; python_version >= '3.12'",
+    "sphinx-sitemap>=2.9.0; python_version >= '3.12'",
 ]
 
 [tool.uv]

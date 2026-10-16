@@ -11,6 +11,19 @@
     if (path === "/python" || path.startsWith("/python/")) {
       const rest = path.slice("/python".length).replace(/^\/+/, "");
       location.replace("/" + rest + location.search + location.hash);
+    } else {
+      // API pages sat in generated/ folders, one page per member, until the class pages took in
+      // their members: /sdk/x/generated/instro.a.B/ is now /sdk/x/instro.a.B/, and a member's
+      // old page is an anchor on its class's page. Anchored to /sdk/ so the target stays on this site.
+      const old = path.match(/^(\/sdk(?:\/[\w-]+)*)\/generated\/(instro\.[\w.]+?)(?:\/(?:index\.html)?)?$/);
+      if (old) {
+        const [, dir, name] = old;
+        const page = (n) => dir + "/" + n + "/";
+        const member = page(name.slice(0, name.lastIndexOf("."))) + "#" + name;
+        fetch(page(name), { method: "HEAD" })
+          .then((r) => location.replace(r.ok ? page(name) + location.hash : member))
+          .catch(() => location.replace(page(name) + location.hash));
+      }
     }
   </script>
   <style>

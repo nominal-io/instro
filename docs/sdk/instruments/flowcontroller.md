@@ -10,7 +10,7 @@ This Instrument category is new and is currently available only in the Unstable 
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.unstable.flowcontroller.InstroFlowController
@@ -33,7 +33,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.unstable.flowcontroller.drivers.AlicatMC
 ```

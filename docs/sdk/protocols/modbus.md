@@ -260,7 +260,7 @@ Reading `status_register` returns the raw value plus each bit as a separate chan
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.modbus.ModbusDevice
@@ -270,7 +270,7 @@ Reading `status_register` returns the raw value plus each bit as a separate chan
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.modbus.types.ModbusConfig

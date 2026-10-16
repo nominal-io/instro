@@ -2,15 +2,12 @@
 orphan: true
 card: TDK Lambda Genesys
 image: TDKLambdaGenesys.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # TDKLambdaGenesys
 
 {.lead}
-A driver for [`InstroPSU`](/psu.md)
+Control the TDK Lambda Genesys power supply from Python through [`InstroPSU`](/psu.md).
 
 ![TDK Lambda Genesys](TDKLambdaGenesys.png){.driver-image}
 

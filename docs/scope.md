@@ -1,7 +1,8 @@
 ---
+seo_title: "Control an Oscilloscope with Python - instro"
 myst:
   html_meta:
-    description: "Instrument for all oscilloscopes"
+    description: "Control oscilloscopes from Python with one API for Keysight, Siglent, and Tektronix: set channels, timebase, and triggers, fetch waveforms and measurements."
 ---
 
 # Oscilloscope (Scope)

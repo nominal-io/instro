@@ -2,15 +2,12 @@
 orphan: true
 card: LabJack T-Series
 image: LabJackTSeriesDriver.png
-myst:
-  html_meta:
-    description: "A driver for InstroDAQ"
 ---
 
 # LabJackTSeriesDriver
 
 {.lead}
-A driver for [`InstroDAQ`](/daq.md)
+Control the LabJack T-Series DAQ from Python through [`InstroDAQ`](/daq.md).
 
 ![LabJack T-Series](LabJackTSeriesDriver.png){.driver-image}
 

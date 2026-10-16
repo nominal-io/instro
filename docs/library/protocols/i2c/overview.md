@@ -1,8 +1,9 @@
 ---
 orphan: true
+seo_title: "Python I2C Communication Library - instro"
 myst:
   html_meta:
-    description: "Using I2CInterface for vendor-independent I2C communication"
+    description: "Talk to I2C devices from Python with instro's vendor-independent I2C interface, with a driver for the Total Phase Aardvark adapter."
 ---
 
 # Inter-Integrated Circuit (I2C)

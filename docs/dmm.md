@@ -1,7 +1,8 @@
 ---
+seo_title: "Control a Digital Multimeter with Python - instro"
 myst:
   html_meta:
-    description: "Using InstroDMM for SCPI-based digital multimeters"
+    description: "Control digital multimeters from Python with one API for Keysight, Agilent, and Keithley: set functions and ranges, measure voltage, current, and resistance."
 ---
 
 # Digital Multimeter (DMM)

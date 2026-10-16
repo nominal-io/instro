@@ -2,15 +2,12 @@
 orphan: true
 card: Keysight 34980A
 image: Keysight34980A.png
-myst:
-  html_meta:
-    description: "A driver for InstroDAQ"
 ---
 
 # Keysight34980A
 
 {.lead}
-A driver for [`InstroDAQ`](/daq.md)
+Control the Keysight 34980A DAQ from Python through [`InstroDAQ`](/daq.md).
 
 ![Keysight 34980A](Keysight34980A.png){.driver-image}
 

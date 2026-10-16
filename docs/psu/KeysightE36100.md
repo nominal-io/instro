@@ -2,15 +2,12 @@
 orphan: true
 card: Keysight E36100
 image: KeysightE36100.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # KeysightE36100
 
 {.lead}
-A driver for [`InstroPSU`](/psu.md)
+Control the Keysight E36100 power supply from Python through [`InstroPSU`](/psu.md).
 
 ![Keysight E36100](KeysightE36100.png){.driver-image}
 

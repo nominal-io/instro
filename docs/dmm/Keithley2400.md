@@ -2,15 +2,12 @@
 orphan: true
 card: Keithley 2400
 image: Keithley2400.png
-myst:
-  html_meta:
-    description: "A driver for InstroDMM"
 ---
 
 # Keithley2400
 
 {.lead}
-A driver for [`InstroDMM`](/dmm.md)
+Control the Keithley 2400 multimeter from Python through [`InstroDMM`](/dmm.md).
 
 ![Keithley 2400](Keithley2400.png){.driver-image}
 

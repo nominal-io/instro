@@ -6,7 +6,7 @@ Arbitrary waveform generators.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.awg.InstroAWG
@@ -30,7 +30,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.awg.drivers.keysight_33521b.Keysight33521B
       instro.awg.drivers.rigol_dg1022z.RigolDG1022Z
@@ -40,7 +40,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.awg.types.Sine
@@ -64,7 +64,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.awg.config.AWGConfig
