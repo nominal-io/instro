@@ -38,13 +38,14 @@ regardless, so the pages still appear in the sidebar. -->
       instro.dmm.drivers.keysight_34461a.Keysight34461A
 ```
 
-## Simulated Driver
+## Simulated Drivers
 
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
    :nosignatures:
 
+   ~instro.dmm.drivers.virtual.VirtualDMM
    ~instro.dmm.drivers.simulated.SimulatedDMM
 ```
 

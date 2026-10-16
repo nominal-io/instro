@@ -1,15 +1,29 @@
 ---
 myst:
   html_meta:
-    description: "Develop and test against bundled SCPI instrument simulators, no hardware required"
+    description: "Try and test instro with no hardware: virtual instruments that run in-process, or bundled SCPI simulators"
 ---
 
 # Simulated Instruments
 
 {.lead}
-Develop and test against bundled SCPI instrument simulators, no hardware required
+Try and test instro with no hardware: virtual instruments that run in-process, or bundled SCPI simulators
 
-## Overview
+## Virtual instruments
+
+The quickest way to try `instro`: a virtual driver simulates readings in-process, with no hardware, server, or second terminal. It works with every method of its instrument class.
+
+```python
+from instro.dmm import InstroDMM
+from instro.dmm.drivers import VirtualDMM
+
+with InstroDMM(name="dmm", driver=VirtualDMM()) as dmm:
+    print(dmm.read_dc_voltage().latest)
+```
+
+Virtual drivers: `VirtualDMM`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}`.
+
+## SCPI simulators
 `instro` ships local SCPI simulators for select instrument categories, so you can develop and test without owning the physical hardware. Each simulator runs as a TCP server and pairs with a `Simulated<Category>` driver:
 
 ```python

@@ -216,6 +216,18 @@ def test_init_with_config_dict_unknown_driver_name(valid_config):
         InstroDMM(config={**valid_config, "driver": {**valid_config["driver"], "name": "not_a_real_driver"}})
 
 
+def test_init_with_virtual_driver_config_reads_without_a_connection():
+    dmm = InstroDMM(config={"device": {"name": "dmm"}, "driver": {"connection_type": "virtual", "name": "VirtualDMM"}})
+    with dmm:
+        assert dmm.read_dc_voltage().latest == pytest.approx(1.25, rel=0.01)
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualDMM"}
+    with pytest.raises(Exception, match='VirtualDMM has no connection; use {"connection_type": "virtual"'):
+        InstroDMM(config={**valid_config, "driver": driver})
+
+
 def test_init_with_config_file_path_malformed_json(tmp_path):
     config_file = tmp_path / "dmm.json"
     config_file.write_text("this is not json {{{")
