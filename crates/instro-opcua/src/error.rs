@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use open62541::Error as UaError;
 use open62541::Result as UaResult;
 
-pub type Result<T> = core::result::Result<T, OpcUaError>;
+use crate::Result;
 
 type BoxedError = Box<dyn Error + Send + Sync>;
 
@@ -72,25 +72,26 @@ impl OpcUaError {
     }
 }
 
-#[macro_export]
 macro_rules! err {
     (internal, $($arg:tt)*) => {
-        OpcUaError::internal(format!($($arg)*))
+        $crate::error::OpcUaError::internal(format!($($arg)*))
     };
 
     (ua, $err:expr) => {
-        OpcUaError::Ua(format!($($arg)*))
+        $crate::error::OpcUaError::Ua($err)
     };
 
     (ua, $err:expr, $($arg:tt)*) => {
-        OpcUaError::UaWithContext($err, format!($($arg)*))
+        $crate::error::OpcUaError::UaWithContext($err, format!($($arg)*))
     };
 }
 
-#[macro_export]
+pub(crate) use err;
+
 macro_rules! bail {
     ($($arg:tt)*) => {{
-        use $crate::err;
-        return Err(err!($($arg)*))
+        return Err($crate::error::err!($($arg)*))
     }}
 }
+
+pub(crate) use bail;
