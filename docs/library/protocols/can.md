@@ -48,8 +48,10 @@ The full field reference is on the [CAN SDK page](/sdk/protocols/can.md).
 
 CAN devices broadcast, so `read("Message.signal")` requests nothing from the bus. It returns the
 value from the newest frame received since `open()`, and raises if none has arrived yet.
-Samples are timestamped with the host's receive time: adapter timestamps (gs_usb, for one) are
-device counters, not wall-clock time.
+Samples are timestamped with host time when the frame is drained from the bus (by `read()` or
+`poll()`), not when it arrived, so with the daemon running a stamp can be up to one
+`poll_interval` late, and frames drained together share a stamp. Adapter timestamps are not used:
+some (gs_usb, for one) are device counters, not wall-clock time.
 
 Frames that carry no signal data are skipped: remote requests, error frames, and frames whose
 length disagrees with the DBC. A skipped frame never replaces the last good value.

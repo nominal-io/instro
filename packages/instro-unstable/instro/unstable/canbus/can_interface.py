@@ -27,12 +27,13 @@ logger = logging.getLogger(__name__)
 class _ReceivedFrame:
     """The decoded newest frame seen for one message.
 
-    Stamped with host receive time because adapter timestamps are not wall clock
-    (gs_usb reports a device microsecond counter, or 0).
+    Stamped with host time when this interface drained it from the bus, which can be up
+    to one drain interval after it arrived. Adapter timestamps are not used because they
+    are not wall clock (gs_usb reports a device microsecond counter, or 0).
     """
 
     values: dict[str, float]  # physical signal values, by signal name
-    received_at: int  # ns since the Unix epoch
+    drained_at: int  # ns since the Unix epoch
 
 
 class CANInterface(Instrument):
@@ -143,7 +144,8 @@ class CANInterface(Instrument):
         """Return the latest received value of ``signal``, named ``"Message.signal"``.
 
         CAN devices broadcast, so nothing is requested from the bus: the value comes from
-        the newest frame received since ``open()``, timestamped when it was received.
+        the newest frame received since ``open()``, timestamped when it was drained from the bus
+        (by a ``read()`` or ``poll()``), not when it arrived.
 
         Args:
             signal: ``"Message.signal"``, e.g. ``"BMS_Status.pack_voltage"``.
@@ -166,7 +168,7 @@ class CANInterface(Instrument):
             raise RuntimeError(f"'{signal}' is not in the latest '{message.name}' frame (multiplexed out).")
         return Measurement(
             channel_data={f"{self.name}.{signal}": [frame.values[signal_name]]},
-            timestamps=[frame.received_at],
+            timestamps=[frame.drained_at],
             tags={**self.default_tags, **kwargs},
         )
 
@@ -176,7 +178,8 @@ class CANInterface(Instrument):
 
         A message that has gone quiet publishes nothing rather than repeating its last value.
         Only the newest frame per message is kept between polls, so poll faster than a
-        message's cycle time to publish every frame.
+        message's cycle time to publish every frame. Samples are stamped when drained, so a
+        stamp can be up to one poll interval after the frame arrived.
 
         Args:
             **kwargs: Extra tags for these Measurements.
@@ -197,7 +200,7 @@ class CANInterface(Instrument):
                 channel_data={
                     f"{self.name}.{message_name}.{signal}": [value] for signal, value in frame.values.items()
                 },
-                timestamps=[frame.received_at],
+                timestamps=[frame.drained_at],
                 tags={**self.default_tags, **kwargs},
             )
             for message_name, frame in fresh.items()
@@ -260,7 +263,7 @@ class CANInterface(Instrument):
     def _drain_locked(self) -> None:
         """Move pending frames off the bus, keeping the newest decodable frame of each message. Caller holds ``self._lock``."""
         subscription = self._require_open_locked()
-        received_at = time.time_ns()
+        drained_at = time.time_ns()
         for frame in subscription.drain():
             message = self._rx_messages_by_frame_id[(frame.arbitration_id, frame.is_extended_id)]
             try:
@@ -268,7 +271,7 @@ class CANInterface(Instrument):
             except cantools.database.DecodeError as exc:
                 logger.warning("Dropping a '%s' frame that does not match the DBC: %s", message.name, exc)
                 continue
-            self._latest_frames[message.name] = _ReceivedFrame(values, received_at)
+            self._latest_frames[message.name] = _ReceivedFrame(values, drained_at)
             self._unpublished.add(message.name)
 
     def _require_open_locked(self) -> CanSubscription:
