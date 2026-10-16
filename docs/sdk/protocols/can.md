@@ -49,40 +49,8 @@ Connection can be provided in the config or passed to the constructor, which tak
 | `bitrate` | int | `500000` | Bus bitrate in bit/s |
 | `bus_kwargs` | object | `{}` | Extra keyword arguments for `can.Bus` |
 
-To put several interfaces on one adapter, pass the same
-{py:class}`~instro.unstable.transports.can.CanTransport` to each; the bus stays open until the last one closes:
-
-```python
-from instro.unstable.transports import CanConfig, CanTransport
-
-transport = CanTransport(CanConfig(channel=0, interface="gs_usb"))
-bms = CANInterface("bms.json", connection=transport)
-inverter = CANInterface("inverter.json", connection=transport)
-```
-
-## Reading
-
-CAN devices broadcast, so `read("Message.signal")` requests nothing from the bus. It returns the
-value from the newest frame received since `open()`, and raises if none has arrived yet.
-Samples are timestamped with the host's receive time: adapter timestamps (gs_usb, for one) are
-device counters, not wall-clock time.
-
-The background daemon runs `poll()`, which publishes one Measurement per message that received a
-new frame since the last poll, with a channel per signal: `vehicle_bus.BMS_Status.pack_voltage`.
-A message that goes quiet stops publishing. Only the newest frame per message is kept between
-polls, so set `poll_interval` shorter than a message's cycle time to publish every frame.
-
-## Writing
-
-`write("Message.signal", value)` takes the value in the DBC's units and sends the whole frame.
-The message's other signals keep the last value written to them (their DBC initial value until
-then), so writing one signal never resets its neighbours. Values outside the signal's DBC range
-raise `cantools.database.EncodeError` and nothing is sent. Each write publishes a Command on
-`<channel>.cmd`, e.g. `vehicle_bus.Motor_Command.torque_request.cmd`.
-
-`send_frame(arbitration_id, data, is_extended_id=...)` sends a raw frame, bypassing the DBC.
-
-Not yet supported: CAN FD, and writing multiplexed messages (reading them works).
+Sharing one adapter between several interfaces, and how reading, polling, and writing behave,
+are covered in the [CAN guide](/library/protocols/can.md).
 
 ## API Reference
 
