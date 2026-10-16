@@ -24,8 +24,7 @@
 
 use std::any::type_name;
 use std::borrow::Cow;
-use std::fmt::Display;
-use std::fmt::Formatter;
+use std::fmt;
 use std::num::NonZeroU32;
 use std::panic::catch_unwind;
 use std::str::FromStr;
@@ -66,6 +65,7 @@ use open62541_sys::UA_UserTokenPolicy;
 use open62541_sys::UA_UserTokenType;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::ser::Error as _;
 use time::UtcDateTime;
 use uuid::Uuid;
 use zeroize::Zeroize as _;
@@ -73,7 +73,9 @@ use zeroize::Zeroize as _;
 use crate::OpcUaError;
 use crate::Result;
 use crate::bail;
+use crate::err;
 use crate::error::ErrorExt as _;
+use crate::error::UaErrorExt as _;
 
 fn type_conv_err_str<F, T>() -> String {
     format!(
@@ -135,6 +137,12 @@ impl OpcUaSecurityMode {
     /// The only case where this would be true is if the default instantiation was used directly without further specification.
     pub fn is_invalid(&self) -> bool {
         *self == OpcUaSecurityMode::Invalid
+    }
+}
+
+impl From<MessageSecurityMode> for OpcUaSecurityMode {
+    fn from(value: MessageSecurityMode) -> Self {
+        Self::from(&value)
     }
 }
 
@@ -628,6 +636,8 @@ pub struct OpcUaNodeId {
 }
 
 impl OpcUaNodeId {
+    pub const ROOT_FOLDER: Self = Self::numeric(0, 84);
+
     /// Creates a node id of the provided kind.
     pub const fn new(namespace: u16, kind: NodeIdKind) -> Self {
         Self { namespace, kind }
@@ -730,8 +740,8 @@ impl OpcUaNodeId {
     }
 }
 
-impl Display for OpcUaNodeId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for OpcUaNodeId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             NodeIdKind::Numeric(n) => write!(f, "ns={};i={}", self.namespace, n),
             NodeIdKind::String(s) => write!(f, "ns={};s={}", self.namespace, s),
@@ -851,20 +861,30 @@ impl TryFrom<&NodeId> for OpcUaNodeId {
     }
 }
 
-impl From<OpcUaNodeId> for NodeId {
-    fn from(other: OpcUaNodeId) -> Self {
-        ua::NodeId::from(&other)
+impl TryFrom<OpcUaNodeId> for NodeId {
+    type Error = OpcUaError;
+
+    fn try_from(other: OpcUaNodeId) -> Result<Self> {
+        Self::try_from(&other)
     }
 }
 
-impl From<&OpcUaNodeId> for NodeId {
-    fn from(other: &OpcUaNodeId) -> Self {
-        match other.kind {
+impl TryFrom<&OpcUaNodeId> for NodeId {
+    type Error = OpcUaError;
+
+    fn try_from(other: &OpcUaNodeId) -> Result<Self> {
+        Ok(match other.kind {
             NodeIdKind::Numeric(n) => NodeId::numeric(other.namespace, n),
-            NodeIdKind::String(ref s) => NodeId::string(other.namespace, s),
+            NodeIdKind::String(ref s) => {
+                // Panics if the string contains NUL bytes
+                // TODO(cartercanedy): open PR in open62541-rs to fix this
+                catch_unwind(|| NodeId::string(other.namespace, s))
+                    .map_err(|_| err!(internal, "string node ID contains NUL bytes"))?
+            }
+            // this also panics, but it would only happen on a bad allocation
             NodeIdKind::ByteString(ref bytes) => NodeId::byte_string(other.namespace, bytes),
             NodeIdKind::Guid(uuid) => NodeId::guid(other.namespace, Guid::from_uuid(uuid)),
-        }
+        })
     }
 }
 
@@ -876,245 +896,6 @@ pub enum NodeIdKind {
     Guid(Uuid),
 }
 
-/// A route whose namespace-qualified browse-name segments keep duplicate names distinct.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(try_from = "String", into = "String")]
-pub struct OpcUaBrowsePath {
-    segments: Vec<OpcUaQualifiedName>,
-}
-
-impl OpcUaBrowsePath {
-    /// Creates a browse path containing one segment.
-    pub fn from_segment(segment: OpcUaQualifiedName) -> Self {
-        Self {
-            segments: vec![segment],
-        }
-    }
-
-    /// Returns a new browse path with `segment` appended.
-    pub fn child(&self, segment: OpcUaQualifiedName) -> Self {
-        let mut segments = self.segments.clone();
-        segments.push(segment);
-        Self { segments }
-    }
-
-    /// Returns whether the browse path contains no segments.
-    pub const fn is_empty(&self) -> bool {
-        self.segments.is_empty()
-    }
-
-    /// Returns the path's namespace-qualified segments.
-    pub const fn segments(&self) -> &[OpcUaQualifiedName] {
-        self.segments.as_slice()
-    }
-}
-
-impl Display for OpcUaBrowsePath {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for segment in &self.segments {
-            f.write_str("/")?;
-
-            if segment.namespace_index() != 0 {
-                write!(f, "{}:", segment.namespace_index())?;
-            }
-
-            f.write_str(&escape_browse_name(segment.name()))?;
-        }
-
-        Ok(())
-    }
-}
-
-impl FromStr for OpcUaBrowsePath {
-    type Err = OpcUaError;
-
-    fn from_str(s: &str) -> Result<Self> {
-        if s.is_empty() {
-            return Ok(Self::default());
-        }
-
-        if !s.starts_with('/') {
-            bail!(
-                internal,
-                "browse path must start with '/' or be empty (original: '{s}')"
-            )
-        }
-
-        let mut segments = Vec::new();
-        let mut segment_start = 1;
-        let mut escaped = false;
-
-        for (i, ch) in s.char_indices().skip(1) {
-            if escaped {
-                escaped = false;
-                continue;
-            }
-
-            match ch {
-                '&' => escaped = true,
-                '/' => {
-                    segments.push(parse_browse_path_segment(&s[segment_start..i])?);
-                    segment_start = i.saturating_add(ch.len_utf8());
-                }
-                _ => {}
-            }
-        }
-
-        segments.push(parse_browse_path_segment(&s[segment_start..])?);
-
-        Ok(Self { segments })
-    }
-}
-
-impl TryFrom<String> for OpcUaBrowsePath {
-    type Error = OpcUaError;
-
-    fn try_from(value: String) -> Result<Self> {
-        value.parse()
-    }
-}
-
-impl From<OpcUaBrowsePath> for String {
-    fn from(value: OpcUaBrowsePath) -> Self {
-        value.to_string()
-    }
-}
-
-fn parse_browse_path_segment(segment: &str) -> Result<OpcUaQualifiedName> {
-    if segment.is_empty() {
-        bail!(internal, "browse path contains an empty segment")
-    }
-
-    let ns_sep = namespace_separator(segment)?;
-
-    let (ns_index, name) = match ns_sep {
-        Some(separator) => {
-            let (ns_str, rest) = segment.split_at(separator);
-            let name = rest.strip_prefix(':').with_context(|| {
-                format!("namespace separator should point at ':' (original: '{segment}')")
-            })?;
-
-            let ns = ns_str.parse::<u16>().with_context(|| {
-                format!("invalid namespace index '{ns_str}' (original: '{segment}')")
-            })?;
-
-            (ns, name)
-        }
-
-        None => (0, segment),
-    };
-
-    let name = unescape_browse_name(name)?;
-    if name.is_empty() {
-        bail!(
-            internal,
-            "browse path segment name must not be empty (original: '{segment}')"
-        )
-    }
-
-    Ok(OpcUaQualifiedName { ns_index, name })
-}
-
-fn namespace_separator(segment: &str) -> Result<Option<usize>> {
-    let mut escaped = false;
-
-    for (i, ch) in segment.char_indices() {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-
-        if ch == '&' {
-            escaped = true;
-            continue;
-        }
-
-        if ch == ':' {
-            if i > 0 && segment[..i].chars().all(|c| c.is_ascii_digit()) {
-                return Ok(Some(i));
-            }
-
-            bail!(
-                internal,
-                "':' in a browse path segment must be escaped unless it separates a namespace \
-                 (original: '{segment}')"
-            )
-        }
-    }
-
-    Ok(None)
-}
-
-fn escape_browse_name(name: &str) -> String {
-    let mut escaped = String::with_capacity(name.len());
-
-    for ch in name.chars() {
-        if is_browse_path_reserved(ch) {
-            escaped.push('&');
-        }
-        escaped.push(ch);
-    }
-
-    escaped
-}
-
-fn unescape_browse_name(name: &str) -> Result<String> {
-    let mut unescaped = String::with_capacity(name.len());
-    let mut escaped = false;
-
-    for ch in name.chars() {
-        if escaped {
-            if !is_browse_path_reserved(ch) {
-                bail!(
-                    internal,
-                    "'&' in a browse path segment must escape a reserved character (original: \
-                     '{name}')"
-                )
-            }
-
-            unescaped.push(ch);
-            escaped = false;
-            continue;
-        }
-
-        if ch == '&' {
-            escaped = true;
-        } else if is_browse_path_reserved(ch) {
-            bail!(
-                internal,
-                "reserved character '{ch}' in a browse path segment must be escaped (original: \
-                 '{name}')"
-            )
-        } else {
-            unescaped.push(ch);
-        }
-    }
-
-    if escaped {
-        bail!(
-            internal,
-            "browse path segment cannot end with an escape marker (original: '{name}')"
-        )
-    }
-
-    Ok(unescaped)
-}
-
-const fn is_browse_path_reserved(ch: char) -> bool {
-    matches!(ch, '/' | '.' | '<' | '>' | ':' | '#' | '!' | '&')
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct OpcUaNode {
-    pub node_id: OpcUaNodeId,
-    pub browse_name: String,
-    pub display_name: String,
-    pub node_class: OpcUaNodeClass,
-    /// The namespace-qualified browse path to this node.
-    #[serde(default)]
-    pub browse_path: OpcUaBrowsePath,
-    pub children: Vec<OpcUaNode>,
-}
 
 #[derive(
     Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
@@ -1170,6 +951,14 @@ impl From<OpcUaNodeClass> for ua::NodeClass {
             OpcUaNodeClass::VariableType => ua::NodeClass::VARIABLETYPE,
             OpcUaNodeClass::ReferenceType => ua::NodeClass::REFERENCETYPE,
         }
+    }
+}
+
+impl TryFrom<ua::NodeClass> for OpcUaNodeClass {
+    type Error = OpcUaError;
+
+    fn try_from(value: ua::NodeClass) -> Result<Self> {
+        Self::try_from(&value)
     }
 }
 
@@ -1401,13 +1190,259 @@ impl From<&ua::QualifiedName> for OpcUaQualifiedName {
     }
 }
 
-impl Display for OpcUaQualifiedName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl TryFrom<OpcUaQualifiedName> for ua::QualifiedName {
+    type Error = OpcUaError;
+
+    fn try_from(qn: OpcUaQualifiedName) -> Result<Self> {
+        qn.try_into()
+    }
+}
+
+impl TryFrom<&OpcUaQualifiedName> for ua::QualifiedName {
+    type Error = OpcUaError;
+
+    fn try_from(qn: &OpcUaQualifiedName) -> Result<Self> {
+        // need to catch unwind because ua::QualifiedName::new panics if the name contains NUL bytes
+        // spec says that all strings must be valid UTF-8 and native open62541 strings are length-prefixed,
+        // so this is horseshit, but we have to do it.
+        // TODO(cartercanedy): open PR in open62541-rs to fix this
+        catch_unwind(|| ua::QualifiedName::new(qn.namespace_index(), qn.name()))
+            .map_err(|_| err!(
+                internal,
+                "converting OpcUaQualifiedName to ua::QualifiedName (name likely contains NUL bytes)"
+            ))
+    }
+}
+
+impl fmt::Display for OpcUaQualifiedName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         if self.ns_index == 0 {
             return self.name.fmt(f);
         }
 
         write!(f, "{}:{}", self.ns_index, self.name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpcUaRelativePathElement {
+    target: OpcUaQualifiedName,
+    reference_type_id: OpcUaNodeId,
+    include_subtypes: bool,
+    is_inverse: bool,
+}
+
+impl OpcUaRelativePathElement {
+    pub const fn new(
+        target: OpcUaQualifiedName,
+        reference_type_id: OpcUaNodeId,
+        include_subtypes: bool,
+        is_inverse: bool
+    ) -> Self {
+        Self {
+            target,
+            reference_type_id,
+            include_subtypes,
+            is_inverse,
+        }
+    }
+
+    pub const fn target(&self) -> &OpcUaQualifiedName {
+        &self.target
+    }
+
+    pub const fn reference_type_id(&self) -> &OpcUaNodeId {
+        &self.reference_type_id
+    }
+
+    pub const fn include_subtypes(&self) -> bool {
+        self.include_subtypes
+    }
+
+    pub const fn is_inverse(&self) -> bool {
+        self.is_inverse
+    }
+
+    pub fn concat(self, other: Self) -> OpcUaRelativePath {
+        OpcUaRelativePath { elements: vec![self, other] }
+    }
+}
+
+impl TryFrom<&OpcUaRelativePathElement> for ua::RelativePathElement {
+    type Error = OpcUaError;
+
+    fn try_from(value: &OpcUaRelativePathElement) -> Result<Self> {
+        Ok(
+            ua::RelativePathElement::init()
+                .with_include_subtypes(value.include_subtypes())
+                .with_is_inverse(value.is_inverse())
+                .with_reference_type_id(&value.reference_type_id().try_into()?)
+                .with_target_name(&value.target().try_into()?)
+        )
+    }
+}
+
+impl TryFrom<&ua::RelativePathElement> for OpcUaRelativePathElement {
+    type Error = OpcUaError;
+
+    fn try_from(value: &ua::RelativePathElement) -> Result<Self> {
+        Ok(Self::new(
+            value.target_name().into(),
+            value.reference_type_id().try_into()?,
+            value.include_subtypes(),
+            value.is_inverse()
+        ))
+    }
+}
+
+impl FromStr for OpcUaRelativePath {
+    type Err = OpcUaError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        ua::RelativePath::parse(s)
+            .ua_context("parsing relative path")?
+            .try_into()
+    }
+}
+
+impl TryFrom<ua::RelativePath> for OpcUaRelativePath {
+    type Error = OpcUaError;
+
+    fn try_from(path: ua::RelativePath) -> Result<Self> {
+        Self::try_from(&path)
+    }
+}
+
+impl TryFrom<&ua::RelativePath> for OpcUaRelativePath {
+    type Error = OpcUaError;
+
+    fn try_from(path: &ua::RelativePath) -> Result<Self> {
+        let elems = path
+            .iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self::new(elems))
+    }
+}
+
+impl TryFrom<&str> for OpcUaRelativePath {
+    type Error = OpcUaError;
+
+    fn try_from(s: &str) -> Result<Self> {
+        s.parse()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(try_from = "&str", into = "String")]
+pub struct OpcUaRelativePath {
+    elements: Vec<OpcUaRelativePathElement>
+}
+
+impl Serialize for OpcUaRelativePath {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer
+    {
+        ua::RelativePath::try_from(self)
+            .map_err(|e| S::Error::custom(format!("failed to serialize relative path ({e})")))?
+            .to_string()
+            .serialize(serializer)
+    }
+}
+
+impl OpcUaRelativePath {
+    pub const fn new(elements: Vec<OpcUaRelativePathElement>) -> Self {
+        Self { elements }
+    }
+
+    pub fn concat<I: Into<Self>>(mut self, other: I) -> Self {
+        self.elements.extend(other.into().elements);
+        self
+    }
+
+    pub fn extend<I: Into<Self>>(&mut self, other: I) {
+        self.elements.extend(other.into().elements);
+    }
+}
+
+impl From<OpcUaRelativePathElement> for OpcUaRelativePath {
+    fn from(element: OpcUaRelativePathElement) -> Self {
+        Self { elements: vec![element] }
+    }
+}
+
+impl FromIterator<OpcUaRelativePathElement> for OpcUaRelativePath {
+    fn from_iter<T: IntoIterator<Item = OpcUaRelativePathElement>>(iter: T) -> Self {
+        Self { elements: iter.into_iter().collect() }
+    }
+}
+
+impl TryFrom<&OpcUaRelativePath> for ua::RelativePath {
+    type Error = OpcUaError;
+
+    fn try_from(path: &OpcUaRelativePath) -> Result<Self> {
+        let elems = path.elements.iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<ua::RelativePathElement>>>()?;
+
+        Ok(ua::RelativePath::init().with_elements(&elems))
+    }
+}
+
+impl fmt::Display for OpcUaRelativePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let path = ua::RelativePath::try_from(self)
+            .map(|p| p.to_string())
+            .unwrap_or("<invalid relative path>".into());
+
+        f.write_str(&path)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpcUaBrowsePath {
+    starting_node: OpcUaNodeId,
+    relative_path: OpcUaRelativePath,
+}
+
+impl OpcUaBrowsePath {
+    pub fn new(starting_node: Option<OpcUaNodeId>, relative_path: OpcUaRelativePath) -> Self {
+        Self {
+            starting_node: starting_node.unwrap_or(OpcUaNodeId::ROOT_FOLDER),
+            relative_path
+        }
+    }
+
+    pub const fn starting_node(&self) -> &OpcUaNodeId {
+        &self.starting_node
+    }
+
+    pub const fn relative_path(&self) -> &OpcUaRelativePath {
+        &self.relative_path
+    }
+}
+
+impl TryFrom<&OpcUaBrowsePath> for ua::BrowsePath {
+    type Error = OpcUaError;
+
+    fn try_from(value: &OpcUaBrowsePath) -> Result<Self> {
+        Ok(
+            Self::init()
+                .with_starting_node(&value.starting_node().try_into()?)
+                .with_relative_path(&value.relative_path().try_into()?)
+        )
+    }
+}
+
+impl TryFrom<&ua::BrowsePath> for OpcUaBrowsePath {
+    type Error = OpcUaError;
+    fn try_from(value: &ua::BrowsePath) -> Result<Self> {
+        Ok(Self::new(
+            Some(value.starting_node().try_into()?),
+            value.relative_path().try_into()?
+        ))
     }
 }
 
@@ -1542,7 +1577,7 @@ impl TryFrom<OpcUaValue> for ScalarValue {
             OpcUaValue::UInt64(u) => ScalarValue::UInt64(UInt64::new(u)),
             OpcUaValue::Float(f) => ScalarValue::Float(Float::new(f)),
             OpcUaValue::Double(d) => ScalarValue::Double(Double::new(d)),
-            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid)),
+            OpcUaValue::NodeId(nid) => ScalarValue::NodeId(NodeId::from(nid.try_into()?)),
             OpcUaValue::Guid(s) => ScalarValue::Guid(Guid::from_uuid(s)),
             OpcUaValue::Unsupported => ScalarValue::Unsupported,
             OpcUaValue::String(s) => ScalarValue::String(
@@ -1739,7 +1774,6 @@ impl Eq for OpcUaPki {}
 #[macro_use]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::HashMap;
     use std::fmt::Debug;
 
     use instro_opcua_test::assert_roundtrip;
@@ -1932,17 +1966,6 @@ mod tests {
         let ns0 = OpcUaNodeId::numeric(0, 85);
 
         assert_roundtrip(&back, ns0);
-    }
-
-    #[test]
-    fn node_id_converts_from_reference() {
-        let id = OpcUaNodeId::string(3, "MyNode".into());
-        let converted = NodeId::from(&id);
-
-        assert_eq!(
-            OpcUaNodeId::try_from(&converted).expect("node ID should convert back"),
-            id
-        );
     }
 
     #[test]
@@ -2337,116 +2360,6 @@ mod tests {
     fn nod_id_fails_to_parse_malformed_namespace() {
         let parsed: Result<OpcUaNodeId> = "nt=10000;i=85".parse();
         assert!(parsed.is_err());
-    }
-
-    #[test]
-    fn browse_path_display_and_parse_roundtrip() {
-        let cases = [
-            OpcUaBrowsePath::default(),
-            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into())),
-            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
-                .child(OpcUaQualifiedName::new(0, "Objects".into()))
-                .child(OpcUaQualifiedName::new(0, "Temperature".into())),
-            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(4, "PLC1".into())),
-            OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
-                2,
-                "Name/with:reserved&chars".into(),
-            )),
-        ];
-
-        for path in cases {
-            let rendered = path.to_string();
-            let parsed: OpcUaBrowsePath = rendered.parse().expect("browse path should parse");
-            assert_eq!(parsed, path);
-        }
-    }
-
-    #[test]
-    fn browse_path_renders_standard_relative_path_text() {
-        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
-            .child(OpcUaQualifiedName::new(0, "Objects".into()))
-            .child(OpcUaQualifiedName::new(4, "PLC1/MAIN:TEMP&<hot>".into()));
-
-        assert_eq!(
-            path.to_string(),
-            "/Root/Objects/4:PLC1&/MAIN&:TEMP&&&<hot&>"
-        );
-    }
-
-    #[test]
-    fn browse_path_rejects_malformed_text() {
-        for malformed in [
-            "Root",
-            "/Root/",
-            "/Root//Objects",
-            "/Root/4:",
-            "/Root/Foo:Bar",
-            "/Root/Foo&x",
-            "/Root/Foo&",
-            "/Root/Foo.Bar",
-        ] {
-            let parsed: Result<OpcUaBrowsePath> = malformed.parse();
-            assert!(parsed.is_err(), "{malformed} should fail to parse");
-        }
-    }
-
-    #[test]
-    fn browse_path_serializes_as_json_object_key() {
-        let path = OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(0, "Root".into()))
-            .child(OpcUaQualifiedName::new(0, "Objects".into()));
-
-        let mut map = HashMap::new();
-        map.insert(path.clone(), "selected".to_owned());
-
-        let json = serde_json::to_value(&map).expect("serialize browse path map");
-        assert_eq!(json, serde_json::json!({ "/Root/Objects": "selected" }));
-
-        let back: HashMap<OpcUaBrowsePath, String> =
-            serde_json::from_value(json).expect("deserialize browse path map");
-
-        assert_eq!(back.get(&path).map(String::as_str), Some("selected"));
-    }
-
-    #[test]
-    fn serde_roundtrip_browse_node() {
-        let browse = OpcUaNode {
-            node_id: OpcUaNodeId::numeric(0, 85),
-            browse_name: "Objects".into(),
-            display_name: "Objects".into(),
-            node_class: OpcUaNodeClass::Object,
-            browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
-                0,
-                "Objects".into(),
-            )),
-            children: vec![OpcUaNode {
-                node_id: OpcUaNodeId::string(2, "Temp".into()),
-                browse_name: "Temperature".into(),
-                display_name: "Temperature".into(),
-                node_class: OpcUaNodeClass::Variable,
-                browse_path: OpcUaBrowsePath::from_segment(OpcUaQualifiedName::new(
-                    2,
-                    "Temperature".into(),
-                )),
-                children: vec![],
-            }],
-        };
-
-        assert_serde_json_roundtrip_eq(&browse);
-    }
-
-    #[test]
-    fn opcua_node_deserializes_without_browse_path() {
-        let node: OpcUaNode = serde_json::from_value(serde_json::json!({
-            "node_id": "ns=0;i=85",
-            "browse_name": "Objects",
-            "display_name": "Objects",
-            "type_definition": "ns=0;i=86",
-            "node_class": "Object",
-            "children": [],
-        }))
-        .expect("node without browse path should deserialize");
-
-        assert!(node.browse_path.is_empty());
     }
 
     #[test]

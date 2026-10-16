@@ -5,6 +5,7 @@
 )]
 
 use std::num::NonZeroU32;
+use std::str::FromStr as _;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -15,11 +16,13 @@ use instro_opcua::client::OpcUaClientBuilder;
 use instro_opcua::client::OpcUaNodeReadBatch;
 use instro_opcua::types::NodeIdKind;
 use instro_opcua::types::OpcUaAttributeId;
+use instro_opcua::types::OpcUaBrowsePath;
 use instro_opcua::types::OpcUaDataPoint;
 use instro_opcua::types::OpcUaMonitoredItemConfig;
 use instro_opcua::types::OpcUaNodeClass;
 use instro_opcua::types::OpcUaNodeId;
 use instro_opcua::types::OpcUaPki;
+use instro_opcua::types::OpcUaRelativePath;
 use instro_opcua::types::OpcUaSecurityMode;
 use instro_opcua::types::OpcUaSecurityPolicy;
 use instro_opcua::types::OpcUaSubscriptionConfig;
@@ -243,7 +246,7 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<(), ()> {
     ];
 
     let batch =
-        OpcUaNodeReadBatch::new(nodes.iter().cloned().collect_vec(), OpcUaAttributeId::Value);
+        OpcUaNodeReadBatch::new(nodes.iter().cloned().collect_vec(), OpcUaAttributeId::Value).unwrap();
 
     let client = connect_client(&server);
 
@@ -606,5 +609,32 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
         .expect("testing client should not fail to stop timeout");
 
     client.disconnect().await;
+    Ok(())
+}
+
+#[tokio::test]
+async fn get_node_works() -> Result<(), ()> {
+    let server = TestServer::builder()
+        .variable(
+            TestNodeId::Numeric(5000),
+            "double1",
+            ua::Variant::scalar(ua::Double::new(42.)),
+        )
+        .variable(
+            TestNodeId::Numeric(5001),
+            "double2",
+            ua::Variant::scalar(ua::Float::new(24.)),
+        )
+        .start()
+        .expect("server should start");
+
+    let client = connect_client(&server);
+
+    let static_node = opcua_node_id(&server, "double1");
+    let rel_path = OpcUaRelativePath::from_str("/Objects/2:double1").expect("should parse relative path");
+    let browse_path = OpcUaBrowsePath::new(None, rel_path);
+    let translated_node = client.get_node(browse_path).await.expect("should get the `Objects` node");
+    assert_eq!(static_node, translated_node);
+
     Ok(())
 }

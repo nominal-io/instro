@@ -72,6 +72,7 @@ use crate::bail;
 use crate::error::ErrorExt as _;
 use crate::error::UaErrorExt as _;
 use crate::types::OpcUaAttributeId;
+use crate::types::OpcUaBrowsePath;
 use crate::types::OpcUaNodeId;
 
 /// Enables capture of multiple patterns of ownership of a list.
@@ -191,7 +192,7 @@ impl<'batch> Iterator for BatchIter<'batch> {
 
 impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     /// Creates a new batch of nodes and attribute pairs.
-    pub fn new<N, A>(nodes: N, attrs: A) -> Self
+    pub fn new<N, A>(nodes: N, attrs: A) -> Result<Self>
     where
         N: IntoList<'nodes, OpcUaNodeId>,
         A: IntoList<'attrs, OpcUaAttributeId>,
@@ -199,17 +200,19 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
         let nodes = nodes.into_list();
         let attrs = attrs.into_list();
 
-        Self {
+        Ok(Self {
             node_attr_pairs: nodes
                 .iter()
-                .map(ua::NodeId::from)
+                .map(ua::NodeId::try_from)
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
                 .flat_map(|node| {
                     std::iter::repeat(node).zip(attrs.iter().copied().map(ua::AttributeId::from))
                 })
                 .collect_vec(),
             nodes,
             attrs,
-        }
+        })
     }
 
     /// Returns the list of nodes, used in read requests.
@@ -363,6 +366,35 @@ impl OpcUaClient {
         Ok(f(client).await)
     }
 
+    pub async fn get_node(&self, path: OpcUaBrowsePath) -> Result<OpcUaNodeId> {
+        let mut response = self.with_client(async |client| -> Result<_> {
+            let request = ua::TranslateBrowsePathsToNodeIdsRequest::init()
+                .with_browse_paths(&[(&path).try_into()?]);
+
+            let response = client
+                .service_request(request)
+                .await
+                .context("calling translate browse path service")?;
+
+            Ok(response)
+        }).await??;
+
+        response
+            .take_results()
+            .and_then(|results| {
+                results
+                    .as_slice()
+                    .first()
+                    .map(|r| r.clone())
+            })
+            .and_then(|mut result| ua::BrowsePathResult::take_targets(&mut result))
+            .and_then(|targets| targets.as_slice().first().map(|t| t.clone()))
+            .and_then(|target| target.target_id().node_id().try_into().ok())
+            .with_context(||
+                format!("no node IDs found: (root node ID: {}, path: {})", path.starting_node(), path.relative_path())
+            )
+    }
+
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
     /// invoking `on_data` with each batch of decoded ([`OpcUaNodeId`], [`OpcUaDataPoint`]) pairs.
     ///
@@ -383,6 +415,9 @@ impl OpcUaClient {
         let reader = ClientNodeReader {
             client: Arc::downgrade(self),
         };
+
+        let nodes = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value)?;
+
         OpcUaStreamSession::new("opcua-poll-loop", async move || {
             // Downgrade the client to a weak reference to avoid holding onto the strong reference.
             // Increases the chances of success when using `Arc::into_inner` for shutdown.
@@ -473,7 +508,7 @@ impl OpcUaClient {
 
         // Configure the `AsyncSubscription` and per-node monitoring config
         let item_builder = item.apply_to_builder(MonitoredItemCreateRequestBuilder::new(
-            nodes.iter().map(|n| ua::NodeId::from(n.clone())),
+            nodes.iter().map(|n| n.try_into()).collect::<Result<Vec<_>>>()?,
         ));
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
@@ -551,6 +586,8 @@ impl OpcUaClient {
             .filter(|period| !period.is_zero())
             .map(IntervalPollTimer::new);
 
+        let nodes = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value)?;
+
         OpcUaStreamSession::new("opcua-subscription-pump", async move || {
             let _subscription = subscription;
             Self::subscription_loop(reader, nodes, select_all(valid_streams), on_data, timer).await;
@@ -561,14 +598,13 @@ impl OpcUaClient {
     const POLL_LOOP_METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 
     /// Polls `nodes` at `polling_interval`, yielding decoded samples through `on_data`.
-    async fn poll_loop<R: NodeReader, N: IntoList<'static, OpcUaNodeId>>(
+    async fn poll_loop<R: NodeReader>(
         reader: R,
-        nodes: N,
+        nodes: OpcUaNodeReadBatch<'static, 'static>,
         polling_interval: Duration,
         mut on_data: impl FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)> + 'static>),
     ) {
-        let node_list = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
-        let total_nodes = node_list.nodes().len() as u64;
+        let total_nodes = nodes.nodes().len() as u64;
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
         let mut maybe_interval = if polling_interval.is_zero() {
@@ -587,7 +623,7 @@ impl OpcUaClient {
 
             let read_start = metrics.start_read();
 
-            let (outcome, samples) = match reader.read_nodes(&node_list).await {
+            let (outcome, samples) = match reader.read_nodes(&nodes).await {
                 Ok(values) => {
                     let values = values
                         .map(|((id, _), value)| (id.clone(), value))
@@ -634,23 +670,25 @@ impl OpcUaClient {
     /// Notifications are emitted as they arrive and mark their node active for the current
     /// interval. On a poll tick, nodes that did not notify are read directly and buffered for one
     /// tick, giving late notifications a chance to win deduplication by timestamp.
-    async fn subscription_loop<R, N, S, F, T>(
+    async fn subscription_loop<R, S, F, T>(
         reader: R,
-        nodes: N,
+        batch: OpcUaNodeReadBatch<'static, 'static>,
         stream: S,
         mut on_data: F,
         mut timer: Option<T>,
     ) where
         R: NodeReader,
-        N: IntoList<'static, OpcUaNodeId>,
         S: Stream<Item = (OpcUaNodeId, OpcUaDataPoint)> + Send + Unpin + 'static,
         F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>),
         T: PollTimer,
     {
-        let nodes = nodes.into_list();
+        let nodes = batch.nodes();
 
         // Nodes still quiet in the current interval; notifications remove nodes until the next tick.
-        let mut quiet_nodes = nodes.iter().cloned().collect::<HashSet<_>>();
+        let mut quiet_nodes = nodes
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
 
         // Poll results wait one tick before flushing so late notifications can dedup by timestamp.
         let mut polled_nodes = HashMap::<OpcUaNodeId, OpcUaDataPoint>::new();
@@ -676,10 +714,10 @@ impl OpcUaClient {
                     on_data(Box::new(polled_samples_to_flush.into_iter()));
 
                     if !quiet_nodes.is_empty() {
-                        let nodes = quiet_nodes.iter().cloned().collect_vec();
-                        let batch = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
+                        #[allow(clippy::unwrap_used, reason = "nodes are valid because they were previously validated in the original batch")]
+                        let nodes = OpcUaNodeReadBatch::new(quiet_nodes.iter().cloned().collect_vec(), OpcUaAttributeId::Value).unwrap();
 
-                        let reads = match reader.read_nodes(&batch).await {
+                        let reads = match reader.read_nodes(&nodes).await {
                             Ok(reads) => reads,
                             Err(OpcUaError::ClientDisconnected) => break,
 
@@ -1310,7 +1348,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1371,7 +1409,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1416,7 +1454,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1465,7 +1503,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1508,7 +1546,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            vec![x.clone(), y.clone()],
+            OpcUaNodeReadBatch::new(vec![x.clone(), y.clone()], OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1570,7 +1608,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             // No poll timer.
@@ -1615,7 +1653,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            [x.clone(), y.clone()],
+            OpcUaNodeReadBatch::new([x.clone(), y.clone()], OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1688,7 +1726,7 @@ mod tests {
 
         let handle = tokio::spawn(OpcUaClient::subscription_loop(
             reader,
-            x.clone(),
+            OpcUaNodeReadBatch::new(x.clone(), OpcUaAttributeId::Value).unwrap(),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1740,7 +1778,7 @@ mod tests {
     async fn batch_iter_iterates_over_all_node_attribute_pairs_in_order() -> Result<()> {
         let nodes = [test_node(1, "Static"), test_node(2, "Active")];
         let attrs = [OpcUaAttributeId::Value];
-        let batch = OpcUaNodeReadBatch::new(&nodes, attrs);
+        let batch = OpcUaNodeReadBatch::new(&nodes, attrs).unwrap();
 
         let mut iter = batch.keys();
 
@@ -1756,8 +1794,8 @@ mod tests {
         let nodes = [test_node(1, "Static"), test_node(2, "Active")];
         let attrs = [OpcUaAttributeId::Value, OpcUaAttributeId::Description];
 
-        assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).keys().next(), None);
-        assert_eq!(OpcUaNodeReadBatch::new([], attrs).keys().next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).unwrap().keys().next(), None);
+        assert_eq!(OpcUaNodeReadBatch::new([], attrs).unwrap().keys().next(), None);
 
         Ok(())
     }
