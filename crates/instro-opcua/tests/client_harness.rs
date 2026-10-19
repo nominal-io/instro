@@ -613,7 +613,7 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
 }
 
 #[tokio::test]
-async fn get_node_works() -> Result<(), ()> {
+async fn get_node_id_for_path_works() -> Result<(), ()> {
     let server = TestServer::builder()
         .variable(
             TestNodeId::Numeric(5000),
@@ -633,7 +633,7 @@ async fn get_node_works() -> Result<(), ()> {
     let static_node = opcua_node_id(&server, "double1");
     let rel_path = OpcUaRelativePath::from_str("/Objects/2:double1").expect("should parse relative path");
     let browse_path = OpcUaBrowsePath::new(None, rel_path);
-    let translated_node = client.get_node(browse_path).await.expect("should get the `Objects` node");
+    let translated_node = client.get_node_id_for_path(browse_path).await.expect("should get the `Objects` node").expect("should get a node ID");
     assert_eq!(static_node, translated_node);
 
     Ok(())

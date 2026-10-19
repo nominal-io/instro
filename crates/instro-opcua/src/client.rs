@@ -255,14 +255,12 @@ impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
     /// ```
     /// use instro_opcua::{client::{OpcUaClient, OpcUaNodeReadBatch}, types::{OpcUaNodeId, OpcUaAttributeId}};
     ///
-    /// # fn example(client: &OpcUaClient) {
     /// let nodes = [OpcUaNodeId::str(1, "GVL.Main.sStatus"), OpcUaNodeId::str(2, "GVL.Main.fSensor")];
     /// let attrs = [OpcUaAttributeId::Value];
-    /// let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
+    /// let batch = OpcUaNodeReadBatch::new(&nodes, &attrs).unwrap();
     /// let mut iter = batch.keys();
     /// assert_eq!(iter.next().unwrap(), (&nodes[0], &attrs[0])); // ("GVL.Main.sStatus", "Value")
     /// assert_eq!(iter.next().unwrap(), (&nodes[1], &attrs[0])); // ("GVL.Main.fSensor", "Value")
-    /// # }
     /// ```
     pub const fn keys(&self) -> BatchIter<'_> {
         BatchIter::new(self.nodes(), self.attrs())
@@ -366,7 +364,7 @@ impl OpcUaClient {
         Ok(f(client).await)
     }
 
-    pub async fn get_node(&self, path: OpcUaBrowsePath) -> Result<OpcUaNodeId> {
+    pub async fn get_node_id_for_path(&self, path: OpcUaBrowsePath) -> Result<Option<OpcUaNodeId>> {
         let mut response = self.with_client(async |client| -> Result<_> {
             let request = ua::TranslateBrowsePathsToNodeIdsRequest::init()
                 .with_browse_paths(&[(&path).try_into()?]);
@@ -379,20 +377,23 @@ impl OpcUaClient {
             Ok(response)
         }).await??;
 
-        response
+        let results = response
             .take_results()
+            // only sent one query, so only one result is expected
             .and_then(|results| {
                 results
                     .as_slice()
                     .first()
                     .map(|r| r.clone())
             })
-            .and_then(|mut result| ua::BrowsePathResult::take_targets(&mut result))
-            .and_then(|targets| targets.as_slice().first().map(|t| t.clone()))
-            .and_then(|target| target.target_id().node_id().try_into().ok())
-            .with_context(||
-                format!("no node IDs found: (root node ID: {}, path: {})", path.starting_node(), path.relative_path())
-            )
+            .context("at least one result is expected")?
+            .take_targets();
+
+        let Some(target) = results.as_ref().and_then(|t| t.as_slice().get(0)) else {
+            return Ok(None)
+        };
+
+        Ok(target.target_id().node_id().try_into().ok())
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
