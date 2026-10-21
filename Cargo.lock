@@ -396,7 +396,7 @@ dependencies = [
  "instro-opcua-test",
  "instro-test-utils",
  "itertools",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "serde",
  "serde_json",
@@ -421,7 +421,7 @@ name = "instro-opcua-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "tokio",
  "tracing",
@@ -541,6 +541,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "nominal-open62541"
+version = "0.12.1"
+source = "git+https://github.com/cartercanedy/open62541-rs?rev=97cde3121931a5fb8d698b762d694058852a7aaf#97cde3121931a5fb8d698b762d694058852a7aaf"
+dependencies = [
+ "derive_more",
+ "futures-channel",
+ "futures-core",
+ "log",
+ "open62541-sys",
+ "parking_lot",
+ "paste",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "uuid",
+ "x509-certificate",
+ "zeroize",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,28 +600,6 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
-
-[[package]]
-name = "open62541"
-version = "0.12.0"
-source = "git+https://github.com/cartercanedy/open62541-rs?rev=265f1fd9b1792b914e0b14ee5dcb88770454e2ce#265f1fd9b1792b914e0b14ee5dcb88770454e2ce"
-dependencies = [
- "derive_more",
- "futures-channel",
- "futures-core",
- "log",
- "open62541-sys",
- "parking_lot",
- "paste",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "tokio",
- "uuid",
- "x509-certificate",
- "zeroize",
-]
 
 [[package]]
 name = "open62541-sys"
