@@ -21,7 +21,7 @@ thiserror = "2"
 tracing = "0.1"
 tokio = { version = "1", default-features = false }
 itertools = "0.13"
-open62541 = { git = "https://github.com/cartercanedy/open62541-rs", rev = "bf4a8c4afe4f15c9b926531a83fb42e07626a9ea", version = "0.12", features = ["mbedtls", "x509"] }
+open62541 = { git = "https://github.com/cartercanedy/open62541-rs", rev = "532c79d0d94e53505830c53f0358990367aba7c9", version = "0.12", features = ["mbedtls", "x509"] }
 open62541-sys = { git = "https://github.com/cartercanedy/open62541-sys", rev = "2b828681a6ea9001022ecd43b0541d2ffe2e155c", version = "0.6", features = ["mbedtls"] }
 futures-util = "0.3"
 instro-opcua-test = { path = "crates/instro-opcua-test" }
