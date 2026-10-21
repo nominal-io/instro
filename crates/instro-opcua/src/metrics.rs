@@ -15,11 +15,11 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
-/// Counts of successful and failed reads.
+/// Counts of valid and invalid values returned by a successful read.
 pub struct NodeReadCounts {
-    /// Number of successful reads.
+    /// Number of values with a value and no Bad status code.
     pub valid_samples: u64,
-    /// Number of failed reads.
+    /// Number of values with a Bad status code or no value.
     pub invalid_samples: u64,
 }
 
@@ -64,11 +64,10 @@ struct MetricsWindow {
     pub read_duration_min: Option<Duration>,
     /// Maximum observed read duration in the window.
     pub read_duration_max: Option<Duration>,
-    /// Total number of samples successfully decoded from `Ok` reads and forwarded
-    /// via the `on_data` callback.
+    /// Total number of values with a value and no Bad status code from `Ok` reads.
     pub valid_samples: u64,
-    /// Total number of raw values from `Ok` reads that failed to decode into an
-    /// [`VariantValue`](open62541::data_value::DataValue) and were dropped.
+    /// Total number of values with a Bad status code or no value from `Ok` reads.
+    /// These values are still forwarded via the `on_data` callback.
     pub invalid_samples: u64,
 }
 

@@ -15,7 +15,7 @@
 //!   return more descendants, and consume more of the depth and node-count
 //!   limits.
 //!
-//! The [`Client`](super::client::Client) implementation of [`Browse`] handles continuation
+//! The [`Client`] implementation of [`Browse`] handles continuation
 //! points transparently, issuing [`browse_next`](open62541::AsyncClient::browse_next)
 //! calls until all references for a node have been collected. It returns a nested tree of
 //! [`BrowsedNode`]s, which includes the node ID, browse name, display name, node class, browse

@@ -184,7 +184,7 @@ impl Drop for StreamSession {
 /// implementation is [`ClientNodeReader`], which forwards to [`Client::read_nodes`].
 #[allow(async_fn_in_trait)]
 pub trait NodeReader {
-    /// Reads the configured attribute for every node in `batch`, returning decoded samples.
+    /// Reads every configured node and attribute pair, returning one unfiltered value per pair.
     async fn read_nodes<'batch>(
         &self,
         batch: &'batch NodeReadBatch,

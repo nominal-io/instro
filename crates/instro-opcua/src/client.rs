@@ -17,8 +17,8 @@
 //! trigger a cooperative shutdown of the runtime and thread.
 //!
 //! There are two modes of streaming: polling and subscribing. Regardless of mode, both accept
-//! an `on_data` callback, which is invoked with each batch of successfully read ([`ua::NodeId`],
-//! [`VariantValue`]) pairs. The session is managed opaquely by the [`StreamSession`] type.
+//! an `on_data` callback, which is invoked with each batch of unfiltered ([`ua::NodeId`],
+//! [`open62541::DataValue`]) pairs. The session is managed opaquely by the [`StreamSession`] type.
 //!
 //! ### Polling
 //!
@@ -139,7 +139,8 @@ impl Client {
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
-    /// invoking `on_data` with each batch of decoded ([`ua::NodeId`], [`VariantValue`]) pairs.
+    /// invoking `on_data` with each batch of unfiltered ([`ua::NodeId`],
+    /// [`open62541::DataValue`]) pairs.
     ///
     /// The polling loop runs on a dedicated single-threaded runtime started by the returned
     /// [`StreamSession`].
@@ -167,12 +168,13 @@ impl Client {
         })
     }
 
-    /// Reads the configured attribute for every node in `node_list` and returns
-    /// the successfully decoded samples in the same order as the input nodes.
+    /// Reads the configured attribute for every node in `node_list`.
     ///
-    /// Returns [`Err`] if the underlying batched [`AsyncClient::read_many_attributes`] call fails.
-    /// Per-node decoding failures are logged at [`tracing::warn`] and dropped from the
-    /// returned iterator, so the output may be shorter than `node_list.len()`.
+    /// Returns exactly one value for each node and attribute pair, in request order. Values are
+    /// returned unfiltered; callers must inspect [`DataValue::status`] and [`DataValue::value`].
+    ///
+    /// Returns [`Err`] if the underlying batched [`AsyncClient::read_many_attributes`] call fails
+    /// or returns a different number of values than requested.
     pub async fn read_nodes<'batch>(
         &self,
         node_list: &'batch NodeReadBatch,
@@ -300,14 +302,13 @@ impl Client {
     /// How often the poll loop emits the aggregated metrics log line.
     const POLL_LOOP_METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 
-    /// Polls `nodes` at `polling_interval`, yielding decoded samples through `on_data`.
+    /// Polls `nodes` at `polling_interval`, yielding unfiltered samples through `on_data`.
     async fn poll_loop<R: NodeReader>(
         reader: R,
         nodes: NodeReadBatch,
         polling_interval: Duration,
         mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
     ) {
-        let total_nodes = nodes.nodes().len() as u64;
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
         let mut maybe_interval = if polling_interval.is_zero() {
@@ -332,13 +333,19 @@ impl Client {
                         .map(|((id, _), value)| (id.clone(), value))
                         .collect_vec();
 
-                    let successful_reads = values.len() as u64;
-                    let failed_reads = total_nodes.saturating_sub(successful_reads);
+                    let sample_count = values.len() as u64;
+                    let invalid_samples = values
+                        .iter()
+                        .filter(|(_, value)| {
+                            value.value().is_none()
+                                || value.status().is_some_and(ua::StatusCode::is_bad)
+                        })
+                        .count() as u64;
 
                     (
                         Some(NodeReadCounts {
-                            valid_samples: successful_reads,
-                            invalid_samples: failed_reads,
+                            valid_samples: sample_count.saturating_sub(invalid_samples),
+                            invalid_samples,
                         }),
                         Some(values),
                     )
@@ -618,12 +625,15 @@ impl ClientBuilder {
             .with_application_uri("urn:nominal:opcua-client")
     }
 
-    /// Consumes the builder and connects to the endpoint at the given URL, returning an [Client`].
+    /// Consumes the builder and connects to the endpoint at the given URL, returning a [`Client`].
     #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Client> {
         let user_token = self.user_token.context("no user token provided")?;
 
         let security_mode = self.security_mode.context("no security mode provided")?;
+        if security_mode == ua::MessageSecurityMode::INVALID {
+            bail!(internal, "invalid security mode");
+        }
 
         let mut builder = match self.pki {
             PkiConfig::UseProvided(certificate, private_key) => {

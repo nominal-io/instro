@@ -2,7 +2,9 @@
 
 Rust OPC UA client utilities for browsing nodes, reading values, and polling or subscribing to samples.
 
-This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with instro-owned types for connection configuration, node metadata, read batches, and sample values.
+This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with
+instro-owned connection configuration, node metadata, and read batch types while
+exposing native `open62541::ua` types for OPC UA values.
 
 ## Installation
 
@@ -23,7 +25,7 @@ use tokio::runtime::Runtime;
 
 fn main() -> anyhow::Result<()> {
     let client = ClientBuilder::new()
-        .with_user_identity_token(
+        .with_identity_token(
             ua::UserIdentityToken::Anonymous(ua::AnonymousIdentityToken::init())
         )
         .with_security_mode(ua::MessageSecurityMode::NONE)
