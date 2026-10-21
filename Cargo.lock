@@ -582,7 +582,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "open62541"
 version = "0.12.0"
-source = "git+https://github.com/cartercanedy/open62541-rs?rev=b92e39129c32dcbcb501d051b596a0c83847c515#b92e39129c32dcbcb501d051b596a0c83847c515"
+source = "git+https://github.com/cartercanedy/open62541-rs?rev=bf4a8c4afe4f15c9b926531a83fb42e07626a9ea#bf4a8c4afe4f15c9b926531a83fb42e07626a9ea"
 dependencies = [
  "derive_more",
  "futures-channel",
