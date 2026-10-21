@@ -20,6 +20,7 @@ Oscilloscopes.
 | Keysight | {py:class}`1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>` | {pysummary}`instro.scope.drivers.keysight_1200x.Keysight1200X` |
 | Siglent | {py:class}`SDS1000X-E <instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE>` | {pysummary}`instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE` |
 | Tektronix | {py:class}`2 Series MSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` | {pysummary}`instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO` |
+| Tektronix | {py:class}`4 Series MSO <instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSO>` | {pysummary}`instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSO` |
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
 descriptions still come from the docstrings via {pysummary}. autosummary needs to
@@ -36,6 +37,8 @@ regardless, so the pages still appear in the sidebar. -->
       instro.scope.drivers.keysight_1200x.Keysight1200X
       instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE
       instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO
+      instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSO
+      instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSOScope
 ```
 
 ## Types & Configuration
