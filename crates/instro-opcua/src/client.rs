@@ -262,7 +262,7 @@ impl Client {
             match result {
                 Ok((create_result, monitored_item)) => {
                     // validation does nothing here beyond emitting warnings
-                    item.validate(&node, &create_result);
+                    item.check_result(&node, &create_result);
                     valid_streams.push(monitored_item.map(move |value| (node.clone(), value)));
                 }
 
@@ -767,7 +767,7 @@ pub struct SubscriptionItemConfig {
 
 impl SubscriptionItemConfig {
     /// Validates the result of a monitored item creation request, emitting warnings for any revisions that are not as requested.
-    pub(crate) fn validate(
+    pub(crate) fn check_result(
         &self,
         node_id: &ua::NodeId,
         create_result: &ua::MonitoredItemCreateResult,
