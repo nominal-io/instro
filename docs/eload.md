@@ -1,7 +1,8 @@
 ---
+seo_title: "Control an Electronic Load with Python - instro"
 myst:
   html_meta:
-    description: "Using InstroELoad for SCPI-based programmable electronic loads"
+    description: "Control programmable electronic loads from Python with instro: set CC, CV, CR, or CP mode and level, enable the input, and read voltage and current."
 ---
 
 # Electronic Load (ELoad)

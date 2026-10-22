@@ -2,15 +2,12 @@
 orphan: true
 card: Rigol DG1022Z
 image: RigolDG1022Z.png
-myst:
-  html_meta:
-    description: "A driver for InstroAWG"
 ---
 
 # RigolDG1022Z
 
 {.lead}
-A driver for [`InstroAWG`](/awg.md)
+Control the Rigol DG1022Z function generator from Python through [`InstroAWG`](/awg.md).
 
 ![Rigol DG1022Z](RigolDG1022Z.png){.driver-image}
 

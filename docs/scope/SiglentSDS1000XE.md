@@ -2,15 +2,12 @@
 orphan: true
 card: Siglent SDS1000X-E
 image: SiglentSDS1000XE.png
-myst:
-  html_meta:
-    description: "A driver for InstroScope"
 ---
 
 # SiglentSDS1000XE
 
 {.lead}
-A driver for [`InstroScope`](/scope.md)
+Control the Siglent SDS1000X-E oscilloscope from Python through [`InstroScope`](/scope.md).
 
 ![Siglent SDS1000X-E](SiglentSDS1000XE.png){.driver-image}
 

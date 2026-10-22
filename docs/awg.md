@@ -1,7 +1,8 @@
 ---
+seo_title: "Control a Function Generator (AWG) with Python - instro"
 myst:
   html_meta:
-    description: "Using InstroAWG for SCPI-based arbitrary waveform generators"
+    description: "Control arbitrary waveform and function generators from Python with one API for Keysight and Rigol: set waveforms, amplitude, offset, modulation, and bursts."
 ---
 
 # Arbitrary Waveform Generator (AWG)

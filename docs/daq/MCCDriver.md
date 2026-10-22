@@ -2,15 +2,12 @@
 orphan: true
 card: Measurement Computing (MCC)
 image: MCCDriver.png
-myst:
-  html_meta:
-    description: "A driver for InstroDAQ"
 ---
 
 # MCCDriver
 
 {.lead}
-A driver for [`InstroDAQ`](/daq.md)
+Control the Measurement Computing (MCC) DAQ from Python through [`InstroDAQ`](/daq.md).
 
 ![Measurement Computing (MCC)](MCCDriver.png){.driver-image}
 

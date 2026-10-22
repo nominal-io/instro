@@ -2,15 +2,12 @@
 orphan: true
 card: Siglent SPD3303
 image: SiglentSPD3303.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # SiglentSPD3303
 
 {.lead}
-A driver for [`InstroPSU`](/psu.md)
+Control the Siglent SPD3303 power supply from Python through [`InstroPSU`](/psu.md).
 
 ![Siglent SPD3303](SiglentSPD3303.png){.driver-image}
 

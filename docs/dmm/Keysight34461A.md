@@ -2,15 +2,12 @@
 orphan: true
 card: Keysight 34461A
 image: Keysight34461A.png
-myst:
-  html_meta:
-    description: "A driver for InstroDMM"
 ---
 
 # Keysight34461A
 
 {.lead}
-A driver for [`InstroDMM`](/dmm.md)
+Control the Keysight 34461A multimeter from Python through [`InstroDMM`](/dmm.md).
 
 ![Keysight 34461A](Keysight34461A.png){.driver-image}
 

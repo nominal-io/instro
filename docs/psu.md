@@ -1,7 +1,8 @@
 ---
+seo_title: "Control a Power Supply with Python - instro"
 myst:
   html_meta:
-    description: "Using InstroPSU for SCPI-based programmable power supplies"
+    description: "Control programmable power supplies from Python with one API for B&K Precision, Keysight, Rigol, Siglent, and TDK-Lambda: set voltage and current, read outputs."
 ---
 
 # Power Supply (PSU)

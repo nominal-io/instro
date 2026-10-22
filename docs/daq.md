@@ -1,7 +1,8 @@
 ---
+seo_title: "Python Data Acquisition (DAQ) Library - instro"
 myst:
   html_meta:
-    description: "Using InstroDAQ for vendor-independent data acquisition"
+    description: "Acquire data from Python with one API for National Instruments, LabJack, MCC, Keysight, and DewesoftX: configure analog, digital, and relay channels."
 ---
 
 # Data Acquisition (DAQ)

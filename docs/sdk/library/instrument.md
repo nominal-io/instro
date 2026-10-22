@@ -4,7 +4,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.instrument.Instrument

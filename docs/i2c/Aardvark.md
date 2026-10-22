@@ -2,15 +2,12 @@
 orphan: true
 card: Total Phase Aardvark
 image: Aardvark.png
-myst:
-  html_meta:
-    description: "A driver for I2CInterface"
 ---
 
 # Aardvark
 
 {.lead}
-A driver for [`I2CInterface`](/library/protocols/i2c/overview.md)
+Control the Total Phase Aardvark I2C adapter from Python through [`I2CInterface`](/library/protocols/i2c/overview.md).
 
 ![Total Phase Aardvark](Aardvark.png){.driver-image}
 

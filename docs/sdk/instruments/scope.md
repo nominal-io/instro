@@ -6,7 +6,7 @@ Oscilloscopes.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.scope.InstroScope
@@ -31,7 +31,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.scope.drivers.keysight_1200x.Keysight1200X
       instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE
@@ -42,7 +42,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.scope.types.Coupling
