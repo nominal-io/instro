@@ -5,12 +5,18 @@
 //! directly.
 
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use thiserror::Error as ThisError;
-use tokio::runtime::{Builder, Handle, Runtime};
+use tokio::runtime::Builder;
+use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
 
-use crate::{Error, Result, StructuredValue, Value};
+use crate::Error;
+use crate::Result;
+use crate::StructuredValue;
+use crate::Value;
 
 #[derive(Debug, Clone, ThisError)]
 #[error("{0}")]
@@ -125,13 +131,14 @@ impl ExplicitSession {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     use rust_ethernet_ip::PlcValue;
 
-    use crate::mock_client::{MockClient, MockState};
+    use super::*;
+    use crate::mock_client::MockClient;
+    use crate::mock_client::MockState;
 
     fn session_with_state(state: Arc<Mutex<MockState>>) -> ExplicitSession {
         let runtime = shared_runtime().expect("runtime should build");

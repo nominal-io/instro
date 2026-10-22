@@ -4,14 +4,22 @@ mod errors;
 mod sync_session;
 mod values;
 
-use errors::{
-    BatchTimeoutError, CipError, DataTypeMismatchError, EtherNetIpBatchError, EtherNetIpError,
-    NetworkBatchError, OtherBatchError, SerializationError, TagNotFoundError, TagPathError,
-};
+use errors::BatchTimeoutError;
+use errors::CipError;
+use errors::DataTypeMismatchError;
+use errors::EtherNetIpBatchError;
+use errors::EtherNetIpError;
+use errors::NetworkBatchError;
+use errors::OtherBatchError;
+use errors::SerializationError;
+use errors::TagNotFoundError;
+use errors::TagPathError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use sync_session::EtherNetIpSession;
-use values::{PlcKind, PlcValue, StructuredValue};
+use values::PlcKind;
+use values::PlcValue;
+use values::StructuredValue;
 
 /// Initialize the private native EtherNet/IP extension module.
 #[pymodule]

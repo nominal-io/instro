@@ -97,7 +97,8 @@ pub enum Error {
         source: Box<dyn StdError + Send + Sync>,
     },
     #[error(
-        "failed to decode structured tag '{tag_name}' from {addr}: expected structured value, got {actual_type}"
+        "failed to decode structured tag '{tag_name}' from {addr}: expected structured value, got \
+         {actual_type}"
     )]
     UnexpectedValueType {
         addr: String,

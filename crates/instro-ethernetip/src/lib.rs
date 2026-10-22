@@ -82,13 +82,19 @@
 #[cfg(feature = "blocking")]
 pub mod blocking;
 
-pub use error::{BatchReadError, Error};
-pub use value::{StructuredValue, Value};
-
 use std::future::Future;
 use std::pin::Pin;
 
-use rust_ethernet_ip::{BatchError, EipClient, EtherNetIpError, PlcValue, RoutePath};
+use rust_ethernet_ip::BatchError;
+use rust_ethernet_ip::EipClient;
+use rust_ethernet_ip::EtherNetIpError;
+use rust_ethernet_ip::PlcValue;
+use rust_ethernet_ip::RoutePath;
+
+pub use crate::error::BatchReadError;
+pub use crate::error::Error;
+pub use crate::value::StructuredValue;
+pub use crate::value::Value;
 
 mod error;
 #[cfg(test)]
@@ -487,17 +493,19 @@ impl Value {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::error::Error as StdError;
     use std::fmt;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     use rust_ethernet_ip::PlcValue;
 
-    use crate::mock_client::{
-        BatchReadResult, MockClient, MockConnector, MockConnectorState, MockState,
-    };
+    use super::*;
+    use crate::mock_client::BatchReadResult;
+    use crate::mock_client::MockClient;
+    use crate::mock_client::MockConnector;
+    use crate::mock_client::MockConnectorState;
+    use crate::mock_client::MockState;
 
     #[derive(Debug, PartialEq, Eq)]
     struct ExampleStruct {
