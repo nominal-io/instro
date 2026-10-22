@@ -358,12 +358,25 @@ def test_26_get_amplitude_parses_value_and_unit(keysight: Keysight33521B, keysig
 
 
 def test_27_offset_roundtrip_uses_offset_commands(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    _query_sequence(keysight_visa, ["SIN"])
     keysight.set_offset(1, 0.5)
-    keysight_visa.write.assert_called_once_with("VOLT:OFFS 0.5")
+    assert keysight_visa.write.call_args_list == [call("VOLT:OFFS 0.5")]
+    assert _real_query_calls(keysight_visa) == [call("FUNC?")]
 
+    keysight_visa.reset_mock()
     _query_sequence(keysight_visa, ["5.000000E-01"])
     assert keysight.get_offset(1) == pytest.approx(0.5)
     assert _real_query_calls(keysight_visa) == [call("VOLT:OFFS?")]
+
+
+def test_set_offset_rejects_static_value_carrier(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
+    _query_sequence(keysight_visa, ["DC"])
+
+    with pytest.raises(ValueError, match="cannot offset a StaticValue"):
+        keysight.set_offset(1, 0.5)
+
+    keysight_visa.write.assert_not_called()
+    assert _real_query_calls(keysight_visa) == [call("FUNC?")]
 
 
 def test_28_output_enable_formats_on_off_and_parses_state(keysight: Keysight33521B, keysight_visa: MagicMock) -> None:
