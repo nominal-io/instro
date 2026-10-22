@@ -117,6 +117,7 @@ driver_docs_exempt = {
     # Simulators and helpers: documented on the SDK page only
     "psu.SimulatedPSU": {"guide"},
     "dmm.SimulatedDMM": {"guide"},
+    "dmm.VirtualDMM": {"guide"},
     "daq.HWTimestamper": {"guide"},
 }
 

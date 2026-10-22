@@ -27,6 +27,7 @@ __all__ = [
     "MeasurementConfig",
     "NominalCorePublisherConfig",
     "TimingConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
@@ -44,7 +45,11 @@ DMM_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         (IdnPattern(("KEYSIGHT TECHNOLOGIES", "AGILENT TECHNOLOGIES"), r"^34461A"),),
     ),
     "SimulatedDMM": DriverEntry("instro.dmm.drivers.simulated.SimulatedDMM"),
+    "VirtualDMM": DriverEntry("instro.dmm.drivers.virtual.VirtualDMM"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualDMM",)
 
 
 class MeasurementConfig(BaseModel):
@@ -80,7 +85,17 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in DMM_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}"}}')
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual DMM: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualDMM"] = Field(description="Virtual driver key.")
 
 
 class DMMConfig(BaseModel):
@@ -90,7 +105,7 @@ class DMMConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroDMM"] = "InstroDMM"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     measurement: MeasurementConfig | None = None
     timing: TimingConfig | None = None
     publishers: list[PublisherConfigType] = Field(default_factory=list)
@@ -109,7 +124,10 @@ def resolve_dmm_from_config(
 ) -> tuple[str, DMMDriverBase, list[Publisher], float | None]:
     """Resolve a validated DMMConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroDMM needs."""
     driver_cls = DMM_VENDOR_REGISTRY[config.driver.name].load()
-    driver: DMMDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    if isinstance(config.driver, VirtualDriverConfig):
+        driver: DMMDriverBase = driver_cls()
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

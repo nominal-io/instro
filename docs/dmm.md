@@ -28,6 +28,7 @@ dmm = InstroDMM(
 :::{driver-cards} dmm
 :::
 
+- **Virtual**: no hardware or server; readings simulated in-process (`VirtualDMM`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
 - **Simulated**: no hardware required; pairs with the bundled [DMM simulator](/library/simulated-instruments.md#dmm-simulator) (`SimulatedDMM`)
 
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#digital-multimeter-dmm), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
@@ -133,6 +134,8 @@ Where `bench_dmm.json` contains:
   ]
 }
 ```
+
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}`.
 
 See [Config Files](/library/config-files.md) for the full field reference.
 
