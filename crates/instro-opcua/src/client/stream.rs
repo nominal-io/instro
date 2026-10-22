@@ -139,12 +139,10 @@ impl StreamSession {
     }
 
     /// Stops the stream session, waiting until the session exits.
-    pub async fn stop(mut self) -> Result<()> {
+    pub async fn stop(mut self) {
         if let Some(handle) = self.handle.take() {
             handle.stop().await;
         }
-
-        Ok(())
     }
 
     /// Stops the stream session, returning an error if the session does not exit within the given timeout.
@@ -278,8 +276,7 @@ mod tests {
 
         timeout(Duration::from_millis(2), session.stop())
             .await
-            .expect("should stop immediately")
-            .expect("should stop successfully");
+            .expect("should stop immediately");
 
         Ok(())
     }
@@ -294,8 +291,20 @@ mod tests {
 
         timeout(Duration::from_millis(2), session.stop())
             .await
-            .expect("should stop before timeout")
-            .expect("should stop successfully");
+            .expect("should stop before timeout");
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn stream_session_doesnt_propagate_panics() -> Result<()> {
+        let session = session(async || {
+            panic!("shouldn't appear")
+        });
+
+        timeout(Duration::from_millis(2), session.stop())
+            .await
+            .expect("shouldn't timeout");
 
         Ok(())
     }
