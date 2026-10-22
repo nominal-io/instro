@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 import pyvisa
-from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType
+from pyvisa.constants import VI_ERROR_LIBRARY_NFOUND, InterfaceType, StatusCode
 from pyvisa.constants import Parity as VisaParity
 
 from instro.lib.exceptions import UnknownHolderError
@@ -169,32 +169,32 @@ def test_open_falls_back_to_py_when_ivi_library_not_found(mock_pyvisa):
 
 def test_open_warns_when_py_fallback_lacks_library_for_resource(mock_pyvisa, caplog):
     rm_class, rm_instance, _ = mock_pyvisa
-    rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
+    rm_class.side_effect = [OSError("no IVI backend"), rm_instance, rm_instance, rm_instance]
     err = pyvisa.errors.VisaIOError(VI_ERROR_LIBRARY_NFOUND)
     rm_instance.open_resource.side_effect = err
+    rm_instance.list_resources.return_value = ()
     driver = _make_driver()
 
     with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
-        with pytest.raises(pyvisa.errors.VisaIOError):  # original type preserved, not wrapped
+        with pytest.raises(RuntimeError, match="not found via"):
             driver.open()
 
-    assert "pyvisa-py (@py) fallback" in caplog.text
     assert driver.is_open is False
 
 
 def test_open_warns_when_py_fallback_has_no_session_class_for_resource(mock_pyvisa, caplog):
     rm_class, rm_instance, _ = mock_pyvisa
-    rm_class.side_effect = [OSError("no IVI backend"), rm_instance]
+    rm_class.side_effect = [OSError("no IVI backend"), rm_instance, rm_instance, rm_instance]
     # pyvisa-py raises ValueError for a resource class it can't serve (e.g. GPIB
     # without the C library: "gpib_ctypes is installed but could not locate ...").
     rm_instance.open_resource.side_effect = ValueError("No class registered for gpib, INSTR")
+    rm_instance.list_resources.return_value = ()
     driver = _make_driver()
 
     with caplog.at_level(logging.WARNING, logger="instro.lib.transports.visa"):
-        with pytest.raises(ValueError, match="No class registered"):
+        with pytest.raises(RuntimeError, match="not found via"):
             driver.open()
 
-    assert "pyvisa-py (@py) fallback" in caplog.text
     assert driver.is_open is False
 
 
@@ -255,6 +255,48 @@ def test_open_does_not_fall_back_for_explicit_backend(mock_pyvisa, backend: str)
         driver.open()
 
     rm_class.assert_called_once_with(backend)
+    assert driver.is_open is False
+
+
+def test_open_falls_back_to_py_when_resource_not_found_on_ivi(mock_pyvisa):
+    """Resource not found on @ivi triggers fallback to @py (issue #138)."""
+    rm_class, rm_instance, _ = mock_pyvisa
+    ivi_rm = MagicMock()
+    ivi_rm.open_resource.side_effect = pyvisa.errors.VisaIOError(StatusCode.error_resource_not_found)
+    rm_class.side_effect = [ivi_rm, rm_instance]
+
+    driver = _make_driver()
+    driver.open()
+
+    assert rm_class.call_args_list == [call("@ivi"), call("@py")]
+    assert driver.is_open is True
+
+
+def test_open_raises_when_both_backends_fail(mock_pyvisa):
+    """When both @ivi and @py fail to open the resource, a RuntimeError listing available resources is raised."""
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_instance.open_resource.side_effect = pyvisa.errors.VisaIOError(StatusCode.error_resource_not_found)
+    rm_instance.list_resources.return_value = ()
+    # Both @ivi and @py return rm_instance (which always fails to open the resource)
+    rm_class.return_value = rm_instance
+
+    driver = _make_driver()
+    with pytest.raises(RuntimeError, match="not found via @ivi or @py"):
+        driver.open()
+
+    assert driver.is_open is False
+
+
+def test_open_explicit_backend_resource_not_found_raises(mock_pyvisa):
+    """Explicit backend: resource-not-found propagates, no @py fallback."""
+    rm_class, rm_instance, _ = mock_pyvisa
+    rm_instance.open_resource.side_effect = pyvisa.errors.VisaIOError(StatusCode.error_resource_not_found)
+
+    driver = _make_driver(_make_config(visa_backend="@ivi"))
+    with pytest.raises(pyvisa.errors.VisaIOError):
+        driver.open()
+
+    rm_class.assert_called_once_with("@ivi")
     assert driver.is_open is False
 
 
