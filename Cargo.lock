@@ -376,7 +376,7 @@ name = "instro-ethernetip"
 version = "1.0.0"
 dependencies = [
  "rust-ethernet-ip",
- "thiserror 1.0.69",
+ "thiserror",
  "tokio",
 ]
 
@@ -392,7 +392,6 @@ dependencies = [
 name = "instro-opcua"
 version = "1.1.0"
 dependencies = [
- "anyhow",
  "base64",
  "futures-util",
  "instro-opcua-test",
@@ -402,6 +401,7 @@ dependencies = [
  "open62541-sys",
  "serde",
  "serde_json",
+ "thiserror",
  "time",
  "tokio",
  "tracing",
@@ -595,7 +595,7 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror",
  "time",
  "tokio",
  "uuid",
@@ -833,7 +833,7 @@ dependencies = [
  "rust-ethernet-ip-udt",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",
@@ -1053,31 +1053,11 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl 2.0.18",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -1530,7 +1510,7 @@ dependencies = [
  "ring",
  "signature",
  "spki",
- "thiserror 2.0.18",
+ "thiserror",
  "zeroize",
 ]
 

@@ -31,9 +31,6 @@ use std::sync::Weak;
 use std::thread;
 use std::time::Duration;
 
-use anyhow::Context as _;
-use anyhow::Result;
-use anyhow::bail;
 use futures_util::FutureExt as _;
 use futures_util::Stream;
 use futures_util::StreamExt;
@@ -59,6 +56,8 @@ use tokio::time::MissedTickBehavior;
 use tokio::time::interval;
 use tokio::time::timeout;
 
+use super::OpcUaError;
+use super::Result;
 use super::generate_self_signed_cert;
 use super::metrics::NodeReadCounts;
 use super::metrics::PollLoopMetricsLogger;
@@ -69,6 +68,9 @@ use super::types::OpcUaSecurityMode;
 use super::types::OpcUaSecurityPolicy;
 use super::types::OpcUaSubscriptionConfig;
 use super::types::OpcUaUserToken;
+use crate::bail;
+use crate::error::ErrorExt as _;
+use crate::error::UaErrorExt as _;
 use crate::types::OpcUaAttributeId;
 use crate::types::OpcUaNodeId;
 
@@ -274,23 +276,27 @@ struct SessionHandle {
 }
 
 impl SessionHandle {
-    /// Sends a stop signal to the session, waiting until the session has exited
-    fn stop(self) -> impl Future<Output = Result<()>> {
+    /// Sends a stop signal to the session, synchronizing on session termination on the remote thread.
+    fn stop(self) -> impl Future<Output = ()> {
         let Self {
             stop_tx,
             mut term_rx,
         } = self;
         if *term_rx.borrow_and_update() {
-            return future::ready(Ok(())).left_future();
+            return future::ready(()).left_future();
         }
 
         _ = stop_tx.send(());
 
         async move {
-            term_rx
-                .changed()
-                .await
-                .context("waiting for remote streaming session to exit")
+            match term_rx.changed().await {
+                Ok(()) => (),
+                Err(e) => tracing::warn!(
+                    target: "opcua::client::session_handle",
+                    err = ?e,
+                    "synchronization with remote streaming session likely resulted in a panic on the streaming thread"
+                ),
+            }
         }
         .right_future()
     }
@@ -351,7 +357,7 @@ impl OpcUaClient {
     {
         let client_guard = self.client.read().await;
         let Some(client) = client_guard.as_ref() else {
-            bail!("OPC UA client has been disconnected");
+            return Err(OpcUaError::ClientDisconnected);
         };
 
         Ok(f(client).await)
@@ -399,16 +405,17 @@ impl OpcUaClient {
                 client
                     .read_many_attributes(node_list.pairs())
                     .await
-                    .context("reading node attributes")
+                    .ua_context("requesting values from remote server")
             })
             .await??;
 
         if read_result.len() != node_list.len() {
             bail!(
-                "read result length does not match node list length: {} != {}",
+                internal,
+                "length mismatch between requested and received values: {} != {}",
                 read_result.len(),
-                node_list.nodes().len()
-            );
+                node_list.len()
+            )
         }
 
         Ok(node_list.keys().zip(read_result).enumerate().filter_map(
@@ -438,15 +445,15 @@ impl OpcUaClient {
     ///
     /// The runtime and thread are shut down when the session is dropped.
     #[must_use = "dropping the returned session will deregister the subscription"]
-    pub async fn start_subscription<N, F>(
+    pub async fn start_subscription<L, F>(
         self: &Arc<Self>,
-        nodes: N,
+        nodes: L,
         sub_config: OpcUaSubscriptionConfig,
         item: OpcUaMonitoredItemConfig,
         on_data: F,
     ) -> Result<OpcUaStreamSession>
     where
-        N: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
+        L: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
         F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
@@ -456,7 +463,7 @@ impl OpcUaClient {
                 subscription_builder
                     .create(client)
                     .await
-                    .context("creating OPC UA subscription")
+                    .context("creating subscription")
             })
             .await??;
 
@@ -471,14 +478,15 @@ impl OpcUaClient {
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
-            .context("creating OPC UA monitored items")?;
+            .context("creating monitored items")?;
 
         if item_results.len() != nodes.len() {
             bail!(
-                "OPC UA server returned {} monitored-item results for {} requested nodes",
+                internal,
+                "length mismatch between requested and registered monitored items: {} != {}",
                 item_results.len(),
                 nodes.len()
-            );
+            )
         }
 
         // Merge monitored-item streams into one pump to avoid per-node tasks; the pump does not
@@ -530,9 +538,9 @@ impl OpcUaClient {
 
         if valid_streams.is_empty() {
             bail!(
-                "OPC-UA subscription has no valid monitored items; all {requested_count} \
-                 requested node(s) failed",
-            );
+                internal,
+                "no valid monitored item streams were created; all {requested_count} requested node(s) failed"
+            )
         }
 
         let reader = ClientNodeReader { client: this };
@@ -596,7 +604,12 @@ impl OpcUaClient {
                     )
                 }
 
-                Err(NodeReadError::RuntimeError(e)) => {
+                Err(OpcUaError::ClientDisconnected) => {
+                    tracing::info!(target: "opcua::client::poll", "stopping poll loop");
+                    break;
+                }
+
+                Err(e) => {
                     tracing::error!(
                         target: "opcua::client::poll",
                         err = ?e,
@@ -604,11 +617,6 @@ impl OpcUaClient {
                     );
 
                     (None, None)
-                }
-
-                Err(NodeReadError::ClientDropped) => {
-                    tracing::info!(target: "opcua::client::poll", "stopping poll loop");
-                    break;
                 }
             };
 
@@ -672,9 +680,9 @@ impl OpcUaClient {
 
                         let reads = match reader.read_nodes(&batch).await {
                             Ok(reads) => reads,
-                            Err(NodeReadError::ClientDropped) => break,
+                            Err(OpcUaError::ClientDisconnected) => break,
 
-                            Err(NodeReadError::RuntimeError(e)) => {
+                            Err(e) => {
                                 tracing::error!(
                                     target: "opcua::client::subscribe",
                                     error = ?e,
@@ -772,12 +780,7 @@ pub(crate) trait NodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError>;
-}
-
-pub(crate) enum NodeReadError {
-    ClientDropped,
-    RuntimeError(anyhow::Error),
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>>;
 }
 
 /// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
@@ -789,16 +792,13 @@ impl NodeReader for ClientNodeReader {
     async fn read_nodes<'batch, 'nodes, 'attrs>(
         &self,
         batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
+    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
         // Holding the upgraded strong reference across the read makes a concurrent
         // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
         // matching the previous in-loop `Weak::upgrade` behaviour.
         match self.client.upgrade() {
-            Some(client) => client
-                .read_nodes(batch)
-                .await
-                .map_err(NodeReadError::RuntimeError),
-            None => Err(NodeReadError::ClientDropped),
+            Some(client) => client.read_nodes(batch).await,
+            None => Err(OpcUaError::ClientDisconnected),
         }
     }
 }
@@ -942,18 +942,20 @@ impl OpcUaClientBuilder {
 
         let security_mode = match self.security_mode {
             Some(mode) if !mode.is_invalid() => mode.into(),
-            Some(_) => bail!("security mode was specified but was invalid"),
-            None => bail!("security mode was not specified"),
+            Some(_) => bail!(internal, "invalid security mode"),
+            None => bail!(internal, "no security mode provided"),
         };
 
         let mut builder = match self.pki {
             OpcUaPki::UseProvided(certificate, private_key) => {
-                ClientBuilder::default_encryption(&certificate, &private_key)?
+                ClientBuilder::default_encryption(&certificate, &private_key)
+                    .context("creating encrypted client builder")?
             }
 
             OpcUaPki::GenerateSelfSigned => {
                 let (certificate, private_key) = generate_self_signed_cert()?;
-                ClientBuilder::default_encryption(&certificate, &private_key)?
+                ClientBuilder::default_encryption(&certificate, &private_key)
+                    .ua_context("failed to create encrypted client builder")?
             }
 
             OpcUaPki::None => ClientBuilder::default(),
@@ -977,7 +979,10 @@ impl OpcUaClientBuilder {
             builder = builder.accept_all();
         }
 
-        let client = builder.connect(endpoint_url)?.into_async();
+        let client = builder
+            .connect(endpoint_url)
+            .ua_context("connecting to endpoint")?
+            .into_async();
 
         Ok(OpcUaClient::new(client))
     }
@@ -1008,7 +1013,7 @@ impl OpcUaStreamSession {
         let runtime = runtime::Builder::new_current_thread()
             .enable_time()
             .build()
-            .context("creating tokio runtime for opcua task")?;
+            .context("creating runtime")?;
 
         let (stop_tx, stop_rx) = oneshot::channel();
         let (term_tx, term_rx) = watch::channel(false);
@@ -1048,7 +1053,7 @@ impl OpcUaStreamSession {
                     }
                 })
             })
-            .context("spawning thread for opcua task")?;
+            .context("creating runtime thread")?;
 
         Ok(Self {
             handle: Some(SessionHandle { stop_tx, term_rx }),
@@ -1058,7 +1063,7 @@ impl OpcUaStreamSession {
     /// Stops the stream session, blocking until the session exits.
     pub async fn stop(mut self) -> Result<()> {
         if let Some(handle) = self.handle.take() {
-            handle.stop().await?;
+            handle.stop().await;
         }
 
         Ok(())
@@ -1069,7 +1074,7 @@ impl OpcUaStreamSession {
         if let Some(handle) = self.handle.take() {
             timeout(to, handle.stop())
                 .await
-                .context("waiting for stream session to exit")??;
+                .context("stopping stream session")?
         }
 
         Ok(())
@@ -1110,21 +1115,19 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    use anyhow::Context as _;
-    use anyhow::Result;
-    use anyhow::anyhow;
     use futures_util::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream;
     use tokio::sync::mpsc;
     use tokio::time::timeout;
 
-    use super::NodeReadError;
     use super::NodeReader;
     use super::OpcUaClient;
     use super::OpcUaNodeReadBatch;
     use super::PollTimer;
     use super::ReadNodeItem;
+    use crate::OpcUaError;
+    use crate::error::Result;
     use crate::types::OpcUaAttributeId;
     use crate::types::OpcUaDataPoint;
     use crate::types::OpcUaNodeId;
@@ -1173,15 +1176,12 @@ mod tests {
         async fn read_nodes<'nodes, 'attrs, 'batch>(
             &self,
             batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-        ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>, NodeReadError> {
+        ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
             let samples = {
-                let mut state = self
-                    .state
-                    .lock()
-                    .map_err(|_| NodeReadError::RuntimeError(anyhow!("reader state poisoned")))?;
+                let mut state = self.state.lock().unwrap();
 
                 if !state.is_alive {
-                    return Err(NodeReadError::ClientDropped);
+                    return Err(OpcUaError::ClientDisconnected);
                 }
 
                 let timestamp = state.next_timestamp;
@@ -1251,12 +1251,11 @@ mod tests {
         (on_data, rx)
     }
 
-    async fn await_signal(rx: &mut mpsc::UnboundedReceiver<()>, what: &str) -> Result<()> {
+    async fn await_signal(rx: &mut mpsc::UnboundedReceiver<()>, what: &str) {
         timeout(TEST_TIMEOUT, rx.recv())
             .await
-            .with_context(|| format!("timed out waiting for {what}"))?
-            .with_context(|| format!("channel closed waiting for {what}"))?;
-        Ok(())
+            .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+            .unwrap_or_else(|| panic!("channel closed waiting for {what}"));
     }
 
     /// Awaits the next non-empty output batch, used as a barrier that a notification (or flush)
@@ -1264,15 +1263,15 @@ mod tests {
     async fn recv_nonempty(
         rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
         what: &str,
-    ) -> Result<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
+    ) -> Vec<(OpcUaNodeId, OpcUaDataPoint)> {
         loop {
             let batch = timeout(TEST_TIMEOUT, rx.recv())
                 .await
-                .with_context(|| format!("timed out waiting for {what}"))?
-                .with_context(|| format!("channel closed waiting for {what}"))?;
+                .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+                .unwrap_or_else(|| panic!("channel closed waiting for {what}"));
 
             if !batch.is_empty() {
-                return Ok(batch);
+                return batch;
             }
         }
     }
@@ -1290,17 +1289,17 @@ mod tests {
         batches
     }
 
-    async fn await_loop(handle: tokio::task::JoinHandle<()>) -> Result<()> {
+    async fn await_loop(handle: tokio::task::JoinHandle<()>) {
         timeout(TEST_TIMEOUT, handle)
             .await
-            .context("subscription loop did not terminate")?
-            .map_err(|e| anyhow!("subscription loop task failed: {e}"))
+            .expect("subscription loop did not terminate")
+            .unwrap();
     }
 
     /// A node that never receives a subscription notification is polled once per tick: every
     /// emitted sample is therefore a background poll. K ticks yield K distinct polled samples
     /// (K-1 via the next tick's flush, the last via the exit drain).
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn polls_static_node_each_tick() -> Result<()> {
         let x = test_node(1, "Static");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(1);
@@ -1318,12 +1317,12 @@ mod tests {
 
         // Three ticks, each fully processed (barrier on the read) before the next.
         for _ in 0..3 {
-            pulse_tx.send(()).context("pulsing poll tick")?;
-            await_signal(&mut read_done_rx, "background poll read").await?;
+            pulse_tx.send(()).unwrap();
+            await_signal(&mut read_done_rx, "background poll read").await;
         }
 
         drop(note_tx); // close the stream -> loop breaks and drains the final buffered sample
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1352,11 +1351,7 @@ mod tests {
         );
 
         // Three reads happened, each requesting the single static node.
-        let requested = state
-            .lock()
-            .map_err(|_| anyhow!("state poisoned"))?
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
 
         assert_eq!(requested.len(), 3);
 
@@ -1365,7 +1360,7 @@ mod tests {
 
     /// When a buffered polled sample is not older than an arriving notification, it is dropped
     /// in favour of the live notification (the dedup window).
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn dedup_drops_stale_polled_when_notification_not_newer() -> Result<()> {
         let x = test_node(1, "Node");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(100);
@@ -1382,16 +1377,16 @@ mod tests {
         ));
 
         // Tick buffers a polled sample at ts=100.
-        pulse_tx.send(()).context("pulsing poll tick")?;
-        await_signal(&mut read_done_rx, "background poll read").await?;
+        pulse_tx.send(()).unwrap();
+        await_signal(&mut read_done_rx, "background poll read").await;
 
         // Notification at ts=100 (not newer) -> buffered polled sample dropped, only this emitted.
         note_tx
             .send((x.clone(), datapoint(100, 1.0)))
-            .context("sending notification")?;
+            .expect("sending notification");
 
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1399,7 +1394,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(samples.len(), 1, "stale polled sample should be dropped");
-        let (node_id, sample) = samples.first().context("missing notification sample")?;
+        let (node_id, sample) = samples.first().expect("missing notification sample");
         assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(100));
         assert_eq!(sample.value, OpcUaValue::Double(1.0));
@@ -1410,7 +1405,7 @@ mod tests {
 
     /// When a buffered polled sample is older than an arriving notification, both are emitted,
     /// polled first, preserving temporal continuity.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn emits_both_when_polled_older_than_notification() -> Result<()> {
         let x = test_node(1, "Node");
         let (reader, _state, mut read_done_rx) = MockNodeReader::new(100);
@@ -1427,16 +1422,16 @@ mod tests {
         ));
 
         // Tick buffers a polled sample at ts=100.
-        pulse_tx.send(()).context("pulsing poll tick")?;
-        await_signal(&mut read_done_rx, "background poll read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "background poll read").await;
 
         // Notification at ts=200 (newer) -> emit polled@100 then notification@200.
         note_tx
             .send((x, datapoint(200, 2.0)))
-            .context("sending notification")?;
+            .expect("sending notification should not fail");
 
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1444,8 +1439,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(samples.len(), 2, "both polled and notification should emit");
-        let (_, sample) = samples.first().context("missing polled sample")?;
-        let (_, notification) = samples.get(1).context("missing notification sample")?;
+
+        let (_, sample) = samples.first().expect("should have a polled sample");
+        let (_, notification) = samples.get(1).expect("should have a notification sample");
+
         assert_eq!(
             sample.server_timestamp,
             Some(100),
@@ -1457,7 +1454,7 @@ mod tests {
     }
 
     /// Buffered polled samples that never meet a notification are flushed when the stream closes.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn flush_on_exit_drains_buffer() -> Result<()> {
         let x = test_node(1, "Static");
         let (reader, _state, mut read_done_rx) = MockNodeReader::new(7);
@@ -1474,10 +1471,10 @@ mod tests {
         ));
 
         // One tick buffers a polled sample; close the stream before any further tick flushes it.
-        pulse_tx.send(()).context("pulsing poll tick")?;
-        await_signal(&mut read_done_rx, "background poll read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "background poll read").await;
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1490,7 +1487,7 @@ mod tests {
             "exit drain should flush the buffered sample"
         );
 
-        let (node_id, sample) = samples.first().context("missing drained sample")?;
+        let (node_id, sample) = samples.first().expect("should have a drained sample");
         assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(7));
 
@@ -1499,7 +1496,7 @@ mod tests {
 
     /// A node that notifies during one interval is excluded from that interval's poll, but is
     /// polled again once it goes quiet (the `quiet_nodes` reset each tick).
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn quiet_node_repolled_after_going_quiet() -> Result<()> {
         let x = test_node(1, "Static");
         let y = test_node(2, "Active");
@@ -1517,33 +1514,30 @@ mod tests {
         ));
 
         // Tick 1: both nodes quiet -> both polled.
-        pulse_tx.send(()).context("pulsing tick 1")?;
-        await_signal(&mut read_done_rx, "tick 1 read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "tick 1 read").await;
 
         // Y notifies -> removed from quiet for the current interval.
         note_tx
             .send((y.clone(), datapoint(10, 1.0)))
-            .context("sending Y notification")?;
+            .expect("sending Y notification should not fail");
 
-        recv_nonempty(&mut out_rx, "Y notification batch").await?;
+        recv_nonempty(&mut out_rx, "Y notification batch").await;
 
         // Tick 2: Y excluded (it notified), only X polled.
-        pulse_tx.send(()).context("pulsing tick 2")?;
-        await_signal(&mut read_done_rx, "tick 2 read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "tick 2 read").await;
 
         // Tick 3: Y has gone quiet again -> polled once more.
-        pulse_tx.send(()).context("pulsing tick 3")?;
-        await_signal(&mut read_done_rx, "tick 3 read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "tick 3 read").await;
 
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
         let _ = drain_batches(&mut out_rx);
 
-        let requested = state
-            .lock()
-            .map_err(|_| anyhow!("state poisoned"))?
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
+
         assert_eq!(requested.len(), 3, "expected three poll reads");
 
         let both = HashSet::from([x.clone(), y.clone()]);
@@ -1566,7 +1560,7 @@ mod tests {
     /// Without a poll interval there is no timer, so no background reads occur: only subscription
     /// notifications are emitted. This is the control proving polling — not the subscription —
     /// drives the periodic samples in the other tests.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn none_interval_emits_only_notifications() -> Result<()> {
         let x = test_node(1, "Static");
         let (reader, state, _read_done_rx) = MockNodeReader::new(1);
@@ -1584,9 +1578,9 @@ mod tests {
 
         note_tx
             .send((x.clone(), datapoint(7, 9.5)))
-            .context("sending notification")?;
+            .expect("sending notification should not fail");
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1594,15 +1588,11 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(samples.len(), 1, "only the notification should be emitted");
-        let (node_id, sample) = samples.first().context("missing notification sample")?;
+        let (node_id, sample) = samples.first().expect("should have a notification sample");
         assert_eq!(node_id, &x);
         assert_eq!(sample.server_timestamp, Some(7));
 
-        let requested = state
-            .lock()
-            .map_err(|_| anyhow!("state poisoned"))?
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
         assert!(
             requested.is_empty(),
             "no background reads should occur without a poll interval"
@@ -1613,7 +1603,7 @@ mod tests {
 
     /// A static node keeps producing polled samples while an active node's notifications are
     /// delivered, validating the mixed subscription + polling case.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn mixed_static_and_active() -> Result<()> {
         let x = test_node(1, "Static");
         let y = test_node(2, "Active");
@@ -1635,25 +1625,25 @@ mod tests {
         // Active node notifies.
         note_tx
             .send((y.clone(), datapoint(5, 1.0)))
-            .context("sending Y notification")?;
-        batches.push(recv_nonempty(&mut out_rx, "first Y notification").await?);
+            .expect("sending Y notification should not fail");
+        batches.push(recv_nonempty(&mut out_rx, "first Y notification").await);
 
         // Poll tick produces a sample for the static node.
-        pulse_tx.send(()).context("pulsing tick 1")?;
-        await_signal(&mut read_done_rx, "tick 1 read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "tick 1 read").await;
 
         // Active node notifies again.
         note_tx
             .send((y.clone(), datapoint(6, 2.0)))
-            .context("sending second Y notification")?;
-        batches.push(recv_nonempty(&mut out_rx, "second Y notification").await?);
+            .expect("sending second Y notification should not fail");
+        batches.push(recv_nonempty(&mut out_rx, "second Y notification").await);
 
         // Another poll tick for the static node.
-        pulse_tx.send(()).context("pulsing tick 2")?;
-        await_signal(&mut read_done_rx, "tick 2 read").await?;
+        pulse_tx.send(()).expect("sending tick should not fail");
+        await_signal(&mut read_done_rx, "tick 2 read").await;
 
         drop(note_tx);
-        await_loop(handle).await?;
+        await_loop(handle).await;
         batches.extend(drain_batches(&mut out_rx));
 
         let samples = batches.into_iter().flatten().collect::<Vec<_>>();
@@ -1685,7 +1675,7 @@ mod tests {
     /// On a poll tick after the client is dropped, the loop breaks *before* flushing or reading:
     /// it terminates without a stream close and issues no further read. The single buffered
     /// sample is still emitted by the exit drain.
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[tokio::test]
     async fn breaks_before_flush_on_dropped_client() -> Result<()> {
         let x = test_node(1, "Static");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(1);
@@ -1704,18 +1694,15 @@ mod tests {
         ));
 
         // First tick buffers a polled sample.
-        pulse_tx.send(()).context("pulsing tick 1")?;
-        await_signal(&mut read_done_rx, "tick 1 read").await?;
+        pulse_tx.send(()).expect("sending tick 1 should not fail");
+        await_signal(&mut read_done_rx, "tick 1 read").await;
 
         // Simulate the client being dropped, then tick again. The loop should break.
-        state
-            .lock()
-            .map_err(|_| anyhow!("state poisoned"))?
-            .is_alive = false;
-        pulse_tx.send(()).context("pulsing tick 2")?;
+        state.lock().unwrap().is_alive = false;
+        pulse_tx.send(()).expect("sending tick 2 should not fail");
 
         // The stream is never closed; the loop must terminate solely via the liveness check.
-        await_loop(handle).await?;
+        await_loop(handle).await;
 
         let samples = drain_batches(&mut out_rx)
             .into_iter()
@@ -1728,15 +1715,11 @@ mod tests {
             1,
             "only the buffered sample should be drained on exit"
         );
-        let (_, sample) = samples.first().context("missing drained sample")?;
+        let (_, sample) = samples.first().expect("should have a drained sample");
         assert_eq!(sample.server_timestamp, Some(1));
 
         // Tick 2 broke before reading, so exactly one read (from tick 1) was issued.
-        let requested = state
-            .lock()
-            .map_err(|_| anyhow!("state poisoned"))?
-            .requested
-            .clone();
+        let requested = state.lock().unwrap().requested.clone();
         assert_eq!(
             requested.len(),
             1,
