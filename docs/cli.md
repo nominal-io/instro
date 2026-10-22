@@ -37,7 +37,7 @@ instro --version # prints version information
 
 ### instro discover
 
-Scans all available VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
+Scans VISA resources and serial ports, queries each instrument for its identity, and prints a summary table.
 
 To force a specific VISA backend, pass `--backend`:
 
@@ -54,13 +54,15 @@ The `@ivi` backend finds an available IVI-compliant backend on your system e.g. 
 
 Before scanning, the command prints which VISA backend is active (`@ivi`, or `@py` when no IVI VISA is installed). On the `@py` backend it also lists any interfaces the scan cannot cover — for example `GPIB: unavailable — gpib_ctypes is installed but could not locate the gpib library (install NI-488.2 or linux-gpib)` — so you know when an empty result reflects a missing library rather than an empty bench. These notes are informational; the scan still runs and the command exits 0.
 
-The command groups results into up to three tables.
+The command groups results into up to four tables.
 
-**Recognized devices** — instruments with a known driver. The table shows the VISA resource address, instrument category, and the `instro` driver class to use.
+**Recognized devices** — instruments with a known driver. The table shows the VISA resource address, instrument category, and the `instro` driver class to use. A serial instrument also shows the serial settings it answered with.
 
-**Serial devices** — serial ports detected by the OS. These are listed separately because serial instruments require manual configuration; `instro discover` cannot query them automatically.
+**Serial ports not identified** — serial ports that did not answer `*IDN?` at the default serial settings (9600 baud, 8N1, no flow control), with the reason. A serial port carries no identity of its own, so a port that does not answer is listed here with a note to configure its serial settings manually.
 
 **Unrecognized devices** — instruments that responded to `*IDN?` but did not match any known driver. The raw IDN response is shown so you can identify the device.
+
+**Errors** — non-serial resources that were listed but could not be identified, with an actionable hint where one is known.
 
 If no devices are found at all, the command prints a single error panel; on the `@py` backend the panel repeats any unavailable interfaces.
 
@@ -82,37 +84,30 @@ If your instrument appears in the **Unrecognized devices** table, `instro` does 
 
 ### Discovering programmatically
 
-`instro discover` is a thin wrapper around `scan_visa_resources`, which is also available directly from `instro.lib` for use in your own scripts:
+`instro discover` is a renderer over `instro.lib.discover.discover`, which your own scripts and test fixtures can call directly:
 
 ```python
-from instro.lib import scan_visa_resources
+from instro.lib.discover import discover
 
-result = scan_visa_resources()
+report = discover(extra_resources=["TCPIP0::10.0.0.5::5025::SOCKET"])  # LAN sockets VISA doesn't enumerate
 
-for info in result.instruments:
+for info in report.instruments:
     print(info.resource, info.category, info.driver_name)
 
-for unrecognized in result.unrecognized:
-    print(unrecognized.resource, unrecognized.idn)
-
-for error in result.errors:
+for error in report.errors:
     print(error.resource, error.hint or error.message)
 ```
 
-`scan_visa_resources` accepts the same `backend` the CLI's `--backend` flag does, plus an optional `timeout` (seconds per instrument query, default `2`) that the CLI doesn't currently expose. It returns a `VisaScanResult` with `instruments` (`DiscoveredInstrument`), `unrecognized` (`VisaUnrecognizedInstrument`), and `errors` (`VisaScanError`) — the same data the CLI renders into the tables above.
+`discover` returns a `DiscoveryReport` with `instruments`, `unrecognized`, `errors`, `skipped`, and the OS `serial_ports`; `report.by_category("psu")` filters the instruments. Its keyword arguments cover the backend, extra resources, ports to exclude, the serial probe policy and settings, the per-probe timeout, which discovery `sources` run (only `visa` exists today), and an `on_event` progress callback; see the [API reference](/sdk/library/discover.md).
 
-Each `DiscoveredInstrument` can build what you need next, so a script never re-derives the driver from the resource string:
+Each `DiscoveredInstrument` builds what you need next, so a script never re-derives the driver from the resource string:
 
 ```python
 from instro.psu import InstroPSU
 
-psu_info = next(i for i in result.instruments if i.category == "psu")
-
-# a ready-to-open driver (VisaConfig with the backend the scan was asked for)
+psu_info = report.by_category("psu")[0]
 psu = InstroPSU(name="psu", driver=psu_info.make_driver(), num_channels=psu_info.num_channels)
-
-# or the ``driver`` block of a JSON config, for InstroPSU(config=...)
-driver_block = psu_info.config_block()
+driver_block = psu_info.config_block()  # the ``driver`` block of a JSON config, for InstroPSU(config=...)
 ```
 
-`visa_config()` returns the `VisaConfig` on its own, and `driver_class()` the driver class, when you want to construct the driver yourself.
+`visa_config()` and `driver_class()` give you the pieces when you want to construct the driver yourself. The layers under `discover` are public too: `enumerate_candidates()` lists what could be probed without touching anything, `identify(resource)` runs a single `*IDN?` probe, `match_idn(idn)` maps an identity string you already have to a driver, and `scan_visa_resources()` remains as a VISA-only wrapper with serial probing disabled.

@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import re
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from instro.lib.registry import (
 )
 
 _SIMULATED_PREFIX = "Simulated"
+# Found through the vendor SDK's own enumeration, not *IDN?.
+_SDK_ENUMERATED = {"NIDAQDriver", "LabJackTSeriesDriver", "MCCDriver"}
 
 
 @pytest.mark.parametrize(
@@ -23,14 +26,17 @@ _SIMULATED_PREFIX = "Simulated"
 )
 def test_every_registered_driver_is_discoverable(category: str, driver_name: str, entry: DriverEntry) -> None:
     """A driver in a vendor registry without an IDN pattern is configurable but invisible to discovery."""
-    if driver_name.startswith(_SIMULATED_PREFIX):
+    if driver_name.startswith(_SIMULATED_PREFIX) or driver_name in _SDK_ENUMERATED:
         assert entry.idn_patterns == ()
-        return
-    assert entry.idn_patterns, f"{category}.{driver_name} has no IdnPattern; `instro discover` cannot recognize it"
+    else:
+        assert entry.idn_patterns, f"{category}.{driver_name} has no IdnPattern; `instro discover` cannot recognize it"
     for pattern in entry.idn_patterns:
         assert pattern.vendors
         assert pattern.model.startswith("^"), f"{category}.{driver_name}: anchor the model regex {pattern.model!r}"
         re.compile(pattern.model)
+    vendor_package = entry.path.rsplit(".", 2)[0]  # instro.daq.drivers.ni.nidaq.NIDAQDriver -> instro.daq.drivers.ni
+    if importlib.util.find_spec(vendor_package) is None:
+        pytest.skip(f"{vendor_package} is not installed")
     assert entry.class_name == entry.load().__name__
 
 
@@ -42,7 +48,7 @@ def test_idn_pattern_matching_rules() -> None:
 
 
 def test_driver_registry_is_empty_for_categories_without_config() -> None:
-    assert driver_registry("daq") == {}
+    assert driver_registry("modbus") == {}
 
 
 def test_categories_covers_every_vendor_registry() -> None:
@@ -54,11 +60,21 @@ def test_categories_covers_every_vendor_registry() -> None:
     assert with_registry == set(CATEGORIES)
 
 
+def test_daq_registry_resolves_vendor_drivers_by_name_without_importing_them() -> None:
+    daq = driver_registry("daq")
+    assert {"Keysight34980A", "NIDAQDriver", "LabJackTSeriesDriver", "MCCDriver"} <= set(daq)
+    assert daq["NIDAQDriver"].path.startswith("instro.daq.drivers.ni.")
+    assert daq["Keysight34980A"].idn_patterns  # a VISA DAQ: discoverable by *IDN? like any SCPI instrument
+
+
 @pytest.mark.parametrize("category", CATEGORIES)
 def test_registry_channel_counts_match_the_config_model(category: str) -> None:
     """Every registered pattern can produce a config block the category's driver config accepts."""
     config = importlib.import_module(f"instro.{category}.config")
-    check_registry(category, driver_registry(category), config.VisaDriverConfig)
+    driver_config = getattr(config, "VisaDriverConfig", None)
+    if driver_config is None:
+        pytest.skip(f"{category} has no JSON driver config yet")
+    check_registry(category, driver_registry(category), driver_config)
 
 
 def test_check_registry_enforces_num_channels_in_both_directions() -> None:
