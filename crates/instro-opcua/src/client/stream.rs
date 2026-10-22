@@ -298,9 +298,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn stream_session_doesnt_propagate_panics() -> Result<()> {
-        let session = session(async || {
-            panic!("shouldn't appear")
-        });
+        let session = session(async || panic!("shouldn't appear"));
 
         timeout(Duration::from_millis(2), session.stop())
             .await
