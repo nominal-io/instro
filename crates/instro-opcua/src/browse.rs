@@ -89,10 +89,14 @@ impl<T: Browse> BrowseAll for T {
 impl Browse for OpcUaClient {
     async fn browse_node(&self, node_id: OpcUaNodeId) -> Result<Vec<OpcUaNode>> {
         let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id.into());
-        let (mut all_refs, mut cont_pt) = self.browse(&browse_desc).await?;
+        let (mut all_refs, mut cont_pt) = self
+            .with_client(async |client| client.browse(&browse_desc).await)
+            .await??;
 
         while let Some(cp) = cont_pt {
-            let mut results = self.browse_next(&[cp]).await?;
+            let mut results = self
+                .with_client(async |client| client.browse_next(&[cp]).await)
+                .await??;
 
             match results.pop() {
                 Some(result) => {
