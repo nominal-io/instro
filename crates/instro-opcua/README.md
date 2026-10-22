@@ -2,7 +2,9 @@
 
 Rust OPC UA client utilities for browsing nodes, reading values, and polling or subscribing to samples.
 
-This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with instro-owned types for connection configuration, node metadata, read batches, and sample values.
+This crate is the pure-Rust OPC UA core for instro. It wraps `open62541` with
+instro-owned connection configuration, node metadata, and read batch types while
+exposing native `open62541::ua` types for OPC UA values.
 
 ## Installation
 
@@ -18,28 +20,26 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ## Usage
 
 ```rust
-use instro_opcua::browse::BrowseAll as _;
-use instro_opcua::client::{OpcUaClientBuilder, OpcUaNodeReadBatch};
-use instro_opcua::types::{
-    OpcUaAttributeId, OpcUaNodeId, OpcUaPki, OpcUaSecurityMode, OpcUaSecurityPolicy,
-    OpcUaUserToken,
-};
+use instro_opcua::prelude::*;
+use tokio::runtime::Runtime;
 
 fn main() -> anyhow::Result<()> {
-    let client = OpcUaClientBuilder::new()
-        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned()))
-        .security_mode(OpcUaSecurityMode::None)
-        .security_policy(OpcUaSecurityPolicy::None)
-        .pki(OpcUaPki::None)
+    let client = ClientBuilder::new()
+        .with_identity_token(
+            ua::UserIdentityToken::Anonymous(ua::AnonymousIdentityToken::init())
+        )
+        .with_security_mode(ua::MessageSecurityMode::NONE)
+        .with_security_policy(SecurityPolicyUri::none())
+        .with_pki(PkiConfig::None)
         .connect("opc.tcp://127.0.0.1:4840")?;
 
-    let node_id: OpcUaNodeId = "ns=0;i=85".parse()?;
+    let node_id: ua::NodeId = "ns=0;i=85".parse()?;
     let nodes = client.browse_all(node_id, Some(2), None);
 
-    let runtime = tokio::runtime::Runtime::new()?;
+    let runtime = Runtime::new()?;
     let nodes = runtime.block_on(nodes)?;
     let node_ids: Vec<_> = nodes.into_iter().map(|node| node.node_id).collect();
-    let batch = OpcUaNodeReadBatch::new(node_ids, OpcUaAttributeId::Value);
+    let batch = NodeReadBatch::new_cartesian(&node_ids, &[ua::AttributeId::VALUE]);
     let samples = runtime.block_on(client.read_nodes(&batch))?;
 
     println!("read {} samples", samples.count());

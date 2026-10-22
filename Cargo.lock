@@ -56,21 +56,20 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.72.1"
+version = "0.73.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+checksum = "787ef8ef523575546b106a58213d6e6b06198a05c2f757258c68a74273670cfa"
 dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools",
  "log",
  "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
- "shlex 1.3.0",
+ "shlex",
  "syn",
 ]
 
@@ -94,12 +93,12 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cc"
-version = "1.2.65"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e228eec9be7c17ccb640b59b36a5cd805ea2a564a4c5e162c2f659fea30d3b96"
+checksum = "6651c9ed80effdc7db0ff72512157f901af5e3549e341e24b1dd4887d836d838"
 dependencies = [
  "find-msvc-tools",
- "shlex 2.0.1",
+ "shlex",
 ]
 
 [[package]]
@@ -225,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.9"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
 
 [[package]]
 name = "futures"
@@ -397,7 +396,7 @@ dependencies = [
  "instro-opcua-test",
  "instro-test-utils",
  "itertools",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "serde",
  "serde_json",
@@ -422,7 +421,7 @@ name = "instro-opcua-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "tokio",
  "tracing",
@@ -542,6 +541,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "nominal-open62541"
+version = "0.12.1"
+source = "git+https://github.com/cartercanedy/open62541-rs?rev=97cde3121931a5fb8d698b762d694058852a7aaf#97cde3121931a5fb8d698b762d694058852a7aaf"
+dependencies = [
+ "derive_more",
+ "futures-channel",
+ "futures-core",
+ "log",
+ "open62541-sys",
+ "parking_lot",
+ "paste",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "uuid",
+ "x509-certificate",
+ "zeroize",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -581,33 +602,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "open62541"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8df43a9e4e7c823145e2ef608a7e6849918f64f1c194db596aff7ffa1ad7babd"
-dependencies = [
- "derive_more",
- "futures-channel",
- "futures-core",
- "log",
- "open62541-sys",
- "parking_lot",
- "paste",
- "serde",
- "serde_json",
- "thiserror",
- "time",
- "tokio",
- "uuid",
- "x509-certificate",
- "zeroize",
-]
-
-[[package]]
 name = "open62541-sys"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "800f40fa51329133c7746f575056e9ffdd8cbc0d0bc2d0c93df4fa99f5d44a1e"
+version = "0.6.4"
+source = "git+https://github.com/cartercanedy/open62541-sys?rev=2b828681a6ea9001022ecd43b0541d2ffe2e155c#2b828681a6ea9001022ecd43b0541d2ffe2e155c"
 dependencies = [
  "bindgen",
  "cc",
@@ -970,12 +967,6 @@ checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
 ]
-
-[[package]]
-name = "shlex"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "shlex"

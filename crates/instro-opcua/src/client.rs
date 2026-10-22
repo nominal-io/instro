@@ -1,34 +1,53 @@
-//! OPC-UA client wrapper and streaming session management.
+//! # Instro OPC UA Client
 //!
-//! [`OpcUaClient`] wraps an [`open62541::AsyncClient`] and derefs to it for
-//! transparent access to the underlying OPC-UA operations. Each session runs on its
-//! own single-threaded tokio [`Runtime`](tokio::runtime::Runtime) and driving thread,
-//! started when the session is constructed. Calling [`OpcUaStreamSession::stop`],
-//! [`OpcUaStreamSession::stop_timeout`], or dropping the session will trigger a
-//! cooperative shutdown of the runtime and thread.
+//! ## [`ClientBuilder`] & [`Client`]
 //!
-//! [`OpcUaClientBuilder`] provides a builder API for configuring security mode,
-//! security policy, user authentication, PKI certificates, timeouts, and
-//! server trust before connecting to an endpoint.
+//! [`ClientBuilder`] wraps the [`open62541::ClientBuilder`] and provides additional flexibility
+//! when configuring the connection.
 //!
-//! [`OpcUaStreamSession`] manages background OPC-UA streaming. In polling mode it
-//! periodically reads node attribute values via [`OpcUaClient::read_nodes`] and
-//! delivers each batch of decoded ([`OpcUaNodeId`], [`OpcUaDataPoint`]) pairs
-//! through a caller-supplied callback. In subscription mode it forwards
-//! monitored-item notifications via a merged [`Stream`](futures_util::stream::Stream)
-//! of all monitored items, delivering each sample through the same `on_data` callback.
+//! [`Client`] wraps an [`AsyncClient`] with a performant, streaming- and configuration-oriented API.
+//! Access to the underlying client is provided via [`Client::with_client`], so the client can be
+//! used directly for other operations.
 //!
-//! Streams are started with [`OpcUaClient::start_polling`] or
-//! [`OpcUaClient::start_subscription`]. Both modes of streaming are stopped by
-//! dropping the [`OpcUaStreamSession`].
+//! ## Streaming Sessions
+//!
+//! Each session runs on its own thread, inside of a single-threaded tokio
+//! [`Runtime`](tokio::runtime::Runtime) started when the session is constructed. Calling
+//! [`StreamSession::stop`], [`StreamSession::stop_timeout`], or dropping the session will
+//! trigger a cooperative shutdown of the runtime and thread.
+//!
+//! There are two modes of streaming: polling and subscribing. Regardless of mode, both accept
+//! an `on_data` callback, which is invoked with each batch of unfiltered ([`ua::NodeId`],
+//! [`open62541::DataValue`]) pairs. The session is managed opaquely by the [`StreamSession`] type.
+//!
+//! ### Polling
+//!
+//! Polling is started with [`Client::start_polling`], which configures a [`StreamSession`] to
+//! periodically read the `Value` attribute for every node in `nodes` at the specified
+//! `polling_interval`. It's the simplest mode, but comes with the overhead of polling all nodes
+//! at every tick, which may be unnecessary for nodes that are not changing frequently.
+//!
+//! ### Subscriptions
+//!
+//! Subscriptions are started with [`Client::start_subscription`], which configures a
+//! [`StreamSession`] to forward monitored-item notifications via a merged [`Stream`] of all
+//! monitored items, delivering each sample through the same `on_data` callback.
+//!
+//! In general, subscriptions are more efficient than polling in terms of network traffic and
+//! client resource usage and more generally applicable than imperatively polling. However, this
+//! benefit comes at a cost: configuration of a subscription is more complex, and may introduce more
+//! work for the server, depending on the system implementation.
+//!
 
-use std::borrow::Cow;
+mod batch;
+mod stream;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future;
+use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::sync::Weak;
-use std::thread;
 use std::time::Duration;
 
 use futures_util::FutureExt as _;
@@ -40,302 +59,58 @@ use itertools::Itertools as _;
 use open62541::AsyncClient;
 use open62541::AsyncMonitoredItem;
 use open62541::Certificate;
-use open62541::ClientBuilder;
+use open62541::ClientBuilder as UaClientBuilder;
 use open62541::DataType;
+use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
 use open62541::PrivateKey;
 use open62541::SubscriptionBuilder;
+use open62541::create_certificate;
 use open62541::ua;
-use tokio::runtime;
+use serde::Deserialize;
+use serde::Serialize;
 use tokio::sync::RwLock;
-use tokio::sync::oneshot;
-use tokio::sync::watch;
 use tokio::task::yield_now;
-use tokio::time::Interval;
-use tokio::time::MissedTickBehavior;
 use tokio::time::interval;
-use tokio::time::timeout;
+use zeroize::Zeroize as _;
 
-use super::OpcUaError;
-use super::Result;
-use super::generate_self_signed_cert;
-use super::metrics::NodeReadCounts;
-use super::metrics::PollLoopMetricsLogger;
-use super::types::OpcUaDataPoint;
-use super::types::OpcUaMonitoredItemConfig;
-use super::types::OpcUaPki;
-use super::types::OpcUaSecurityMode;
-use super::types::OpcUaSecurityPolicy;
-use super::types::OpcUaSubscriptionConfig;
-use super::types::OpcUaUserToken;
-use crate::bail;
+pub use self::batch::NodeReadBatch;
+use self::stream::ClientNodeReader;
+use self::stream::IntervalPollTimer;
+use self::stream::NodeReader;
+use self::stream::PollTimer;
+pub use self::stream::StreamSession;
+use crate::Result;
 use crate::error::ErrorExt as _;
+use crate::error::OpcUaError;
 use crate::error::UaErrorExt as _;
-use crate::types::OpcUaAttributeId;
-use crate::types::OpcUaNodeId;
-
-/// Enables capture of multiple patterns of ownership of a list.
-pub trait IntoList<'list, T>
-where
-    [T]: ToOwned + 'list,
-{
-    /// Converts the source into a list of nodes, attempting to preserve the value category of the underlying source.
-    fn into_list(self) -> Cow<'list, [T]>;
-}
-
-impl<'list, T> IntoList<'list, T> for &'list [T]
-where
-    [T]: ToOwned + 'list,
-{
-    fn into_list(self) -> Cow<'list, [T]> {
-        Cow::Borrowed(self)
-    }
-}
-
-impl<T> IntoList<'static, T> for Vec<T>
-where
-    [T]: ToOwned<Owned = Vec<T>> + 'static,
-{
-    fn into_list(self) -> Cow<'static, [T]> {
-        Cow::Owned(self)
-    }
-}
-
-impl<'item, T> IntoList<'item, T> for &'item T
-where
-    [T]: ToOwned + 'item,
-{
-    fn into_list(self) -> Cow<'item, [T]> {
-        Cow::Borrowed(std::slice::from_ref(self))
-    }
-}
-
-impl<'list, T> IntoList<'list, T> for Cow<'list, [T]>
-where
-    [T]: ToOwned + 'list,
-{
-    fn into_list(self) -> Cow<'list, [T]> {
-        self
-    }
-}
-
-impl<T, const N: usize> IntoList<'static, T> for [T; N]
-where
-    [T]: ToOwned<Owned = Vec<T>> + 'static,
-{
-    fn into_list(self) -> Cow<'static, [T]> {
-        Vec::from(self).into_list()
-    }
-}
-
-impl<'list, T, const N: usize> IntoList<'list, T> for &'list [T; N]
-where
-    [T]: ToOwned + 'list,
-{
-    fn into_list(self) -> Cow<'list, [T]> {
-        Cow::Borrowed(self)
-    }
-}
-
-impl<T> IntoList<'static, T> for T
-where
-    [T]: ToOwned<Owned = Vec<T>> + 'static,
-{
-    fn into_list(self) -> Cow<'static, [T]> {
-        [self].into_list()
-    }
-}
-
-/// A list of OPC-UA nodes, paired with an attribute ID.
-/// Opinionated against taking ownership of nodes via a clone, instead accepting a borrow or move of the nodes.
-/// Pre-calculates the list of node attribute pairs to avoid recalculating on every read request.
-#[derive(Debug, Clone)]
-pub struct OpcUaNodeReadBatch<'nodes, 'attrs> {
-    nodes: Cow<'nodes, [OpcUaNodeId]>,
-    attrs: Cow<'attrs, [OpcUaAttributeId]>,
-    node_attr_pairs: Vec<(ua::NodeId, ua::AttributeId)>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct BatchIter<'batch> {
-    nodes: &'batch [OpcUaNodeId],
-    attrs: &'batch [OpcUaAttributeId],
-    index: usize,
-}
-
-impl<'batch> BatchIter<'batch> {
-    pub const fn new(nodes: &'batch [OpcUaNodeId], attrs: &'batch [OpcUaAttributeId]) -> Self {
-        Self {
-            nodes,
-            attrs,
-            index: 0,
-        }
-    }
-}
-
-impl<'batch> Iterator for BatchIter<'batch> {
-    type Item = (&'batch OpcUaNodeId, &'batch OpcUaAttributeId);
-
-    fn next(&mut self) -> Option<(&'batch OpcUaNodeId, &'batch OpcUaAttributeId)> {
-        let node_idx = self.index.checked_div(self.attrs.len())?;
-        let attr_idx = self.index.checked_rem(self.attrs.len())?;
-
-        let node = self.nodes.get(node_idx)?;
-        let attr = self.attrs.get(attr_idx)?;
-
-        self.index += 1;
-
-        Some((node, attr))
-    }
-}
-
-impl<'nodes, 'attrs> OpcUaNodeReadBatch<'nodes, 'attrs> {
-    /// Creates a new batch of nodes and attribute pairs.
-    pub fn new<N, A>(nodes: N, attrs: A) -> Self
-    where
-        N: IntoList<'nodes, OpcUaNodeId>,
-        A: IntoList<'attrs, OpcUaAttributeId>,
-    {
-        let nodes = nodes.into_list();
-        let attrs = attrs.into_list();
-
-        Self {
-            node_attr_pairs: nodes
-                .iter()
-                .map(ua::NodeId::from)
-                .flat_map(|node| {
-                    std::iter::repeat(node).zip(attrs.iter().copied().map(ua::AttributeId::from))
-                })
-                .collect_vec(),
-            nodes,
-            attrs,
-        }
-    }
-
-    /// Returns the list of nodes, used in read requests.
-    pub const fn nodes(&self) -> &[OpcUaNodeId] {
-        match self.nodes {
-            Cow::Borrowed(nodes) => nodes,
-            Cow::Owned(ref nodes) => nodes.as_slice(),
-        }
-    }
-
-    /// Returns the attributes to be read for each node.
-    pub const fn attrs(&self) -> &[OpcUaAttributeId] {
-        match self.attrs {
-            Cow::Borrowed(attrs) => attrs,
-            Cow::Owned(ref attrs) => attrs.as_slice(),
-        }
-    }
-
-    /// Returns the number of nodes in the batch.
-    pub const fn len(&self) -> usize {
-        // there's a practical limit to the number of nodes and attributes that can be read.
-        // It's safe to assume that this will never exceed usize::MAX.
-        self.node_attr_pairs.len()
-    }
-
-    /// Returns whether the batch is empty.
-    pub const fn is_empty(&self) -> bool {
-        self.node_attr_pairs.is_empty()
-    }
-
-    const fn pairs(&self) -> &[(ua::NodeId, ua::AttributeId)] {
-        self.node_attr_pairs.as_slice()
-    }
-
-    /// Returns an iterator over the node-attribute pairs in the batch.
-    /// The order of the pairs is guaranteed to be in the same order as the nodes and attributes in the batch.
-    /// (i.e. they index the list of values returned by [`OpcUaClient::read_nodes`])
-    ///
-    /// Example:
-    /// ```
-    /// use instro_opcua::{client::{OpcUaClient, OpcUaNodeReadBatch}, types::{OpcUaNodeId, OpcUaAttributeId}};
-    ///
-    /// # fn example(client: &OpcUaClient) {
-    /// let nodes = [OpcUaNodeId::str(1, "GVL.Main.sStatus"), OpcUaNodeId::str(2, "GVL.Main.fSensor")];
-    /// let attrs = [OpcUaAttributeId::Value];
-    /// let batch = OpcUaNodeReadBatch::new(&nodes, &attrs);
-    /// let mut iter = batch.keys();
-    /// assert_eq!(iter.next().unwrap(), (&nodes[0], &attrs[0])); // ("GVL.Main.sStatus", "Value")
-    /// assert_eq!(iter.next().unwrap(), (&nodes[1], &attrs[0])); // ("GVL.Main.fSensor", "Value")
-    /// # }
-    /// ```
-    pub const fn keys(&self) -> BatchIter<'_> {
-        BatchIter::new(self.nodes(), self.attrs())
-    }
-}
-
-type TerminationReceiver = watch::Receiver<bool>;
-type StopSender = oneshot::Sender<()>;
+use crate::error::bail;
+use crate::metrics::NodeReadCounts;
+use crate::metrics::PollLoopMetricsLogger;
 
 #[derive(Debug)]
-struct SessionHandle {
-    stop_tx: StopSender,
-    term_rx: TerminationReceiver,
-}
-
-impl SessionHandle {
-    /// Sends a stop signal to the session, synchronizing on session termination on the remote thread.
-    fn stop(self) -> impl Future<Output = ()> {
-        let Self {
-            stop_tx,
-            mut term_rx,
-        } = self;
-        if *term_rx.borrow_and_update() {
-            return future::ready(()).left_future();
-        }
-
-        _ = stop_tx.send(());
-
-        async move {
-            match term_rx.changed().await {
-                Ok(()) => (),
-                Err(e) => tracing::warn!(
-                    target: "opcua::client::session_handle",
-                    err = ?e,
-                    "synchronization with remote streaming session likely resulted in a panic on the streaming thread"
-                ),
-            }
-        }
-        .right_future()
-    }
-
-    /// Checks the status of the session and returns `true` if it has been stopped.
-    fn has_stopped(&self) -> bool {
-        if let Err(e) = self.term_rx.has_changed() {
-            tracing::debug!(
-                target: "opcua::client::session_handle",
-                err = ?e,
-                "stream session handle was dropped unexpectedly"
-            );
-
-            true
-        } else {
-            *self.term_rx.borrow()
-        }
-    }
-}
-
-#[derive(Debug)]
-/// Wraps an [`AsyncClient`].
+/// Wraps an [`AsyncClient`] with high-performance telemetry-streaming-oriented API designed for long-lived applications.
 ///
-/// The client is created by the [`OpcUaClientBuilder::connect`] method, which returns an [`Arc`] of the client.
-/// Streaming sessions started from this client own their own tokio runtime; see [`OpcUaStreamSession`].
-pub struct OpcUaClient {
-    client: RwLock<Option<AsyncClient>>,
+/// The client is configured and created via [`ClientBuilder`].
+/// Streaming sessions started from this client own their own tokio runtime; see [`StreamSession`].
+pub struct Client {
+    client: Arc<RwLock<Option<AsyncClient>>>,
 }
 
-type ReadNodeItem<'batch> = (
-    (&'batch OpcUaNodeId, &'batch OpcUaAttributeId),
-    OpcUaDataPoint,
-);
+type VariantValue = DataValue<ua::Variant>;
+type ReadNodeItem<'batch> = ((&'batch ua::NodeId, &'batch ua::AttributeId), VariantValue);
 
-impl OpcUaClient {
+impl Client {
+    pub(crate) fn upgrade(client: Weak<RwLock<Option<AsyncClient>>>) -> Option<Self> {
+        client.upgrade().map(|client| Self {
+            client: Arc::clone(&client),
+        })
+    }
+
     /// Gracefully disconnects from the server.
     ///
     /// This method will synchronize with disconnection of the client from the server.
-    pub async fn disconnect(self: Arc<Self>) {
+    pub async fn disconnect(&self) {
         let client = {
             // tokio's `RwLock` should give us fair write-starvation protection
             let Some(client) = self.client.write().await.take() else {
@@ -364,41 +139,45 @@ impl OpcUaClient {
     }
 
     /// Starts polling the `VALUE` attribute of `nodes` at `polling_interval`,
-    /// invoking `on_data` with each batch of decoded ([`OpcUaNodeId`], [`OpcUaDataPoint`]) pairs.
+    /// invoking `on_data` with each batch of unfiltered ([`ua::NodeId`],
+    /// [`open62541::DataValue`]) pairs.
     ///
     /// The polling loop runs on a dedicated single-threaded runtime started by the returned
-    /// [`OpcUaStreamSession`].
+    /// [`StreamSession`].
     ///
     /// The runtime and thread are shut down when the session is dropped.
     #[must_use = "dropping the returned session will stop the polling loop"]
-    pub fn start_polling<N>(
-        self: &Arc<Self>,
+    pub fn start_polling<'nodes, N, F>(
+        &self,
         nodes: N,
         polling_interval: Duration,
-        on_data: impl FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
-    ) -> Result<OpcUaStreamSession>
+        on_data: F,
+    ) -> Result<StreamSession>
     where
-        N: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
+        N: IntoIterator<Item = &'nodes ua::NodeId>,
+        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
     {
-        let reader = ClientNodeReader {
-            client: Arc::downgrade(self),
-        };
-        OpcUaStreamSession::new("opcua-poll-loop", async move || {
+        let reader = ClientNodeReader::new(&self.client);
+
+        let nodes = NodeReadBatch::new_cartesian(nodes, &[ua::AttributeId::VALUE]);
+
+        StreamSession::new("opcua-poll-loop", async move || {
             // Downgrade the client to a weak reference to avoid holding onto the strong reference.
             // Increases the chances of success when using `Arc::into_inner` for shutdown.
             Self::poll_loop(reader, nodes, polling_interval, on_data).await;
         })
     }
 
-    /// Reads the configured attribute for every node in `node_list` and returns
-    /// the successfully decoded samples in the same order as the input nodes.
+    /// Reads the configured attribute for every node in `node_list`.
     ///
-    /// Returns [`Err`] if the underlying batched [`AsyncClient::read_many_attributes`] call fails.
-    /// Per-node decoding failures are logged at [`tracing::warn`] and dropped from the
-    /// returned vector, so the output may be shorter than `node_list.len()`.
-    pub async fn read_nodes<'nodes, 'attrs, 'batch>(
+    /// Returns exactly one value for each node and attribute pair, in request order. Values are
+    /// returned unfiltered; callers must inspect [`DataValue::status`] and [`DataValue::value`].
+    ///
+    /// Returns [`Err`] if the underlying batched [`AsyncClient::read_many_attributes`] call fails
+    /// or returns a different number of values than requested.
+    pub async fn read_nodes<'batch>(
         &self,
-        node_list: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
+        node_list: &'batch NodeReadBatch,
     ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>> + use<'batch>> {
         let read_result = self
             .with_client(async |client| {
@@ -418,22 +197,7 @@ impl OpcUaClient {
             )
         }
 
-        Ok(node_list.keys().zip(read_result).enumerate().filter_map(
-            |(i, ((node, attr), value))| match OpcUaDataPoint::try_from(value) {
-                Err(e) => {
-                    tracing::warn!(
-                        target: "opcua::client",
-                        error = ?e,
-                        node_index = i,
-                        "discarding data due to error decoding value for node"
-                    );
-
-                    None
-                }
-
-                Ok(value) => Some(((node, attr), value)),
-            },
-        ))
+        Ok(node_list.keys().zip(read_result))
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
@@ -441,20 +205,20 @@ impl OpcUaClient {
     ///
     /// Subscription creation and monitored-item setup are performed eagerly
     /// before this method returns; the ongoing pump runs on a dedicated single-threaded runtime
-    /// started by the returned [`OpcUaStreamSession`].
+    /// started by the returned [`StreamSession`].
     ///
     /// The runtime and thread are shut down when the session is dropped.
     #[must_use = "dropping the returned session will deregister the subscription"]
-    pub async fn start_subscription<L, F>(
-        self: &Arc<Self>,
-        nodes: L,
-        sub_config: OpcUaSubscriptionConfig,
-        item: OpcUaMonitoredItemConfig,
+    pub async fn start_subscription<'nodes, N, F>(
+        &self,
+        nodes: N,
+        sub_config: SubscriptionConfig,
+        item: SubscriptionItemConfig,
         on_data: F,
-    ) -> Result<OpcUaStreamSession>
+    ) -> Result<StreamSession>
     where
-        L: IntoList<'static, OpcUaNodeId> + Send + Sync + 'static,
-        F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
+        N: IntoIterator<Item = &'nodes ua::NodeId>,
+        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
 
@@ -467,14 +231,14 @@ impl OpcUaClient {
             })
             .await??;
 
-        let this = Arc::downgrade(self);
-
-        let nodes = nodes.into_list();
+        let nodes = nodes.into_iter().collect_vec();
 
         // Configure the `AsyncSubscription` and per-node monitoring config
         let item_builder = item.apply_to_builder(MonitoredItemCreateRequestBuilder::new(
-            nodes.iter().map(|n| ua::NodeId::from(n.clone())),
+            nodes.iter().map(|&node| node.clone()),
         ));
+
+        let nodes = nodes.into_iter().cloned().collect_vec();
 
         let item_results = AsyncMonitoredItem::create(&subscription, item_builder)
             .await
@@ -498,35 +262,11 @@ impl OpcUaClient {
             match result {
                 Ok((create_result, monitored_item)) => {
                     // validation does nothing here beyond emitting warnings
-                    item.validate(&node, &create_result);
-
-                    // Decode here so the subscription loop stays independent of open62541 values.
-                    valid_streams.push(
-                        monitored_item
-                            .filter_map(move |value| {
-                                let node = node.clone();
-                                async {
-                                    match OpcUaDataPoint::try_from(value) {
-                                        Ok(data) => Some((node, data)),
-
-                                        Err(e) => {
-                                            tracing::warn!(
-                                                target: "opcua::client::subscribe",
-                                                error = ?e,
-                                                "Notification for node {node} returned an invalid value, discarding sample"
-                                            );
-
-                                            None
-                                        }
-                                    }
-                                }
-                            })
-                            .boxed(),
-                    );
+                    item.check_result(&node, &create_result);
+                    valid_streams.push(monitored_item.map(move |value| (node.clone(), value)));
                 }
 
                 Err(e) => {
-                    // This should be handled more verbosely in the future
                     tracing::warn!(
                         target: "opcua::client::subscribe",
                         error = ?e,
@@ -544,14 +284,16 @@ impl OpcUaClient {
             )
         }
 
-        let reader = ClientNodeReader { client: this };
+        let reader = ClientNodeReader::new(&self.client);
 
         let timer = sub_config
             .background_poll_interval
             .filter(|period| !period.is_zero())
             .map(IntervalPollTimer::new);
 
-        OpcUaStreamSession::new("opcua-subscription-pump", async move || {
+        let nodes = NodeReadBatch::new_cartesian(&nodes, &[ua::AttributeId::VALUE]);
+
+        StreamSession::new("opcua-subscription-pump", async move || {
             let _subscription = subscription;
             Self::subscription_loop(reader, nodes, select_all(valid_streams), on_data, timer).await;
         })
@@ -560,15 +302,13 @@ impl OpcUaClient {
     /// How often the poll loop emits the aggregated metrics log line.
     const POLL_LOOP_METRICS_FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 
-    /// Polls `nodes` at `polling_interval`, yielding decoded samples through `on_data`.
-    async fn poll_loop<R: NodeReader, N: IntoList<'static, OpcUaNodeId>>(
+    /// Polls `nodes` at `polling_interval`, yielding unfiltered samples through `on_data`.
+    async fn poll_loop<R: NodeReader>(
         reader: R,
-        nodes: N,
+        nodes: NodeReadBatch,
         polling_interval: Duration,
-        mut on_data: impl FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)> + 'static>),
+        mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
     ) {
-        let node_list = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
-        let total_nodes = node_list.nodes().len() as u64;
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
         let mut maybe_interval = if polling_interval.is_zero() {
@@ -587,19 +327,25 @@ impl OpcUaClient {
 
             let read_start = metrics.start_read();
 
-            let (outcome, samples) = match reader.read_nodes(&node_list).await {
+            let (outcome, samples) = match reader.read_nodes(&nodes).await {
                 Ok(values) => {
                     let values = values
                         .map(|((id, _), value)| (id.clone(), value))
                         .collect_vec();
 
-                    let successful_reads = values.len() as u64;
-                    let failed_reads = total_nodes.saturating_sub(successful_reads);
+                    let sample_count = values.len() as u64;
+                    let invalid_samples = values
+                        .iter()
+                        .filter(|(_, value)| {
+                            value.value().is_none()
+                                || value.status().is_some_and(ua::StatusCode::is_bad)
+                        })
+                        .count() as u64;
 
                     (
                         Some(NodeReadCounts {
-                            valid_samples: successful_reads,
-                            invalid_samples: failed_reads,
+                            valid_samples: sample_count.saturating_sub(invalid_samples),
+                            invalid_samples,
                         }),
                         Some(values),
                     )
@@ -634,26 +380,23 @@ impl OpcUaClient {
     /// Notifications are emitted as they arrive and mark their node active for the current
     /// interval. On a poll tick, nodes that did not notify are read directly and buffered for one
     /// tick, giving late notifications a chance to win deduplication by timestamp.
-    async fn subscription_loop<R, N, S, F, T>(
+    async fn subscription_loop<R, S, F, T>(
         reader: R,
-        nodes: N,
+        batch: NodeReadBatch,
         stream: S,
         mut on_data: F,
         mut timer: Option<T>,
     ) where
         R: NodeReader,
-        N: IntoList<'static, OpcUaNodeId>,
-        S: Stream<Item = (OpcUaNodeId, OpcUaDataPoint)> + Send + Unpin + 'static,
-        F: FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>),
+        S: Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static,
+        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
         T: PollTimer,
     {
-        let nodes = nodes.into_list();
-
         // Nodes still quiet in the current interval; notifications remove nodes until the next tick.
-        let mut quiet_nodes = nodes.iter().cloned().collect::<HashSet<_>>();
+        let mut quiet_nodes = batch.nodes().cloned().collect::<HashSet<_>>();
 
         // Poll results wait one tick before flushing so late notifications can dedup by timestamp.
-        let mut polled_nodes = HashMap::<OpcUaNodeId, OpcUaDataPoint>::new();
+        let mut polled_nodes = HashMap::<ua::NodeId, VariantValue>::new();
 
         let mut stream = stream.ready_chunks(10);
 
@@ -676,10 +419,10 @@ impl OpcUaClient {
                     on_data(Box::new(polled_samples_to_flush.into_iter()));
 
                     if !quiet_nodes.is_empty() {
-                        let nodes = quiet_nodes.iter().cloned().collect_vec();
-                        let batch = OpcUaNodeReadBatch::new(nodes, OpcUaAttributeId::Value);
+                        #[allow(clippy::unwrap_used, reason = "nodes are valid because they were previously validated in the original batch")]
+                        let nodes = NodeReadBatch::new_cartesian(&quiet_nodes, &[ua::AttributeId::VALUE]);
 
-                        let reads = match reader.read_nodes(&batch).await {
+                        let reads = match reader.read_nodes(&nodes).await {
                             Ok(reads) => reads,
                             Err(OpcUaError::ClientDisconnected) => break,
 
@@ -701,8 +444,8 @@ impl OpcUaClient {
                         polled_nodes.extend(to_flush);
                     }
 
-                    quiet_nodes = nodes
-                        .iter()
+                    quiet_nodes = batch
+                        .nodes()
                         .cloned()
                         .collect();
                 },
@@ -748,17 +491,14 @@ impl OpcUaClient {
 
 /// Takes removed polled sample and returns it if the subscription data is newer.
 /// Otherwise, the polled sample is forgotten and this function returns `None`.
-fn polled_sample_filter(
-    polled: OpcUaDataPoint,
-    sub_data: &OpcUaDataPoint,
-) -> Option<OpcUaDataPoint> {
-    if let Some(poll_src_ts) = polled.source_timestamp
-        && let Some(sub_src_ts) = sub_data.source_timestamp
+fn polled_sample_filter(polled: VariantValue, sub_data: &VariantValue) -> Option<VariantValue> {
+    if let Some(poll_src_ts) = polled.source_timestamp()
+        && let Some(sub_src_ts) = sub_data.source_timestamp()
         && poll_src_ts < sub_src_ts
     {
         Some(polled)
-    } else if let Some(poll_srv_ts) = polled.server_timestamp
-        && let Some(sub_srv_ts) = sub_data.server_timestamp
+    } else if let Some(poll_srv_ts) = polled.server_timestamp()
+        && let Some(sub_srv_ts) = sub_data.server_timestamp()
         && poll_srv_ts < sub_srv_ts
     {
         Some(polled)
@@ -767,108 +507,57 @@ fn polled_sample_filter(
     }
 }
 
-/// Abstraction over the background-poll read path used by
-/// [`OpcUaClient::subscription_loop`].
-///
-/// Hiding the read behind a trait lets the subscription loop be unit-tested against a
-/// deterministic in-memory reader instead of a live OPC UA server. The production
-/// implementation is [`ClientNodeReader`], which forwards to [`OpcUaClient::read_nodes`].
-// The returned future is intentionally not `Send`-bound: the subscription loop runs on a
-// single-threaded session runtime, so no work crosses threads after the timer/read seams.
-#[allow(async_fn_in_trait)]
-pub(crate) trait NodeReader {
-    /// Reads the configured attribute for every node in `batch`, returning decoded samples.
-    async fn read_nodes<'batch, 'nodes, 'attrs>(
-        &self,
-        batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>>;
-}
-
-/// Production [`NodeReader`] backed by a [`Weak`] reference to the owning [`OpcUaClient`].
-pub(crate) struct ClientNodeReader {
-    client: Weak<OpcUaClient>,
-}
-
-impl NodeReader for ClientNodeReader {
-    async fn read_nodes<'batch, 'nodes, 'attrs>(
-        &self,
-        batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
-    ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
-        // Holding the upgraded strong reference across the read makes a concurrent
-        // `OpcUaClient::disconnect()` bail rather than tearing the client down mid-read,
-        // matching the previous in-loop `Weak::upgrade` behaviour.
-        match self.client.upgrade() {
-            Some(client) => client.read_nodes(batch).await,
-            None => Err(OpcUaError::ClientDisconnected),
-        }
-    }
-}
-
-/// Abstraction over the background-poll cadence used by
-/// [`OpcUaClient::subscription_loop`].
-///
-/// The production implementation is [`IntervalPollTimer`]; tests substitute a manually
-/// pulsed timer to drive poll ticks deterministically.
-#[allow(async_fn_in_trait)]
-pub(crate) trait PollTimer {
-    /// Resolves once per poll interval.
-    async fn tick(&mut self);
-}
-
-/// Production [`PollTimer`] backed by a [`Interval`].
-///
-/// Created on first tick so it binds to the session runtime, and skips missed ticks rather than
-/// replaying stale poll intervals.
-pub(crate) struct IntervalPollTimer {
-    period: Duration,
-    interval: Option<Interval>,
-}
-
-impl IntervalPollTimer {
-    fn new(period: Duration) -> Self {
-        Self {
-            period,
-            interval: None,
-        }
-    }
-}
-
-impl PollTimer for IntervalPollTimer {
-    async fn tick(&mut self) {
-        let period = self.period;
-        let timer = self.interval.get_or_insert_with(|| {
-            let mut timer = interval(period);
-            timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
-            timer.reset();
-            timer
-        });
-
-        timer.tick().await;
-    }
-}
-
 #[derive(Debug, Default)]
-/// Builder for [`OpcUaClient`].
+/// Builder for [`Client`].
 ///
-/// Provides a fluent API for configuring the both the [`OpcUaClient`] and the backing [`AsyncClient`]
+/// Provides a fluent API for configuring the both the [`Client`] and the backing [`AsyncClient`]
 /// before connecting to an OPC-UA endpoint.
-pub struct OpcUaClientBuilder {
-    user_token: Option<OpcUaUserToken>,
-    security_mode: Option<OpcUaSecurityMode>,
-    security_policy: Option<OpcUaSecurityPolicy>,
+pub struct ClientBuilder {
+    user_token: Option<ua::UserIdentityToken>,
+    security_mode: Option<ua::MessageSecurityMode>,
+    security_policy: Option<SecurityPolicyUri>,
     timeout: Option<Duration>,
     accept_any_cert: bool,
-    pki: OpcUaPki,
+    pki: PkiConfig,
 }
 
-impl OpcUaClientBuilder {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SecurityPolicyUri(&'static str);
+
+impl SecurityPolicyUri {
+    pub const fn none() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#None")
+    }
+
+    pub const fn basic128_rsa15() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15")
+    }
+
+    pub const fn basic256() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256")
+    }
+
+    pub const fn basic256_sha256() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256")
+    }
+
+    pub const fn aes128_sha256_rsa_oaep() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep")
+    }
+
+    pub const fn aes256_sha256_rsa_pss() -> Self {
+        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss")
+    }
+}
+
+impl ClientBuilder {
     /// Creates a new builder with default values.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets whether to accept any server certificate.
-    pub fn trust_server_certs(self, accept_any_cert: bool) -> Self {
+    pub fn with_trust_server_certs(self, accept_any_cert: bool) -> Self {
         Self {
             accept_any_cert,
             ..self
@@ -876,7 +565,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Sets the user identity token to use for the client.
-    pub fn user_identity_token(self, token: OpcUaUserToken) -> Self {
+    pub fn with_identity_token(self, token: ua::UserIdentityToken) -> Self {
         Self {
             user_token: Some(token),
             ..self
@@ -884,7 +573,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Sets the security mode to use for the client.
-    pub fn security_mode(self, mode: OpcUaSecurityMode) -> Self {
+    pub fn with_security_mode(self, mode: ua::MessageSecurityMode) -> Self {
         Self {
             security_mode: Some(mode),
             ..self
@@ -892,7 +581,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Sets the security policy to use for the client.
-    pub fn security_policy(self, security_policy: OpcUaSecurityPolicy) -> Self {
+    pub fn with_security_policy(self, security_policy: SecurityPolicyUri) -> Self {
         Self {
             security_policy: Some(security_policy),
             ..self
@@ -900,7 +589,7 @@ impl OpcUaClientBuilder {
     }
 
     /// Sets the timeout to use for the client.
-    pub fn timeout(self, timeout: Duration) -> Self {
+    pub fn with_timeout(self, timeout: Duration) -> Self {
         Self {
             timeout: Some(timeout),
             ..self
@@ -908,14 +597,14 @@ impl OpcUaClientBuilder {
     }
 
     /// Sets the PKI to use for the client.
-    pub fn pki(self, pki: OpcUaPki) -> Self {
+    pub fn with_pki(self, pki: PkiConfig) -> Self {
         Self { pki, ..self }
     }
 
     /// Sets the PKI to use for the client to use a provided certificate and private key.
     pub fn use_pki(self, certificate: Certificate, private_key: PrivateKey) -> Self {
         Self {
-            pki: OpcUaPki::UseProvided(certificate, private_key),
+            pki: PkiConfig::UseProvided(certificate, private_key),
             ..self
         }
     }
@@ -923,7 +612,7 @@ impl OpcUaClientBuilder {
     /// Sets the PKI to use for the client to generate a self-signed certificate.
     pub fn generate_self_signed_pki(self) -> Self {
         Self {
-            pki: OpcUaPki::GenerateSelfSigned,
+            pki: PkiConfig::GenerateSelfSigned,
             ..self
         }
     }
@@ -936,35 +625,34 @@ impl OpcUaClientBuilder {
             .with_application_uri("urn:nominal:opcua-client")
     }
 
-    /// Consumes the builder and connects to the endpoint at the given URL, returning an [`OpcUaClient`].
+    /// Consumes the builder and connects to the endpoint at the given URL, returning a [`Client`].
     #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
-    pub fn connect(self, endpoint_url: &str) -> Result<Arc<OpcUaClient>> {
+    pub fn connect(self, endpoint_url: &str) -> Result<Client> {
         let user_token = self.user_token.context("no user token provided")?;
 
-        let security_mode = match self.security_mode {
-            Some(mode) if !mode.is_invalid() => mode.into(),
-            Some(_) => bail!(internal, "invalid security mode"),
-            None => bail!(internal, "no security mode provided"),
-        };
+        let security_mode = self.security_mode.context("no security mode provided")?;
+        if security_mode == ua::MessageSecurityMode::INVALID {
+            bail!(internal, "invalid security mode");
+        }
 
         let mut builder = match self.pki {
-            OpcUaPki::UseProvided(certificate, private_key) => {
-                ClientBuilder::default_encryption(&certificate, &private_key)
+            PkiConfig::UseProvided(certificate, private_key) => {
+                UaClientBuilder::default_encryption(&certificate, &private_key)
                     .context("creating encrypted client builder")?
             }
 
-            OpcUaPki::GenerateSelfSigned => {
+            PkiConfig::GenerateSelfSigned => {
                 let (certificate, private_key) = generate_self_signed_cert()?;
-                ClientBuilder::default_encryption(&certificate, &private_key)
+                UaClientBuilder::default_encryption(&certificate, &private_key)
                     .ua_context("failed to create encrypted client builder")?
             }
 
-            OpcUaPki::None => ClientBuilder::default(),
+            PkiConfig::None => UaClientBuilder::default(),
         };
 
         builder = builder
             .secure_channel_life_time(Duration::from_millis(u32::MAX as u64))
-            .user_identity_token(&user_token.try_into()?)
+            .user_identity_token(&user_token)
             .client_description(Self::connect_app_description())
             .security_mode(security_mode);
 
@@ -973,7 +661,12 @@ impl OpcUaClientBuilder {
         }
 
         if let Some(security_policy) = self.security_policy {
-            builder = builder.security_policy_uri(security_policy.into());
+            builder = builder.security_policy_uri(
+                ua::String::new(security_policy.0)
+                    // should only fail on allocation error,
+                    // could just as well unwrap if we're feeling loosey goosey
+                    .context("converting security policy URI to ua::String")?,
+            );
         }
 
         if self.accept_any_cert {
@@ -985,118 +678,243 @@ impl OpcUaClientBuilder {
             .ua_context("connecting to endpoint")?
             .into_async();
 
-        Ok(OpcUaClient::new(client))
+        Ok(Client::new(client))
     }
 }
 
-impl OpcUaClient {
-    fn new(client: AsyncClient) -> Arc<Self> {
-        Arc::new(Self {
-            client: RwLock::new(Some(client)),
-        })
+impl Client {
+    fn new(client: AsyncClient) -> Self {
+        Self {
+            client: Arc::new(RwLock::new(Some(client))),
+        }
     }
 }
 
-#[derive(Debug)]
-/// Manages a streaming session backed by an OPC-UA subscription or polling loop.
+/// OPC-UA subscription configuration.
 ///
-/// The session is created by [`OpcUaClient::start_polling`] or [`OpcUaClient::start_subscription`],
-/// and can be stopped using [`OpcUaStreamSession::stop`] or [`OpcUaStreamSession::stop_timeout`].
-pub struct OpcUaStreamSession {
-    handle: Option<SessionHandle>,
+/// Carries the tuning knobs for creating a server-side subscription: how often the server
+/// publishes notifications, how long it keeps the subscription alive without a publish request,
+/// and notification batching limits. All fields are required; factory methods with reasonable
+/// presets are intentionally deferred until the field set is settled.
+///
+/// See the OPC-UA specification for more details:
+/// - [CreateSubscriptionRequest](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.13.2)
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct SubscriptionConfig {
+    /// Cyclic rate at which the subscription publishes accumulated notifications to the client.
+    pub publishing_interval: Duration,
+
+    /// Interval at which the server is polled for value changes.
+    /// If `None`, selected nodes will not be polled.
+    ///
+    /// Intended for node sets with low-frequency/unfluctuating values that may appear stale
+    /// in a streaming configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub background_poll_interval: Option<Duration>,
+
+    /// Number of publish intervals the subscription persists on the server without a successful
+    /// publish before the server deletes it.
+    pub lifetime_count: u32,
+
+    /// Number of publish intervals between server-initiated keep-alive messages when no changes
+    /// are available to publish.
+    pub max_keep_alive_count: NonZeroU32,
+
+    /// Upper bound on the number of notifications the server delivers in a single publish
+    /// response.
+    pub max_notifications_per_publish: NonZeroU32,
+
+    /// Relative priority of this subscription versus others on the same session.
+    pub priority: u8,
+
+    /// Whether the subscription starts publishing immediately after creation.
+    pub publishing_enabled: bool,
 }
 
-impl OpcUaStreamSession {
-    fn new<F>(name: &'static str, f: F) -> Result<Self>
+impl From<SubscriptionConfig> for SubscriptionBuilder {
+    fn from(config: SubscriptionConfig) -> Self {
+        SubscriptionBuilder::default()
+            .requested_publishing_interval(Some(config.publishing_interval))
+            .requested_lifetime_count(config.lifetime_count)
+            .requested_max_keep_alive_count(Some(config.max_keep_alive_count))
+            .max_notifications_per_publish(Some(config.max_notifications_per_publish))
+            .priority(config.priority)
+            .publishing_enabled(config.publishing_enabled)
+    }
+}
+
+/// OPC-UA monitored-item configuration.
+///
+/// Carries the sampling and queueing knobs that apply to each monitored item created under a
+/// subscription. All fields are required; filters are intentionally omitted from this stub and
+/// will be added in a follow-up ticket.
+///
+/// See the OPC-UA specification for more details:
+/// - [MonitoredItemCreateRequest](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.12.2)
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct SubscriptionItemConfig {
+    /// Interval at which the server samples the underlying node for value changes.
+    pub sampling_interval: Duration,
+
+    /// Maximum number of samples the server buffers for this item between publish cycles.
+    pub queue_size: u32,
+
+    /// When the queue is full, whether the server drops the oldest sample (`true`) or the newest
+    /// one (`false`).
+    pub discard_oldest: bool,
+}
+
+impl SubscriptionItemConfig {
+    /// Validates the result of a monitored item creation request, emitting warnings for any revisions that are not as requested.
+    pub(crate) fn check_result(
+        &self,
+        node_id: &ua::NodeId,
+        create_result: &ua::MonitoredItemCreateResult,
+    ) {
+        match create_result.revised_sampling_interval() {
+            Ok(revised_sampling_interval) => {
+                if revised_sampling_interval != self.sampling_interval {
+                    tracing::warn!(
+                        "Server revised sampling interval for node {node_id} from {:?} to {:?}",
+                        self.sampling_interval,
+                        revised_sampling_interval,
+                    );
+                }
+            }
+
+            Err(e) => {
+                tracing::warn!(
+                    "Node {node_id} returned an invalid revised sampling interval: {e:?}"
+                );
+            }
+        };
+
+        match create_result.revised_queue_size() {
+            0 => tracing::warn!("Node {node_id} returned an invalid revised queue size of 0"),
+            revised if revised != self.queue_size => tracing::warn!(
+                "Node {node_id} returned an invalid revised queue size of {revised} (requested {})",
+                self.queue_size
+            ),
+            _ => (),
+        }
+    }
+
+    /// Applies this configuration's knobs to an existing [`MonitoredItemCreateRequestBuilder`],
+    /// preserving its type-state and node-id selection.
+    #[must_use]
+    pub(crate) fn apply_to_builder<B>(
+        self,
+        builder: MonitoredItemCreateRequestBuilder<B>,
+    ) -> MonitoredItemCreateRequestBuilder<B>
     where
-        F: AsyncFnOnce() -> () + Send + 'static,
+        B: open62541::MonitoredItemKind,
     {
-        let runtime = runtime::Builder::new_current_thread()
-            .enable_time()
-            .build()
-            .context("creating runtime")?;
+        builder
+            .sampling_interval(Some(self.sampling_interval))
+            .queue_size(self.queue_size)
+            .discard_oldest(self.discard_oldest)
+    }
+}
 
-        let (stop_tx, stop_rx) = oneshot::channel();
-        let (term_tx, term_rx) = watch::channel(false);
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+enum RawPki {
+    #[default]
+    None,
+    GenerateSelfSigned,
+    UseProvided(Vec<u8>, Vec<u8>),
+}
 
-        // don't care about joining the thread, since we're using `SessionHandle` to synchronize session exit
-        let _ = thread::Builder::new()
-            .name(format!("opcua-worker-thread-{name}"))
-            .spawn(move || {
-                runtime.block_on(async move {
-                    tokio::select! {
-                        stop_result = stop_rx => {
-                            match stop_result {
-                                Ok(_) => tracing::debug!(
-                                    target: "opcua::client::spawn_task",
-                                    task = name,
-                                    "stopped cooperatively",
-                                ),
-                                Err(e) => tracing::debug!(
-                                    target: "opcua::client::spawn_task",
-                                    task = name,
-                                    err = ?e,
-                                    "stop signal likely dropped before task completed",
-                                ),
-                            }
-                        }
+impl TryFrom<RawPki> for PkiConfig {
+    type Error = OpcUaError;
 
-                        _ = f() => ()
-                    }
+    fn try_from(raw: RawPki) -> Result<Self> {
+        Ok(match raw {
+            RawPki::None => Self::None,
+            RawPki::GenerateSelfSigned => Self::GenerateSelfSigned,
+            RawPki::UseProvided(certificate, mut private_key) => {
+                let cert = Certificate::from_bytes(&certificate);
 
-                    if let Err(e) = term_tx.send(true) {
-                        tracing::debug!(
-                            target: "opcua::client::spawn_task",
-                            err = ?e,
-                            task = name,
-                            "error sending finished signal to task"
-                        );
-                    }
-                })
-            })
-            .context("creating runtime thread")?;
+                // construction of the certificate does not validate the certificate
+                // validation only occurs when materializing the certificate via `x509_certificate`
+                // basically a sanity check on deserialization
+                let pki_result = cert
+                    .clone()
+                    .into_x509()
+                    .context("converting provided certificate to x509")
+                    .map(|_| Self::UseProvided(cert, PrivateKey::from_bytes(&private_key)));
 
-        Ok(Self {
-            handle: Some(SessionHandle { stop_tx, term_rx }),
+                private_key.zeroize();
+
+                pki_result?
+            }
         })
     }
+}
 
-    /// Stops the stream session, blocking until the session exits.
-    pub async fn stop(mut self) -> Result<()> {
-        if let Some(handle) = self.handle.take() {
-            handle.stop().await;
+impl From<PkiConfig> for RawPki {
+    fn from(pki: PkiConfig) -> Self {
+        match pki {
+            PkiConfig::None => RawPki::None,
+            PkiConfig::GenerateSelfSigned => RawPki::GenerateSelfSigned,
+            PkiConfig::UseProvided(certificate, private_key) => RawPki::UseProvided(
+                certificate.as_bytes().to_vec(),
+                private_key.as_bytes().to_vec(),
+            ),
         }
-
-        Ok(())
-    }
-
-    /// Stops the stream session, returning an error if the session does not exit within the given timeout.
-    pub async fn stop_timeout(mut self, to: Duration) -> Result<()> {
-        if let Some(handle) = self.handle.take() {
-            timeout(to, handle.stop())
-                .await
-                .context("stopping stream session")?
-        }
-
-        Ok(())
-    }
-
-    /// Returns true if the remote streaming thread has completed, either cooperatively or due to a panic.
-    pub fn has_stopped(&self) -> bool {
-        self.handle
-            .as_ref()
-            .map(SessionHandle::has_stopped)
-            .unwrap_or(true)
     }
 }
 
-impl Drop for OpcUaStreamSession {
-    fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            // don't need to await the result, the stop signal was sent imperatively
-            _ = handle.stop();
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RawPki", into = "RawPki")]
+pub enum PkiConfig {
+    #[default]
+    None,
+    GenerateSelfSigned,
+    UseProvided(Certificate, PrivateKey),
+}
+
+impl PartialEq for PkiConfig {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::None, Self::None) => true,
+            (Self::GenerateSelfSigned, Self::GenerateSelfSigned) => true,
+            (
+                Self::UseProvided(certificate, private_key),
+                Self::UseProvided(other_certificate, other_private_key),
+            ) => {
+                certificate.as_bytes() == other_certificate.as_bytes()
+                    && private_key.as_bytes() == other_private_key.as_bytes()
+            }
+            _ => false,
         }
     }
+}
+
+impl Eq for PkiConfig {}
+
+/// Generates a self-signed X.509 certificate/key pair suitable for OPC UA client authentication.
+///
+/// Returns a tuple containing the certificate and private key or an error if the certificate generation fails.
+pub fn generate_self_signed_cert() -> Result<(Certificate, PrivateKey)> {
+    let subject = ua::Array::from_slice(&[
+        ua::String::new("C=US").map_err(OpcUaError::Ua)?,
+        ua::String::new("O=Nominal").map_err(OpcUaError::Ua)?,
+        ua::String::new("CN=Nominal@localhost").map_err(OpcUaError::Ua)?,
+    ]);
+
+    let subject_alt_name = ua::Array::from_slice(&[
+        ua::String::new("DNS:localhost").map_err(OpcUaError::Ua)?,
+        ua::String::new("URI:urn:nominal:instro-opcua-client").map_err(OpcUaError::Ua)?,
+    ]);
+
+    create_certificate(
+        &subject,
+        &subject_alt_name,
+        &ua::CertificateFormat::PEM,
+        None,
+    )
+    .map_err(OpcUaError::Ua)
 }
 
 #[cfg(test)]
@@ -1119,20 +937,19 @@ mod tests {
     use futures_util::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream;
+    use open62541::ua;
     use tokio::sync::mpsc;
     use tokio::time::timeout;
 
+    use super::Client;
+    use super::NodeReadBatch;
     use super::NodeReader;
-    use super::OpcUaClient;
-    use super::OpcUaNodeReadBatch;
     use super::PollTimer;
     use super::ReadNodeItem;
-    use crate::OpcUaError;
-    use crate::error::Result;
-    use crate::types::OpcUaAttributeId;
-    use crate::types::OpcUaDataPoint;
-    use crate::types::OpcUaNodeId;
-    use crate::types::OpcUaValue;
+    use super::VariantValue;
+    use super::generate_self_signed_cert;
+    use crate::Result;
+    use crate::error::OpcUaError;
 
     /// Generous deadline; the deterministic loop should make progress near-instantly, so this
     /// only fires if the loop wedges (which is itself a test failure worth surfacing).
@@ -1145,7 +962,7 @@ mod tests {
         /// Server timestamp stamped on the next read's samples; incremented per read.
         next_timestamp: u64,
         /// The set of node ids requested on each `read_nodes` call, in call order.
-        requested: Vec<HashSet<OpcUaNodeId>>,
+        requested: Vec<HashSet<ua::NodeId>>,
     }
 
     /// In-memory [`NodeReader`] returning canned samples with test-controlled timestamps.
@@ -1164,19 +981,22 @@ mod tests {
                 next_timestamp: initial_timestamp,
                 requested: Vec::new(),
             }));
+
             let (read_done, read_done_rx) = mpsc::unbounded_channel();
+
             let reader = Self {
                 state: Arc::clone(&state),
                 read_done,
             };
+
             (reader, state, read_done_rx)
         }
     }
 
     impl NodeReader for MockNodeReader {
-        async fn read_nodes<'nodes, 'attrs, 'batch>(
+        async fn read_nodes<'batch>(
             &self,
-            batch: &'batch OpcUaNodeReadBatch<'nodes, 'attrs>,
+            batch: &'batch NodeReadBatch,
         ) -> Result<impl Iterator<Item = ReadNodeItem<'batch>>> {
             let samples = {
                 let mut state = self.state.lock().unwrap();
@@ -1186,9 +1006,9 @@ mod tests {
                 }
 
                 let timestamp = state.next_timestamp;
-                state.next_timestamp = state.next_timestamp.saturating_add(1);
+                state.next_timestamp = state.next_timestamp.saturating_add(100);
 
-                let requested = batch.nodes().iter().cloned().collect::<HashSet<_>>();
+                let requested = batch.nodes().cloned().collect::<HashSet<_>>();
 
                 state.requested.push(requested);
 
@@ -1219,19 +1039,19 @@ mod tests {
         }
     }
 
-    const fn test_node(ns: u16, name: &'static str) -> OpcUaNodeId {
-        OpcUaNodeId::str(ns, name)
-    }
-
-    fn datapoint(ts: u64, value: f64) -> OpcUaDataPoint {
-        OpcUaDataPoint::new(OpcUaValue::Double(value)).with_server_timestamp(Some(ts))
+    fn datapoint(ts: u64, value: f64) -> VariantValue {
+        let timestamp = ua::DateTime::try_from_unix_timestamp_nanos(ts as i128).unwrap();
+        let variant = ua::Variant::scalar(ua::Double::new(value));
+        ua::DataValue::new(variant)
+            .with_server_timestamp(&timestamp)
+            .cast::<ua::Variant>()
     }
 
     /// Wraps an unbounded channel as a notification [`Stream`]; the stream ends when the sender
     /// is dropped, after draining any buffered items (exercising the loop's exit drain).
     fn notification_stream(
-        rx: mpsc::UnboundedReceiver<(OpcUaNodeId, OpcUaDataPoint)>,
-    ) -> impl Stream<Item = (OpcUaNodeId, OpcUaDataPoint)> + Send + Unpin + 'static {
+        rx: mpsc::UnboundedReceiver<(ua::NodeId, VariantValue)>,
+    ) -> impl Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static {
         stream::unfold(rx, |mut rx| async move {
             rx.recv().await.map(|item| (item, rx))
         })
@@ -1240,12 +1060,12 @@ mod tests {
 
     /// Collects emitted samples into batches the test forwards through `on_data`.
     fn output_sink() -> (
-        impl FnMut(Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>) + Send + 'static,
-        mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
+        impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
+        mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantValue)>>,
     ) {
-        let (tx, rx) = mpsc::unbounded_channel::<Vec<(OpcUaNodeId, OpcUaDataPoint)>>();
+        let (tx, rx) = mpsc::unbounded_channel::<Vec<_>>();
 
-        let on_data = move |samples: Box<dyn Iterator<Item = (OpcUaNodeId, OpcUaDataPoint)>>| {
+        let on_data = move |samples: Box<dyn Iterator<Item = _> + 'static>| {
             let _ = tx.send(samples.collect::<Vec<_>>());
         };
 
@@ -1262,9 +1082,9 @@ mod tests {
     /// Awaits the next non-empty output batch, used as a barrier that a notification (or flush)
     /// has been emitted. Empty flush batches are skipped.
     async fn recv_nonempty(
-        rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
+        rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantValue)>>,
         what: &str,
-    ) -> Vec<(OpcUaNodeId, OpcUaDataPoint)> {
+    ) -> Vec<(ua::NodeId, VariantValue)> {
         loop {
             let batch = timeout(TEST_TIMEOUT, rx.recv())
                 .await
@@ -1279,8 +1099,8 @@ mod tests {
 
     /// Synchronously drains whatever batches remain after the loop has terminated.
     fn drain_batches(
-        rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
-    ) -> Vec<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
+        rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantValue)>>,
+    ) -> Vec<Vec<(ua::NodeId, VariantValue)>> {
         let mut batches = Vec::new();
 
         while let Ok(batch) = rx.try_recv() {
@@ -1302,15 +1122,15 @@ mod tests {
     /// (K-1 via the next tick's flush, the last via the exit drain).
     #[tokio::test]
     async fn polls_static_node_each_tick() -> Result<()> {
-        let x = test_node(1, "Static");
-        let (reader, state, mut read_done_rx) = MockNodeReader::new(1);
+        let x = ua::NodeId::string(1, "Static");
+        let (reader, state, mut read_done_rx) = MockNodeReader::new(100);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1338,16 +1158,12 @@ mod tests {
 
         let timestamps = samples
             .iter()
-            .map(|(_, sample)| {
-                sample
-                    .server_timestamp
-                    .expect("server timestamp should be present")
-            })
+            .map(|(_, sample)| sample.server_timestamp().unwrap().as_unix_timestamp_nanos())
             .collect::<Vec<_>>();
 
         assert_eq!(
             timestamps,
-            vec![1, 2, 3],
+            vec![100, 200, 300],
             "polled samples should carry successive read timestamps",
         );
 
@@ -1363,15 +1179,15 @@ mod tests {
     /// in favour of the live notification (the dedup window).
     #[tokio::test]
     async fn dedup_drops_stale_polled_when_notification_not_newer() -> Result<()> {
-        let x = test_node(1, "Node");
+        let x = ua::NodeId::string(1, "Node");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(100);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1397,8 +1213,16 @@ mod tests {
         assert_eq!(samples.len(), 1, "stale polled sample should be dropped");
         let (node_id, sample) = samples.first().expect("missing notification sample");
         assert_eq!(node_id, &x);
-        assert_eq!(sample.server_timestamp, Some(100));
-        assert_eq!(sample.value, OpcUaValue::Double(1.0));
+        assert_eq!(
+            sample
+                .server_timestamp()
+                .map(ua::DateTime::as_unix_timestamp_nanos),
+            Some(100)
+        );
+        assert_eq!(
+            sample.value().unwrap(),
+            &ua::Variant::scalar(ua::Double::new(1.0))
+        );
 
         let _ = state; // shared handle kept alive for the loop's duration
         Ok(())
@@ -1408,15 +1232,15 @@ mod tests {
     /// polled first, preserving temporal continuity.
     #[tokio::test]
     async fn emits_both_when_polled_older_than_notification() -> Result<()> {
-        let x = test_node(1, "Node");
+        let x = ua::NodeId::string(1, "Node");
         let (reader, _state, mut read_done_rx) = MockNodeReader::new(100);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1445,11 +1269,18 @@ mod tests {
         let (_, notification) = samples.get(1).expect("should have a notification sample");
 
         assert_eq!(
-            sample.server_timestamp,
+            sample
+                .server_timestamp()
+                .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100),
             "polled sample emitted first"
         );
-        assert_eq!(notification.server_timestamp, Some(200));
+        assert_eq!(
+            notification
+                .server_timestamp()
+                .map(ua::DateTime::as_unix_timestamp_nanos),
+            Some(200)
+        );
 
         Ok(())
     }
@@ -1457,15 +1288,15 @@ mod tests {
     /// Buffered polled samples that never meet a notification are flushed when the stream closes.
     #[tokio::test]
     async fn flush_on_exit_drains_buffer() -> Result<()> {
-        let x = test_node(1, "Static");
-        let (reader, _state, mut read_done_rx) = MockNodeReader::new(7);
+        let x = ua::NodeId::string(1, "Static");
+        let (reader, _state, mut read_done_rx) = MockNodeReader::new(100);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1490,7 +1321,12 @@ mod tests {
 
         let (node_id, sample) = samples.first().expect("should have a drained sample");
         assert_eq!(node_id, &x);
-        assert_eq!(sample.server_timestamp, Some(7));
+        assert_eq!(
+            sample
+                .server_timestamp()
+                .map(ua::DateTime::as_unix_timestamp_nanos),
+            Some(100)
+        );
 
         Ok(())
     }
@@ -1499,16 +1335,16 @@ mod tests {
     /// polled again once it goes quiet (the `quiet_nodes` reset each tick).
     #[tokio::test]
     async fn quiet_node_repolled_after_going_quiet() -> Result<()> {
-        let x = test_node(1, "Static");
-        let y = test_node(2, "Active");
+        let x = ua::NodeId::string(1, "Static");
+        let y = ua::NodeId::string(2, "Active");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(1);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            vec![x.clone(), y.clone()],
+            NodeReadBatch::new_cartesian([&x, &y], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1563,14 +1399,14 @@ mod tests {
     /// drives the periodic samples in the other tests.
     #[tokio::test]
     async fn none_interval_emits_only_notifications() -> Result<()> {
-        let x = test_node(1, "Static");
+        let x = ua::NodeId::string(1, "Static");
         let (reader, state, _read_done_rx) = MockNodeReader::new(1);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             // No poll timer.
@@ -1578,8 +1414,9 @@ mod tests {
         ));
 
         note_tx
-            .send((x.clone(), datapoint(7, 9.5)))
+            .send((x.clone(), datapoint(100, 9.5)))
             .expect("sending notification should not fail");
+
         drop(note_tx);
         await_loop(handle).await;
 
@@ -1591,7 +1428,10 @@ mod tests {
         assert_eq!(samples.len(), 1, "only the notification should be emitted");
         let (node_id, sample) = samples.first().expect("should have a notification sample");
         assert_eq!(node_id, &x);
-        assert_eq!(sample.server_timestamp, Some(7));
+        assert_eq!(
+            sample.server_timestamp().unwrap().as_unix_timestamp_nanos(),
+            100
+        );
 
         let requested = state.lock().unwrap().requested.clone();
         assert!(
@@ -1606,26 +1446,26 @@ mod tests {
     /// delivered, validating the mixed subscription + polling case.
     #[tokio::test]
     async fn mixed_static_and_active() -> Result<()> {
-        let x = test_node(1, "Static");
-        let y = test_node(2, "Active");
-        let (reader, _state, mut read_done_rx) = MockNodeReader::new(1);
+        let x = ua::NodeId::string(1, "Static");
+        let y = ua::NodeId::string(2, "Active");
+        let (reader, _state, mut read_done_rx) = MockNodeReader::new(100);
         let (note_tx, note_rx) = mpsc::unbounded_channel();
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            [x.clone(), y.clone()],
+            NodeReadBatch::new_cartesian([&x, &y], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
         ));
 
-        let mut batches: Vec<Vec<(OpcUaNodeId, OpcUaDataPoint)>> = Vec::new();
+        let mut batches: Vec<Vec<(ua::NodeId, VariantValue)>> = Vec::new();
 
         // Active node notifies.
         note_tx
-            .send((y.clone(), datapoint(5, 1.0)))
+            .send((y.clone(), datapoint(200, 1.0)))
             .expect("sending Y notification should not fail");
         batches.push(recv_nonempty(&mut out_rx, "first Y notification").await);
 
@@ -1635,7 +1475,7 @@ mod tests {
 
         // Active node notifies again.
         note_tx
-            .send((y.clone(), datapoint(6, 2.0)))
+            .send((y.clone(), datapoint(300, 2.0)))
             .expect("sending second Y notification should not fail");
         batches.push(recv_nonempty(&mut out_rx, "second Y notification").await);
 
@@ -1654,7 +1494,11 @@ mod tests {
             .iter()
             .filter_map(|(node_id, sample)| {
                 if node_id == &y {
-                    Some(sample.server_timestamp)
+                    Some(sample.server_timestamp().map(|ts| {
+                        let ticks = ts.as_unix_timestamp_nanos();
+                        let picos = sample.server_picoseconds().unwrap_or(0) as i128;
+                        ticks + picos / 1000
+                    }))
                 } else {
                     None
                 }
@@ -1666,7 +1510,7 @@ mod tests {
             "static node should keep being polled (got {static_count})"
         );
         assert!(
-            active_timestamps.contains(&Some(5)) && active_timestamps.contains(&Some(6)),
+            active_timestamps.contains(&Some(200)) && active_timestamps.contains(&Some(300)),
             "both active-node notifications should be delivered, got {active_timestamps:?}",
         );
 
@@ -1678,7 +1522,7 @@ mod tests {
     /// sample is still emitted by the exit drain.
     #[tokio::test]
     async fn breaks_before_flush_on_dropped_client() -> Result<()> {
-        let x = test_node(1, "Static");
+        let x = ua::NodeId::string(1, "Static");
         let (reader, state, mut read_done_rx) = MockNodeReader::new(1);
         // Keep the stream sender alive (`_note_tx`) so the stream never closes: the loop must
         // terminate via the liveness check, not by the stream ending.
@@ -1686,9 +1530,9 @@ mod tests {
         let (pulse_tx, pulse_rx) = mpsc::unbounded_channel();
         let (on_data, mut out_rx) = output_sink();
 
-        let handle = tokio::spawn(OpcUaClient::subscription_loop(
+        let handle = tokio::spawn(Client::subscription_loop(
             reader,
-            x.clone(),
+            NodeReadBatch::new_cartesian([&x], &[ua::AttributeId::VALUE]),
             notification_stream(note_rx),
             on_data,
             Some(MockPollTimer { pulses: pulse_rx }),
@@ -1717,7 +1561,10 @@ mod tests {
             "only the buffered sample should be drained on exit"
         );
         let (_, sample) = samples.first().expect("should have a drained sample");
-        assert_eq!(sample.server_timestamp, Some(1));
+        assert_eq!(
+            sample.server_timestamp(),
+            Some(&ua::DateTime::try_from_unix_timestamp_nanos(1).unwrap())
+        );
 
         // Tick 2 broke before reading, so exactly one read (from tick 1) was issued.
         let requested = state.lock().unwrap().requested.clone();
@@ -1736,29 +1583,12 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn batch_iter_iterates_over_all_node_attribute_pairs_in_order() -> Result<()> {
-        let nodes = [test_node(1, "Static"), test_node(2, "Active")];
-        let attrs = [OpcUaAttributeId::Value];
-        let batch = OpcUaNodeReadBatch::new(&nodes, attrs);
+    #[test]
+    fn generate_cert_produces_nonempty_keypair() {
+        let (certificate, private_key) =
+            generate_self_signed_cert().expect("failed to generate self-signed certificate");
 
-        let mut iter = batch.keys();
-
-        assert_eq!(iter.next(), Some((&nodes[0], &attrs[0])));
-        assert_eq!(iter.next(), Some((&nodes[1], &attrs[0])));
-        assert_eq!(iter.next(), None);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn batch_iter_doesnt_iterate_with_empty_lists() -> Result<()> {
-        let nodes = [test_node(1, "Static"), test_node(2, "Active")];
-        let attrs = [OpcUaAttributeId::Value, OpcUaAttributeId::Description];
-
-        assert_eq!(OpcUaNodeReadBatch::new(&nodes, []).keys().next(), None);
-        assert_eq!(OpcUaNodeReadBatch::new([], attrs).keys().next(), None);
-
-        Ok(())
+        assert!(!certificate.as_bytes().is_empty(), "certificate is empty");
+        assert!(!private_key.as_bytes().is_empty(), "private key is empty");
     }
 }
