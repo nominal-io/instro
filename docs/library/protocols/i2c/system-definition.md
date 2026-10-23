@@ -10,45 +10,143 @@ myst:
 {.lead}
 Understanding SystemDefinition for I2CInterface configuration
 
-The `SystemDefinition` is a required configuration object that describes all I2C devices in your system, their registers, commands, and data formats. It serves as the bridge between your high-level application code and the low-level I2C hardware details.
+The system definition describes all I2C devices in your system, their registers, commands, and data formats. It serves as the bridge between your high-level application code and the low-level I2C hardware details.
 
 ## Overview
 
-When you create a `I2CInterface` instrument, you must provide a `SystemDefinition` that describes:
+Every `I2CInterface` is created from an {py:class}`~instro.i2c.config.I2CConfig`, whose `devices` list is the system definition. It describes:
 - All I2C devices on the bus (by name and I2C address)
 - For register-based devices: register maps, bit fields, and data formats
 - For command-based devices: command definitions and response formats
 
-The `SystemDefinition` enables I2CInterface to:
+The system definition enables I2CInterface to:
 - Access devices and registers by human-readable names instead of raw addresses
 - Automatically handle bit field extraction and masking
 - Convert between raw register values and physical units using scaling functions
 - Validate and structure command operations
 
-## SystemDefinition Structure
+## Config file structure
 
-The `SystemDefinition` is a container that holds all device definitions:
+The config follows the same shape as a [Modbus config](/library/protocols/modbus.md): metadata blocks, then the data map.
+
+```json
+{
+  "version": 1,
+  "protocol": "i2c",
+  "device": {"name": "sensor_bus", "description": "", "manufacturer": "Total Phase", "model": "Aardvark"},
+  "timing": {"poll_interval": 1.0},
+  "connection": {"interface": "aardvark", "serial_number": "2239-764425"},
+  "devices": []
+}
+```
+
+The `devices` list holds the entries described below.
+
+- **`version`** must be `1` and **`protocol`** must be `"i2c"`.
+- **`device.name`** is required and becomes the channel-name prefix. `description`, `manufacturer`, and `model` are optional metadata.
+- **`timing.poll_interval`** (optional) sets the background daemon interval in seconds for every entry marked `"poll": true`.
+- **`connection`** (optional) names the adapter, selected by `interface`. `"aardvark"` takes an optional `serial_number`; omit it to use the first adapter found. A `driver` passed to `I2CInterface` overrides this block, and one of the two is required.
+- **`devices`** is a list of register-based and command-based devices, selected by `type`.
+
+Integer fields (`address`, `register`, `default_value`, command values) accept a JSON integer or a hex/binary string such as `"0x48"` or `"0b1010"`, since JSON has no hex literals. Unknown keys are rejected everywhere.
+
+Publishers are not part of the config: attach them with `add_publisher()` or the `publishers` constructor argument.
+
+### Validation
+
+Loading a config checks, beyond each field's type and range:
+- Device names are unique, and no two devices share an I2C address.
+- Register aliases are unique within a device, and each `register` address fits in the device's `addr_width_bytes`.
+- Field names are unique within a register, and every field lies within the register's `transfer_bits`.
+- `default_value` fits in the register's `transfer_bits`.
+- Command values fit in one byte, batch command names are unique within a device, and every batch command references a defined command group and member.
+
+Register address overlap within a device is not checked; multi-byte auto-increment behavior varies by device.
+
+### Register device entry
+
+```json
+{
+  "type": "register",
+  "name": "power_gpio",
+  "address": "0x21",
+  "addr_width_bytes": 1,
+  "registers": [
+    {
+      "alias": "LED_OUTPUT_STATE",
+      "register": "0x0C",
+      "default_value": "0x00",
+      "format": {"transfer_bits": 8},
+      "endianness": "big",
+      "fields": [
+        {"name": "led_1", "lsb": 0, "width_bits": 1},
+        {"name": "led_2", "lsb": 1, "width_bits": 1}
+      ],
+      "poll": true
+    }
+  ]
+}
+```
+
+Each register takes `alias`, `register`, and optionally `default_value` (default `0`), `format` (default 8-bit), `endianness` (`"big"` or `"little"`, default `"big"`), `fields`, and `poll` (default `false`). The field names match the {py:class}`~instro.i2c.types.RegisterDef` and {py:class}`~instro.i2c.types.FieldDef` parameters documented below.
+
+### Command device entry
+
+```json
+{
+  "type": "command",
+  "name": "VOLTAGE_ADC",
+  "address": "0x09",
+  "endianness": "big",
+  "data_format": {
+    "transfer_bits": 16,
+    "data_width_bits": 12,
+    "data_lsb": 4,
+    "signed": false,
+    "scaling": {"type": "linear", "gain": 0.0087912088, "offset": 0.0},
+    "units": "V"
+  },
+  "commands": {
+    "channel": {"CH0": "0x80", "CH1": "0xC0"},
+    "sleep_mode": {"WAKE": "0x00", "SLEEP": "0x04"},
+    "polarity_mode": {"BIPOLAR": "0x00", "UNIPOLAR": "0x08"}
+  },
+  "batch_commands": [
+    {
+      "name": "ch0",
+      "commands": {"channel": "CH0", "polarity_mode": "UNIPOLAR", "sleep_mode": "WAKE"},
+      "poll": true
+    }
+  ]
+}
+```
+
+- **`commands`** maps each command group to its members and their command bytes. Each group becomes a `CommandDef` enum.
+- **`batch_commands`** name the combinations `query()` sends: one member from each referenced group, OR'd together. `poll` defaults to `false`.
+- **`data_format`** describes the response; see [Data Format](#data-format). `scaling` is linear only (`{"type": "linear", "gain": ..., "offset": ...}`); attach other scaling at runtime with [`set_scaling()`](/library/protocols/i2c/overview.md#custom-scaling-at-runtime).
+
+### Building the config in Python
+
+The same structure is available as Pydantic models for building configs in code: {py:class}`~instro.i2c.config.I2CConfig`, {py:class}`~instro.i2c.config.RegisterDeviceConfig`, {py:class}`~instro.i2c.config.RegisterConfig`, {py:class}`~instro.i2c.config.CommandDeviceConfig`, {py:class}`~instro.i2c.config.BatchCommandConfig`, and {py:class}`~instro.i2c.config.DataFormatConfig`. See [Creating an I2CInterface Instance](/library/protocols/i2c/overview.md#creating-an-i2cinterface-instance) for a complete example.
+
+## Runtime types
+
+The sections below document the dataclasses the config builds (`RegisterDevice`, `RegisterDef`, `FieldDef`, `CommandDevice`, `DataFormat`, and the scaling functions). Their parameters and semantics are the config's: a `RegisterConfig` with `"transfer_bits": 16` builds a `RegisterDef` with `DataFormat(transfer_bits=16)`.
+
+:::{note}
+Passing a hand-built `SystemDefinition` to `I2CInterface(name, driver, system_definition)` is deprecated and will be removed in a future release. Build an `I2CConfig` instead.
+:::
+
+### SystemDefinition container
+
+The `SystemDefinition` holds all device definitions:
 
 ```python
 from instro.i2c.types import SystemDefinition
 
 system = SystemDefinition()
-```
-
-### Adding Devices
-
-Add devices to the system definition using `add_device()`:
-
-```python
 system.add_device(register_device)
 system.add_device(command_device)
-```
-
-### Retrieving Devices
-
-Access devices by name when using I2CInterface methods:
-
-```python
 device = system.device("my_device_name")
 ```
 

@@ -41,6 +41,12 @@ regardless, so the pages still appear in the sidebar. -->
    :toctree: generated
    :nosignatures:
 
+   ~instro.i2c.config.I2CConfig
+   ~instro.i2c.config.RegisterDeviceConfig
+   ~instro.i2c.config.RegisterConfig
+   ~instro.i2c.config.CommandDeviceConfig
+   ~instro.i2c.config.BatchCommandConfig
+   ~instro.i2c.config.DataFormatConfig
    ~instro.i2c.types.SystemDefinition
    ~instro.i2c.types.RegisterDevice
    ~instro.i2c.types.CommandDevice
