@@ -12,10 +12,10 @@ asserted. Measurements that need edges (frequency, period, duty cycle) are
 allowed to come back NaN; strict value checks run only when the matching
 EXPECTED_* constant is set, which requires a stimulus on SIGNAL_CHANNEL.
 
-Run:
-    KEYSIGHT_3000TX_RESOURCE="TCPIP0::<ip>::INSTR" uv run python tests/unstable/scope/test_keysight_3000tx_hardware.py
+Run (after setting VISA_RESOURCE below):
+    uv run python tests/unstable/scope/test_keysight_3000tx_hardware.py
 
-or edit RESOURCE below. The scope is left running with its trigger in AUTO sweep.
+The scope is left running with its trigger in AUTO sweep.
 """
 
 from __future__ import annotations
@@ -42,9 +42,7 @@ from instro.scope import (
 from instro.unstable.scope.drivers import Keysight3000TX
 
 # --- Configuration — edit before running -----------------------------------
-RESOURCE = os.environ.get(
-    "KEYSIGHT_3000TX_RESOURCE", "<visa_resource>"
-)  # e.g. "USB0::0x2A8D::0x1770::MY5xxxxxxx::0::INSTR"
+VISA_RESOURCE = "TCPIP0::IP_ADDRESS::INSTR"  # <-- edit to your unit (LAN, or USB0::0x2A8D::...::INSTR)
 NUM_CHANNELS = 4  # 2 for DSOX/MSOX30x2T models
 SIGNAL_CHANNEL = 1  # channel used for trigger, digitize, waveform fetch, and measurements
 
@@ -67,9 +65,7 @@ _EDGE_MEASUREMENTS = {ScopeMeasurementType.FREQUENCY, ScopeMeasurementType.PERIO
 
 
 def _make_scope() -> tuple[InstroScope, Keysight3000TX]:
-    if RESOURCE == "<visa_resource>":
-        raise SystemExit("Set KEYSIGHT_3000TX_RESOURCE or edit RESOURCE at the top of this script before running.")
-    driver = Keysight3000TX(RESOURCE)
+    driver = Keysight3000TX(VISA_RESOURCE)
     scope = InstroScope(name="hw_validate", driver=driver, num_channels=NUM_CHANNELS, publishers=None)
     scope.open()
     return scope, driver
