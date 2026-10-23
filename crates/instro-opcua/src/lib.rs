@@ -25,4 +25,5 @@ pub mod prelude {
     pub use crate::client::StreamSession;
     pub use crate::client::SubscriptionConfig;
     pub use crate::client::SubscriptionItemConfig;
+    pub use crate::client::get_endpoints;
 }
