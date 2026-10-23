@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pyvisa.constants
+import pyvisa.errors
 
 from instro.lib.transports.visa import VisaConfig
 from instro.scope.types import AcquisitionMode, AcquisitionState, Coupling, ScopeMeasurementType, TriggerStatus
@@ -148,9 +150,19 @@ def test_digitize_uses_cached_source_and_temp_timeout(scope: Keysight3000TX, vis
     visa.query.assert_called_once_with("*OPC?")
 
 
-def test_digitize_raises_timeout_and_clears(scope: Keysight3000TX, visa: MagicMock) -> None:
-    visa.query.side_effect = TimeoutError("VI_ERROR_TMO")
+@pytest.mark.parametrize(
+    "exc", [TimeoutError("VI_ERROR_TMO"), pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)]
+)
+def test_digitize_raises_timeout_and_clears(scope: Keysight3000TX, visa: MagicMock, exc: Exception) -> None:
+    visa.query.side_effect = exc
     with pytest.raises(TimeoutError, match="did not complete"):
+        scope.digitize(timeout=0.1)
+    visa.clear.assert_called_once()
+
+
+def test_digitize_propagates_non_timeout_errors_after_clear(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.side_effect = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_connection_lost)
+    with pytest.raises(pyvisa.errors.VisaIOError):
         scope.digitize(timeout=0.1)
     visa.clear.assert_called_once()
 
@@ -192,6 +204,13 @@ def test_fetch_waveform_keeps_sub_nanosecond_intervals(scope: Keysight3000TX, vi
     assert waveform.times == [0, 0, 1, 1, 2, 2]
 
 
+def test_fetch_waveform_rejects_short_transfer(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.side_effect = ['+0,"No error"', "+1,+0,+4,+1,+2.0E-09,+0.0E+00,+0,+1.0E-03,+0.0E+00,+32768"]
+    visa.query_binary_values.return_value = [32768, 32768]
+    with pytest.raises(RuntimeError, match="returned 2 points but the preamble declared 4"):
+        scope.fetch_waveform(channel=1)
+
+
 def test_fetch_waveform_raises_before_data_query_on_error(scope: Keysight3000TX, visa: MagicMock) -> None:
     visa.query.return_value = '-222,"Data out of range"'
     with pytest.raises(RuntimeError, match="-222"):
@@ -218,15 +237,17 @@ def test_save_screenshot_to_instrument_sets_png_format(scope: Keysight3000TX, vi
     visa.query.assert_called_once_with(":SYSTem:ERRor?")
 
 
-def test_save_screenshot_to_host_disables_inksaver_and_writes_file(
+def test_save_screenshot_to_host_toggles_inksaver_and_writes_file(
     scope: Keysight3000TX, visa: MagicMock, tmp_path: Path
 ) -> None:
+    visa.query.return_value = "1\n"
     visa.query_binary_values.return_value = [0x89, 0x50, 0x4E, 0x47]
     out = tmp_path / "shot.png"
 
     data = scope.save_screenshot(str(out))
 
-    assert _writes(visa) == [":HARDcopy:INKSaver OFF"]
+    visa.query.assert_called_once_with(":HARDcopy:INKSaver?")
+    assert _writes(visa) == [":HARDcopy:INKSaver OFF", ":HARDcopy:INKSaver 1"]
     visa.query_binary_values.assert_called_once_with(":DISPlay:DATA? PNG,COLor", datatype="B", container=list)
     assert data == b"\x89PNG"
     assert out.read_bytes() == b"\x89PNG"

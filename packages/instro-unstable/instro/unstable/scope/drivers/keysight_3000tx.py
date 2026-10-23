@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import math
 
+import pyvisa.constants
+import pyvisa.errors
+
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.scope import ScopeDriverBase
 from instro.scope.types import (
@@ -83,6 +86,13 @@ def _convert_sentinel(value: float) -> float:
     if abs(value) >= _VENDOR_INVALID_MEASUREMENT:
         return math.nan
     return value
+
+
+def _is_visa_timeout(exc: BaseException) -> bool:
+    """True for a VISA read timeout (``VI_ERROR_TMO``) or a plain ``TimeoutError``."""
+    if isinstance(exc, pyvisa.errors.VisaIOError):
+        return exc.error_code == pyvisa.constants.StatusCode.error_timeout
+    return isinstance(exc, TimeoutError)
 
 
 class Keysight3000TX(ScopeDriverBase):
@@ -186,7 +196,8 @@ class Keysight3000TX(ScopeDriverBase):
     def digitize(self, timeout: float) -> None:
         """``:DIGitize`` the cached trigger source, then ``*OPC?`` under a scoped VISA timeout.
 
-        On timeout, ``clear()`` aborts the pending op and restores the session.
+        On any failure ``clear()`` aborts the pending op so the session stays usable;
+        only a VISA timeout is reported as ``TimeoutError``, other errors propagate as-is.
         """
         source = self._trigger_source or 1
         self._visa.write(f":DIGitize CHANnel{source}")
@@ -195,6 +206,8 @@ class Keysight3000TX(ScopeDriverBase):
                 self._visa.query("*OPC?")
         except Exception as exc:
             self._visa.clear()
+            if not _is_visa_timeout(exc):
+                raise
             raise TimeoutError(
                 f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
             ) from exc
@@ -232,6 +245,8 @@ class Keysight3000TX(ScopeDriverBase):
         y_ref = float(parts[9])
 
         points = self._visa.query_binary_values(":WAVeform:DATA?", datatype="H", is_big_endian=False, container=list)
+        if len(points) != nr_pt:
+            raise RuntimeError(f"Waveform transfer returned {len(points)} points but the preamble declared {nr_pt}")
 
         # Scale in seconds and round each finished timestamp to integer ns; at
         # 5 GSa/s the 0.2 ns interval would otherwise truncate to zero.
@@ -284,7 +299,7 @@ class Keysight3000TX(ScopeDriverBase):
         self._visa.write(":TRIGger:FORCe")
 
     def get_trigger_status(self) -> TriggerStatus:
-        """``:OPERegister:CONDition?`` bits: 0x20 = ARMED, 0x08 = AUTO (running), else TRIGGERED."""
+        """``:OPERegister:CONDition?`` bits: 0x20 = ARMED, 0x08 = AUTO (running); a stopped scope reports TRIGGERED."""
         resp = int(self._visa.query(":OPERegister:CONDition?"))
         if resp & 0x20:
             return TriggerStatus.ARMED
@@ -302,9 +317,13 @@ class Keysight3000TX(ScopeDriverBase):
             self._visa.write(f':SAVE:IMAGe "{filepath}"')
             self.check_errors()
             return b""
-        # Ink saver is on by default and inverts the returned image.
+        # Ink saver is on by default and inverts the returned image; restore the user's setting after the capture.
+        ink_saver = self._visa.query(":HARDcopy:INKSaver?").strip()
         self._visa.write(":HARDcopy:INKSaver OFF")
-        raw_vals = self._visa.query_binary_values(":DISPlay:DATA? PNG,COLor", datatype="B", container=list)
+        try:
+            raw_vals = self._visa.query_binary_values(":DISPlay:DATA? PNG,COLor", datatype="B", container=list)
+        finally:
+            self._visa.write(f":HARDcopy:INKSaver {ink_saver}")
         data = bytes(raw_vals)
         with open(filepath, "wb") as f:
             f.write(data)
