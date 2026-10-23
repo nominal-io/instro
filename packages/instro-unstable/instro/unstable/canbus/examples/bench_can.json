@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "protocol": "can",
+  "device": {
+    "name": "vehicle_bus",
+    "description": "E-axle bench CAN bus"
+  },
+  "connection": {
+    "interface": "gs_usb",
+    "channel": 0,
+    "bitrate": 500000
+  },
+  "timing": {
+    "poll_interval": 0.1
+  },
+  "dbc": "vehicle.dbc",
+  "rx_messages": ["BMS_Status", "Motor_Feedback"],
+  "tx_messages": ["Motor_Command"]
+}

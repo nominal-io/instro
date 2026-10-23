@@ -8,3 +8,4 @@ register map or command set.
 |-------|-------------|
 | [`ModbusDevice`](modbus.md) | Modbus TCP and RTU devices |
 | [`EtherNetIPDevice`](ethernetip.md) | Allen-Bradley PLC tag access |
+| [`CANInterface`](can.md) | CAN bus signals described by a DBC file (unstable) |

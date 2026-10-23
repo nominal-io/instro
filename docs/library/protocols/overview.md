@@ -25,3 +25,4 @@ Use protocol clients for industrial devices that do not use SCPI or VISA transpo
 
 - **[Modbus](/library/protocols/modbus.md)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and publisher support.
 - **[EtherNet/IP](/library/protocols/ethernetip.md)**: Allen-Bradley PLC tag access with config-driven scalar reads, writes, and batched background collection.
+- **[CAN](/library/protocols/can.md)**: CAN bus client that reads and writes signals described by a DBC file, with background polling and publisher support. Unstable package only.

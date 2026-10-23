@@ -1,0 +1,25 @@
+VERSION ""
+
+
+NS_ :
+
+BS_:
+
+BU_: BMS ECU
+
+
+BO_ 291 BMS_Status: 8 BMS
+ SG_ pack_voltage : 0|16@1+ (0.01,0) [0|655.35] "V" ECU
+ SG_ pack_current : 16|16@1- (0.1,0) [-3276.8|3276.7] "A" ECU
+
+BO_ 2566869221 Motor_Feedback: 8 ECU
+ SG_ speed : 0|16@1- (1,0) [-32768|32767] "rpm" BMS
+
+BO_ 512 Motor_Command: 8 ECU
+ SG_ torque_request : 0|16@1- (0.1,0) [-300|300] "Nm" BMS
+ SG_ enable : 16|1@1+ (1,0) [0|1] "" BMS
+
+BO_ 768 Diagnostics: 8 ECU
+ SG_ page M : 0|8@1+ (1,0) [0|255] "" BMS
+ SG_ page0_value m0 : 8|16@1+ (1,0) [0|65535] "" BMS
+ SG_ page1_value m1 : 8|16@1+ (1,0) [0|65535] "" BMS

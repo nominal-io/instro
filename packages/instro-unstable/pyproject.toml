@@ -30,6 +30,7 @@ dependencies = [
     "instro>=1.10.0",
     "scikit-rf>=2.1.0",
     "python-can>=4.3",
+    "cantools>=39.4",
     "gs-usb>=0.3",
     "libusb-package>=1.0.26",
     "pyserial>=3.5",

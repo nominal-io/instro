@@ -178,6 +178,7 @@ sdk/library/transports
 sdk/protocols/index
 sdk/protocols/modbus
 sdk/protocols/ethernetip
+sdk/protocols/can
 ```
 
 ```{toctree}
