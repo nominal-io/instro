@@ -20,7 +20,7 @@ use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Client {
     ClientBuilder::new()
-        .with_identity_token(ua::UserIdentityToken::Anonymous(
+        .with_identity_token(&ua::UserIdentityToken::Anonymous(
             ua::AnonymousIdentityToken::init(),
         ))
         .with_security_mode(ua::MessageSecurityMode::NONE)
