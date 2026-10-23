@@ -535,8 +535,12 @@ impl FromStr for SecurityPolicyUri {
             "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => Self::Basic128Rsa15,
             "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => Self::Basic256,
             "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => Self::Basic256Sha256,
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => Self::Aes128Sha256RsaOaep,
-            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => Self::Aes256Sha256RsaPss,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => {
+                Self::Aes128Sha256RsaOaep
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
+                Self::Aes256Sha256RsaPss
+            }
             _ => bail!(internal, "invalid security policy URI: {s}"),
         })
     }
@@ -555,8 +559,12 @@ impl SecurityPolicyUri {
             Self::Basic128Rsa15 => "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15",
             Self::Basic256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256",
             Self::Basic256Sha256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256",
-            Self::Aes128Sha256RsaOaep => "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep",
-            Self::Aes256Sha256RsaPss => "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss",
+            Self::Aes128Sha256RsaOaep => {
+                "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep"
+            }
+            Self::Aes256Sha256RsaPss => {
+                "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss"
+            }
         }
     }
 }
@@ -582,30 +590,48 @@ impl ClientBuilder {
 
     /// Sets whether to accept any server certificate.
     pub fn with_trust_server_certs(self, accept_any_cert: bool) -> Self {
-        Self { accept_any_cert, ..self }
+        Self {
+            accept_any_cert,
+            ..self
+        }
     }
 
     /// Sets the user identity token to use for the client.
     pub fn with_identity_token(self, token: &ua::UserIdentityToken) -> Self {
-        Self { builder: self.builder.user_identity_token(&token), ..self }
+        Self {
+            builder: self.builder.user_identity_token(token),
+            ..self
+        }
     }
 
     /// Sets the security mode to use for the client.
     pub fn with_security_mode(self, mode: ua::MessageSecurityMode) -> Self {
-        Self { builder: self.builder.security_mode(mode), ..self }
+        Self {
+            builder: self.builder.security_mode(mode),
+            ..self
+        }
     }
 
     /// Sets the security policy to use for the client.
     pub fn with_security_policy(self, security_policy: SecurityPolicyUri) -> Self {
-        let uri = ua::String::new(security_policy.as_policy_uri_str())
-            .expect("security policy URIs are statics and well-formed, failure is likely an allocation error from open62541");
+        #[expect(clippy::expect_used)]
+        let uri = ua::String::new(security_policy.as_policy_uri_str()).expect(
+            "security policy URIs are statics and well-formed, failure is likely an allocation \
+             error from open62541",
+        );
 
-        Self { builder: self.builder.security_policy_uri(uri), ..self }
+        Self {
+            builder: self.builder.security_policy_uri(uri),
+            ..self
+        }
     }
 
     /// Sets the timeout to use for the client.
     pub fn with_timeout(self, timeout: Duration) -> Self {
-        Self { builder: self.builder.timeout(timeout), ..self }
+        Self {
+            builder: self.builder.timeout(timeout),
+            ..self
+        }
     }
 
     /// Sets the PKI to use for the client.
