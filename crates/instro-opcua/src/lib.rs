@@ -8,7 +8,10 @@ pub use open62541;
 pub type Result<T> = core::result::Result<T, self::error::OpcUaError>;
 
 pub mod prelude {
+    pub use open62541;
     pub use open62541::ua;
+    pub use open62541::DataType as _;
+    pub use open62541::DataTypeExt as _;
 
     pub use crate::browse::Browse as _;
     pub use crate::browse::BrowseAll as _;

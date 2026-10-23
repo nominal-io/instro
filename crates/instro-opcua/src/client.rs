@@ -44,8 +44,10 @@ mod stream;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use std::future;
 use std::num::NonZeroU32;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Weak;
 use std::time::Duration;
@@ -87,6 +89,12 @@ use crate::error::UaErrorExt as _;
 use crate::error::bail;
 use crate::metrics::NodeReadCounts;
 use crate::metrics::PollLoopMetricsLogger;
+
+pub fn get_endpoints(endpoint_url: &str) -> Result<ua::Array<ua::EndpointDescription>> {
+    open62541::ClientBuilder::default()
+        .get_endpoints(endpoint_url)
+        .with_ua_context(|| format!("getting endpoints for '{endpoint_url}'"))
+}
 
 #[derive(Debug)]
 /// Wraps an [`AsyncClient`] with high-performance telemetry-streaming-oriented API designed for long-lived applications.
@@ -521,32 +529,48 @@ pub struct ClientBuilder {
     pki: PkiConfig,
 }
 
+impl FromStr for SecurityPolicyUri {
+    type Err = OpcUaError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "http://opcfoundation.org/UA/SecurityPolicy#None" => Self::None,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => Self::Basic128Rsa15,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => Self::Basic256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => Self::Basic256Sha256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => Self::Aes128Sha256RsaOaep,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => Self::Aes256Sha256RsaPss,
+            _ => bail!(internal, "invalid security policy URI: {s}"),
+        })
+    }
+}
+
+impl fmt::Display for SecurityPolicyUri {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_policy_uri_str().fmt(f)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SecurityPolicyUri(&'static str);
+pub enum SecurityPolicyUri {
+    None,
+    Basic128Rsa15,
+    Basic256,
+    Basic256Sha256,
+    Aes128Sha256RsaOaep,
+    Aes256Sha256RsaPss,
+}
 
 impl SecurityPolicyUri {
-    pub const fn none() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#None")
-    }
-
-    pub const fn basic128_rsa15() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15")
-    }
-
-    pub const fn basic256() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256")
-    }
-
-    pub const fn basic256_sha256() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256")
-    }
-
-    pub const fn aes128_sha256_rsa_oaep() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep")
-    }
-
-    pub const fn aes256_sha256_rsa_pss() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss")
+    pub const fn as_policy_uri_str(self) -> &'static str {
+        match self {
+            Self::None => "http://opcfoundation.org/UA/SecurityPolicy#None",
+            Self::Basic128Rsa15 => "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15",
+            Self::Basic256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256",
+            Self::Basic256Sha256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256",
+            Self::Aes128Sha256RsaOaep => "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep",
+            Self::Aes256Sha256RsaPss => "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss",
+        }
     }
 }
 
@@ -662,10 +686,9 @@ impl ClientBuilder {
 
         if let Some(security_policy) = self.security_policy {
             builder = builder.security_policy_uri(
-                ua::String::new(security_policy.0)
-                    // should only fail on allocation error,
-                    // could just as well unwrap if we're feeling loosey goosey
-                    .context("converting security policy URI to ua::String")?,
+                #[expect(clippy::expect_used)]
+                ua::String::new(security_policy.as_policy_uri_str())
+                    .expect("security policy URIs are statics and well-formed, failure is likely an allocation error from open62541")
             );
         }
 

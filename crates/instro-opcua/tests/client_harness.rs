@@ -15,7 +15,6 @@ use instro_opcua_test::TestServer;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
 use itertools::Itertools as _;
-use open62541::DataType as _;
 use open62541::DataValue;
 use tokio::sync::mpsc;
 
@@ -25,7 +24,7 @@ fn connect_client(server: &TestServer) -> Client {
             ua::AnonymousIdentityToken::init(),
         ))
         .with_security_mode(ua::MessageSecurityMode::NONE)
-        .with_security_policy(SecurityPolicyUri::none())
+        .with_security_policy(SecurityPolicyUri::None)
         .with_timeout(LIFETIME_TIMEOUT)
         .with_pki(PkiConfig::None)
         .connect(server.endpoint_url())
