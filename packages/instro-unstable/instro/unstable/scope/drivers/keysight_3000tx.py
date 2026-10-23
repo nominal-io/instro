@@ -229,7 +229,11 @@ class Keysight3000TX(ScopeDriverBase):
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
-        """Fetch the waveform from ``channel`` over ``WORD`` (unsigned 16-bit, LSB-first), 1000 points."""
+        """Fetch the waveform from ``channel`` over ``WORD`` (unsigned 16-bit, LSB-first), requesting 1000 points.
+
+        The scope returns as close to 1000 points as its settings allow (it may return
+        fewer, e.g. 992); the transfer is checked against the preamble's point count.
+        """
         self._visa.write(f":WAVeform:SOURce CHANnel{channel}")
         self._visa.write(":WAVeform:FORMat WORD")
         self._visa.write(":WAVeform:UNSigned 1")
