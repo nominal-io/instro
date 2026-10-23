@@ -23,7 +23,7 @@ The default development environment needs **Rust and a C/C++ toolchain**, even f
 | Separate nightly toolchain with `rustfmt` | — | `just check` only |
 | [`cargo-nextest`](https://nexte.st/) (Rust test runner) | — | `just test` only |
 
-You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.10–3.14) for you. [rust-toolchain.toml](./rust-toolchain.toml) pins the Rust build toolchain, which `rustup` installs on first use. Formatting uses a separate `cargo +nightly fmt` invocation in `just check-rust` and `just fix-rust`; after installing rustup, install nightly rustfmt as [CI does](./.github/workflows/build-check-test.yml):
+You do **not** need to install Python separately — `uv` downloads and manages a supported interpreter (3.11–3.14) for you. [rust-toolchain.toml](./rust-toolchain.toml) pins the Rust build toolchain, which `rustup` installs on first use. Formatting uses a separate `cargo +nightly fmt` invocation in `just check-rust` and `just fix-rust`; after installing rustup, install nightly rustfmt as [CI does](./.github/workflows/build-check-test.yml):
 
 ```bash
 rustup toolchain install nightly --profile minimal --component rustfmt
