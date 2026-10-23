@@ -13,9 +13,11 @@ allowed to come back NaN; strict value checks run only when the matching
 EXPECTED_* constant is set, which requires a stimulus on SIGNAL_CHANNEL.
 
 Run (after setting VISA_RESOURCE below):
-    uv run python tests/unstable/scope/test_keysight_3000tx_hardware.py
+    uv run --no-dev --group test --extra unstable python tests/unstable/scope/test_keysight_3000tx_hardware.py
 
-The scope is left running with its trigger in AUTO sweep.
+``--no-dev`` leaves out the default ``dev`` group, whose ``instro-ethernetip``
+member needs a Rust toolchain to build; ``test`` supplies pytest and ``unstable``
+the driver. The scope is left running with its trigger in AUTO sweep.
 """
 
 from __future__ import annotations
