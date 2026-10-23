@@ -23,8 +23,7 @@ thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["time", "macros", "rt", "sync"] }
 itertools.workspace = true
-# TODO(cartercanedy): change this back to upstream published version if/when changes merge
-nominal-open62541.workspace = true
+open62541.workspace = true
 open62541-sys.workspace = true
 uuid.workspace = true
 futures-util.workspace = true
