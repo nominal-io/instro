@@ -231,13 +231,11 @@ class Keysight3000TX(ScopeDriverBase):
         y_origin = float(parts[8])
         y_ref = float(parts[9])
 
-        x_incr_ns = int(x_incr * 1e9)
-        x_ref_ns = int(x_ref * 1e9)
-        x_origin_ns = int(x_origin * 1e9)
-
         points = self._visa.query_binary_values(":WAVeform:DATA?", datatype="H", is_big_endian=False, container=list)
 
-        times = [(i - x_ref_ns) * x_incr_ns + x_origin_ns for i in range(nr_pt)]
+        # Scale in seconds and round each finished timestamp to integer ns; at
+        # 5 GSa/s the 0.2 ns interval would otherwise truncate to zero.
+        times = [round(((i - x_ref) * x_incr + x_origin) * 1e9) for i in range(nr_pt)]
         voltages = [(pt - y_ref) * y_incr + y_origin for pt in points]
 
         return WaveformData(times=times, voltages=voltages)
@@ -325,11 +323,16 @@ class Keysight3000TX(ScopeDriverBase):
         return data
 
     def load_settings(self, name: str, from_instrument: bool = False) -> None:
-        """``:RECall:SETup`` from scope memory, or send local bytes via ``:SYSTem:SETup``."""
+        """``:RECall:SETup`` from scope memory, or send local bytes via ``:SYSTem:SETup``.
+
+        The recalled setup may select a different trigger source, so the cached
+        one is dropped; call ``set_trigger_source`` again before ``set_trigger_level``.
+        """
         if from_instrument:
             self._visa.write(f':RECall:SETup "{name}"')
-            return
-        with open(name, "rb") as f:
-            data = f.read()
-        header = f"#{len(str(len(data)))}{len(data)}"
-        self._visa.write_raw(f":SYSTem:SETup {header}".encode() + data)
+        else:
+            with open(name, "rb") as f:
+                data = f.read()
+            header = f"#{len(str(len(data)))}{len(data)}"
+            self._visa.write_raw(f":SYSTem:SETup {header}".encode() + data)
+        self._trigger_source = None

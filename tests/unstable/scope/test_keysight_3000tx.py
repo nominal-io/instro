@@ -179,6 +179,19 @@ def test_fetch_waveform_sets_unsigned_word_and_scales_points(scope: Keysight3000
     assert waveform.voltages == pytest.approx([0.0, 1.0, -1.0, 0.0])
 
 
+def test_fetch_waveform_keeps_sub_nanosecond_intervals(scope: Keysight3000TX, visa: MagicMock) -> None:
+    # 0.4 ns interval (2.5 GSa/s): truncating the interval to whole ns would stamp every point 0.
+    visa.query.side_effect = [
+        '+0,"No error"',
+        "+1,+0,+6,+1,+4.0E-10,+0.0E+00,+0,+1.0E-03,+0.0E+00,+32768",
+    ]
+    visa.query_binary_values.return_value = [32768] * 6
+
+    waveform = scope.fetch_waveform(channel=1)
+
+    assert waveform.times == [0, 0, 1, 1, 2, 2]
+
+
 def test_fetch_waveform_raises_before_data_query_on_error(scope: Keysight3000TX, visa: MagicMock) -> None:
     visa.query.return_value = '-222,"Data out of range"'
     with pytest.raises(RuntimeError, match="-222"):
@@ -244,3 +257,17 @@ def test_load_settings_from_host_sends_definite_length_block(
 def test_load_settings_from_instrument_recalls_by_name(scope: Keysight3000TX, visa: MagicMock) -> None:
     scope.load_settings("bench.scp", from_instrument=True)
     visa.write.assert_called_once_with(':RECall:SETup "bench.scp"')
+
+
+@pytest.mark.parametrize("from_instrument", [True, False])
+def test_load_settings_drops_cached_trigger_source(
+    scope: Keysight3000TX, visa: MagicMock, tmp_path: Path, from_instrument: bool
+) -> None:
+    src = tmp_path / "setup.bin"
+    src.write_bytes(b"\x00")
+    scope.set_trigger_source(3)
+
+    scope.load_settings("bench.scp" if from_instrument else str(src), from_instrument=from_instrument)
+    scope.set_trigger_level(0.5)
+
+    assert _writes(visa)[-1] == ":TRIGger:EDGE:LEVel 0.5"
