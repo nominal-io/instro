@@ -80,6 +80,9 @@ _VENDOR_INVALID_MEASUREMENT = 9.9e37
 
 _WAVEFORM_POINTS = 1000
 
+# :SYSTem:ERRor? queue depth; bounds the drain loop if the scope keeps reporting errors.
+_ERROR_QUEUE_DEPTH = 30
+
 
 def _convert_sentinel(value: float) -> float:
     """Map the vendor invalid-measurement sentinel to NaN."""
@@ -109,13 +112,17 @@ class Keysight3000TX(ScopeDriverBase):
         self._visa.close()
 
     def check_errors(self) -> None:
-        """Query ``:SYSTem:ERRor?`` once and raise on a non-zero code. Does not drain the queue."""
-        resp = self._visa.query(":SYSTem:ERRor?")
-        parts = resp.split(",", 1)
-        code = int(parts[0])
-        if code != 0:
+        """Drain ``:SYSTem:ERRor?`` until it reports ``0`` and raise listing every non-zero entry."""
+        errors: list[str] = []
+        for _ in range(_ERROR_QUEUE_DEPTH):
+            parts = self._visa.query(":SYSTem:ERRor?").split(",", 1)
+            code = int(parts[0])
+            if code == 0:
+                break
             msg = parts[1].strip().strip('"') if len(parts) > 1 else "Unknown error"
-            raise RuntimeError(f"Keysight SCPI error {code}: {msg}")
+            errors.append(f"{code}: {msg}")
+        if errors:
+            raise RuntimeError(f"Keysight SCPI error {'; '.join(errors)}")
 
     # --- Channel vertical settings ---
 

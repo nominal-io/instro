@@ -70,10 +70,18 @@ def test_check_errors_accepts_both_zero_forms(scope: Keysight3000TX, visa: Magic
     visa.query.assert_called_once_with(":SYSTem:ERRor?")
 
 
-def test_check_errors_raises_on_nonzero(scope: Keysight3000TX, visa: MagicMock) -> None:
-    visa.query.return_value = '-113,"Undefined header"'
-    with pytest.raises(RuntimeError, match="Keysight SCPI error -113: Undefined header"):
+def test_check_errors_drains_queue_and_reports_every_error(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.side_effect = ['-221,"Settings conflict"', '-113,"Undefined header"', '+0,"No error"']
+    with pytest.raises(RuntimeError, match="Keysight SCPI error -221: Settings conflict; -113: Undefined header$"):
         scope.check_errors()
+    assert visa.query.call_count == 3
+
+
+def test_check_errors_stops_after_queue_depth(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.return_value = '-221,"Settings conflict"'
+    with pytest.raises(RuntimeError, match="-221"):
+        scope.check_errors()
+    assert visa.query.call_count == 30
 
 
 def test_vertical_settings_write_scpi(scope: Keysight3000TX, visa: MagicMock) -> None:
@@ -212,7 +220,7 @@ def test_fetch_waveform_rejects_short_transfer(scope: Keysight3000TX, visa: Magi
 
 
 def test_fetch_waveform_raises_before_data_query_on_error(scope: Keysight3000TX, visa: MagicMock) -> None:
-    visa.query.return_value = '-222,"Data out of range"'
+    visa.query.side_effect = ['-222,"Data out of range"', '+0,"No error"']
     with pytest.raises(RuntimeError, match="-222"):
         scope.fetch_waveform(channel=1)
     visa.query_binary_values.assert_not_called()

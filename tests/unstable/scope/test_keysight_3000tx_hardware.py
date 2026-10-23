@@ -12,21 +12,28 @@ asserted. Measurements that need edges (frequency, period, duty cycle) are
 allowed to come back NaN; strict value checks run only when the matching
 EXPECTED_* constant is set, which requires a stimulus on SIGNAL_CHANNEL.
 
+With RESET_ON_START (the default) the scope's current setup is saved, the scope
+is reset with ``*RST`` so the sweep starts from a known state, and the saved
+setup is restored at the end. The scope's starting mode state is printed first,
+and each failure prints the script line that raised plus the scope's mode state.
+
 Run (after setting VISA_RESOURCE below):
     uv run --no-dev --group test --extra unstable python tests/unstable/scope/test_keysight_3000tx_hardware.py
 
 ``--no-dev`` leaves out the default ``dev`` group, whose ``instro-ethernetip``
 member needs a Rust toolchain to build; ``test`` supplies pytest and ``unstable``
-the driver. The scope is left running with its trigger in AUTO sweep.
+the driver.
 """
 
 from __future__ import annotations
 
+import contextlib
 import math
 import os
 import sys
 import tempfile
 import time
+import traceback
 from collections.abc import Callable
 
 import pytest
@@ -47,6 +54,7 @@ from instro.unstable.scope.drivers import Keysight3000TX
 VISA_RESOURCE = "TCPIP0::IP_ADDRESS::INSTR"  # <-- edit to your unit (LAN, or USB0::0x2A8D::...::INSTR)
 NUM_CHANNELS = 4  # 2 for DSOX/MSOX30x2T models
 SIGNAL_CHANNEL = 1  # channel used for trigger, digitize, waveform fetch, and measurements
+RESET_ON_START = True  # save the setup, *RST, run the sweep, restore the setup; False runs on the current state
 
 # Stimulus expectations (None = skip the strict check; leave None with nothing wired).
 EXPECTED_FREQUENCY_HZ: float | None = None
@@ -65,6 +73,18 @@ WAVEFORM_POINTS = 1000  # the driver requests 1000 points in NORMal mode
 
 _EDGE_MEASUREMENTS = {ScopeMeasurementType.FREQUENCY, ScopeMeasurementType.PERIOD, ScopeMeasurementType.DUTY_CYCLE}
 
+# Read-only queries for the modes that make the scope answer "-221 Settings conflict":
+# :DIGitize and :WAVeform need timebase MAIN, AVERage is refused in segmented memory, and
+# OPERegister bit 4 (0x10) clear means the front panel has disabled the remote interface.
+_STATE_QUERIES = {
+    "timebase": ":TIMebase:MODE?",
+    "acquire": ":ACQuire:MODE?",
+    "type": ":ACQuire:TYPE?",
+    "digitizer": ":ACQuire:DIGitizer?",
+    "sweep": ":TRIGger:SWEep?",
+    "oper": ":OPERegister:CONDition?",
+}
+
 
 def _make_scope() -> tuple[InstroScope, Keysight3000TX]:
     driver = Keysight3000TX(VISA_RESOURCE)
@@ -73,12 +93,37 @@ def _make_scope() -> tuple[InstroScope, Keysight3000TX]:
     return scope, driver
 
 
-def _run(name: str, fn: Callable[[], None], failures: list) -> None:
+def _scope_state(driver: Keysight3000TX) -> str:
+    """Query the scope's mode state; never raises, and drains any error the queries queue."""
+    parts = []
+    for label, query in _STATE_QUERIES.items():
+        try:
+            parts.append(f"{label}={driver._visa.query(query).strip()}")
+        except Exception as exc:  # noqa: BLE001 - diagnostics only
+            parts.append(f"{label}=<{exc}>")
+    try:
+        driver.check_errors()
+    except RuntimeError as exc:
+        parts.append(f"(diagnostic queries raised {exc})")
+    return ", ".join(parts)
+
+
+def _raising_line(exc: BaseException) -> str | None:
+    """The last line of this script in ``exc``'s traceback, i.e. the call that failed."""
+    frames = [f for f in traceback.extract_tb(exc.__traceback__) if f.filename == __file__]
+    return f"line {frames[-1].lineno}: {frames[-1].line}" if frames else None
+
+
+def _run(name: str, fn: Callable[[], None], failures: list, driver: Keysight3000TX) -> None:
     try:
         fn()
         print(f"  [OK]   {name}")
     except Exception as exc:  # noqa: BLE001 - report, don't abort
         print(f"  [FAIL] {name}: {exc}")
+        where = _raising_line(exc)
+        if where is not None:
+            print(f"         at {where}")
+        print(f"         scope state: {_scope_state(driver)}")
         failures.append((name, exc))
 
 
@@ -91,6 +136,20 @@ def run_all() -> list:
     failures: list = []
     ch = SIGNAL_CHANNEL
     channels = range(1, NUM_CHANNELS + 1)
+    saved_setup = os.path.join(tempfile.gettempdir(), "keysight_3000tx_hw_original_setup.bin")
+
+    def run(name: str, fn: Callable[[], None]) -> None:
+        _run(name, fn, failures, driver)
+
+    print(f"  {driver._visa.query('*IDN?').strip()}")
+    print(f"  starting state: {_scope_state(driver)}")
+    if RESET_ON_START:
+        scope.save_settings(saved_setup)
+        driver._visa.write("*RST")
+        driver._visa.query("*OPC?")
+        driver._visa.write("*CLS")
+        print(f"  reset; original setup saved to {saved_setup}")
+        print(f"  reset state:    {_scope_state(driver)}")
     try:
         # --- Connection / bulk getters + error drain ---
         def sync() -> None:
@@ -101,7 +160,7 @@ def run_all() -> list:
                 assert vs is not None and math.isfinite(vs) and vs > 0, f"CH{c} bad vertical scale: {vs}"
             driver.check_errors()
 
-        _run("sync_configuration (all getters + check_errors)", sync, failures)
+        run("sync_configuration (all getters + check_errors)", sync)
 
         # --- Channel display (driver extra; fetch/measure need the channel on) ---
         def display() -> None:
@@ -110,7 +169,7 @@ def run_all() -> list:
                 assert driver.get_channel_display(channel=c), f"CH{c} did not turn on"
             driver.check_errors()
 
-        _run("channel display on (all channels)", display, failures)
+        run("channel display on (all channels)", display)
 
         # --- Vertical scale roundtrip, every channel ---
         def vscale() -> None:
@@ -121,7 +180,7 @@ def run_all() -> list:
                     assert math.isclose(got, target, rel_tol=REL_TOL), f"CH{c}: set {target} V/div, read {got}"
             driver.check_errors()
 
-        _run("vertical scale set/get roundtrip (all channels)", vscale, failures)
+        run("vertical scale set/get roundtrip (all channels)", vscale)
 
         # --- Vertical offset roundtrip, every channel ---
         def voffset() -> None:
@@ -133,7 +192,7 @@ def run_all() -> list:
                 assert abs(scope.get_vertical_offset(channel=c).latest) < 0.01, f"CH{c}: offset did not return to 0"
             driver.check_errors()
 
-        _run("vertical offset set/get roundtrip (all channels)", voffset, failures)
+        run("vertical offset set/get roundtrip (all channels)", voffset)
 
         # --- Coupling roundtrip ---
         def coupling() -> None:
@@ -144,7 +203,7 @@ def run_all() -> list:
                 assert scope.get_coupling(channel=c).latest == Coupling.DC.value, f"CH{c} did not read DC"
             driver.check_errors()
 
-        _run("coupling set/get roundtrip (AC/DC, all channels)", coupling, failures)
+        run("coupling set/get roundtrip (AC/DC, all channels)", coupling)
 
         # --- Probe attenuation roundtrip (fails if an AutoProbe is attached; that is expected) ---
         def probe() -> None:
@@ -157,7 +216,7 @@ def run_all() -> list:
                 assert math.isclose(got, 1, rel_tol=REL_TOL), f"CH{c}: set 1:1, read {got}"
             driver.check_errors()
 
-        _run("probe attenuation set/get roundtrip (all channels)", probe, failures)
+        run("probe attenuation set/get roundtrip (all channels)", probe)
 
         # --- Timebase roundtrip ---
         def timebase() -> None:
@@ -167,7 +226,7 @@ def run_all() -> list:
                 assert math.isclose(got, target, rel_tol=REL_TOL), f"set {target} s/div, read {got}"
             driver.check_errors()
 
-        _run("horizontal scale set/get roundtrip", timebase, failures)
+        run("horizontal scale set/get roundtrip", timebase)
 
         # --- Sample rate query ---
         def sample_rate() -> None:
@@ -175,26 +234,33 @@ def run_all() -> list:
             assert math.isfinite(sr) and sr > 0, f"bad sample rate: {sr}"
             print(f"         sample rate: {sr:.3e} Sa/s")
 
-        _run("sample rate query (:ACQuire:SRATe?)", sample_rate, failures)
+        run("sample rate query (:ACQuire:SRATe?)", sample_rate)
 
-        # --- Acquisition modes + average count ---
-        def acq_modes() -> None:
-            for mode in (
-                AcquisitionMode.AVERAGE,
-                AcquisitionMode.HIGH_RESOLUTION,
-                AcquisitionMode.PEAK_DETECT,
-                AcquisitionMode.NORMAL,
-            ):
-                scope.set_acquisition_mode(mode)
-                got = scope.get_acquisition_mode().latest
-                assert got == mode.value, f"set {mode.value}, read {got}"
-            scope.set_acquisition_mode(AcquisitionMode.AVERAGE)
-            scope.set_average_count(16)
-            assert int(scope.get_average_count().latest) == 16, "average count did not read back 16"
+        # --- Acquisition modes + average count; one check per mode, NORMAL restored even on failure ---
+        for acq_mode in (AcquisitionMode.AVERAGE, AcquisitionMode.HIGH_RESOLUTION, AcquisitionMode.PEAK_DETECT):
+
+            def acq_roundtrip(mode: AcquisitionMode = acq_mode) -> None:
+                try:
+                    scope.set_acquisition_mode(mode)
+                    got = scope.get_acquisition_mode().latest
+                    assert got == mode.value, f"set {mode.value}, read {got}"
+                    if mode is AcquisitionMode.AVERAGE:
+                        scope.set_average_count(16)
+                        assert int(scope.get_average_count().latest) == 16, "average count did not read back 16"
+                    driver.check_errors()
+                finally:
+                    with contextlib.suppress(Exception):
+                        scope.set_acquisition_mode(AcquisitionMode.NORMAL)
+
+            label = f"acquisition mode {acq_mode.value} roundtrip"
+            run(label + (" + average count" if acq_mode is AcquisitionMode.AVERAGE else ""), acq_roundtrip)
+
+        def acq_normal() -> None:
             scope.set_acquisition_mode(AcquisitionMode.NORMAL)
-            driver.check_errors()
+            got = scope.get_acquisition_mode().latest
+            assert got == AcquisitionMode.NORMAL.value, f"set NORMAL, read {got}"
 
-        _run("acquisition mode roundtrip (AVER/HRES/PEAK/NORM) + average count", acq_modes, failures)
+        run("acquisition mode NORMAL roundtrip", acq_normal)
 
         def acq_envelope_unsupported() -> None:
             try:
@@ -203,7 +269,7 @@ def run_all() -> list:
                 return
             raise AssertionError("ENVELOPE mode should raise NotImplementedError on the 3000T X-Series")
 
-        _run("acquisition mode ENVELOPE rejected", acq_envelope_unsupported, failures)
+        run("acquisition mode ENVELOPE rejected", acq_envelope_unsupported)
 
         # --- Trigger surface ---
         def trigger_config() -> None:
@@ -217,7 +283,7 @@ def run_all() -> list:
             scope.set_trigger_mode(TriggerMode.AUTO)
             driver.check_errors()
 
-        _run("trigger source/type/slope/level/mode", trigger_config, failures)
+        run("trigger source/type/slope/level/mode", trigger_config)
 
         # --- run / state / stop ---
         def run_stop() -> None:
@@ -229,7 +295,7 @@ def run_all() -> list:
             assert scope.get_acquisition_state().latest == "STOPPED"
             driver.check_errors()
 
-        _run("run -> RUNNING, stop -> STOPPED", run_stop, failures)
+        run("run -> RUNNING, stop -> STOPPED", run_stop)
 
         # --- trigger status ---
         def trigger_status() -> None:
@@ -239,20 +305,23 @@ def run_all() -> list:
             assert status in {"ARMED", "AUTO", "TRIGGERED"}, f"unexpected trigger status: {status!r}"
             print(f"         trigger status while running: {status}")
 
-        _run("get_trigger_status", trigger_status, failures)
+        run("get_trigger_status", trigger_status)
 
         # --- force_trigger (NORMAL sweep so the force is what completes the single) ---
         def force() -> None:
-            scope.set_trigger_mode(TriggerMode.NORMAL)
-            scope.single()
-            time.sleep(0.2)
-            scope.force_trigger()
-            time.sleep(0.5)
-            assert scope.get_acquisition_state().latest == "STOPPED", "forced single did not stop the scope"
-            scope.set_trigger_mode(TriggerMode.AUTO)
-            driver.check_errors()
+            try:
+                scope.set_trigger_mode(TriggerMode.NORMAL)
+                scope.single()
+                time.sleep(0.2)
+                scope.force_trigger()
+                time.sleep(0.5)
+                assert scope.get_acquisition_state().latest == "STOPPED", "forced single did not stop the scope"
+                driver.check_errors()
+            finally:
+                with contextlib.suppress(Exception):
+                    scope.set_trigger_mode(TriggerMode.AUTO)
 
-        _run("single + force_trigger", force, failures)
+        run("single + force_trigger", force)
 
         # --- single + digitize via fetch_waveform (AUTO sweep auto-triggers with no signal) ---
         def digitize_fetch() -> None:
@@ -272,7 +341,7 @@ def run_all() -> list:
             if EXPECTED_VPP_V is not None:
                 assert math.isclose(vpp, EXPECTED_VPP_V, rel_tol=VPP_REL_TOL), f"Vpp {vpp:.3f} vs {EXPECTED_VPP_V}"
 
-        _run("single + digitize + fetch_waveform", digitize_fetch, failures)
+        run("single + digitize + fetch_waveform", digitize_fetch)
 
         # --- Built-in measurements (edge measurements may be NaN with no signal) ---
         def measurements() -> None:
@@ -297,7 +366,7 @@ def run_all() -> list:
                 vpp = results[ScopeMeasurementType.VPP]
                 assert math.isclose(vpp, EXPECTED_VPP_V, rel_tol=VPP_REL_TOL), f"VPP {vpp:.3f} vs {EXPECTED_VPP_V}"
 
-        _run("measure (VPP/VMAX/VMIN/VAVG/VRMS/FREQ/PERIOD/DUTY)", measurements, failures)
+        run("measure (VPP/VMAX/VMIN/VAVG/VRMS/FREQ/PERIOD/DUTY)", measurements)
 
         # --- Screenshot (host transfer) ---
         def screenshot() -> None:
@@ -311,7 +380,7 @@ def run_all() -> list:
             driver.check_errors()
             print(f"         screenshot: {size} bytes")
 
-        _run("save_screenshot (:DISPlay:DATA? PNG host transfer)", screenshot, failures)
+        run("save_screenshot (:DISPlay:DATA? PNG host transfer)", screenshot)
 
         # --- Settings host roundtrip (:SYSTem:SETup? then :SYSTem:SETup) ---
         def settings_roundtrip() -> None:
@@ -331,7 +400,7 @@ def run_all() -> list:
             driver.check_errors()
             print(f"         learn string: {size} bytes")
 
-        _run("save_settings + load_settings (host learn-string roundtrip)", settings_roundtrip, failures)
+        run("save_settings + load_settings (host learn-string roundtrip)", settings_roundtrip)
 
         # --- On-instrument save/recall (optional; needs a writable path on the scope) ---
         if INSTRUMENT_SETUP_PATH is not None:
@@ -343,7 +412,7 @@ def run_all() -> list:
                 time.sleep(0.5)
                 driver.check_errors()
 
-            _run("save_settings/load_settings on instrument", settings_instrument, failures)
+            run("save_settings/load_settings on instrument", settings_instrument)
         else:
             _skip("save_settings/load_settings on instrument", "set INSTRUMENT_SETUP_PATH (USB stick) to enable")
 
@@ -354,19 +423,25 @@ def run_all() -> list:
                 scope.save_screenshot(INSTRUMENT_IMAGE_PATH, to_instrument=True)
                 driver.check_errors()
 
-            _run("save_screenshot on instrument", screenshot_instrument, failures)
+            run("save_screenshot on instrument", screenshot_instrument)
         else:
             _skip("save_screenshot on instrument", "set INSTRUMENT_IMAGE_PATH (USB stick) to enable")
 
         # --- Error queue must be clean at the end ---
-        _run("error queue clean after sweep", driver.check_errors, failures)
+        run("error queue clean after sweep", driver.check_errors)
 
     finally:
         try:
-            scope.set_trigger_mode(TriggerMode.AUTO)
-            scope.run()
-        except Exception:  # noqa: BLE001 - best-effort safe state
-            pass
+            if RESET_ON_START:
+                scope.load_settings(saved_setup)
+                driver._visa.query("*OPC?")
+                os.remove(saved_setup)
+                print("  original setup restored")
+            else:
+                scope.set_trigger_mode(TriggerMode.AUTO)
+                scope.run()
+        except Exception as exc:  # noqa: BLE001 - best-effort cleanup
+            print(f"  cleanup failed ({exc}); the original setup is in {saved_setup}")
         scope.close()
     return failures
 
