@@ -422,6 +422,14 @@ class InstroDMM(Instrument):
         self.publish(measurement)
         return measurement
 
+    def measure(self, function: MeasurementFunction, **kwargs) -> Measurement:
+        """Switch to ``function`` if needed (handling relay and settling), then read and return the Measurement.
+
+        Delegates to ``_set_function_and_read`` so the function switch and read stay atomic
+        and safe when the background daemon is running and ``measure`` is called from the main thread.
+        """
+        return self._set_function_and_read(function, **kwargs)
+
     def read_dc_voltage(self, **kwargs) -> Measurement:
         """Read DC voltage (volts), selecting the function first if needed."""
         return self._set_function_and_read(MeasurementFunction.DC_VOLTAGE, **kwargs)
