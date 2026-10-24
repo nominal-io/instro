@@ -412,8 +412,13 @@ dependencies = [
 name = "instro-opcua-py"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "instro-opcua",
+ "itertools",
  "pyo3",
+ "tokio",
+ "tracing",
+ "zips",
 ]
 
 [[package]]
@@ -1520,6 +1525,17 @@ name = "zeroize_derive"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "zips"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba09194204fda6b1e206faf9096a3c0658ddf7606560f6edce112da3fcc9b111"
 dependencies = [
  "proc-macro2",
  "quote",

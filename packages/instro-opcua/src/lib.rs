@@ -1,7 +1,13 @@
-use pyo3::prelude::*;
-use pyo3::types::PyModule;
+mod client;
+mod discover;
 
-#[pymodule]
-fn _opcua(_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    Ok(())
+use pyo3::prelude::*;
+
+#[pymodule(name = "_opcua")]
+mod instro_opcua_py {
+    #[pymodule_export]
+    use super::{
+        discover::{get_endpoints, EndpointDescription},
+        client::OpcUaClient,
+    };
 }
