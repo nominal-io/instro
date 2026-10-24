@@ -53,6 +53,7 @@ mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
+opcua = ["instro-opcua"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 # Plotly publisher; anywidget backs go.FigureWidget for live notebook plots
@@ -133,6 +134,7 @@ instro-i2c-aardvark = { workspace = true }
 instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
+instro-opcua = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -144,6 +146,7 @@ members = [
     "packages/instro-opcua",
     "packages/instro-unstable",
     "packages/instro-contrib",
+    "packages/instro-opcua",
 ]
 
 [tool.ruff]
@@ -191,7 +194,7 @@ mypy_path = [
     "packages/instro-unstable",
     "packages/instro-contrib",
 ]
-packages = ["instro", "instro.ethernetip"]
+packages = ["instro", "instro.ethernetip", "instro.unstable.opcua"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
