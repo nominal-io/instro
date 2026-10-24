@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.15"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -537,6 +537,7 @@ wheels = [
 name = "instro"
 version = "1.22.0"
 source = { editable = "." }
+default-groups = ["dev", "test"]
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
     { name = "nominal" },
@@ -585,6 +586,9 @@ mccdaq = [
 ]
 nidaq = [
     { name = "instro-daq-ni" },
+]
+opcua = [
+    { name = "instro-opcua" },
 ]
 unstable = [
     { name = "instro-unstable" },
@@ -636,6 +640,7 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
+    { name = "instro-opcua", marker = "extra == 'opcua'", editable = "packages/instro-opcua" },
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.180.0,<2.0.0" },
@@ -648,7 +653,7 @@ requires-dist = [
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "unstable", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "opcua", "contrib", "unstable", "all"]
 
 [package.metadata.requires-dev]
 dev = [
