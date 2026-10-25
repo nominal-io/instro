@@ -148,7 +148,7 @@ Where `bench_scope.json` contains:
 
 ### Measurements
 
-`measure(measurement_type, channel)` reads a built-in measurement: `VPP`, `VMAX`, `VMIN`, `VAVG`, `VRMS`, `FREQUENCY`, `PERIOD`, or `DUTY_CYCLE`. It returns `NaN` when the scope has no valid result (no acquisition yet, channel off). `fetch_waveform(channel)` returns a `Measurement` whose timestamps are relative to the trigger point (negative values are pre-trigger), with voltages already scaled through the configured probe attenuation.
+`measure(measurement_type, channel)` reads a built-in measurement: `VPP`, `VMAX`, `VMIN`, `VAVG`, `VRMS`, `FREQUENCY`, `PERIOD`, or `DUTY_CYCLE`. It returns `NaN` when the scope has no valid result (no acquisition yet, channel off). `fetch_waveform(channel)` returns a `Measurement` whose timestamps are relative to the trigger point (negative values are pre-trigger), with voltages already scaled through the configured probe attenuation. When the Tektronix 4 Series MSO is in FastFrame mode, its driver returns all frames on one timeline with time zero at the last frame's trigger, and in roll mode, where there is no trigger, the newest sample is time zero. Period and duty-cycle measurements need two adjacent same-direction edges inside the acquisition, so a timebase that shows fewer than two edges yields `NaN`.
 
 ## Custom Driver Development
 

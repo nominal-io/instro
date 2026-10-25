@@ -19,6 +19,9 @@ Arbitrary waveform generators.
 |--------|-------|-------------|
 | Keysight | {py:class}`33521B <instro.awg.drivers.keysight_33521b.Keysight33521B>` | {pysummary}`instro.awg.drivers.keysight_33521b.Keysight33521B` |
 | Rigol | {py:class}`DG1022Z <instro.awg.drivers.rigol_dg1022z.RigolDG1022Z>` | {pysummary}`instro.awg.drivers.rigol_dg1022z.RigolDG1022Z` |
+| Tektronix | {py:class}`4 Series MSO AFG <instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSOAFG>` | {pysummary}`instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSOAFG` |
+
+The Tektronix AFG is a view of the {py:class}`Tektronix4SeriesMSO <instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSO>` device, which also vends the oscilloscope; see the [Tektronix 4 Series MSO page](/awg/Tektronix4SeriesMSO.md).
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
 descriptions still come from the docstrings via {pysummary}. autosummary needs to
@@ -34,6 +37,7 @@ regardless, so the pages still appear in the sidebar. -->
 
       instro.awg.drivers.keysight_33521b.Keysight33521B
       instro.awg.drivers.rigol_dg1022z.RigolDG1022Z
+      instro.scope.drivers.tektronix_4series.Tektronix4SeriesMSOAFG
 ```
 
 ## Types & Configuration
