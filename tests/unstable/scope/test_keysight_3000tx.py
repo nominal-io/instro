@@ -219,6 +219,22 @@ def test_fetch_waveform_rejects_short_transfer(scope: Keysight3000TX, visa: Magi
         scope.fetch_waveform(channel=1)
 
 
+@pytest.mark.parametrize(
+    ("preamble", "match"),
+    [
+        ("+1,+0,+4,+1,+2.0E-09,+0.0E+00,+0,+1.0E-03,+0.0E+00", "has 9 fields, expected 10"),
+        ("+0,+0,+4,+1,+2.0E-09,+0.0E+00,+0,+1.0E-03,+0.0E+00,+128", r"format \+0, expected WORD"),
+    ],
+)
+def test_fetch_waveform_rejects_unexpected_preamble(
+    scope: Keysight3000TX, visa: MagicMock, preamble: str, match: str
+) -> None:
+    visa.query.side_effect = ['+0,"No error"', preamble]
+    with pytest.raises(RuntimeError, match=match):
+        scope.fetch_waveform(channel=1)
+    visa.query_binary_values.assert_not_called()
+
+
 def test_fetch_waveform_raises_before_data_query_on_error(scope: Keysight3000TX, visa: MagicMock) -> None:
     visa.query.side_effect = ['-222,"Data out of range"', '+0,"No error"']
     with pytest.raises(RuntimeError, match="-222"):

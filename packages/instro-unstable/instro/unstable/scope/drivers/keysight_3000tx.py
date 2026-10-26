@@ -80,6 +80,9 @@ _VENDOR_INVALID_MEASUREMENT = 9.9e37
 
 _WAVEFORM_POINTS = 1000
 
+# :WAVeform:PREamble? format code for WORD (0 = BYTE, 4 = ASCii).
+_PREAMBLE_FORMAT_WORD = 1
+
 # :SYSTem:ERRor? queue depth; bounds the drain loop if the scope keeps reporting errors.
 _ERROR_QUEUE_DEPTH = 30
 
@@ -247,6 +250,11 @@ class Keysight3000TX(ScopeDriverBase):
         preamble = self._visa.query(":WAVeform:PREamble?")
         parts = preamble.split(",")
         # format, type, points, count, xincrement, xorigin, xreference, yincrement, yorigin, yreference
+        # Validate the layout before indexing so a changed preamble fails loudly instead of misscaling.
+        if len(parts) != 10:
+            raise RuntimeError(f"Waveform preamble has {len(parts)} fields, expected 10: {preamble.strip()!r}")
+        if int(parts[0]) != _PREAMBLE_FORMAT_WORD:
+            raise RuntimeError(f"Waveform preamble reports format {parts[0]}, expected WORD ({_PREAMBLE_FORMAT_WORD})")
         nr_pt = int(parts[2])
         x_incr = float(parts[4])
         x_origin = float(parts[5])
