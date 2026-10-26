@@ -16,7 +16,7 @@ A driver for [`InstroDMM`](/dmm.md) (unstable)
 
 The {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` provides a driver that can be used to instantiate an [InstroDMM](/dmm.md). It ships in the `instro-unstable` package (`pip install 'instro[unstable]'`) while its API settles.
 
-The 8845A's default `8845` command set is compatible with the Agilent 34401A, so this driver runs the {py:obj}`Agilent34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>` driver unchanged. It supports the same functions: DC/AC voltage, DC/AC current, 2- and 4-wire resistance, range, and digits.
+The 8845A's default `8845` command set is compatible with the Agilent 34401A, so this driver runs the {py:obj}`Agilent34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>` driver's commands, with its own error messages. It supports the same functions: DC/AC voltage, DC/AC current, 2- and 4-wire resistance, range, and digits.
 
 ## Meter setup
 
@@ -33,7 +33,7 @@ The meter must use the **`8845`** command set. The driver sends Agilent 34401A c
 :::
 
 :::{container} step
-**Over RS-232, select `COMPUTER` mode.** Press **INSTR SETUP**, **PORT IF**, **RS232**, **COMP/TERM ECHO**, then **COMPUTER**. In `TERMINAL` mode the meter echoes every command and prints a `NNN>` prompt, which the driver reads as the reply, so `open()` fails with an error like `Agilent 34401A reported error: *CLS`.
+**Over RS-232, select `COMPUTER` mode.** Press **INSTR SETUP**, **PORT IF**, **RS232**, **COMP/TERM ECHO**, then **COMPUTER**. In `TERMINAL` mode the meter echoes every command and prints a `NNN>` prompt, which the driver reads as the reply, so `open()` fails with an error like `Fluke 8845A reported error: *CLS`.
 :::
 
 :::{container} step
@@ -41,8 +41,6 @@ The meter must use the **`8845`** command set. The driver sends Agilent 34401A c
 :::
 
 ::::
-
-Error messages from this driver name the Agilent 34401A, because its error checking is inherited unchanged.
 
 ## Creating an [`InstroDMM`](/dmm.md) with {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>`
 

@@ -19,12 +19,10 @@ class Fluke8845A(Agilent34401A):
     * **RS-232 mode** ``COMPUTER`` (INSTR SETUP → PORT IF → RS232 → COMP/TERM ECHO → COMPUTER).
       ``TERMINAL`` mode echoes each command and prints a ``NNN>`` prompt, which the driver reads
       back as the reply; ``open`` then fails with an error such as
-      ``Agilent 34401A reported error: *CLS``.
+      ``Fluke 8845A reported error: *CLS``.
 
     Over RS-232, also match the meter's line settings to the ``VisaConfig`` defaults: 9600 baud,
     8 data bits, no parity, 1 stop bit, no flow control, and EOL ``CR LF``.
-
-    Error messages name the Agilent 34401A because error checking is inherited unchanged.
     """
 
     def __init__(self, visa_resource: str | VisaConfig) -> None:
@@ -46,3 +44,11 @@ class Fluke8845A(Agilent34401A):
             dmm.close()
         """
         super().__init__(visa_resource)
+
+    def _check_errors(self) -> None:
+        err = self._visa.query("SYST:ERR?")
+        parts = err.strip().split(",", 1)
+        code_str = parts[0] if parts else ""
+        code_val = int(code_str) if code_str.lstrip("-+").isdigit() else -1
+        if code_val != 0:
+            raise RuntimeError(f"Fluke 8845A reported error: {err.strip()}")
