@@ -517,7 +517,7 @@ async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<(), ()> 
             subscription_config(),
             monitored_item_config(),
             move |samples| {
-                _ = tx.send(samples.collect::<Vec<_>>())?;
+                tx.send(samples.collect::<Vec<_>>())?;
                 Ok(())
             },
         )
@@ -576,7 +576,7 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
             subscription_config_with_poll(Some(Duration::from_millis(50))),
             monitored_item_config(),
             move |samples| {
-                _ = tx.send(samples.collect::<Vec<_>>())?;
+                tx.send(samples.collect::<Vec<_>>())?;
                 Ok(())
             },
         )
