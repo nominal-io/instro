@@ -20,7 +20,7 @@ use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Client {
     ClientBuilder::new(PkiConfig::None)
-        .unwrap()
+        .expect("builder creation shouldn't fail")
         .with_identity_token(&ua::UserIdentityToken::Anonymous(
             ua::AnonymousIdentityToken::init(),
         ))

@@ -593,7 +593,7 @@ impl ClientBuilder {
                     .context("creating encrypted client builder")?
             }
 
-            PkiConfig::None => UaClientBuilder::default()
+            PkiConfig::None => UaClientBuilder::default(),
         };
 
         Ok(Self(builder))
