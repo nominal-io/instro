@@ -13,7 +13,6 @@ pub mod prelude {
     pub use open62541::DataTypeExt as _;
     pub use open62541::ServiceRequest as _;
     pub use open62541::ServiceResponse as _;
-    pub use open62541::ua;
 
     pub use crate::browse::Browse as _;
     pub use crate::browse::BrowseAll as _;
@@ -26,4 +25,12 @@ pub mod prelude {
     pub use crate::client::SubscriptionConfig;
     pub use crate::client::SubscriptionItemConfig;
     pub use crate::client::get_endpoints;
+
+    pub mod ua {
+        pub use open62541::ScalarValue;
+        pub use open62541::VariantValue;
+        pub use open62541::ua::*;
+
+        pub type VariantDataValue = open62541::DataValue<Variant>;
+    }
 }
