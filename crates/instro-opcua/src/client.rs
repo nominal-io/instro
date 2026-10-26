@@ -45,10 +45,10 @@ mod stream;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
-use std::result::Result as StdResult;
 use std::fmt;
 use std::future;
 use std::num::NonZeroU32;
+use std::result::Result as StdResult;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -230,7 +230,11 @@ impl Client {
     ) -> Result<StreamSession>
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) -> StdResult<(), Box<dyn StdError>> + Send + 'static,
+        F: FnMut(
+                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            ) -> StdResult<(), Box<dyn StdError>>
+            + Send
+            + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
 
@@ -401,7 +405,9 @@ impl Client {
     ) where
         R: NodeReader,
         S: Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) -> StdResult<(), Box<dyn StdError>>,
+        F: FnMut(
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+        ) -> StdResult<(), Box<dyn StdError>>,
         T: PollTimer,
     {
         // Nodes still quiet in the current interval; notifications remove nodes until the next tick.
@@ -1084,7 +1090,11 @@ mod tests {
 
     /// Collects emitted samples into batches the test forwards through `on_data`.
     fn output_sink() -> (
-        impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) -> StdResult<(), Box<dyn StdError>> + Send + 'static,
+        impl FnMut(
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+        ) -> StdResult<(), Box<dyn StdError>>
+        + Send
+        + 'static,
         mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantValue)>>,
     ) {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<_>>();

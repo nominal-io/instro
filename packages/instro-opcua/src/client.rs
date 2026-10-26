@@ -5,12 +5,12 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use chrono::Utc;
+use instro_opcua::open62541::Certificate;
 use instro_opcua::open62541::DataValue;
+use instro_opcua::open62541::PrivateKey;
 use instro_opcua::open62541::ScalarValue;
 use instro_opcua::open62541::VariantValue;
 use instro_opcua::prelude::*;
-use instro_opcua::open62541::PrivateKey;
-use instro_opcua::open62541::Certificate;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyRuntimeWarning;
@@ -41,7 +41,7 @@ impl Session {
         &mut self,
         _exc_type: Option<Bound<'py, PyAny>>,
         _exc_value: Option<Bound<'py, PyAny>>,
-        _traceback: Option<Bound<'py, PyAny>>
+        _traceback: Option<Bound<'py, PyAny>>,
     ) {
         if let Some(session) = self.1.take() {
             self.0.block_on(session.stop())
@@ -168,7 +168,9 @@ impl NodeId {
         } else if let Some((_, bytestr)) = self.0.as_byte_string() {
             bytestr.as_bytes().into_bound_py_any(py)
         } else {
-            return Err(PyValueError::new_err(format!("node id is not identified")));
+            Err(PyValueError::new_err(
+                "node id is not identified".to_string(),
+            ))
         }
     }
 }
@@ -181,12 +183,11 @@ fn parse_timestamp(dt: ua::DateTime) -> (i64, u32) {
     (secs as i64, rem_nanos as u32)
 }
 
-fn normalize_value_timestamp(ua_dt: Option<ua::DateTime>, picos: Option<u16>) -> Option<chrono::DateTime<Utc>> {
-    let Some(ua_dt) = ua_dt else {
-        return None
-    };
-
-    let (secs, rem_nanos) = parse_timestamp(ua_dt);
+fn normalize_value_timestamp(
+    ua_dt: Option<ua::DateTime>,
+    picos: Option<u16>,
+) -> Option<chrono::DateTime<Utc>> {
+    let (secs, rem_nanos) = parse_timestamp(ua_dt?);
     let rem_nanos = rem_nanos + (picos.unwrap_or(0) as u32 / 1000);
     chrono::DateTime::from_timestamp(secs, rem_nanos)
 }
@@ -200,21 +201,23 @@ impl DataPoint {
     pub fn server_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
         normalize_value_timestamp(
             self.0.server_timestamp().copied(),
-            self.0.server_picoseconds()
+            self.0.server_picoseconds(),
         )
     }
 
     pub fn source_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
         normalize_value_timestamp(
             self.0.source_timestamp().copied(),
-            self.0.source_picoseconds()
+            self.0.source_picoseconds(),
         )
     }
 
     #[pyo3(signature = () -> "bool | int | float | str | uuid.UUID | NodeId | ExpandedNodeId | StatusCode | QualifiedName | datetime.datetime")]
     pub fn value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let Some(VariantValue::Scalar(value)) = self.0.value().map(ua::Variant::to_value) else {
-            return Err(PyValueError::new_err(format!("data value is not a scalar value")));
+            return Err(PyValueError::new_err(
+                "data value is not a scalar value".to_string(),
+            ));
         };
 
         match value {
@@ -237,13 +240,16 @@ impl DataPoint {
             ScalarValue::QualifiedName(qn) => QualifiedName(qn).into_bound_py_any(py),
             ScalarValue::DateTime(dt) => {
                 let (secs, rem_nanos) = parse_timestamp(dt);
-                let dt = chrono::DateTime::from_timestamp(secs,rem_nanos)
-                    .ok_or(PyValueError::new_err(format!("failed to convert timestamp to datetime")))?;
+                let dt = chrono::DateTime::from_timestamp(secs, rem_nanos).ok_or(
+                    PyValueError::new_err("failed to convert timestamp to datetime".to_string()),
+                )?;
 
                 dt.into_bound_py_any(py)
             }
 
-            _ => return Err(PyValueError::new_err(format!("unknown scalar value type"))),
+            _ => Err(PyValueError::new_err(
+                "unknown scalar value type".to_string(),
+            )),
         }
     }
 }
@@ -259,7 +265,11 @@ fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode>
         "none" => ua::MessageSecurityMode::NONE,
         "sign" => ua::MessageSecurityMode::SIGN,
         "sign_and_encrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
-        _ => return Err(PyValueError::new_err(format!("invalid security mode: '{security_mode}'"))),
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "invalid security mode: '{security_mode}'"
+            )));
+        }
     })
 }
 
@@ -272,9 +282,9 @@ fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
         "aes128sha256rsaoaep" => SecurityPolicyUri::Aes128Sha256RsaOaep,
         "aes256sha256rsapss" => SecurityPolicyUri::Aes256Sha256RsaPss,
         _ => {
-            return security_policy
-                .parse::<SecurityPolicyUri>()
-                .map_err(|_| PyValueError::new_err(format!("invalid security policy: '{security_policy}'")))
+            return security_policy.parse::<SecurityPolicyUri>().map_err(|_| {
+                PyValueError::new_err(format!("invalid security policy: '{security_policy}'"))
+            });
         }
     })
 }
@@ -286,21 +296,28 @@ impl OpcUaClient {
         Ok(if let Ok(node_id) = node_str.parse::<ua::NodeId>() {
             node_id
         } else if let Ok(path) = node_str.parse::<ua::RelativePath>() {
-                let path = ua::BrowsePath::init()
-                    .with_relative_path(&path)
-                    .with_starting_node(&ua::NodeId::numeric(0, 84));
+            let path = ua::BrowsePath::init()
+                .with_relative_path(&path)
+                .with_starting_node(&ua::NodeId::numeric(0, 84));
 
-            let request = ua::TranslateBrowsePathsToNodeIdsRequest::init()
-                .with_browse_paths(&[path]);
+            let request =
+                ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(&[path]);
 
-            let response = self.rt.block_on(async {
-                self.client
-                    .with_client(async move |client| {
-                        client.service_request(request).await
-                    })
-                    .await
-                    .map_err(|e| PyRuntimeError::new_err(format!("failed to translate browse paths to node ids: '{e}'")))
-            }).map_err(|e| PyRuntimeError::new_err(format!("client connection was closed: '{e}'")))?;
+            let response = self
+                .rt
+                .block_on(async {
+                    self.client
+                        .with_client(async move |client| client.service_request(request).await)
+                        .await
+                        .map_err(|e| {
+                            PyRuntimeError::new_err(format!(
+                                "failed to translate browse paths to node ids: '{e}'"
+                            ))
+                        })
+                })
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!("client connection was closed: '{e}'"))
+                })?;
 
             let target = response
                 .ok()
@@ -308,17 +325,26 @@ impl OpcUaClient {
                 .and_then(|results| results.into_vec().into_iter().next())
                 .and_then(|mut result| result.take_targets())
                 .and_then(|targets| targets.into_vec().into_iter().next())
-                .ok_or_else(|| PyRuntimeError::new_err(format!("failed to translate browse paths to node ids")))?;
+                .ok_or_else(|| {
+                    PyRuntimeError::new_err(
+                        "failed to translate browse paths to node ids".to_string(),
+                    )
+                })?;
 
             let target_nid = target.target_id();
 
             if target_nid.server_index() == 0 {
                 target_nid.node_id().clone()
             } else {
-                return Err(PyValueError::new_err(format!("invalid server index: '{}'", target_nid.server_index())))
+                return Err(PyValueError::new_err(format!(
+                    "invalid server index: '{}'",
+                    target_nid.server_index()
+                )));
             }
         } else {
-            return Err(PyValueError::new_err(format!("invalid node id: '{node_str}'")));
+            return Err(PyValueError::new_err(format!(
+                "invalid node id: '{node_str}'"
+            )));
         })
     }
 }
@@ -359,12 +385,13 @@ impl OpcUaClient {
             } else if let Ok(timeout_duration) = timeout.extract::<Duration>() {
                 timeout_duration
             } else {
-                return Err(PyValueError::new_err(format!("invalid timeout: '{timeout}'")));
+                return Err(PyValueError::new_err(format!(
+                    "invalid timeout: '{timeout}'"
+                )));
             };
 
             builder = builder.with_timeout(timeout);
         }
-
 
         if let Some(security_mode) = security_mode {
             let security_mode = parse_security_mode(security_mode)?;
@@ -384,12 +411,11 @@ impl OpcUaClient {
                 .with_password(ua::ByteString::new(password.as_bytes()))
                 .with_user_name(user_str);
 
-            builder = builder
-                .with_identity_token(&ua::UserIdentityToken::UserName(user_token));
+            builder = builder.with_identity_token(&ua::UserIdentityToken::UserName(user_token));
         } else if let Some((cert, private_key)) = cert.zip(private_key) {
             builder = builder.use_certificate(
                 Certificate::from_bytes(cert),
-                PrivateKey::from_bytes(private_key)
+                PrivateKey::from_bytes(private_key),
             );
         } else if use_generated_cert {
             builder = builder.use_generated_certificate();
@@ -397,9 +423,11 @@ impl OpcUaClient {
 
         builder = builder.with_trust_server_certs(ignore_server_cert);
 
-        let client = builder
-            .connect(endpoint_url)
-            .map_err(|e| PyValueError::new_err(format!("failed to connect to endpoint: '{endpoint_url}': '{e}'")))?;
+        let client = builder.connect(endpoint_url).map_err(|e| {
+            PyValueError::new_err(format!(
+                "failed to connect to endpoint: '{endpoint_url}': '{e}'"
+            ))
+        })?;
 
         let rt = (*RT)
             .as_ref()
@@ -407,7 +435,7 @@ impl OpcUaClient {
 
         Ok(Self {
             client,
-            rt: Arc::clone(rt)
+            rt: Arc::clone(rt),
         })
     }
 
@@ -465,56 +493,65 @@ impl OpcUaClient {
             background_poll_interval: bg_poll_freq_hz.map(f64::recip).map(Duration::from_secs_f64),
             lifetime_count: lifetime_count.unwrap_or(10),
             max_keep_alive_count: max_keep_alive_count.unwrap_or(NonZeroU32::new(10).unwrap()),
-            max_notifications_per_publish: max_notifications_per_publish.unwrap_or(NonZeroU32::new(u32::MAX).unwrap()),
+            max_notifications_per_publish: max_notifications_per_publish
+                .unwrap_or(NonZeroU32::new(u32::MAX).unwrap()),
             priority: priority.unwrap_or(0),
-            publishing_interval
+            publishing_interval,
         };
 
-        #[expect(clippy::unwrap_used)]
         let item_config = SubscriptionItemConfig {
             sampling_interval: sample_rate,
             queue_size: queue_size.unwrap_or(100),
-            discard_oldest
+            discard_oldest,
         };
 
-        let session = self.rt.block_on(self.client
-            .start_subscription(
+        let session = self
+            .rt
+            .block_on(self.client.start_subscription(
                 &nodes,
                 sub_config,
                 item_config,
-                move |points| Python::try_attach(|py| {
-                    let result = points
-                        .map(|(node, value)| {
-                            PyTuple::new(py, [NodeId(node).into_bound_py_any(py)?, DataPoint(value).into_bound_py_any(py)?])
-                        })
-                        .collect::<PyResult<Vec<_>>>()
-                        .and_then(|points| points.into_bound_py_any(py))
-                        .map_err(|e| Box::new(e))?;
+                move |points| {
+                    Python::try_attach(|py| {
+                        let result = points
+                            .map(|(node, value)| {
+                                PyTuple::new(
+                                    py,
+                                    [
+                                        NodeId(node).into_bound_py_any(py)?,
+                                        DataPoint(value).into_bound_py_any(py)?,
+                                    ],
+                                )
+                            })
+                            .collect::<PyResult<Vec<_>>>()
+                            .and_then(|points| points.into_bound_py_any(py))
+                            .map_err(Box::new)?;
 
-                    on_data.call1(py, (result,))?;
+                        on_data.call1(py, (result,))?;
 
-                    Ok(())
-                }).ok_or_else(|| Box::new(PyRuntimeError::new_err("failed to attach Python runtime")))?
+                        Ok(())
+                    })
+                    .ok_or_else(|| {
+                        Box::new(PyRuntimeError::new_err("failed to attach Python runtime"))
+                    })?
+                },
             ))
-            .map_err(|e| PyRuntimeWarning::new_err(format!("failed to start subscription: '{e}'")))?;
+            .map_err(|e| {
+                PyRuntimeWarning::new_err(format!("failed to start subscription: '{e}'"))
+            })?;
 
-        Ok(Session::new(
-            self,
-            session
-        ))
+        Ok(Session::new(self, session))
     }
 
-    pub fn __enter__<'py>(
-        this: PyRef<'py, Self>,
-        _py: Python<'py>
-    ) -> PyRef<'py, Self> {
+    pub fn __enter__<'py>(this: PyRef<'py, Self>, _py: Python<'py>) -> PyRef<'py, Self> {
         this
     }
 
-    pub fn __exit__<'py>(&mut self,
+    pub fn __exit__<'py>(
+        &mut self,
         _exc_type: Option<Bound<'py, PyAny>>,
         _exc_value: Option<Bound<'py, PyAny>>,
-        _traceback: Option<Bound<'py, PyAny>>
+        _traceback: Option<Bound<'py, PyAny>>,
     ) {
         self.disconnect();
     }
