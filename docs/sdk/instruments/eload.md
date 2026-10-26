@@ -18,6 +18,7 @@ Electronic loads.
 | Vendor | Model | Description |
 |--------|-------|-------------|
 | B&K Precision | {py:class}`85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` | {pysummary}`instro.eload.drivers.bk_85xxb.BK85XXB` |
+| Keysight | {py:class}`EL30000 <instro.eload.drivers.keysight_el30000.KeysightEL30000>` | {pysummary}`instro.eload.drivers.keysight_el30000.KeysightEL30000` |
 | Rigol | {py:class}`DL3000 <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` | {pysummary}`instro.eload.drivers.rigol_dl30xx.RigolDL30xx` |
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
@@ -33,6 +34,7 @@ regardless, so the pages still appear in the sidebar. -->
       :toctree: generated
 
       instro.eload.drivers.bk_85xxb.BK85XXB
+      instro.eload.drivers.keysight_el30000.KeysightEL30000
       instro.eload.drivers.rigol_dl30xx.RigolDL30xx
 ```
 
