@@ -2,15 +2,12 @@
 orphan: true
 card: Keysight 1200X
 image: Keysight1200X.png
-myst:
-  html_meta:
-    description: "A driver for InstroScope"
 ---
 
 # Keysight1200X
 
 {.lead}
-A driver for [`InstroScope`](/scope.md)
+Control the Keysight 1200X oscilloscope from Python through [`InstroScope`](/scope.md).
 
 ![Keysight 1200X](Keysight1200X.png){.driver-image}
 

@@ -1,7 +1,8 @@
 ---
+seo_title: "Control a Flow Controller with Python - instro"
 myst:
   html_meta:
-    description: "Using InstroFlowController for gas flow controllers"
+    description: "Control gas mass flow controllers such as Alicat from Python with instro: set flow setpoints, select gases, and read flow, pressure, and temperature."
 ---
 
 # Flow Controller

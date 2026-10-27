@@ -202,7 +202,7 @@ plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.ethernetip.EtherNetIPDevice
@@ -212,7 +212,7 @@ plc.write_tag("line_speed", 9999.0)  # raises ValueError: above write_max (2500.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.ethernetip.ethernetip_types.EtherNetIPConfig

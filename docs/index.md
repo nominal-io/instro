@@ -1,4 +1,5 @@
 ---
+seo_title: "instro: Python Library for Controlling Test Equipment"
 myst:
   html_meta:
     description: "An open-source, vendor-agnostic Python library for interfacing with test equipment."

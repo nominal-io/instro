@@ -2,15 +2,12 @@
 orphan: true
 card: DewesoftX
 image: DewesoftX.png
-myst:
-  html_meta:
-    description: "A driver for InstroDAQ"
 ---
 
 # DewesoftX
 
 {.lead}
-A driver for [`InstroDAQ`](/daq.md)
+Control the DewesoftX DAQ from Python through [`InstroDAQ`](/daq.md).
 
 ![DewesoftX](DewesoftX.png){.driver-image}
 

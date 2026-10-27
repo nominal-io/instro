@@ -6,7 +6,7 @@ Programmable power supplies.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.InstroPSU
@@ -36,7 +36,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.psu.drivers.bk_9115.BK9115
       instro.psu.drivers.bk_914x.BK914X
@@ -52,7 +52,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.drivers.simulated.SimulatedPSU
@@ -62,7 +62,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.types.OperatingMode

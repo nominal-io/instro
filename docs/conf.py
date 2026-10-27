@@ -27,6 +27,7 @@ extensions = [
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_design",
     "sphinx_copybutton",
+    "sphinx_sitemap",
     "pysummary",
     "driver_cards",
     "driver_docs",
@@ -85,8 +86,8 @@ autodoc_mock_imports = [
     "win32com",
 ]
 
-# Class pages list members in summary tables; each member gets its own page
-# (the scikit-rf layout). Stubs are written to <page dir>/generated/.
+# Class pages list members in summary tables linking to their details further down
+# the same page. Class stubs (instro.*.rst) are written next to the page listing them.
 autosummary_generate = True
 autosummary_generate_overwrite = True
 autosummary_context = {
@@ -134,6 +135,10 @@ html_favicon = "_static/favicon.png"
 html_copy_source = False
 nominal_ga_id = "G-LR7QM29GGQ"
 
+# sitemap.xml at the site root; robots.txt (_extra/) points crawlers at it
+sitemap_url_scheme = "{link}"  # html_baseurl has no language/version folders
+sitemap_excludes = ["404/", "search/", "genindex/", "_modules/*"]  # _modules: viewcode source listings
+
 html_context = {
     "source_type": "github",
     "source_user": "nominal-io",
@@ -163,7 +168,7 @@ html_theme_options = theme_options(
         "discord",
         {"name": "Forum", "url": "https://community.instro.nominal.io", "icon": "lucide:messages-square"},
     ],
-    # left nav lists pages only; generated class/member pages are reached from their tables
+    # left nav lists pages only; generated class pages are reached from their tables
     toctree_maxdepth=1,
 )
 add_module_names = False
@@ -207,12 +212,106 @@ def _alias_reexports(app, env):
 
 
 def _hide_edit_link_on_stubs(app, pagename, templatename, context, doctree):
-    """Autosummary stubs under generated/ are gitignored, so "Edit this page" would 404."""
-    if "/generated/" in pagename:
+    """Autosummary stubs (sdk/**/instro.*) are gitignored, so "Edit this page" would 404."""
+    if pagename.startswith("sdk/") and pagename.rpartition("/")[2].startswith("instro."):
         context["page_source_suffix"] = ""
+
+
+def _clip(text, limit=160):
+    """``text`` on one line, cut to ``limit`` characters at a word."""
+    text = " ".join(text.split())
+    if len(text) > limit:
+        text = text[: limit - 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return text
+
+
+def _description(doctree, min_length):
+    """The page's first paragraph of prose, skipping ones shorter than ``min_length``."""
+    from docutils import nodes
+    from sphinx import addnodes
+
+    skip = (
+        addnodes.desc_signature,
+        nodes.admonition,
+        nodes.field_list,
+        nodes.table,
+        nodes.sidebar,
+        nodes.list_item,
+    )
+    for para in doctree.findall(nodes.paragraph):
+        if any(isinstance(a, skip) for a in _ancestors(para)):
+            continue
+        text = " ".join(para.astext().split())
+        # autodoc's "Bases: ..." line
+        if text.startswith("Bases: ") or len(text) < max(min_length, 1):
+            continue
+        return text
+    return None
+
+
+def _ancestors(node):
+    while node.parent is not None:
+        node = node.parent
+        yield node
+
+
+# Driver pages (a `card:` in front matter) by folder: the instrument noun and what the
+# driver does, for their generated search-result title and description.
+_DRIVER_CATEGORIES = {
+    "psu": ("power supply", "set voltage and current, enable outputs, read measurements"),
+    "dmm": ("multimeter", "set functions and ranges, measure voltage, current, resistance"),
+    "eload": ("electronic load", "set the mode and level, enable the input, read voltage and current"),
+    "awg": ("function generator", "set waveforms, amplitude, and offset, run modulation and bursts"),
+    "scope": ("oscilloscope", "set channels, timebase, and triggers, fetch waveforms"),
+    "daq": ("DAQ", "configure analog, digital, and relay channels, read and write data"),
+    "flowcontroller": ("flow controller", "set flow setpoints, read flow and pressure"),
+    "i2c": ("I2C adapter", "read and write I2C devices"),
+}
+
+
+def _add_seo(app, pagename, templatename, context, doctree):
+    """Set the page's search-result title (``seo_title``) and meta description.
+
+    Front matter wins: ``seo_title:``, and ``myst: html_meta: description:``.
+    Shibuya renders the ``description`` metadata as ``<meta name="description">``
+    and ``og:description`` but drops docutils ``<meta>`` tags unless
+    sphinxext-opengraph is loaded, so html_meta's is copied over. Driver and API
+    pages get generated ones; other pages fall back to their first paragraph,
+    with a 40-character floor that skips image- and badge-only paragraphs.
+    """
+    from docutils import nodes
+
+    if doctree is None:
+        return
+    meta = context.get("meta") or {}
+    folder, _, name = pagename.rpartition("/")
+    title, description = meta.get("seo_title"), meta.get("description")
+    if not description:
+        tag = next((n for n in doctree.findall(nodes.meta) if n.get("name") == "description"), None)
+        description = tag["content"] if tag else None
+
+    if "card" in meta and folder in _DRIVER_CATEGORIES:
+        card, noun, does = meta["card"], *_DRIVER_CATEGORIES[folder]
+        article = "an" if card[0] in "AEIOU" else "a"
+        title = title or f"{card} Python Driver ({name}) - instro"
+        description = description or (
+            f"Control {article} {card} {noun} from Python with the instro {name} driver: {does}."
+        )
+    elif pagename.startswith("sdk/") and name.startswith("instro."):
+        module, _, obj = name.rpartition(".")
+        title = title or f"{obj} ({module}) - instro Python API"
+        description = description or _description(doctree, min_length=0)
+        description = description or f"API reference for {obj} in {module}, part of the instro Python library."
+    description = description or _description(doctree, min_length=40)
+
+    if title:
+        context["seo_title"] = title
+    if description:
+        context["meta"] = {**meta, "description": _clip(description)}
 
 
 def setup(app):
     app.connect("autodoc-process-docstring", _drop_basemodel_init_doc)
     app.connect("env-updated", _alias_reexports)
     app.connect("html-page-context", _hide_edit_link_on_stubs, priority=600)
+    app.connect("html-page-context", _add_seo)
