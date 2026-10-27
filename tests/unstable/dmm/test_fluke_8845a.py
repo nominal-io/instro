@@ -31,3 +31,17 @@ def test_fluke_8845a_errors_name_the_fluke() -> None:
 
         with pytest.raises(RuntimeError, match=r'^Fluke 8845A reported error: -113,"Undefined header"$'):
             driver.measure_dc_voltage()
+
+
+def test_fluke_8845a_sends_short_form_range_and_resolution() -> None:
+    # Regression: the 8845A intermittently withholds replies to "1.000000e+01,1.000000e-05".
+    with patch("instro.dmm.drivers.agilent_a34401a.VisaDriver", autospec=True) as visa_cls:
+        visa = visa_cls.return_value
+        visa.query.side_effect = lambda cmd: '+0,"No error"' if cmd == "SYST:ERR?" else "+1.50000000E-03"
+        driver = Fluke8845A("ASRL6::INSTR")
+        driver.set_dc_voltage_range(10.0)
+        driver.set_digits(6)
+
+        driver.measure_dc_voltage()
+
+    visa.query.assert_any_call("MEAS:VOLT:DC? 10,1e-05")

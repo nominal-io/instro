@@ -10,7 +10,9 @@ class Fluke8845A(Agilent34401A):
     """Fluke 8845A 6.5-digit DMM, driven through its Agilent 34401A-compatible ``8845`` command set.
 
     The meter's default remote command set (``8845``) is compatible with the Agilent 34401A, so
-    every command comes from `Agilent34401A` and this class adds none. Two front-panel settings
+    every command comes from `Agilent34401A` and this class adds none. Range and resolution are
+    sent in short form (``10,1e-05``): over RS-232 the meter intermittently withholds replies to
+    the ``1.000000e+01,1.000000e-05`` form at 5½ and 6½ digits. Two front-panel settings
     must be made before use; neither can be changed over the remote interface, and both are
     non-volatile:
 
@@ -44,6 +46,13 @@ class Fluke8845A(Agilent34401A):
             dmm.close()
         """
         super().__init__(visa_resource)
+
+    def _build_meas_cmd(self, base_cmd: str) -> str:
+        if self._range is None:
+            return f"{base_cmd}?"
+        if self._resolution is None:
+            return f"{base_cmd}? {self._range:.7g}"
+        return f"{base_cmd}? {self._range:.7g},{self._resolution:.7g}"
 
     def _check_errors(self) -> None:
         err = self._visa.query("SYST:ERR?")
