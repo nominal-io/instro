@@ -1,142 +1,125 @@
+#![expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "testing harness that is not production code"
+)]
+
 use std::num::NonZeroU32;
-use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
-use anyhow::Result;
-use anyhow::bail;
-use instro_opcua::browse::Browse as _;
-use instro_opcua::browse::BrowseAll as _;
-use instro_opcua::client::OpcUaClient;
-use instro_opcua::client::OpcUaClientBuilder;
-use instro_opcua::client::OpcUaNodeReadBatch;
-use instro_opcua::types::NodeIdKind;
-use instro_opcua::types::OpcUaAttributeId;
-use instro_opcua::types::OpcUaDataPoint;
-use instro_opcua::types::OpcUaMonitoredItemConfig;
-use instro_opcua::types::OpcUaNodeClass;
-use instro_opcua::types::OpcUaNodeId;
-use instro_opcua::types::OpcUaPki;
-use instro_opcua::types::OpcUaSecurityMode;
-use instro_opcua::types::OpcUaSecurityPolicy;
-use instro_opcua::types::OpcUaSubscriptionConfig;
-use instro_opcua::types::OpcUaUserToken;
-use instro_opcua::types::OpcUaValue;
+use instro_opcua::prelude::*;
 use instro_opcua_test::FolderSpec;
 use instro_opcua_test::ParentRef;
 use instro_opcua_test::TestNodeId;
 use instro_opcua_test::TestServer;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
-use instro_opcua_test::ua;
 use itertools::Itertools as _;
+use open62541::DataType as _;
+use open62541::DataValue;
 use tokio::sync::mpsc;
 
-fn connect_client(server: &TestServer) -> Result<Arc<OpcUaClient>> {
-    OpcUaClientBuilder::new()
-        .user_identity_token(OpcUaUserToken::anonymous("anonymous".to_owned()))
-        .security_mode(OpcUaSecurityMode::None)
-        .security_policy(OpcUaSecurityPolicy::None)
-        .timeout(LIFETIME_TIMEOUT)
-        .pki(OpcUaPki::None)
+fn connect_client(server: &TestServer) -> Client {
+    ClientBuilder::new()
+        .with_identity_token(ua::UserIdentityToken::Anonymous(
+            ua::AnonymousIdentityToken::init(),
+        ))
+        .with_security_mode(ua::MessageSecurityMode::NONE)
+        .with_security_policy(SecurityPolicyUri::none())
+        .with_timeout(LIFETIME_TIMEOUT)
+        .with_pki(PkiConfig::None)
         .connect(server.endpoint_url())
+        .expect("testing client should not fail to connect")
 }
 
-fn ua_node_id(server: &TestServer, browse_name: &str) -> Result<ua::NodeId> {
+fn ua_node_id(server: &TestServer, browse_name: &str) -> ua::NodeId {
     server
         .node_id(browse_name)
         .cloned()
-        .with_context(|| format!("test server did not register node `{browse_name}`"))
+        .unwrap_or_else(|| panic!("test server did not register node `{browse_name}`"))
 }
 
-fn opcua_node_id(server: &TestServer, browse_name: &str) -> Result<OpcUaNodeId> {
-    let node_id = ua_node_id(server, browse_name)?;
-    OpcUaNodeId::try_from(&node_id).with_context(|| format!("converting `{browse_name}` NodeId"))
+fn nonzero(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).unwrap_or_else(|| panic!("expected {value} to be nonzero"))
 }
 
-fn nonzero(value: u32) -> Result<NonZeroU32> {
-    NonZeroU32::new(value).with_context(|| format!("expected {value} to be nonzero"))
-}
-
-fn subscription_config() -> Result<OpcUaSubscriptionConfig> {
+fn subscription_config() -> SubscriptionConfig {
     subscription_config_with_poll(None)
 }
 
-fn subscription_config_with_poll(
-    background_poll_interval: Option<Duration>,
-) -> Result<OpcUaSubscriptionConfig> {
-    Ok(OpcUaSubscriptionConfig {
+fn subscription_config_with_poll(background_poll_interval: Option<Duration>) -> SubscriptionConfig {
+    SubscriptionConfig {
         publishing_interval: Duration::from_millis(25),
         background_poll_interval,
         lifetime_count: 100,
-        max_keep_alive_count: nonzero(10)?,
-        max_notifications_per_publish: nonzero(16)?,
+        max_keep_alive_count: nonzero(10),
+        max_notifications_per_publish: nonzero(16),
         priority: 0,
         publishing_enabled: true,
-    })
+    }
 }
 
-fn monitored_item_config() -> OpcUaMonitoredItemConfig {
-    OpcUaMonitoredItemConfig {
+fn monitored_item_config() -> SubscriptionItemConfig {
+    SubscriptionItemConfig {
         sampling_interval: Duration::from_millis(10),
         queue_size: 4,
         discard_oldest: true,
     }
 }
 
-fn assert_timestamps_present(samples: &[(OpcUaNodeId, OpcUaDataPoint)]) {
+fn assert_timestamps_present(samples: &[(ua::NodeId, DataValue<ua::Variant>)]) {
     for (_, sample) in samples {
-        let timestamp = sample.server_timestamp.or(sample.source_timestamp);
+        let timestamp = sample.server_timestamp().or(sample.source_timestamp());
 
         assert!(
-            matches!(timestamp, Some(timestamp) if timestamp > 0),
+            matches!(timestamp, Some(timestamp) if timestamp.as_unix_timestamp_nanos() > 0),
             "timestamp should be populated for {sample:?}",
         );
     }
 }
 
 fn sample_value<'a>(
-    samples: &'a [(OpcUaNodeId, OpcUaDataPoint)],
-    node_id: &OpcUaNodeId,
-) -> Option<&'a OpcUaValue> {
+    samples: &'a [(ua::NodeId, DataValue<ua::Variant>)],
+    node_id: &ua::NodeId,
+) -> Option<&'a ua::Variant> {
     samples
         .iter()
         .rev()
         .find(|(nid, _)| nid == node_id)
-        .map(|(_, sample)| &sample.value)
+        .and_then(|(_, sample)| sample.value())
 }
 
 fn has_value(
-    samples: &[(OpcUaNodeId, OpcUaDataPoint)],
-    node_id: &OpcUaNodeId,
-    expected: &OpcUaValue,
+    samples: &[(ua::NodeId, DataValue<ua::Variant>)],
+    node_id: &ua::NodeId,
+    expected: &ua::Variant,
 ) -> bool {
     sample_value(samples, node_id).is_some_and(|actual| actual == expected)
 }
 
 async fn recv_matching_batch(
-    rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, DataValue<ua::Variant>)>>,
     description: &str,
-    mut matches: impl FnMut(&[(OpcUaNodeId, OpcUaDataPoint)]) -> bool,
-) -> Result<Vec<(OpcUaNodeId, OpcUaDataPoint)>> {
+    mut matches: impl FnMut(&[(ua::NodeId, DataValue<ua::Variant>)]) -> bool,
+) -> Vec<(ua::NodeId, DataValue<ua::Variant>)> {
     let deadline = tokio::time::Instant::now() + LIFETIME_TIMEOUT;
 
     loop {
         let now = tokio::time::Instant::now();
         if now >= deadline {
-            bail!("timed out waiting for {description}");
+            panic!("timed out waiting for {description}");
         }
 
         let remaining = deadline.saturating_duration_since(now);
         let maybe_samples = tokio::time::timeout(remaining, rx.recv())
             .await
-            .with_context(|| format!("timed out waiting for {description}"))?;
+            .unwrap_or_else(|_| panic!("timed out waiting for {description}"));
 
         let samples = maybe_samples
-            .with_context(|| format!("callback channel closed while waiting for {description}"))?;
+            .unwrap_or_else(|| panic!("callback channel closed while waiting for {description}"));
 
         if matches(&samples) {
-            return Ok(samples);
+            return samples;
         }
     }
 }
@@ -145,8 +128,8 @@ async fn recv_matching_batch(
 /// elapses or the callback channel closes. Used to observe background-poll cadence for a node
 /// that produces no subscription notifications during the window.
 async fn count_samples_for(
-    rx: &mut mpsc::UnboundedReceiver<Vec<(OpcUaNodeId, OpcUaDataPoint)>>,
-    node_id: &OpcUaNodeId,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, DataValue<ua::Variant>)>>,
+    node_id: &ua::NodeId,
     window: Duration,
 ) -> usize {
     let deadline = tokio::time::Instant::now() + window;
@@ -172,8 +155,8 @@ async fn count_samples_for(
     count
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
+#[tokio::test]
+async fn read_nodes_decodes_samples_in_request_order() -> Result<(), ()> {
     let server = TestServer::builder()
         .variable(
             TestNodeId::Numeric(1000),
@@ -205,28 +188,29 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
             "Healthy",
             ua::Variant::scalar(ua::Boolean::new(true)),
         )
-        .start()?;
+        .start()
+        .expect("testing server should not fail to start");
 
-    let pressure = opcua_node_id(&server, "Pressure")?;
-    let flow = opcua_node_id(&server, "Flow")?;
-    let status = opcua_node_id(&server, "Status")?;
-    let healthy = opcua_node_id(&server, "Healthy")?;
-    let temperature = opcua_node_id(&server, "Temperature")?;
+    let pressure = ua_node_id(&server, "Pressure");
+    let flow = ua_node_id(&server, "Flow");
+    let status = ua_node_id(&server, "Status");
+    let healthy = ua_node_id(&server, "Healthy");
+    let temperature = ua_node_id(&server, "Temperature");
 
-    assert_eq!(flow.namespace(), server.namespace_index());
+    assert_eq!(flow.namespace_index(), server.namespace_index());
     assert_eq!(
-        flow.kind(),
-        &NodeIdKind::Guid(uuid::Uuid::from_fields(
+        flow.as_guid().expect("should be a GUID").1,
+        &ua::Guid::from_uuid(uuid::Uuid::from_fields(
             0x1122_3344,
             0x5566,
             0x7788,
             &[0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00],
         ))
     );
-    assert_eq!(status.namespace(), server.namespace_index());
+    assert_eq!(status.namespace_index(), server.namespace_index());
     assert_eq!(
-        status.kind(),
-        &NodeIdKind::ByteString(b"status-node-id".to_vec())
+        status.as_byte_string().expect("should be a byte string").1,
+        &ua::ByteString::new(b"status-node-id")
     );
 
     let nodes = [
@@ -237,52 +221,65 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<()> {
         temperature.clone(),
     ];
 
-    let batch =
-        OpcUaNodeReadBatch::new(nodes.iter().cloned().collect_vec(), OpcUaAttributeId::Value);
+    let batch = NodeReadBatch::new_cartesian(&nodes, &[ua::AttributeId::VALUE]);
 
-    let client = connect_client(&server)?;
+    let client = connect_client(&server);
 
     let samples = client
         .read_nodes(&batch)
-        .await?
+        .await
+        .expect("testing client should not fail to read nodes")
         .map(|((nid, _), sample)| (nid.clone(), sample))
         .collect_vec();
+
     assert_eq!(samples.len(), 5);
     assert_timestamps_present(&samples);
 
     let mut samples = samples.into_iter();
 
     fn assert_next(
-        (nid, sample): (OpcUaNodeId, OpcUaDataPoint),
-        expect_id: OpcUaNodeId,
-        expect_value: OpcUaValue,
+        (nid, sample): (ua::NodeId, DataValue<ua::Variant>),
+        expect_id: ua::NodeId,
+        expect_value: ua::Variant,
     ) {
         assert_eq!(nid, expect_id);
-        assert_eq!(sample.value, expect_value);
+        assert_eq!(sample.value().expect("should have a value"), &expect_value);
     }
 
     assert_next(
         samples.next().unwrap(),
         pressure,
-        OpcUaValue::UInt32(101_325),
+        ua::Variant::scalar(ua::UInt32::new(101_325)),
     );
-    assert_next(samples.next().unwrap(), flow, OpcUaValue::Float(12.5));
-    assert_next(samples.next().unwrap(), status, OpcUaValue::Int16(-7));
-    assert_next(samples.next().unwrap(), healthy, OpcUaValue::Boolean(true));
+    assert_next(
+        samples.next().unwrap(),
+        flow,
+        ua::Variant::scalar(ua::Float::new(12.5)),
+    );
+    assert_next(
+        samples.next().unwrap(),
+        status,
+        ua::Variant::scalar(ua::Int16::new(-7)),
+    );
+    assert_next(
+        samples.next().unwrap(),
+        healthy,
+        ua::Variant::scalar(ua::Boolean::new(true)),
+    );
     assert_next(
         samples.next().unwrap(),
         temperature,
-        OpcUaValue::Double(72.5),
+        ua::Variant::scalar(ua::Double::new(72.5)),
     );
 
     assert!(samples.next().is_none(), "read returned too many samples");
 
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
+#[tokio::test]
+async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<(), ()> {
     let server = TestServer::builder()
         .add_folder(FolderSpec::new(TestNodeId::Numeric(2000), "Sensors"))
         .add_folder(
@@ -320,16 +317,17 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
             .parent(ParentRef::Label("Inner".to_owned()))
             .value(ua::Variant::scalar(ua::Int16::new(-7))),
         )
-        .start()?;
+        .start()
+        .expect("testing server should not fail to start");
 
-    let client = connect_client(&server)?;
-    let sensors_id = opcua_node_id(&server, "Sensors")?;
+    let client = connect_client(&server);
+    let sensors_id = ua_node_id(&server, "Sensors");
     let namespace = server.namespace_index();
 
     let mut immediate_names = client
-        .as_ref()
         .browse_node(sensors_id.clone())
-        .await?
+        .await
+        .expect("testing client should not fail to browse node")
         .into_iter()
         .map(|node| {
             (
@@ -347,32 +345,33 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
         vec![
             (
                 "Flow".to_owned(),
-                OpcUaNodeClass::Variable,
+                ua::NodeClass::VARIABLE,
                 "/2:Flow".to_owned()
             ),
             (
                 "Inner".to_owned(),
-                OpcUaNodeClass::Object,
+                ua::NodeClass::OBJECT,
                 "/2:Inner".to_owned()
             ),
             (
                 "Temperature".to_owned(),
-                OpcUaNodeClass::Variable,
+                ua::NodeClass::VARIABLE,
                 "/2:Temperature".to_owned()
             ),
         ],
     );
 
     let tree = client
-        .as_ref()
         .browse_all(sensors_id.clone(), None, Some(1_000_000))
-        .await?;
+        .await
+        .expect("testing client should not fail to browse all");
+
     let temperature = tree
         .iter()
         .find(|node| node.browse_name == "Temperature")
-        .context("browse_all omitted Temperature")?;
+        .expect("browse_all should not omit Temperature");
 
-    assert_eq!(temperature.node_class, OpcUaNodeClass::Variable);
+    assert_eq!(temperature.node_class, ua::NodeClass::VARIABLE);
     assert!(
         temperature.children.is_empty(),
         "Temperature has no children in this test server",
@@ -382,15 +381,15 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let flow = tree
         .iter()
         .find(|node| node.browse_name == "Flow")
-        .context("browse_all omitted Flow")?;
+        .expect("browse_all should not omit Flow");
 
-    assert_eq!(flow.node_class, OpcUaNodeClass::Variable);
+    assert_eq!(flow.node_class, ua::NodeClass::VARIABLE);
     assert!(flow.children.is_empty(), "Flow has no children");
     assert_eq!(flow.browse_path.to_string(), "/2:Flow");
-    assert_eq!(flow.node_id.namespace(), namespace);
+    assert_eq!(flow.node_id.namespace_index(), namespace);
     assert_eq!(
-        flow.node_id.kind(),
-        &NodeIdKind::Guid(uuid::Uuid::from_fields(
+        flow.node_id.as_guid().expect("should be a GUID").1,
+        &ua::Guid::from_uuid(uuid::Uuid::from_fields(
             0x2233_4455,
             0x6677,
             0x8899,
@@ -401,160 +400,200 @@ async fn browse_node_and_browse_all_return_test_hierarchy() -> Result<()> {
     let inner = tree
         .iter()
         .find(|node| node.browse_name == "Inner")
-        .context("browse_all omitted Inner folder")?;
-    assert_eq!(inner.node_class, OpcUaNodeClass::Object);
+        .expect("browse_all should not omit Inner folder");
+
+    assert_eq!(inner.node_class, ua::NodeClass::OBJECT);
     assert_eq!(inner.browse_path.to_string(), "/2:Inner");
 
     let pressure = inner
         .children
         .iter()
         .find(|node| node.browse_name == "Pressure")
-        .context("browse_all omitted nested Pressure node")?;
-    assert_eq!(pressure.node_class, OpcUaNodeClass::Variable);
+        .expect("browse_all should not omit nested Pressure node");
+
+    assert_eq!(pressure.node_class, ua::NodeClass::VARIABLE);
     assert_eq!(pressure.browse_path.to_string(), "/2:Inner/2:Pressure");
 
     let status = inner
         .children
         .iter()
         .find(|node| node.browse_name == "Status")
-        .context("browse_all omitted nested Status node")?;
-    assert_eq!(status.node_class, OpcUaNodeClass::Variable);
+        .expect("browse_all should not omit nested Status node");
+
+    assert_eq!(status.node_class, ua::NodeClass::VARIABLE);
     assert_eq!(status.browse_path.to_string(), "/2:Inner/2:Status");
-    assert_eq!(status.node_id.namespace(), namespace);
+    assert_eq!(status.node_id.namespace_index(), namespace);
     assert_eq!(
-        status.node_id.kind(),
-        &NodeIdKind::ByteString(b"inner-status-id".to_vec())
+        status.node_id.as_byte_string().expect("should be a guid").1,
+        &ua::ByteString::new(b"inner-status-id")
     );
 
-    client.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn start_polling_emits_batches_and_stops_cleanly() -> Result<()> {
+#[tokio::test]
+async fn start_polling_emits_batches_and_stops_cleanly() -> Result<(), ()> {
     let server = TestServer::builder()
         .variable(
             TestNodeId::Numeric(3000),
             "Temperature",
             ua::Variant::scalar(ua::Double::new(1.0)),
         )
-        .start()?;
+        .start()
+        .expect("testing server should not fail to start");
 
-    let temperature_node = opcua_node_id(&server, "Temperature")?;
-    let temperature_ua_id = ua_node_id(&server, "Temperature")?;
+    let temperature_node = ua_node_id(&server, "Temperature");
+    let temperature_ua_id = ua_node_id(&server, "Temperature");
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let client = connect_client(&server)?;
+    let client = connect_client(&server);
 
-    let session = client.start_polling(
-        vec![temperature_node.clone()],
-        Duration::from_millis(25),
-        move |samples| {
-            let _ = tx.send(samples.collect::<Vec<_>>());
-        },
-    )?;
+    let session = client
+        .start_polling(
+            [&temperature_node],
+            Duration::from_millis(25),
+            move |samples| {
+                let _ = tx.send(samples.collect::<Vec<_>>());
+            },
+        )
+        .expect("testing client should not fail to start polling");
 
     let initial = recv_matching_batch(&mut rx, "initial polling batch", |samples| {
-        has_value(samples, &temperature_node, &OpcUaValue::Double(1.0))
+        has_value(
+            samples,
+            &temperature_node,
+            &ua::Variant::scalar(ua::Double::new(1.0)),
+        )
     })
-    .await?;
+    .await;
     assert_eq!(initial.len(), 1);
     assert_timestamps_present(&initial);
 
-    server.set_value(
-        &temperature_ua_id,
-        ua::Variant::scalar(ua::Double::new(2.5)),
-    )?;
+    server
+        .set_value(
+            &temperature_ua_id,
+            ua::Variant::scalar(ua::Double::new(2.5)),
+        )
+        .expect("testing server should not fail to set value");
 
     let changed = recv_matching_batch(&mut rx, "updated polling batch", |samples| {
-        has_value(samples, &temperature_node, &OpcUaValue::Double(2.5))
+        has_value(
+            samples,
+            &temperature_node,
+            &ua::Variant::scalar(ua::Double::new(2.5)),
+        )
     })
-    .await?;
+    .await;
     assert_eq!(changed.len(), 1);
     assert_timestamps_present(&changed);
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
-    client.disconnect().await?;
+    session
+        .stop_timeout(LIFETIME_TIMEOUT)
+        .await
+        .expect("testing client should not fail to stop timeout");
+
+    client.disconnect().await;
+
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<()> {
+#[tokio::test]
+async fn start_subscription_emits_changes_and_stops_cleanly() -> Result<(), ()> {
     let server = TestServer::builder()
         .variable(
             TestNodeId::Numeric(4000),
             "Temperature",
             ua::Variant::scalar(ua::Double::new(1.0)),
         )
-        .start()?;
+        .start()
+        .expect("testing server should not fail to start");
 
-    let temperature_node = opcua_node_id(&server, "Temperature")?;
-    let temperature_ua_id = ua_node_id(&server, "Temperature")?;
+    let temperature_node = ua_node_id(&server, "Temperature");
+    let temperature_ua_id = ua_node_id(&server, "Temperature");
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let client = connect_client(&server)?;
+    let client = connect_client(&server);
 
     let session = client
         .start_subscription(
-            [temperature_node.clone()],
-            subscription_config()?,
+            [&temperature_node],
+            subscription_config(),
             monitored_item_config(),
             move |samples| {
                 let _ = tx.send(samples.collect::<Vec<_>>());
             },
         )
-        .await?;
+        .await
+        .expect("testing client should not fail to start subscription");
 
-    server.set_value(
-        &temperature_ua_id,
-        ua::Variant::scalar(ua::Double::new(9.5)),
-    )?;
+    server
+        .set_value(
+            &temperature_ua_id,
+            ua::Variant::scalar(ua::Double::new(9.5)),
+        )
+        .expect("testing server should not fail to set value");
 
     let changed = recv_matching_batch(&mut rx, "subscription change", |samples| {
-        has_value(samples, &temperature_node, &OpcUaValue::Double(9.5))
+        has_value(
+            samples,
+            &temperature_node,
+            &ua::Variant::scalar(ua::Double::new(9.5)),
+        )
     })
-    .await?;
+    .await;
+
     assert_eq!(
         sample_value(&changed, &temperature_node),
-        Some(&OpcUaValue::Double(9.5)),
+        Some(&ua::Variant::scalar(ua::Double::new(9.5))),
     );
     assert_timestamps_present(&changed);
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
-    client.disconnect().await?;
+    session
+        .stop_timeout(LIFETIME_TIMEOUT)
+        .await
+        .expect("testing client should not fail to stop timeout");
+
+    client.disconnect().await;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn background_polling_emits_periodic_samples_for_static_node() -> Result<()> {
+#[tokio::test]
+async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(), ()> {
     let server = TestServer::builder()
         .variable(
             TestNodeId::Numeric(5000),
             "Static",
             ua::Variant::scalar(ua::Double::new(42.0)),
         )
-        .start()?;
+        .start()
+        .expect("testing server should not fail to start");
 
-    let static_node = opcua_node_id(&server, "Static")?;
+    let static_node = ua_node_id(&server, "Static");
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let client = connect_client(&server)?;
+    let client = connect_client(&server);
 
     let session = client
         .start_subscription(
-            static_node.clone(),
-            subscription_config_with_poll(Some(Duration::from_millis(50)))?,
+            [&static_node],
+            subscription_config_with_poll(Some(Duration::from_millis(50))),
             monitored_item_config(),
             move |samples| {
                 let _ = tx.send(samples.collect::<Vec<_>>());
             },
         )
-        .await?;
+        .await
+        .expect("testing client should not fail to start subscription");
 
     // A monitored item reports its node's value once on creation. Consume that initial
     // subscription notification so that subsequent samples are unambiguously attributable to
     // background polling: the node's value is never changed, so the subscription stays silent.
     recv_matching_batch(&mut rx, "initial subscription value", |samples| {
-        has_value(samples, &static_node, &OpcUaValue::Double(42.0))
+        has_value(
+            samples,
+            &static_node,
+            &ua::Variant::scalar(ua::Double::new(42.0)),
+        )
     })
-    .await?;
+    .await;
 
     // Over the window, the never-changing node yields no further notifications, so any samples
     // collected here must be background polls. The window spans many poll intervals; require at
@@ -565,28 +604,11 @@ async fn background_polling_emits_periodic_samples_for_static_node() -> Result<(
         "expected at least two background-polled samples for the static node, got {polled}",
     );
 
-    session.stop_timeout(LIFETIME_TIMEOUT)?;
-    client.disconnect().await?;
-    Ok(())
-}
+    session
+        .stop_timeout(LIFETIME_TIMEOUT)
+        .await
+        .expect("testing client should not fail to stop timeout");
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn disconnect_reports_outstanding_references_before_graceful_disconnect() -> Result<()> {
-    let server = TestServer::builder().start()?;
-    let client = connect_client(&server)?;
-    let extra_ref = Arc::clone(&client);
-
-    match client.disconnect().await {
-        Ok(()) => bail!("disconnect should reject outstanding client references"),
-        Err(e) => {
-            let message = e.to_string();
-            assert!(
-                message.contains("outstanding references"),
-                "unexpected disconnect error: {message}",
-            );
-        }
-    }
-
-    extra_ref.disconnect().await?;
+    client.disconnect().await;
     Ok(())
 }

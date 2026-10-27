@@ -56,21 +56,20 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.72.1"
+version = "0.73.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+checksum = "787ef8ef523575546b106a58213d6e6b06198a05c2f757258c68a74273670cfa"
 dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools",
  "log",
  "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
- "shlex 1.3.0",
+ "shlex",
  "syn",
 ]
 
@@ -94,12 +93,12 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cc"
-version = "1.2.65"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e228eec9be7c17ccb640b59b36a5cd805ea2a564a4c5e162c2f659fea30d3b96"
+checksum = "6651c9ed80effdc7db0ff72512157f901af5e3549e341e24b1dd4887d836d838"
 dependencies = [
  "find-msvc-tools",
- "shlex 2.0.1",
+ "shlex",
 ]
 
 [[package]]
@@ -225,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.9"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
 
 [[package]]
 name = "futures"
@@ -376,13 +375,13 @@ name = "instro-ethernetip"
 version = "1.0.0"
 dependencies = [
  "rust-ethernet-ip",
- "thiserror 1.0.69",
+ "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "instro-ethernetip-py"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "instro-ethernetip",
  "pyo3",
@@ -390,18 +389,18 @@ dependencies = [
 
 [[package]]
 name = "instro-opcua"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
- "anyhow",
  "base64",
  "futures-util",
  "instro-opcua-test",
  "instro-test-utils",
  "itertools",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "serde",
  "serde_json",
+ "thiserror",
  "time",
  "tokio",
  "tracing",
@@ -411,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "instro-opcua-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "instro-opcua",
  "pyo3",
@@ -422,7 +421,7 @@ name = "instro-opcua-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "open62541",
+ "nominal-open62541",
  "open62541-sys",
  "tokio",
  "tracing",
@@ -542,6 +541,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "nominal-open62541"
+version = "0.12.1"
+source = "git+https://github.com/cartercanedy/open62541-rs?rev=97cde3121931a5fb8d698b762d694058852a7aaf#97cde3121931a5fb8d698b762d694058852a7aaf"
+dependencies = [
+ "derive_more",
+ "futures-channel",
+ "futures-core",
+ "log",
+ "open62541-sys",
+ "parking_lot",
+ "paste",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "uuid",
+ "x509-certificate",
+ "zeroize",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -581,33 +602,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "open62541"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8df43a9e4e7c823145e2ef608a7e6849918f64f1c194db596aff7ffa1ad7babd"
-dependencies = [
- "derive_more",
- "futures-channel",
- "futures-core",
- "log",
- "open62541-sys",
- "parking_lot",
- "paste",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "uuid",
- "x509-certificate",
- "zeroize",
-]
-
-[[package]]
 name = "open62541-sys"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "800f40fa51329133c7746f575056e9ffdd8cbc0d0bc2d0c93df4fa99f5d44a1e"
+version = "0.6.4"
+source = "git+https://github.com/cartercanedy/open62541-sys?rev=2b828681a6ea9001022ecd43b0541d2ffe2e155c#2b828681a6ea9001022ecd43b0541d2ffe2e155c"
 dependencies = [
  "bindgen",
  "cc",
@@ -833,7 +830,7 @@ dependencies = [
  "rust-ethernet-ip-udt",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",
@@ -973,12 +970,6 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
-
-[[package]]
-name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
@@ -1053,31 +1044,11 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl 2.0.18",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -1530,7 +1501,7 @@ dependencies = [
  "ring",
  "signature",
  "spki",
- "thiserror 2.0.18",
+ "thiserror",
  "zeroize",
 ]
 

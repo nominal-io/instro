@@ -18,6 +18,7 @@ Oscilloscopes.
 | Vendor | Model | Description |
 |--------|-------|-------------|
 | Keysight | {py:class}`1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>` | {pysummary}`instro.scope.drivers.keysight_1200x.Keysight1200X` |
+| Keysight | {py:class}`3000T X (unstable) <instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX>` | {pysummary}`instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX` |
 | Siglent | {py:class}`SDS1000X-E <instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE>` | {pysummary}`instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE` |
 | Tektronix | {py:class}`2 Series MSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` | {pysummary}`instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO` |
 
@@ -34,6 +35,7 @@ regardless, so the pages still appear in the sidebar. -->
       :toctree: .
 
       instro.scope.drivers.keysight_1200x.Keysight1200X
+      instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX
       instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE
       instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO
 ```

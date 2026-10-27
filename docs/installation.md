@@ -11,7 +11,7 @@ Installing instro and Driver Dependencies
 
 ## Basic Install
 
-`instro` is published on [PyPI](https://pypi.org/project/instro/), and can be installed using either [`uv`](https://docs.astral.sh/uv/) or `pip`. `instro` supports Python 3.10-3.14.
+`instro` is published on [PyPI](https://pypi.org/project/instro/), and can be installed using either [`uv`](https://docs.astral.sh/uv/) or `pip`. `instro` supports Python 3.11-3.14.
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start">
 

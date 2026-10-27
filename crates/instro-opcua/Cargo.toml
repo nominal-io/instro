@@ -1,6 +1,6 @@
 [package]
 name = "instro-opcua"
-version = "1.1.0"
+version = "1.2.0"
 license = "Apache-2.0"
 description = "Instro OPC UA driver"
 readme = "README.md"
@@ -19,11 +19,12 @@ exclude = ["tests/client_harness.rs"]
 base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["time", "macros", "rt", "sync"] }
 itertools.workspace = true
-open62541.workspace = true
+# TODO(cartercanedy): change this back to upstream published version if/when changes merge
+nominal-open62541.workspace = true
 open62541-sys.workspace = true
 uuid.workspace = true
 futures-util.workspace = true

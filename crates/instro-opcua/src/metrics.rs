@@ -1,13 +1,13 @@
-//! Poll-loop health metrics for the OPC-UA streaming session.
+//! Poll-loop health metrics for the OPC UA streaming session.
 //!
 //! Accumulates per-iteration read statistics over a fixed window and emits a
-//! single aggregated `tracing::debug!` line every
-//! [`POLL_LOOP_METRICS_FLUSH_INTERVAL`] so log volume stays bounded regardless
+//! single aggregated [`tracing::debug!`] line once per
+//! [`PollLoopMetricsLogger::flush_interval`], so log volume stays bounded regardless
 //! of polling frequency.
 //!
 //! Typical usage from the poll loop: construct an empty window with
 //! [`PollLoopMetricsLogger::new`], fold each read in with
-//! [`PollLoopMetricsLogger::record_read`]. The logger will automatically flush the window
+//! [`PollLoopMetricsLogger::finish_read`]. The logger will automatically flush the window
 //! when the specified flush interval elapses according to the system clock.
 
 use std::time::Duration;
@@ -15,11 +15,11 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
-/// Counts of successful and failed reads.
+/// Counts of valid and invalid values returned by a successful read.
 pub struct NodeReadCounts {
-    /// Number of successful reads.
+    /// Number of values with a value and no Bad status code.
     pub valid_samples: u64,
-    /// Number of failed reads.
+    /// Number of values with a Bad status code or no value.
     pub invalid_samples: u64,
 }
 
@@ -49,7 +49,7 @@ pub struct PollLoopMetricsLogger {
 #[derive(Debug)]
 struct MetricsWindow {
     /// Monotonic start of the current aggregation window, set at construction
-    /// time by [`PollLoopMetrics::new`].
+    /// time by [`PollLoopMetricsLogger::new`].
     pub window_start: Instant,
     /// Count of poll-loop iterations observed in the current window (both successful and failed reads).
     pub iterations: u64,
@@ -64,11 +64,10 @@ struct MetricsWindow {
     pub read_duration_min: Option<Duration>,
     /// Maximum observed read duration in the window.
     pub read_duration_max: Option<Duration>,
-    /// Total number of samples successfully decoded from `Ok` reads and forwarded
-    /// via the `on_data` callback.
+    /// Total number of values with a value and no Bad status code from `Ok` reads.
     pub valid_samples: u64,
-    /// Total number of raw values from `Ok` reads that failed to decode into an
-    /// `OpcUaDataPoint` and were dropped.
+    /// Total number of values with a Bad status code or no value from `Ok` reads.
+    /// These values are still forwarded via the `on_data` callback.
     pub invalid_samples: u64,
 }
 
@@ -89,8 +88,8 @@ impl MetricsWindow {
 
     /// Folds a read's duration and outcome into the current window.
     ///
-    /// Pass `Some(counts)` when the underlying `read_many_attributes` call
-    /// succeeded (counts are then accumulated into `valid_samples` /
+    /// Pass `Some(counts)` when the underlying [`Client::read_nodes`](crate::client::Client::read_nodes)
+    /// call succeeded (counts are then accumulated into `valid_samples` /
     /// `invalid_samples`); pass `None` when the read itself errored.
     fn update(&mut self, read_duration: Duration, counts: Option<NodeReadCounts>) {
         self.iterations = self.iterations.saturating_add(1);
@@ -137,7 +136,7 @@ impl PollLoopMetricsLogger {
 
     /// Anchor the start of a read operation.
     ///
-    /// Returns an anchor passed to [`PollLoopMetricsLogger::record_read`] to record the read's duration and outcome.
+    /// Returns an anchor passed to [`PollLoopMetricsLogger::finish_read`] to record the read's duration and outcome.
     #[must_use]
     pub fn start_read(&self) -> impl ReadAnchor {
         Instant::now()

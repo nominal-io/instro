@@ -31,6 +31,10 @@ __all__ = [
 PSU_VENDOR_REGISTRY: dict[str, DriverEntry] = {
     "BK9115": DriverEntry("instro.psu.drivers.bk_9115.BK9115", (IdnPattern(("B&K PRECISION",), r"^9115", 1),)),
     "BK914X": DriverEntry("instro.psu.drivers.bk_914x.BK914X", (IdnPattern(("B&K PRECISION",), r"^914\d", 3),)),
+    "GWInstekGPD3303": DriverEntry(
+        "instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303",
+        (IdnPattern(("GW INSTEK",), r"^GPD-3303D", 2),),
+    ),
     # E36100, N5700 and Genesys patterns follow the programming manuals; not yet confirmed on hardware.
     "KeysightE36100": DriverEntry(
         "instro.psu.drivers.keysight_e36100.KeysightE36100",
