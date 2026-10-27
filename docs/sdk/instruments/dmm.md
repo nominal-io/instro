@@ -6,7 +6,7 @@ Digital multimeters.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.InstroDMM
@@ -32,7 +32,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.dmm.drivers.keithley_2400.Keithley2400
       instro.dmm.drivers.agilent_a34401a.Agilent34401A
@@ -44,7 +44,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.drivers.simulated.SimulatedDMM
@@ -54,7 +54,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.types.MeasurementFunction

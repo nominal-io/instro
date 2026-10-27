@@ -2,15 +2,12 @@
 orphan: true
 card: Rigol DP800
 image: RigolDP800.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # RigolDP800
 
 {.lead}
-A driver for [`InstroPSU`](/psu.md)
+Control the Rigol DP800 power supply from Python through [`InstroPSU`](/psu.md).
 
 ![Rigol DP800](RigolDP800.png){.driver-image}
 

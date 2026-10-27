@@ -2,15 +2,12 @@
 orphan: true
 card: Alicat MC
 image: AlicatMC.png
-myst:
-  html_meta:
-    description: "A driver for InstroFlowController"
 ---
 
 # AlicatMC
 
 {.lead}
-A driver for [`InstroFlowController`](/flowcontroller.md)
+Control the Alicat MC flow controller from Python through [`InstroFlowController`](/flowcontroller.md).
 
 ![Alicat MC](AlicatMC.png){.driver-image}
 

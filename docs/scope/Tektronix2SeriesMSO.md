@@ -2,15 +2,12 @@
 orphan: true
 card: Tektronix 2-series
 image: Tektronix2SeriesMSO.png
-myst:
-  html_meta:
-    description: "A driver for InstroScope"
 ---
 
 # Tektronix2SeriesMSO
 
 {.lead}
-A driver for [`InstroScope`](/scope.md)
+Control the Tektronix 2-series oscilloscope from Python through [`InstroScope`](/scope.md).
 
 ![Tektronix 2-series](Tektronix2SeriesMSO.png){.driver-image}
 
