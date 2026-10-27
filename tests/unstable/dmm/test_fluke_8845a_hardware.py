@@ -18,6 +18,7 @@ Run:
 
 from __future__ import annotations
 
+import collections
 import math
 import sys
 import time
@@ -68,16 +69,29 @@ def _make_hal() -> InstroDMM:
         ),
         publishers=None,
     )
+    visa = hal._driver._visa
+    send_query = visa.query
+
+    def traced_query(command: str) -> str:
+        _recent_queries.append(command)
+        return send_query(command)
+
+    visa.query = traced_query  # the 8845A fails intermittently; name the query that hung
     hal.open()
     return hal
 
 
+_recent_queries: collections.deque[str] = collections.deque(maxlen=3)
+
+
 def _run(name, fn, failures) -> None:
+    _recent_queries.clear()
     try:
         fn()
         print(f"  [OK]   {name}")
     except Exception as exc:  # noqa: BLE001 - report, don't abort
         print(f"  [FAIL] {name}: {exc}")
+        print(f"         last queries: {list(_recent_queries)}")
         failures.append((name, exc))
 
 
