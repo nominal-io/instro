@@ -15,7 +15,6 @@ use instro_opcua_test::TestServer;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
 use itertools::Itertools as _;
-use open62541::DataValue;
 use tokio::sync::mpsc;
 
 fn connect_client(server: &TestServer) -> Client {
@@ -66,7 +65,7 @@ fn monitored_item_config() -> SubscriptionItemConfig {
     }
 }
 
-fn assert_timestamps_present(samples: &[(ua::NodeId, DataValue<ua::Variant>)]) {
+fn assert_timestamps_present(samples: &[(ua::NodeId, VariantDataValue)]) {
     for (_, sample) in samples {
         let timestamp = sample.server_timestamp().or(sample.source_timestamp());
 
@@ -78,7 +77,7 @@ fn assert_timestamps_present(samples: &[(ua::NodeId, DataValue<ua::Variant>)]) {
 }
 
 fn sample_value<'a>(
-    samples: &'a [(ua::NodeId, DataValue<ua::Variant>)],
+    samples: &'a [(ua::NodeId, VariantDataValue)],
     node_id: &ua::NodeId,
 ) -> Option<&'a ua::Variant> {
     samples
@@ -89,7 +88,7 @@ fn sample_value<'a>(
 }
 
 fn has_value(
-    samples: &[(ua::NodeId, DataValue<ua::Variant>)],
+    samples: &[(ua::NodeId, VariantDataValue)],
     node_id: &ua::NodeId,
     expected: &ua::Variant,
 ) -> bool {
@@ -97,10 +96,10 @@ fn has_value(
 }
 
 async fn recv_matching_batch(
-    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, DataValue<ua::Variant>)>>,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantDataValue)>>,
     description: &str,
-    mut matches: impl FnMut(&[(ua::NodeId, DataValue<ua::Variant>)]) -> bool,
-) -> Vec<(ua::NodeId, DataValue<ua::Variant>)> {
+    mut matches: impl FnMut(&[(ua::NodeId, VariantDataValue)]) -> bool,
+) -> Vec<(ua::NodeId, VariantDataValue)> {
     let deadline = tokio::time::Instant::now() + LIFETIME_TIMEOUT;
 
     loop {
@@ -127,7 +126,7 @@ async fn recv_matching_batch(
 /// elapses or the callback channel closes. Used to observe background-poll cadence for a node
 /// that produces no subscription notifications during the window.
 async fn count_samples_for(
-    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, DataValue<ua::Variant>)>>,
+    rx: &mut mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantDataValue)>>,
     node_id: &ua::NodeId,
     window: Duration,
 ) -> usize {
@@ -237,7 +236,7 @@ async fn read_nodes_decodes_samples_in_request_order() -> Result<(), ()> {
     let mut samples = samples.into_iter();
 
     fn assert_next(
-        (nid, sample): (ua::NodeId, DataValue<ua::Variant>),
+        (nid, sample): (ua::NodeId, VariantDataValue),
         expect_id: ua::NodeId,
         expect_value: ua::Variant,
     ) {
