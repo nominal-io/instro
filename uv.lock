@@ -535,7 +535,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.21.0"
+version = "1.22.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
@@ -679,7 +679,7 @@ test = [
 
 [[package]]
 name = "instro-contrib"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/instro-contrib" }
 dependencies = [
     { name = "instro" },
@@ -690,7 +690,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -705,7 +705,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -720,7 +720,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
@@ -735,7 +735,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-ethernetip"
-version = "1.0.1"
+version = "1.0.2"
 source = { editable = "packages/instro-ethernetip" }
 dependencies = [
     { name = "instro" },
@@ -746,7 +746,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-i2c-aardvark"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "packages/instro-i2c-aardvark" }
 dependencies = [
     { name = "instro" },
@@ -772,7 +772,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-unstable"
-version = "1.12.0"
+version = "1.13.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "gs-usb" },
@@ -1132,8 +1132,9 @@ wheels = [
 [[package]]
 name = "nominal-sphinx-theme"
 version = "0.1.0"
-source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#226bd86b2eb74cb03c705adf208bf7ed8f0e045a" }
+source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#2c17e217e2ce2957f202d1882c3f787b65ecd94d" }
 dependencies = [
+    { name = "myst-parser" },
     { name = "shibuya" },
     { name = "sphinx" },
 ]
