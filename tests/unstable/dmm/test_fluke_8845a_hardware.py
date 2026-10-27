@@ -121,8 +121,12 @@ def run_all() -> list:
         def _large_range() -> None:
             hal.set_measurement_function(MeasurementFunction.TWO_WIRE_RESISTANCE)
             hal.set_range(1e8)  # sent as "1e+08"
-            print(f"         RESISTANCE @ 100 MOhm range -> {_read_value(hal):g}")
-            hal.set_range(None)
+            try:
+                print(f"         RESISTANCE @ 100 MOhm range -> {_read_value(hal):g}")
+            finally:
+                # The range cache is shared across functions; leaving 1e8 set would break later steps.
+                hal.set_range(None)
+                hal._driver._visa.write("*CLS")
 
         _run("set_range 100 MOhm (2-wire resistance)", _large_range, failures)
 
