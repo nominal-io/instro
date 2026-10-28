@@ -199,12 +199,12 @@ class Keysight1200X(ScopeDriverBase):
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
-        """Fetch the waveform from ``channel`` over ``WORD`` (unsigned 16-bit, LSB-first), 1000 points."""
+        """Fetch the waveform from ``channel`` over ``WORD`` (unsigned 16-bit, LSB-first), at the scope's maximum point count."""
         self._visa.write(f":WAVeform:SOURce CHANnel{channel}")
         self._visa.write(":WAVeform:FORMat WORD")
         self._visa.write(":WAVeform:BYTeorder LSBFirst")
-        self._visa.write(":WAVeform:POINts:MODE NORMal")
-        self._visa.write(":WAVeform:POINts 1000")
+        self._visa.write(":WAVeform:POINts:MODE MAXimum")
+        self._visa.write(":WAVeform:POINts MAXimum")
         # Check errors before querying data — if any setup command failed,
         # the data query would hang waiting for a response that won't come.
         self.check_errors()
@@ -220,13 +220,10 @@ class Keysight1200X(ScopeDriverBase):
         y_origin = float(parts[8])
         y_ref = float(parts[9])
 
-        x_incr_ns = int(x_incr * 1e9)  # convert to nanoseconds integer, for greater compatibility with library
-        x_ref_ns = int(x_ref * 1e9)
-        x_origin_ns = int(x_origin * 1e9)
-
         points = self._visa.query_binary_values(":WAVeform:DATA?", datatype="H", is_big_endian=False, container=list)
 
-        times = [(i - x_ref_ns) * x_incr_ns + x_origin_ns for i in range(nr_pt)]
+        # integer nanoseconds for library compatibility; round, since int() truncates float error (15 ns -> 14)
+        times = [round(((i - x_ref) * x_incr + x_origin) * 1e9) for i in range(nr_pt)]
         voltages = [(pt - y_ref) * y_incr + y_origin for pt in points]
 
         return WaveformData(times=times, voltages=voltages)
