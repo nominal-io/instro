@@ -1,7 +1,10 @@
 mod client;
 mod discover;
+mod util;
 
 use pyo3::prelude::*;
+
+pub(crate) use self::util::require_both;
 
 #[pymodule(name = "_opcua")]
 mod instro_opcua_py {
