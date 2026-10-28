@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.13.0...instro-unstable-v1.14.0) (2026-10-28)
+
+
+### Features
+
+* **unstable/dmm:** add Fluke 8845A driver wrapping Agilent34401A ([#668](https://github.com/nominal-io/instro/issues/668)) ([f2c1284](https://github.com/nominal-io/instro/commit/f2c1284794ff5824807c52aecd3b02b83833038f))
+* **unstable/scope:** add Keysight 3000T X-Series oscilloscope driver ([#667](https://github.com/nominal-io/instro/issues/667)) ([af43270](https://github.com/nominal-io/instro/commit/af43270ef472e8a472d83780dfa50759a9dc8fda))
+
 ## [1.13.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.12.0...instro-unstable-v1.13.0) (2026-10-23)
 
 
