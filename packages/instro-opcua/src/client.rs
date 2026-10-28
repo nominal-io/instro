@@ -1,5 +1,6 @@
 use std::io;
 use std::num::NonZeroU32;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -11,15 +12,19 @@ use instro_opcua::open62541::PrivateKey;
 use instro_opcua::open62541::ScalarValue;
 use instro_opcua::open62541::VariantValue;
 use instro_opcua::prelude::*;
+use itertools::Either;
+use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyRuntimeWarning;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PySequence;
+use pyo3::types::PyFunction;
 use pyo3::types::PyString;
 use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
+
+use crate::require_both;
 
 static RT: LazyLock<Result<Arc<Runtime>, io::Error>> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
@@ -136,6 +141,90 @@ impl ExpandedNodeId {
 
 #[pyclass]
 #[repr(transparent)]
+pub struct RelativePathElement(ua::RelativePathElement);
+
+fn default_ref_node_id() -> Py<PyAny> {
+    Python::attach(|py| {
+        #[expect(
+            clippy::unwrap_used,
+            reason = "shouldn't fail unless the allocation fails"
+        )]
+        NodeId(ua::NodeId::numeric(0, 84)).into_py_any(py).unwrap()
+    })
+}
+
+#[pymethods]
+impl RelativePathElement {
+    #[new]
+    #[pyo3(signature = (name, reference_type_id: "NodeId | str" = default_ref_node_id(), include_subtypes = true, inverse = false))]
+    pub fn new<'py>(
+        py: Python<'py>,
+        name: &QualifiedName,
+        reference_type_id: Py<PyAny>,
+        include_subtypes: bool,
+        inverse: bool,
+    ) -> PyResult<Self> {
+        let reference_type_id =
+            if let Ok(reference_type_id) = reference_type_id.extract::<NodeId>(py) {
+                reference_type_id.0
+            } else if let Ok(reference_type_id_str) = reference_type_id.extract::<&str>(py) {
+                reference_type_id_str.parse().unwrap()
+            } else {
+                Err(PyValueError::new_err(format!(
+                    "invalid reference type id: '{reference_type_id}'"
+                )))?
+            };
+
+        Ok(Self(
+            ua::RelativePathElement::init()
+                .with_target_name(&name.0)
+                .with_reference_type_id(&reference_type_id)
+                .with_include_subtypes(include_subtypes)
+                .with_is_inverse(inverse),
+        ))
+    }
+
+    pub fn name(&self) -> QualifiedName {
+        QualifiedName(self.0.target_name().clone())
+    }
+
+    pub fn reference_type_id(&self) -> NodeId {
+        NodeId(self.0.reference_type_id().clone())
+    }
+
+    pub fn is_inverse(&self) -> bool {
+        self.0.is_inverse()
+    }
+
+    pub fn include_subtypes(&self) -> bool {
+        self.0.include_subtypes()
+    }
+}
+
+#[pyclass(from_py_object)]
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct RelativePath(ua::RelativePath);
+
+#[pymethods]
+impl RelativePath {
+    #[staticmethod]
+    pub fn parse(path_str: &str) -> PyResult<Self> {
+        let path = path_str
+            .parse()
+            .map_err(|_| PyValueError::new_err(format!("invalid relative path: '{path_str}'")))?;
+
+        Ok(Self(path))
+    }
+
+    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        Ok(PyString::new(_py, &self.0.to_string()))
+    }
+}
+
+#[pyclass(from_py_object)]
+#[repr(transparent)]
+#[derive(Clone)]
 pub struct NodeId(ua::NodeId);
 
 #[pymethods]
@@ -289,63 +378,133 @@ fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
     })
 }
 
-impl OpcUaClient {
-    fn parse_node(&self, node: Bound<'_, PyAny>) -> PyResult<ua::NodeId> {
-        let node_str = node.cast::<PyString>()?.to_str()?;
+enum NodeIdKind {
+    NodeId(ua::NodeId),
+    Path(ua::BrowsePath),
+}
 
-        Ok(if let Ok(node_id) = node_str.parse::<ua::NodeId>() {
-            node_id
-        } else if let Ok(path) = node_str.parse::<ua::RelativePath>() {
+impl FromPyObject<'_, '_> for NodeIdKind {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, '_, PyAny>) -> Result<Self, Self::Error> {
+        Ok(if let Ok(node_id) = obj.cast_exact::<NodeId>() {
+            NodeIdKind::NodeId(node_id.borrow().0.clone())
+        } else if let Ok(path) = obj.cast_exact::<RelativePath>() {
+            let path = ua::BrowsePath::init()
+                .with_relative_path(&path.borrow().0)
+                .with_starting_node(&ua::NodeId::numeric(0, 84));
+
+            NodeIdKind::Path(path)
+        } else if let Ok(s) = obj.extract::<&str>() {
+            Self::from_str(s)?
+        } else {
+            Err(PyValueError::new_err(format!(
+                "invalid node id or path: '{}'",
+                obj.as_any()
+            )))?
+        })
+    }
+}
+
+impl FromStr for NodeIdKind {
+    type Err = PyErr;
+    fn from_str(id_or_path: &str) -> PyResult<Self> {
+        Ok(if let Ok(node_id) = id_or_path.parse::<ua::NodeId>() {
+            NodeIdKind::NodeId(node_id)
+        } else if let Ok(path) = id_or_path.parse::<ua::RelativePath>() {
             let path = ua::BrowsePath::init()
                 .with_relative_path(&path)
                 .with_starting_node(&ua::NodeId::numeric(0, 84));
 
-            let request =
-                ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(&[path]);
-
-            let response = self
-                .rt
-                .block_on(async {
-                    self.client
-                        .with_client(async move |client| client.service_request(request).await)
-                        .await
-                        .map_err(|e| {
-                            PyRuntimeError::new_err(format!(
-                                "failed to translate browse paths to node ids: '{e}'"
-                            ))
-                        })
-                })
-                .map_err(|e| {
-                    PyRuntimeError::new_err(format!("client connection was closed: '{e}'"))
-                })?;
-
-            let target = response
-                .ok()
-                .and_then(|mut response| response.take_results())
-                .and_then(|results| results.into_vec().into_iter().next())
-                .and_then(|mut result| result.take_targets())
-                .and_then(|targets| targets.into_vec().into_iter().next())
-                .ok_or_else(|| {
-                    PyRuntimeError::new_err(
-                        "failed to translate browse paths to node ids".to_string(),
-                    )
-                })?;
-
-            let target_nid = target.target_id();
-
-            if target_nid.server_index() == 0 {
-                target_nid.node_id().clone()
-            } else {
-                return Err(PyValueError::new_err(format!(
-                    "invalid server index: '{}'",
-                    target_nid.server_index()
-                )));
-            }
+            NodeIdKind::Path(path)
         } else {
-            return Err(PyValueError::new_err(format!(
-                "invalid node id: '{node_str}'"
-            )));
+            Err(PyValueError::new_err(format!(
+                "invalid node id or path: '{id_or_path}'"
+            )))?
         })
+    }
+}
+
+impl OpcUaClient {
+    async fn translate_browse_paths(
+        &self,
+        paths: Vec<ua::BrowsePath>,
+    ) -> PyResult<Vec<(ua::BrowsePath, ua::NodeId)>> {
+        let request = ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(&paths);
+
+        let results = self
+            .client
+            .with_client(async move |client| client.service_request(request).await)
+            .await
+            .map_err(|e| PyRuntimeError::new_err(format!("Client connection was closed: '{e}'")))?
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!(
+                    "failed to translate browse paths to node ids: '{e}'"
+                ))
+            })?
+            .take_results()
+            .map(ua::Array::into_vec)
+            .unwrap_or(Vec::new());
+
+        if results.len() != paths.len() {
+            Err(PyValueError::new_err(format!(
+                "failed to translate browse paths to node ids: received {} results, expected {}",
+                results.len(),
+                paths.len()
+            )))?
+        }
+
+        let (good, bad): (Vec<_>, Vec<_>) =
+            results.iter().zip(paths).partition_map(|(result, path)| {
+                // this might look fragile, but it's not a big deal
+                let err_str = if result.status_code().is_bad() {
+                    &format!(
+                        "server failed to translate browse path to node id: '{}'",
+                        result.status_code().name()
+                    )
+                } else if let Some(targets) = result.targets() {
+                    if targets.is_empty() {
+                        "no targets found for browse path"
+                    } else if targets.len() > 1 {
+                        "ambiguous path, multiple targets found"
+                    } else if targets[0].target_id().server_index() != 0 {
+                        &format!(
+                            "requested node exists on a different server: '{}'",
+                            targets[0].target_id().server_index()
+                        )
+                    } else {
+                        return Either::Left((path, targets[0].target_id().node_id().clone()));
+                    }
+                } else {
+                    "internal error: browse path result array was invalid"
+                };
+
+                Either::Right(format!("'{}', {}", path.relative_path(), err_str))
+            });
+
+        if bad.is_empty() {
+            Ok(good)
+        } else {
+            Err(PyValueError::new_err(
+                "failed to intepret browse path(s):\n\t".to_string() + &bad.join("\n\t"),
+            ))
+        }
+    }
+
+    // TODO(cartercanedy): translate both node ids and paths and return a node ID-Path map
+    fn parse_nodes(&self, nodes: Vec<NodeIdKind>) -> PyResult<Vec<ua::NodeId>> {
+        let (ids, paths): (Vec<_>, Vec<_>) = nodes.into_iter().partition_map(|kind| match kind {
+            NodeIdKind::NodeId(node_id) => Either::Left(node_id),
+            NodeIdKind::Path(path) => Either::Right(path),
+        });
+
+        Ok(self
+            .rt
+            .block_on(self.translate_browse_paths(paths))?
+            .into_iter()
+            .map(|(_path, node_id)| node_id)
+            .chain(ids)
+            .collect::<Vec<_>>())
     }
 }
 
@@ -377,7 +536,34 @@ impl OpcUaClient {
         security_policy: Option<&str>,
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let mut builder = ClientBuilder::default();
+        let pki = if let Some((cert, private_key)) = require_both!(cert, private_key)? {
+            PkiConfig::UseProvided(
+                Certificate::from_bytes(cert),
+                PrivateKey::from_bytes(private_key),
+            )
+        } else if use_generated_cert {
+            PkiConfig::GenerateSelfSigned
+        } else {
+            PkiConfig::None
+        };
+
+        // fail fast if arguments aren't well-formed
+        let maybe_basic_auth = require_both!(username, password)?;
+
+        let mut builder = ClientBuilder::new(pki).map_err(|e| {
+            PyValueError::new_err(format!("failed to initialize a client builder: '{e}'"))
+        })?;
+
+        if let Some((username, password)) = maybe_basic_auth {
+            let user_str = ua::String::new(username)
+                .map_err(|_| PyValueError::new_err(format!("invalid username: '{username}'")))?;
+
+            let user_token = ua::UserNameIdentityToken::init()
+                .with_password(ua::ByteString::new(password.as_bytes()))
+                .with_user_name(user_str);
+
+            builder = builder.with_identity_token(&ua::UserIdentityToken::UserName(user_token));
+        }
 
         if let Some(timeout) = timeout {
             let timeout = if let Ok(timeout_float) = timeout.extract::<f64>() {
@@ -403,29 +589,13 @@ impl OpcUaClient {
             builder = builder.with_security_policy(security_policy);
         }
 
-        if let Some((username, password)) = username.zip(password) {
-            let user_str = ua::String::new(username)
-                .map_err(|_| PyValueError::new_err(format!("invalid username: '{username}'")))?;
-
-            let user_token = ua::UserNameIdentityToken::init()
-                .with_password(ua::ByteString::new(password.as_bytes()))
-                .with_user_name(user_str);
-
-            builder = builder.with_identity_token(&ua::UserIdentityToken::UserName(user_token));
-        } else if let Some((cert, private_key)) = cert.zip(private_key) {
-            builder = builder.use_certificate(
-                Certificate::from_bytes(cert),
-                PrivateKey::from_bytes(private_key),
-            );
-        } else if use_generated_cert {
-            builder = builder.use_generated_certificate();
+        if ignore_server_cert {
+            builder = builder.with_trust_server_certs();
         }
-
-        builder = builder.with_trust_server_certs(ignore_server_cert);
 
         let client = builder.connect(endpoint_url).map_err(|e| {
             PyValueError::new_err(format!(
-                "failed to connect to endpoint: '{endpoint_url}': '{e}'"
+                "failed to connect to endpoint with url '{endpoint_url}': '{e}'"
             ))
         })?;
 
@@ -439,8 +609,10 @@ impl OpcUaClient {
         })
     }
 
-    pub fn disconnect(&mut self) {
-        self.rt.block_on(self.client.disconnect());
+    pub fn disconnect(&mut self, py: Python<'_>) {
+        py.detach(|| {
+            self.rt.block_on(self.client.disconnect());
+        });
     }
 
     #[pyo3(signature = (
@@ -456,11 +628,11 @@ impl OpcUaClient {
         queue_size=None,
         discard_oldest=true,
     ))]
-    pub fn subscribe<'py>(
+    pub fn subscribe(
         &self,
-        py: Python<'py>,
-        on_data: Py<PyAny>,
-        nodes: &Bound<'_, PySequence>,
+        py: Python<'_>,
+        on_data: Py<PyFunction>,
+        nodes: Vec<Bound<'_, PyAny>>,
         freq_hz: f64,
         bg_poll_freq_hz: Option<f64>,
         lifetime_count: Option<u32>,
@@ -471,19 +643,17 @@ impl OpcUaClient {
         queue_size: Option<u32>,
         discard_oldest: bool,
     ) -> PyResult<Session> {
-        if !on_data.bind(py).is_callable() {
-            return Err(PyValueError::new_err("`on_data` must be a callable"));
-        }
-
-        #[expect(clippy::unwrap_used)]
         let nodes = nodes
-            .try_iter()?
-            .take_while(|result| result.is_ok())
-            .map(|node| self.parse_node(node.unwrap()))
+            .iter()
+            .map(|item| NodeIdKind::extract(item.as_borrowed()))
             .collect::<PyResult<Vec<_>>>()?;
 
+        let nodes = py.detach(|| self.parse_nodes(nodes))?;
+
         let sample_rate = Duration::from_secs_f64(freq_hz.recip());
+
         let publishing_interval = publish_freq_hz
+            .map(f64::recip)
             .map(Duration::from_secs_f64)
             .unwrap_or(sample_rate);
 
@@ -505,37 +675,30 @@ impl OpcUaClient {
             discard_oldest,
         };
 
+        let on_data = move |points: Box<dyn Iterator<Item = _>>| {
+            Python::attach(|py| {
+                let results = points
+                    .map(|(node, value)| {
+                        let node_id = NodeId(node).into_bound_py_any(py)?;
+                        let data_point = DataPoint(value).into_bound_py_any(py)?;
+
+                        PyTuple::new(py, [node_id, data_point])
+                    })
+                    .collect::<PyResult<Vec<_>>>()
+                    .and_then(|points| points.into_bound_py_any(py))?;
+
+                on_data.call1(py, (results,))?;
+
+                Ok(())
+            })
+        };
+
         let session = self
             .rt
-            .block_on(self.client.start_subscription(
-                &nodes,
-                sub_config,
-                item_config,
-                move |points| {
-                    Python::try_attach(|py| {
-                        let result = points
-                            .map(|(node, value)| {
-                                PyTuple::new(
-                                    py,
-                                    [
-                                        NodeId(node).into_bound_py_any(py)?,
-                                        DataPoint(value).into_bound_py_any(py)?,
-                                    ],
-                                )
-                            })
-                            .collect::<PyResult<Vec<_>>>()
-                            .and_then(|points| points.into_bound_py_any(py))
-                            .map_err(Box::new)?;
-
-                        on_data.call1(py, (result,))?;
-
-                        Ok(())
-                    })
-                    .ok_or_else(|| {
-                        Box::new(PyRuntimeError::new_err("failed to attach Python runtime"))
-                    })?
-                },
-            ))
+            .block_on(
+                self.client
+                    .start_subscription(&nodes, sub_config, item_config, on_data),
+            )
             .map_err(|e| {
                 PyRuntimeWarning::new_err(format!("failed to start subscription: '{e}'"))
             })?;
@@ -549,10 +712,11 @@ impl OpcUaClient {
 
     pub fn __exit__<'py>(
         &mut self,
+        py: Python<'py>,
         _exc_type: Option<Bound<'py, PyAny>>,
         _exc_value: Option<Bound<'py, PyAny>>,
         _traceback: Option<Bound<'py, PyAny>>,
     ) {
-        self.disconnect();
+        self.disconnect(py);
     }
 }

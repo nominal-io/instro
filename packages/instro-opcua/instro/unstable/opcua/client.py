@@ -2,7 +2,7 @@ from typing import Literal
 
 SecurityMode = Literal["none", "sign", "sign_and_encrypt"]
 SecurityPolicy = Literal[
-    "none", "basic256", "basic128_rsa15", "basic256_sha256", "aes128_sha256_rsa_oaep", "aes256_sha256_rsa_pss"
+    "none", "basic256", "basic128rsa15", "basic256sha256", "aes128_sha256rsaoaep", "aes256sha256rsapss"
 ]
 
 
