@@ -29,3 +29,12 @@ jobs:
           name: docs-site
           path: docs/_build/dirhtml
           retention-days: 7
+
+  # The check main's ruleset requires: a theme bump PR needs a passing docs build, and every other
+  # PR passes. See nominal-sphinx-theme's README, "CI".
+  docs-gate:
+    needs: build-docs
+    if: always()
+    uses: nominal-io/nominal-sphinx-theme/.github/workflows/docs-gate.yml@c2e3280c9eba544212d52b3920aabf41713cc0cb # main, 2026-10-29
+    with:
+      docs-result: ${{ needs.build-docs.result }}
