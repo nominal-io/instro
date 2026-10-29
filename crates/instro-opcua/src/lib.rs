@@ -8,6 +8,13 @@ pub use open62541;
 pub type Result<T> = core::result::Result<T, self::error::OpcUaError>;
 
 pub mod prelude {
+    pub use open62541;
+    pub use open62541::DataType as _;
+    pub use open62541::DataTypeExt as _;
+    pub use open62541::ScalarValue;
+    pub use open62541::ServiceRequest as _;
+    pub use open62541::ServiceResponse as _;
+    pub use open62541::VariantValue;
     pub use open62541::ua;
 
     pub use crate::browse::Browse as _;
@@ -20,4 +27,7 @@ pub mod prelude {
     pub use crate::client::StreamSession;
     pub use crate::client::SubscriptionConfig;
     pub use crate::client::SubscriptionItemConfig;
+    pub use crate::client::get_endpoints;
+
+    pub type VariantDataValue = open62541::DataValue<ua::Variant>;
 }
