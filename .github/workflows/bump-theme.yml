@@ -14,9 +14,8 @@ jobs:
     with:
       # uv.lock is at revision 3, which uv 0.13 rewrites to 5
       uv-version: "0.12.x"
-      # main's required checks don't include the docs build (build-docs), so a
-      # bump that breaks the docs would merge. Turn this on once they do.
-      auto-merge: false
+      # auto-merge waits for main's required checks, which include the docs
+      # build (build-docs)
     secrets:
       NOMBOT_APP_ID: ${{ secrets.NOMBOT_APP_ID }}
       NOMBOT_PRIVATE_KEY: ${{ secrets.NOMBOT_PRIVATE_KEY }}
