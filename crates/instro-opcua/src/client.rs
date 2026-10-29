@@ -44,8 +44,10 @@ mod stream;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use std::future;
 use std::num::NonZeroU32;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Weak;
 use std::time::Duration;
@@ -64,6 +66,7 @@ use open62541::DataType;
 use open62541::DataValue;
 use open62541::MonitoredItemCreateRequestBuilder;
 use open62541::PrivateKey;
+use open62541::PrivateKeyPasswordCallback;
 use open62541::SubscriptionBuilder;
 use open62541::create_certificate;
 use open62541::ua;
@@ -87,6 +90,12 @@ use crate::error::UaErrorExt as _;
 use crate::error::bail;
 use crate::metrics::NodeReadCounts;
 use crate::metrics::PollLoopMetricsLogger;
+
+pub fn get_endpoints(endpoint_url: &str) -> Result<ua::Array<ua::EndpointDescription>> {
+    open62541::ClientBuilder::default()
+        .get_endpoints(endpoint_url)
+        .with_ua_context(|| format!("getting endpoints for '{endpoint_url}'"))
+}
 
 #[derive(Debug)]
 /// Wraps an [`AsyncClient`] with high-performance telemetry-streaming-oriented API designed for long-lived applications.
@@ -507,117 +516,149 @@ fn polled_sample_filter(polled: VariantValue, sub_data: &VariantValue) -> Option
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SecurityPolicyUri {
+    None,
+    Basic128Rsa15,
+    Basic256,
+    Basic256Sha256,
+    Aes128Sha256RsaOaep,
+    Aes256Sha256RsaPss,
+}
+
+impl FromStr for SecurityPolicyUri {
+    type Err = OpcUaError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "http://opcfoundation.org/UA/SecurityPolicy#None" => Self::None,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15" => Self::Basic128Rsa15,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256" => Self::Basic256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" => Self::Basic256Sha256,
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep" => {
+                Self::Aes128Sha256RsaOaep
+            }
+            "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss" => {
+                Self::Aes256Sha256RsaPss
+            }
+            _ => bail!(internal, "invalid security policy URI: {s}"),
+        })
+    }
+}
+
+impl fmt::Display for SecurityPolicyUri {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_policy_uri_str().fmt(f)
+    }
+}
+
+impl SecurityPolicyUri {
+    pub const fn as_policy_uri_str(self) -> &'static str {
+        match self {
+            Self::None => "http://opcfoundation.org/UA/SecurityPolicy#None",
+            Self::Basic128Rsa15 => "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15",
+            Self::Basic256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256",
+            Self::Basic256Sha256 => "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256",
+            Self::Aes128Sha256RsaOaep => {
+                "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep"
+            }
+            Self::Aes256Sha256RsaPss => {
+                "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss"
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 /// Builder for [`Client`].
 ///
 /// Provides a fluent API for configuring the both the [`Client`] and the backing [`AsyncClient`]
 /// before connecting to an OPC-UA endpoint.
-pub struct ClientBuilder {
-    user_token: Option<ua::UserIdentityToken>,
-    security_mode: Option<ua::MessageSecurityMode>,
-    security_policy: Option<SecurityPolicyUri>,
-    timeout: Option<Duration>,
-    accept_any_cert: bool,
-    pki: PkiConfig,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SecurityPolicyUri(&'static str);
-
-impl SecurityPolicyUri {
-    pub const fn none() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#None")
-    }
-
-    pub const fn basic128_rsa15() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15")
-    }
-
-    pub const fn basic256() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256")
-    }
-
-    pub const fn basic256_sha256() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256")
-    }
-
-    pub const fn aes128_sha256_rsa_oaep() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep")
-    }
-
-    pub const fn aes256_sha256_rsa_pss() -> Self {
-        Self("http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss")
-    }
-}
+// Unfortunately there's no easy way to layer builders that take self by move
+// so we need to re-implement the entire builder API here.
+pub struct ClientBuilder(UaClientBuilder);
 
 impl ClientBuilder {
-    /// Creates a new builder with default values.
-    pub fn new() -> Self {
-        Self::default()
+    /// Creates a new builder for an unencrypted client.
+    pub fn new(pki: PkiConfig) -> Result<Self> {
+        let builder = match pki {
+            PkiConfig::UseProvided(certificate, private_key) => {
+                UaClientBuilder::default_encryption(&certificate, &private_key)
+                    .context("creating encrypted client builder")?
+            }
+
+            PkiConfig::GenerateSelfSigned => {
+                let (certificate, private_key) = generate_self_signed_cert()?;
+                UaClientBuilder::default_encryption(&certificate, &private_key)
+                    .context("creating encrypted client builder")?
+            }
+
+            PkiConfig::None => UaClientBuilder::default(),
+        };
+
+        Ok(Self(builder))
     }
 
     /// Sets whether to accept any server certificate.
-    pub fn with_trust_server_certs(self, accept_any_cert: bool) -> Self {
-        Self {
-            accept_any_cert,
-            ..self
-        }
+    pub fn with_trust_server_certs(self) -> Self {
+        Self(self.0.accept_all())
     }
 
     /// Sets the user identity token to use for the client.
-    pub fn with_identity_token(self, token: ua::UserIdentityToken) -> Self {
-        Self {
-            user_token: Some(token),
-            ..self
-        }
+    pub fn with_identity_token(self, token: &ua::UserIdentityToken) -> Self {
+        Self(self.0.user_identity_token(token))
     }
 
     /// Sets the security mode to use for the client.
     pub fn with_security_mode(self, mode: ua::MessageSecurityMode) -> Self {
-        Self {
-            security_mode: Some(mode),
-            ..self
-        }
+        Self(self.0.security_mode(mode))
     }
 
     /// Sets the security policy to use for the client.
     pub fn with_security_policy(self, security_policy: SecurityPolicyUri) -> Self {
-        Self {
-            security_policy: Some(security_policy),
-            ..self
-        }
+        #[expect(clippy::expect_used)]
+        let uri = ua::String::new(security_policy.as_policy_uri_str()).expect(
+            "security policy URIs are statics and well-formed, failure is likely an allocation \
+             error from open62541",
+        );
+
+        Self(self.0.security_policy_uri(uri))
     }
 
     /// Sets the timeout to use for the client.
     pub fn with_timeout(self, timeout: Duration) -> Self {
-        Self {
-            timeout: Some(timeout),
-            ..self
-        }
+        Self(self.0.timeout(timeout))
     }
 
-    /// Sets the PKI to use for the client.
-    pub fn with_pki(self, pki: PkiConfig) -> Self {
-        Self { pki, ..self }
+    /// Sets the certificate verification to use for the client.
+    pub fn with_verification(self, verification: ua::CertificateVerification) -> Self {
+        Self(self.0.certificate_verification(verification))
     }
 
-    /// Sets the PKI to use for the client to use a provided certificate and private key.
-    pub fn use_pki(self, certificate: Certificate, private_key: PrivateKey) -> Self {
-        Self {
-            pki: PkiConfig::UseProvided(certificate, private_key),
-            ..self
-        }
+    /// Sets the private key password callback to use for the client.
+    pub fn with_private_key_password_callback<F>(self, callback: F) -> Self
+    where
+        F: PrivateKeyPasswordCallback + 'static,
+    {
+        Self(self.0.private_key_password_callback(callback))
     }
 
-    /// Sets the PKI to use for the client to generate a self-signed certificate.
-    pub fn generate_self_signed_pki(self) -> Self {
-        Self {
-            pki: PkiConfig::GenerateSelfSigned,
-            ..self
-        }
+    /// Sets the connectivity check interval to use for the client.
+    pub fn with_connectivity_check_interval(self, interval: Duration) -> Self {
+        Self(self.0.connectivity_check_interval(Some(interval)))
     }
 
-    fn connect_app_description() -> ua::ApplicationDescription {
+    /// Sets the requested session timeout to use for the client.
+    pub fn with_requested_session_timeout(self, timeout: Duration) -> Self {
+        Self(self.0.requested_session_timeout(timeout))
+    }
+
+    /// Sets the secure channel lifetime to use for the client.
+    pub fn with_secure_channel_lifetime(self, lifetime: Duration) -> Self {
+        Self(self.0.secure_channel_life_time(lifetime))
+    }
+
+    fn instro_app_description() -> ua::ApplicationDescription {
         ua::ApplicationDescription::init()
             .with_application_name("en-US", "Nominal OPC UA Client")
             .with_product_uri("urn:nominal:opcua-client")
@@ -628,52 +669,10 @@ impl ClientBuilder {
     /// Consumes the builder and connects to the endpoint at the given URL, returning a [`Client`].
     #[must_use = "dropping the returned client will immediately disconnect from the OPC UA server"]
     pub fn connect(self, endpoint_url: &str) -> Result<Client> {
-        let user_token = self.user_token.context("no user token provided")?;
-
-        let security_mode = self.security_mode.context("no security mode provided")?;
-        if security_mode == ua::MessageSecurityMode::INVALID {
-            bail!(internal, "invalid security mode");
-        }
-
-        let mut builder = match self.pki {
-            PkiConfig::UseProvided(certificate, private_key) => {
-                UaClientBuilder::default_encryption(&certificate, &private_key)
-                    .context("creating encrypted client builder")?
-            }
-
-            PkiConfig::GenerateSelfSigned => {
-                let (certificate, private_key) = generate_self_signed_cert()?;
-                UaClientBuilder::default_encryption(&certificate, &private_key)
-                    .ua_context("failed to create encrypted client builder")?
-            }
-
-            PkiConfig::None => UaClientBuilder::default(),
-        };
-
-        builder = builder
-            .secure_channel_life_time(Duration::from_millis(u32::MAX as u64))
-            .user_identity_token(&user_token)
-            .client_description(Self::connect_app_description())
-            .security_mode(security_mode);
-
-        if let Some(timeout) = self.timeout {
-            builder = builder.timeout(timeout);
-        }
-
-        if let Some(security_policy) = self.security_policy {
-            builder = builder.security_policy_uri(
-                ua::String::new(security_policy.0)
-                    // should only fail on allocation error,
-                    // could just as well unwrap if we're feeling loosey goosey
-                    .context("converting security policy URI to ua::String")?,
-            );
-        }
-
-        if self.accept_any_cert {
-            builder = builder.accept_all();
-        }
+        let Self(builder) = self;
 
         let client = builder
+            .client_description(Self::instro_app_description())
             .connect(endpoint_url)
             .ua_context("connecting to endpoint")?
             .into_async();

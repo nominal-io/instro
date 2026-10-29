@@ -26,7 +26,7 @@ use tokio::runtime::Runtime;
 fn main() -> anyhow::Result<()> {
     let client = ClientBuilder::new()
         .with_identity_token(
-            ua::UserIdentityToken::Anonymous(ua::AnonymousIdentityToken::init())
+            &ua::UserIdentityToken::Anonymous(ua::AnonymousIdentityToken::init())
         )
         .with_security_mode(ua::MessageSecurityMode::NONE)
         .with_security_policy(SecurityPolicyUri::none())

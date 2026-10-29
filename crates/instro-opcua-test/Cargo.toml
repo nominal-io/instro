@@ -8,8 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-# TODO(cartercanedy): change this back to upstream published version if/when changes merge
-nominal-open62541.workspace = true
+open62541.workspace = true
 open62541-sys.workspace = true
 tracing.workspace = true
 
