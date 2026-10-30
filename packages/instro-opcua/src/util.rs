@@ -22,8 +22,8 @@ macro_rules! require_both {
         if $item1.is_some() ^ $item2.is_some() {
             Err(PyValueError::new_err(format!(
                 "`{}` and `{}` must be provided together or not at all",
-                stringify!(item1),
-                stringify!(item2)
+                stringify!($item1),
+                stringify!($item2)
             )))
         } else {
             Ok($item1.zip($item2))

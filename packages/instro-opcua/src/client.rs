@@ -15,10 +15,8 @@ use itertools::Either;
 use itertools::Itertools;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeError;
-use pyo3::exceptions::PyRuntimeWarning;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyFunction;
 use pyo3::types::PyString;
 use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
@@ -35,15 +33,20 @@ impl Session {
         this
     }
 
-    pub fn __exit__<'py>(
+    pub fn __exit__(
         &mut self,
-        _exc_type: Option<Bound<'py, PyAny>>,
-        _exc_value: Option<Bound<'py, PyAny>>,
-        _traceback: Option<Bound<'py, PyAny>>,
-    ) {
-        if let Some(session) = self.1.take() {
-            self.0.block_on(session.stop())
-        }
+        py: Python<'_>,
+        _exc_type: Option<Bound<'_, PyAny>>,
+        _exc_value: Option<Bound<'_, PyAny>>,
+        _traceback: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<bool> {
+        py.detach(|| {
+            if let Some(session) = self.1.take() {
+                self.0.block_on(session.stop());
+            }
+
+            Ok(false)
+        })
     }
 }
 
@@ -136,47 +139,8 @@ impl ExpandedNodeId {
 #[repr(transparent)]
 pub struct RelativePathElement(ua::RelativePathElement);
 
-fn default_ref_node_id() -> Py<PyAny> {
-    Python::attach(|py| {
-        #[expect(
-            clippy::unwrap_used,
-            reason = "shouldn't fail unless the allocation fails"
-        )]
-        NodeId(ua::NodeId::numeric(0, 84)).into_py_any(py).unwrap()
-    })
-}
-
 #[pymethods]
 impl RelativePathElement {
-    #[new]
-    #[pyo3(signature = (name, reference_type_id: "NodeId | str" = default_ref_node_id(), include_subtypes = true, inverse = false))]
-    pub fn new<'py>(
-        py: Python<'py>,
-        name: &QualifiedName,
-        reference_type_id: Py<PyAny>,
-        include_subtypes: bool,
-        inverse: bool,
-    ) -> PyResult<Self> {
-        let reference_type_id =
-            if let Ok(reference_type_id) = reference_type_id.extract::<NodeId>(py) {
-                reference_type_id.0
-            } else if let Ok(reference_type_id_str) = reference_type_id.extract::<&str>(py) {
-                reference_type_id_str.parse().unwrap()
-            } else {
-                Err(PyValueError::new_err(format!(
-                    "invalid reference type id: '{reference_type_id}'"
-                )))?
-            };
-
-        Ok(Self(
-            ua::RelativePathElement::init()
-                .with_target_name(&name.0)
-                .with_reference_type_id(&reference_type_id)
-                .with_include_subtypes(include_subtypes)
-                .with_is_inverse(inverse),
-        ))
-    }
-
     pub fn name(&self) -> QualifiedName {
         QualifiedName(self.0.target_name().clone())
     }
@@ -342,35 +306,6 @@ pub struct OpcUaClient {
     rt: &'static Runtime,
 }
 
-fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode> {
-    Ok(match security_mode.to_lowercase().as_str() {
-        "none" => ua::MessageSecurityMode::NONE,
-        "sign" => ua::MessageSecurityMode::SIGN,
-        "signandencrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
-        _ => {
-            return Err(PyValueError::new_err(format!(
-                "invalid security mode: '{security_mode}'"
-            )));
-        }
-    })
-}
-
-fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
-    Ok(match security_policy.to_lowercase().as_str() {
-        "none" => SecurityPolicyUri::None,
-        "basic128rsa15" => SecurityPolicyUri::Basic128Rsa15,
-        "basic256" => SecurityPolicyUri::Basic256,
-        "basic256sha256" => SecurityPolicyUri::Basic256Sha256,
-        "aes128sha256rsaoaep" => SecurityPolicyUri::Aes128Sha256RsaOaep,
-        "aes256sha256rsapss" => SecurityPolicyUri::Aes256Sha256RsaPss,
-        _ => {
-            return security_policy.parse::<SecurityPolicyUri>().map_err(|_| {
-                PyValueError::new_err(format!("invalid security policy: '{security_policy}'"))
-            });
-        }
-    })
-}
-
 enum NodeIdKind {
     NodeId(ua::NodeId),
     Path(ua::BrowsePath),
@@ -518,8 +453,8 @@ impl OpcUaClient {
         timeout: "float | datetime.timedelta | None"=None,
     ))]
     pub fn connect(
-        endpoint_url: &str,
-        username: Option<&str>,
+        py: Python<'_>,
+        endpoint_url: &str, username: Option<&str>,
         password: Option<&str>,
         cert: Option<&[u8]>,
         private_key: Option<&[u8]>,
@@ -529,7 +464,7 @@ impl OpcUaClient {
         security_policy: Option<&str>,
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let rt = get_runtime()?;
+        let rt = py.detach(|| get_runtime())?;
 
         let pki = if let Some((cert, private_key)) = require_both!(cert, private_key)? {
             PkiConfig::UseProvided(
@@ -604,7 +539,7 @@ impl OpcUaClient {
     }
 
     #[pyo3(signature = (
-        on_data: "typing.Callable[[list[tuple[NodeId, DataValue]]], None]",
+        on_data: "typing.Callable[[list[tuple[NodeId, DataPoint]]], None]",
         nodes,
         freq_hz,
         bg_poll_freq_hz=None,
@@ -619,7 +554,7 @@ impl OpcUaClient {
     pub fn subscribe(
         &self,
         py: Python<'_>,
-        on_data: Py<PyFunction>,
+        on_data: Py<PyAny>,
         nodes: Vec<Bound<'_, PyAny>>,
         freq_hz: f64,
         bg_poll_freq_hz: Option<f64>,
@@ -631,6 +566,10 @@ impl OpcUaClient {
         queue_size: Option<u32>,
         discard_oldest: bool,
     ) -> PyResult<Session> {
+        if !on_data.bind(py).is_callable() {
+            return Err(PyValueError::new_err("`on_data` must be callable"));
+        }
+
         let nodes = nodes
             .iter()
             .map(|item| NodeIdKind::extract(item.as_borrowed()))
@@ -638,17 +577,17 @@ impl OpcUaClient {
 
         let nodes = py.detach(|| self.parse_nodes(nodes))?;
 
-        let sample_rate = Duration::from_secs_f64(freq_hz.recip());
+        let sample_rate = duration_from_freq(freq_hz)?;
 
         let publishing_interval = publish_freq_hz
-            .map(f64::recip)
-            .map(Duration::from_secs_f64)
+            .map(duration_from_freq)
+            .transpose()?
             .unwrap_or(sample_rate);
 
         #[expect(clippy::unwrap_used)]
         let sub_config = SubscriptionConfig {
             publishing_enabled: true,
-            background_poll_interval: bg_poll_freq_hz.map(f64::recip).map(Duration::from_secs_f64),
+            background_poll_interval: bg_poll_freq_hz.map(duration_from_freq).transpose()?,
             lifetime_count: lifetime_count.unwrap_or(10),
             max_keep_alive_count: max_keep_alive_count.unwrap_or(NonZeroU32::new(10).unwrap()),
             max_notifications_per_publish: max_notifications_per_publish
@@ -681,21 +620,23 @@ impl OpcUaClient {
             })
         };
 
-        let session = self
-            .rt
-            .block_on(
-                self.client
-                    .start_subscription(&nodes, sub_config, item_config, on_data),
-            )
-            .map_err(|e| {
-                PyRuntimeWarning::new_err(format!("failed to start subscription: '{e}'"))
-            })?;
+        let session = py.detach(|| {
+            self
+                .rt
+                .block_on(
+                    self.client
+                        .start_subscription(&nodes, sub_config, item_config, on_data),
+                )
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!("failed to start subscription: '{e}'"))
+                })
+        })?;
 
         Ok(Session::new(self, session))
     }
 
-    pub fn __enter__<'py>(this: PyRef<'py, Self>, _py: Python<'py>) -> PyRef<'py, Self> {
-        this
+    pub fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
     }
 
     pub fn __exit__<'py>(
@@ -704,7 +645,45 @@ impl OpcUaClient {
         _exc_type: Option<Bound<'py, PyAny>>,
         _exc_value: Option<Bound<'py, PyAny>>,
         _traceback: Option<Bound<'py, PyAny>>,
-    ) {
+    ) -> PyResult<bool> {
         self.disconnect(py);
+        Ok(false)
     }
+}
+
+fn duration_from_freq(f: f64) -> PyResult<Duration> {
+    if f.is_finite() && f > 0.0 {
+        Ok(Duration::from_secs_f64(f.recip()))
+    } else {
+        Err(PyValueError::new_err(format!("frequency must be finite and positive: '{f}'")))
+    }
+}
+
+fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode> {
+    Ok(match security_mode.to_lowercase().as_str() {
+        "none" => ua::MessageSecurityMode::NONE,
+        "sign" => ua::MessageSecurityMode::SIGN,
+        "sign_and_encrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "invalid security mode: '{security_mode}'"
+            )));
+        }
+    })
+}
+
+fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
+    Ok(match security_policy.to_lowercase().as_str() {
+        "none" => SecurityPolicyUri::None,
+        "basic128rsa15" => SecurityPolicyUri::Basic128Rsa15,
+        "basic256" => SecurityPolicyUri::Basic256,
+        "basic256sha256" => SecurityPolicyUri::Basic256Sha256,
+        "aes128sha256rsaoaep" => SecurityPolicyUri::Aes128Sha256RsaOaep,
+        "aes256sha256rsapss" => SecurityPolicyUri::Aes256Sha256RsaPss,
+        _ => {
+            return security_policy.parse::<SecurityPolicyUri>().map_err(|_| {
+                PyValueError::new_err(format!("invalid security policy: '{security_policy}'"))
+            });
+        }
+    })
 }
