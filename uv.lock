@@ -535,7 +535,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.22.0"
+version = "1.23.0"
 source = { editable = "." }
 default-groups = ["dev", "test"]
 dependencies = [
@@ -777,7 +777,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-unstable"
-version = "1.13.0"
+version = "1.14.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "gs-usb" },
