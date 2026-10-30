@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 anyhow.workspace = true
 chrono.workspace = true
 instro-opcua = { path = "../../crates/instro-opcua" }
-tokio.workspace = true
+tokio = { workspace = true, features = ["time", "rt-multi-thread"] }
 tracing.workspace = true
 itertools.workspace = true
 pyo3.workspace = true
