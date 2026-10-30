@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.15"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -535,8 +535,9 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.22.0"
+version = "1.23.0"
 source = { editable = "." }
+default-groups = ["dev", "test"]
 dependencies = [
     { name = "fastavro", extra = ["snappy"] },
     { name = "nominal" },
@@ -772,7 +773,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-unstable"
-version = "1.13.0"
+version = "1.14.0"
 source = { editable = "packages/instro-unstable" }
 dependencies = [
     { name = "gs-usb" },
@@ -1132,7 +1133,7 @@ wheels = [
 [[package]]
 name = "nominal-sphinx-theme"
 version = "0.1.0"
-source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#1101d9b30cb01206073e40e935982ba5183ab272" }
+source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#1adababc7a6522122dddf1a1b9424b832a499d99" }
 dependencies = [
     { name = "myst-parser" },
     { name = "shibuya" },
