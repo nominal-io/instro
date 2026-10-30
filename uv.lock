@@ -562,6 +562,7 @@ all = [
     { name = "instro-daq-ni" },
     { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
+    { name = "instro-opcua" },
     { name = "instro-unstable" },
 ]
 contrib = [
@@ -599,6 +600,7 @@ dev = [
     { name = "cpppo" },
     { name = "instro-contrib" },
     { name = "instro-ethernetip" },
+    { name = "instro-opcua" },
     { name = "instro-unstable" },
     { name = "mypy" },
     { name = "ruff" },
@@ -640,6 +642,7 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
+    { name = "instro-opcua", marker = "extra == 'all'", editable = "packages/instro-opcua" },
     { name = "instro-opcua", marker = "extra == 'opcua'", editable = "packages/instro-opcua" },
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
@@ -660,6 +663,7 @@ dev = [
     { name = "cpppo", specifier = ">=4.0.0" },
     { name = "instro-contrib", editable = "packages/instro-contrib" },
     { name = "instro-ethernetip", editable = "packages/instro-ethernetip" },
+    { name = "instro-opcua", editable = "packages/instro-opcua" },
     { name = "instro-unstable", editable = "packages/instro-unstable" },
     { name = "mypy", specifier = ">=1.15.0,<2" },
     { name = "ruff", specifier = ">=0.12.2,<0.13" },

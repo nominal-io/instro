@@ -454,7 +454,8 @@ impl OpcUaClient {
     ))]
     pub fn connect(
         py: Python<'_>,
-        endpoint_url: &str, username: Option<&str>,
+        endpoint_url: &str,
+        username: Option<&str>,
         password: Option<&str>,
         cert: Option<&[u8]>,
         private_key: Option<&[u8]>,
@@ -464,7 +465,7 @@ impl OpcUaClient {
         security_policy: Option<&str>,
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        let rt = py.detach(|| get_runtime())?;
+        let rt = py.detach(get_runtime)?;
 
         let pki = if let Some((cert, private_key)) = require_both!(cert, private_key)? {
             PkiConfig::UseProvided(
@@ -621,8 +622,7 @@ impl OpcUaClient {
         };
 
         let session = py.detach(|| {
-            self
-                .rt
+            self.rt
                 .block_on(
                     self.client
                         .start_subscription(&nodes, sub_config, item_config, on_data),
@@ -655,7 +655,9 @@ fn duration_from_freq(f: f64) -> PyResult<Duration> {
     if f.is_finite() && f > 0.0 {
         Ok(Duration::from_secs_f64(f.recip()))
     } else {
-        Err(PyValueError::new_err(format!("frequency must be finite and positive: '{f}'")))
+        Err(PyValueError::new_err(format!(
+            "frequency must be finite and positive: '{f}'"
+        )))
     }
 }
 
