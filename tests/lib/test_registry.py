@@ -14,7 +14,8 @@ from instro.lib.registry import (
     iter_driver_entries,
 )
 
-_SIMULATED_PREFIX = "Simulated"
+# simulated and virtual drivers have no real instrument to identify
+_SIMULATED_PREFIXES = ("Simulated", "Virtual")
 
 
 @pytest.mark.parametrize(
@@ -23,7 +24,7 @@ _SIMULATED_PREFIX = "Simulated"
 )
 def test_every_registered_driver_is_discoverable(category: str, driver_name: str, entry: DriverEntry) -> None:
     """A driver in a vendor registry without an IDN pattern is configurable but invisible to discovery."""
-    if driver_name.startswith(_SIMULATED_PREFIX):
+    if driver_name.startswith(_SIMULATED_PREFIXES):
         assert entry.idn_patterns == ()
         return
     assert entry.idn_patterns, f"{category}.{driver_name} has no IdnPattern; `instro discover` cannot recognize it"

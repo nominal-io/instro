@@ -40,13 +40,14 @@ regardless, so the pages still appear in the sidebar. -->
       instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A
 ```
 
-## Simulated Driver
+## Simulated Drivers
 
 ```{eval-rst}
 .. autosummary::
    :toctree: .
    :nosignatures:
 
+   ~instro.dmm.drivers.virtual.VirtualDMM
    ~instro.dmm.drivers.simulated.SimulatedDMM
 ```
 
