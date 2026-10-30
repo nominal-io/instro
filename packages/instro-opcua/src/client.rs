@@ -24,7 +24,6 @@ use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
 
 use self::shared_rt::get_runtime;
-
 use crate::require_both;
 
 #[pyclass]
@@ -595,7 +594,7 @@ impl OpcUaClient {
             ))
         })?;
 
-        Ok(Self { client, rt, })
+        Ok(Self { client, rt })
     }
 
     pub fn disconnect(&mut self, py: Python<'_>) {
