@@ -64,6 +64,7 @@ all = [
     "instro-ethernetip",
     "instro-contrib",
     "instro-unstable",
+    "instro-opcua",
 ]
 
 [project.urls]
@@ -93,6 +94,7 @@ dev = [
     "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
+    "instro-opcua",
 ]
 test = [
     "cpppo>=4.0.0",
@@ -140,7 +142,6 @@ members = [
     "packages/instro-opcua",
     "packages/instro-unstable",
     "packages/instro-contrib",
-    "packages/instro-opcua",
 ]
 
 [tool.ruff]
@@ -187,6 +188,7 @@ mypy_path = [
     "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
+    "packages/instro-opcua"
 ]
 packages = ["instro", "instro.ethernetip", "instro.unstable.opcua"]
 

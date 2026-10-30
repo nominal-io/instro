@@ -438,10 +438,10 @@ impl Client {
                         tracing::error!(
                             target: "opcua::client::subscribe",
                             error = ?e,
-                            "error calling on_data in subscription loop"
+                            "error calling on_data in subscription loop, stopping immediately"
                         );
 
-                        break
+                        return
                     }
 
                     if !quiet_nodes.is_empty() {
@@ -496,10 +496,10 @@ impl Client {
                         tracing::error!(
                             target: "opcua::client::subscribe",
                             error = ?e,
-                            "error calling on_data in subscription loop"
+                            "error calling on_data in subscription loop, stopping immediately"
                         );
 
-                        break;
+                        return;
                     }
                 } else {
                     tracing::info!(
