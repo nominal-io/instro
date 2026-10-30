@@ -1,8 +1,7 @@
-use std::io;
+mod shared_rt;
+
 use std::num::NonZeroU32;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::LazyLock;
 use std::time::Duration;
 
 use chrono::Utc;
@@ -24,17 +23,12 @@ use pyo3::types::PyString;
 use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
 
+use self::shared_rt::get_runtime;
+
 use crate::require_both;
 
-static RT: LazyLock<Result<Arc<Runtime>, io::Error>> = LazyLock::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .map(Arc::new)
-});
-
 #[pyclass]
-pub struct Session(Arc<Runtime>, Option<StreamSession>);
+pub struct Session(&'static Runtime, Option<StreamSession>);
 
 #[pymethods]
 impl Session {
@@ -56,7 +50,7 @@ impl Session {
 
 impl Session {
     fn new(client: &OpcUaClient, session: StreamSession) -> Self {
-        Self(Arc::clone(&client.rt), Some(session))
+        Self(client.rt, Some(session))
     }
 }
 
@@ -264,7 +258,7 @@ impl NodeId {
     }
 }
 
-fn parse_timestamp(dt: ua::DateTime) -> (i64, u32) {
+fn interpret_timestamp(dt: ua::DateTime) -> (i64, u32) {
     let nanos = dt.as_unix_timestamp_nanos();
     let secs = nanos / 1_000_000_000;
     let rem_nanos = nanos % 1_000_000_000;
@@ -276,7 +270,7 @@ fn normalize_value_timestamp(
     ua_dt: Option<ua::DateTime>,
     picos: Option<u16>,
 ) -> Option<chrono::DateTime<Utc>> {
-    let (secs, rem_nanos) = parse_timestamp(ua_dt?);
+    let (secs, rem_nanos) = interpret_timestamp(ua_dt?);
     let rem_nanos = rem_nanos + (picos.unwrap_or(0) as u32 / 1000);
     chrono::DateTime::from_timestamp(secs, rem_nanos)
 }
@@ -328,7 +322,7 @@ impl DataPoint {
             ScalarValue::StatusCode(sc) => StatusCode(sc).into_bound_py_any(py),
             ScalarValue::QualifiedName(qn) => QualifiedName(qn).into_bound_py_any(py),
             ScalarValue::DateTime(dt) => {
-                let (secs, rem_nanos) = parse_timestamp(dt);
+                let (secs, rem_nanos) = interpret_timestamp(dt);
                 let dt = chrono::DateTime::from_timestamp(secs, rem_nanos).ok_or(
                     PyValueError::new_err("failed to convert timestamp to datetime".to_string()),
                 )?;
@@ -346,14 +340,14 @@ impl DataPoint {
 #[pyclass]
 pub struct OpcUaClient {
     client: Client,
-    rt: Arc<Runtime>,
+    rt: &'static Runtime,
 }
 
 fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode> {
-    Ok(match security_mode {
+    Ok(match security_mode.to_lowercase().as_str() {
         "none" => ua::MessageSecurityMode::NONE,
         "sign" => ua::MessageSecurityMode::SIGN,
-        "sign_and_encrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
+        "signandencrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
         _ => {
             return Err(PyValueError::new_err(format!(
                 "invalid security mode: '{security_mode}'"
@@ -363,7 +357,7 @@ fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode>
 }
 
 fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
-    Ok(match security_policy {
+    Ok(match security_policy.to_lowercase().as_str() {
         "none" => SecurityPolicyUri::None,
         "basic128rsa15" => SecurityPolicyUri::Basic128Rsa15,
         "basic256" => SecurityPolicyUri::Basic256,
@@ -536,6 +530,8 @@ impl OpcUaClient {
         security_policy: Option<&str>,
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
+        let rt = get_runtime()?;
+
         let pki = if let Some((cert, private_key)) = require_both!(cert, private_key)? {
             PkiConfig::UseProvided(
                 Certificate::from_bytes(cert),
@@ -599,14 +595,7 @@ impl OpcUaClient {
             ))
         })?;
 
-        let rt = (*RT)
-            .as_ref()
-            .map_err(|e| PyValueError::new_err(format!("failed to instantiate runtime: '{e}'")))?;
-
-        Ok(Self {
-            client,
-            rt: Arc::clone(rt),
-        })
+        Ok(Self { client, rt, })
     }
 
     pub fn disconnect(&mut self, py: Python<'_>) {
