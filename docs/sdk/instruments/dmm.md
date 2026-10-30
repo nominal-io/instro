@@ -6,7 +6,7 @@ Digital multimeters.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.InstroDMM
@@ -20,6 +20,7 @@ Digital multimeters.
 | Keithley | {py:class}`2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` | {pysummary}`instro.dmm.drivers.keithley_2400.Keithley2400` |
 | Agilent | {py:class}`34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>` | {pysummary}`instro.dmm.drivers.agilent_a34401a.Agilent34401A` |
 | Keysight | {py:class}`34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>` | {pysummary}`instro.dmm.drivers.keysight_34461a.Keysight34461A` |
+| Fluke | {py:class}`8845A (unstable) <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` | {pysummary}`instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A` |
 
 <!-- The vendor table is laid out by hand for its Vendor/Model columns; its
 descriptions still come from the docstrings via {pysummary}. autosummary needs to
@@ -31,18 +32,19 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.dmm.drivers.keithley_2400.Keithley2400
       instro.dmm.drivers.agilent_a34401a.Agilent34401A
       instro.dmm.drivers.keysight_34461a.Keysight34461A
+      instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A
 ```
 
 ## Simulated Drivers
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.drivers.virtual.VirtualDMM
@@ -53,7 +55,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.dmm.types.MeasurementFunction

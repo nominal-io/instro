@@ -2,15 +2,12 @@
 orphan: true
 card: National Instruments
 image: NIDAQDriver.png
-myst:
-  html_meta:
-    description: "A driver for InstroDAQ"
 ---
 
 # NIDAQDriver
 
 {.lead}
-A driver for [`InstroDAQ`](/daq.md)
+Control the National Instruments DAQ from Python through [`InstroDAQ`](/daq.md).
 
 ![National Instruments](NIDAQDriver.png){.driver-image}
 

@@ -4,7 +4,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.publishers.publisher.Publisher
@@ -18,7 +18,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.publishers.files.FilePublisher
@@ -33,7 +33,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.publishers.nominal_core.NominalCorePublisher
@@ -43,7 +43,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.publishers.nominal_connect.NominalConnectPublisher
@@ -53,7 +53,7 @@
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.publishers.channel_buffer.ChannelBufferPublisher

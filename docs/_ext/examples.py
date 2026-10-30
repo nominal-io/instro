@@ -1,13 +1,15 @@
 """Generate the Examples section (``docs/examples/``, gitignored) from the example scripts.
 
 Each ``examples/<category>/*.py`` becomes a page showing the script, titled from the
-first line of its module docstring; each category gets an index. Examples inside the
+first line of its module docstring (sentence case, without an "Example:" prefix) and
+described by the rest; each category gets an index. Examples inside the
 ``instro-unstable`` and ``instro-contrib`` packages go under ``examples/packages/<pkg>/``
 with the package's caveat. Nothing here is hand-maintained: add a script and it appears.
 Files are only rewritten when their content changes, so live preview doesn't loop.
 """
 
 import ast
+import json
 from pathlib import Path
 from typing import Any
 
@@ -60,13 +62,31 @@ def _script_title(py: Path) -> str:
     first = doc.strip().splitlines()[0].strip() if doc.strip() else py.stem
     if first.lower().startswith("example:"):
         first = first[len("example:") :].strip()
-    return first.rstrip(".") or py.stem
+    first = first.rstrip(".") or py.stem
+    # sentence case; only the first letter, so identifiers (JSON, InstroDAQ) keep theirs
+    return first[0].upper() + first[1:]
+
+
+def _script_description(py: Path, title: str) -> str:
+    """The title, which keeps descriptions unique, then the docstring's first prose paragraph after it."""
+    doc = ast.get_docstring(ast.parse(py.read_text(encoding="utf-8"))) or ""
+    for para in doc.strip().split("\n\n")[1:]:
+        text = " ".join(para.split())
+        # skip run commands and option lists
+        if text and not text.lower().startswith(("run", "usage", "uv ", "python ", "-", "*")):
+            return f"instro Python example: {title}. {text}".replace("`", "")
+    return f"instro Python example: {title}.".replace("`", "")
+
+
+def _front_matter(description: str) -> str:
+    # the page's meta description (conf.py); JSON strings are valid YAML scalars
+    return f"---\nmyst:\n  html_meta:\n    description: {json.dumps(description)}\n---\n\n"
 
 
 def _page(py: Path, repo: Path, title: str, callout: str = "") -> str:
     rel = py.relative_to(repo).as_posix()
     return (
-        f"# {title}\n\n{callout}"
+        _front_matter(_script_description(py, title)) + f"# {title}\n\n{callout}"
         f"```{{literalinclude}} /../{rel}\n:caption: {py.name}\n:language: python\n```\n\n"
         f"Source: [`{rel}`](https://github.com/nominal-io/instro/blob/main/{rel})\n"
     )
@@ -75,7 +95,8 @@ def _page(py: Path, repo: Path, title: str, callout: str = "") -> str:
 def _index(title: str, entries: list[tuple[str, str]], intro: str = "") -> str:
     links = "".join(f"- [{t}]({name}.md)\n" for t, name in entries)
     toc = "".join(f"{name}\n" for _, name in entries)
-    return f"# {title}\n\n{intro}{links}\n```{{toctree}}\n:hidden:\n\n{toc}```\n"
+    description = f"Runnable instro {title} examples: " + ", ".join(t for t, _ in entries) + "."
+    return _front_matter(description) + f"# {title}\n\n{intro}{links}\n```{{toctree}}\n:hidden:\n\n{toc}```\n"
 
 
 def generate(app: Sphinx) -> None:
@@ -107,7 +128,8 @@ def generate(app: Sphinx) -> None:
             files[out / "packages" / slug / sub / f"{py.stem}.md"] = _page(py, repo, script_title, note)
             _SOURCES[f"examples/packages/{slug}/{sub}/{py.stem}"] = py.relative_to(repo).as_posix()
             sections.setdefault(sub, []).append((script_title, f"{sub}/{py.stem}"))
-        body = f"# {title}\n\n:::{{{kind}}}\n{callout.format(subject='These examples use')}\n:::\n\n"
+        body = _front_matter(f"Runnable examples from the {dist} package.")
+        body += f"# {title}\n\n:::{{{kind}}}\n{callout.format(subject='These examples use')}\n:::\n\n"
         body += (
             "".join(
                 f"## {_title(sub)}\n\n" + "".join(f"- [{t}]({name}.md)\n" for t, name in entries) + "\n"

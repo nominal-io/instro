@@ -2,15 +2,12 @@
 orphan: true
 card: Agilent/HP/Keysight 34401A
 image: Agilent34401A.png
-myst:
-  html_meta:
-    description: "A driver for InstroDMM"
 ---
 
 # Agilent34401A
 
 {.lead}
-A driver for [`InstroDMM`](/dmm.md)
+Control the Agilent/HP/Keysight 34401A multimeter from Python through [`InstroDMM`](/dmm.md).
 
 ![Agilent/HP/Keysight 34401A](Agilent34401A.png){.driver-image}
 

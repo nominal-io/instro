@@ -23,7 +23,6 @@ pub use open62541::DataSourceWriteContext;
 pub use open62541::MethodCallback;
 pub use open62541::MethodCallbackContext;
 pub use open62541::MethodCallbackResult;
-pub use open62541::ua;
 pub use server::Access;
 pub use server::FolderSpec;
 pub use server::MethodSpec;

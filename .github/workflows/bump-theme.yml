@@ -1,0 +1,26 @@
+name: Bump nominal-sphinx-theme
+
+# Daily: moves uv.lock to the theme's newest commit and opens one PR for it. Run by hand: Actions →
+# Bump nominal-sphinx-theme → Run workflow. See nominal-sphinx-theme's README, "Theme updates".
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily, 06:00 UTC
+  workflow_dispatch:
+
+# the reusable workflow asks for contents: read, and a caller can't grant less; NomBot's token does
+# the writes
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    uses: nominal-io/nominal-sphinx-theme/.github/workflows/bump-theme.yml@c896bcaf874bf1cd873e19e879f8861e46912bc3 # main, 2026-10-28
+    with:
+      # uv.lock is at revision 3, which uv 0.13 rewrites to 5
+      uv-version: "0.12.x"
+      # auto-merge waits for main's required checks, so build-docs must be one of them, or a bump
+      # that breaks the docs merges
+    secrets:
+      NOMBOT_APP_ID: ${{ secrets.NOMBOT_APP_ID }}
+      NOMBOT_PRIVATE_KEY: ${{ secrets.NOMBOT_PRIVATE_KEY }}

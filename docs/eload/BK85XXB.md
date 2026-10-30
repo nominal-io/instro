@@ -2,15 +2,12 @@
 orphan: true
 card: B&K Precision 85xx
 image: BK85XXB.png
-myst:
-  html_meta:
-    description: "A driver for InstroELoad"
 ---
 
 # BK85XXB
 
 {.lead}
-A driver for [`InstroELoad`](/eload.md)
+Control the B&K Precision 85xx electronic load from Python through [`InstroELoad`](/eload.md).
 
 ![B&K Precision 85xx](BK85XXB.png){.driver-image}
 

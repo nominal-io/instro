@@ -6,7 +6,7 @@ Programmable power supplies.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.InstroPSU
@@ -19,6 +19,7 @@ Programmable power supplies.
 |--------|-------|-------------|
 | B&K Precision | {py:class}`9115 <instro.psu.drivers.bk_9115.BK9115>` | {pysummary}`instro.psu.drivers.bk_9115.BK9115` |
 | B&K Precision | {py:class}`914X <instro.psu.drivers.bk_914x.BK914X>` | {pysummary}`instro.psu.drivers.bk_914x.BK914X` |
+| GW Instek | {py:class}`GPD-3303D <instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303>` | {pysummary}`instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303` |
 | Keysight | {py:class}`E36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>` | {pysummary}`instro.psu.drivers.keysight_e36100.KeysightE36100` |
 | Keysight | {py:class}`N5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` | {pysummary}`instro.psu.drivers.keysight_n5700.KeysightN5700` |
 | Rigol | {py:class}`DP800 <instro.psu.drivers.rigol_dp800.RigolDP800>` | {pysummary}`instro.psu.drivers.rigol_dp800.RigolDP800` |
@@ -35,10 +36,11 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.psu.drivers.bk_9115.BK9115
       instro.psu.drivers.bk_914x.BK914X
+      instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303
       instro.psu.drivers.keysight_e36100.KeysightE36100
       instro.psu.drivers.keysight_n5700.KeysightN5700
       instro.psu.drivers.rigol_dp800.RigolDP800
@@ -50,7 +52,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.drivers.simulated.SimulatedPSU
@@ -60,7 +62,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.psu.types.OperatingMode

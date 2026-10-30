@@ -2,15 +2,12 @@
 orphan: true
 card: Keysight 33521B
 image: Keysight33521B.png
-myst:
-  html_meta:
-    description: "A driver for InstroAWG"
 ---
 
 # Keysight33521B
 
 {.lead}
-A driver for [`InstroAWG`](/awg.md)
+Control the Keysight 33521B function generator from Python through [`InstroAWG`](/awg.md).
 
 ![Keysight 33521B](Keysight33521B.png){.driver-image}
 

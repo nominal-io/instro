@@ -6,7 +6,7 @@ Data acquisition systems.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.daq.InstroDAQ
@@ -34,7 +34,7 @@ regardless, so the pages still appear in the sidebar. -->
 .. only:: autosummary_stubs
 
    .. autosummary::
-      :toctree: generated
+      :toctree: .
 
       instro.daq.drivers.keysight_34980a.Keysight34980A
       instro.daq.drivers.ni.nidaq.NIDAQDriver
@@ -47,7 +47,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.daq.types.DAQVendor
@@ -73,7 +73,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.daq.scaling.Scaler
@@ -86,7 +86,7 @@ regardless, so the pages still appear in the sidebar. -->
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.daq.scaling.thermocouple.ThermocoupleSensor

@@ -27,9 +27,9 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `sdk/` | API reference: category pages, library modules, protocols, changelog. |
 
 - **Sections:** the header tabs (Guides, Examples, SDK) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`sdk/`, `examples/`, else guides), from `nav_links` in `conf.py`.
-- **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/nominal-sphinx-theme); change it there, then `uv lock --upgrade-package nominal-sphinx-theme` here. Keep `_static/custom.css` to instro-only styles.
+- **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/nominal-sphinx-theme); change it there, and the daily bump PR (`.github/workflows/bump-theme.yml`) takes it here. To take it now, run that workflow by hand, or run `uv lock --upgrade-package nominal-sphinx-theme` and open a PR. Keep `_static/custom.css` to instro-only styles.
 - **Hidden pages:** pages outside the sidebar set `orphan: true` in front matter. Driver pages and protocol sub-pages are orphans.
-- **Page head:** `# Title`, then an optional `{.lead}` paragraph (grey subtitle), with `myst: html_meta: description:` in front matter for search engines.
+- **Page head:** `# Title`, then an optional `{.lead}` paragraph (grey subtitle), with `myst: html_meta: description:` (and optionally `seo_title:`) in front matter for search engines; see the README's "Search engines".
 
 ## Guides pages (MyST Markdown)
 
@@ -40,14 +40,14 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 ## API pages (`sdk/`)
 
 - Each `sdk/instruments/<category>.md`: `# Title` + description; `## Instrument and Abstract Driver` (autosummary of `Instro<Category>`, `<Category>DriverBase`); `## Vendor Drivers` (hand-written Vendor / Model / Description table, Description as `` {pysummary}`<path>` ``); `## Simulated Driver` if any; `## Types & Configuration`; `---` then the Exceptions notice.
-- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary generates a page per table entry into gitignored `generated/` folders; `_templates/autosummary/class.rst` puts data types (pydantic, dataclass, enum) on one page and gives other classes a page per member.
+- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary writes a gitignored stub (`instro.*.rst`) per table entry next to the SDK page that lists it, so class URLs read `/sdk/<section>/instro.psu.InstroPSU/`; `_templates/autosummary/class.rst` puts each class on one page: data types (pydantic, dataclass, enum) with their fields inline, other classes with member summary tables linking down to each member's details.
 - `conf.py`: vendor packages load from `packages/` source with native SDKs in `autodoc_mock_imports` (a new vendor package needs both); `autosummary_context["extra_methods"]` opts private methods in; a hook resolves re-exported names to their documented original, so document each object once, where defined.
 
 ## Tasks
 
 ### Add a vendor driver
 
-1. `docs/<category>/<Driver>.md` and `<Driver>.png`. Copy a sibling: front matter `orphan: true`, `card: <Vendor Model>`, `image: <Driver>.png`; `# <Driver>`, a `{.lead}` line, the image, a `## Creating an Instro<Category> with <Driver>` example. The category's `driver-cards` grid picks it up.
+1. `docs/<category>/<Driver>.md` and `<Driver>.png`. Copy a sibling: front matter `orphan: true`, `card: <Vendor Model>`, `image: <Driver>.png`; no description (it is generated from `card:`); `# <Driver>`, a `{.lead}` line ("Control the <card> <instrument> from Python through [`Instro<Category>`](/<category>.md)."), the image, a `## Creating an Instro<Category> with <Driver>` example. The category's `driver-cards` grid picks it up.
 2. In `sdk/instruments/<category>.md`, add a Vendor Drivers table row and the class path to the hidden `.. only:: autosummary_stubs` list beneath it (the table is hand-written, so this block is what generates the class page).
 3. `just build-docs`. `_ext/driver_docs.py` warns, and so fails the build, for each name in `instro.<category>.drivers.__all__` (except `*DriverBase`) that has no step 1 page or no dotted `instro.` reference on its step 2 page. For a name that cannot meet a check (a simulator, a multi-category device class), add `"<category>.<Name>": {"sdk", "guide"}` (or one of the two) to `driver_docs_exempt` in `conf.py`, with a comment that gives the reason. An exemption that no longer applies is also a warning.
 

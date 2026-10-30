@@ -14,7 +14,7 @@ implementing a new transport.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.transports.transport_base.TransportBase
@@ -24,7 +24,7 @@ implementing a new transport.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.transports.visa.VisaDriver
@@ -41,7 +41,7 @@ implementing a new transport.
 
 ```{eval-rst}
 .. autosummary::
-   :toctree: generated
+   :toctree: .
    :nosignatures:
 
    ~instro.lib.transports.modbus.ModbusTransport

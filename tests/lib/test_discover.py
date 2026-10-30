@@ -30,6 +30,7 @@ def test_parse_idn_pads_missing_fields() -> None:
         ("Keysight Technologies,E36103A,MY00000000,1.0", "psu", "KeysightE36100", 1),
         ("Agilent Technologies,N5744A,US00000000,D.00.01", "psu", "KeysightN5700", 1),
         ("LAMBDA,GEN60-25,00000,1.0", "psu", "TDKLambdaGenesys", 1),
+        ("GW INSTEK,GPD-3303D,SN:GEZ895759,V1.10", "psu", "GWInstekGPD3303", 2),
         # vendor substring and model regex are case-insensitive
         ("rigol technologies,dp832,DP8C000000000,00.01.14", "psu", "RigolDP800", 3),
         ("B&K PRECISION,8514B,000000000,1.0", "eload", "BK85XXB", None),

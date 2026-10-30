@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.14.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.13.0...instro-unstable-v1.14.0) (2026-10-28)
+
+
+### Features
+
+* **unstable/dmm:** add Fluke 8845A driver wrapping Agilent34401A ([#668](https://github.com/nominal-io/instro/issues/668)) ([f2c1284](https://github.com/nominal-io/instro/commit/f2c1284794ff5824807c52aecd3b02b83833038f))
+* **unstable/scope:** add Keysight 3000T X-Series oscilloscope driver ([#667](https://github.com/nominal-io/instro/issues/667)) ([af43270](https://github.com/nominal-io/instro/commit/af43270ef472e8a472d83780dfa50759a9dc8fda))
+
+## [1.13.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.12.0...instro-unstable-v1.13.0) (2026-10-23)
+
+
+### Features
+
+* **unstable:** sdr first pass ([#447](https://github.com/nominal-io/instro/issues/447)) ([a64cd13](https://github.com/nominal-io/instro/commit/a64cd131ed4f2b9110a65367822ba740f8c59f76))
+
+
+### Bug Fixes
+
+* **deps:** update nominal and fix security alerts ([#666](https://github.com/nominal-io/instro/issues/666)) ([1aa8ca0](https://github.com/nominal-io/instro/commit/1aa8ca0fd6a039257846599b4701e5c1c11ba549))
+
 ## [1.12.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.11.0...instro-unstable-v1.12.0) (2026-09-18)
 
 
