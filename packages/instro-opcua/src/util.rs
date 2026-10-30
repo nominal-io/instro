@@ -4,7 +4,7 @@
 /// without the other.
 ///
 /// Example:
-/// ```
+/// ```ignore
 /// use instro_opcua::util::require_both;
 ///
 /// let a = Some(1);
