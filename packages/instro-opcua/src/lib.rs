@@ -1,7 +1,29 @@
-use pyo3::prelude::*;
-use pyo3::types::PyModule;
+mod client;
+mod discover;
+mod util;
 
-#[pymodule]
-fn _opcua(_module: &Bound<'_, PyModule>) -> PyResult<()> {
-    Ok(())
+use pyo3::prelude::*;
+
+pub(crate) use self::util::require_both;
+
+#[pymodule(name = "_opcua")]
+mod instro_opcua_py {
+    #[pymodule_export]
+    use super::client::DataPoint;
+    #[pymodule_export]
+    use super::client::ExpandedNodeId;
+    #[pymodule_export]
+    use super::client::NodeId;
+    #[pymodule_export]
+    use super::client::OpcUaClient;
+    #[pymodule_export]
+    use super::client::QualifiedName;
+    #[pymodule_export]
+    use super::client::Session;
+    #[pymodule_export]
+    use super::client::StatusCode;
+    #[pymodule_export]
+    use super::discover::EndpointDescription;
+    #[pymodule_export]
+    use super::discover::get_endpoints;
 }

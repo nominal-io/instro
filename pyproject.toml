@@ -53,6 +53,7 @@ mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
+opcua = ["instro-opcua"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 all = [
@@ -63,6 +64,7 @@ all = [
     "instro-ethernetip",
     "instro-contrib",
     "instro-unstable",
+    "instro-opcua",
 ]
 
 [project.urls]
@@ -92,6 +94,7 @@ dev = [
     "instro-ethernetip",
     "instro-unstable",
     "instro-contrib",
+    "instro-opcua",
 ]
 test = [
     "cpppo>=4.0.0",
@@ -127,6 +130,7 @@ instro-i2c-aardvark = { workspace = true }
 instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
+instro-opcua = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -184,8 +188,9 @@ mypy_path = [
     "packages/instro-ethernetip",
     "packages/instro-unstable",
     "packages/instro-contrib",
+    "packages/instro-opcua"
 ]
-packages = ["instro", "instro.ethernetip"]
+packages = ["instro", "instro.ethernetip", "instro.unstable.opcua"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
