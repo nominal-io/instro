@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.0](https://github.com/nominal-io/instro/compare/instro-v1.23.0...instro-v1.24.0) (2026-10-30)
+
+
+### Features
+
+* **dmm:** add VirtualDMM, a simulated DMM with no transport or server ([#649](https://github.com/nominal-io/instro/issues/649)) ([c702650](https://github.com/nominal-io/instro/commit/c702650e30fda5c5d04f3a4823d63014719d5c82))
+
 ## [1.23.0](https://github.com/nominal-io/instro/compare/instro-v1.22.0...instro-v1.23.0) (2026-10-28)
 
 
