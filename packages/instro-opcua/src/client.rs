@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use chrono::Utc;
 use instro_opcua::open62541::Certificate;
-use instro_opcua::open62541::DataValue;
+use instro_opcua::open62541::DataValue as UaDataValue;
 use instro_opcua::open62541::PrivateKey;
 use instro_opcua::open62541::ScalarValue;
 use instro_opcua::open62541::VariantValue;
@@ -221,10 +221,10 @@ impl NodeId {
     }
 }
 
-fn interpret_timestamp(dt: ua::DateTime) -> (i64, u32) {
+fn normalize_timestamp(dt: ua::DateTime) -> (i64, u32) {
     let nanos = dt.as_unix_timestamp_nanos();
-    let secs = nanos / 1_000_000_000;
-    let rem_nanos = nanos % 1_000_000_000;
+    let secs = nanos.div_euclid(1_000_000_000);
+    let rem_nanos = nanos.rem_euclid(1_000_000_000);
     #[expect(clippy::as_conversions, reason = "heat death of the universe")]
     (secs as i64, rem_nanos as u32)
 }
@@ -233,17 +233,17 @@ fn normalize_value_timestamp(
     ua_dt: Option<ua::DateTime>,
     picos: Option<u16>,
 ) -> Option<chrono::DateTime<Utc>> {
-    let (secs, rem_nanos) = interpret_timestamp(ua_dt?);
+    let (secs, rem_nanos) = normalize_timestamp(ua_dt?);
     let rem_nanos = rem_nanos + (picos.unwrap_or(0) as u32 / 1000);
     chrono::DateTime::from_timestamp(secs, rem_nanos)
 }
 
 #[pyclass]
 #[repr(transparent)]
-pub struct DataPoint(DataValue<ua::Variant>);
+pub struct DataValue(UaDataValue<ua::Variant>);
 
 #[pymethods]
-impl DataPoint {
+impl DataValue {
     pub fn server_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
         normalize_value_timestamp(
             self.0.server_timestamp().copied(),
@@ -285,7 +285,7 @@ impl DataPoint {
             ScalarValue::StatusCode(sc) => StatusCode(sc).into_bound_py_any(py),
             ScalarValue::QualifiedName(qn) => QualifiedName(qn).into_bound_py_any(py),
             ScalarValue::DateTime(dt) => {
-                let (secs, rem_nanos) = interpret_timestamp(dt);
+                let (secs, rem_nanos) = normalize_timestamp(dt);
                 let dt = chrono::DateTime::from_timestamp(secs, rem_nanos).ok_or(
                     PyValueError::new_err("failed to convert timestamp to datetime".to_string()),
                 )?;
@@ -608,7 +608,7 @@ impl OpcUaClient {
                 let results = points
                     .map(|(node, value)| {
                         let node_id = NodeId(node).into_bound_py_any(py)?;
-                        let data_point = DataPoint(value).into_bound_py_any(py)?;
+                        let data_point = DataValue(value).into_bound_py_any(py)?;
 
                         PyTuple::new(py, [node_id, data_point])
                     })

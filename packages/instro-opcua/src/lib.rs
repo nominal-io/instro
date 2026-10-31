@@ -9,7 +9,7 @@ pub(crate) use self::util::require_both;
 #[pymodule(name = "_opcua")]
 mod instro_opcua_py {
     #[pymodule_export]
-    use super::client::DataPoint;
+    use super::client::DataValue;
     #[pymodule_export]
     use super::client::ExpandedNodeId;
     #[pymodule_export]
