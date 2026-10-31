@@ -203,7 +203,7 @@ impl NodeId {
         self.0.namespace_index()
     }
 
-    #[pyo3(signature = () -> "typing.Union[str, bytes, uuid.UUID] | None")]
+    #[pyo3(signature = () -> "int | str | bytes | uuid.UUID | None")]
     pub fn identifier<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         if let Some((_, str_id)) = self.0.as_string() {
             str_id.as_str().unwrap_or("").into_bound_py_any(py)
@@ -540,7 +540,7 @@ impl OpcUaClient {
     }
 
     #[pyo3(signature = (
-        on_data: "typing.Callable[[list[tuple[NodeId, DataPoint]]], None]",
+        on_data: "typing.Callable[[list[tuple[NodeId, DataValue]]], None]",
         nodes,
         freq_hz,
         bg_poll_freq_hz=None,
