@@ -16,7 +16,7 @@ class PlotlyPublisher:
     """
 
     def __init__(self, figure: go.Figure):
-        """Add each channel's data to a trace named after the channel.
+        """Create publisher that can route data to a Plotly ``Figure``.
 
         Example:
             >>> import plotly.graph_objects as go
