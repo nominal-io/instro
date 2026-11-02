@@ -1,8 +1,8 @@
 use instro_opcua::prelude::*;
 use pyo3::IntoPyObjectExt as _;
 use pyo3::exceptions::PyValueError;
-use pyo3::types::PyString;
 use pyo3::prelude::*;
+use pyo3::types::PyString;
 
 macro_rules! ua_struct {
     ($(#[$struct_doc:meta])? $struct_vis:vis struct $this_t:ident;) => {
@@ -197,7 +197,6 @@ impl DataValue {
     }
 }
 
-
 ua_struct! {
     pub struct QualifiedName;
 }
@@ -234,7 +233,11 @@ impl BrowsePath {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("<BrowsePath starting_node='{}' relative_path='{}'>", self.starting_node().to_string(), self.relative_path().to_string())
+        format!(
+            "<BrowsePath starting_node='{}' relative_path='{}'>",
+            *self.starting_node(),
+            *self.relative_path()
+        )
     }
 }
 
@@ -325,7 +328,6 @@ impl RelativePathElement {
     }
 }
 
-
 ua_struct! {
     pub struct RelativePath;
 }
@@ -352,7 +354,7 @@ impl RelativePath {
             .unwrap_or(&[])
             .iter()
             .cloned()
-            .map(|e| RelativePathElement(e))
+            .map(RelativePathElement)
             .collect()
     }
 }
