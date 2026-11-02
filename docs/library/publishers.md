@@ -157,15 +157,19 @@ def main(client: connect_python.Client):
 
 ### {py:obj}`PlotlyPublisher <instro.lib.publishers.plot.PlotlyPublisher>`
 
-Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure, one trace per channel. Plotly installs with `instro`.
+Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure, one trace per channel.
 
 **Constructor Parameters:**
 
 ```python
 PlotlyPublisher(
-    figure: go.Figure,  # Required: figure to plot on
+    figure: go.Figure | None = None,  # Optional: figure to plot on; created and displayed when omitted
+    max_points: int = 10_000,         # Points kept per channel; older points drop off the plot
+    flush_interval: float = 0.2,      # Seconds between writes to the figure
 )
 ```
+
+`PlotlyPublisher` requires the `plot` optional dependency: `pip install "instro[plot]"`.
 
 **Example:**
 

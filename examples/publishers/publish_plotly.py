@@ -1,7 +1,11 @@
 """Example: Publishers: plot with Plotly.
 
 Plots a simulated PSU voltage sweep on a Plotly figure with PlotlyPublisher, then
-shows the figure once the sweep finishes.
+shows the figure once the sweep finishes. In a Jupyter notebook, display a
+``go.FigureWidget`` instead to watch the plot update live.
+
+Requires the plot extra: install with ``uv sync --extra plot``
+(or ``pip install 'instro[plot]'``).
 
 Start the simulated PSU first:
     python -m instro.psu.scpi_sim_server
@@ -20,13 +24,13 @@ from instro.psu.drivers import SimulatedPSU
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 
-figure = go.Figure(layout_title_text="Simulated PSU voltage sweep")
+# figure = go.Figure(layout_title_text="Simulated PSU voltage sweep")
 
 psu = InstroPSU(
     name="myPSU",
     driver=SimulatedPSU(VISA_RESOURCE),
     num_channels=2,
-    publishers=[PlotlyPublisher(figure)],
+    publishers=[PlotlyPublisher()],
 )
 
 with psu:
@@ -41,4 +45,4 @@ with psu:
 
     psu.output_enable(False, channel=1)
 
-figure.show()
+# figure.show()

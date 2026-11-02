@@ -7,7 +7,7 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ```bash
 uv sync                          # default dev/test environment, including native EtherNet/IP
 uv sync --extra all              # additionally select all extras defined in pyproject.toml
-uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark)
+uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark, plot)
 just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
 just test                        # all tests: python + Rust; no hardware required
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)

@@ -29,7 +29,6 @@ requires-python = ">=3.11,<3.15"
 dependencies = [
     "fastavro[snappy]>=1.12.1",
     "nominal>=1.180.0,<2.0.0",
-    "plotly>=6.0",
     "pydantic>=2.0",
     "pymodbus>=3.10,<3.13",
     "pyserial>=3.5",
@@ -56,6 +55,8 @@ aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
+# Plotly publisher; anywidget backs go.FigureWidget for live notebook plots
+plot = ["plotly>=6.0", "anywidget>=0.11"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
@@ -64,6 +65,8 @@ all = [
     "instro-ethernetip",
     "instro-contrib",
     "instro-unstable",
+    "plotly>=6.0",
+    "anywidget>=0.11",
 ]
 
 [project.urls]
@@ -95,7 +98,9 @@ dev = [
     "instro-contrib",
 ]
 test = [
+    "anywidget>=0.11",
     "cpppo>=4.0.0",
+    "plotly>=6.0",
     "pytest>=9.0.3,<10",
 ]
 # Docs site (docs/). Not a default group: `uv sync --group docs`.
