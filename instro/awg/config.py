@@ -58,6 +58,7 @@ __all__ = [
     "SweepConfig",
     "TimingConfig",
     "TriangleConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
     "WaveformConfigType",
     "build_waveform",
@@ -73,7 +74,11 @@ AWG_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         "instro.awg.drivers.rigol_dg1022z.RigolDG1022Z",
         (IdnPattern(("RIGOL TECHNOLOGIES",), r"^DG10[26]2Z", 2),),
     ),
+    "VirtualAWG": DriverEntry("instro.awg.drivers.virtual.VirtualAWG"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualAWG",)
 
 
 class VisaDriverConfig(BaseModel):
@@ -90,7 +95,20 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in AWG_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(
+                f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}", "num_channels": N}}'
+            )
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual AWG: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualAWG"] = Field(description="Virtual driver key.")
+    num_channels: int = Field(ge=1, description="Number of output channels.")
 
 
 class SineConfig(BaseModel):
@@ -301,7 +319,7 @@ class AWGConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroAWG"] = "InstroAWG"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     channels: dict[str, ChannelConfig] = Field(
         min_length=1, description="Per-channel config, keyed by 1-indexed channel number."
     )
@@ -335,7 +353,10 @@ def resolve_awg_from_config(
 ) -> tuple[str, AWGDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated AWGConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroAWG needs."""
     driver_cls = AWG_VENDOR_REGISTRY[config.driver.name].load()
-    driver: AWGDriverBase = driver_cls(config.driver.visa)
+    if isinstance(config.driver, VirtualDriverConfig):
+        driver: AWGDriverBase = driver_cls(num_channels=config.driver.num_channels)
+    else:
+        driver = driver_cls(config.driver.visa)
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

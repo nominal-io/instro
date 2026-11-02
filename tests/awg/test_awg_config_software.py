@@ -82,6 +82,21 @@ def test_init_with_config_dict_unknown_driver_name(valid_config):
         InstroAWG(config={**valid_config, "driver": {**valid_config["driver"], "name": "not_a_real_driver"}})
 
 
+def test_init_with_virtual_driver_config_applies_channels_without_a_connection(valid_config):
+    driver = {"connection_type": "virtual", "name": "VirtualAWG", "num_channels": 2}
+    channel = {**valid_config["channels"]["1"], "amplitude": {"value": 2.0}}
+    awg = InstroAWG(config={**valid_config, "driver": driver, "channels": {"2": channel}})
+    with awg:
+        assert awg.get_waveform(2) == Sine(frequency_hz=1000.0, phase_deg=0.0)
+        assert awg.get_amplitude(2) == (2.0, AmplitudeMeasurementUnit.VPP)
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualAWG"}
+    with pytest.raises(Exception, match='VirtualAWG has no connection; use {"connection_type": "virtual"'):
+        InstroAWG(config={**valid_config, "driver": driver})
+
+
 def test_init_with_config_dict_invalid_num_channels(valid_config):
     with pytest.raises(Exception):
         InstroAWG(config={**valid_config, "driver": {**valid_config["driver"], "num_channels": 0}})

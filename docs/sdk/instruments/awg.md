@@ -36,6 +36,16 @@ regardless, so the pages still appear in the sidebar. -->
       instro.awg.drivers.rigol_dg1022z.RigolDG1022Z
 ```
 
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.awg.drivers.virtual.VirtualAWG
+```
+
 ## Types & Configuration
 
 ```{eval-rst}
@@ -70,6 +80,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.awg.config.AWGConfig
    ~instro.awg.config.ChannelConfig
    ~instro.awg.config.VisaDriverConfig
+   ~instro.awg.config.VirtualDriverConfig
    ~instro.awg.config.SineConfig
    ~instro.awg.config.SquareConfig
    ~instro.awg.config.SawtoothConfig
