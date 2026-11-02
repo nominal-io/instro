@@ -120,6 +120,7 @@ driver_docs_exempt = {
     "dmm.SimulatedDMM": {"guide"},
     "dmm.VirtualDMM": {"guide"},
     "daq.HWTimestamper": {"guide"},
+    "daq.VirtualDAQ": {"guide"},
 }
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}

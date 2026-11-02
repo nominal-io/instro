@@ -43,6 +43,16 @@ regardless, so the pages still appear in the sidebar. -->
       instro.unstable.daq.drivers.dewesoftx.DewesoftX
 ```
 
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.daq.drivers.virtual.VirtualDAQ
+```
+
 ## Types & Configuration
 
 ```{eval-rst}

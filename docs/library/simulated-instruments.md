@@ -21,7 +21,7 @@ with InstroDMM(name="dmm", driver=VirtualDMM()) as dmm:
     print(dmm.read_dc_voltage().latest)
 ```
 
-Virtual drivers: `VirtualDMM`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}`.
+Virtual drivers: `VirtualDMM`, `VirtualDAQ`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}`.
 
 ## SCPI simulators
 `instro` ships local SCPI simulators for select instrument categories, so you can develop and test without owning the physical hardware. Each simulator runs as a TCP server and pairs with a `Simulated<Category>` driver:

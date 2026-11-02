@@ -17,6 +17,8 @@ InstroDAQ is a hardware abstraction layer (HAL) that provides a unified interfac
 :::{driver-cards} daq
 :::
 
+- **Virtual**: no hardware or vendor SDK; channels simulated in-process (`VirtualDAQ`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
+
 If your vendor or model is not listed, see [Driver Development](/library/custom-instruments.md#data-acquisition-daq), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
 ## Key Concepts
