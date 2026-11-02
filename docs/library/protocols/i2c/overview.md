@@ -18,6 +18,7 @@ I2CInterface is a hardware abstraction layer (HAL) that provides a unified inter
 ### Supported Vendors
 
 - **Total Phase** - Aardvark I2C/SPI Host Adapter
+- **Virtual** - no hardware or SDK; an in-memory bus simulated in-process (`VirtualI2C`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
 
 If your adapter vendor is not listed, [custom driver development](#driver-development) is available to add support for your hardware.
 

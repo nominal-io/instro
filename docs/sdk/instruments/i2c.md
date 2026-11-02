@@ -34,6 +34,16 @@ regardless, so the pages still appear in the sidebar. -->
       instro.i2c.drivers.totalphase.aardvark.Aardvark
 ```
 
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.i2c.drivers.virtual.VirtualI2C
+```
+
 ## Types & Configuration
 
 ```{eval-rst}
