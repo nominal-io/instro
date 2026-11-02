@@ -1,7 +1,7 @@
 """Publisher that plots Measurement/Command data on a Plotly figure."""
 
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 
@@ -11,8 +11,8 @@ from instro.lib.types import Command, Measurement
 class PlotlyPublisher:
     """Plot Measurement/Command data on a Plotly figure, one trace per channel.
 
-    String values are skipped; they have no numeric value to plot. The publisher never shows
-    the figure; call ``figure.show()`` when you want to see it.
+    Times are plotted in UTC. String values are skipped; they have no numeric value to plot.
+    The publisher never shows the figure; call ``figure.show()`` when you want to see it.
     """
 
     def __init__(self, figure: go.Figure):
@@ -41,7 +41,7 @@ class PlotlyPublisher:
     def _extend(self, channel: str, timestamps: list[int], values: list) -> None:
         if not values or isinstance(values[0], str):
             return
-        x = [datetime.fromtimestamp(t / 1e9) for t in timestamps]
+        x = [datetime.fromtimestamp(t / 1e9, tz=timezone.utc) for t in timestamps]
         # Background polling and foreground reads publish from different threads.
         with self._lock:
             trace = next(self.figure.select_traces(selector={"name": channel}), None)
