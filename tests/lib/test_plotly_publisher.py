@@ -56,6 +56,17 @@ def test_existing_traces_on_the_figure_are_kept():
     assert [t.name for t in figure.data] == ["existing", "dmm.voltage"]
 
 
+def test_empty_matching_trace_on_the_figure_is_filled():
+    figure = go.Figure(go.Scatter(name="psu.voltage"))
+    publisher = PlotlyPublisher(figure)
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0]}, timestamps=[T0]))
+
+    (trace,) = figure.data
+    assert trace.y == (1.0,)
+    assert len(trace.x) == 1
+
+
 def test_concurrent_publishes_keep_every_point_on_one_trace():
     figure = go.Figure()
     publisher = PlotlyPublisher(figure)

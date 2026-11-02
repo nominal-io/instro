@@ -48,7 +48,10 @@ class PlotlyPublisher:
             if trace is None:
                 self.figure.add_scatter(x=x, y=values, name=channel)
             else:
-                trace.update(x=(*trace.x, *x), y=(*trace.y, *values))
+                # Unset coordinates on a caller's placeholder trace are None.
+                old_x = () if trace.x is None else trace.x
+                old_y = () if trace.y is None else trace.y
+                trace.update(x=(*old_x, *x), y=(*old_y, *values))
 
     def close(self) -> None:
         """No-op; the caller owns the figure."""
