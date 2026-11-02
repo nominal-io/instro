@@ -17,7 +17,6 @@ pub mod prelude {
     pub use open62541::ServiceResponse as _;
     pub use open62541::VariantValue;
     pub use open62541::ua;
-
     pub use open62541_sys;
 
     pub use crate::browse::Browse as _;

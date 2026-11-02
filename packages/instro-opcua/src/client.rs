@@ -471,7 +471,10 @@ impl OpcUaClient {
                 .with_relative_path(&path)
                 .with_starting_node(&ROOT_FOLDER_ID);
 
-            #[expect(clippy::unwrap_used, reason = "`translate_browse_paths` verifies that the len(input) == len(output)")]
+            #[expect(
+                clippy::unwrap_used,
+                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
+            )]
             let (browse_path, node_id) = self
                 .translate_browse_paths(vec![path])
                 .await?
@@ -535,7 +538,8 @@ pub struct Node {
     browse_path: ua::BrowsePath,
 }
 
-static ROOT_FOLDER_ID: LazyLock<ua::NodeId> = LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_ROOTFOLDER));
+static ROOT_FOLDER_ID: LazyLock<ua::NodeId> =
+    LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_ROOTFOLDER));
 
 impl Node {
     fn well_known(client: OpcUaClient, id: u32, path: &str) -> Self {
@@ -579,7 +583,8 @@ impl Node {
                 .parse()
                 .map_err(|e| PyValueError::new_err(format!("invalid relative path: '{e}'")))?;
 
-            let all_elements = self.browse_path
+            let all_elements = self
+                .browse_path
                 .relative_path()
                 .iter()
                 .chain(child_path.iter())
@@ -588,10 +593,16 @@ impl Node {
 
             let path = ua::BrowsePath::init()
                 .with_starting_node(&ROOT_FOLDER_ID)
-                .with_relative_path(&ua::RelativePath::init().with_elements(all_elements.as_slice()));
+                .with_relative_path(
+                    &ua::RelativePath::init().with_elements(all_elements.as_slice()),
+                );
 
-            #[expect(clippy::unwrap_used, reason = "`translate_browse_paths` verifies that the len(input) == len(output)")]
-            let (browse_path, node_id) = self.client
+            #[expect(
+                clippy::unwrap_used,
+                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
+            )]
+            let (browse_path, node_id) = self
+                .client
                 .translate_browse_paths(vec![path])
                 .await?
                 .into_iter()
@@ -611,7 +622,8 @@ impl Node {
         self.client.rt.unblock_on(py, async || {
             let my_path = self.browse_path.relative_path().elements().unwrap_or(&[]);
 
-            static HIERARCHICAL_NODE_ID: LazyLock<ua::NodeId> = LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES));
+            static HIERARCHICAL_NODE_ID: LazyLock<ua::NodeId> =
+                LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES));
 
             let desc = ua::BrowseDescription::init()
                 .with_browse_direction(&ua::BrowseDirection::FORWARD)
@@ -620,79 +632,87 @@ impl Node {
                 .with_reference_type_id(&HIERARCHICAL_NODE_ID)
                 .with_result_mask(&ua::BrowseResultMask::ALL);
 
-            let results = self.client.with_client(async |client| -> PyResult<Vec<ua::ReferenceDescription>> {
-                let (mut results, mut cont_point) = client
-                    .browse(&desc)
-                    .await
-                    .map_err(|e| PyValueError::new_err(format!("failed to browse children: '{e}'")))?;
+            let results = self
+                .client
+                .with_client(async |client| -> PyResult<Vec<ua::ReferenceDescription>> {
+                    let (mut results, mut cont_point) =
+                        client.browse(&desc).await.map_err(|e| {
+                            PyValueError::new_err(format!("failed to browse children: '{e}'"))
+                        })?;
 
-                while let Some(this_point) = cont_point {
-                    let next_results = client
-                        .browse_next(&[this_point])
-                        .await
-                        .map_err(|e| PyValueError::new_err(format!("failed to browse next children: '{e}'")))?;
+                    while let Some(this_point) = cont_point {
+                        let next_results =
+                            client.browse_next(&[this_point]).await.map_err(|e| {
+                                PyValueError::new_err(format!(
+                                    "failed to browse next children: '{e}'"
+                                ))
+                            })?;
 
-                    if next_results.len() != 1 {
-                        Err(PyValueError::new_err(format!("expected 1 browse result, got {}", results.len())))?;
+                        if next_results.len() != 1 {
+                            Err(PyValueError::new_err(format!(
+                                "expected 1 browse result, got {}",
+                                results.len()
+                            )))?;
+                        }
+
+                        #[expect(
+                            clippy::unwrap_used,
+                            reason = "`next_results.len() == 1` is checked above"
+                        )]
+                        let (next_results, next_point) =
+                            next_results.into_iter().next().unwrap().map_err(|e| {
+                                PyValueError::new_err(format!(
+                                    "browsing the continuation point failed: '{e}'"
+                                ))
+                            })?;
+
+                        results.extend(next_results);
+
+                        cont_point = next_point;
                     }
 
-                    #[expect(clippy::unwrap_used, reason = "`next_results.len() == 1` is checked above")]
-                    let (next_results, next_point) = next_results
-                        .into_iter()
-                        .next()
-                        .unwrap()
-                        .map_err(|e| PyValueError::new_err(format!("browsing the continuation point failed: '{e}'")))?;
+                    Ok(results)
+                })
+                .await
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!("client was disconnected: '{e}'"))
+                })??;
 
-                    results.extend(next_results);
+            Ok(results
+                .into_iter()
+                .filter(|reference| reference.node_id().server_index() == 0)
+                .map(|reference| {
+                    let element = ua::RelativePathElement::init()
+                        .with_include_subtypes(true)
+                        .with_reference_type_id(&HIERARCHICAL_NODE_ID)
+                        .with_is_inverse(false)
+                        .with_target_name(reference.browse_name());
 
-                    cont_point = next_point;
-                }
+                    let child_path_items = my_path.iter().cloned().chain([element]).collect_vec();
 
-                Ok(results)
-            })
-            .await
-            .map_err(|e| PyRuntimeError::new_err(format!("client was disconnected: '{e}'")))??;
+                    let child_path =
+                        ua::RelativePath::init().with_elements(child_path_items.as_slice());
 
-            Ok(
-                results
-                    .into_iter()
-                    .filter(|reference| reference.node_id().server_index() == 0)
-                    .map(|reference| {
-                        let element = ua::RelativePathElement::init()
-                            .with_include_subtypes(true)
-                            .with_reference_type_id(&HIERARCHICAL_NODE_ID)
-                            .with_is_inverse(false)
-                            .with_target_name(reference.browse_name());
+                    let browse_path = ua::BrowsePath::init()
+                        .with_relative_path(&child_path)
+                        // this should always be the Root folder
+                        .with_starting_node(self.browse_path.starting_node());
 
-                        let child_path_items = my_path
-                            .iter()
-                            .cloned()
-                            .chain([element])
-                            .collect_vec();
-
-                        let child_path = ua::RelativePath::init()
-                            .with_elements(child_path_items.as_slice());
-
-                        let browse_path = ua::BrowsePath::init()
-                            .with_relative_path(&child_path)
-                            // this should always be the Root folder
-                            .with_starting_node(self.browse_path.starting_node());
-
-                        Self {
-                            client: self.client.clone(),
-                            node_id: reference.node_id().node_id().clone(),
-                            browse_path,
-                        }
-                    })
-                    .collect_vec()
-            )
+                    Self {
+                        client: self.client.clone(),
+                        node_id: reference.node_id().node_id().clone(),
+                        browse_path,
+                    }
+                })
+                .collect_vec())
         })
     }
 
     #[pyo3(name = "get_attribute")]
     pub fn get_attribute_py(&self, py: Python<'_>, attr: AttributeId) -> PyResult<DataValue> {
         self.client.rt.unblock_on(py, async || {
-            let result = self.client
+            let result = self
+                .client
                 .read_node(&self.node_id, &attr.as_ua())
                 .await
                 .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))?;
@@ -728,19 +748,29 @@ impl Node {
     }
 
     pub fn __repr__(&self) -> String {
-        format!("<Node node_id='{}' browse_path={}>", self.node_id().to_string(), self.browse_path().__repr__())
+        format!(
+            "<Node node_id='{}' browse_path={}>",
+            *self.node_id(),
+            self.browse_path().__repr__()
+        )
     }
 }
 
 fn normalize_data_value<T: open62541::DataType>(value: open62541::DataValue<T>) -> PyResult<T> {
     match value.into_scalar_value() {
         Some(scalar) => Ok(scalar),
-        None => Err(PyValueError::new_err("querying attribute returned an invalid value")),
+        None => Err(PyValueError::new_err(
+            "querying attribute returned an invalid value",
+        )),
     }
 }
 
 impl Node {
-    pub fn get_attribute<A: open62541::Attribute + Send + Sync>(&self, py: Python<'_>, attr: A) -> PyResult<open62541::DataValue<A::Value>> {
+    pub fn get_attribute<A: open62541::Attribute + Send + Sync>(
+        &self,
+        py: Python<'_>,
+        attr: A,
+    ) -> PyResult<open62541::DataValue<A::Value>> {
         self.client.rt.unblock_on(py, async || {
             self.client
                 .read_node(&self.node_id, attr)

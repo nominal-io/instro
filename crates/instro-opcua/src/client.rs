@@ -212,13 +212,18 @@ impl Client {
         Ok(node_list.keys().zip(read_result))
     }
 
-    pub async fn read_node<A: Attribute>(&self, node: &ua::NodeId, attr: A) -> Result<DataValue<A::Value>> {
+    pub async fn read_node<A: Attribute>(
+        &self,
+        node: &ua::NodeId,
+        attr: A,
+    ) -> Result<DataValue<A::Value>> {
         self.with_client(async |client| {
             client
                 .read_attribute(node, attr)
                 .await
                 .with_ua_context(|| format!("reading attribute of node '{node}'"))
-        }).await?
+        })
+        .await?
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
