@@ -121,6 +121,7 @@ driver_docs_exempt = {
     "dmm.SimulatedDMM": {"guide"},
     "dmm.VirtualDMM": {"guide"},
     "eload.VirtualELoad": {"guide"},
+    "scope.VirtualScope": {"guide"},
     "daq.HWTimestamper": {"guide"},
 }
 

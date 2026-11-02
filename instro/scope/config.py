@@ -38,6 +38,7 @@ __all__ = [
     "ScopeConfig",
     "TimingConfig",
     "TriggerConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
@@ -61,7 +62,11 @@ SCOPE_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         "instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO",
         (IdnPattern(("TEKTRONIX",), r"^MSO2[24]", 4),),
     ),
+    "VirtualScope": DriverEntry("instro.scope.drivers.virtual.VirtualScope"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualScope",)
 
 
 class ChannelConfig(BaseModel):
@@ -127,7 +132,20 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in SCOPE_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(
+                f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}", "num_channels": N}}'
+            )
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual scope: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualScope"] = Field(description="Virtual driver key.")
+    num_channels: int = Field(ge=1, description="Number of analog-input channels.")
 
 
 class ScopeConfig(BaseModel):
@@ -137,7 +155,7 @@ class ScopeConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroScope"] = "InstroScope"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     channels: dict[int, ChannelConfig] = Field(
         default_factory=dict, description="Per-channel initial state keyed by 1-based channel number."
     )
@@ -171,7 +189,10 @@ def resolve_scope_from_config(
 ) -> tuple[str, ScopeDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated ScopeConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroScope needs."""
     driver_cls = SCOPE_VENDOR_REGISTRY[config.driver.name].load()
-    driver: ScopeDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    if isinstance(config.driver, VirtualDriverConfig):
+        driver: ScopeDriverBase = driver_cls()
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

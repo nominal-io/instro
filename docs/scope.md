@@ -30,6 +30,8 @@ scope = InstroScope(
 :::{driver-cards} scope
 :::
 
+- **Virtual**: no hardware or server; waveforms simulated in-process (`VirtualScope`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
+
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#oscilloscope-scope), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
 ## Example
@@ -146,6 +148,8 @@ Where `bench_scope.json` contains:
   ]
 }
 ```
+
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualScope", "num_channels": 4}`.
 
 ### Measurements
 

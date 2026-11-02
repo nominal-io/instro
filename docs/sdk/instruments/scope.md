@@ -40,6 +40,17 @@ regardless, so the pages still appear in the sidebar. -->
       instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO
 ```
 
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.scope.drivers.virtual.VirtualScope
+   ~instro.scope.drivers.virtual.SineWave
+```
+
 ## Types & Configuration
 
 ```{eval-rst}
@@ -64,6 +75,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.scope.config.ChannelConfig
    ~instro.scope.config.TriggerConfig
    ~instro.scope.config.VisaDriverConfig
+   ~instro.scope.config.VirtualDriverConfig
    ~instro.scope.config.resolve_scope_from_config
 ```
 

@@ -325,6 +325,21 @@ def test_init_with_config_dict_unknown_driver_name(valid_config):
         InstroScope(config={**valid_config, "driver": {**valid_config["driver"], "name": "not_a_real_driver"}})
 
 
+def test_init_with_virtual_driver_config_applies_config_without_a_connection():
+    driver = {"connection_type": "virtual", "name": "VirtualScope", "num_channels": 2}
+    channels = {"2": {"vertical_scale": 0.2, "measurements": ["FREQUENCY"]}}
+    scope = InstroScope(config={"device": {"name": "scope"}, "driver": driver, "channels": channels})
+    with scope:
+        assert scope.get_vertical_scale(channel=2).latest == 0.2
+        assert scope.measure(ScopeMeasurementType.FREQUENCY, channel=2).latest == 1e3
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualScope"}
+    with pytest.raises(Exception, match='VirtualScope has no connection; use {"connection_type": "virtual"'):
+        InstroScope(config={**valid_config, "driver": driver})
+
+
 def test_init_with_config_dict_unknown_field_rejected(valid_config):
     with pytest.raises(Exception):
         InstroScope(config={**valid_config, "channels": {"1": {"vertical_scael": 1.0}}})
