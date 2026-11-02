@@ -1,15 +1,13 @@
 mod shared_rt;
 
 use std::num::NonZeroU32;
+use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::Duration;
 
-use chrono::Utc;
 use instro_opcua::open62541::Certificate;
-use instro_opcua::open62541::DataValue as UaDataValue;
 use instro_opcua::open62541::PrivateKey;
-use instro_opcua::open62541::ScalarValue;
-use instro_opcua::open62541::VariantValue;
 use instro_opcua::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
@@ -17,12 +15,20 @@ use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyString;
 use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
 
 use self::shared_rt::get_runtime;
 use crate::require_both;
+use crate::types::AttributeId;
+use crate::types::BrowsePath;
+use crate::types::DataValue;
+use crate::types::MessageSecurityMode;
+use crate::types::NodeId;
+use crate::types::QualifiedName;
+use crate::types::RelativePath;
+use crate::util::RuntimeExt as _;
+use crate::util::py_match;
 
 #[pyclass]
 pub struct Session(&'static Runtime, Option<StreamSession>);
@@ -56,254 +62,18 @@ impl Session {
     }
 }
 
-#[pyclass]
-#[repr(transparent)]
-pub struct QualifiedName(ua::QualifiedName);
-
-#[pymethods]
-impl QualifiedName {
-    pub fn name(&self) -> &str {
-        self.0.name().as_str().unwrap_or("")
-    }
-
-    pub fn namespace_index(&self) -> u16 {
-        self.0.namespace_index()
-    }
-
-    pub fn __str__(&self) -> String {
-        self.0.to_string()
-    }
-}
-
-#[pyclass]
-#[repr(transparent)]
-pub struct StatusCode(ua::StatusCode);
-
-#[pymethods]
-impl StatusCode {
-    pub fn is_good(&self) -> bool {
-        self.0.is_good()
-    }
-
-    pub fn is_bad(&self) -> bool {
-        self.0.is_bad()
-    }
-
-    pub fn is_uncertain(&self) -> bool {
-        self.0.is_uncertain()
-    }
-
-    pub fn name(&self) -> &str {
-        self.0.name()
-    }
-
-    pub fn code(&self) -> u32 {
-        self.0.into_raw()
-    }
-
-    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        Ok(PyString::new(_py, &self.0.to_string()))
-    }
-}
-
-#[pyclass]
-#[repr(transparent)]
-pub struct ExpandedNodeId(ua::ExpandedNodeId);
-
-#[pymethods]
-impl ExpandedNodeId {
-    pub fn node_id(&self) -> NodeId {
-        NodeId(self.0.node_id().clone())
-    }
-
-    pub fn server_index(&self) -> u32 {
-        self.0.server_index()
-    }
-
-    pub fn namespace_uri(&self) -> Option<String> {
-        let uri_str = self.0.namespace_uri().to_string();
-
-        if uri_str.is_empty() {
-            None
-        } else {
-            Some(uri_str)
-        }
-    }
-
-    pub fn __str__(&self) -> String {
-        self.0.to_string()
-    }
-}
-
-#[pyclass]
-#[repr(transparent)]
-pub struct RelativePathElement(ua::RelativePathElement);
-
-#[pymethods]
-impl RelativePathElement {
-    pub fn name(&self) -> QualifiedName {
-        QualifiedName(self.0.target_name().clone())
-    }
-
-    pub fn reference_type_id(&self) -> NodeId {
-        NodeId(self.0.reference_type_id().clone())
-    }
-
-    pub fn is_inverse(&self) -> bool {
-        self.0.is_inverse()
-    }
-
-    pub fn include_subtypes(&self) -> bool {
-        self.0.include_subtypes()
-    }
-}
-
 #[pyclass(from_py_object)]
-#[repr(transparent)]
 #[derive(Clone)]
-pub struct RelativePath(ua::RelativePath);
-
-#[pymethods]
-impl RelativePath {
-    #[staticmethod]
-    pub fn parse(path_str: &str) -> PyResult<Self> {
-        let path = path_str
-            .parse()
-            .map_err(|_| PyValueError::new_err(format!("invalid relative path: '{path_str}'")))?;
-
-        Ok(Self(path))
-    }
-
-    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        Ok(PyString::new(_py, &self.0.to_string()))
-    }
-}
-
-#[pyclass(from_py_object)]
-#[repr(transparent)]
-#[derive(Clone)]
-pub struct NodeId(ua::NodeId);
-
-#[pymethods]
-impl NodeId {
-    #[staticmethod]
-    pub fn from_string(id_str: &str) -> PyResult<Self> {
-        let id = id_str
-            .parse()
-            .map_err(|_| PyValueError::new_err(format!("invalid node id: '{id_str}'")))?;
-
-        Ok(Self(id))
-    }
-
-    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        Ok(PyString::new(_py, &self.0.to_string()))
-    }
-
-    pub fn namespace_index(&self) -> u16 {
-        self.0.namespace_index()
-    }
-
-    #[pyo3(signature = () -> "int | str | bytes | uuid.UUID | None")]
-    pub fn identifier<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        if let Some((_, str_id)) = self.0.as_string() {
-            str_id.as_str().unwrap_or("").into_bound_py_any(py)
-        } else if let Some((_, guid)) = self.0.as_guid() {
-            guid.to_uuid().into_bound_py_any(py)
-        } else if let Some((_, number)) = self.0.as_numeric() {
-            number.into_bound_py_any(py)
-        } else if let Some((_, bytestr)) = self.0.as_byte_string() {
-            bytestr.as_bytes().into_bound_py_any(py)
-        } else {
-            Err(PyValueError::new_err(
-                "node id is not identified".to_string(),
-            ))
-        }
-    }
-}
-
-fn normalize_timestamp(dt: ua::DateTime) -> (i64, u32) {
-    let nanos = dt.as_unix_timestamp_nanos();
-    let secs = nanos.div_euclid(1_000_000_000);
-    let rem_nanos = nanos.rem_euclid(1_000_000_000);
-    #[expect(clippy::as_conversions, reason = "heat death of the universe")]
-    (secs as i64, rem_nanos as u32)
-}
-
-fn normalize_value_timestamp(
-    ua_dt: Option<ua::DateTime>,
-    picos: Option<u16>,
-) -> Option<chrono::DateTime<Utc>> {
-    let (secs, rem_nanos) = normalize_timestamp(ua_dt?);
-    let rem_nanos = rem_nanos + (picos.unwrap_or(0) as u32 / 1000);
-    chrono::DateTime::from_timestamp(secs, rem_nanos)
-}
-
-#[pyclass]
-#[repr(transparent)]
-pub struct DataValue(UaDataValue<ua::Variant>);
-
-#[pymethods]
-impl DataValue {
-    pub fn server_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
-        normalize_value_timestamp(
-            self.0.server_timestamp().copied(),
-            self.0.server_picoseconds(),
-        )
-    }
-
-    pub fn source_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
-        normalize_value_timestamp(
-            self.0.source_timestamp().copied(),
-            self.0.source_picoseconds(),
-        )
-    }
-
-    #[pyo3(signature = () -> "bool | int | float | str | uuid.UUID | NodeId | ExpandedNodeId | StatusCode | QualifiedName | datetime.datetime")]
-    pub fn value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let Some(VariantValue::Scalar(value)) = self.0.value().map(ua::Variant::to_value) else {
-            return Err(PyValueError::new_err(
-                "data value is not a scalar value".to_string(),
-            ));
-        };
-
-        match value {
-            ScalarValue::Boolean(b) => b.value().into_bound_py_any(py),
-            ScalarValue::SByte(i) => i.value().into_bound_py_any(py),
-            ScalarValue::Byte(u) => u.value().into_bound_py_any(py),
-            ScalarValue::Int16(i) => i.value().into_bound_py_any(py),
-            ScalarValue::UInt16(u) => u.value().into_bound_py_any(py),
-            ScalarValue::Int32(i) => i.value().into_bound_py_any(py),
-            ScalarValue::UInt32(u) => u.value().into_bound_py_any(py),
-            ScalarValue::Int64(i) => i.value().into_bound_py_any(py),
-            ScalarValue::UInt64(u) => u.value().into_bound_py_any(py),
-            ScalarValue::Float(f) => f.value().into_bound_py_any(py),
-            ScalarValue::Double(d) => d.value().into_bound_py_any(py),
-            ScalarValue::String(s) => s.to_string().into_bound_py_any(py),
-            ScalarValue::Guid(g) => g.to_uuid().into_bound_py_any(py),
-            ScalarValue::NodeId(nid) => NodeId(nid).into_bound_py_any(py),
-            ScalarValue::ExpandedNodeId(enid) => ExpandedNodeId(enid).into_bound_py_any(py),
-            ScalarValue::StatusCode(sc) => StatusCode(sc).into_bound_py_any(py),
-            ScalarValue::QualifiedName(qn) => QualifiedName(qn).into_bound_py_any(py),
-            ScalarValue::DateTime(dt) => {
-                let (secs, rem_nanos) = normalize_timestamp(dt);
-                let dt = chrono::DateTime::from_timestamp(secs, rem_nanos).ok_or(
-                    PyValueError::new_err("failed to convert timestamp to datetime".to_string()),
-                )?;
-
-                dt.into_bound_py_any(py)
-            }
-
-            _ => Err(PyValueError::new_err(
-                "unknown scalar value type".to_string(),
-            )),
-        }
-    }
-}
-
-#[pyclass]
 pub struct OpcUaClient {
     client: Client,
     rt: &'static Runtime,
+}
+
+impl Deref for OpcUaClient {
+    type Target = Client;
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
 }
 
 enum NodeIdKind {
@@ -314,22 +84,27 @@ enum NodeIdKind {
 impl FromPyObject<'_, '_> for NodeIdKind {
     type Error = PyErr;
 
-    fn extract(obj: Borrowed<'_, '_, PyAny>) -> Result<Self, Self::Error> {
-        Ok(if let Ok(node_id) = obj.cast_exact::<NodeId>() {
-            NodeIdKind::NodeId(node_id.borrow().0.clone())
-        } else if let Ok(path) = obj.cast_exact::<RelativePath>() {
-            let path = ua::BrowsePath::init()
-                .with_relative_path(path.borrow().0.clone())
-                .with_starting_node(ua::NodeId::numeric(0, 84));
+    fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        Ok(py_match! {
+            id: NodeId = obj => NodeIdKind::NodeId(id.borrow().as_ua_ref().clone()),
 
-            NodeIdKind::Path(path)
-        } else if let Ok(s) = obj.extract::<&str>() {
-            Self::from_str(s)?
-        } else {
-            Err(PyValueError::new_err(format!(
-                "invalid node id or path: '{}'",
-                obj.as_any()
-            )))?
+            #[extract]
+            id_str: &str = obj => Self::from_str(id_str)?,
+
+            path: RelativePath = obj => {
+                let path = ua::BrowsePath::init()
+                    .with_relative_path(path.borrow().as_ua_ref().clone())
+                    .with_starting_node(ROOT_FOLDER_ID.clone());
+
+                NodeIdKind::Path(path)
+            },
+
+            else => {
+                Err(PyValueError::new_err(format!(
+                    "invalid node id or path: '{}'",
+                    obj.as_any()
+                )))?
+            }
         })
     }
 }
@@ -342,7 +117,7 @@ impl FromStr for NodeIdKind {
         } else if let Ok(path) = id_or_path.parse::<ua::RelativePath>() {
             let path = ua::BrowsePath::init()
                 .with_relative_path(path)
-                .with_starting_node(ua::NodeId::numeric(0, 84));
+                .with_starting_node(ROOT_FOLDER_ID.clone());
 
             NodeIdKind::Path(path)
         } else {
@@ -455,7 +230,7 @@ impl OpcUaClient {
         private_key=None,
         ignore_server_cert=false,
         use_generated_cert=false,
-        security_mode: "typing.Literal['none', 'sign', 'sign_and_encrypt'] | None"=None,
+        security_mode: "typing.Literal['none', 'sign', 'signandencrypt'] | None"=None,
         security_policy: "typing.Literal['none', 'basic128rsa15', 'basic256', 'basic256sha256', 'aes128sha256rsaoaep', 'aes256sha256rsapss'] | None"=None,
         timeout: "float | datetime.timedelta | None"=None,
     ))]
@@ -468,7 +243,7 @@ impl OpcUaClient {
         private_key: Option<&[u8]>,
         ignore_server_cert: bool,
         use_generated_cert: bool,
-        security_mode: Option<&str>,
+        security_mode: Option<Bound<'_, PyAny>>,
         security_policy: Option<&str>,
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -518,8 +293,8 @@ impl OpcUaClient {
         }
 
         if let Some(security_mode) = security_mode {
-            let security_mode = parse_security_mode(security_mode)?;
-            builder = builder.with_security_mode(security_mode);
+            let security_mode = security_mode.extract::<MessageSecurityMode>()?;
+            builder = builder.with_security_mode(security_mode.as_ua());
         }
 
         if let Some(security_policy) = security_policy {
@@ -614,8 +389,8 @@ impl OpcUaClient {
             Python::attach(|py| {
                 let results = points
                     .map(|(node, value)| {
-                        let node_id = NodeId(node).into_bound_py_any(py)?;
-                        let data_point = DataValue(value).into_bound_py_any(py)?;
+                        let node_id = NodeId::new(node).into_bound_py_any(py)?;
+                        let data_point = DataValue::new(value).into_bound_py_any(py)?;
 
                         PyTuple::new(py, [node_id, data_point])
                     })
@@ -656,6 +431,57 @@ impl OpcUaClient {
         self.disconnect(py);
         Ok(false)
     }
+
+    #[getter]
+    pub fn objects(&self) -> Node {
+        Node::objects(self.clone())
+    }
+
+    #[getter]
+    pub fn views(&self) -> Node {
+        Node::views(self.clone())
+    }
+
+    #[getter]
+    pub fn types(&self) -> Node {
+        Node::types(self.clone())
+    }
+
+    pub fn get_node(&self, py: Python<'_>, path: Bound<'_, PyAny>) -> PyResult<Node> {
+        let path = py_match! {
+            path: RelativePath = path => path,
+
+            #[extract]
+            path: &str = path => Bound::new(py, RelativePath::parse(path)?)?,
+
+            else => {
+                Err(PyValueError::new_err(format!("invalid path: '{path}'")))?
+            }
+        }
+        .borrow()
+        .as_ua_ref()
+        .clone();
+
+        self.rt.unblock_on(py, async || {
+            let path = ua::BrowsePath::init()
+                .with_relative_path(&path)
+                .with_starting_node(&ROOT_FOLDER_ID);
+
+            #[expect(clippy::unwrap_used, reason = "`translate_browse_paths` verifies that the len(input) == len(output)")]
+            let (browse_path, node_id) = self
+                .translate_browse_paths(vec![path])
+                .await?
+                .into_iter()
+                .next()
+                .unwrap();
+
+            Ok(Node {
+                client: self.clone(),
+                node_id,
+                browse_path,
+            })
+        })
+    }
 }
 
 fn duration_from_freq(f: f64) -> PyResult<Duration> {
@@ -668,19 +494,6 @@ fn duration_from_freq(f: f64) -> PyResult<Duration> {
     }
 }
 
-fn parse_security_mode(security_mode: &str) -> PyResult<ua::MessageSecurityMode> {
-    Ok(match security_mode.to_lowercase().as_str() {
-        "none" => ua::MessageSecurityMode::NONE,
-        "sign" => ua::MessageSecurityMode::SIGN,
-        "sign_and_encrypt" => ua::MessageSecurityMode::SIGNANDENCRYPT,
-        _ => {
-            return Err(PyValueError::new_err(format!(
-                "invalid security mode: '{security_mode}'"
-            )));
-        }
-    })
-}
-
 fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
     Ok(match security_policy.to_lowercase().as_str() {
         "none" => SecurityPolicyUri::None,
@@ -690,9 +503,232 @@ fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
         "aes128sha256rsaoaep" => SecurityPolicyUri::Aes128Sha256RsaOaep,
         "aes256sha256rsapss" => SecurityPolicyUri::Aes256Sha256RsaPss,
         _ => {
+            // also accept the full URI string, if they wanna be extra about it
             return security_policy.parse::<SecurityPolicyUri>().map_err(|_| {
                 PyValueError::new_err(format!("invalid security policy: '{security_policy}'"))
             });
         }
     })
+}
+
+#[pyclass]
+pub struct Node {
+    client: OpcUaClient,
+    node_id: ua::NodeId,
+    browse_path: ua::BrowsePath,
+}
+
+static ROOT_FOLDER_ID: LazyLock<ua::NodeId> = LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_ROOTFOLDER));
+
+impl Node {
+    fn well_known(client: OpcUaClient, id: u32, path: &str) -> Self {
+        Self {
+            client,
+            node_id: ua::NodeId::ns0(id),
+            browse_path: ua::BrowsePath::init()
+                .with_starting_node(&ROOT_FOLDER_ID)
+                .with_relative_path(&ua::RelativePath::parse(path).unwrap()),
+        }
+    }
+
+    fn objects(client: OpcUaClient) -> Self {
+        Self::well_known(client, open62541_sys::UA_NS0ID_OBJECTSFOLDER, "/Objects")
+    }
+
+    fn views(client: OpcUaClient) -> Self {
+        Self::well_known(client, open62541_sys::UA_NS0ID_VIEWSFOLDER, "/Views")
+    }
+
+    fn types(client: OpcUaClient) -> Self {
+        Self::well_known(client, open62541_sys::UA_NS0ID_TYPESFOLDER, "/Types")
+    }
+}
+
+#[pymethods]
+impl Node {
+    #[getter]
+    pub fn node_id(&self) -> NodeId {
+        NodeId::new(self.node_id.clone())
+    }
+
+    #[getter]
+    pub fn browse_path(&self) -> BrowsePath {
+        BrowsePath::new(self.browse_path.clone())
+    }
+
+    pub fn get_child(&self, py: Python<'_>, path: &str) -> PyResult<Self> {
+        self.client.rt.unblock_on(py, async || {
+            let child_path: ua::RelativePath = path
+                .parse()
+                .map_err(|e| PyValueError::new_err(format!("invalid relative path: '{e}'")))?;
+
+            let all_elements = self.browse_path
+                .relative_path()
+                .iter()
+                .chain(child_path.iter())
+                .cloned()
+                .collect_vec();
+
+            let path = ua::BrowsePath::init()
+                .with_starting_node(&ROOT_FOLDER_ID)
+                .with_relative_path(&ua::RelativePath::init().with_elements(all_elements.as_slice()));
+
+            #[expect(clippy::unwrap_used, reason = "`translate_browse_paths` verifies that the len(input) == len(output)")]
+            let (browse_path, node_id) = self.client
+                .translate_browse_paths(vec![path])
+                .await?
+                .into_iter()
+                .next()
+                .unwrap();
+
+            Ok(Self {
+                client: self.client.clone(),
+                node_id,
+                browse_path,
+            })
+        })
+    }
+
+    #[getter]
+    pub fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
+        self.client.rt.unblock_on(py, async || {
+            let my_path = self.browse_path.relative_path().elements().unwrap_or(&[]);
+
+            static HIERARCHICAL_NODE_ID: LazyLock<ua::NodeId> = LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES));
+
+            let desc = ua::BrowseDescription::init()
+                .with_browse_direction(&ua::BrowseDirection::FORWARD)
+                .with_include_subtypes(true)
+                .with_node_id(&self.node_id)
+                .with_reference_type_id(&HIERARCHICAL_NODE_ID)
+                .with_result_mask(&ua::BrowseResultMask::ALL);
+
+            let results = self.client.with_client(async |client| -> PyResult<Vec<ua::ReferenceDescription>> {
+                let (mut results, mut cont_point) = client
+                    .browse(&desc)
+                    .await
+                    .map_err(|e| PyValueError::new_err(format!("failed to browse children: '{e}'")))?;
+
+                while let Some(this_point) = cont_point {
+                    let next_results = client
+                        .browse_next(&[this_point])
+                        .await
+                        .map_err(|e| PyValueError::new_err(format!("failed to browse next children: '{e}'")))?;
+
+                    if next_results.len() != 1 {
+                        Err(PyValueError::new_err(format!("expected 1 browse result, got {}", results.len())))?;
+                    }
+
+                    #[expect(clippy::unwrap_used, reason = "`next_results.len() == 1` is checked above")]
+                    let (next_results, next_point) = next_results
+                        .into_iter()
+                        .next()
+                        .unwrap()
+                        .map_err(|e| PyValueError::new_err(format!("browsing the continuation point failed: '{e}'")))?;
+
+                    results.extend(next_results);
+
+                    cont_point = next_point;
+                }
+
+                Ok(results)
+            })
+            .await
+            .map_err(|e| PyRuntimeError::new_err(format!("client was disconnected: '{e}'")))??;
+
+            Ok(
+                results
+                    .into_iter()
+                    .filter(|reference| reference.node_id().server_index() == 0)
+                    .map(|reference| {
+                        let element = ua::RelativePathElement::init()
+                            .with_include_subtypes(true)
+                            .with_reference_type_id(&HIERARCHICAL_NODE_ID)
+                            .with_is_inverse(false)
+                            .with_target_name(reference.browse_name());
+
+                        let child_path_items = my_path
+                            .iter()
+                            .cloned()
+                            .chain([element])
+                            .collect_vec();
+
+                        let child_path = ua::RelativePath::init()
+                            .with_elements(child_path_items.as_slice());
+
+                        let browse_path = ua::BrowsePath::init()
+                            .with_relative_path(&child_path)
+                            // this should always be the Root folder
+                            .with_starting_node(self.browse_path.starting_node());
+
+                        Self {
+                            client: self.client.clone(),
+                            node_id: reference.node_id().node_id().clone(),
+                            browse_path,
+                        }
+                    })
+                    .collect_vec()
+            )
+        })
+    }
+
+    #[pyo3(name = "get_attribute")]
+    pub fn get_attribute_py(&self, py: Python<'_>, attr: AttributeId) -> PyResult<DataValue> {
+        self.client.rt.unblock_on(py, async || {
+            let result = self.client
+                .read_node(&self.node_id, &attr.as_ua())
+                .await
+                .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))?;
+
+            Ok(DataValue::new(result))
+        })
+    }
+
+    #[getter]
+    pub fn value(&self, py: Python<'_>) -> PyResult<DataValue> {
+        self.get_attribute_py(py, AttributeId::VALUE)
+    }
+
+    #[getter]
+    pub fn display_name(&self, py: Python<'_>) -> PyResult<String> {
+        self.get_attribute(py, ua::AttributeId::DISPLAYNAME_T)
+            .and_then(normalize_data_value)
+            .map(|text| text.text().to_string())
+    }
+
+    #[getter]
+    pub fn description(&self, py: Python<'_>) -> PyResult<String> {
+        self.get_attribute(py, ua::AttributeId::DESCRIPTION_T)
+            .and_then(normalize_data_value)
+            .map(|text| text.text().to_string())
+    }
+
+    #[getter]
+    pub fn browse_name(&self, py: Python<'_>) -> PyResult<QualifiedName> {
+        self.get_attribute(py, ua::AttributeId::BROWSENAME_T)
+            .and_then(normalize_data_value)
+            .map(QualifiedName::new)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("<Node node_id='{}' browse_path={}>", self.node_id().to_string(), self.browse_path().__repr__())
+    }
+}
+
+fn normalize_data_value<T: open62541::DataType>(value: open62541::DataValue<T>) -> PyResult<T> {
+    match value.into_scalar_value() {
+        Some(scalar) => Ok(scalar),
+        None => Err(PyValueError::new_err("querying attribute returned an invalid value")),
+    }
+}
+
+impl Node {
+    pub fn get_attribute<A: open62541::Attribute + Send + Sync>(&self, py: Python<'_>, attr: A) -> PyResult<open62541::DataValue<A::Value>> {
+        self.client.rt.unblock_on(py, async || {
+            self.client
+                .read_node(&self.node_id, attr)
+                .await
+                .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))
+        })
+    }
 }
