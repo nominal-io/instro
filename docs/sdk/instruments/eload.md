@@ -36,6 +36,16 @@ regardless, so the pages still appear in the sidebar. -->
       instro.eload.drivers.rigol_dl30xx.RigolDL30xx
 ```
 
+## Simulated Driver
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.eload.drivers.virtual.VirtualELoad
+```
+
 ## Types & Configuration
 
 ```{eval-rst}
