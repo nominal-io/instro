@@ -25,6 +25,7 @@ __all__ = [
     "NominalCorePublisherConfig",
     "PSUConfig",
     "TimingConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
@@ -62,7 +63,11 @@ PSU_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
         (IdnPattern(("LAMBDA",), r"^GEN", 1),),
     ),
+    "VirtualPSU": DriverEntry("instro.psu.drivers.virtual.VirtualPSU"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualPSU",)
 
 
 class VisaDriverConfig(BaseModel):
@@ -79,7 +84,20 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in PSU_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(
+                f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}", "num_channels": <n>}}'
+            )
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual PSU: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualPSU"] = Field(description="Virtual driver key.")
+    num_channels: int = Field(ge=1, description="Number of output channels.")
 
 
 class PSUConfig(BaseModel):
@@ -89,7 +107,7 @@ class PSUConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroPSU"] = "InstroPSU"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     timing: TimingConfig | None = None
     publishers: list[PublisherConfigType] = Field(default_factory=list)
 
@@ -99,7 +117,10 @@ def resolve_psu_from_config(
 ) -> tuple[str, PSUDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated PSUConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroPSU needs."""
     driver_cls = PSU_VENDOR_REGISTRY[config.driver.name].load()
-    driver: PSUDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    if isinstance(config.driver, VirtualDriverConfig):
+        driver: PSUDriverBase = driver_cls(num_channels=config.driver.num_channels)
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

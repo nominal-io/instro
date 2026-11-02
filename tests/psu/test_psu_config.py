@@ -83,6 +83,20 @@ def test_init_with_config_dict_invalid_num_channels():
         )
 
 
+def test_init_with_virtual_driver_config_runs_without_a_connection():
+    driver = {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 3}
+    psu = InstroPSU(config={"device": {"name": "psu"}, "driver": driver})
+    with psu:
+        psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=3)
+        assert psu.get_voltage(channel=3).latest == pytest.approx(5.0, rel=0.01)
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualPSU"}
+    with pytest.raises(Exception, match='VirtualPSU has no connection; use {"connection_type": "virtual"'):
+        InstroPSU(config={**valid_config, "driver": driver})
+
+
 def test_init_with_config_file_path_malformed_json(tmp_path):
     config_file = tmp_path / "psu.json"
     config_file.write_text("this is not json {{{")

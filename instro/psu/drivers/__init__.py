@@ -11,6 +11,7 @@ from instro.psu.drivers.rigol_dp800 import RigolDP800
 from instro.psu.drivers.siglent_spd3303 import SiglentSPD3303
 from instro.psu.drivers.simulated import SimulatedPSU
 from instro.psu.drivers.tdk_lambda_genesys import TDKLambdaGenesys
+from instro.psu.drivers.virtual import VirtualPSU
 
 __all__ = [
     "PSUDriverBase",
@@ -24,4 +25,5 @@ __all__ = [
     "SiglentSPD3303",
     "SimulatedPSU",
     "TDKLambdaGenesys",
+    "VirtualPSU",
 ]
