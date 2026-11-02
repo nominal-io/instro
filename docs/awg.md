@@ -30,6 +30,8 @@ awg = InstroAWG(
 :::{driver-cards} awg
 :::
 
+- **Virtual**: no hardware or server; channel settings held in-process (`VirtualAWG`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
+
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#arbitrary-waveform-generator-awg), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
 ## Example
@@ -119,6 +121,8 @@ from instro.awg import InstroAWG
 
 awg = InstroAWG(config="bench_awg.json")
 ```
+
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualAWG", "num_channels": 2}`.
 
 See [Config Files](/library/config-files.md) for the full field reference.
 
