@@ -29,6 +29,8 @@ You do **not** need to install Python separately — `uv` downloads and manages 
 rustup toolchain install nightly --profile minimal --component rustfmt
 ```
 
+All Rust crates, including the PyO3 bindings, inherit their MSRV from `[workspace.package].rust-version` in the root [Cargo.toml](./Cargo.toml) and use the root `rust-toolchain.toml`. Keep the workspace MSRV and pinned build toolchain aligned when updating Rust. Run `rustup show` before the first `uv sync` or `uv run` on a fresh checkout so parallel native-package builds do not race to install the toolchain.
+
 `just test-rust` runs the workspace's unit and integration tests with [`cargo-nextest`](https://nexte.st/) and falls back to `cargo test --doc` for doctests, which nextest does not run. Install a prebuilt binary from the [nextest docs](https://nexte.st/docs/installation/pre-built-binaries/) or `cargo install cargo-nextest --locked`.
 
 The uv version has a floor, set by `required-version` in `[tool.uv]`: uv refuses to run below it, and CI resolves the same constraint, so run `uv self update` if you hit that error.
