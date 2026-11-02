@@ -209,10 +209,12 @@ ua_struct! {
 
 #[pymethods]
 impl QualifiedName {
+    #[getter]
     pub fn name(&self) -> &str {
         self.0.name().as_str().unwrap_or("")
     }
 
+    #[getter]
     pub fn namespace_index(&self) -> u16 {
         self.0.namespace_index()
     }
@@ -253,14 +255,17 @@ ua_struct! {
 
 #[pymethods]
 impl StatusCode {
+    #[getter]
     pub fn is_good(&self) -> bool {
         self.0.is_good()
     }
 
+    #[getter]
     pub fn is_bad(&self) -> bool {
         self.0.is_bad()
     }
 
+    #[getter]
     pub fn is_uncertain(&self) -> bool {
         self.0.is_uncertain()
     }
@@ -269,6 +274,7 @@ impl StatusCode {
         self.0.name()
     }
 
+    #[getter]
     pub fn code(&self) -> u32 {
         self.0.into_raw()
     }
@@ -284,14 +290,17 @@ ua_struct! {
 
 #[pymethods]
 impl ExpandedNodeId {
+    #[getter]
     pub fn node_id(&self) -> NodeId {
         NodeId(self.0.node_id().clone())
     }
 
+    #[getter]
     pub fn server_index(&self) -> u32 {
         self.0.server_index()
     }
 
+    #[getter]
     pub fn namespace_uri(&self) -> Option<String> {
         let uri_str = self.0.namespace_uri().to_string();
 
@@ -403,11 +412,12 @@ impl NodeId {
         Ok(PyString::new(_py, &self.0.to_string()))
     }
 
+    #[getter]
     pub fn namespace_index(&self) -> u16 {
         self.0.namespace_index()
     }
 
-    #[pyo3(signature = () -> "int | str | bytes | uuid.UUID | None")]
+    #[getter]
     pub fn identifier<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         if let Some((_, str_id)) = self.0.as_string() {
             str_id.as_str().unwrap_or("").into_bound_py_any(py)
