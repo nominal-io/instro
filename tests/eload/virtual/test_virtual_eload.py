@@ -26,7 +26,7 @@ def test_mode_level_sets_the_operating_point_on_the_source(mode: LoadMode, level
         assert eload.get_voltage().latest == pytest.approx(11.0, rel=0.01)
 
 
-def test_accepts_every_setting_and_short_pulls_terminals_to_zero() -> None:
+def test_accepts_every_setting() -> None:
     eload = InstroELoad(name="eload", driver=VirtualELoad(source_voltage=5.0, source_resistance=1.0))
     with eload:
         eload.set_mode(LoadMode.CV)
@@ -37,9 +37,25 @@ def test_accepts_every_setting_and_short_pulls_terminals_to_zero() -> None:
         eload.output_enable(True)
         assert eload.get_current().latest == pytest.approx(0.5, rel=0.01)
 
+
+def test_short_switches_the_input_like_bk85xxb() -> None:
+    eload = InstroELoad(name="eload", driver=VirtualELoad(source_voltage=5.0, source_resistance=1.0))
+    with eload:
         eload.short_output(True)
         assert eload.get_voltage().latest == 0.0
         assert eload.get_current().latest == pytest.approx(5.0, rel=0.01)
+
+        eload.short_output(False)
+        assert eload.get_current().latest == 0.0
+        assert eload.get_voltage().latest == pytest.approx(5.0, rel=0.01)
+
+
+def test_rejects_an_invalid_source_set_at_runtime() -> None:
+    driver = VirtualELoad()
+    with pytest.raises(ValueError, match="source_resistance must be positive"):
+        driver.source_resistance = 0.0
+    with pytest.raises(ValueError, match="source_voltage must not be negative"):
+        driver.source_voltage = -5.0
 
 
 def test_rejects_channels_other_than_one() -> None:

@@ -25,21 +25,30 @@ class VirtualELoad(ELoadDriverBase):
 
     The load sinks from a simulated source: a fixed voltage behind an internal resistance. With the
     input off the terminals read the open-circuit voltage at 0 A; with it on, the readings are the
-    operating point the active mode and level set on that source, plus noise (0.5%). A short pulls the
-    terminals to 0 V at the source's short-circuit current. Range and slew-rate settings are accepted
-    and have no effect on readings, so any `InstroELoad` call works.
+    operating point the active mode and level set on that source, plus noise (0.5%). As on the
+    `BK85XXB`, ``short_output`` also switches the input: a short pulls the terminals to 0 V at the
+    source's short-circuit current, and ending it turns the input off. Range and slew-rate settings
+    are accepted and have no effect on readings, so any `InstroELoad` call works.
+
+    Levels the source cannot reach are not errors: CC and CR stop at the short-circuit current, and
+    CP stops at the source's maximum power (half its open-circuit voltage), where a real load would
+    lose regulation. There are no ratings, protections, or time dynamics.
     """
 
     def __init__(self, source_voltage: float = 12.0, source_resistance: float = 0.5) -> None:
         """Create a virtual E-Load.
 
         Args:
-            source_voltage (float): Open-circuit voltage of the simulated source, in volts.
+            source_voltage (float): Open-circuit voltage of the simulated source, in volts. Must not
+                be negative.
             source_resistance (float): Internal resistance of the simulated source, in ohms. Must be
                 positive; it sets how far the voltage sags as the load draws current.
 
+        Both stay settable as attributes, e.g. to sag the source mid-run, and are validated on
+        every set.
+
         Raises:
-            ValueError: If ``source_resistance`` is not positive.
+            ValueError: If ``source_voltage`` is negative or ``source_resistance`` is not positive.
 
         Example::
 
@@ -54,8 +63,6 @@ class VirtualELoad(ELoadDriverBase):
                 print(eload.get_current().latest)  # about 2.0
                 print(eload.get_voltage().latest)  # about 11.0
         """
-        if source_resistance <= 0:
-            raise ValueError(f"source_resistance must be positive, got {source_resistance}")
         self.source_voltage = source_voltage
         self.source_resistance = source_resistance
         self._mode = LoadMode.CC
@@ -69,6 +76,28 @@ class VirtualELoad(ELoadDriverBase):
         self._input_enabled = False
         self._shorted = False
 
+    @property
+    def source_voltage(self) -> float:
+        """Open-circuit voltage of the simulated source, in volts."""
+        return self._source_voltage
+
+    @source_voltage.setter
+    def source_voltage(self, value: float) -> None:
+        if value < 0:
+            raise ValueError(f"source_voltage must not be negative, got {value}")
+        self._source_voltage = value
+
+    @property
+    def source_resistance(self) -> float:
+        """Internal resistance of the simulated source, in ohms."""
+        return self._source_resistance
+
+    @source_resistance.setter
+    def source_resistance(self, value: float) -> None:
+        if value <= 0:
+            raise ValueError(f"source_resistance must be positive, got {value}")
+        self._source_resistance = value
+
     def open(self) -> None:
         """Nothing to connect to."""
 
@@ -76,8 +105,10 @@ class VirtualELoad(ELoadDriverBase):
         """Nothing to disconnect."""
 
     def short_output(self, enable: bool, channel: int) -> None:
+        """Start or end a short; like the `BK85XXB`, this also turns the input on or off."""
         _check_channel(channel)
         self._shorted = enable
+        self._input_enabled = enable
 
     def set_mode(self, mode: LoadMode, channel: int) -> None:
         _check_channel(channel)
@@ -116,10 +147,10 @@ class VirtualELoad(ELoadDriverBase):
         """Return the noise-free ``(volts, amperes)`` at the terminals."""
         vs, rs = self.source_voltage, self.source_resistance
         short_circuit_current = vs / rs
-        if self._shorted:
-            return 0.0, short_circuit_current
         if not self._input_enabled:
             return vs, 0.0
+        if self._shorted:
+            return 0.0, short_circuit_current
 
         level = self._levels[self._mode]
         if self._mode is LoadMode.CC:
