@@ -171,6 +171,14 @@ def test_init_with_virtual_driver_config_applies_load_without_a_connection():
         assert eload.get_current().latest == pytest.approx(2.0, rel=0.01)
 
 
+def test_init_with_virtual_driver_config_sets_the_source():
+    driver = {"connection_type": "virtual", "name": "VirtualELoad", "source_voltage": 5.0, "source_resistance": 1.0}
+    eload = InstroELoad(config={"device": {"name": "eload"}, "driver": driver, "load": {"mode": "CC", "level": 1.0}})
+    with eload:
+        eload.output_enable(True)
+        assert eload.get_voltage().latest == pytest.approx(4.0, rel=0.01)
+
+
 def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
     driver = {**valid_config["driver"], "name": "VirtualELoad"}
     with pytest.raises(Exception, match='VirtualELoad has no connection; use {"connection_type": "virtual"'):

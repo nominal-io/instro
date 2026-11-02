@@ -96,6 +96,12 @@ class VirtualDriverConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     connection_type: Literal["virtual"]
     name: Literal["VirtualELoad"] = Field(description="Virtual driver key.")
+    source_voltage: float | None = Field(
+        default=None, ge=0, description="Open-circuit voltage of the simulated source, in volts. Default 12."
+    )
+    source_resistance: float | None = Field(
+        default=None, gt=0, description="Internal resistance of the simulated source, in ohms. Default 0.5."
+    )
 
 
 class ELoadConfig(BaseModel):
@@ -117,7 +123,8 @@ def resolve_eload_from_config(
     """Resolve a validated ELoadConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroELoad needs."""
     driver_cls = ELOAD_VENDOR_REGISTRY[config.driver.name].load()
     if isinstance(config.driver, VirtualDriverConfig):
-        driver: ELoadDriverBase = driver_cls()
+        source = config.driver.model_dump(include={"source_voltage", "source_resistance"}, exclude_none=True)
+        driver: ELoadDriverBase = driver_cls(**source)
     else:
         driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 

@@ -68,7 +68,8 @@ class VirtualELoad(ELoadDriverBase):
         self._mode = LoadMode.CC
         self._levels: dict[LoadMode, float] = {
             LoadMode.CC: 0.0,
-            LoadMode.CV: source_voltage,
+            # above any source, so CV draws nothing until set, however source_voltage changes
+            LoadMode.CV: math.inf,
             LoadMode.CP: 0.0,
             LoadMode.CR: 1000.0,
         }
@@ -105,7 +106,11 @@ class VirtualELoad(ELoadDriverBase):
         """Nothing to disconnect."""
 
     def short_output(self, enable: bool, channel: int) -> None:
-        """Start or end a short; like the `BK85XXB`, this also turns the input on or off."""
+        """Start or end a short; like the `BK85XXB`, this also turns the input on or off.
+
+        The short stays set until ``short_output(False)``: turning the input off and on again with
+        ``output_enable`` leaves it shorted, as ``INPut`` alone leaves ``INPut:SHORt`` on the BK85XXB.
+        """
         _check_channel(channel)
         self._shorted = enable
         self._input_enabled = enable
@@ -119,6 +124,8 @@ class VirtualELoad(ELoadDriverBase):
         _check_channel(channel)
         if value < 0:
             raise ValueError(f"{mode.value} level must be non-negative, got {value}")
+        if curr_limit is not None and curr_limit < 0:
+            raise ValueError(f"curr_limit must be non-negative, got {curr_limit}")
         self._levels[mode] = value
         if mode is LoadMode.CV:
             self._curr_limit = curr_limit
@@ -132,6 +139,7 @@ class VirtualELoad(ELoadDriverBase):
         _check_channel(channel)
 
     def output_enable(self, enable: bool, channel: int) -> None:
+        """Turn the input on or off; a short set by `short_output` stays set."""
         _check_channel(channel)
         self._input_enabled = enable
 
