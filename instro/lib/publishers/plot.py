@@ -39,8 +39,10 @@ class PlotlyPublisher:
                 self._extend(channel, [data.timestamp], [value])
 
     def _extend(self, channel: str, timestamps: list[int], values: list) -> None:
-        if not values or isinstance(values[0], str):
+        if not values or not timestamps or isinstance(values[0], str):
             return
+
+        timestamps = timestamps[: len(values)] + [timestamps[-1]] * (len(values) - len(timestamps))
         x = [datetime.fromtimestamp(t / 1e9, tz=timezone.utc) for t in timestamps]
         # Background polling and foreground reads publish from different threads.
         with self._lock:
@@ -51,6 +53,8 @@ class PlotlyPublisher:
                 # Unset coordinates on a caller's placeholder trace are None.
                 old_x = () if trace.x is None else trace.x
                 old_y = () if trace.y is None else trace.y
+                # TODO: copying the full history on every publish slows long captures quadratically.
+                # Keep append-friendly buffers and update the figure in batches, or bound the history.
                 trace.update(x=(*old_x, *x), y=(*old_y, *values))
 
     def close(self) -> None:

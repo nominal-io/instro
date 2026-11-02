@@ -67,6 +67,19 @@ def test_empty_matching_trace_on_the_figure_is_filled():
     assert len(trace.x) == 1
 
 
+def test_mismatched_timestamps_keep_x_and_y_the_same_length():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure)
+
+    publisher.publish(Measurement(channel_data={"short": [1.0, 2.0, 3.0]}, timestamps=[T0, T0 + ONE_SECOND]))
+    publisher.publish(Measurement(channel_data={"long": [1.0]}, timestamps=[T0, T0 + ONE_SECOND]))
+
+    short, long = figure.data
+    assert len(short.x) == len(short.y) == 3
+    assert short.x[2] == short.x[1]
+    assert len(long.x) == len(long.y) == 1
+
+
 def test_concurrent_publishes_keep_every_point_on_one_trace():
     figure = go.Figure()
     publisher = PlotlyPublisher(figure)
