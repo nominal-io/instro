@@ -16,21 +16,19 @@ Then in another shell:
 
 import time
 
-import plotly.graph_objects as go
-
 from instro.lib.publishers import PlotlyPublisher
 from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 
-# figure = go.Figure(layout_title_text="Simulated PSU voltage sweep")
+plot_publisher = PlotlyPublisher()
 
 psu = InstroPSU(
     name="myPSU",
     driver=SimulatedPSU(VISA_RESOURCE),
     num_channels=2,
-    publishers=[PlotlyPublisher()],
+    publishers=[plot_publisher],
 )
 
 with psu:
@@ -45,4 +43,4 @@ with psu:
 
     psu.output_enable(False, channel=1)
 
-# figure.show()
+plot_publisher.figure.show()

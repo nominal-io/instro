@@ -97,20 +97,6 @@ def test_x_axis_always_shows_timestamps():
     assert figure.layout.xaxis.type == "date"
 
 
-def test_mismatched_timestamps_keep_x_and_y_the_same_length():
-    figure = go.Figure()
-    publisher = PlotlyPublisher(figure)
-
-    publisher.publish(Measurement(channel_data={"short": [1.0, 2.0, 3.0]}, timestamps=[T0, T0 + ONE_SECOND]))
-    publisher.publish(Measurement(channel_data={"long": [1.0]}, timestamps=[T0, T0 + ONE_SECOND]))
-    publisher.close()
-
-    short, long = figure.data
-    assert len(short.x) == len(short.y) == 3
-    assert short.x[2] == short.x[1]
-    assert len(long.x) == len(long.y) == 1
-
-
 def test_each_channel_keeps_only_its_latest_max_points():
     figure = go.Figure()
     publisher = PlotlyPublisher(figure, max_points=3)

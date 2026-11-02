@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import threading
-from collections import Counter
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from instro.lib.publishers.channel_buffer import NumpyInMemoryPublisher
+from instro.lib.publishers.channel_buffer import NumpyRingBuffer
+from instro.lib.publishers.publisher import Publisher
 from instro.lib.types import Command, Measurement
 
 # Plotly is the optional `plot` extra. The publisher only calls methods on the caller's
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
 
 
-class PlotlyPublisher(NumpyInMemoryPublisher):
+class PlotlyPublisher(Publisher):
     """Plot Measurement/Command data on a Plotly figure, one trace per channel.
 
     Each channel keeps its latest ``max_points`` points in a fixed-size ring buffer, and a
@@ -30,7 +31,9 @@ class PlotlyPublisher(NumpyInMemoryPublisher):
     Requires the ``plot`` extra (``pip install "instro[plot]"``).
     """
 
-    def __init__(self, figure: go.Figure | None = None, max_points: int = 10_000, flush_interval: float = 0.1):
+    def __init__(
+        self, figure: go.Figure | go.FigureWidget | None = None, max_points: int = 10_000, flush_interval: float = 0.1
+    ):
         """Create a publisher that plots each channel on a trace named after the channel.
 
         Args:
@@ -39,7 +42,6 @@ class PlotlyPublisher(NumpyInMemoryPublisher):
             max_points: Points kept per channel; older points drop off the plot.
             flush_interval: Seconds between writes to the figure.
         """
-        super().__init__(max_points, value_dtype=np.float64)
         if figure is None:
             import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
             from IPython.display import display  # type: ignore[import-untyped, import-not-found]
@@ -49,47 +51,54 @@ class PlotlyPublisher(NumpyInMemoryPublisher):
         self.figure = figure
         # Set explicitly so the axis shows timestamps even before data arrives.
         self.figure.update_layout(xaxis_type="date")
+        self._max_points = max_points
         self._flush_interval = flush_interval
-        self._flushed_count: Counter[str] = Counter()
+        self._buffers: defaultdict[str, tuple[NumpyRingBuffer, NumpyRingBuffer]] = defaultdict(
+            lambda: (NumpyRingBuffer(max_points, np.int64), NumpyRingBuffer(max_points, np.float64))
+        )
+        self._dirty: set[str] = set()
+        self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._flush_periodically, daemon=True)
         self._thread.start()
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Buffer ``data`` for the next write to the figure."""
+        # Give each channel its own timestamps and values.
+        batches: list[tuple[str, list[int], list]]
         if isinstance(data, Measurement):
-            for channel, values in data.channel_data.items():
-                self._append(channel, data.timestamps, values)
-        elif isinstance(data, Command):
-            for channel, value in data.channel_data.items():
-                self._append(channel, [data.timestamp], [value])
+            batches = [(channel, data.timestamps, values) for channel, values in data.channel_data.items()]
+        else:
+            batches = [(channel, [data.timestamp], [value]) for channel, value in data.channel_data.items()]
 
-    def _append(self, channel: str, timestamps: list[int], values: list) -> None:
-        if not values or not timestamps or isinstance(values[0], str):
-            return
-        # The base class extends value and timestamp buffers separately, so equalize their lengths first.
-        timestamps = timestamps[: len(values)] + [timestamps[-1]] * (len(values) - len(timestamps))
-        super().publish(Measurement(channel_data={channel: values}, timestamps=timestamps))
+        # Add the numeric channels to their ring buffers and mark them for the next flush.
+        with self._lock:
+            for channel, timestamps, values in batches:
+                if not values or isinstance(values[0], str):
+                    continue
+                channel_timestamps, channel_values = self._buffers[channel]
+                channel_timestamps.extend(timestamps)
+                channel_values.extend(values)
+                self._dirty.add(channel)
 
     def _flush_periodically(self) -> None:
         while not self._stop.wait(self._flush_interval):
             self._flush()
 
     def _flush(self) -> None:
+        # Copy the changed channels out of their ring buffers.
         pending = {}
-        with self._condition:
-            for channel in self._values:
-                if self._total_added_count[channel] == self._flushed_count[channel]:
-                    continue
-                self._flushed_count[channel] = self._total_added_count[channel]
-                n = self._points_in_buffer(channel)
-                pending[channel] = (self._get_timestamps(channel, n), self._get_values(channel, n))
+        with self._lock:
+            for channel in self._dirty:
+                channel_timestamps, channel_values = self._buffers[channel]
+                pending[channel] = (
+                    channel_timestamps.get_latest(self._max_points),
+                    channel_values.get_latest(self._max_points).tolist(),
+                )
+            self._dirty.clear()
         # Written outside the lock so a slow figure update never blocks publishers. Only the flush
         # thread, or close() after stopping it, writes to the figure.
         for channel, (timestamps, values) in pending.items():
-            # UTC ISO strings, which plotly.js draws as written. Epoch-ms numbers would be shown in the
-            # viewer's local time (repeating across DST changes); datetime64[ns] reaches a FigureWidget as
-            # raw nanosecond integers.
             x = np.datetime_as_string(np.asarray(timestamps, dtype="datetime64[ns]"), unit="us")
             trace = next(self.figure.select_traces(selector={"name": channel}), None)
             if trace is None:
@@ -102,4 +111,5 @@ class PlotlyPublisher(NumpyInMemoryPublisher):
         self._stop.set()
         self._thread.join()
         self._flush()
-        super().close()
+        with self._lock:
+            self._buffers.clear()
