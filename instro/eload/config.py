@@ -28,6 +28,7 @@ __all__ = [
     "NominalCorePublisherConfig",
     "SlewRateConfig",
     "TimingConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
@@ -40,7 +41,11 @@ ELOAD_VENDOR_REGISTRY: dict[str, DriverEntry] = {
         "instro.eload.drivers.rigol_dl30xx.RigolDL30xx",
         (IdnPattern(("RIGOL TECHNOLOGIES",), r"^DL30[234]1"),),
     ),
+    "VirtualELoad": DriverEntry("instro.eload.drivers.virtual.VirtualELoad"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualELoad",)
 
 
 class SlewRateConfig(BaseModel):
@@ -80,7 +85,23 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in ELOAD_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}"}}')
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual E-Load: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualELoad"] = Field(description="Virtual driver key.")
+    source_voltage: float | None = Field(
+        default=None, ge=0, description="Open-circuit voltage of the simulated source, in volts. Default 12."
+    )
+    source_resistance: float | None = Field(
+        default=None, gt=0, description="Internal resistance of the simulated source, in ohms. Default 0.5."
+    )
 
 
 class ELoadConfig(BaseModel):
@@ -90,7 +111,7 @@ class ELoadConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroELoad"] = "InstroELoad"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     load: LoadConfig | None = None
     timing: TimingConfig | None = None
     publishers: list[PublisherConfigType] = Field(default_factory=list)
@@ -101,7 +122,11 @@ def resolve_eload_from_config(
 ) -> tuple[str, ELoadDriverBase, list[Publisher], float | None]:
     """Resolve a validated ELoadConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroELoad needs."""
     driver_cls = ELOAD_VENDOR_REGISTRY[config.driver.name].load()
-    driver: ELoadDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    if isinstance(config.driver, VirtualDriverConfig):
+        source = config.driver.model_dump(include={"source_voltage", "source_resistance"}, exclude_none=True)
+        driver: ELoadDriverBase = driver_cls(**source)
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

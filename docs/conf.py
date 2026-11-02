@@ -120,6 +120,7 @@ driver_docs_exempt = {
     "psu.VirtualPSU": {"guide"},
     "dmm.SimulatedDMM": {"guide"},
     "dmm.VirtualDMM": {"guide"},
+    "eload.VirtualELoad": {"guide"},
     "daq.HWTimestamper": {"guide"},
 }
 
