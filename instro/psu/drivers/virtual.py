@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from instro.psu import OperatingMode, PSUDriverBase
@@ -20,8 +21,10 @@ NOISE_PERCENT = 0.005
 
 @dataclass
 class _ChannelState:
+    load_resistance: float = DEFAULT_LOAD_RESISTANCE
     voltage_setpoint: float = 0.0
-    current_limit: float = 0.0
+    # unlike the SCPI simulator's 0 A, so setting a voltage and enabling the output is enough
+    current_limit: float = DEFAULT_CURRENT_MAX
     output_enabled: bool = False
     overvoltage_protection_level: float = DEFAULT_VOLTAGE_MAX
     overvoltage_protection_enabled: bool = False
@@ -36,45 +39,91 @@ class _ChannelState:
 class VirtualPSU(PSUDriverBase):
     """PSU simulated in-process: no transport, server, or hardware.
 
-    Each channel drives a resistive load. With the output on, a channel holds its voltage
+    Each channel drives its own resistive load. With the output on, a channel holds its voltage
     setpoint (constant voltage) until the load would draw more than the current limit, then
     holds the current limit (constant current). Readings carry 0.5% noise, the SCPI simulator's
-    level. Enabled overvoltage or overcurrent protection trips when the output exceeds its level,
-    latching the output off until `clear_protection` and a new `output_enable`. Remote sense and
-    the overvoltage protection delay are stored and have no effect on readings. To exercise the
-    VISA transport as well, use `SimulatedPSU` with the bundled SCPI simulator.
+    level. The current limit starts at the channel maximum (10 A), so setting a voltage and
+    enabling the output is enough to see it.
+
+    As on the SCPI simulator, voltages must lie within 0 to 60 V and currents within 0 to 10 A,
+    or the setter raises ``ValueError``. Unlike it, a setpoint may sit above its protection level,
+    which is how a virtual channel trips: there is no external source to push the output past
+    its setpoint.
+
+    Enabled overvoltage or overcurrent protection trips when the output exceeds its level,
+    latching the output off until `clear_protection` and a new `output_enable`; ``output_enable``
+    alone also clears the latch, as on the SCPI simulator. Protection is evaluated whenever a
+    reading is taken (voltage, current, mode, output status, or a trip state), not continuously,
+    so a fault removed before the next reading never trips. `InstroPSU`'s background polling
+    reads every channel, which keeps the check current. Remote sense and the overvoltage
+    protection delay are stored and have no effect on readings. To exercise the VISA transport
+    as well, use `SimulatedPSU` with the bundled SCPI simulator.
     """
 
     def __init__(
-        self, num_channels: int = DEFAULT_NUM_CHANNELS, load_resistance: float = DEFAULT_LOAD_RESISTANCE
+        self,
+        num_channels: int = DEFAULT_NUM_CHANNELS,
+        load_resistance: float | Mapping[int, float] = DEFAULT_LOAD_RESISTANCE,
     ) -> None:
         """Create a virtual PSU.
 
         Args:
-            num_channels (int): Number of output channels, numbered from 1.
-            load_resistance (float): Resistance of the load on every channel, in ohms. ``0`` is a
-                short and ``math.inf`` an open circuit. Change ``load_resistance`` at any time to
-                move a channel between constant voltage and constant current.
+            num_channels (int): Number of output channels, numbered from 1. Pass the same count
+                to `InstroPSU`; a channel above it raises ``ValueError``.
+            load_resistance (float | Mapping[int, float]): Resistance of each channel's load, in
+                ohms: one value for every channel, or a mapping from channel to value, with
+                channels left out at 1000 ohms. ``0`` is a short and ``math.inf`` an open circuit.
+                Change it at any time with `set_load_resistance` to move a channel between
+                constant voltage and constant current.
 
         Raises:
-            ValueError: ``num_channels`` is less than 1.
+            ValueError: ``num_channels`` is less than 1, or ``load_resistance`` is negative or
+                names a channel that does not exist.
 
         Example::
 
             from instro.psu import InstroPSU
             from instro.psu.drivers import VirtualPSU
 
-            psu = InstroPSU(name="psu", driver=VirtualPSU(num_channels=1, load_resistance=10.0), num_channels=1)
-            with psu:
-                psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=1)
-                print(psu.get_current(channel=1).latest)  # about 0.5
-                print(psu.get_operating_mode(channel=1).latest)  # CV
+            driver = VirtualPSU(num_channels=2, load_resistance={1: 10.0, 2: 1.0})
+            with InstroPSU(name="psu", driver=driver, num_channels=2) as psu:
+                for channel in (1, 2):
+                    psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=channel)
+                print(psu.get_operating_mode(channel=1).latest)  # CV: 10 ohms draws 0.5 A
+                print(psu.get_operating_mode(channel=2).latest)  # CC: 1 ohm would draw 5 A
+                driver.set_load_resistance(100.0, channel=2)
+                print(psu.get_operating_mode(channel=2).latest)  # CV
         """
         if num_channels < 1:
             raise ValueError(f"num_channels must be at least 1, got {num_channels}")
         self.num_channels = num_channels
-        self.load_resistance = load_resistance
         self._channels = {channel: _ChannelState() for channel in range(1, num_channels + 1)}
+        if isinstance(load_resistance, Mapping):
+            for channel, resistance in load_resistance.items():
+                self.set_load_resistance(resistance, channel=channel)
+        else:
+            self.set_load_resistance(load_resistance)
+
+    def set_load_resistance(self, resistance: float, channel: int | None = None) -> None:
+        """Set the load on ``channel``, or on every channel when ``channel`` is ``None``.
+
+        Args:
+            resistance (float): Load resistance in ohms. ``0`` is a short and ``math.inf`` an
+                open circuit.
+            channel (int | None): Target channel (1-indexed), or ``None`` for every channel.
+
+        Raises:
+            ValueError: ``resistance`` is negative, or ``channel`` does not exist.
+        """
+        if not resistance >= 0:
+            raise ValueError(f"load_resistance must not be negative, got {resistance}")
+        channels = self._channels.values() if channel is None else [self._channel(channel)]
+        for state in channels:
+            state.load_resistance = resistance
+
+    def get_load_resistance(self, channel: int) -> float:
+        """Return the load resistance on ``channel``, in ohms."""
+        return self._channel(channel).load_resistance
 
     def open(self) -> None:
         """Nothing to connect to."""
@@ -83,14 +132,14 @@ class VirtualPSU(PSUDriverBase):
         """Nothing to disconnect."""
 
     def set_voltage(self, voltage: float, channel: int) -> None:
-        self._channel(channel).voltage_setpoint = voltage
+        self._channel(channel).voltage_setpoint = _check_range("voltage", voltage, DEFAULT_VOLTAGE_MAX, "V")
 
     def get_voltage(self, channel: int) -> float:
         voltage, _, _ = self._regulate(channel)
         return _add_noise(voltage)
 
     def set_current_limit(self, current_limit: float, channel: int) -> None:
-        self._channel(channel).current_limit = current_limit
+        self._channel(channel).current_limit = _check_range("current_limit", current_limit, DEFAULT_CURRENT_MAX, "A")
 
     def get_current(self, channel: int) -> float:
         _, current, _ = self._regulate(channel)
@@ -118,7 +167,8 @@ class VirtualPSU(PSUDriverBase):
         return mode
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
-        self._channel(channel).overvoltage_protection_level = voltage
+        level = _check_range("overvoltage protection level", voltage, DEFAULT_VOLTAGE_MAX, "V")
+        self._channel(channel).overvoltage_protection_level = level
 
     def get_overvoltage_protection_level(self, channel: int) -> float:
         return self._channel(channel).overvoltage_protection_level
@@ -137,7 +187,8 @@ class VirtualPSU(PSUDriverBase):
         return self._channel(channel).overvoltage_protection_delay
 
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
-        self._channel(channel).overcurrent_protection_level = current
+        level = _check_range("overcurrent protection level", current, DEFAULT_CURRENT_MAX, "A")
+        self._channel(channel).overcurrent_protection_level = level
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         return self._channel(channel).overcurrent_protection_level
@@ -179,7 +230,7 @@ class VirtualPSU(PSUDriverBase):
         if not state.output_enabled:
             return 0.0, 0.0, OperatingMode.OFF
 
-        resistance = self.load_resistance
+        resistance = state.load_resistance
         if resistance == 0:
             demand = math.inf if state.voltage_setpoint > 0 else 0.0
         else:
@@ -198,6 +249,12 @@ class VirtualPSU(PSUDriverBase):
             return voltage, current, mode
         state.output_enabled = False
         return 0.0, 0.0, OperatingMode.OFF
+
+
+def _check_range(name: str, value: float, maximum: float, unit: str) -> float:
+    if not 0 <= value <= maximum:
+        raise ValueError(f"{name} must be within 0 to {maximum:g} {unit}, got {value}")
+    return value
 
 
 def _add_noise(value: float) -> float:

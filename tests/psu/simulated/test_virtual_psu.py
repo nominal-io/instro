@@ -37,7 +37,7 @@ def test_protection_trip_latches_the_output_off_until_cleared_and_re_enabled() -
         psu.apply(current_limit=2.0, voltage=5.0, enable=True, channel=1)
         assert not psu.get_overcurrent_protection_tripped(channel=1).latest
 
-        driver.load_resistance = 1.0
+        driver.set_load_resistance(1.0)
         assert psu.get_overcurrent_protection_tripped(channel=1).latest
         assert not psu.get_output_status(channel=1).latest
         assert psu.get_voltage(channel=1).latest == 0.0
@@ -46,9 +46,46 @@ def test_protection_trip_latches_the_output_off_until_cleared_and_re_enabled() -
         assert not psu.get_overcurrent_protection_tripped(channel=1).latest
         assert not psu.get_output_status(channel=1).latest
 
-        driver.load_resistance = 10.0
+        driver.set_load_resistance(10.0)
         psu.output_enable(True, channel=1)
         assert psu.get_current(channel=1).latest == pytest.approx(0.5, rel=0.01)
+
+
+def test_a_voltage_alone_drives_the_output() -> None:
+    psu = InstroPSU(name="psu", driver=VirtualPSU(num_channels=1, load_resistance=10.0), num_channels=1)
+    with psu:
+        psu.set_voltage(5.0, channel=1)
+        psu.output_enable(True, channel=1)
+        assert psu.get_voltage(channel=1).latest == pytest.approx(5.0, rel=0.01)
+        assert psu.get_operating_mode(channel=1).latest == OperatingMode.CONSTANT_VOLTAGE.value
+
+
+def test_each_channel_regulates_into_its_own_load() -> None:
+    driver = VirtualPSU(num_channels=2, load_resistance={2: 1.0})
+    psu = InstroPSU(name="psu", driver=driver, num_channels=2)
+    with psu:
+        for channel in (1, 2):
+            psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=channel)
+        assert psu.get_operating_mode(channel=1).latest == OperatingMode.CONSTANT_VOLTAGE.value
+        assert psu.get_operating_mode(channel=2).latest == OperatingMode.CONSTANT_CURRENT.value
+
+        driver.set_load_resistance(100.0, channel=2)
+        assert psu.get_operating_mode(channel=2).latest == OperatingMode.CONSTANT_VOLTAGE.value
+        assert driver.get_load_resistance(channel=1) == 1000.0
+
+
+def test_rejects_values_outside_the_scpi_simulator_ranges() -> None:
+    driver = VirtualPSU(num_channels=1)
+    with pytest.raises(ValueError, match="voltage must be within 0 to 60 V"):
+        driver.set_voltage(-5.0, channel=1)
+    with pytest.raises(ValueError, match="current_limit must be within 0 to 10 A"):
+        driver.set_current_limit(11.0, channel=1)
+    with pytest.raises(ValueError, match="overvoltage protection level must be within 0 to 60 V"):
+        driver.set_overvoltage_protection_level(61.0, channel=1)
+    with pytest.raises(ValueError, match="load_resistance must not be negative"):
+        driver.set_load_resistance(-10.0)
+    with pytest.raises(ValueError, match="channels 1 to 1, got 2"):
+        VirtualPSU(num_channels=1, load_resistance={2: 10.0})
 
 
 def test_every_setting_reads_back_per_channel() -> None:
