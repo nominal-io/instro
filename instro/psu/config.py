@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -91,6 +91,9 @@ class VisaDriverConfig(BaseModel):
         return v
 
 
+_Ohms = Annotated[float, Field(ge=0)]
+
+
 class VirtualDriverConfig(BaseModel):
     """Driver config for a virtual PSU: simulated in-process, with no connection."""
 
@@ -98,6 +101,10 @@ class VirtualDriverConfig(BaseModel):
     connection_type: Literal["virtual"]
     name: Literal["VirtualPSU"] = Field(description="Virtual driver key.")
     num_channels: int = Field(ge=1, description="Number of output channels.")
+    load_resistance: _Ohms | dict[int, _Ohms] | None = Field(
+        default=None,
+        description="Load in ohms: one value for every channel, or a map from channel to value. Default 1000.",
+    )
 
 
 class PSUConfig(BaseModel):
@@ -118,7 +125,8 @@ def resolve_psu_from_config(
     """Resolve a validated PSUConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroPSU needs."""
     driver_cls = PSU_VENDOR_REGISTRY[config.driver.name].load()
     if isinstance(config.driver, VirtualDriverConfig):
-        driver: PSUDriverBase = driver_cls(num_channels=config.driver.num_channels)
+        virtual = config.driver.model_dump(include={"num_channels", "load_resistance"}, exclude_none=True)
+        driver: PSUDriverBase = driver_cls(**virtual)
     else:
         driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 

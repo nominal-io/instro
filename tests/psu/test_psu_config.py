@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.psu import InstroPSU, PSUConfig
+from instro.psu import InstroPSU, OperatingMode, PSUConfig
 
 
 @pytest.fixture
@@ -89,6 +89,16 @@ def test_init_with_virtual_driver_config_runs_without_a_connection():
     with psu:
         psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=3)
         assert psu.get_voltage(channel=3).latest == pytest.approx(5.0, rel=0.01)
+
+
+def test_init_with_virtual_driver_config_sets_each_channel_load():
+    driver = {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2, "load_resistance": {"2": 1.0}}
+    psu = InstroPSU(config={"device": {"name": "psu"}, "driver": driver})
+    with psu:
+        for channel in (1, 2):
+            psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=channel)
+        assert psu.get_operating_mode(channel=1).latest == OperatingMode.CONSTANT_VOLTAGE.value
+        assert psu.get_operating_mode(channel=2).latest == OperatingMode.CONSTANT_CURRENT.value
 
 
 def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):

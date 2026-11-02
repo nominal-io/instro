@@ -123,7 +123,7 @@ Where `bench_psu.json` contains:
 }
 ```
 
-To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 1}`.
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 1}`. An optional `load_resistance` (ohms, default 1000) sets the load: one value for every channel, or a map such as `{"1": 10.0, "2": 1.0}`.
 
 See [Config Files](/library/config-files.md) for the full field reference.
 
