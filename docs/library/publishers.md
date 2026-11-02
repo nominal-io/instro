@@ -163,7 +163,7 @@ Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure
 
 ```python
 PlotlyPublisher(
-    figure: go.Figure | None = None,  # Optional: figure to plot on; created when omitted
+    figure: go.Figure,  # Required: figure to plot on
 )
 ```
 
@@ -185,7 +185,6 @@ psu = InstroPSU(
     publishers=[PlotlyPublisher(figure)],
 )
 ```
-Without a `figure`, the publisher creates one and shows it when the instrument closes. Show a figure you pass in yourself.
 
 See [Publishers: plot with Plotly](/examples/publishers/publish_plotly.md) for a full example.
 

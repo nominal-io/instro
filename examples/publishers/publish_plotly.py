@@ -1,8 +1,7 @@
 """Example: Publishers: plot with Plotly.
 
-Plots a simulated PSU voltage sweep with PlotlyPublisher. By default the publisher
-creates its own figure and shows it when the PSU closes. Set ``USE_EXISTING_FIGURE``
-to plot on a figure you build yourself instead.
+Plots a simulated PSU voltage sweep on a Plotly figure with PlotlyPublisher, then
+shows the figure once the sweep finishes.
 
 Start the simulated PSU first:
     python -m instro.psu.scpi_sim_server
@@ -20,9 +19,8 @@ from instro.psu import InstroPSU
 from instro.psu.drivers import SimulatedPSU
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
-USE_EXISTING_FIGURE = False  # True: plot on the figure built below. False: the publisher creates its own.
 
-figure = go.Figure(layout_title_text="Simulated PSU voltage sweep") if USE_EXISTING_FIGURE else None
+figure = go.Figure(layout_title_text="Simulated PSU voltage sweep")
 
 psu = InstroPSU(
     name="myPSU",
@@ -43,6 +41,4 @@ with psu:
 
     psu.output_enable(False, channel=1)
 
-# The publisher only shows a figure it created; a figure passed in is the caller's to show.
-if figure is not None:
-    figure.show()
+figure.show()

@@ -10,23 +10,22 @@ from instro.lib.types import Command, Measurement
 class PlotlyPublisher:
     """Plot Measurement/Command data on a Plotly figure, one trace per channel.
 
-    String values are skipped; they have no numeric value to plot.
+    String values are skipped; they have no numeric value to plot. The publisher never shows
+    the figure; call ``figure.show()`` when you want to see it.
     """
 
-    def __init__(self, figure: go.Figure | None = None):
+    def __init__(self, figure: go.Figure):
         """Add each channel's data to a trace named after the channel.
 
         Example:
             >>> import plotly.graph_objects as go
-            >>> figure = go.FigureWidget()
+            >>> figure = go.Figure()
             >>> publisher = PlotlyPublisher(figure)
 
         Args:
             figure: Figure to plot on. A ``go.FigureWidget`` updates live in a notebook.
-                When omitted, the publisher creates its own figure and shows it on ``close()``.
         """
-        self._owns_figure = figure is None
-        self.figure = go.Figure() if figure is None else figure
+        self.figure = figure
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Append ``data`` to its channels' traces."""
@@ -49,6 +48,5 @@ class PlotlyPublisher:
             trace.y = (*trace.y, *values)
 
     def close(self) -> None:
-        """Show the figure if this publisher created it."""
-        if self._owns_figure:
-            self.figure.show()
+        """No-op; the caller owns the figure."""
+        pass
