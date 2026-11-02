@@ -52,6 +52,19 @@ def test_overvoltage_trip_latches_the_output_off_until_cleared_and_re_enabled() 
         assert psu.get_voltage(channel=1).latest == pytest.approx(3.0, rel=0.01)
 
 
+def test_a_fault_trips_when_it_happens_not_when_it_is_next_read() -> None:
+    psu = InstroPSU(name="psu", driver=VirtualPSU(num_channels=1, load_resistance=10.0), num_channels=1)
+    with psu:
+        psu.set_overvoltage_protection_level(4.0, channel=1)
+        psu.set_overvoltage_protection_enabled(True, channel=1)
+        psu.apply(current_limit=1.0, voltage=3.0, enable=True, channel=1)
+
+        psu.set_voltage(5.0, channel=1)
+        psu.set_voltage(3.0, channel=1)
+        assert psu.get_overvoltage_protection_tripped(channel=1).latest
+        assert not psu.get_output_status(channel=1).latest
+
+
 def test_overcurrent_trip_latches_the_output_off_until_cleared_and_re_enabled() -> None:
     driver = VirtualPSU(num_channels=1, load_resistance=10.0)
     psu = InstroPSU(name="psu", driver=driver, num_channels=1)

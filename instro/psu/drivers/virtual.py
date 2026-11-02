@@ -52,12 +52,11 @@ class VirtualPSU(PSUDriverBase):
 
     Enabled overvoltage or overcurrent protection trips when the output exceeds its level,
     latching the output off until `clear_protection` and a new `output_enable`; ``output_enable``
-    alone also clears the latch, as on the SCPI simulator. Protection is evaluated whenever a
-    reading is taken (voltage, current, mode, output status, or a trip state), not continuously,
-    so a fault removed before the next reading never trips. `InstroPSU`'s background polling
-    reads every channel, which keeps the check current. Remote sense and the overvoltage
-    protection delay are stored and have no effect on readings. To exercise the VISA transport
-    as well, use `SimulatedPSU` with the bundled SCPI simulator.
+    alone also clears the latch, as on the SCPI simulator. As there, protection is checked after
+    every change that can move the output (setpoints, protection settings, output enable, and
+    the load), so a fault trips when it happens, and readings never change state. Remote sense
+    and the overvoltage protection delay are stored and have no effect on readings. To exercise
+    the VISA transport as well, use `SimulatedPSU` with the bundled SCPI simulator.
     """
 
     def __init__(
@@ -120,6 +119,7 @@ class VirtualPSU(PSUDriverBase):
         channels = self._channels.values() if channel is None else [self._channel(channel)]
         for state in channels:
             state.load_resistance = resistance
+            _check_protection(state)
 
     def get_load_resistance(self, channel: int) -> float:
         """Return the load resistance on ``channel``, in ohms."""
@@ -132,17 +132,21 @@ class VirtualPSU(PSUDriverBase):
         """Nothing to disconnect."""
 
     def set_voltage(self, voltage: float, channel: int) -> None:
-        self._channel(channel).voltage_setpoint = _check_range("voltage", voltage, DEFAULT_VOLTAGE_MAX, "V")
+        state = self._channel(channel)
+        state.voltage_setpoint = _check_range("voltage", voltage, DEFAULT_VOLTAGE_MAX, "V")
+        _check_protection(state)
 
     def get_voltage(self, channel: int) -> float:
-        voltage, _, _ = self._regulate(channel)
+        voltage, _, _ = _operating_point(self._channel(channel))
         return _add_noise(voltage)
 
     def set_current_limit(self, current_limit: float, channel: int) -> None:
-        self._channel(channel).current_limit = _check_range("current_limit", current_limit, DEFAULT_CURRENT_MAX, "A")
+        state = self._channel(channel)
+        state.current_limit = _check_range("current_limit", current_limit, DEFAULT_CURRENT_MAX, "A")
+        _check_protection(state)
 
     def get_current(self, channel: int) -> float:
-        _, current, _ = self._regulate(channel)
+        _, current, _ = _operating_point(self._channel(channel))
         return _add_noise(current)
 
     def output_enable(self, enable: bool, channel: int) -> None:
@@ -151,9 +155,9 @@ class VirtualPSU(PSUDriverBase):
             state.overvoltage_protection_tripped = False
             state.overcurrent_protection_tripped = False
         state.output_enabled = enable
+        _check_protection(state)
 
     def get_output_status(self, channel: int) -> bool:
-        self._regulate(channel)
         return self._channel(channel).output_enabled
 
     def get_voltage_setpoint(self, channel: int) -> float:
@@ -163,18 +167,23 @@ class VirtualPSU(PSUDriverBase):
         return self._channel(channel).current_limit
 
     def get_operating_mode(self, channel: int) -> OperatingMode:
-        _, _, mode = self._regulate(channel)
+        _, _, mode = _operating_point(self._channel(channel))
         return mode
 
     def set_overvoltage_protection_level(self, voltage: float, channel: int) -> None:
-        level = _check_range("overvoltage protection level", voltage, DEFAULT_VOLTAGE_MAX, "V")
-        self._channel(channel).overvoltage_protection_level = level
+        state = self._channel(channel)
+        state.overvoltage_protection_level = _check_range(
+            "overvoltage protection level", voltage, DEFAULT_VOLTAGE_MAX, "V"
+        )
+        _check_protection(state)
 
     def get_overvoltage_protection_level(self, channel: int) -> float:
         return self._channel(channel).overvoltage_protection_level
 
     def set_overvoltage_protection_enabled(self, enabled: bool, channel: int) -> None:
-        self._channel(channel).overvoltage_protection_enabled = enabled
+        state = self._channel(channel)
+        state.overvoltage_protection_enabled = enabled
+        _check_protection(state)
 
     def get_overvoltage_protection_enabled(self, channel: int) -> bool:
         return self._channel(channel).overvoltage_protection_enabled
@@ -187,14 +196,19 @@ class VirtualPSU(PSUDriverBase):
         return self._channel(channel).overvoltage_protection_delay
 
     def set_overcurrent_protection_level(self, current: float, channel: int) -> None:
-        level = _check_range("overcurrent protection level", current, DEFAULT_CURRENT_MAX, "A")
-        self._channel(channel).overcurrent_protection_level = level
+        state = self._channel(channel)
+        state.overcurrent_protection_level = _check_range(
+            "overcurrent protection level", current, DEFAULT_CURRENT_MAX, "A"
+        )
+        _check_protection(state)
 
     def get_overcurrent_protection_level(self, channel: int) -> float:
         return self._channel(channel).overcurrent_protection_level
 
     def set_overcurrent_protection_enabled(self, enabled: bool, channel: int) -> None:
-        self._channel(channel).overcurrent_protection_enabled = enabled
+        state = self._channel(channel)
+        state.overcurrent_protection_enabled = enabled
+        _check_protection(state)
 
     def get_overcurrent_protection_enabled(self, channel: int) -> bool:
         return self._channel(channel).overcurrent_protection_enabled
@@ -205,11 +219,9 @@ class VirtualPSU(PSUDriverBase):
         state.overcurrent_protection_tripped = False
 
     def get_overvoltage_protection_tripped(self, channel: int) -> bool:
-        self._regulate(channel)
         return self._channel(channel).overvoltage_protection_tripped
 
     def get_overcurrent_protection_tripped(self, channel: int) -> bool:
-        self._regulate(channel)
         return self._channel(channel).overcurrent_protection_tripped
 
     def set_remote_sense_enabled(self, enabled: bool, channel: int) -> None:
@@ -224,31 +236,32 @@ class VirtualPSU(PSUDriverBase):
             raise ValueError(f"VirtualPSU has channels 1 to {self.num_channels}, got {channel}")
         return self._channels[channel]
 
-    def _regulate(self, channel: int) -> tuple[float, float, OperatingMode]:
-        """Return the noise-free ``(voltage, current, mode)`` on ``channel``, tripping protection first."""
-        state = self._channel(channel)
-        if not state.output_enabled:
-            return 0.0, 0.0, OperatingMode.OFF
 
-        resistance = state.load_resistance
-        if resistance == 0:
-            demand = math.inf if state.voltage_setpoint > 0 else 0.0
-        else:
-            demand = state.voltage_setpoint / resistance
-        if demand <= state.current_limit:
-            voltage, current, mode = state.voltage_setpoint, demand, OperatingMode.CONSTANT_VOLTAGE
-        else:
-            current, mode = state.current_limit, OperatingMode.CONSTANT_CURRENT
-            voltage = current * resistance
-
-        if state.overvoltage_protection_enabled and voltage > state.overvoltage_protection_level:
-            state.overvoltage_protection_tripped = True
-        elif state.overcurrent_protection_enabled and current > state.overcurrent_protection_level:
-            state.overcurrent_protection_tripped = True
-        else:
-            return voltage, current, mode
-        state.output_enabled = False
+def _operating_point(state: _ChannelState) -> tuple[float, float, OperatingMode]:
+    """Return the noise-free ``(voltage, current, mode)`` of a channel."""
+    if not state.output_enabled:
         return 0.0, 0.0, OperatingMode.OFF
+
+    resistance = state.load_resistance
+    if resistance == 0:
+        demand = math.inf if state.voltage_setpoint > 0 else 0.0
+    else:
+        demand = state.voltage_setpoint / resistance
+    if demand <= state.current_limit:
+        return state.voltage_setpoint, demand, OperatingMode.CONSTANT_VOLTAGE
+    return state.current_limit * resistance, state.current_limit, OperatingMode.CONSTANT_CURRENT
+
+
+def _check_protection(state: _ChannelState) -> None:
+    """Trip an enabled protection the output now exceeds, latching the output off."""
+    voltage, current, _ = _operating_point(state)
+    if state.overvoltage_protection_enabled and voltage > state.overvoltage_protection_level:
+        state.overvoltage_protection_tripped = True
+    elif state.overcurrent_protection_enabled and current > state.overcurrent_protection_level:
+        state.overcurrent_protection_tripped = True
+    else:
+        return
+    state.output_enabled = False
 
 
 def _check_range(name: str, value: float, maximum: float, unit: str) -> float:
