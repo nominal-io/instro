@@ -418,6 +418,7 @@ dependencies = [
  "chrono",
  "instro-opcua",
  "itertools",
+ "paste",
  "pyo3",
  "tokio",
  "tracing",

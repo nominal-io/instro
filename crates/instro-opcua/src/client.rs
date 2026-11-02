@@ -62,6 +62,7 @@ use futures_util::stream::select_all;
 use itertools::Itertools as _;
 use open62541::AsyncClient;
 use open62541::AsyncMonitoredItem;
+use open62541::Attribute;
 use open62541::Certificate;
 use open62541::ClientBuilder as UaClientBuilder;
 use open62541::DataType;
@@ -99,7 +100,7 @@ pub fn get_endpoints(endpoint_url: &str) -> Result<ua::Array<ua::EndpointDescrip
         .with_ua_context(|| format!("getting endpoints for '{endpoint_url}'"))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Wraps an [`AsyncClient`] with high-performance telemetry-streaming-oriented API designed for long-lived applications.
 ///
 /// The client is configured and created via [`ClientBuilder`].
@@ -209,6 +210,15 @@ impl Client {
         }
 
         Ok(node_list.keys().zip(read_result))
+    }
+
+    pub async fn read_node<A: Attribute>(&self, node: &ua::NodeId, attr: A) -> Result<DataValue<A::Value>> {
+        self.with_client(async |client| {
+            client
+                .read_attribute(node, attr)
+                .await
+                .with_ua_context(|| format!("reading attribute of node '{node}'"))
+        }).await?
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
