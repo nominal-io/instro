@@ -1,5 +1,6 @@
 """Unit tests for PlotlyPublisher trace building."""
 
+import threading
 from datetime import timedelta
 
 import plotly.graph_objects as go  # type: ignore[import-untyped]
@@ -53,3 +54,24 @@ def test_existing_traces_on_the_figure_are_kept():
     publisher.publish(Measurement(channel_data={"dmm.voltage": [0.5]}, timestamps=[T0]))
 
     assert [t.name for t in figure.data] == ["existing", "dmm.voltage"]
+
+
+def test_concurrent_publishes_keep_every_point_on_one_trace():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure)
+    num_threads, publishes = 8, 50
+    barrier = threading.Barrier(num_threads)
+
+    def publish_many():
+        barrier.wait()
+        for i in range(publishes):
+            publisher.publish(Measurement(channel_data={"psu.voltage": [1.0]}, timestamps=[T0 + i]))
+
+    threads = [threading.Thread(target=publish_many) for _ in range(num_threads)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    (trace,) = figure.data
+    assert len(trace.x) == len(trace.y) == num_threads * publishes

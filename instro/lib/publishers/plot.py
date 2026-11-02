@@ -1,5 +1,6 @@
 """Publisher that plots Measurement/Command data on a Plotly figure."""
 
+import threading
 from datetime import datetime
 
 import plotly.graph_objects as go  # type: ignore[import-untyped]
@@ -26,6 +27,7 @@ class PlotlyPublisher:
             figure: Figure to plot on. A ``go.FigureWidget`` updates live in a notebook.
         """
         self.figure = figure
+        self._lock = threading.Lock()
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Append ``data`` to its channels' traces."""
@@ -40,12 +42,13 @@ class PlotlyPublisher:
         if not values or isinstance(values[0], str):
             return
         x = [datetime.fromtimestamp(t / 1e9) for t in timestamps]
-        trace = next(self.figure.select_traces(selector={"name": channel}), None)
-        if trace is None:
-            self.figure.add_scatter(x=x, y=values, name=channel)
-        else:
-            trace.x = (*trace.x, *x)
-            trace.y = (*trace.y, *values)
+        # Background polling and foreground reads publish from different threads.
+        with self._lock:
+            trace = next(self.figure.select_traces(selector={"name": channel}), None)
+            if trace is None:
+                self.figure.add_scatter(x=x, y=values, name=channel)
+            else:
+                trace.update(x=(*trace.x, *x), y=(*trace.y, *values))
 
     def close(self) -> None:
         """No-op; the caller owns the figure."""
