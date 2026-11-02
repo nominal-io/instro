@@ -20,6 +20,12 @@ macro_rules! ua_struct {
             }
         }
 
+        impl From<$this_t> for ::instro_opcua::open62541::ua::$this_t {
+            fn from(value: $this_t) -> ::instro_opcua::open62541::ua::$this_t {
+                value.0
+            }
+        }
+
         impl $this_t {
             #[allow(unused, reason = "not used for all structs")]
             pub(crate) const fn new(value: ::instro_opcua::open62541::ua::$this_t) -> Self {
@@ -361,7 +367,8 @@ impl RelativePath {
     }
 
     #[getter]
-    pub fn elements(&self) -> Vec<RelativePathElement> {
+    #[pyo3(name = "elements")]
+    pub fn elements_py(&self) -> Vec<RelativePathElement> {
         self.0
             .elements()
             .unwrap_or(&[])

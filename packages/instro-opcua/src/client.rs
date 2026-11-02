@@ -46,13 +46,13 @@ impl Session {
         _exc_value: Option<Bound<'_, PyAny>>,
         _traceback: Option<Bound<'_, PyAny>>,
     ) -> PyResult<bool> {
-        py.detach(|| {
+        self.0.unblock_on(py, async {
             if let Some(session) = self.1.take() {
-                self.0.block_on(session.stop());
+                session.stop().await
             }
+        })?;
 
-            Ok(false)
-        })
+        Ok(true)
     }
 }
 
@@ -318,10 +318,9 @@ impl OpcUaClient {
         Ok(Self { client, rt })
     }
 
-    pub fn disconnect(&mut self, py: Python<'_>) {
-        py.detach(|| {
-            self.rt.block_on(self.client.disconnect());
-        });
+    pub fn disconnect(&mut self, py: Python<'_>) -> PyResult<()> {
+        self.rt
+            .unblock_on(py, async { self.client.disconnect().await })
     }
 
     #[pyo3(signature = (
@@ -407,16 +406,14 @@ impl OpcUaClient {
             })
         };
 
-        let session = py.detach(|| {
-            self.rt
-                .block_on(
-                    self.client
-                        .start_subscription(&nodes, sub_config, item_config, on_data),
-                )
+        let session = self.rt.unblock_on(py, async {
+            self.client
+                .start_subscription(&nodes, sub_config, item_config, on_data)
+                .await
                 .map_err(|e| {
                     PyRuntimeError::new_err(format!("failed to start subscription: '{e}'"))
                 })
-        })?;
+        })??;
 
         Ok(Session::new(self, session))
     }
@@ -432,7 +429,7 @@ impl OpcUaClient {
         _exc_value: Option<Bound<'py, PyAny>>,
         _traceback: Option<Bound<'py, PyAny>>,
     ) -> PyResult<bool> {
-        self.disconnect(py);
+        self.disconnect(py)?;
         Ok(false)
     }
 
@@ -451,6 +448,7 @@ impl OpcUaClient {
         Node::types(self.clone())
     }
 
+    #[pyo3(signature = (path: "types.RelativePath | str") -> "Node")]
     pub fn get_node(&self, py: Python<'_>, path: Bound<'_, PyAny>) -> PyResult<Node> {
         let path = py_match! {
             path: RelativePath = path => path,
@@ -466,7 +464,7 @@ impl OpcUaClient {
         .as_ua_ref()
         .clone();
 
-        self.rt.unblock_on(py, async || {
+        self.rt.unblock_on(py, async {
             let path = ua::BrowsePath::init()
                 .with_relative_path(&path)
                 .with_starting_node(&ROOT_FOLDER_ID);
@@ -487,7 +485,7 @@ impl OpcUaClient {
                 node_id,
                 browse_path,
             })
-        })
+        })?
     }
 }
 
@@ -577,11 +575,49 @@ impl Node {
         BrowsePath::new(self.browse_path.clone())
     }
 
-    pub fn get_child(&self, py: Python<'_>, path: &str) -> PyResult<Self> {
-        self.client.rt.unblock_on(py, async || {
-            let child_path: ua::RelativePath = path
-                .parse()
-                .map_err(|e| PyValueError::new_err(format!("invalid relative path: '{e}'")))?;
+    #[pyo3(signature = (path: "types.RelativePath | str") -> "Node")]
+    pub fn get_child(&self, py: Python<'_>, path: Bound<'_, PyAny>) -> PyResult<Self> {
+        let child_path = py_match! {
+            #[extract]
+            path: RelativePath = path => path,
+
+            #[extract]
+            path: &str = path => RelativePath::parse(path)?,
+
+            else => {
+                Err(PyValueError::new_err(format!("invalid path: '{path}'")))?
+            }
+        };
+
+        if child_path.is_empty() {
+            Err(PyValueError::new_err(format!(
+                "invalid relative path: '{path}'"
+            )))?;
+        }
+
+        self.client.rt.unblock_on(py, async {
+            // scope the browse path translation to the parent
+            let path = ua::BrowsePath::init()
+                .with_starting_node(self.node_id().as_ua_ref())
+                .with_relative_path(
+                    #[expect(
+                        clippy::unwrap_used,
+                        reason = "`child_path.is_empty()` is checked above"
+                    )]
+                    &ua::RelativePath::init().with_elements(child_path.elements().unwrap()),
+                );
+
+            #[expect(
+                clippy::unwrap_used,
+                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
+            )]
+            let (_, node_id) = self
+                .client
+                .translate_browse_paths(vec![path])
+                .await?
+                .into_iter()
+                .next()
+                .unwrap();
 
             let all_elements = self
                 .browse_path
@@ -591,35 +627,24 @@ impl Node {
                 .cloned()
                 .collect_vec();
 
-            let path = ua::BrowsePath::init()
-                .with_starting_node(&ROOT_FOLDER_ID)
-                .with_relative_path(
-                    &ua::RelativePath::init().with_elements(all_elements.as_slice()),
-                );
+            let path = ua::RelativePath::init().with_elements(all_elements.as_slice());
 
-            #[expect(
-                clippy::unwrap_used,
-                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
-            )]
-            let (browse_path, node_id) = self
-                .client
-                .translate_browse_paths(vec![path])
-                .await?
-                .into_iter()
-                .next()
-                .unwrap();
+            // normalize the path to be rooted at the root folder
+            let browse_path = ua::BrowsePath::init()
+                .with_starting_node(&ROOT_FOLDER_ID)
+                .with_relative_path(&path);
 
             Ok(Self {
                 client: self.client.clone(),
                 node_id,
                 browse_path,
             })
-        })
+        })?
     }
 
     #[getter]
     pub fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
-        self.client.rt.unblock_on(py, async || {
+        self.client.rt.unblock_on(py, async {
             let my_path = self.browse_path.relative_path().elements().unwrap_or(&[]);
 
             static HIERARCHICAL_NODE_ID: LazyLock<ua::NodeId> =
@@ -705,12 +730,12 @@ impl Node {
                     }
                 })
                 .collect_vec())
-        })
+        })?
     }
 
     #[pyo3(name = "get_attribute")]
     pub fn get_attribute_py(&self, py: Python<'_>, attr: AttributeId) -> PyResult<DataValue> {
-        self.client.rt.unblock_on(py, async || {
+        self.client.rt.unblock_on(py, async {
             let result = self
                 .client
                 .read_node(&self.node_id, &attr.as_ua())
@@ -718,7 +743,7 @@ impl Node {
                 .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))?;
 
             Ok(DataValue::new(result))
-        })
+        })?
     }
 
     #[getter]
@@ -771,12 +796,12 @@ impl Node {
         py: Python<'_>,
         attr: A,
     ) -> PyResult<open62541::DataValue<A::Value>> {
-        self.client.rt.unblock_on(py, async || {
+        self.client.rt.unblock_on(py, async {
             self.client
                 .read_node(&self.node_id, attr)
                 .await
                 .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))
-        })
+        })?
     }
 }
 

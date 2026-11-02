@@ -1,6 +1,5 @@
 import datetime
 import typing
-import uuid
 from collections.abc import Sequence
 from typing import Any, final
 
@@ -37,17 +36,49 @@ class EndpointDescription:
 class OpcUaClient:
     def __enter__(self, /) -> OpcUaClient: ...
     def __exit__(self, /, _exc_type: Any |None, _exc_value: Any |None, _traceback: Any |None) -> bool: ...
+    def get_node(self, /, path: types.RelativePath) -> Node: ...
+
     @staticmethod
-    def connect(endpoint_url: str, *, username: str |None = None, password: str |None = None, cert: bytes |None = None, private_key: bytes |None = None, ignore_server_cert: bool = False, use_generated_cert: bool = False, security_mode: "typing.Literal['none', 'sign', 'signandencrypt'] | None" = None, security_policy: "typing.Literal['none', 'basic128rsa15', 'basic256', 'basic256sha256', 'aes128sha256rsaoaep', 'aes256sha256rsapss'] | None" = None, timeout: "float | datetime.timedelta | None" = None) -> OpcUaClient: ...
+    def connect(
+        endpoint_url: str,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+        cert: bytes | None = None,
+        private_key: bytes | None = None,
+        ignore_server_cert: bool = False,
+        use_generated_cert: bool = False,
+        security_mode: typing.Literal['none', 'sign', 'signandencrypt'] | None = None,
+        security_policy: typing.Literal['none', 'basic128rsa15', 'basic256', 'basic256sha256', 'aes128sha256rsaoaep', 'aes256sha256rsapss'] | None = None,
+        timeout: float | datetime.timedelta | None = None,
+    ) -> OpcUaClient: ...
+
     def disconnect(self, /) -> None: ...
+
+    def subscribe(
+        self,
+        /,
+        on_data: typing.Callable[[list[tuple[types.NodeId, types.DataValue]]], None],
+        nodes: Sequence[types.NodeId | types.RelativePath | str],
+        freq_hz: float,
+        bg_poll_freq_hz: float | None = None,
+        lifetime_count: int | None = None,
+        max_keep_alive_count: int | None = None,
+        max_notifications_per_publish: int | None = None,
+        priority: int | None = None,
+        publish_freq_hz: float | None = None,
+        queue_size: int | None = None,
+        discard_oldest: bool = True,
+    ) -> Session: ...
+
     @property
     def objects(self, /) -> Any: ...
-    def subscribe(self, /, on_data: "typing.Callable[[list[tuple[types.NodeId, types.DataValue]]], None]", nodes: Sequence[Any], freq_hz: float, bg_poll_freq_hz: float |None = None, lifetime_count: int |None = None, max_keep_alive_count: int |None = None, max_notifications_per_publish: int |None = None, priority: int |None = None, publish_freq_hz: float |None = None, queue_size: int |None = None, discard_oldest: bool = True) -> Session: ...
-    @property
-    def types(self, /) -> Any: ...
+
     @property
     def views(self, /) -> Any: ...
-    def get_node(self, /, path: "types.RelativePath") -> Node: ...
+
+    @property
+    def types(self, /) -> Any: ...
 
 @final
 class Session:
@@ -64,7 +95,9 @@ class Node:
     @property
     def value(self, /) -> types.DataValue: ...
     @property
-    def display_name(self, /) -> "types.QualifiedName": ...
+    def display_name(self, /) -> str: ...
+    @property
+    def browse_name(self, /) -> types.QualifiedName: ...
     @property
     def description(self, /) -> str: ...
     @property
@@ -72,5 +105,5 @@ class Node:
     @property
     def browse_path(self, /) -> types.BrowsePath: ...
     def get_child(self, /, path: str) -> Node: ...
-    def get_attribute(self, /, attr: "types.AttributeId | str") -> types.DataValue: ...
+    def get_attribute(self, /, attr: types.AttributeId | str) -> types.DataValue: ...
     def __repr__(self, /) -> str: ...

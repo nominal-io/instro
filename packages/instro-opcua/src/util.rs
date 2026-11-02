@@ -1,22 +1,46 @@
+use pyo3::PyResult;
 use pyo3::Python;
-use pyo3::marker::Ungil;
+use pyo3::exceptions::PyRuntimeError;
+use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
+use tokio::runtime::RuntimeFlavor;
+use tokio::task;
 
 pub trait RuntimeExt {
-    fn unblock_on<F, T, U>(&self, py: Python<'_>, f: F) -> U
+    /// Drives the completion of the provided future while releasing the GIL
+    /// associated with the provided Python interpreter. Use this instead of
+    /// `block_on` to allow the interpreter to continue working while waiting
+    /// for long-lived async operations to complete.
+    ///
+    /// If the current thread is associated with an existing multi-threaded
+    /// runtime, the future will be driven on a newly spawned thread to avoid
+    /// nested `block_on` calls. If the current thread is associated with a
+    /// current-thread runtime, the call will fail immediately at runtime and
+    fn unblock_on<F, U>(&self, py: Python<'_>, f: F) -> PyResult<U>
     where
-        F: FnOnce() -> T + Send,
-        T: Future<Output = U>,
-        U: Ungil;
+        F: Future<Output = U> + Send,
+        U: Send;
 }
 
-impl RuntimeExt for tokio::runtime::Runtime {
-    fn unblock_on<F, T, U>(&self, py: Python<'_>, f: F) -> U
+impl RuntimeExt for Runtime {
+    fn unblock_on<F, U>(&self, py: Python<'_>, f: F) -> PyResult<U>
     where
-        F: FnOnce() -> T + Send,
-        T: Future<Output = U>,
-        U: Ungil,
+        F: Future<Output = U> + Send,
+        U: Send,
     {
-        py.detach(|| self.block_on(f()))
+        py.detach(|| {
+            // need to escape the existing runtime to avoid weirdness with nested `block_on` calls
+            if Handle::try_current()
+                .is_ok_and(|h| h.runtime_flavor() == RuntimeFlavor::CurrentThread)
+            {
+                Err(PyRuntimeError::new_err(
+                    "avoiding deadlock: attempted to call `block_on` from within the worker \
+                     thread of a current-thread runtime",
+                ))
+            } else {
+                task::block_in_place(|| Ok(self.block_on(f)))
+            }
+        })
     }
 }
 
