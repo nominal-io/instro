@@ -29,6 +29,8 @@ eload = InstroELoad(
 :::{driver-cards} eload
 :::
 
+- **Virtual**: no hardware or server; the load and its source simulated in-process (`VirtualELoad`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
+
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#electronic-load-eload), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
 ## Example
@@ -133,6 +135,8 @@ Where `bench_eload.json` contains:
   ]
 }
 ```
+
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualELoad"}`.
 
 See [Config Files](/library/config-files.md) for the full field reference.
 
