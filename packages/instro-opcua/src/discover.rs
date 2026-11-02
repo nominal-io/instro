@@ -30,7 +30,7 @@ impl EndpointDescription {
         match self.0.security_mode().as_u32() {
             ua::MessageSecurityMode::NONE_U32 => "none",
             ua::MessageSecurityMode::SIGN_U32 => "sign",
-            ua::MessageSecurityMode::SIGNANDENCRYPT_U32 => "sign_and_encrypt",
+            ua::MessageSecurityMode::SIGNANDENCRYPT_U32 => "signandencrypt",
             _ => "unknown",
         }
     }
