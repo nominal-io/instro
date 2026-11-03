@@ -4,7 +4,9 @@ Each ``examples/<category>/*.py`` becomes a page showing the script, titled from
 first line of its module docstring (sentence case, without an "Example:" prefix) and
 described by the rest; each category gets an index. Examples inside the
 ``instro-unstable`` and ``instro-contrib`` packages go under ``examples/packages/<pkg>/``
-with the package's caveat. Nothing here is hand-maintained: add a script and it appears.
+with the package's caveat. Each MyST notebook in ``examples/notebooks/`` is copied to
+``examples/notebooks/`` here, where myst-nb runs it as the docs build. Nothing here is
+hand-maintained: add a script or notebook and it appears.
 Files are only rewritten when their content changes, so live preview doesn't loop.
 """
 
@@ -83,6 +85,15 @@ def _front_matter(description: str) -> str:
     return f"---\nmyst:\n  html_meta:\n    description: {json.dumps(description)}\n---\n\n"
 
 
+def _notebook_page(text: str, stem: str) -> tuple[str, str]:
+    """A notebook's title, from its first ``#`` heading, and its text with a meta description added."""
+    head, _, body = text.partition("\n---\n")
+    title = next((line[2:].strip() for line in body.splitlines() if line.startswith("# ")), stem)
+    lead = next((" ".join(para.split()) for para in body.split("\n\n") if para.strip() and para[0].isalpha()), "")
+    description = json.dumps(f"instro notebook example: {title}. {lead}".replace("`", "").strip())
+    return title, f"{head}\nmyst:\n  html_meta:\n    description: {description}\n---\n{body}"
+
+
 def _page(py: Path, repo: Path, title: str, callout: str = "") -> str:
     rel = py.relative_to(repo).as_posix()
     return (
@@ -118,6 +129,16 @@ def generate(app: Sphinx) -> None:
     for folder, entries in categories.items():
         files[out / folder / "index.md"] = _index(_title(folder), entries)
 
+    notebooks: list[tuple[str, str]] = []
+    for md in sorted((repo / "examples" / "notebooks").glob("*.md")):
+        text = md.read_text(encoding="utf-8")
+        if not text.startswith("---\n") or "\nkernelspec:" not in text.partition("\n---\n")[0]:
+            continue
+        title, page = _notebook_page(text, md.stem)
+        files[out / "notebooks" / md.name] = page
+        _SOURCES[f"examples/notebooks/{md.stem}"] = md.relative_to(repo).as_posix()
+        notebooks.append((title, md.stem))
+
     for slug, (title, dist, kind, callout) in PACKAGES.items():
         src = repo / "packages" / dist / "instro" / slug
         sections: dict[str, list[tuple[str, str]]] = {}
@@ -149,11 +170,21 @@ def generate(app: Sphinx) -> None:
         f":::{{grid-item-card}} {title}\n:link: /examples/packages/{slug}/index\n:link-type: doc\n:::\n\n"
         for slug, (title, *_) in PACKAGES.items()
     )
+    notebook_cards = "".join(
+        f":::{{grid-item-card}} {{octicon}}`book` {title}\n:link: /examples/notebooks/{stem}\n:link-type: doc\n:::\n\n"
+        for title, stem in notebooks
+    )
     files[out / "index.md"] = (
         "# Examples\n\n{.lead}\nFull, runnable examples, organized by instrument type. The source is in "
         "[`examples/`](https://github.com/nominal-io/instro/tree/main/examples).\n\n"
         f"## By category\n\n::::{{grid}} 1 2 3 3\n:gutter: 2\n\n{cards}::::\n\n"
-        f"## Additional packages\n\n::::{{grid}} 1 2 3 3\n:gutter: 2\n\n{packages}::::\n"
+        + (
+            "## Notebooks\n\nNotebooks run as the docs build, so each page shows its real output.\n\n"
+            f"::::{{grid}} 1 2 3 3\n:gutter: 2\n\n{notebook_cards}::::\n\n"
+            if notebooks
+            else ""
+        )
+        + f"## Additional packages\n\n::::{{grid}} 1 2 3 3\n:gutter: 2\n\n{packages}::::\n"
     )
 
     for path, text in files.items():

@@ -12,7 +12,7 @@ kernelspec:
 
 Watch a bench power supply from a notebook: its settings, the latest value of every channel, and what each publisher has done with the data. Instruments and publishers display as cards, described in the [notebook display guide](https://github.com/nominal-io/instro/blob/main/docs/library/notebook-display.md).
 
-The example runs without hardware or Nominal credentials. It uses a `VirtualPSU`, a local file publisher and an offline stand-in for a Nominal dataset. To show a real dataset, set `DATASET_RID` in the first cell.
+The example uses a `VirtualPSU`, so it needs no hardware. With a `default` Nominal [profile](https://docs.nominal.io/core/sdk/python-client/authentication), it streams the supply's channels to a Nominal dataset. Without one, it uses an offline stand-in for the dataset and uploads nothing.
 
 From a clone of the repository, `just notebook` opens this file in JupyterLab: right-click `notebook_display.md` and choose **Open With → Jupytext Notebook**.
 
@@ -26,7 +26,8 @@ from instro.lib.types import BackgroundDaemonConfig
 from instro.psu import InstroPSU
 from instro.psu.drivers import VirtualPSU
 
-# A dataset RID to write to with your "default" Nominal profile, or None for an offline stand-in.
+# A dataset RID to stream to with your "default" Nominal profile. With None, the example finds or
+# creates its own dataset in that profile's workspace.
 DATASET_RID = None
 
 # The file publisher writes JSON Lines here.
@@ -75,35 +76,65 @@ psu
 
 ## Publisher cards
 
-Each publisher has its own card. `NominalCorePublisher` shows the dataset with an **Open in Nominal** link, the RID with a copy button, and where the credentials came from. It never shows an API key.
-
+Each publisher has its own card. This one is the file publisher inside the `QueuedPublisher`.
 
 ```{code-cell} ipython3
+psu.publishers[0].publisher
+```
+
+## Stream to Nominal
+
+A `NominalCorePublisher` streams every value the instrument publishes to a Nominal dataset. Add it to the running instrument with `add_publisher`, and the instrument's card lists it with a link to the dataset and a count of what it has sent. A publisher only gets values published after you add it, so the current limit set above isn't in the dataset.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+# Find the dataset to stream to: DATASET_RID, or this example's dataset in your "default"
+# profile's workspace, created on the first run. Without a profile, use an offline stand-in
+# so the notebook still runs. The docs page collapses this cell.
 from unittest.mock import MagicMock, create_autospec
 
-from nominal.core import Dataset
+from nominal.config import NominalConfig
+from nominal.core import Dataset, NominalClient
+from nominal.exceptions import NominalConfigError
 from nominal_streaming import NominalDatasetStream
 
-from instro.lib.publishers import NominalCorePublisher
+EXAMPLE_PROPERTIES = {"example": "instro-notebook-display"}
 
-if DATASET_RID:
-    nominal = NominalCorePublisher(DATASET_RID)
-else:
-    # An offline stand-in for a Nominal dataset, so the card renders without a network.
-    stand_in = create_autospec(Dataset, instance=True)
-    stand_in.rid = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"
-    stand_in.name = "bench_psu run (offline stand-in)"
+try:
+    NominalConfig.from_yaml().get_profile("default")
+    client = NominalClient.from_profile("default")
+except (FileNotFoundError, NominalConfigError):
+    client = None
+
+if client is None:
+    dataset = create_autospec(Dataset, instance=True)
+    dataset.rid = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"
+    dataset.name = "bench_psu run (offline stand-in)"
     stream = create_autospec(NominalDatasetStream, instance=True)
     stream._impl = MagicMock()
-    stand_in.get_write_stream.return_value = stream
-    type(stand_in).nominal_url = property(lambda _: "https://app.gov.nominal.io/")
-    nominal = NominalCorePublisher(dataset=stand_in)
-
-nominal
+    dataset.get_write_stream.return_value = stream
+    type(dataset).nominal_url = property(lambda _: "https://app.gov.nominal.io/")
+    print("No 'default' Nominal profile: using an offline stand-in, so nothing is uploaded.")
+elif DATASET_RID:
+    dataset = client.get_dataset(DATASET_RID)
+else:
+    found = client.search_datasets(properties=EXAMPLE_PROPERTIES)
+    dataset = found[0] if found else client.create_dataset(
+        "instro notebook display example",
+        description="Channels streamed by instro's notebook display example.",
+        properties=EXAMPLE_PROPERTIES,
+    )
 ```
 
 ```{code-cell} ipython3
-psu.publishers[0].publisher  # the FilePublisher inside the QueuedPublisher
+from instro.lib.publishers import NominalCorePublisher
+
+# Credentials come from the dataset; pass dataset_rid= and profile= instead to look it up here.
+nominal = NominalCorePublisher(dataset=dataset)
+psu.add_publisher(nominal)
+time.sleep(2.0)
+psu
 ```
 
 ## A failing publisher
@@ -175,8 +206,9 @@ for step in range(10):
 
 ## Clean up
 
+Closing the instrument stops the daemon, flushes the stream to Nominal, and closes every publisher. The Nominal publisher's card then links to the dataset with everything this notebook sent.
+
 ```{code-cell} ipython3
-# Stops the daemon and closes the supply and every publisher.
 psu.close()
-psu
+nominal
 ```
