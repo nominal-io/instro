@@ -33,6 +33,14 @@ python *args:
 test-python:
     uv run pytest
 
+# open the example notebooks in JupyterLab; open one with Open With → Jupytext Notebook
+notebook *args:
+    uv run --with jupyterlab --with jupytext jupyter lab examples/notebooks "$@"
+
+# run every example notebook from top to bottom, failing on the first cell that raises
+test-notebooks:
+    for nb in examples/notebooks/*.md; do echo "$nb"; uv run --with jupytext --with nbconvert --with ipykernel sh -c 'jupytext --from myst --to ipynb --output - "$1" | jupyter nbconvert --stdin --stdout --to notebook --execute --log-level=WARN > /dev/null' _ "$nb" || exit 1; done
+
 # run Rust library, integration, and doc tests for the workspace
 test-rust:
     cargo nextest run --workspace --all-features --all-targets

@@ -34,6 +34,8 @@ A card is built only from what `instro` already holds in memory. Displaying an i
 
 Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card shows the dataset with an **Open in Nominal** link, its RID with a copy button, where the credentials came from, and the stream settings. It never shows an API key.
 
+To try it, run `just notebook` from the repository root and open `notebook_display.md` with **Open With → Jupytext Notebook**. It needs no hardware or Nominal credentials.
+
 ## Display options
 
 {py:func}`~instro.lib._display.set_display_options` changes every card, as a call or for the length of a `with` block:
