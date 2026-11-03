@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-opcua-rs-v1.1.0...instro-opcua-rs-v1.2.0) (2026-10-23)
+
+
+### Features
+
+* **opcua:** add OpcUaAttributeId ([#541](https://github.com/nominal-io/instro/issues/541)) ([d7d0bb9](https://github.com/nominal-io/instro/commit/d7d0bb986744cfafa81877073ed9d8e3112a94e7))
+* **opcua:** convert NodeId from borrowed OpcUaNodeId ([#542](https://github.com/nominal-io/instro/issues/542)) ([c990c8b](https://github.com/nominal-io/instro/commit/c990c8b58afa94a1ce0b5cf6a7f87d934de7cdce))
+* **opcua:** extend `OpcUaValue` type ([#573](https://github.com/nominal-io/instro/issues/573)) ([c5a3dfb](https://github.com/nominal-io/instro/commit/c5a3dfbe8df7c033549b5773502810ca22a40ef4))
+* **opcua:** fix client synchronization primitives ([#590](https://github.com/nominal-io/instro/issues/590)) ([8743528](https://github.com/nominal-io/instro/commit/874352857f39e772a440f2fde5a5662136bebb4c))
+
+
+### Bug Fixes
+
+* **opcua:** recurse all node classes when browsing ([#540](https://github.com/nominal-io/instro/issues/540)) ([3fdf98a](https://github.com/nominal-io/instro/commit/3fdf98a060041e12a4499e8d3ac06a137f9ca451))
+
 ## [1.1.0](https://github.com/nominal-io/instro/compare/instro-opcua-rs-v1.0.0...instro-opcua-rs-v1.1.0) (2026-07-26)
 
 

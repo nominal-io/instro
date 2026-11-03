@@ -15,11 +15,30 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       paths_released: ${{ steps.release.outputs.paths_released }}
+    env:
+      # `if:` cannot read the secrets context, so resolve availability here.
+      USE_APP_TOKEN: ${{ secrets.NOMBOT_APP_ID != '' && secrets.NOMBOT_PRIVATE_KEY != '' }}
     steps:
+      # A GitHub App installation gets its own API rate limit instead of sharing
+      # nominal-bot's 5,000/hour with Renovate and every other repo (#468). The
+      # token must be minted in this job: app tokens are scrubbed at job boundaries.
+      - name: Get app token for release-please
+        id: app-token
+        if: ${{ env.USE_APP_TOKEN == 'true' }}
+        # A minting failure degrades to the PAT below rather than blocking the release.
+        continue-on-error: true
+        uses: nominal-io/workflow-application-token-action@d8644a5aa546f763f73b94c762b092e088486db7 # 0.0.1
+        with:
+          application_id: ${{ secrets.NOMBOT_APP_ID }}
+          application_private_key: ${{ secrets.NOMBOT_PRIVATE_KEY }}
+          organization: "nominal-io"
+          permissions: "contents:write, pull_requests:write, issues:write"
+          revoke_token: true
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
-          token: ${{ secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.NOMBOT_CLASSIC_PERSONAL_ACCESS_TOKEN }}
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
 

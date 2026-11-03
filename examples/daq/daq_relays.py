@@ -1,4 +1,4 @@
-"""Example: Relay Control for DAQs with relays native to them."""
+"""Example: Relay control for DAQs with relays native to them."""
 
 import time
 

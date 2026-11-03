@@ -8,7 +8,8 @@
 //! This module is responsible for converting between the public value types and the backend
 //! types.
 
-use rust_ethernet_ip::{PlcValue, UdtData};
+use rust_ethernet_ip::PlcValue;
+use rust_ethernet_ip::UdtData;
 
 /// User-facing wrapper for [`rust_ethernet_ip::PlcValue`] returned by this crate.
 ///

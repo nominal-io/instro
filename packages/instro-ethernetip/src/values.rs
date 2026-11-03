@@ -1,8 +1,14 @@
-use instro_ethernetip::{StructuredValue as RustStructuredValue, Value};
+use instro_ethernetip::StructuredValue as RustStructuredValue;
+use instro_ethernetip::Value;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBool, PyByteArray, PyBytes, PyFloat, PyInt};
+use pyo3::types::PyAny;
+use pyo3::types::PyBool;
+use pyo3::types::PyByteArray;
+use pyo3::types::PyBytes;
+use pyo3::types::PyFloat;
+use pyo3::types::PyInt;
 
 #[pyclass(module = "instro.ethernetip._ethernetip", skip_from_py_object)]
 #[derive(Clone, Debug)]
@@ -325,7 +331,8 @@ pub(crate) fn py_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
 
     if value.is_instance_of::<PyInt>() {
         return Err(PyTypeError::new_err(
-            "write_tag rejects bare Python ints; use PlcValue.sint/int/dint/lint/usint/uint/udint/ulint",
+            "write_tag rejects bare Python ints; use \
+             PlcValue.sint/int/dint/lint/usint/uint/udint/ulint",
         ));
     }
 

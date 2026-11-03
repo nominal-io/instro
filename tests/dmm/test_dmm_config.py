@@ -133,6 +133,23 @@ def test_open_closes_driver_and_rolls_back_state_when_measurement_apply_fails(va
         dmm.start()
 
 
+def test_close_releases_driver_and_resets_apply_flag_when_publisher_close_raises(valid_config):
+    dmm, mock_driver = _make_dmm_with_mock_driver({**valid_config, "measurement": {"function": "DC_VOLTAGE"}})
+    failing_publisher = MagicMock()
+    failing_publisher.close.side_effect = OSError("disk full")
+    dmm.publishers = [failing_publisher]
+
+    dmm.open()
+    with pytest.raises(OSError):
+        dmm.close()
+
+    mock_driver.close.assert_called_once()
+    dmm.open()
+    assert mock_driver.set_measurement_function.call_count == 2, (
+        "measurement block must be re-applied on reopen after a failed close"
+    )
+
+
 def test_reopen_without_close_does_not_reapply_measurement(valid_config):
     dmm, mock_driver = _make_dmm_with_mock_driver({**valid_config, "measurement": {"function": "DC_VOLTAGE"}})
 
@@ -197,6 +214,18 @@ def test_init_with_config_dict_unknown_version_rejected(valid_config):
 def test_init_with_config_dict_unknown_driver_name(valid_config):
     with pytest.raises(Exception):
         InstroDMM(config={**valid_config, "driver": {**valid_config["driver"], "name": "not_a_real_driver"}})
+
+
+def test_init_with_virtual_driver_config_reads_without_a_connection():
+    dmm = InstroDMM(config={"device": {"name": "dmm"}, "driver": {"connection_type": "virtual", "name": "VirtualDMM"}})
+    with dmm:
+        assert dmm.read_dc_voltage().latest == pytest.approx(1.25, rel=0.01)
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualDMM"}
+    with pytest.raises(Exception, match='VirtualDMM has no connection; use {"connection_type": "virtual"'):
+        InstroDMM(config={**valid_config, "driver": driver})
 
 
 def test_init_with_config_file_path_malformed_json(tmp_path):
@@ -297,14 +326,11 @@ def test_init_with_config_dict_with_publishers(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.dmm.config import DMM_VENDOR_REGISTRY
     from instro.dmm.dmm import DMMDriverBase
 
-    for key, path in DMM_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+    for key, entry in DMM_VENDOR_REGISTRY.items():
+        cls = entry.load()
         assert issubclass(cls, DMMDriverBase), f"{key} does not point to a DMMDriverBase subclass"
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -11,6 +11,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -24,19 +25,49 @@ __all__ = [
     "NominalCorePublisherConfig",
     "PSUConfig",
     "TimingConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
-PSU_VENDOR_REGISTRY: dict[str, str] = {
-    "BK9115": "instro.psu.drivers.bk_9115.BK9115",
-    "BK914X": "instro.psu.drivers.bk_914x.BK914X",
-    "KeysightE36100": "instro.psu.drivers.keysight_e36100.KeysightE36100",
-    "KeysightN5700": "instro.psu.drivers.keysight_n5700.KeysightN5700",
-    "RigolDP800": "instro.psu.drivers.rigol_dp800.RigolDP800",
-    "SiglentSPD3303": "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
-    "SimulatedPSU": "instro.psu.drivers.simulated.SimulatedPSU",
-    "TDKLambdaGenesys": "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
+PSU_VENDOR_REGISTRY: dict[str, DriverEntry] = {
+    "BK9115": DriverEntry("instro.psu.drivers.bk_9115.BK9115", (IdnPattern(("B&K PRECISION",), r"^9115", 1),)),
+    "BK914X": DriverEntry("instro.psu.drivers.bk_914x.BK914X", (IdnPattern(("B&K PRECISION",), r"^914\d", 3),)),
+    "GWInstekGPD3303": DriverEntry(
+        "instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303",
+        (IdnPattern(("GW INSTEK",), r"^GPD-3303D", 2),),
+    ),
+    # E36100, N5700 and Genesys patterns follow the programming manuals; not yet confirmed on hardware.
+    "KeysightE36100": DriverEntry(
+        "instro.psu.drivers.keysight_e36100.KeysightE36100",
+        (IdnPattern(("KEYSIGHT TECHNOLOGIES", "AGILENT TECHNOLOGIES"), r"^E361\d\d", 1),),
+    ),
+    "KeysightN5700": DriverEntry(
+        "instro.psu.drivers.keysight_n5700.KeysightN5700",
+        (IdnPattern(("KEYSIGHT TECHNOLOGIES", "AGILENT TECHNOLOGIES"), r"^N57\d\d", 1),),
+    ),
+    "RigolDP800": DriverEntry(
+        "instro.psu.drivers.rigol_dp800.RigolDP800",
+        (
+            IdnPattern(("RIGOL TECHNOLOGIES",), r"^DP811", 1),
+            IdnPattern(("RIGOL TECHNOLOGIES",), r"^DP821", 2),
+            IdnPattern(("RIGOL TECHNOLOGIES",), r"^DP83[12]", 3),
+        ),
+    ),
+    # CH3 has no SCPI voltage/current access, so discovery reports 2 programmable channels (#406).
+    "SiglentSPD3303": DriverEntry(
+        "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
+        (IdnPattern(("SIGLENT TECHNOLOGIES",), r"^SPD3303", 2),),
+    ),
+    "SimulatedPSU": DriverEntry("instro.psu.drivers.simulated.SimulatedPSU"),
+    "TDKLambdaGenesys": DriverEntry(
+        "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
+        (IdnPattern(("LAMBDA",), r"^GEN", 1),),
+    ),
+    "VirtualPSU": DriverEntry("instro.psu.drivers.virtual.VirtualPSU"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualPSU",)
 
 
 class VisaDriverConfig(BaseModel):
@@ -53,7 +84,27 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in PSU_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(
+                f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}", "num_channels": <n>}}'
+            )
         return v
+
+
+_Ohms = Annotated[float, Field(ge=0)]
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual PSU: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualPSU"] = Field(description="Virtual driver key.")
+    num_channels: int = Field(ge=1, description="Number of output channels.")
+    load_resistance: _Ohms | dict[int, _Ohms] | None = Field(
+        default=None,
+        description="Load in ohms: one value for every channel, or a map from channel to value. Default 1000.",
+    )
 
 
 class PSUConfig(BaseModel):
@@ -63,7 +114,7 @@ class PSUConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroPSU"] = "InstroPSU"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     timing: TimingConfig | None = None
     publishers: list[PublisherConfigType] = Field(default_factory=list)
 
@@ -72,11 +123,12 @@ def resolve_psu_from_config(
     config: PSUConfig,
 ) -> tuple[str, PSUDriverBase, int, list[Publisher], float | None]:
     """Resolve a validated PSUConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroPSU needs."""
-    import importlib
-
-    module_path, class_name = PSU_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
-    driver_cls = getattr(importlib.import_module(module_path), class_name)
-    driver: PSUDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    driver_cls = PSU_VENDOR_REGISTRY[config.driver.name].load()
+    if isinstance(config.driver, VirtualDriverConfig):
+        virtual = config.driver.model_dump(include={"num_channels", "load_resistance"}, exclude_none=True)
+        driver: PSUDriverBase = driver_cls(**virtual)
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None

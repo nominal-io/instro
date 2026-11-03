@@ -1,10 +1,15 @@
 """Cross-category building blocks: base instrument, transports, publishers, shared scaling types."""
 
 from instro.lib.discover import (
+    DiscoveredInstrument,
+    DriverMatch,
+    IdnFields,
     VisaInstrumentInfo,
     VisaScanError,
     VisaScanResult,
     VisaUnrecognizedInstrument,
+    match_idn,
+    parse_idn,
     scan_visa_resources,
 )
 from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
@@ -16,7 +21,10 @@ from instro.lib.types import Command, DeviceInfo, LinearScale, Measurement, Scal
 __all__ = [
     "Command",
     "DeviceInfo",
+    "DiscoveredInstrument",
+    "DriverMatch",
     "FeatureNotSupportedError",
+    "IdnFields",
     "InstroError",
     "Instrument",
     "InstrumentNotOpenError",
@@ -30,5 +38,7 @@ __all__ = [
     "VisaScanResult",
     "VisaUnrecognizedInstrument",
     "install_nominal_core_log_handler",
+    "match_idn",
+    "parse_idn",
     "scan_visa_resources",
 ]

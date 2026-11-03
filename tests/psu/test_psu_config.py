@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from instro.psu import InstroPSU, PSUConfig
+from instro.psu import InstroPSU, OperatingMode, PSUConfig
 
 
 @pytest.fixture
@@ -81,6 +81,30 @@ def test_init_with_config_dict_invalid_num_channels():
                 },
             }
         )
+
+
+def test_init_with_virtual_driver_config_runs_without_a_connection():
+    driver = {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 3}
+    psu = InstroPSU(config={"device": {"name": "psu"}, "driver": driver})
+    with psu:
+        psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=3)
+        assert psu.get_voltage(channel=3).latest == pytest.approx(5.0, rel=0.01)
+
+
+def test_init_with_virtual_driver_config_sets_each_channel_load():
+    driver = {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2, "load_resistance": {"2": 1.0}}
+    psu = InstroPSU(config={"device": {"name": "psu"}, "driver": driver})
+    with psu:
+        for channel in (1, 2):
+            psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=channel)
+        assert psu.get_operating_mode(channel=1).latest == OperatingMode.CONSTANT_VOLTAGE.value
+        assert psu.get_operating_mode(channel=2).latest == OperatingMode.CONSTANT_CURRENT.value
+
+
+def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
+    driver = {**valid_config["driver"], "name": "VirtualPSU"}
+    with pytest.raises(Exception, match='VirtualPSU has no connection; use {"connection_type": "virtual"'):
+        InstroPSU(config={**valid_config, "driver": driver})
 
 
 def test_init_with_config_file_path_malformed_json(tmp_path):
@@ -236,14 +260,11 @@ def test_init_with_config_dict_unknown_publisher_type(valid_config):
 
 
 def test_vendor_registry_complete():
-    import importlib
-
     from instro.psu.config import PSU_VENDOR_REGISTRY
     from instro.psu.psu import PSUDriverBase
 
-    for key, path in PSU_VENDOR_REGISTRY.items():
-        mod_path, cls_name = path.rsplit(".", 1)
-        cls = getattr(importlib.import_module(mod_path), cls_name)
+    for key, entry in PSU_VENDOR_REGISTRY.items():
+        cls = entry.load()
         assert issubclass(cls, PSUDriverBase), f"{key} does not point to a PSUDriverBase subclass"
 
 

@@ -1,147 +1,150 @@
-//! Recursive browsing of an OPC-UA server's address space.
+//! # OPC UA Server Address Space Browsing
 //!
-//! The [`Browse`] trait defines a single-level browse that returns the immediate
-//! children of a given node. [`BrowseAll`] extends any `Browse` implementor
-//! with a recursive depth-first traversal that:
+//! ## The [`Browse`] & [`BrowseAll`] traits
+//!
+//! The [`Browse`] trait defines a single-level browse operation that returns the immediate
+//! children of a given node. [`BrowseAll`] extends any [`Browse`] implementor with a default
+//! iterative depth-first graph traversal implementation that:
 //!
 //! - **Detects cycles** via the current ancestor path — diamonds are preserved,
 //!   but a node ID already present in its own ancestry is reported as an error.
 //! - **Limits depth** with an optional `max_depth` parameter.
-//! - **Limits total browsed nodes** with a high defensive ceiling.
-//! - **Recurses into `Object` and `Variable` nodes** — `Method`, `View`, and
-//!   type nodes are kept as leaves.
+//! - **Limits total browsed nodes** with an optional `node_limit` parameter.
+//! - **Descends into every returned node class**, including `Method`, `View`,
+//!   and type nodes. [`BrowseAll::browse_all`] can therefore issue extra browse requests,
+//!   return more descendants, and consume more of the depth and node-count
+//!   limits.
 //!
-//! The [`OpcUaClient`](super::client::OpcUaClient) implementation of `Browse`
-//! handles continuation points transparently, issuing `browse_next` calls until
-//! all references for a node have been collected.
+//! The [`Client`] implementation of [`Browse`] handles continuation
+//! points transparently, issuing [`browse_next`](open62541::AsyncClient::browse_next)
+//! calls until all references for a node have been collected. It returns a nested tree of
+//! [`BrowsedNode`]s, which includes the node ID, browse name, display name, node class, browse
+//! path, and children.
 
 use std::collections::HashSet;
 use std::future::Future;
-use std::pin::Pin;
 
-use anyhow::Context as _;
-use anyhow::Result;
-use anyhow::bail;
+use itertools::Itertools;
+use open62541::DataType as _;
 use open62541::ua;
 
-use super::client::OpcUaClient;
-use super::types::BrowsePath;
-use super::types::OpcUaNode;
-use super::types::OpcUaNodeClass;
-use super::types::OpcUaNodeId;
-use super::types::QualifiedBrowseName;
+use super::client::Client;
+use crate::Result;
+use crate::error::ErrorExt as _;
+use crate::error::UaErrorExt as _;
+use crate::error::bail;
 
-const DEFAULT_MAX_BROWSE_NODES: usize = 1_000_000;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowsedNode {
+    pub node_id: ua::NodeId,
+    pub browse_name: String,
+    pub display_name: String,
+    pub node_class: ua::NodeClass,
+    /// The namespace-qualified browse path to this node.
+    pub browse_path: ua::RelativePath,
+    pub children: Vec<BrowsedNode>,
+}
 
 /// A trait for browsing a single node and returning its children.
 pub trait Browse {
     /// Browse a single node and return its children.
-    fn browse_node(&self, node_id: OpcUaNodeId) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
+    fn browse_node(&self, node_id: ua::NodeId) -> impl Future<Output = Result<Vec<BrowsedNode>>>;
 }
 
 /// A trait for browsing all nodes in a subtree and returning a list of all nodes.
 pub trait BrowseAll: Browse {
     /// Browse all nodes in the subtree rooted at `node_id` and return a list of all nodes.
     ///
-    /// The result is a nested tree of [`OpcUaNode`]. A repeated [`OpcUaNodeId`] is
+    /// The result is a nested tree of [`BrowsedNode`]. A repeated [`ua::NodeId`] is
     /// allowed when reached through a different parent path, but a node ID that
     /// repeats in the current ancestry is treated as a cycle and returns an error.
+    /// Every returned node class is recursed into, so this can issue extra browse
+    /// requests and consume more of the depth and node-count limits.
     fn browse_all(
         &self,
-        node_id: OpcUaNodeId,
+        node_id: ua::NodeId,
         max_depth: Option<usize>,
-    ) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
+        node_limit: Option<usize>,
+    ) -> impl Future<Output = Result<Vec<BrowsedNode>>>;
 
     /// Browse all nodes below `node_id`, assigning returned children under
     /// `parent_path`.
     fn browse_all_from_path(
         &self,
-        node_id: OpcUaNodeId,
-        parent_path: BrowsePath,
+        node_id: ua::NodeId,
+        parent_path: ua::RelativePath,
         max_depth: Option<usize>,
-    ) -> impl Future<Output = Result<Vec<OpcUaNode>>>;
+        node_limit: Option<usize>,
+    ) -> impl Future<Output = Result<Vec<BrowsedNode>>>;
 }
 
 impl<T: Browse> BrowseAll for T {
     async fn browse_all(
         &self,
-        node_id: OpcUaNodeId,
+        node_id: ua::NodeId,
         max_depth: Option<usize>,
-    ) -> Result<Vec<OpcUaNode>> {
-        self.browse_all_from_path(node_id, BrowsePath::default(), max_depth)
+        node_limit: Option<usize>,
+    ) -> Result<Vec<BrowsedNode>> {
+        self.browse_all_from_path(node_id, ua::RelativePath::init(), max_depth, node_limit)
             .await
     }
 
     async fn browse_all_from_path(
         &self,
-        node_id: OpcUaNodeId,
-        parent_path: BrowsePath,
+        node_id: ua::NodeId,
+        parent_path: ua::RelativePath,
         max_depth: Option<usize>,
-    ) -> Result<Vec<OpcUaNode>> {
-        let mut ancestors = HashSet::new();
-        ancestors.insert(node_id.clone());
-        let mut visited = 0;
-        browse_recursive(
-            self,
-            node_id,
-            0,
-            max_depth,
-            parent_path,
-            &mut ancestors,
-            &mut visited,
-            DEFAULT_MAX_BROWSE_NODES,
-        )
-        .await
+        node_limit: Option<usize>,
+    ) -> Result<Vec<BrowsedNode>> {
+        browse_iterative(self, node_id, max_depth, node_limit, parent_path).await
     }
 }
 
-impl Browse for OpcUaClient {
-    async fn browse_node(&self, node_id: OpcUaNodeId) -> Result<Vec<OpcUaNode>> {
-        let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id.into());
-        let (mut all_refs, mut cont_pt) = self.browse(&browse_desc).await?;
+impl Browse for Client {
+    async fn browse_node(&self, node_id: ua::NodeId) -> Result<Vec<BrowsedNode>> {
+        let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id);
+
+        let (mut all_refs, mut cont_pt) = self
+            .with_client(async |client| client.browse(&browse_desc).await)
+            .await??;
 
         while let Some(cp) = cont_pt {
-            let mut results = self.browse_next(&[cp]).await?;
+            let mut results = self
+                .with_client(async |client| client.browse_next(&[cp]).await)
+                .await??;
 
             match results.pop() {
                 Some(result) => {
-                    let (more_refs, next_cp) = result?;
+                    let (more_refs, next_cp) = result
+                        .with_ua_context(|| format!("continuing browse of node '{node_id}'"))?;
+
                     all_refs.extend(more_refs);
                     cont_pt = next_cp;
                 }
+
                 None => break,
             }
         }
 
         let nodes = all_refs
             .into_iter()
-            .filter_map(|reference| {
-                let id = reference.node_id().node_id();
+            .map(|reference| {
+                let node_id = reference.node_id().node_id().clone();
 
-                let Ok(node_id) = id.clone().try_into() else {
-                    tracing::warn!(
-                        target: "opcua::browse",
-                        node_id = ?id,
-                        "skipping reference during browse"
-                    );
+                let path_element = ua::RelativePathElement::init()
+                    .with_include_subtypes(true)
+                    .with_reference_type_id(&ua::NodeId::numeric(0, 33))
+                    .with_is_inverse(!reference.is_forward())
+                    .with_target_name(reference.browse_name());
 
-                    return None;
-                };
-
-                let node_class = OpcUaNodeClass::from(reference.node_class());
-                let qualified_browse_name = QualifiedBrowseName {
-                    namespace_index: reference.browse_name().namespace_index(),
-                    name: reference.browse_name().name().to_string(),
-                };
-
-                Some(OpcUaNode {
+                BrowsedNode {
                     node_id,
-                    browse_name: qualified_browse_name.name.clone(),
-                    display_name: reference.display_name().text().to_string(),
-                    node_class,
-                    browse_path: BrowsePath::from_segment(qualified_browse_name),
+                    browse_name: reference.browse_name().name().to_string(),
+                    node_class: reference.node_class(),
                     children: Vec::new(),
-                })
+                    browse_path: ua::RelativePath::init().with_elements(&[path_element]),
+                    display_name: reference.display_name().text().to_string(),
+                }
             })
             .collect();
 
@@ -149,166 +152,223 @@ impl Browse for OpcUaClient {
     }
 }
 
-// not taking a dep on futures just for this type
-type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
+fn append_path(parent_path: &ua::RelativePath, child: &mut BrowsedNode) -> Result<()> {
+    let mut parent_path = parent_path.clone();
+    let Some(existing) = parent_path.take_elements() else {
+        return Ok(());
+    };
 
-/// Recursive DFS browse helper. Returns a list of nodes in the subtree rooted at `node_id`.
-fn browse_recursive<'a, B: Browse>(
-    browser: &'a B,
-    node_id: OpcUaNodeId,
-    depth: usize,
+    let segment = child.browse_path.iter().last().cloned().with_context(|| {
+        format!(
+            "browse result for node {} had no browse path",
+            child.node_id
+        )
+    })?;
+
+    // super inefficient, but idc really, browse api probably isn't going to stay
+    let new_elements = existing
+        .into_vec()
+        .into_iter()
+        .chain(std::iter::once(segment))
+        .collect_vec();
+
+    child.browse_path = parent_path.with_elements(&new_elements);
+
+    Ok(())
+}
+
+/// Iteratively browse paths to all nodes, duplicating nodes where distinct
+/// paths exist and erroring when a cycle is detected.
+///
+/// This algorithm works by colocating parents and children in the `nodes`
+/// list, and maintaining a separate stack frame of `(index, limit)` pairs
+/// which reference the section `nodes[index..limit]`. The `index` variable is
+/// incremented until `limit` is reached, at which point the pair is popped and
+/// all children (modeled as `nodes[limit..]`) of that node are split off and
+/// appended to the parent in a single operation.
+async fn browse_iterative<B: Browse>(
+    browser: &B,
+    node_id: ua::NodeId,
     max_depth: Option<usize>,
-    parent_path: BrowsePath,
-    ancestors: &'a mut HashSet<OpcUaNodeId>,
-    visited: &'a mut usize,
-    max_nodes: usize,
-) -> BoxedFuture<'a, Vec<OpcUaNode>> {
-    Box::pin(async move {
-        if let Some(max_depth) = max_depth
-            && depth >= max_depth
-        {
-            return Ok(Vec::new());
-        }
+    node_limit: Option<usize>,
+    parent_path: ua::RelativePath,
+) -> Result<Vec<BrowsedNode>> {
+    if let Some(0) = max_depth {
+        return Ok(Vec::new());
+    }
 
-        let raw = browser.browse_node(node_id).await?;
-        let mut nodes = Vec::with_capacity(raw.len());
+    let mut count_visited = 0_usize;
 
-        for mut node in raw {
-            if ancestors.contains(&node.node_id) {
+    let mut ancestors = HashSet::from([node_id.clone()]);
+    let mut nodes = browser.browse_node(node_id.clone()).await?;
+    let mut stack = Vec::from([(0_usize, nodes.len())]);
+
+    for child in &mut nodes {
+        append_path(&parent_path, child)?;
+    }
+
+    loop {
+        let Some((current, limit)) = stack.last().copied() else {
+            unreachable!("'stack' is only ever empty in 'else' case below");
+        };
+
+        if current < limit {
+            let current_node = nodes
+                .get(current)
+                .context("browse stack referenced an out-of-bounds node index")?;
+
+            if let Some(limit) = node_limit
+                && count_visited >= limit
+            {
                 bail!(
-                    "cycle detected while browsing node {} at path {}",
-                    node.node_id,
-                    parent_path
+                    internal,
+                    "browsed node limit exceeded while browsing node '{}' (limit: {}, browse root \
+                     node: '{}')",
+                    current_node.node_id.clone(),
+                    limit,
+                    node_id.clone(),
                 );
             }
 
-            if *visited >= max_nodes {
-                bail!("browse exceeded maximum node count of {max_nodes}");
-            }
-            *visited = visited.saturating_add(1);
+            count_visited = count_visited.saturating_add(1);
 
-            let segment = node
-                .browse_path
-                .segments()
-                .last()
-                .cloned()
-                .with_context(|| {
-                    format!("browse result for node {} had no browse path", node.node_id)
-                })?;
-            let node_path = parent_path.child(segment);
-            node.browse_path = node_path.clone();
-
-            if matches!(
-                node.node_class,
-                OpcUaNodeClass::Object | OpcUaNodeClass::Variable
-            ) {
-                ancestors.insert(node.node_id.clone());
-                node.children.extend(
-                    browse_recursive(
-                        browser,
-                        node.node_id.clone(),
-                        depth.saturating_add(1),
-                        max_depth,
-                        node_path,
-                        ancestors,
-                        visited,
-                        max_nodes,
-                    )
-                    .await?,
+            if ancestors.contains(&current_node.node_id) {
+                bail!(
+                    internal,
+                    "browse cycle detected while browsing node '{}' (browse root node: '{}')",
+                    current_node.node_id.clone(),
+                    node_id.clone(),
                 );
-                ancestors.remove(&node.node_id);
+            } else {
+                ancestors.insert(current_node.node_id.clone());
             }
 
-            nodes.push(node);
+            let mut new_children = if let Some(depth) = max_depth
+                && stack.len() >= depth
+            {
+                tracing::debug!("Depth limit reached ({depth}) at node {current_node:?}");
+                Vec::new()
+            } else {
+                browser.browse_node(current_node.node_id.clone()).await?
+            };
+
+            let parent_path = &current_node.browse_path;
+            for child in &mut new_children {
+                append_path(parent_path, child)?;
+            }
+
+            // Unconditional push is required to hit "else" case below, even if
+            // `new_children` is empty. We could save a push/pop here at the
+            // cost of duplicating cleanup logic
+            stack.push((limit, limit.saturating_add(new_children.len())));
+            nodes.extend(new_children);
+        } else {
+            stack.pop();
+
+            // End case occurs when we've exhausted all nodes in the initial list
+            let Some((prev, prev_limit)) = stack.last_mut() else {
+                // Debloat the vec since we use it for computation in-place
+                nodes.shrink_to_fit();
+                return Ok(nodes);
+            };
+
+            let children = nodes.split_off(*prev_limit);
+
+            let prev_node = nodes
+                .get_mut(*prev)
+                .context("browse stack referenced an out-of-bounds node index")?;
+
+            prev_node.children = children;
+            ancestors.remove(&prev_node.node_id);
+
+            *prev = prev.saturating_add(1);
         }
-
-        Ok(nodes)
-    })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::collections::HashSet;
 
-    use anyhow::Result;
+    use open62541::DataType as _;
+    use open62541::ua;
     use tokio::runtime::Builder;
 
     use super::Browse;
     use super::BrowseAll;
-    use super::DEFAULT_MAX_BROWSE_NODES;
-    use super::browse_recursive;
-    use crate::types::BrowsePath;
-    use crate::types::OpcUaNode;
-    use crate::types::OpcUaNodeClass;
-    use crate::types::OpcUaNodeId;
-    use crate::types::QualifiedBrowseName;
+    use super::BrowsedNode;
+    use super::browse_iterative;
+    use crate::Result;
 
-    fn nid(n: u32) -> OpcUaNodeId {
-        OpcUaNodeId::numeric(0, n)
+    fn nid(n: u32) -> ua::NodeId {
+        ua::NodeId::numeric(0, n)
     }
 
-    fn browse_path(namespace_index: u16, name: String) -> BrowsePath {
-        BrowsePath::from_segment(QualifiedBrowseName::new(namespace_index, name))
+    fn browse_path(namespace_index: u16, name: String) -> ua::RelativePath {
+        ua::RelativePath::init().with_elements(&[ua::RelativePathElement::init()
+            .with_include_subtypes(true)
+            .with_reference_type_id(&ua::NodeId::numeric(0, 33))
+            .with_is_inverse(false)
+            .with_target_name(&ua::QualifiedName::new(namespace_index, &name))])
     }
 
-    fn obj(id: u32) -> OpcUaNode {
+    fn obj(id: u32) -> BrowsedNode {
         let browse_name = format!("Object_{id}");
-        OpcUaNode {
+        BrowsedNode {
             node_id: nid(id),
             browse_name: browse_name.clone(),
             display_name: format!("Object {id}"),
-            node_class: OpcUaNodeClass::Object,
+            node_class: ua::NodeClass::OBJECT,
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
     }
 
-    fn var(id: u32) -> OpcUaNode {
+    fn var(id: u32) -> BrowsedNode {
         let browse_name = format!("Variable_{id}");
-        OpcUaNode {
+        BrowsedNode {
             node_id: nid(id),
             browse_name: browse_name.clone(),
             display_name: format!("Variable {id}"),
-            node_class: OpcUaNodeClass::Variable,
+            node_class: ua::NodeClass::VARIABLE,
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
     }
 
-    fn method(id: u32) -> OpcUaNode {
+    fn method(id: u32) -> BrowsedNode {
         let browse_name = format!("Method_{id}");
-        OpcUaNode {
+        BrowsedNode {
             node_id: nid(id),
             browse_name: browse_name.clone(),
             display_name: format!("Method {id}"),
-            node_class: OpcUaNodeClass::Method,
+            node_class: ua::NodeClass::METHOD,
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
     }
 
-    fn view(id: u32) -> OpcUaNode {
+    fn view(id: u32) -> BrowsedNode {
         let browse_name = format!("View_{id}");
-        OpcUaNode {
+        BrowsedNode {
             node_id: nid(id),
             browse_name: browse_name.clone(),
             display_name: format!("View {id}"),
-            node_class: OpcUaNodeClass::View,
+            node_class: ua::NodeClass::VIEW,
             browse_path: browse_path(0, browse_name),
             children: Vec::new(),
         }
     }
 
     /// Counts the total number of nodes (including nested children) in the tree.
-    fn count_nodes(nodes: &[OpcUaNode]) -> usize {
+    fn count_nodes(nodes: &[BrowsedNode]) -> usize {
         nodes
             .iter()
             .map(|n| 1usize.saturating_add(count_nodes(&n.children)))
             .sum()
     }
 
-    fn count_node_id(nodes: &[OpcUaNode], node_id: &OpcUaNodeId) -> usize {
+    fn count_node_id(nodes: &[BrowsedNode], node_id: &ua::NodeId) -> usize {
         nodes
             .iter()
             .map(|node| {
@@ -318,7 +378,7 @@ mod tests {
             .sum()
     }
 
-    fn collect_paths(nodes: &[OpcUaNode]) -> Vec<String> {
+    fn collect_paths(nodes: &[BrowsedNode]) -> Vec<String> {
         nodes
             .iter()
             .flat_map(|node| {
@@ -329,7 +389,7 @@ mod tests {
 
     /// Returns the maximum depth of the browse result tree (0 for empty, 1 for
     /// flat list of nodes with no children, etc.)
-    fn max_tree_depth(nodes: &[OpcUaNode]) -> usize {
+    fn max_tree_depth(nodes: &[BrowsedNode]) -> usize {
         if nodes.is_empty() {
             return 0;
         }
@@ -340,13 +400,13 @@ mod tests {
             .unwrap_or(0)
     }
 
-    /// A fake `Browser` implementation backed by an adjacency map.
+    /// A fake [`Browse`] implementation backed by an adjacency map.
     ///
-    /// For each `OpcUaNodeId`, the map stores the list of `OpcUaBrowseNode`s
-    /// that `browse_node` should return (these represent the immediate children
+    /// For each [`ua::NodeId`], the map stores the list of [`BrowsedNode`]s
+    /// that [`Browse::browse_node`] should return (these represent the immediate children
     /// of that node in the OPC UA address space).
     struct MockBrowser {
-        graph: HashMap<OpcUaNodeId, Vec<OpcUaNode>>,
+        graph: HashMap<ua::NodeId, Vec<BrowsedNode>>,
     }
 
     impl MockBrowser {
@@ -357,81 +417,67 @@ mod tests {
         }
 
         /// Registers `children` as the browse result for `parent`.
-        fn add_children(&mut self, parent: OpcUaNodeId, children: Vec<OpcUaNode>) {
+        fn add_children(&mut self, parent: ua::NodeId, children: Vec<BrowsedNode>) {
             self.graph.entry(parent).or_default().extend(children);
         }
 
-        /// Convenience: run `browse_recursive` from `root` with the given
+        /// Convenience: run `browse_iterative` from `root` with the given
         /// `max_depth`, returning the result tree.
-        fn browse(&self, root: OpcUaNodeId, max_depth: Option<usize>) -> Result<Vec<OpcUaNode>> {
-            self.browse_with_parent(root, BrowsePath::default(), max_depth)
+        fn browse(&self, root: ua::NodeId, max_depth: Option<usize>) -> Result<Vec<BrowsedNode>> {
+            self.browse_with_parent(root, ua::RelativePath::init(), max_depth)
         }
 
         fn browse_with_parent(
             &self,
-            root: OpcUaNodeId,
-            parent_path: BrowsePath,
+            root: ua::NodeId,
+            parent_path: ua::RelativePath,
             max_depth: Option<usize>,
-        ) -> Result<Vec<OpcUaNode>> {
-            let mut ancestors = HashSet::new();
-            ancestors.insert(root.clone());
-            let mut visited = 0;
+        ) -> Result<Vec<BrowsedNode>> {
             let runtime = Builder::new_current_thread()
                 .enable_all()
                 .max_blocking_threads(1)
                 .build()
                 .expect("failed to build tokio runtime");
 
-            runtime.block_on(browse_recursive(
-                self,
-                root,
-                0,
-                max_depth,
-                parent_path,
-                &mut ancestors,
-                &mut visited,
-                DEFAULT_MAX_BROWSE_NODES,
-            ))
+            runtime.block_on(browse_iterative(self, root, max_depth, None, parent_path))
         }
 
-        fn browse_with_limit(&self, root: OpcUaNodeId, max_nodes: usize) -> Result<Vec<OpcUaNode>> {
-            let mut ancestors = HashSet::new();
-            ancestors.insert(root.clone());
-            let mut visited = 0;
+        fn browse_with_limit(
+            &self,
+            root: ua::NodeId,
+            max_nodes: usize,
+        ) -> Result<Vec<BrowsedNode>> {
             let runtime = Builder::new_current_thread()
                 .enable_all()
                 .max_blocking_threads(1)
                 .build()
                 .expect("failed to build tokio runtime");
 
-            runtime.block_on(browse_recursive(
+            runtime.block_on(browse_iterative(
                 self,
                 root,
-                0,
                 None,
-                BrowsePath::default(),
-                &mut ancestors,
-                &mut visited,
-                max_nodes,
+                Some(max_nodes),
+                ua::RelativePath::init(),
             ))
         }
     }
 
     impl Browse for MockBrowser {
-        async fn browse_node(&self, node_id: OpcUaNodeId) -> Result<Vec<OpcUaNode>> {
+        async fn browse_node(&self, node_id: ua::NodeId) -> Result<Vec<BrowsedNode>> {
             Ok(self.graph.get(&node_id).cloned().unwrap_or_default())
         }
     }
 
     /// A -> A (node references itself as a child).
-    fn self_loop() -> (MockBrowser, OpcUaNodeId) {
+    fn self_loop() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(1)]);
         (browser, nid(1))
     }
 
     /// A -> B -> A (two-node cycle).
-    fn direct_cycle() -> (MockBrowser, OpcUaNodeId) {
+    fn direct_cycle() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2)]);
         browser.add_children(nid(2), vec![obj(1)]);
@@ -439,7 +485,7 @@ mod tests {
     }
 
     /// Ring of `len` nodes: 1 -> 2 -> 3 -> ... -> len -> 1.
-    fn long_cycle(len: usize) -> (MockBrowser, OpcUaNodeId) {
+    fn long_cycle(len: usize) -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         for i in 1..=len {
             let next = if i == len { 1 } else { i.saturating_add(1) };
@@ -456,7 +502,7 @@ mod tests {
     ///    \ /
     ///     4
     /// ```
-    fn diamond() -> (MockBrowser, OpcUaNodeId) {
+    fn diamond() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2), obj(3)]);
         browser.add_children(nid(2), vec![obj(4)]);
@@ -465,7 +511,7 @@ mod tests {
     }
 
     /// Linear chain: 1 -> 2 -> 3 -> ... -> n (all Object nodes).
-    fn deep_chain(n: u32) -> (MockBrowser, OpcUaNodeId) {
+    fn deep_chain(n: u32) -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         for i in 1..n {
             browser.add_children(nid(i), vec![obj(i.saturating_add(1))]);
@@ -474,7 +520,7 @@ mod tests {
     }
 
     /// Single root with `n` Object children (flat, one level deep).
-    fn wide_tree(n: u32) -> (MockBrowser, OpcUaNodeId) {
+    fn wide_tree(n: u32) -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         let children: Vec<_> = (2..=n.saturating_add(1)).map(obj).collect();
         browser.add_children(nid(1), children);
@@ -487,7 +533,7 @@ mod tests {
     ///      / \ /
     ///     2 - 3
     /// ```
-    fn multi_cycle() -> (MockBrowser, OpcUaNodeId) {
+    fn multi_cycle() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2), obj(4)]);
         browser.add_children(nid(2), vec![obj(3)]);
@@ -500,7 +546,7 @@ mod tests {
     /// ```text
     ///   1(Object) -> 2(Variable) -> 3(Object) -> 1(Object)
     /// ```
-    fn mixed_class_cycle() -> (MockBrowser, OpcUaNodeId) {
+    fn mixed_class_cycle() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![var(2)]);
         browser.add_children(nid(2), vec![obj(3)]);
@@ -516,7 +562,7 @@ mod tests {
     ///    \ / \ /
     ///     3 - 5
     /// ```
-    fn convergent_diamond_chain() -> (MockBrowser, OpcUaNodeId) {
+    fn convergent_diamond_chain() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2), obj(3)]);
         browser.add_children(nid(2), vec![obj(4)]);
@@ -528,7 +574,7 @@ mod tests {
 
     /// Object with both Variable and Object children, where the Variable's id
     /// is also reachable through the Object branch.
-    fn variable_shadows_object() -> (MockBrowser, OpcUaNodeId) {
+    fn variable_shadows_object() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         // Root returns node 2 as a Variable, and node 3 as an Object.
         browser.add_children(nid(1), vec![var(2), obj(3)]);
@@ -636,7 +682,9 @@ mod tests {
     fn wide_tree_returns_all_children() {
         let width = 100;
         let (browser, root) = wide_tree(width);
-        let result = browser.browse(root, None).expect("browse should succeed");
+        let result = browser
+            .browse(root, None)
+            .expect("failed to browse wide tree");
 
         assert_eq!(
             result.len(),
@@ -668,7 +716,7 @@ mod tests {
         let browser = MockBrowser::new();
         let result = browser
             .browse(nid(999), None)
-            .expect("browse should succeed");
+            .expect("failed to browse empty graph");
         assert!(result.is_empty());
     }
 
@@ -679,7 +727,12 @@ mod tests {
         browser.add_children(nid(2), vec![var(3)]);
         browser.add_children(nid(3), vec![var(4)]);
 
-        let root_path = BrowsePath::from_segment(QualifiedBrowseName::new(0, "Root".into()));
+        let root_path = ua::RelativePath::init().with_elements(&[ua::RelativePathElement::init()
+            .with_include_subtypes(true)
+            .with_reference_type_id(&ua::NodeId::numeric(0, 33))
+            .with_is_inverse(false)
+            .with_target_name(&ua::QualifiedName::new(0, "Root"))]);
+
         let result = browser
             .browse_with_parent(nid(1), root_path, None)
             .expect("browse should succeed");
@@ -704,8 +757,9 @@ mod tests {
             .max_blocking_threads(1)
             .build()
             .expect("failed to build tokio runtime");
+
         let result = runtime
-            .block_on(browser.browse_all(nid(1), None))
+            .block_on(browser.browse_all(nid(1), None, None))
             .expect("browse should succeed");
 
         assert_eq!(collect_paths(&result), vec!["/Object_2"]);
@@ -740,7 +794,7 @@ mod tests {
         assert_eq!(result.len(), 2);
 
         let var_node = result.first().expect("root should have a child");
-        assert_eq!(var_node.node_class, OpcUaNodeClass::Variable);
+        assert_eq!(var_node.node_class, ua::NodeClass::VARIABLE);
         assert_eq!(var_node.children.len(), 1);
 
         let obj_3 = result.get(1).expect("root should have two children");
@@ -756,7 +810,7 @@ mod tests {
     }
 
     /// Two object parents both reference the same variable id (convergent non-object).
-    fn convergent_variable_diamond() -> (MockBrowser, OpcUaNodeId) {
+    fn convergent_variable_diamond() -> (MockBrowser, ua::NodeId) {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![obj(2), obj(3)]);
         browser.add_children(nid(2), vec![var(4)]);
@@ -887,12 +941,12 @@ mod tests {
     }
 
     #[test]
-    fn method_nodes_not_recursed() {
+    fn all_node_types_are_recursed() {
         let mut browser = MockBrowser::new();
         browser.add_children(nid(1), vec![method(2), obj(3), view(6)]);
-        browser.add_children(nid(2), vec![obj(4)]); // should never be reached
+        browser.add_children(nid(2), vec![obj(4)]);
         browser.add_children(nid(3), vec![var(5)]);
-        browser.add_children(nid(6), vec![obj(7)]); // should never be reached
+        browser.add_children(nid(6), vec![obj(7)]);
 
         let result = browser.browse(nid(1), None).expect("browse should succeed");
 
@@ -902,23 +956,27 @@ mod tests {
             .iter()
             .find(|n| n.node_id == nid(2))
             .expect("method node");
+
         assert!(
-            method_node.children.is_empty(),
-            "method nodes should not be recursed"
+            !method_node.children.is_empty(),
+            "method nodes should be recursed"
         );
+
         let view_node = result
             .iter()
             .find(|n| n.node_id == nid(6))
             .expect("view node");
+
         assert!(
-            view_node.children.is_empty(),
-            "view nodes should not be recursed"
+            !view_node.children.is_empty(),
+            "view nodes should be recursed"
         );
 
         let obj_node = result
             .iter()
             .find(|n| n.node_id == nid(3))
             .expect("object node");
+
         assert_eq!(
             obj_node.children.len(),
             1,

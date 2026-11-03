@@ -1,0 +1,9 @@
+{#- Search-result titles: conf.py's _add_seo sets seo_title for pages that get one. #}
+{%- extends "!base.html" -%}
+{%- block htmltitle -%}
+  {%- if seo_title -%}
+    <title>{{ seo_title|striptags|e }}</title>
+  {%- else -%}
+    {{ super() }}
+  {%- endif -%}
+{%- endblock -%}

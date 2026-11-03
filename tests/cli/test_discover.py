@@ -5,7 +5,7 @@ import pytest
 from typer.testing import CliRunner
 
 from instro.cli.main import app
-from instro.lib.discover import VisaInstrumentInfo, VisaScanError, VisaScanResult, VisaUnrecognizedInstrument
+from instro.lib.discover import DiscoveredInstrument, VisaScanError, VisaScanResult, VisaUnrecognizedInstrument
 
 runner = CliRunner()
 
@@ -45,6 +45,23 @@ def test_discover_empty_bench():
         result = runner.invoke(app, ["discover"])
     assert result.exit_code == 0
     assert "NO DEVICES FOUND" in result.output
+
+
+def test_discover_passes_requested_backend_to_scan():
+    """The resolved backend is for the header only; results must record what the user asked for."""
+    mock_rm = _rm_mock()
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", side_effect=[OSError("no IVI backend"), mock_rm]),
+        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
+    ):
+        runner.invoke(app, ["discover"])
+    scan.assert_called_once_with(backend=None, rm=mock_rm)
+    with (
+        patch("instro.cli.discover.pyvisa.ResourceManager", return_value=mock_rm),
+        patch("instro.cli.discover.scan_visa_resources", return_value=_EMPTY_RESULT) as scan,
+    ):
+        runner.invoke(app, ["discover", "--backend", "@py"])
+    scan.assert_called_once_with(backend="@py", rm=mock_rm)
 
 
 def test_discover_reports_ivi_backend():
@@ -115,11 +132,11 @@ def test_discover_mixed_bench():
     mock_rm = _rm_mock()
     mixed_result = VisaScanResult(
         instruments=[
-            VisaInstrumentInfo(
+            DiscoveredInstrument(
                 resource="USB0::0x05E6::0x9999::INSTR",
                 idn="KEITHLEY INSTRUMENTS,2400,12345,C30",
                 category="dmm",
-                driver_class_name="Keithley2400",
+                driver_name="Keithley2400",
                 num_channels=None,
             )
         ],
@@ -179,18 +196,18 @@ def test_discover_two_supported_one_unsupported_one_serial(_no_serial_devices):
     mock_rm = _rm_mock()
     mixed_result = VisaScanResult(
         instruments=[
-            VisaInstrumentInfo(
+            DiscoveredInstrument(
                 resource="USB0::0x05E6::0x2400::INSTR",
                 idn="KEITHLEY INSTRUMENTS,2400,12345,C30",
                 category="dmm",
-                driver_class_name="Keithley2400",
+                driver_name="Keithley2400",
                 num_channels=None,
             ),
-            VisaInstrumentInfo(
+            DiscoveredInstrument(
                 resource="USB0::0x0957::0x0607::INSTR",
                 idn="AGILENT TECHNOLOGIES,34401A,MY12345,10.4",
                 category="dmm",
-                driver_class_name="Agilent34401A",
+                driver_name="Agilent34401A",
                 num_channels=None,
             ),
         ],

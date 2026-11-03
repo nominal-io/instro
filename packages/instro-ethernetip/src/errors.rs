@@ -1,8 +1,10 @@
 use std::ffi::CString;
 
-use instro_ethernetip::{BatchReadError, Error};
+use instro_ethernetip::BatchReadError;
+use instro_ethernetip::Error;
 use pyo3::create_exception;
-use pyo3::exceptions::{PyRuntimeError, PyRuntimeWarning};
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::PyRuntimeWarning;
 use pyo3::prelude::*;
 
 create_exception!(
@@ -30,8 +32,8 @@ create_exception!(
     instro.ethernetip._ethernetip,
     DataTypeMismatchError,
     EtherNetIpBatchError,
-    "Per-tag batch read failure: the tag's actual type did not match the expected type. \
-     Exposes `expected` and `actual` attributes."
+    "Per-tag batch read failure: the tag's actual type did not match the expected type. Exposes \
+     `expected` and `actual` attributes."
 );
 
 create_exception!(
@@ -45,8 +47,8 @@ create_exception!(
     instro.ethernetip._ethernetip,
     CipError,
     EtherNetIpBatchError,
-    "Per-tag batch read failure: the PLC returned a CIP protocol error. \
-     Exposes `status` (u8) and `message` (str) attributes."
+    "Per-tag batch read failure: the PLC returned a CIP protocol error. Exposes `status` (u8) and \
+     `message` (str) attributes."
 );
 
 create_exception!(

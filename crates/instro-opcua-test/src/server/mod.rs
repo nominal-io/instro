@@ -18,7 +18,7 @@
 //! use instro_opcua_test::TestServer;
 //! use instro_opcua_test::ValueSource;
 //! use instro_opcua_test::VariableSpec;
-//! use instro_opcua_test::ua;
+//! use open62541::ua;
 //!
 //! let server = TestServer::builder()
 //!     .variable(

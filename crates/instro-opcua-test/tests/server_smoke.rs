@@ -15,8 +15,8 @@ use instro_opcua_test::TestServer;
 use instro_opcua_test::ValueSource;
 use instro_opcua_test::VariableSpec;
 use instro_opcua_test::server::LIFETIME_TIMEOUT;
-use instro_opcua_test::ua;
 use open62541::AsyncClient;
+use open62541::ua;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn rw_stored_variable_round_trip() {

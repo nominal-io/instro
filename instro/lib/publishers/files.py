@@ -156,8 +156,7 @@ class FilePublisher:
                 publisher interface.
         """
         SHARED_PUBLISHER_WARNING = (
-            "If you're attempting to publish from multiple instruments, consider using SharedPublisher. "
-            "See https://instro.nominal.io/instrumentation/publishers#sharedpublisher for more information."
+            "If you're attempting to publish from multiple instruments, consider using SharedPublisher."
         )
 
         try:

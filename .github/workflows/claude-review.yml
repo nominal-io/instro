@@ -28,10 +28,14 @@ jobs:
     # is the load-bearing isolation control: PRs from outside contributors (including
     # anyone opening a flood of hostile PRs) live on fork head repos and never trigger
     # this job -> no API spend and no secret exposure to untrusted code.
+    # Also skip release-please PRs and nominal-sphinx-theme bump PRs: both are generated
+    # by the nombotv2 app, which the action rejects as a non-human actor (#471).
     if: |
       (github.event_name == 'pull_request' &&
         github.event.pull_request.draft == false &&
-        github.event.pull_request.head.repo.full_name == github.repository) ||
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
+        github.event.pull_request.head.ref != 'chore/bump-nominal-sphinx-theme') ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != null &&
         startsWith(github.event.comment.body, '@claude review') &&
@@ -57,7 +61,7 @@ jobs:
           fetch-depth: 0
 
       - name: Review with Claude
-        uses: anthropics/claude-code-action@9d7150bc8a3dae8149739a88019d192b579ad90c # v1.0.193
+        uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
         env:
           # Run subagents using cheaper, faster agents while leaving higher level thinking
           # to the higher tier model (opus 4.8)
@@ -123,8 +127,8 @@ jobs:
               any reintroduced multi-paragraph / verbose docstrings. Public methods need type hints.
             - Comments: only when the *why* is non-obvious; flag comments that restate the code.
             - Docs sync: user-visible changes must update docs in the same PR (README "Supported
-              devices" table for new drivers, `docs/reference/` for public API changes,
-              `docs/guides/` + `docs.json` for new categories). Flag missing doc updates.
+              devices" table for new drivers, `docs/sdk/` for public API changes,
+              `docs/` guide pages + the `docs/index.md` toctrees for new categories). Flag missing doc updates.
             - Tooling: this project uses `uv run` and `just`; flag any bare `python`/`python -m`
               invocation or advice that bypasses the `just` recipes.
             - Rust crates: for PyO3/maturin crate changes, flag missing `Cargo.lock` updates

@@ -14,6 +14,7 @@ from instro.lib.exceptions import FeatureNotSupportedError
 from instro.lib.publishers import NominalCorePublisher
 from instro.lib.transports import VisaConfig
 from instro.lib.types import Measurement
+from instro.psu import OperatingMode
 from instro.psu.drivers.rigol_dp800 import RigolDP800
 
 pytestmark = pytest.mark.hardware
@@ -146,14 +147,19 @@ _recorder = _EventRecorder()
 _publisher: NominalCorePublisher | None = None
 
 
-def _stream(channel: str, value: float) -> None:
-    """Stream a single scalar reading to Nominal Core. No-op when DATASET_RID is None."""
+def _stream(channel: str, value: float | str) -> None:
+    """Stream a single reading to Nominal Core; a str publishes a categorical channel. No-op when DATASET_RID is None."""
     if _publisher is None:
         return
+    values: list[float] | list[str]
+    if isinstance(value, str):
+        values = [value]
+    else:
+        values = [value]
     _publisher.publish(
         Measurement(
             timestamps=[time.time_ns()],
-            channel_data={channel: [value]},
+            channel_data={channel: values},
         )
     )
 
@@ -246,21 +252,6 @@ def record_test_event(request: pytest.FixtureRequest) -> Iterator[None]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-
-
-def test_query_status(driver: RigolDP800) -> None:
-    idn = driver._visa.query("*IDN?")
-    print(f"\nIDN: {idn.strip()}")
-
-    status = driver.query_status()
-
-    assert set(status) == {f"ch{channel_config.channel}" for channel_config in CHANNELS}
-    for channel_config in CHANNELS:
-        channel_status = status[f"ch{channel_config.channel}"]
-        assert channel_status["enable"] is False
-        assert channel_status["mode"] in {"off", "CC", "CV", "UNREGULATED"}
-        assert isinstance(channel_status["OVP"], bool)
-        assert isinstance(channel_status["OCP"], bool)
 
 
 @pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
@@ -387,6 +378,28 @@ def test_get_output_status(driver: RigolDP800, channel_config: ChannelConfig) ->
         state_on = driver.get_output_status(channel=channel_config.channel)
         _stream(f"ch{channel_config.channel}.output_enabled", float(state_on))
         assert state_on is True
+    finally:
+        driver.output_enable(False, channel=channel_config.channel)
+
+
+@pytest.mark.parametrize("channel_config", CHANNELS, ids=lambda config: f"channel_{config.channel}")
+def test_get_operating_mode(driver: RigolDP800, channel_config: ChannelConfig) -> None:
+    driver.output_enable(False, channel=channel_config.channel)
+    mode_off = driver.get_operating_mode(channel=channel_config.channel)
+    _stream(f"ch{channel_config.channel}.operating_mode", mode_off.value)
+    assert mode_off == OperatingMode.OFF
+
+    driver.set_current_limit(channel_config.programmed_current_limit, channel=channel_config.channel)
+    driver.set_voltage(channel_config.programmed_voltage, channel=channel_config.channel)
+    try:
+        driver.output_enable(True, channel=channel_config.channel)
+        mode_on = driver.get_operating_mode(channel=channel_config.channel)
+        _stream(f"ch{channel_config.channel}.operating_mode", mode_on.value)
+        assert mode_on in {
+            OperatingMode.CONSTANT_VOLTAGE,
+            OperatingMode.CONSTANT_CURRENT,
+            OperatingMode.UNREGULATED,
+        }
     finally:
         driver.output_enable(False, channel=channel_config.channel)
 

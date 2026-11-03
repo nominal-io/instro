@@ -1,4 +1,4 @@
-"""Oscilloscope shared types: coupling, acquisition/trigger modes, waveform data, tracked config."""
+"""Oscilloscope shared types: coupling, acquisition/trigger modes, waveform data, tracked state."""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -83,7 +83,7 @@ class WaveformData:
 
 
 @dataclass
-class ChannelConfig:
+class ChannelState:
     """Tracked per-channel state. Fields start as ``None`` and populate on set/query."""
 
     vertical_scale: float | None = None
@@ -93,7 +93,7 @@ class ChannelConfig:
 
 
 @dataclass
-class TriggerConfig:
+class TriggerState:
     """Tracked trigger state (source channel, type, level (V), slope, mode). Fields start as ``None``."""
 
     source: int | None = None
@@ -104,11 +104,11 @@ class TriggerConfig:
 
 
 @dataclass
-class ScopeConfig:
+class ScopeState:
     """Tracked scope state: per-channel (1-based), trigger, acquisition mode, average count, timebase."""
 
-    channels: dict[int, ChannelConfig] = field(default_factory=dict)
-    trigger: TriggerConfig = field(default_factory=TriggerConfig)
+    channels: dict[int, ChannelState] = field(default_factory=dict)
+    trigger: TriggerState = field(default_factory=TriggerState)
     acquisition_mode: AcquisitionMode | None = None
     average_count: int | None = None
     horizontal_scale: float | None = None

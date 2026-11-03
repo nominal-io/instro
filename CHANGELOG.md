@@ -1,5 +1,141 @@
 # Changelog
 
+## [1.23.0](https://github.com/nominal-io/instro/compare/instro-v1.22.0...instro-v1.23.0) (2026-10-28)
+
+
+### Features
+
+* **unstable/dmm:** add Fluke 8845A driver wrapping Agilent34401A ([#668](https://github.com/nominal-io/instro/issues/668)) ([f2c1284](https://github.com/nominal-io/instro/commit/f2c1284794ff5824807c52aecd3b02b83833038f))
+* **unstable/scope:** add Keysight 3000T X-Series oscilloscope driver ([#667](https://github.com/nominal-io/instro/issues/667)) ([af43270](https://github.com/nominal-io/instro/commit/af43270ef472e8a472d83780dfa50759a9dc8fda))
+
+## [1.22.0](https://github.com/nominal-io/instro/compare/instro-v1.21.0...instro-v1.22.0) (2026-10-23)
+
+
+### Features
+
+* **discover:** add dataclass for discovered instruments with driver and config builders ([#620](https://github.com/nominal-io/instro/issues/620)) ([311aee4](https://github.com/nominal-io/instro/commit/311aee4ae227205b773e6cc9c523df9ea7e7ce03))
+* **dmm:** add per-function read shorthands to InstroDMM ([#559](https://github.com/nominal-io/instro/issues/559)) ([c11e7ae](https://github.com/nominal-io/instro/commit/c11e7aee7dc88ecf064cf6acf2d8f456d4c3f324))
+* **docs:** port sdk mkdocs to sphinx ([#583](https://github.com/nominal-io/instro/issues/583)) ([e758e73](https://github.com/nominal-io/instro/commit/e758e73c1d4e2b4ae9420bafd043b909d4399334))
+* **eload:** move rigol dl30xx driver from contrib to core ([#642](https://github.com/nominal-io/instro/issues/642)) ([dfb672b](https://github.com/nominal-io/instro/commit/dfb672b81de3813b66221e5f3d37c30b0e18d61f))
+* **psu:** add GW Instek GPD3303D driver ([#651](https://github.com/nominal-io/instro/issues/651)) ([460e8ce](https://github.com/nominal-io/instro/commit/460e8ce56a9bd65fcdbe9a03935c8cbc4f367704))
+* **psu:** add InstroPSU.apply for one-call channel bring-up ([#560](https://github.com/nominal-io/instro/issues/560)) ([1509827](https://github.com/nominal-io/instro/commit/1509827d28961fdd13c9d7cdc8ba7d080e7cf018))
+* **psu:** add OVP/OCP trip clear and query methods ([#599](https://github.com/nominal-io/instro/issues/599)) ([90f2ceb](https://github.com/nominal-io/instro/commit/90f2ceba72cb02b87d80206f82d9b294ec112670))
+* **psu:** implement get_operating_mode for RigolDP800 ([#598](https://github.com/nominal-io/instro/issues/598)) ([2bb81f4](https://github.com/nominal-io/instro/commit/2bb81f436c24bf3f292b32b7fdcce279f2e0c601))
+* **unstable:** sdr first pass ([#447](https://github.com/nominal-io/instro/issues/447)) ([a64cd13](https://github.com/nominal-io/instro/commit/a64cd131ed4f2b9110a65367822ba740f8c59f76))
+
+
+### Bug Fixes
+
+* **deps:** update nominal and fix security alerts ([#666](https://github.com/nominal-io/instro/issues/666)) ([1aa8ca0](https://github.com/nominal-io/instro/commit/1aa8ca0fd6a039257846599b4701e5c1c11ba549))
+* **just:** run clippy --fix in fix-rust recipe ([#568](https://github.com/nominal-io/instro/issues/568)) ([964921d](https://github.com/nominal-io/instro/commit/964921dda4b1b7811195de8e570c2ba5d9b27eb1))
+
+## [1.21.0](https://github.com/nominal-io/instro/compare/instro-v1.20.0...instro-v1.21.0) (2026-09-18)
+
+
+### Features
+
+* **dewesoftx:** add dewesoftx daq driver ([#443](https://github.com/nominal-io/instro/issues/443)) ([905422d](https://github.com/nominal-io/instro/commit/905422dd0f7c1209008e9a9786557afcba36f88d))
+
+
+### Bug Fixes
+
+* correct PSB mode select to reflect CV only ([#525](https://github.com/nominal-io/instro/issues/525)) ([009ab0c](https://github.com/nominal-io/instro/commit/009ab0ca957d645b657b8117aeddf860b46856d5))
+* **dmm:** release the driver and reset apply state when close() fails ([#534](https://github.com/nominal-io/instro/issues/534)) ([a8c0aea](https://github.com/nominal-io/instro/commit/a8c0aeaada9de15c5db0e4bb9070b45dd655c4b3))
+
+## [1.20.0](https://github.com/nominal-io/instro/compare/instro-v1.19.0...instro-v1.20.0) (2026-09-09)
+
+
+### Features
+
+* **scope:** json config-driven instrument creation ([#460](https://github.com/nominal-io/instro/issues/460)) ([1d1c4f8](https://github.com/nominal-io/instro/commit/1d1c4f8c4196a2d4aa3223ac4bf0ef1eccb038c7))
+
+## [1.19.0](https://github.com/nominal-io/instro/compare/instro-v1.18.1...instro-v1.19.0) (2026-09-07)
+
+
+### Features
+
+* **psu,eload:** add support for EA PSB 10000 series ([#379](https://github.com/nominal-io/instro/issues/379)) ([b155819](https://github.com/nominal-io/instro/commit/b155819621296a63778405a77232c95fd71e8222))
+
+
+### Bug Fixes
+
+* **eload:** cache mode only after the driver confirms set_mode ([#485](https://github.com/nominal-io/instro/issues/485)) ([9ccbf0a](https://github.com/nominal-io/instro/commit/9ccbf0ab4c84fc229a305a21e30f3bd1c1db56eb))
+
+## [1.18.1](https://github.com/nominal-io/instro/compare/instro-v1.18.0...instro-v1.18.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **read_batch:** read measurements from background daemon fetch ([#465](https://github.com/nominal-io/instro/issues/465)) ([98a7832](https://github.com/nominal-io/instro/commit/98a7832a18f4e77c0010ef6e717356a9962453e3))
+
+## [1.18.0](https://github.com/nominal-io/instro/compare/instro-v1.17.0...instro-v1.18.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453))
+
+### Features
+
+* **awg:** add awg to idn map ([#475](https://github.com/nominal-io/instro/issues/475)) ([1b8e3c5](https://github.com/nominal-io/instro/commit/1b8e3c5778df2a19f58e44dc4e448138e6135f6f))
+* **awg:** graduate InstroAWG from instro-unstable to instro ([#453](https://github.com/nominal-io/instro/issues/453)) ([ed9adfd](https://github.com/nominal-io/instro/commit/ed9adfd9f4aba9d5ea796769981e09736be06d1a))
+
+
+### Bug Fixes
+
+* **ci:** mint a GitHub App token for release-please instead of the shared PAT ([#469](https://github.com/nominal-io/instro/issues/469)) ([3b8cab8](https://github.com/nominal-io/instro/commit/3b8cab8d8fec31c90fcb6f50bd15af3dc4eead38))
+
+
+### Documentation
+
+* **agents:** document Release-As scoping for release-please overrides ([#478](https://github.com/nominal-io/instro/issues/478)) ([3bbf55a](https://github.com/nominal-io/instro/commit/3bbf55a6d501244eac13aa6b6ed704cd6909b2d7)), closes [#476](https://github.com/nominal-io/instro/issues/476)
+
+## [1.17.0](https://github.com/nominal-io/instro/compare/instro-v1.16.0...instro-v1.17.0) (2026-09-03)
+
+
+### Features
+
+* **unstable:** add motor-controller HAL and VESC 6 CAN driver ([#386](https://github.com/nominal-io/instro/issues/386)) ([e7f9627](https://github.com/nominal-io/instro/commit/e7f9627cefb8c48e7e2f50c45b488ec6a0e02f68))
+
+
+### Bug Fixes
+
+* **daq:** wait for a full fresh batch in read_batch() ([#457](https://github.com/nominal-io/instro/issues/457)) ([9245b70](https://github.com/nominal-io/instro/commit/9245b70aca84658f856900818be002050ca2dee7))
+
+## [1.16.0](https://github.com/nominal-io/instro/compare/instro-v1.15.0...instro-v1.16.0) (2026-09-02)
+
+
+### Features
+
+* **unstable:** add VNA category and NanoVNA driver ([#439](https://github.com/nominal-io/instro/issues/439)) ([20dc3ea](https://github.com/nominal-io/instro/commit/20dc3eaea5d3dca60b99cab01dd7502a1394f7e4))
+
+
+### Bug Fixes
+
+* **awg:** standardize sample_rate in arbitrary waveforms ([#442](https://github.com/nominal-io/instro/issues/442)) ([f0e2432](https://github.com/nominal-io/instro/commit/f0e2432e747fcc66964b5b16311b3b95cad90bae))
+
+## [1.15.0](https://github.com/nominal-io/instro/compare/instro-v1.14.0...instro-v1.15.0) (2026-08-31)
+
+
+### Features
+
+* publish categorical instrument reads as Measurement ([#445](https://github.com/nominal-io/instro/issues/445)) ([6ccce83](https://github.com/nominal-io/instro/commit/6ccce834b59f67753c192374c4154d0901d8bb3a))
+
+## [1.14.0](https://github.com/nominal-io/instro/compare/instro-v1.13.0...instro-v1.14.0) (2026-08-28)
+
+
+### Features
+
+* **awg:** add burst to Keysight 33521B driver ([#405](https://github.com/nominal-io/instro/issues/405)) ([bc38a6b](https://github.com/nominal-io/instro/commit/bc38a6b183904c00718d92b8f407dda031fa6e43))
+* **awg:** add sweep to Keysight 33521B driver ([#410](https://github.com/nominal-io/instro/issues/410)) ([a55974c](https://github.com/nominal-io/instro/commit/a55974c1cbecc561e721440556dc2031dd3d0faa))
+* **awg:** use bulk download for small LAN waveforms ([#432](https://github.com/nominal-io/instro/issues/432)) ([bde7b1e](https://github.com/nominal-io/instro/commit/bde7b1ee24a9ef77b0c1332a3d4700c8185dbef2))
+* **psu:** add get_operating_mode query for CV/CC/off state ([#438](https://github.com/nominal-io/instro/issues/438)) ([9da5701](https://github.com/nominal-io/instro/commit/9da5701ba6cb2d53b4ae9a36567ae9a97048e077))
+
+
+### Bug Fixes
+
+* **labjack:** fix start and timeout inconsistencies ([#444](https://github.com/nominal-io/instro/issues/444)) ([5acbd4d](https://github.com/nominal-io/instro/commit/5acbd4dae16eb6902f7c696f241069473bc952c8))
+
 ## [1.13.0](https://github.com/nominal-io/instro/compare/instro-v1.12.0...instro-v1.13.0) (2026-08-24)
 
 

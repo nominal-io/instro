@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v1.0.0...instro-i2c-aardvark-v1.0.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** update nominal and fix security alerts ([#666](https://github.com/nominal-io/instro/issues/666)) ([1aa8ca0](https://github.com/nominal-io/instro/commit/1aa8ca0fd6a039257846599b4701e5c1c11ba549))
+
 ## [1.0.0](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v0.3.0...instro-i2c-aardvark-v1.0.0) (2026-07-02)
 
 

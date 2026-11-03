@@ -152,6 +152,12 @@ class TestBitmap:
         assert m.channel_data["group_test.bit_2"] == [1]
         assert m.channel_data["group_test.bit_5"] == [1]
 
+    def test_bitmap_bit_is_a_plain_int_not_a_float(self, device):
+        """A bitmap bit is published as a plain int (0 or 1), matching modbus.mdx's documented values."""
+        m = device.read("status")
+        assert isinstance(m.channel_data["group_test.bit_0"][0], int)
+        assert not isinstance(m.channel_data["group_test.bit_0"][0], float)
+
     def test_bitmap_zero_bits(self, device):
         m = device.read("status")
         # bit_index 1 and 3 are not in bitmap, but bit_0, bit_2, bit_5 are

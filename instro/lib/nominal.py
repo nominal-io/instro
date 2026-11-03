@@ -16,14 +16,14 @@ from instro.lib.types import Measurement
 
 class CoreEnqueueDict(TypedDict):
     timestamp: int
-    channel_values: dict[str, float]
+    channel_values: dict[str, float | str]
     tags: dict[str, str] | None
 
 
 class CoreEnqueueBatchDict(TypedDict):
     channel_name: str
     timestamps: list[int]
-    values: list[float]
+    values: list[float] | list[str]
     tags: dict[str, str] | None
 
 

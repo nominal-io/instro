@@ -6,6 +6,7 @@ tests/dmm/agilent/test_agilent_34401a_software.py,
 tests/dmm/keithley/test_keithley_2400_software.py).
 """
 
+import threading
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
@@ -13,6 +14,7 @@ import pytest
 
 from instro.dmm import DMMDriverBase, InstroDMM
 from instro.dmm.types import MeasurementFunction
+from instro.lib import Measurement
 
 # --- InstroDMM composition tests ---
 
@@ -181,3 +183,78 @@ def test_nominal_dmm_read_returns_measurement(stub_driver: _StubDMMDriver) -> No
     measurement = dmm.read()
     assert "ut.dc_voltage" in measurement.channel_data
     assert measurement.channel_data["ut.dc_voltage"] == [3.3]
+
+
+def test_read_helper_selects_function_then_reads(stub_driver: _StubDMMDriver) -> None:
+    stub_driver.measured = 1.5
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    measurement = dmm.read_dc_voltage()
+    assert stub_driver.last_function is MeasurementFunction.DC_VOLTAGE
+    assert measurement.channel_data["ut.dc_voltage"] == [1.5]
+
+
+def test_read_helper_skips_redundant_function_change(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    stub_driver.set_measurement_function = MagicMock(  # type: ignore[method-assign]
+        wraps=stub_driver.set_measurement_function
+    )
+
+    dmm.read_dc_voltage()
+    dmm.read_dc_voltage()
+    assert stub_driver.set_measurement_function.call_count == 1
+
+    dmm.read_resistance()
+    assert stub_driver.set_measurement_function.call_count == 2
+    assert stub_driver.set_measurement_function.call_args.args == (MeasurementFunction.TWO_WIRE_RESISTANCE,)
+
+
+def test_read_helper_publishes_select_and_read_outside_the_lock(stub_driver: _StubDMMDriver) -> None:
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    published: list[str] = []
+
+    class _LockCheckingPublisher:
+        def publish(self, data: Any, **kwargs: Any) -> None:
+            # Publisher I/O must not extend the hold that keeps the daemon waiting.
+            assert not dmm._resource_lock.locked()
+            published.extend(data.channel_data)
+
+        def close(self) -> None: ...
+
+    dmm.add_publisher(_LockCheckingPublisher())
+    dmm.read_dc_voltage()
+
+    assert published == ["ut.set_measurement_function.cmd", "ut.dc_voltage"]
+
+
+def test_read_helper_is_atomic_against_concurrent_function_change(stub_driver: _StubDMMDriver) -> None:
+    """A competing set_measurement_function must not switch the function mid-sequence."""
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+    stub_driver.measured = 1.0
+
+    parked = threading.Event()
+    resume = threading.Event()
+
+    def stalled_measure() -> float:
+        # Park mid-read, after the function check: an implementation that released the
+        # lock between the check and the read would let the switcher in here.
+        parked.set()
+        resume.wait(timeout=5)
+        return stub_driver.measured
+
+    stub_driver.measure_dc_voltage = stalled_measure  # type: ignore[method-assign]
+
+    readings: list[Measurement] = []
+    reader = threading.Thread(target=lambda: readings.append(dmm.read_dc_voltage()))
+    reader.start()
+    assert parked.wait(timeout=5)
+
+    switcher = threading.Thread(target=lambda: dmm.set_measurement_function(MeasurementFunction.TWO_WIRE_RESISTANCE))
+    switcher.start()
+    switcher.join(timeout=0.2)  # blocked on the resource lock; ample time to win the race if it were not
+    resume.set()
+
+    reader.join(timeout=5)
+    switcher.join(timeout=5)
+
+    assert "ut.dc_voltage" in readings[0].channel_data

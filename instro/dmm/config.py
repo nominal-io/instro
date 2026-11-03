@@ -12,6 +12,7 @@ from instro.lib.config import (
     TimingConfig,
     build_publisher,
 )
+from instro.lib.registry import DriverEntry, IdnPattern
 from instro.lib.transports.visa import VisaConfig
 from instro.lib.types import DeviceInfo
 
@@ -26,15 +27,29 @@ __all__ = [
     "MeasurementConfig",
     "NominalCorePublisherConfig",
     "TimingConfig",
+    "VirtualDriverConfig",
     "VisaDriverConfig",
 ]
 
-DMM_VENDOR_REGISTRY: dict[str, str] = {
-    "Agilent34401A": "instro.dmm.drivers.agilent_a34401a.Agilent34401A",
-    "Keithley2400": "instro.dmm.drivers.keithley_2400.Keithley2400",
-    "Keysight34461A": "instro.dmm.drivers.keysight_34461a.Keysight34461A",
-    "SimulatedDMM": "instro.dmm.drivers.simulated.SimulatedDMM",
+DMM_VENDOR_REGISTRY: dict[str, DriverEntry] = {
+    "Agilent34401A": DriverEntry(
+        "instro.dmm.drivers.agilent_a34401a.Agilent34401A",
+        (IdnPattern(("AGILENT TECHNOLOGIES", "HEWLETT-PACKARD"), r"^34401A"),),
+    ),
+    "Keithley2400": DriverEntry(
+        "instro.dmm.drivers.keithley_2400.Keithley2400",
+        (IdnPattern(("KEITHLEY INSTRUMENTS",), r"^(MODEL )?2400"),),
+    ),
+    "Keysight34461A": DriverEntry(
+        "instro.dmm.drivers.keysight_34461a.Keysight34461A",
+        (IdnPattern(("KEYSIGHT TECHNOLOGIES", "AGILENT TECHNOLOGIES"), r"^34461A"),),
+    ),
+    "SimulatedDMM": DriverEntry("instro.dmm.drivers.simulated.SimulatedDMM"),
+    "VirtualDMM": DriverEntry("instro.dmm.drivers.virtual.VirtualDMM"),
 }
+
+# drivers with no connection; configured through VirtualDriverConfig
+_VIRTUAL_DRIVERS = ("VirtualDMM",)
 
 
 class MeasurementConfig(BaseModel):
@@ -70,7 +85,17 @@ class VisaDriverConfig(BaseModel):
     def name_must_be_registered(cls, v: str) -> str:
         if v not in DMM_VENDOR_REGISTRY:
             raise ValueError(f"unknown driver {v!r}")
+        if v in _VIRTUAL_DRIVERS:
+            raise ValueError(f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}"}}')
         return v
+
+
+class VirtualDriverConfig(BaseModel):
+    """Driver config for a virtual DMM: simulated in-process, with no connection."""
+
+    model_config = ConfigDict(extra="forbid")
+    connection_type: Literal["virtual"]
+    name: Literal["VirtualDMM"] = Field(description="Virtual driver key.")
 
 
 class DMMConfig(BaseModel):
@@ -80,7 +105,7 @@ class DMMConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroDMM"] = "InstroDMM"
     device: DeviceInfo
-    driver: VisaDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     measurement: MeasurementConfig | None = None
     timing: TimingConfig | None = None
     publishers: list[PublisherConfigType] = Field(default_factory=list)
@@ -98,11 +123,11 @@ def resolve_dmm_from_config(
     config: DMMConfig,
 ) -> tuple[str, DMMDriverBase, list[Publisher], float | None]:
     """Resolve a validated DMMConfig into the ``(name, driver, config_publishers, poll_interval)`` InstroDMM needs."""
-    import importlib
-
-    module_path, class_name = DMM_VENDOR_REGISTRY[config.driver.name].rsplit(".", 1)
-    driver_cls = getattr(importlib.import_module(module_path), class_name)
-    driver: DMMDriverBase = driver_cls(config.driver.visa)  # type: ignore[call-arg]
+    driver_cls = DMM_VENDOR_REGISTRY[config.driver.name].load()
+    if isinstance(config.driver, VirtualDriverConfig):
+        driver: DMMDriverBase = driver_cls()
+    else:
+        driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
     config_publishers = [build_publisher(p) for p in config.publishers]
     poll_interval = config.timing.poll_interval if config.timing is not None else None
