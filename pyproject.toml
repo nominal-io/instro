@@ -56,7 +56,7 @@ ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 # Plotly publisher; anywidget backs go.FigureWidget for live notebook plots
-plot = ["plotly>=6.0", "anywidget>=0.11"]
+plot = ["plotly>=6.0", "anywidget>=0.11", "pandas>=2.0"]
 all = [
     "instro-daq-ni",
     "instro-daq-labjack",
@@ -67,6 +67,7 @@ all = [
     "instro-unstable",
     "plotly>=6.0",
     "anywidget>=0.11",
+    "pandas>=2.0",
 ]
 
 [project.urls]
@@ -100,6 +101,7 @@ dev = [
 test = [
     "anywidget>=0.11",
     "cpppo>=4.0.0",
+    "pandas>=2.0",
     "plotly>=6.0",
     "pytest>=9.0.3,<10",
 ]

@@ -83,7 +83,9 @@ def test_without_a_figure_a_figure_widget_is_created_and_displayed():
     assert axis_types_at_display == ["date"]
 
     publisher.publish(Measurement(channel_data={"psu.voltage": [1.0]}, timestamps=[T0]))
-    publisher.close()
+    with patch("plotly.io.show") as show:
+        publisher.close()
+    show.assert_called_once_with(publisher.figure)
 
     assert isinstance(publisher.figure, go.FigureWidget)
     (trace,) = publisher.figure.data

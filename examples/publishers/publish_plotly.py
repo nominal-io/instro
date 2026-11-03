@@ -22,13 +22,11 @@ from instro.psu.drivers import SimulatedPSU
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 
-plot_publisher = PlotlyPublisher()
-
 psu = InstroPSU(
     name="myPSU",
     driver=SimulatedPSU(VISA_RESOURCE),
     num_channels=2,
-    publishers=[plot_publisher],
+    publishers=[PlotlyPublisher()],
 )
 
 with psu:
@@ -42,5 +40,3 @@ with psu:
         psu.get_current(channel=1)
 
     psu.output_enable(False, channel=1)
-
-plot_publisher.figure.show()

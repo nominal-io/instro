@@ -605,6 +605,7 @@ all = [
     { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
     { name = "instro-unstable" },
+    { name = "pandas" },
     { name = "plotly" },
 ]
 contrib = [
@@ -632,6 +633,7 @@ nidaq = [
 ]
 plot = [
     { name = "anywidget" },
+    { name = "pandas" },
     { name = "plotly" },
 ]
 unstable = [
@@ -663,6 +665,7 @@ docs = [
 test = [
     { name = "anywidget" },
     { name = "cpppo" },
+    { name = "pandas" },
     { name = "plotly" },
     { name = "pytest" },
 ]
@@ -691,6 +694,8 @@ requires-dist = [
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.180.0,<2.0.0" },
+    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.0" },
+    { name = "pandas", marker = "extra == 'plot'", specifier = ">=2.0" },
     { name = "plotly", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "plotly", marker = "extra == 'plot'", specifier = ">=6.0" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -729,6 +734,7 @@ docs = [
 test = [
     { name = "anywidget", specifier = ">=0.11" },
     { name = "cpppo", specifier = ">=4.0.0" },
+    { name = "pandas", specifier = ">=2.0" },
     { name = "plotly", specifier = ">=6.0" },
     { name = "pytest", specifier = ">=9.0.3,<10" },
 ]

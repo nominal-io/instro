@@ -15,6 +15,7 @@ from instro.lib.types import Command, Measurement
 # Plotly is the optional `plot` extra. The publisher only calls methods on the caller's
 # figure, so importing instro never needs it.
 if TYPE_CHECKING:
+    import pandas as pd  # type: ignore[import-untyped]
     import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
 
 
@@ -25,23 +26,33 @@ class PlotlyPublisher(Publisher):
     background thread writes changed channels to the figure every ``flush_interval`` seconds, so
     a ``go.FigureWidget`` in a Jupyter notebook updates live. Times are plotted in UTC on a date x
     axis. String values are skipped; they have no numeric value to plot. Without a ``figure``, the
-    publisher creates a ``go.FigureWidget`` and displays it in the notebook; it never shows a figure
-    you pass in, so call ``figure.show()``, or display the widget, when you want to see it.
+    publisher creates a ``go.FigureWidget``, displays it right away so a notebook plots live, and
+    shows it again on ``close()`` so a script plots at the end. It never shows a figure you pass in.
 
     Requires the ``plot`` extra (``pip install "instro[plot]"``).
     """
 
     def __init__(
-        self, figure: go.Figure | go.FigureWidget | None = None, max_points: int = 10_000, flush_interval: float = 0.1
+        self,
+        figure: go.Figure | go.FigureWidget | None = None,
+        max_points: int = 10_000,
+        flush_interval: float = 0.1,
+        time_window: str | pd.Timedelta | None = "1min",
     ):
         """Create a publisher that plots each channel on a trace named after the channel.
 
         Args:
             figure: Figure to plot on. A ``go.FigureWidget`` updates live in a notebook. When
-                omitted, the publisher creates a ``go.FigureWidget`` and displays it right away.
+                omitted, the publisher creates a ``go.FigureWidget``, displays it right away, and
+                shows it again on ``close()``.
             max_points: Points kept per channel; older points drop off the plot.
             flush_interval: Seconds between writes to the figure.
+            time_window: Span of time the x axis shows, such as ``"30s"`` or ``pd.Timedelta(minutes=5)``.
+                The window starts at the first point and scrolls forward once the newest point passes
+                its end. A string is converted with ``pd.Timedelta``. Defaults to one
+                minute. With ``None``, the x axis fits all points.
         """
+        self._show_on_close = figure is None
         if figure is None:
             import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
             from IPython.display import display  # type: ignore[import-untyped, import-not-found]
@@ -53,6 +64,11 @@ class PlotlyPublisher(Publisher):
         self.figure.update_layout(xaxis_type="date")
         self._max_points = max_points
         self._flush_interval = flush_interval
+        self._time_window = None
+        if time_window is not None:
+            import pandas as pd  # type: ignore[import-untyped]
+
+            self._time_window = pd.Timedelta(time_window)
         self._buffers: defaultdict[str, tuple[NumpyRingBuffer, NumpyRingBuffer]] = defaultdict(
             lambda: (NumpyRingBuffer(max_points, np.int64), NumpyRingBuffer(max_points, np.float64))
         )
@@ -106,6 +122,14 @@ class PlotlyPublisher(Publisher):
             else:
                 trace.update(x=x, y=values)
 
+        # Show the time window from the first point, then scroll it forward once the newest point passes its end.
+        if self._time_window is not None and pending:
+            oldest = min(int(timestamps[0]) for timestamps, _ in pending.values())
+            newest = max(int(timestamps[-1]) for timestamps, _ in pending.values())
+            start = max(oldest, newest - self._time_window.value)
+            window = np.array([start, start + self._time_window.value], dtype="datetime64[ns]")
+            self.figure.update_xaxes(range=np.datetime_as_string(window, unit="us").tolist())
+
     def close(self) -> None:
         """Stop the flush thread, write any remaining points to the figure, and clear the buffers."""
         self._stop.set()
@@ -113,3 +137,9 @@ class PlotlyPublisher(Publisher):
         self._flush()
         with self._lock:
             self._buffers.clear()
+
+        # FigureWidget.show() does nothing outside a notebook, so show the figure through plotly.io.
+        if self._show_on_close:
+            import plotly.io as pio  # type: ignore[import-untyped, import-not-found]
+
+            pio.show(self.figure)
