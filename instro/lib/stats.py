@@ -23,21 +23,39 @@ class ChannelState:
     """Latest known state of one channel."""
 
     channel: str
+    """The full channel name, such as ``"bench.ch1.voltage"``."""
     kind: str
+    """``"measurement"`` or ``"command"``."""
     value: float | str | None
+    """The newest value."""
     timestamp: int
+    """The newest value's timestamp, in nanoseconds since the epoch."""
     source: str
+    """Who published the newest value: the instrument name, or a monitor connection's ``host:port``."""
     count: int = 0
+    """Samples received so far."""
     connected: bool = True
+    """Whether the source is still connected. Always `True` for an instrument's own channels."""
     last_received: float = 0.0
+    """When the newest value arrived, as a `time.monotonic` reading in seconds."""
     arrivals: deque[tuple[float, int]] = field(default_factory=lambda: deque(maxlen=_ARRIVAL_HISTORY), repr=False)
+    """Recent arrivals as ``(time.monotonic() seconds, sample count)`` pairs, used by `rate`."""
 
     @property
     def instrument(self) -> str:
+        """The channel name's prefix before the first ``.``, which is the instrument name."""
         return self.channel.split(".", 1)[0]
 
     def rate(self, window_s: float, now: float | None = None) -> float:
-        """Samples per second received over the trailing ``window_s`` seconds."""
+        """Return the samples per second received over the trailing ``window_s`` seconds.
+
+        Args:
+            window_s: Length of the window, in seconds.
+            now: End of the window as a `time.monotonic` reading, in seconds; the current time when omitted.
+
+        Returns:
+            float: Samples per second.
+        """
         now = time.monotonic() if now is None else now
         cutoff = now - window_s
         return sum(n for t, n in self.arrivals if t >= cutoff) / window_s
@@ -47,6 +65,21 @@ class MonitorState:
     """Thread-safe store of the latest value, count and rate of every channel, fed by one or more sources."""
 
     def __init__(self, rate_window_s: float = 5.0):
+        """Create an empty store.
+
+        Args:
+            rate_window_s: Window, in seconds, that readers such as the notebook card use for `ChannelState.rate`.
+
+        Example:
+            .. code-block:: python
+
+                from instro.lib.stats import MonitorState
+                from instro.lib.types import Measurement
+
+                state = MonitorState()
+                state.ingest("bench", Measurement(channel_data={"bench.v": [1.0, 1.1]}, timestamps=[10, 20]))
+                [(s.channel, s.value, s.count) for s in state.snapshot()]  # [("bench.v", 1.1, 2)]
+        """
         self.rate_window_s = rate_window_s
         self._lock = threading.Lock()
         self._channels: dict[str, ChannelState] = {}
@@ -54,10 +87,12 @@ class MonitorState:
         self.frames_received = 0
 
     def source_connected(self, source: str) -> None:
+        """Mark ``source``, such as a monitor connection's ``host:port``, as connected."""
         with self._lock:
             self._sources[source] = True
 
     def source_disconnected(self, source: str) -> None:
+        """Mark ``source`` and every channel it last published as disconnected. The channels keep their values."""
         with self._lock:
             self._sources[source] = False
             for state in self._channels.values():
@@ -102,6 +137,7 @@ class MonitorState:
             return [replace(s, arrivals=deque(s.arrivals, maxlen=_ARRIVAL_HISTORY)) for s in ordered]
 
     def sources(self) -> dict[str, bool]:
+        """Return every source seen so far, mapped to whether it is still connected."""
         with self._lock:
             return dict(self._sources)
 

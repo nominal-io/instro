@@ -10,11 +10,11 @@ kernelspec:
 
 # Notebook display for instruments and publishers
 
-This notebook shows the features from [#709](https://github.com/nominal-io/instro/issues/709): notebook cards ([#711](https://github.com/nominal-io/instro/pull/711)) and publisher stats ([#712](https://github.com/nominal-io/instro/pull/712)). The cards were inspired by [nominal-io/nominal-client#1260](https://github.com/nominal-io/nominal-client/pull/1260).
+Watch a bench power supply from a notebook: its settings, the latest value of every channel, and what each publisher has done with the data. Instruments and publishers display as cards, described in the [notebook display guide](https://github.com/nominal-io/instro/blob/main/docs/library/notebook-display.md).
 
-It needs no hardware and no Nominal credentials: it uses a `VirtualPSU`, a local file publisher, and an offline stand-in for a Nominal dataset. To see a real dataset card instead, set `DATASET_RID` below.
+The example runs without hardware or Nominal credentials. It uses a `VirtualPSU`, a local file publisher and an offline stand-in for a Nominal dataset. To show a real dataset, set `DATASET_RID` in the first cell.
 
-Open it from the repo root with `just notebook`, then right-click `notebook_display.md` and choose **Open With → Jupytext Notebook**. `just test-notebooks` runs it from top to bottom.
+From a clone of the repository, `just notebook` opens this file in JupyterLab: right-click `notebook_display.md` and choose **Open With → Jupytext Notebook**.
 
 ```{code-cell} ipython3
 import tempfile
@@ -26,15 +26,16 @@ from instro.lib.types import BackgroundDaemonConfig
 from instro.psu import InstroPSU
 from instro.psu.drivers import VirtualPSU
 
-# Set to a dataset RID to use a real dataset with your "default" Nominal profile.
+# A dataset RID to write to with your "default" Nominal profile, or None for an offline stand-in.
 DATASET_RID = None
 
+# The file publisher writes JSON Lines here.
 capture_dir = tempfile.mkdtemp(prefix="instro-notebook-")
 ```
 
 ## An instrument card
 
-An instrument at the end of a cell displays as a card. Before `start()`, it shows the driver, the channel count, the background daemon's settings, the publishers and the default tags. Building the card never talks to the hardware.
+An instrument at the end of a cell displays as a card. Before `start()`, the card shows the driver, the channel count, the background daemon's settings, the publishers and the default tags. Building it never talks to the hardware.
 
 ```{code-cell} ipython3
 psu = InstroPSU(
@@ -43,14 +44,15 @@ psu = InstroPSU(
     num_channels=2,
     publishers=[QueuedPublisher(FilePublisher(capture_dir, format="jsonl"))],
     background_config=BackgroundDaemonConfig(interval=0.1),
-    operator="alex",
+    # Default tags, added to every published value.
     test_stand="rig-3",
+    dut_serial="SN-0042",
 )
 psu.open()
 psu
 ```
 
-`repr()` gives a one-line summary, which you see outside a notebook:
+Outside a notebook, `repr()` gives a one-line summary.
 
 ```{code-cell} ipython3
 print(repr(psu))
@@ -58,12 +60,14 @@ print(repr(psu))
 
 ## While it runs
 
-Set a voltage, enable the output, and start the background daemon. The card now has a **running** badge and the last loop time. The **Channels** table lists every channel published so far, commands (`.cmd`) included, each with its latest value, rate and sample count.
+Once the background daemon runs, the card has a **running** badge and the last loop time. The **Channels** table lists every channel published so far, with its latest value, rate and sample count. Settings you send, such as the voltage, appear as `.cmd` channels.
 
 ```{code-cell} ipython3
+# Each setter publishes a .cmd channel.
 psu.set_current_limit(0.5, channel=1)
 psu.set_voltage(3.3, channel=1)
 psu.output_enable(True, channel=1)
+# Poll the supply every 0.1 s, then let a few readings arrive.
 psu.start()
 time.sleep(1.5)
 psu
@@ -73,7 +77,6 @@ psu
 
 Each publisher has its own card. `NominalCorePublisher` shows the dataset with an **Open in Nominal** link, the RID with a copy button, and where the credentials came from. It never shows an API key.
 
-Without `DATASET_RID`, the next cell builds the publisher around an offline stand-in dataset, so its card renders without a network.
 
 ```{code-cell} ipython3
 from unittest.mock import MagicMock, create_autospec
@@ -86,6 +89,7 @@ from instro.lib.publishers import NominalCorePublisher
 if DATASET_RID:
     nominal = NominalCorePublisher(DATASET_RID)
 else:
+    # An offline stand-in for a Nominal dataset, so the card renders without a network.
     stand_in = create_autospec(Dataset, instance=True)
     stand_in.rid = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"
     stand_in.name = "bench_psu run (offline stand-in)"
@@ -104,9 +108,10 @@ psu.publishers[0].publisher  # the FilePublisher inside the QueuedPublisher
 
 ## A failing publisher
 
-A publisher that raises no longer breaks the instrument. The instrument logs the first failure with its traceback, counts each one, and keeps sending to the other publishers. Here a publisher fails on every other call. Only one error is logged, and the card gets an error badge.
+A publisher that raises doesn't stop the instrument. The instrument counts the error, sends the data to its other publishers, and logs the first error with its traceback. The publisher below fails on every other call: one error is logged, and the card gets an error badge.
 
 ```{code-cell} ipython3
+# A publisher whose upload fails on every second call.
 class FlakyPublisher:
     def __init__(self):
         self.calls = 0
@@ -119,6 +124,7 @@ class FlakyPublisher:
     def close(self):
         pass
 
+    # How the publisher is described in the instrument's card.
     def _display_summary(self):
         return "flaky test publisher"
 
@@ -128,7 +134,7 @@ time.sleep(1.0)
 psu
 ```
 
-The same counters are available from code:
+`publisher_stats` and `channel_stats` return the counters from the card as snapshots.
 
 ```{code-cell} ipython3
 for stats in psu.publisher_stats:
@@ -142,7 +148,7 @@ for state in psu.channel_stats:
 
 ## Display options
 
-`set_display_options` changes every card, as a call or for the length of a `with` block. These options match nominal-client's.
+`set_display_options` changes every card, as a call or for the length of a `with` block.
 
 ```{code-cell} ipython3
 with set_display_options(time_precision="ms", time_format="readable", timezone="local"):
@@ -156,9 +162,10 @@ with set_display_options(style="text"):
 
 ## A live view
 
-A card is a snapshot taken when the cell runs. To watch it update, refresh a display handle. This loop runs for five seconds and changes the voltage as it goes. A built-in `watch()` is a possible follow-up from #709.
+A card is a snapshot taken when the cell runs. To watch it change, refresh a display handle.
 
 ```{code-cell} ipython3
+# Step the voltage for five seconds and redraw the card after each step.
 handle = display(psu, display_id=True)
 for step in range(10):
     psu.set_voltage(1.0 + 0.5 * step, channel=1)
@@ -169,6 +176,7 @@ for step in range(10):
 ## Clean up
 
 ```{code-cell} ipython3
+# Stops the daemon and closes the supply and every publisher.
 psu.close()
 psu
 ```

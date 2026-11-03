@@ -186,7 +186,7 @@ daq.add_publisher(NominalCorePublisher(dataset_rid="ri.catalog..."))
 
 ## Publisher errors and stats
 
-An instrument counts what each of its publishers does with its data. If a publisher raises, the instrument logs the error, counts it, and still sends the data to the publishers after it. The instrument method that produced the data returns normally. The first failure of each publisher is logged with its traceback; later ones are summarized at most once a minute.
+An instrument counts, for each publisher, the objects it accepted and the errors it raised. A publisher that raises doesn't stop the instrument: the publishers after it still get the data, and the instrument method returns normally. The instrument logs each publisher's first error with its traceback, then at most one summary a minute.
 
 {py:attr}`~instro.lib.Instrument.publisher_stats` returns a {py:class}`~instro.lib.stats.PublisherStats` snapshot per publisher, in the order of `publishers`:
 
