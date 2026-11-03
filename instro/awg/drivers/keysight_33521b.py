@@ -216,7 +216,16 @@ class Keysight33521B(AWGDriverBase):
 
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
-        self._write_checked(f"VOLT:OFFS {offset}")
+        with self._visa.lock():
+            carrier = self._visa.query("FUNC?").strip()
+            self._check_errors()
+            if carrier == "DC":
+                raise ValueError(
+                    f"the Keysight 33521B cannot offset a StaticValue (DC) waveform on channel {channel};"
+                    " call set_waveform with a new StaticValue instead"
+                )
+            self._visa.write(f"VOLT:OFFS {offset}")
+            self._check_errors()
 
     def get_offset(self, channel: int) -> float:
         _check_channel(channel)

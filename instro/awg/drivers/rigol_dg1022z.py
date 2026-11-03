@@ -192,6 +192,13 @@ class RigolDG1022Z(AWGDriverBase):
     def set_offset(self, channel: int, offset: float) -> None:
         _check_channel(channel)
         with self._visa.lock():
+            carrier = self._visa.query(f":SOUR{channel}:FUNC?").strip()
+            self._check_errors()
+            if carrier == "DC":
+                raise ValueError(
+                    f"the DG1022Z cannot offset a StaticValue (DC) waveform on channel {channel};"
+                    " call set_waveform with a new StaticValue instead"
+                )
             self._visa.write(f":SOUR{channel}:VOLT:OFFS {offset}")
             self._check_errors()
 
