@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from instro.scope import (
@@ -102,7 +100,7 @@ def test_rejects_invalid_signals_settings_and_channels() -> None:
         driver.fetch_waveform(channel=3)
 
 
-def test_every_setting_reads_back_and_round_trips_through_saved_settings(tmp_path: Path) -> None:
+def test_every_setting_reads_back_and_file_operations_are_unsupported() -> None:
     configured = ChannelState(vertical_scale=0.2, vertical_offset=-0.5, coupling=Coupling.AC, probe_attenuation=10.0)
     with InstroScope(name="scope", driver=VirtualScope(), num_channels=2) as scope:
         scope.set_vertical_scale(0.2, channel=2)
@@ -118,12 +116,6 @@ def test_every_setting_reads_back_and_round_trips_through_saved_settings(tmp_pat
         scope.force_trigger()
         assert scope.get_trigger_status().latest == TriggerStatus.TRIGGERED.value
 
-        host_path = tmp_path / "setup.json"
-        scope.save_settings(str(host_path))
-        scope.save_settings("setup", to_instrument=True)
-        scope.set_vertical_scale(5.0, channel=2)
-        scope.set_horizontal_scale(1.0)
-        scope.load_settings("setup", from_instrument=True)
         state = scope.sync_configuration()
         assert state.channels[2] == configured
         assert (state.horizontal_scale, state.acquisition_mode, state.average_count) == (
@@ -132,10 +124,9 @@ def test_every_setting_reads_back_and_round_trips_through_saved_settings(tmp_pat
             64,
         )
 
-        scope.set_horizontal_scale(1.0)
-        scope.load_settings(str(host_path))
-        assert scope.sync_configuration().horizontal_scale == 1e-3
-
-        screenshot = tmp_path / "screen.png"
-        scope.save_screenshot(str(screenshot))
-        assert screenshot.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        with pytest.raises(NotImplementedError):
+            scope.save_screenshot("screen.png")
+        with pytest.raises(NotImplementedError):
+            scope.save_settings("setup", to_instrument=True)
+        with pytest.raises(NotImplementedError):
+            scope.load_settings("setup", from_instrument=True)

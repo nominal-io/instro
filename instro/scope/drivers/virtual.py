@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import math
 import random
-import struct
-import zlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TypeAlias
 
 from instro.scope import ScopeDriverBase
@@ -27,14 +23,8 @@ from instro.scope.types import (
 
 _RECORD_LENGTH = 1000
 _HORIZONTAL_DIVS = 10
-_VERTICAL_DIVS = 8
 # noise standard deviation, in vertical divisions, before averaging
 _NOISE_DIVS = 0.01
-
-_DIV_PX = 50
-_BACKGROUND = (0, 0, 0)
-_GRATICULE = (64, 64, 64)
-_TRACE_COLORS = ((255, 230, 0), (0, 220, 255), (255, 0, 200), (60, 120, 255))
 
 
 @dataclass(frozen=True)
@@ -151,8 +141,10 @@ class VirtualScope(ScopeDriverBase):
     ``digitize`` capture every channel at once, as a real acquisition does, and later fetches and
     measurements read that capture until the scope runs again, whatever settings or signals
     change meanwhile. Voltage measurements are computed from the capture; frequency, period, and
-    duty cycle come from the signal it was taken from. Every setting reads back as set, and setups
-    saved with ``to_instrument=True`` stay in memory for the life of the driver.
+    duty cycle come from the signal it was taken from. Every setting reads back as set.
+
+    It simulates driving a scope from a script or notebook, so it has no screen or storage:
+    `save_screenshot`, `save_settings`, and `load_settings` raise ``NotImplementedError``.
     """
 
     def __init__(self, num_channels: int = 4, signals: Mapping[int, Signal] | None = None) -> None:
@@ -191,7 +183,6 @@ class VirtualScope(ScopeDriverBase):
         self._settings = _Settings(channels={channel: _Channel() for channel in self._channel_numbers()})
         self._state = AcquisitionState.RUNNING
         self._captures: dict[int, tuple[WaveformData, Signal]] = {}
-        self._storage: dict[str, bytes] = {}
 
     def set_signal(self, signal: Signal, channel: int) -> None:
         """Set the signal ``channel`` sees; a stopped scope keeps showing its last capture.
@@ -363,70 +354,16 @@ class VirtualScope(ScopeDriverBase):
     # --- File operations ---
 
     def save_screenshot(self, filepath: str, to_instrument: bool = False) -> bytes:
-        """Render a PNG of the screen: the graticule and a trace per channel."""
-        return self._save(filepath, self._render_png(), to_instrument)
+        """Not supported: the virtual scope has no screen to capture."""
+        raise NotImplementedError("VirtualScope has no screen to capture")
 
     def save_settings(self, name: str, to_instrument: bool = False) -> bytes:
-        """Save every setting as JSON."""
-        settings = self._settings
-        setup = {
-            "channels": {
-                str(ch): {
-                    "vertical_scale": c.vertical_scale,
-                    "vertical_offset": c.vertical_offset,
-                    "coupling": c.coupling.value,
-                    "probe_attenuation": c.probe_attenuation,
-                }
-                for ch, c in settings.channels.items()
-            },
-            "horizontal_scale": settings.horizontal_scale,
-            "acquisition_mode": settings.acquisition_mode.value,
-            "average_count": settings.average_count,
-            "trigger": {
-                "source": settings.trigger.source,
-                "type": settings.trigger.type.value,
-                "level": settings.trigger.level,
-                "slope": settings.trigger.slope.value,
-                "mode": settings.trigger.mode.value,
-            },
-        }
-        return self._save(name, json.dumps(setup, indent=2).encode(), to_instrument)
+        """Not supported: the virtual scope has no setup storage."""
+        raise NotImplementedError("VirtualScope does not save settings")
 
     def load_settings(self, name: str, from_instrument: bool = False) -> None:
-        """Restore settings saved by `save_settings`; channels the setup leaves out keep their defaults.
-
-        Raises:
-            FileNotFoundError: No setup named ``name`` was saved on the virtual scope.
-            ValueError: The setup names a channel or trigger source that does not exist.
-        """
-        if from_instrument:
-            if name not in self._storage:
-                raise FileNotFoundError(f"no setup named {name!r} saved on the virtual scope")
-            data = self._storage[name]
-        else:
-            data = Path(name).read_bytes()
-        setup = json.loads(data)
-        trigger = setup["trigger"]
-        channels = {channel: _Channel() for channel in self._channel_numbers()}
-        for ch, c in setup["channels"].items():
-            self._check_channel(int(ch))
-            channels[int(ch)] = _Channel(
-                c["vertical_scale"], c["vertical_offset"], Coupling(c["coupling"]), c["probe_attenuation"]
-            )
-        self._check_channel(trigger["source"])
-        self._settings = _Settings(
-            channels=channels,
-            horizontal_scale=setup["horizontal_scale"],
-            acquisition_mode=AcquisitionMode(setup["acquisition_mode"]),
-            average_count=setup["average_count"],
-            trigger=_Trigger(
-                trigger["source"],
-                TriggerType(trigger["type"]),
-                trigger["level"],
-                TriggerSlope(trigger["slope"]),
-                TriggerMode(trigger["mode"]),
-            ),
-        )
+        """Not supported: the virtual scope has no setup storage."""
+        raise NotImplementedError("VirtualScope does not load settings")
 
     # --- Simulation ---
 
@@ -479,40 +416,6 @@ class VirtualScope(ScopeDriverBase):
         voltages = [dc_level + signal._at(t + t_trigger) + random.gauss(0.0, noise) for t in times]
         return WaveformData(times=[round(t * 1e9) for t in times], voltages=voltages)
 
-    def _save(self, name: str, data: bytes, to_instrument: bool) -> bytes:
-        if to_instrument:
-            self._storage[name] = data
-            return b""
-        Path(name).write_bytes(data)
-        return data
-
-    def _render_png(self) -> bytes:
-        width, height = _HORIZONTAL_DIVS * _DIV_PX, _VERTICAL_DIVS * _DIV_PX
-        pixels = [
-            [_GRATICULE if x % _DIV_PX == 0 or y % _DIV_PX == 0 else _BACKGROUND for x in range(width)]
-            for y in range(height)
-        ]
-        for channel in self._channel_numbers():
-            color = _TRACE_COLORS[(channel - 1) % len(_TRACE_COLORS)]
-            settings = self._channel(channel)
-            voltages = self._acquired(channel)[0].voltages
-            previous_y: int | None = None
-            for i, v in enumerate(voltages):
-                x = i * width // len(voltages)
-                divs = (v - settings.vertical_offset) / settings.vertical_scale
-                y = min(height - 1, max(0, round(height / 2 - divs * _DIV_PX)))
-                low, high = sorted((y, y if previous_y is None else previous_y))
-                for row in range(low, high + 1):
-                    pixels[row][x] = color
-                previous_y = y
-        raw = b"".join(b"\x00" + bytes(c for pixel in row for c in pixel) for row in pixels)
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-            + _png_chunk(b"IDAT", zlib.compress(raw))
-            + _png_chunk(b"IEND", b"")
-        )
-
 
 def _check_signal(frequency: float, amplitude: float, offset: float) -> None:
     if not 0 <= frequency < math.inf:
@@ -521,7 +424,3 @@ def _check_signal(frequency: float, amplitude: float, offset: float) -> None:
         raise ValueError(f"amplitude must be finite and not negative, got {amplitude}")
     if not math.isfinite(offset):
         raise ValueError(f"offset must be finite, got {offset}")
-
-
-def _png_chunk(kind: bytes, data: bytes) -> bytes:
-    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
