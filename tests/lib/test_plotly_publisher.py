@@ -4,6 +4,7 @@ import threading
 import time
 from unittest.mock import patch
 
+import pandas as pd  # type: ignore[import-untyped]
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 
 from instro.lib.publishers import PlotlyPublisher
@@ -92,11 +93,69 @@ def test_without_a_figure_a_figure_widget_is_created_and_displayed():
     assert trace.y == (1.0,)
 
 
+def test_figure_passed_in_is_never_shown():
+    publisher = PlotlyPublisher(go.Figure())
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0]}, timestamps=[T0]))
+    with patch("plotly.io.show") as show:
+        publisher.close()
+
+    show.assert_not_called()
+
+
 def test_x_axis_always_shows_timestamps():
     figure = go.Figure(layout={"xaxis": {"type": "linear"}})
     PlotlyPublisher(figure).close()
 
     assert figure.layout.xaxis.type == "date"
+
+
+def test_mismatched_timestamps_do_not_shift_later_points():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure)
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0, 3.0]}, timestamps=[T0, T0 + ONE_SECOND]))
+    publisher.publish(Measurement(channel_data={"psu.voltage": [4.0]}, timestamps=[T0 + 3 * ONE_SECOND]))
+    publisher.close()
+
+    (trace,) = figure.data
+    assert trace.y == (1.0, 2.0, 3.0, 4.0)
+    assert list(trace.x) == [
+        "2023-11-14T22:13:20.000000",
+        "2023-11-14T22:13:21.000000",
+        "2023-11-14T22:13:21.000000",
+        "2023-11-14T22:13:23.000000",
+    ]
+
+
+def test_time_window_starts_at_the_first_point():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure, time_window="1min")
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 10 * ONE_SECOND]))
+    publisher.close()
+
+    assert figure.layout.xaxis.range == ("2023-11-14T22:13:20.000000", "2023-11-14T22:14:20.000000")
+
+
+def test_time_window_scrolls_forward_once_the_newest_point_passes_its_end():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure, time_window=pd.Timedelta(minutes=1))
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 90 * ONE_SECOND]))
+    publisher.close()
+
+    assert figure.layout.xaxis.range == ("2023-11-14T22:13:50.000000", "2023-11-14T22:14:50.000000")
+
+
+def test_without_a_time_window_the_x_axis_range_is_not_set():
+    figure = go.Figure()
+    publisher = PlotlyPublisher(figure, time_window=None)
+
+    publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 90 * ONE_SECOND]))
+    publisher.close()
+
+    assert figure.layout.xaxis.range is None
 
 
 def test_each_channel_keeps_only_its_latest_max_points():

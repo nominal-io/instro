@@ -165,7 +165,7 @@ Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure
 PlotlyPublisher(
     figure: go.Figure | go.FigureWidget | None = None,  # Optional: figure to plot on; created and displayed when omitted
     max_points: int = 10_000,                           # Points kept per channel; older points drop off the plot
-    flush_interval: float = 0.2,                        # Seconds between writes to the figure
+    flush_interval: float = 0.1,                        # Seconds between writes to the figure
 )
 ```
 

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
 
 
-class PlotlyPublisher(Publisher):
+class PlotlyPublisher:
     """Plot Measurement/Command data on a Plotly figure, one trace per channel.
 
     Each channel keeps its latest ``max_points`` points in a fixed-size ring buffer, and a
@@ -90,8 +90,10 @@ class PlotlyPublisher(Publisher):
         # Add the numeric channels to their ring buffers and mark them for the next flush.
         with self._lock:
             for channel, timestamps, values in batches:
-                if not values or isinstance(values[0], str):
+                if not values or not timestamps or isinstance(values[0], str):
                     continue
+                # Equal lengths keep the two buffers' write positions, and so every later x/y pair, in step.
+                timestamps = timestamps[: len(values)] + [timestamps[-1]] * (len(values) - len(timestamps))
                 channel_timestamps, channel_values = self._buffers[channel]
                 channel_timestamps.extend(timestamps)
                 channel_values.extend(values)
