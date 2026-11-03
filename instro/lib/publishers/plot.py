@@ -22,13 +22,6 @@ if TYPE_CHECKING:
 class PlotlyPublisher:
     """Plot Measurement/Command data on a Plotly figure, one trace per channel.
 
-    Each channel keeps its latest ``max_points`` points in a fixed-size ring buffer, and a
-    background thread writes changed channels to the figure every ``flush_interval`` seconds, so
-    a ``go.FigureWidget`` in a Jupyter notebook updates live. Times are plotted in UTC on a date x
-    axis. String values are skipped; they have no numeric value to plot. Without a ``figure``, the
-    publisher creates a ``go.FigureWidget``, displays it right away so a notebook plots live, and
-    shows it again on ``close()`` so a script plots at the end. It never shows a figure you pass in.
-
     Requires the ``plot`` extra (``pip install "instro[plot]"``).
     """
 
@@ -48,9 +41,7 @@ class PlotlyPublisher:
             max_points: Points kept per channel; older points drop off the plot.
             flush_interval: Seconds between writes to the figure.
             time_window: Span of time the x axis shows, such as ``"30s"`` or ``pd.Timedelta(minutes=5)``.
-                The window starts at the first point and scrolls forward once the newest point passes
-                its end. A string is converted with ``pd.Timedelta``. Defaults to one
-                minute. With ``None``, the x axis fits all points.
+                The window starts at the first point and scrolls forward.
         """
         self._show_on_close = figure is None
         if figure is None:
