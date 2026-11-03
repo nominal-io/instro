@@ -105,7 +105,8 @@ class PlotlyPublisher:
             x = np.datetime_as_string(np.asarray(timestamps, dtype="datetime64[ns]"), unit="us")
             trace = next(self.figure.select_traces(selector={"name": channel}), None)
             if trace is None:
-                self.figure.add_scatter(x=x, y=values, name=channel)
+                # "hv" holds each value until the next sample (forward fill) instead of interpolating.
+                self.figure.add_scatter(x=x, y=values, name=channel, line_shape="hv")
             else:
                 trace.update(x=x, y=values)
 
