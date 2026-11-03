@@ -320,7 +320,9 @@ def test_init_with_config_dict_with_publishers(valid_config):
     ):
         dmm = InstroDMM(config=config_with_publishers)
 
-    mock_ncp.assert_called_once_with(dataset_rid="test_dmm", batch_size=None, profile=None)
+    mock_ncp.assert_called_once_with(
+        dataset_rid="test_dmm", batch_size=None, max_wait=None, file_fallback=None, profile=None
+    )
     mock_fp.assert_called_once_with(directory="test_dmm_out", format="csv", custom_file_name=None)
     assert dmm.publishers == [mock_ncp.return_value, mock_fp.return_value]
 

@@ -182,6 +182,21 @@ class ChannelBufferPublisher(ABC):
             self._timestamps.clear()
             self._total_added_count.clear()
 
+    def latest(self) -> dict[str, tuple[int, float | str]]:
+        """Return the newest ``(timestamp, value)`` of every channel holding data, in insertion order. Never blocks on new data."""
+        with self._condition:
+            snapshot: dict[str, tuple[int, float | str]] = {}
+            for channel_name in self._values:
+                if channel_name in self._timestamps and self._points_in_buffer(channel_name):
+                    snapshot[channel_name] = (
+                        self._get_timestamps(channel_name, 1)[0],
+                        self._get_values(channel_name, 1)[0],
+                    )
+            return snapshot
+
+    def _display_summary(self) -> str:
+        return f"in-memory buffer ({len(self._values)} channels, last {self.maxlen} samples each)"
+
     @property
     def channel_names(self) -> tuple[str, ...]:
         """Return an insertion-ordered snapshot of all channel names currently in the buffer.

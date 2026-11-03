@@ -13,7 +13,7 @@ def test_constructor_uses_instrumentation_source_by_default():
     client._set_source = Mock()
     publisher = NominalConnectPublisher(client=client, stream_id="stream-123")
 
-    assert publisher._stream_id == "stream-123"
+    assert publisher.stream_id == "stream-123"
     client._set_source.assert_called_once_with(NominalConnectPublisher.DEFAULT_STREAM_SOURCE)
 
 
