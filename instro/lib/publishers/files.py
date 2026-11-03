@@ -1,9 +1,4 @@
-"""File-based publishers for JSON, JSONL, CSV, and Avro output.
-
-This module defines the publisher classes used to persist Measurement and Command
-records to disk. Each format is handled by a dedicated writer that owns a
-file-like object and writes serialized records with the appropriate data model.
-"""
+"""File-based publishers (JSON, JSONL, CSV, Avro)."""
 
 import csv
 import json
@@ -12,8 +7,8 @@ import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import IO, Any, AnyStr, Generic, Literal, cast
+from tempfile import mkdtemp
+from typing import IO, Any, AnyStr, Generic, Literal
 
 import fastavro
 
@@ -21,78 +16,56 @@ from instro.lib.types import Command, Measurement
 
 
 class FileWriter(Generic[AnyStr], ABC):
-    """Abstract base class for format-specific file writers.
+    """Base class for format writers. A writer writes records at the stream's current position.
 
-    Concrete subclasses provide the serialization logic for a specific output
-    format while sharing the same file lifecycle contract: the writer owns a
-    file-like object and exposes a standard ``write``, ``open``, and ``close``
-    interface.
+    Attributes:
+        mode (str): Mode `FilePublisher` uses to open this writer's file.
+        newline (str | None): ``newline`` argument `FilePublisher` uses to open this writer's file.
     """
 
+    mode: str
+    newline: str | None = None
+
     def __init__(self, file: IO[AnyStr]) -> None:
-        """Initialize the writer with an open file-like object.
+        """Wrap an open stream.
 
         Args:
-            file: The text or binary stream that will receive serialized records.
+            file (IO[AnyStr]): Stream that receives the records. Text or binary, per the format.
         """
         self._file: IO[AnyStr] = file
 
     @abstractmethod
     def write(self, data: Measurement | Command) -> None:
-        """Write a Measurement or Command record to the underlying stream."""
-
-    def open(self) -> None:
-        """Open the writer's file handle.
-
-        This base implementation is intentionally a no-op because the stream is
-        expected to be opened by the publisher before the writer is constructed.
-        """
-        pass
-
-    def close(self) -> None:
-        """Close the underlying file-like object."""
-        self._file.close()
+        """Write one Measurement or Command to the stream."""
 
 
 class FilePublisher:
-    """Coordinate writing Measurement and Command records to a configured output.
-
-    The publisher can be created either from a pre-opened file-like object or from
-    a directory path and filename arguments. When no directory is provided, it
-    creates a persistent temporary file so callers can publish without managing a
-    filesystem path manually.
-    """
-
     def __init__(
         self,
         directory: str | Path | None = None,
-        format: Literal["json", "jsonl", "csv", "avro"] = "jsonl",
+        format: Literal["json", "jsonl", "csv", "avro"] = "avro",
         custom_file_name: str | None = None,
         *,
         file: IO[Any] | None = None,
     ) -> None:
-        """Create a publisher bound to a stream, a file path, or a temporary file.
+        """Write Measurement/Command data to a file or to an open stream.
 
         Args:
-            directory: Directory where output files should be created. If omitted,
-                a temporary file is created instead.
-            format: Output format, one of ``"json"``, ``"jsonl"``, ``"csv"``, or
-                ``"avro"``.
-            custom_file_name: Optional filename stem used when writing to disk.
-            file: Optional pre-opened file-like object. When supplied, it takes
-                precedence over path-based construction and cannot be combined
-                with ``directory`` or ``custom_file_name``.
+            directory: Output directory. Defaults to a new temporary directory.
+            format: ``"jsonl"``, ``"csv"``, ``"avro"`` (default), or ``"json"`` (deprecated).
+            custom_file_name: Filename without extension; defaults to ``measurements-<local-timestamp>``.
+            file: Open stream to write to instead of a file: text for ``"json"``, ``"jsonl"``, and ``"csv"``,
+                binary for ``"avro"``. Records go at the stream's current position, and ``close()`` leaves
+                the stream open. Cannot be combined with ``directory`` or ``custom_file_name``.
+
+        Raises:
+            ValueError: If ``file`` is combined with ``directory`` or ``custom_file_name``, or the format is unknown.
         """
+        # Check the arguments and pick the writer for the format
         if file is not None and (directory is not None or custom_file_name is not None):
             raise ValueError("file cannot be combined with directory or custom_file_name")
-
-        self.directory = Path(directory) if directory is not None else None
-        self.format = format
-        self.custom_file_name = custom_file_name
-        self._writer: FileWriter[Any]
-        self.file_path: Path | None = None
-
-        writer_class: type[FileWriter[Any]]
+        if format not in _WRITERS:
+            raise ValueError(f"Unsupported format: {format}")
         if format == "json":
             warnings.warn(
                 'FilePublisher format="json" rewrites the whole file on every publish and is deprecated; '
@@ -100,61 +73,27 @@ class FilePublisher:
                 DeprecationWarning,
                 stacklevel=2,
             )
-            writer_class = JsonFileWriter
-            mode = "w+"
-        elif format == "jsonl":
-            writer_class = JsonlFileWriter
-            mode = "a"
-        elif format == "csv":
-            writer_class = CsvFileWriter
-            mode = "a"
-        elif format == "avro":
-            writer_class = AvroFileWriter
-            mode = "wb"
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        writer_class = _WRITERS[format]
+        self.format = format
+        self.custom_file_name = custom_file_name
+        self.directory: Path | None = None
+        self.file_path: Path | None = None
 
-        if file is not None:
-            self._writer = writer_class(file)
-            return
-
-        newline = "" if format == "csv" else None
-        if self.directory is None:
-            stream = cast(
-                IO[Any],
-                NamedTemporaryFile(
-                    mode=mode,
-                    prefix=f"{custom_file_name}-" if custom_file_name is not None else "measurements-",
-                    suffix=f".{format}",
-                    newline=newline,
-                    delete=False,
-                ),
-            )
-            self.file_path = Path(stream.name)
-            self.directory = self.file_path.parent
-        else:
-            file_name = custom_file_name
-            if file_name is None:
-                file_name = f"measurements-{datetime.now():%Y-%m-%d-%H-%M-%S}"
-            self.file_path = self.directory / f"{file_name}.{format}"
+        # Open the output file, unless the caller gave a stream
+        if file is None:
+            self.directory = Path(directory) if directory is not None else Path(mkdtemp())
+            if custom_file_name is None:
+                custom_file_name = f"measurements-{datetime.now():%Y-%m-%d-%H-%M-%S}"
+            self.file_path = self.directory / f"{custom_file_name}.{format}"
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
-            if format == "json" and self.file_path.exists():
-                mode = "r+"
-            stream = open(self.file_path, mode, newline=newline)
-        try:
-            self._writer = writer_class(stream)
-        except Exception:
-            stream.close()
-            raise
+            file = open(self.file_path, writer_class.mode, newline=writer_class.newline)
+
+        # Attach the writer to the stream
+        self._file = file
+        self._writer = writer_class(file)
 
     def publish(self, data: Measurement | Command, **kwargs):
-        """Publish one Measurement or Command using the configured writer.
-
-        Args:
-            data: The Measurement or Command instance to store.
-            **kwargs: Additional arguments accepted for compatibility with the
-                publisher interface.
-        """
+        """Publish data to file using the appropriate writer."""
         SHARED_PUBLISHER_WARNING = (
             "If you're attempting to publish from multiple instruments, consider using SharedPublisher."
         )
@@ -171,25 +110,24 @@ class FilePublisher:
 
             raise
 
-    def open(self) -> None:
-        """Open the underlying writer if it owns a file handle."""
-        self._writer.open()
+    def open(self):
+        # The file opens in __init__; kept so callers of open() do not break
+        pass
 
-    def close(self):
-        """Close the underlying writer and flush any buffered data."""
-        self._writer.close()
+    def close(self) -> None:
+        """Close the file this publisher opened. A stream passed as ``file`` stays open."""
+        if self.file_path is not None:
+            self._file.close()
 
 
 class JsonFileWriter(FileWriter[str]):
-    """Write JSON records as a complete array on disk.
+    """Write records as one JSON array. Each write reads and rewrites the whole stream."""
 
-    Each publish operation reloads the file, appends the new record, and writes
-    the updated list back to disk. This preserves the existing array-based JSON
-    format and maintains compatibility with older consumers.
-    """
+    # "a+" creates a missing file, keeps existing records, and allows reads
+    mode = "a+"
 
     def __init__(self, file: IO[str]) -> None:
-        """Initialize the JSON writer and seed an empty array when needed."""
+        """Wrap the stream and write an empty array if the stream is empty."""
         super().__init__(file)
         self._file.seek(0, 2)
         if self._file.tell() == 0:
@@ -197,7 +135,7 @@ class JsonFileWriter(FileWriter[str]):
             self._file.flush()
 
     def write(self, data: Measurement | Command) -> None:
-        """Append a Measurement or Command payload to the JSON array."""
+        """Append data to the JSON array."""
         # Read existing content
         self._file.seek(0)
         try:
@@ -230,32 +168,32 @@ def _json_safe(value: Any) -> Any:
 
 
 class JsonlFileWriter(FileWriter[str]):
-    """Write newline-delimited JSON records to a persistent stream."""
+    """Write newline-delimited JSON, one record per line."""
+
+    mode = "a"
 
     def write(self, data: Measurement | Command) -> None:
-        """Append one JSON object as a single newline-delimited record."""
+        """Append data as one JSON line, mapping non-finite floats to null."""
         self._file.write(json.dumps(_json_safe(data.__dict__), allow_nan=False) + "\n")
         self._file.flush()
 
 
 class CsvFileWriter(FileWriter[str]):
-    """Write Measurement and Command data as CSV rows.
+    """Write one CSV row per channel value, with a header at the start of the stream."""
 
-    One row is emitted per channel value. The writer ensures the CSV header is
-    created once per file and then appends each sample in the canonical order.
-    """
+    mode = "a"
+    newline = ""
 
     def __init__(self, file: IO[str]) -> None:
-        """Initialize the CSV writer and create the header when needed."""
+        """Wrap the stream and write the header if the stream is at its start."""
         super().__init__(file)
-        self._file.seek(0, 2)
         self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
         if self._file.tell() == 0:
             self._writer.writeheader()
             self._file.flush()
 
     def write(self, data: Measurement | Command) -> None:
-        """Append a Measurement or Command to the CSV output."""
+        """Append data to CSV file."""
         if isinstance(data, Measurement):
             self._write_measurement(data)
         elif isinstance(data, Command):
@@ -282,15 +220,12 @@ class CsvFileWriter(FileWriter[str]):
 
 
 class AvroFileWriter(FileWriter[bytes]):
-    """Write Avro records with a schema compatible with the ingest format.
+    """Write snappy-compressed Avro records in the Nominal Core ingest schema."""
 
-    The writer maintains a fastavro schema and a binary stream, allowing batches
-    of Measurement and Command values to be appended without rewriting the entire
-    file.
-    """
+    mode = "wb"
 
     def __init__(self, file: IO[bytes]) -> None:
-        """Initialize the Avro writer with a binary stream and schema."""
+        """Wrap the stream and write the Avro header."""
         super().__init__(file)
 
         # Define Schema compatible with Nominal Core
@@ -311,7 +246,7 @@ class AvroFileWriter(FileWriter[bytes]):
         self._writer = fastavro.write.Writer(self._file, self._parsed_schema, codec="snappy")
 
     def write(self, data: Measurement | Command) -> None:
-        """Append a Measurement or Command as one or more Avro records."""
+        """Append data as Avro records and flush them to the stream."""
         if isinstance(data, Measurement):
             self._write_measurement(data)
         elif isinstance(data, Command):
@@ -342,8 +277,10 @@ class AvroFileWriter(FileWriter[bytes]):
                 }
             )
 
-    def close(self) -> None:
-        """Close the file writer."""
-        if not self._file.closed:
-            self._writer.flush()
-            super().close()
+
+_WRITERS: dict[str, type[FileWriter[Any]]] = {
+    "json": JsonFileWriter,
+    "jsonl": JsonlFileWriter,
+    "csv": CsvFileWriter,
+    "avro": AvroFileWriter,
+}

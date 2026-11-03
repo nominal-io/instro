@@ -1,9 +1,12 @@
-"""Unit tests for FilePublisher JSONL support and JSON deprecation."""
+"""Unit tests for FilePublisher formats, output targets, and JSON deprecation."""
 
+import csv
 import io
 import json
+import tempfile
 import warnings
 
+import fastavro
 import pytest
 
 from instro.lib.publishers import FilePublisher
@@ -81,43 +84,70 @@ def test_jsonl_each_line_is_complete_before_close(tmp_path):
     json.loads(content)
 
 
-def test_jsonl_accepts_file_like_object():
-    stream = io.StringIO()
-    publisher = FilePublisher(file=stream, format="jsonl")
+_JSON_RECORDS = [
+    {"channel_data": {"channel_a": [1.0, 2.0]}, "timestamps": [100, 200], "tags": {"unit": "volts"}},
+    {"channel_data": {"channel_b": 5.0}, "timestamp": 300, "tags": None},
+]
 
-    publisher.publish(_measurement())
+_EXPECTED_RECORDS = {
+    "json": _JSON_RECORDS,
+    "jsonl": _JSON_RECORDS,
+    "csv": [
+        {"timestamp": "100", "channel": "channel_a", "value": "1.0", "tags": '{"unit": "volts"}'},
+        {"timestamp": "200", "channel": "channel_a", "value": "2.0", "tags": '{"unit": "volts"}'},
+        {"timestamp": "300", "channel": "channel_b", "value": "5.0", "tags": ""},
+    ],
+    "avro": [
+        {"channel": "channel_a", "timestamps": [100, 200], "values": [1.0, 2.0], "tags": {"unit": "volts"}},
+        {"channel": "channel_b", "timestamps": [300], "values": [5.0], "tags": {}},
+    ],
+}
 
-    assert publisher.file_path is None
-    assert not stream.closed
-    stream.seek(0)
-    assert json.loads(stream.read()) == {
-        "channel_data": {"channel_a": [1.0, 2.0]},
-        "timestamps": [100, 200],
-        "tags": {"unit": "volts"},
-    }
 
-    publisher.close()
-    assert stream.closed
+def _read_records(format: str, data: bytes) -> list:
+    if format == "json":
+        return json.loads(data)
+    if format == "jsonl":
+        return [json.loads(line) for line in data.splitlines()]
+    if format == "csv":
+        return list(csv.DictReader(io.StringIO(data.decode(), newline="")))
+    return list(fastavro.reader(io.BytesIO(data)))
 
 
-def test_jsonl_defaults_to_temporary_file_when_no_args_are_given():
-    publisher = FilePublisher(format="jsonl")
+@pytest.mark.parametrize("format", ["json", "jsonl", "csv", "avro"])
+@pytest.mark.parametrize("target", ["directory", "temporary", "stream"])
+@pytest.mark.parametrize("publish_records", [False, True], ids=["empty", "records"])
+def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypatch, format, target, publish_records):
+    # Create the publisher for the target, with temporary directories under tmp_path
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    stream = io.BytesIO() if format == "avro" else io.StringIO()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        if target == "directory":
+            publisher = FilePublisher(directory=tmp_path / "out", format=format, custom_file_name="capture")
+        elif target == "temporary":
+            publisher = FilePublisher(format=format)
+        else:
+            publisher = FilePublisher(file=stream, format=format)
 
-    try:
-        assert publisher.file_path is not None
-        assert publisher.file_path.exists()
+    # Publish a Measurement and a Command, then close
+    if publish_records:
         publisher.publish(_measurement())
-        publisher.close()
-        assert publisher.file_path.exists()
-        assert publisher.file_path.read_text().endswith("\n")
-        assert json.loads(publisher.file_path.read_text()) == {
-            "channel_data": {"channel_a": [1.0, 2.0]},
-            "timestamps": [100, 200],
-            "tags": {"unit": "volts"},
-        }
-    finally:
-        if publisher.file_path is not None and publisher.file_path.exists():
-            publisher.file_path.unlink()
+        publisher.publish(_command())
+    publisher.close()
+
+    # Read the output back: the publisher closes files it opened and leaves a caller's stream open
+    if target == "stream":
+        assert publisher.file_path is None
+        assert not stream.closed
+        value = stream.getvalue()
+        data = value.encode() if isinstance(value, str) else value
+    else:
+        assert publisher._file.closed
+        assert publisher.file_path.is_relative_to(tmp_path)
+        assert publisher.file_path.suffix == f".{format}"
+        data = publisher.file_path.read_bytes()
+    assert _read_records(format, data) == (_EXPECTED_RECORDS[format] if publish_records else [])
 
 
 def test_jsonl_close_closes_file_handle(tmp_path):
