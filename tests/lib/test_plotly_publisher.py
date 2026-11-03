@@ -4,7 +4,6 @@ import threading
 import time
 from unittest.mock import patch
 
-import pandas as pd  # type: ignore[import-untyped]
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 
 from instro.lib.publishers import PlotlyPublisher
@@ -130,7 +129,7 @@ def test_mismatched_timestamps_do_not_shift_later_points():
 
 def test_time_window_starts_at_the_first_point():
     figure = go.Figure()
-    publisher = PlotlyPublisher(figure, time_window="1min")
+    publisher = PlotlyPublisher(figure, time_window_s=60)
 
     publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 10 * ONE_SECOND]))
     publisher.close()
@@ -140,7 +139,7 @@ def test_time_window_starts_at_the_first_point():
 
 def test_time_window_scrolls_forward_once_the_newest_point_passes_its_end():
     figure = go.Figure()
-    publisher = PlotlyPublisher(figure, time_window=pd.Timedelta(minutes=1))
+    publisher = PlotlyPublisher(figure, time_window_s=60)
 
     publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 90 * ONE_SECOND]))
     publisher.close()
@@ -150,7 +149,7 @@ def test_time_window_scrolls_forward_once_the_newest_point_passes_its_end():
 
 def test_without_a_time_window_the_x_axis_range_is_not_set():
     figure = go.Figure()
-    publisher = PlotlyPublisher(figure, time_window=None)
+    publisher = PlotlyPublisher(figure, time_window_s=None)
 
     publisher.publish(Measurement(channel_data={"psu.voltage": [1.0, 2.0]}, timestamps=[T0, T0 + 90 * ONE_SECOND]))
     publisher.close()

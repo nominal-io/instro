@@ -15,7 +15,6 @@ from instro.lib.types import Command, Measurement
 # Plotly is the optional `plot` extra. The publisher only calls methods on the caller's
 # figure, so importing instro never needs it.
 if TYPE_CHECKING:
-    import pandas as pd  # type: ignore[import-untyped]
     import plotly.graph_objects as go  # type: ignore[import-untyped, import-not-found]
 
 
@@ -30,7 +29,7 @@ class PlotlyPublisher:
         figure: go.Figure | go.FigureWidget | None = None,
         max_points: int = 10_000,
         flush_interval: float = 0.1,
-        time_window: str | pd.Timedelta | None = "1min",
+        time_window_s: float | None = None,
     ):
         """Create a publisher that plots each channel on a trace named after the channel.
 
@@ -40,8 +39,7 @@ class PlotlyPublisher:
                 shows it again on ``close()``.
             max_points: Points kept per channel; older points drop off the plot.
             flush_interval: Seconds between writes to the figure.
-            time_window: Span of time the x axis shows, such as ``"30s"`` or ``pd.Timedelta(minutes=5)``.
-                The window starts at the first point and scrolls forward.
+            time_window_s: Seconds of data the x axis shows, or ``None`` (the default) to autoscale. The window starts at the first point and scrolls forward.
         """
         self._show_on_close = figure is None
         if figure is None:
@@ -55,11 +53,7 @@ class PlotlyPublisher:
         self.figure.update_layout(xaxis_type="date")
         self._max_points = max_points
         self._flush_interval = flush_interval
-        self._time_window = None
-        if time_window is not None:
-            import pandas as pd  # type: ignore[import-untyped]
-
-            self._time_window = pd.Timedelta(time_window)
+        self._time_window_ns = None if time_window_s is None else int(time_window_s * 1e9)
         self._buffers: defaultdict[str, tuple[NumpyRingBuffer, NumpyRingBuffer]] = defaultdict(
             lambda: (NumpyRingBuffer(max_points, np.int64), NumpyRingBuffer(max_points, np.float64))
         )
@@ -116,11 +110,11 @@ class PlotlyPublisher:
                 trace.update(x=x, y=values)
 
         # Show the time window from the first point, then scroll it forward once the newest point passes its end.
-        if self._time_window is not None and pending:
+        if self._time_window_ns is not None and pending:
             oldest = min(int(timestamps[0]) for timestamps, _ in pending.values())
             newest = max(int(timestamps[-1]) for timestamps, _ in pending.values())
-            start = max(oldest, newest - self._time_window.value)
-            window = np.array([start, start + self._time_window.value], dtype="datetime64[ns]")
+            start = max(oldest, newest - self._time_window_ns)
+            window = np.array([start, start + self._time_window_ns], dtype="datetime64[ns]")
             self.figure.update_xaxes(range=np.datetime_as_string(window, unit="us").tolist())
 
     def close(self) -> None:
