@@ -48,13 +48,14 @@ regardless, so the pages still appear in the sidebar. -->
       instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys
 ```
 
-## Simulated Driver
+## Simulated Drivers
 
 ```{eval-rst}
 .. autosummary::
    :toctree: .
    :nosignatures:
 
+   ~instro.psu.drivers.virtual.VirtualPSU
    ~instro.psu.drivers.simulated.SimulatedPSU
 ```
 

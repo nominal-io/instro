@@ -117,6 +117,7 @@ driver_docs_exempt = {
     "eload.EAPSB10000Visa": {"sdk", "guide"},
     # Simulators and helpers: documented on the SDK page only
     "psu.SimulatedPSU": {"guide"},
+    "psu.VirtualPSU": {"guide"},
     "dmm.SimulatedDMM": {"guide"},
     "dmm.VirtualDMM": {"guide"},
     "eload.VirtualELoad": {"guide"},
