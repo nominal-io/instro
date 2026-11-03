@@ -55,7 +55,7 @@ class NominalCorePublisherConfig(BaseModel):
         default=None, gt=0, description="Max seconds a batch can age before being flushed."
     )
     file_fallback: str | None = Field(
-        default=None, description="Path of an .avro file written to when Nominal Core can't be reached."
+        default=None, description="Path of an .avro file written to when Nominal can't be reached."
     )
 
 

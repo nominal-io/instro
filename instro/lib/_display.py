@@ -172,10 +172,12 @@ class Section:
 
 
 def escape(value: object) -> str:
+    """Return ``str(value)`` with HTML special characters escaped."""
     return html.escape(str(value))
 
 
 def code(value: object) -> str:
+    """Return ``value`` escaped and set in a ``<code>`` element."""
     return f"<code>{escape(value)}</code>"
 
 
@@ -271,6 +273,7 @@ def named(name: str, rid: str, url: Callable[[], str] | None = None) -> str:
 
 
 def properties_section(properties: Mapping[str, object], title: str = "Properties") -> Section:
+    """A section listing ``properties`` as key and value rows, sorted by key."""
     return Section(title, [[escape(key), escape(value)] for key, value in sorted(properties.items())])
 
 

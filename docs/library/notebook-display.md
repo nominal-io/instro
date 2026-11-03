@@ -7,7 +7,7 @@ myst:
 # Notebook display
 
 {.lead}
-See instruments and publishers as cards in a notebook
+Instruments and publishers display as cards in Jupyter, VS Code and Colab notebooks. A card needs no setup and never talks to the hardware.
 
 ## Overview
 
@@ -17,7 +17,7 @@ In Jupyter, VS Code and Colab, an instrument or publisher at the end of a cell d
 from instro.psu import InstroPSU
 from instro.psu.drivers import VirtualPSU
 
-psu = InstroPSU(name="bench", driver=VirtualPSU(), num_channels=2, dataset_rid="ri.catalog.main.dataset.abc123")
+psu = InstroPSU(name="bench", driver=VirtualPSU(), num_channels=2, dataset_rid="<dataset RID>")
 psu.start()
 psu  # shows the card
 ```
@@ -26,15 +26,15 @@ An instrument's card shows:
 
 - its driver, and category details such as the channel count
 - the background daemon: whether it runs, its interval, and the last loop time
-- its publishers, with a link to the Nominal Core dataset each one writes to, and how many objects each has sent or failed on (see [publisher errors and stats](/library/publishers.md#publisher-errors-and-stats))
-- every channel published so far, commands included: its latest value, rate, sample count and time
+- its publishers, each with its sent and error counts and a link to the Nominal dataset it writes to (see [publisher errors and stats](/library/publishers.md#publisher-errors-and-stats))
+- every channel published so far, commands included, with its latest value, rate, sample count and time
 - its default tags
 
-A card is built only from what `instro` already holds in memory. Displaying an instrument never talks to the hardware, so it is safe while the background daemon runs.
+A card shows only what `instro` already holds in memory, so displaying an instrument is safe while the background daemon runs.
 
 Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card shows the dataset with an **Open in Nominal** link, its RID with a copy button, where the credentials came from, and the stream settings. It never shows an API key.
 
-To try it, run `just notebook` from the repository root and open `notebook_display.md` with **Open With → Jupytext Notebook**. It needs no hardware or Nominal credentials.
+The [example notebook](https://github.com/nominal-io/instro/blob/main/examples/notebooks/notebook_display.md) shows each card and needs no hardware or Nominal credentials. From a clone of the repository, `just notebook` opens it in JupyterLab: open `notebook_display.md` with **Open With → Jupytext Notebook**.
 
 ## Display options
 
@@ -58,8 +58,6 @@ with set_display_options(show_link=False):
 | `show_link` | `True` | Link datasets to Nominal. The first link for a client makes one request to resolve its workspace. |
 | `collapse_threshold` | `10` | Sections with more items start collapsed |
 | `max_items` | `50` | Items listed per section |
-
-The cards follow the look of the [Nominal Python client's](https://docs.nominal.io/core/sdk/python-client) cards.
 
 ## Custom instruments and publishers
 
