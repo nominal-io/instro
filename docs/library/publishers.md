@@ -80,7 +80,7 @@ Sends measurement and command data to [Nominal Core](https://nominal.io/products
 
 ```python
 NominalCorePublisher(
-    dataset_rid: str | None = None,  # RID of your Nominal Core dataset (or pass dataset=)
+    dataset_rid: str | None = None,  # RID of your Nominal dataset (or pass dataset=)
     batch_size: int | None = None,   # Optional: Batch size before writing
     max_wait: timedelta | None = None,  # Optional: Max time before flush
     file_fallback: pathlib.Path | None = None,  # Optional: Path of fallback file (.avro) used if network connectivity is lost.
@@ -124,7 +124,7 @@ daq = InstroDAQ(
 ```
 
 :::{note}
-A shorthand method to add publishing to Nominal Core is to directly pass in a `dataset_rid` kwarg. It uses the `default` profile, unless you also pass `nominal_profile="<name>"` or an existing `nominal_client=`.
+As a shorthand, pass `dataset_rid` to the instrument to create a `NominalCorePublisher`. It uses the `default` profile, unless you also pass `nominal_profile="<name>"` or an existing `nominal_client=`.
 ```py
 daq = InstroDAQ(
     name="myDAQ",

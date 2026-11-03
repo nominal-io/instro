@@ -28,11 +28,11 @@ class NominalCorePublisher:
         client: NominalClient | None = None,
         base_url: str | None = None,
     ):
-        """Stream Measurement/Command data to a Nominal Core dataset.
+        """Stream Measurement/Command data to a Nominal dataset.
 
         Name the dataset with ``dataset_rid`` or pass a `Dataset` you already fetched as ``dataset``. Credentials
         come from, in order: ``client``, ``api_key`` (with ``base_url``), or the on-disk ``profile``, which
-        defaults to ``"default"``. Omitted optional args fall through to the Nominal Core Python API defaults.
+        defaults to ``"default"``. Omitted optional args fall through to the Nominal Python client defaults.
 
         Args:
             dataset_rid: Target dataset RID.
@@ -162,7 +162,7 @@ class NominalCorePublisher:
     def _display_summary(self) -> str:
         dataset = _display.named(self.dataset.name, self.dataset_rid, lambda: self.dataset.nominal_url)
         state = " (closed)" if self.closed else ""
-        return f"Nominal Core dataset {dataset}{_display.escape(state)}"
+        return f"Nominal dataset {dataset}{_display.escape(state)}"
 
     def _repr_html_(self) -> str | None:
         """Show the dataset, with a link to it in Nominal, and the stream settings."""
