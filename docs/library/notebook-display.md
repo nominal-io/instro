@@ -26,8 +26,8 @@ An instrument's card shows:
 
 - its driver, and category details such as the channel count
 - the background daemon: whether it runs, its interval, and the last loop time
-- its publishers, with a link to the Nominal Core dataset each one writes to
-- the latest value of every channel, once `start()` has been called
+- its publishers, with a link to the Nominal Core dataset each one writes to, and how many objects each has sent or failed on (see [publisher errors and stats](/library/publishers.md#publisher-errors-and-stats))
+- every channel published so far, commands included: its latest value, rate, sample count and time
 - its default tags
 
 A card is built only from what `instro` already holds in memory. Displaying an instrument never talks to the hardware, so it is safe while the background daemon runs.
