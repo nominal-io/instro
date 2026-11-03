@@ -155,6 +155,43 @@ def main(client: connect_python.Client):
     )
 ```
 
+### {py:obj}`PlotlyPublisher <instro.lib.publishers.plot.PlotlyPublisher>`
+
+Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure, one trace per channel.
+
+**Constructor Parameters:**
+
+```python
+PlotlyPublisher(
+    figure: go.Figure | go.FigureWidget | None = None,  # Optional: figure to plot on; created and displayed when omitted
+    max_points: int = 10_000,                           # Points kept per channel; older points drop off the plot
+    flush_interval: float = 0.1,                        # Seconds between writes to the figure
+)
+```
+
+`PlotlyPublisher` requires the `plot` optional dependency: `pip install "instro[plot]"`.
+
+**Example:**
+
+```python
+import plotly.graph_objects as go
+
+from instro.lib.publishers import PlotlyPublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+figure = go.Figure(layout_title_text="PSU voltage sweep")
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+    publishers=[PlotlyPublisher(figure)],
+)
+```
+
+See [Publishers: plot with Plotly](/examples/publishers/publish_plotly.md) for a full example.
+
 ## Attaching Publishers
 {py:obj}`Publishers <instro.lib.publishers.publisher.Publisher>`   can be attached after Instrument construction also.
 
